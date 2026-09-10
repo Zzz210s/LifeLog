@@ -1,5 +1,4 @@
 /// 从文本提取 #标签: '#' 后由字母数字汉字与 -_/.· 组成,首字符须为字母数字汉字
-#[allow(dead_code)] // Task 5 的 notes 命令接入后移除
 pub fn extract_tags(content: &str) -> Vec<String> {
     let mut out: Vec<String> = Vec::new();
     let mut chars = content.chars().peekable();

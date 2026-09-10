@@ -12,6 +12,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::settings::get_setting,
             commands::settings::set_setting,
+            commands::notes::save_quick_note,
+            commands::notes::list_recent_notes,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
