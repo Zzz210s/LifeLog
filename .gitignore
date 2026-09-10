@@ -19,3 +19,5 @@ src-tauri/gen/schemas/
 # 系统杂项
 Thumbs.db
 .DS_Store
+# superpowers SDD 工作区
+.superpowers/
