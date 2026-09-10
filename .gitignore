@@ -1,0 +1,21 @@
+# AI 工具产物(永不上传远程仓库)
+docs/superpowers/
+.codegraph/
+.pi/
+.claude/
+.aider*
+
+# 依赖与构建
+node_modules/
+dist/
+src-tauri/target/
+src-tauri/gen/schemas/
+
+# 本地环境
+*.local
+.env
+.env.*
+
+# 系统杂项
+Thumbs.db
+.DS_Store
