@@ -14,5 +14,7 @@ export default defineConfig({
     },
   },
   clearScreen: false,
-  server: { port: 5173, strictPort: true },
+  // host 固定 IPv4 回环:Windows 上默认 localhost 可能只绑定 ::1,
+  // 导致 tauri dev 轮询 devUrl(127.0.0.1 解析)永远连不上
+  server: { host: '127.0.0.1', port: 5173, strictPort: true },
 });
