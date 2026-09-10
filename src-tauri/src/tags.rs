@@ -1,28 +1,40 @@
+use std::iter::Peekable;
+
 /// 从文本提取 #标签: '#' 后由字母数字汉字与 -_/.· 组成,首字符须为字母数字汉字
 pub fn extract_tags(content: &str) -> Vec<String> {
     let mut out: Vec<String> = Vec::new();
     let mut chars = content.chars().peekable();
     while let Some(c) = chars.next() {
-        if c != '#' {
-            continue;
-        }
-        let mut tok = String::new();
-        while let Some(&n) = chars.peek() {
-            let ok_first = tok.is_empty() && n.is_alphanumeric();
-            let ok_inner = !tok.is_empty()
-                && (n.is_alphanumeric() || matches!(n, '-' | '_' | '/' | '.' | '·'));
-            if ok_first || ok_inner {
-                tok.push(n);
-                chars.next();
-            } else {
-                break;
+        if c == '#' {
+            if let Some(tok) = scan_tag_token(&mut chars) {
+                if !out.contains(&tok) {
+                    out.push(tok);
+                }
             }
-        }
-        if !tok.is_empty() && !out.contains(&tok) {
-            out.push(tok);
         }
     }
     out
+}
+
+/// 消费 '#' 之后的标签词元(词法同 extract_tags);裸 '#' 返回 None,不动迭代器
+pub fn scan_tag_token(chars: &mut Peekable<std::str::Chars<'_>>) -> Option<String> {
+    let mut tok = String::new();
+    while let Some(&n) = chars.peek() {
+        let ok_first = tok.is_empty() && n.is_alphanumeric();
+        let ok_inner = !tok.is_empty()
+            && (n.is_alphanumeric() || matches!(n, '-' | '_' | '/' | '.' | '·'));
+        if ok_first || ok_inner {
+            tok.push(n);
+            chars.next();
+        } else {
+            break;
+        }
+    }
+    if tok.is_empty() {
+        None
+    } else {
+        Some(tok)
+    }
 }
 
 #[cfg(test)]

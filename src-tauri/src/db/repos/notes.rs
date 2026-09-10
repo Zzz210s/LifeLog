@@ -9,18 +9,26 @@ pub struct Note {
     pub tags: Vec<String>,
 }
 
-/// 存库前移除 #标签 词元,折叠空白(标签折叠进 tags/tag_links,原文保留会双重展示)
-fn strip_tags(content: &str, tags: &[String]) -> String {
-    let mut out = content.to_string();
-    for t in tags {
-        out = out.replace(&format!("#{t}"), "");
+/// 存库前移除 #标签 词元:单遍扫描原文(词法同 extract_tags,共用 scan_tag_token),
+/// 保留非标签段、丢弃标签 token、裸 # 保留,最后折叠空白(标签折叠进 tags/tag_links,原文保留会双重展示)
+fn strip_tags(content: &str) -> String {
+    let mut out = String::new();
+    let mut chars = content.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c != '#' {
+            out.push(c);
+            continue;
+        }
+        if crate::tags::scan_tag_token(&mut chars).is_none() {
+            out.push(c); // 裸 # 不属于标签,保留为内容
+        }
     }
     out.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 pub fn create(conn: &mut Connection, content: &str) -> rusqlite::Result<Note> {
     let names = crate::tags::extract_tags(content);
-    let text = strip_tags(content, &names);
+    let text = strip_tags(content);
     let tx = conn.transaction()?;
     tx.execute("INSERT INTO notes(content) VALUES(?1)", params![text])?;
     let id = tx.last_insert_rowid();
@@ -45,7 +53,8 @@ pub fn recent(conn: &Connection, limit: u32) -> rusqlite::Result<Vec<Note>> {
          FROM notes n
          LEFT JOIN tag_links l ON l.target_type = 'note' AND l.target_id = n.id
          LEFT JOIN tags t ON t.id = l.tag_id
-         ORDER BY n.id DESC LIMIT ?1",
+         WHERE n.id IN (SELECT id FROM notes ORDER BY id DESC LIMIT ?1)
+         ORDER BY n.id DESC, t.name",
     )?;
     let rows = stmt.query_map(params![limit], |r| {
         Ok((
@@ -114,5 +123,26 @@ mod tests {
         assert_eq!(list[0].content, "two");
         assert_eq!(list[0].tags, vec!["t2"]);
         assert_eq!(list[1].tags, vec!["t1"]);
+    }
+
+    #[test]
+    fn create_strips_tags_without_prefix_collision() {
+        let mut c = db();
+        let n = create(&mut c, "看完了 #书 想买 #书评").unwrap();
+        assert_eq!(n.content, "看完了 想买");
+        assert_eq!(n.tags, vec!["书", "书评"]);
+    }
+
+    #[test]
+    fn recent_limit_counts_notes_not_rows() {
+        let mut c = db();
+        create(&mut c, "one #t1").unwrap();
+        create(&mut c, "two #t2 #t3").unwrap();
+        create(&mut c, "three #t4").unwrap();
+        let list = recent(&c, 2).unwrap();
+        assert_eq!(list.len(), 2);
+        assert_eq!(list[0].content, "three");
+        assert_eq!(list[1].content, "two");
+        assert_eq!(list[1].tags, vec!["t2", "t3"]);
     }
 }
