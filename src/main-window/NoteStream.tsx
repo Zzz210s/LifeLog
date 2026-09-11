@@ -6,6 +6,8 @@ import { NoteItem } from './NoteItem';
 
 export interface NoteStreamProps {
   notes: Note[];
+  /** 非空时错误态优先于空态文案(查询失败不能伪装成"暂无记录") */
+  error: string;
   activeTags: string[];
   editingId: number | null;
   hasMore: boolean;
@@ -25,9 +27,12 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
 
   useEffect(() => {
     if (!sentinel) return;
-    const io = new IntersectionObserver((entries) => {
-      if (entries.some((e) => e.isIntersecting) && p.hasMore && !p.loading) p.onLoadMore();
-    });
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting) && p.hasMore && !p.loading) p.onLoadMore();
+      },
+      { rootMargin: '200px' } // 提前 200px 预取,改善滚动手感
+    );
     io.observe(sentinel);
     return () => io.disconnect();
     // 依赖变化时重建观察器:翻页/筛选/加载态翻转后需重新评估哨兵可见性
@@ -37,7 +42,7 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
     <div className="flex-1 overflow-y-auto">
       {p.notes.length === 0 && !p.loading && (
         <div className="flex h-full items-center justify-center text-sm text-gray-400">
-          暂无记录,用快捷窗记点什么吧
+          {p.error ? '加载失败,请检查后重试' : '暂无记录,用快捷窗记点什么吧'}
         </div>
       )}
       <ul>

@@ -17,14 +17,24 @@ export interface FilterBarProps {
 export function FilterBar(p: FilterBarProps): ReactNode {
   const [kw, setKw] = useState(p.keyword);
   const timer = useRef<number | null>(null);
+  const sent = useRef(p.keyword); // 本组件最后一次上抛的关键词
 
-  // 外部 keyword 重置(未来场景)同步回输入框
-  useEffect(() => setKw(p.keyword), [p.keyword]);
+  // 仅在外部 keyword 不是本组件上抛的值时才回写:否则会覆盖正在输入的内容
+  // (如输入 "读书 " 停 300ms 后继续输入,回写会退回到旧的去空格值导致输入丢失)
+  useEffect(() => {
+    if (p.keyword !== sent.current) {
+      sent.current = p.keyword;
+      setKw(p.keyword);
+    }
+  }, [p.keyword]);
 
   const onInput = (v: string) => {
     setKw(v);
     if (timer.current) clearTimeout(timer.current);
-    timer.current = window.setTimeout(() => p.onKeyword(v.trim()), 300);
+    timer.current = window.setTimeout(() => {
+      sent.current = v;
+      p.onKeyword(v); // 不 trim:后端 notes_query 已 trim,前端 trim 会吞掉输入中的尾随空格
+    }, 300);
   };
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
 
