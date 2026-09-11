@@ -36,6 +36,8 @@ export function QuickCapture() {
   }, []);
 
   // 裸滚轮缩放(贴纸式,固定行为);目标处于可滚动容器内时深先滚动内容
+  // 同一 effect 兼顾窗口级 Esc:焦点在 BODY 时 textarea 上的 keydown 收不到,
+  // 会导致点空白后 Esc 隐藏失效,故提升到 window 级
   useEffect(() => {
     const inScrollable = (t: EventTarget | null): boolean => {
       for (let el = t as HTMLElement | null; el && el !== document.body; el = el.parentElement) {
@@ -54,8 +56,17 @@ export function QuickCapture() {
       if (zoomTimer.current) clearTimeout(zoomTimer.current);
       zoomTimer.current = window.setTimeout(() => void api.setZoom(next).catch(() => {}), 150);
     };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.isComposing) return; // 输入法组合中不抢 Esc
+      e.preventDefault();
+      void api.hideQuickWindow();
+    };
     window.addEventListener('wheel', onWheel, { passive: false });
-    return () => window.removeEventListener('wheel', onWheel);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('wheel', onWheel);
+      window.removeEventListener('keydown', onKey);
+    };
   }, []);
 
   /** 单行起自动长高:先归零再按内容撑开;到 5 行封顶,超出由 overflow-y 内部滚动 */
@@ -89,10 +100,8 @@ export function QuickCapture() {
   }, [content]);
 
   const onKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      void api.hideQuickWindow();
-    } else if (e.ctrlKey && e.key === 'Enter') {
+    // Esc 由窗口级监听兜底(见上 effect),此处只处理 Ctrl+Enter
+    if (e.ctrlKey && e.key === 'Enter') {
       e.preventDefault();
       void save();
     }
@@ -114,7 +123,17 @@ export function QuickCapture() {
         onTogglePin={togglePin}
         onHide={() => void api.hideQuickWindow()}
       />
-      <div className="relative flex flex-1 flex-col px-2 pt-1.5">
+      {/* min-h-0:窗口缩到极小时允许内容区收缩,不顶出/不产生窗口滚动条 */}
+      <div
+        className="relative flex min-h-0 flex-1 flex-col px-2 pt-1.5"
+        // 点击空白区(非 textarea)时把焦点拉回输入框:否则焦点落到 BODY,
+        // 提示条消失且窗口级 Esc 外的输入行为异常;preventDefault 避免先 blur 再 focus 抖动
+        onMouseDown={(e) => {
+          if (e.target === inputRef.current) return;
+          e.preventDefault();
+          inputRef.current?.focus();
+        }}
+      >
         <textarea
           ref={inputRef}
           autoFocus
