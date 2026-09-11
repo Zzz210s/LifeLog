@@ -74,3 +74,11 @@ fn normalizes_crlf_and_keeps_indent() {
     let src = "- 一\r\n  - 二\r\n\r\n尾";
     assert_eq!(strip_tags(src), "- 一\n  - 二\n\n尾");
 }
+
+#[test]
+fn trailing_tag_line_leaves_short_content_newline_terminated() {
+    // 数据层半边(与导出/展示侧的往返一致):末行为纯标签行时,该行剥空,
+    // 内容以 \n 结尾(即尾行标签不会把上一行拼上来,也不留残留空格)
+    let src = "    const a = 1;\n    const b = 2;\n#x";
+    assert_eq!(strip_tags(src), "    const a = 1;\n    const b = 2;\n");
+}
