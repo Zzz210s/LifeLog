@@ -23,6 +23,23 @@ fn mid_word_hash_keeps_separator() {
 }
 
 #[test]
+fn punctuation_before_tag_keeps_separator() {
+    // 标点后的标签不得吞并其后的分隔空白:一旦吞掉,两侧文本会粘连成一个词,语义被改
+    assert_eq!(strip_tags("版本(#v2 备注)"), "版本( 备注)");
+    assert_eq!(strip_tags("a.#tag b"), "a. b");
+    assert_eq!(strip_tags("a-#tag b"), "a- b");
+}
+
+#[test]
+fn leading_tag_swallows_all_following_blanks() {
+    // 行首标签后吞掉连续空白/制表符,不留残余空白当缩进;但不吞换行(否则下一行会被并上来)
+    assert_eq!(strip_tags("#a  正文"), "正文");
+    assert_eq!(strip_tags("#a\t\t正文"), "正文");
+    assert_eq!(strip_tags("#a \t正文"), "正文");
+    assert_eq!(strip_tags("#a \t\n正文"), "\n正文");
+}
+
+#[test]
 fn preserves_nested_list_indent() {
     let src = "- 一级\n  - 二级\n    - 三级 #标签";
     assert_eq!(strip_tags(src), "- 一级\n  - 二级\n    - 三级");
