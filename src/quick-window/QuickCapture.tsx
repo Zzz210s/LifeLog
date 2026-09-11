@@ -129,6 +129,8 @@ export function QuickCapture() {
         // 点击空白区(非 textarea)时把焦点拉回输入框:否则焦点落到 BODY,
         // 提示条消失且窗口级 Esc 外的输入行为异常;preventDefault 避免先 blur 再 focus 抖动
         onMouseDown={(e) => {
+          // 只接管左键:右键/中键要留给 WebView2 默认上下文菜单等原生行为
+          if (e.button !== 0) return;
           if (e.target === inputRef.current) return;
           e.preventDefault();
           inputRef.current?.focus();
