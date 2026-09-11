@@ -21,6 +21,8 @@ export interface NoteStreamProps {
   onToggleTodo: (note: Note) => void;
   onEditSaved: (note: Note) => void;
   onEditCancel: () => void;
+  /** 流内/预览区链接打开失败上报(交主窗错误机制) */
+  onLinkError: (message: string) => void;
 }
 
 /** 时间流:滚动到底自动加载;被编辑条目原位展开为分屏 */
@@ -64,7 +66,13 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
       <ul>
         {p.notes.map((n) =>
           n.id === p.editingId ? (
-            <EditPanel key={n.id} note={n} onSaved={p.onEditSaved} onCancel={p.onEditCancel} />
+            <EditPanel
+              key={n.id}
+              note={n}
+              onSaved={p.onEditSaved}
+              onCancel={p.onEditCancel}
+              onLinkError={p.onLinkError}
+            />
           ) : (
             <NoteItem
               key={n.id}
@@ -74,6 +82,7 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
               onEdit={() => p.onEdit(n)}
               onDelete={() => p.onDelete(n)}
               onToggleTodo={() => p.onToggleTodo(n)}
+              onLinkError={p.onLinkError}
             />
           )
         )}

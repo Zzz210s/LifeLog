@@ -10,6 +10,8 @@ export interface EditPanelProps {
   note: Note;
   onSaved: (note: Note) => void;
   onCancel: () => void;
+  /** 预览区链接打开失败上报(交主窗错误机制) */
+  onLinkError?: (message: string) => void;
 }
 
 /** 编辑态分屏(左源码右预览):源 = 正文 + 标签回显为 #tag */
@@ -65,6 +67,7 @@ export function EditPanel(p: EditPanelProps): ReactNode {
         <MarkdownBody
           html={preview}
           className="md-body h-64 overflow-y-auto rounded-md border border-gray-200 bg-white p-2 text-sm text-gray-800"
+          onLinkError={p.onLinkError}
         />
       </div>
       <div className="mt-2 flex items-center justify-between">

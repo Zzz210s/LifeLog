@@ -8,11 +8,9 @@ import type { ErrorKind } from './ErrorBar';
 import { dropError, putError } from './errors';
 import type { ErrorMap } from './errors';
 import { FilterBar } from './FilterBar';
-import { matchesTagFilter, mergeNotes, needsRefetchAfterChange, replaceNote } from './notes-list';
+import { PAGE, matchesTagFilter, mergeNotes, needsRefetchAfterChange, replaceNote } from './notes-list';
 import { NoteStream } from './NoteStream';
 import { useNotesExport } from './use-export';
-
-const PAGE = 50;
 
 /** 主窗 v2:单列流 = Composer + FilterBar + NoteStream(无左侧导航) */
 export function App(): ReactNode {
@@ -192,6 +190,7 @@ export function App(): ReactNode {
         onToggleTodo={toggleTodo}
         onEditSaved={onEditSaved}
         onEditCancel={() => setEditingId(null)}
+        onLinkError={(m) => setError('action', m)}
       />
     </div>
   );

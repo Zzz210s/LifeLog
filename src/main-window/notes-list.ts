@@ -1,5 +1,8 @@
 import type { Note } from '../shared/types';
 
+/** 每次拉取的页大小(查询分页) */
+export const PAGE = 50;
+
 /** 追加分页去重(筛选翻转期间的新旧页可能交叠) */
 export function mergeNotes(prev: Note[], page: Note[]): Note[] {
   const seen = new Set(prev.map((n) => n.id));

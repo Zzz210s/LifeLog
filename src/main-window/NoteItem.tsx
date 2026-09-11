@@ -12,6 +12,8 @@ export interface NoteItemProps {
   onEdit: () => void;
   onDelete: () => void;
   onToggleTodo: () => void;
+  /** 正文内链接打开失败上报(交主窗错误机制) */
+  onLinkError?: (message: string) => void;
 }
 
 /** 单条笔记:时间 + #todo 复选框 + markdown 正文 + 标签 chips + 悬停编辑/删除 */
@@ -51,6 +53,7 @@ export function NoteItem(p: NoteItemProps): ReactNode {
         <MarkdownBody
           html={html}
           className="md-body min-w-0 flex-1 text-sm text-gray-800"
+          onLinkError={p.onLinkError}
         />
       </div>
       {note.tags.length > 0 && (
