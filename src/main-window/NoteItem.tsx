@@ -1,7 +1,9 @@
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { renderMarkdown } from '../shared/markdown';
+import { formatStamp, toDateTimeAttr } from '../shared/time';
 import type { Note } from '../shared/types';
+import { MarkdownBody } from './MarkdownBody';
 
 export interface NoteItemProps {
   note: Note;
@@ -23,8 +25,11 @@ export function NoteItem(p: NoteItemProps): ReactNode {
   return (
     <li className="group border-b border-gray-100 px-4 py-3">
       <div className="flex items-center gap-2">
-        <time className="text-xs text-gray-400">{note.created_at.slice(0, 16)}</time>
-        <div className="ml-auto flex gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+        <time className="text-xs text-gray-400" dateTime={toDateTimeAttr(note.created_at)}>
+          {formatStamp(note.created_at)}
+        </time>
+        {/* 键盘用户聚焦时也显示操作按钮(不只 group-hover) */}
+        <div className="ml-auto flex gap-2 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
           <button onClick={p.onEdit} className="text-xs text-gray-400 hover:text-blue-600">
             编辑
           </button>
@@ -43,9 +48,9 @@ export function NoteItem(p: NoteItemProps): ReactNode {
             className="mt-1 h-4 w-4 shrink-0 accent-blue-600"
           />
         )}
-        <div
+        <MarkdownBody
+          html={html}
           className="md-body min-w-0 flex-1 text-sm text-gray-800"
-          dangerouslySetInnerHTML={{ __html: html }}
         />
       </div>
       {note.tags.length > 0 && (

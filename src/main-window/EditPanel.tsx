@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { api } from '../shared/api';
 import { renderMarkdown } from '../shared/markdown';
+import { composeSource } from '../shared/note-source';
 import type { Note } from '../shared/types';
+import { MarkdownBody } from './MarkdownBody';
 
 export interface EditPanelProps {
   note: Note;
@@ -14,11 +16,7 @@ export interface EditPanelProps {
 export function EditPanel(p: EditPanelProps): ReactNode {
   // 决策:note.content 是已剥离标签的正文;编辑源码补回 '#标签' 尾缀,
   // 与快捷窗捕获语法一致(用户可看/改标签),保存时后端重新剥离归类。
-  const [source, setSource] = useState(() => {
-    const body = p.note.content.trim();
-    const tags = p.note.tags.map((t) => '#' + t).join(' ');
-    return tags ? (body ? body + ' ' + tags : tags) : body;
-  });
+  const [source, setSource] = useState(() => composeSource(p.note.content, p.note.tags));
   const [preview, setPreview] = useState(() => renderMarkdown(source));
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -64,9 +62,9 @@ export function EditPanel(p: EditPanelProps): ReactNode {
           }}
           className="h-64 resize-none rounded-md border border-gray-300 bg-white p-2 font-mono text-sm leading-relaxed outline-none focus:border-blue-500"
         />
-        <div
+        <MarkdownBody
+          html={preview}
           className="md-body h-64 overflow-y-auto rounded-md border border-gray-200 bg-white p-2 text-sm text-gray-800"
-          dangerouslySetInnerHTML={{ __html: preview }}
         />
       </div>
       <div className="mt-2 flex items-center justify-between">

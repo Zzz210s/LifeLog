@@ -50,6 +50,34 @@ describe('renderMarkdown 基础渲染', () => {
   });
 });
 
+describe('外链安全与有序列表起始值', () => {
+  it('linkify 裸 URL 链接带 target 与 rel 隔离', () => {
+    const html = renderMarkdown('参考 https://example.com/a?b=1 结束');
+    expect(html).toContain('<a');
+    expect(html).toContain('href="https://example.com/a?b=1"');
+    expect(html).toContain('target="_blank"');
+    expect(html).toContain('rel="noreferrer noopener"');
+  });
+
+  it('显式 markdown 链接同样带安全属性', () => {
+    const html = renderMarkdown('[官网](https://example.com)');
+    expect(html).toContain('target="_blank"');
+    expect(html).toContain('rel="noreferrer noopener"');
+  });
+
+  it('sanitize 直接净化 raw a 也补安全属性', () => {
+    const html = sanitize('<a href="https://example.com">x</a>');
+    expect(html).toContain('target="_blank"');
+    expect(html).toContain('rel="noreferrer noopener"');
+  });
+
+  it('起始非 1 的有序列表保留 start 属性', () => {
+    const html = renderMarkdown('3. 第三项');
+    expect(html).toContain('<ol start="3">');
+    expect(html).toContain('<li>第三项</li>');
+  });
+});
+
 describe('XSS 净化', () => {
   it('script 标签被转义并净化', () => {
     const html = renderMarkdown('<script>alert(1)</script>');

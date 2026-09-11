@@ -39,13 +39,27 @@ const md = new MarkdownIt({
 const ALLOWED_URI = /^(?:https?:|mailto:)/i;
 
 /**
- * DOMPurify 配置。注意:ALLOWED_URI_REGEXP 会被套用到**所有**属性值上
- * (非 inert 属性的值必须长得像白名单 URI),故 type 这类普通属性
- * 必须显式登记为 inert(ADD_URI_SAFE_ATTR),否则被误删。
+ * 所有 <a> 强制新窗口 + 隔离 opener。仅靠属性不够(webview 可忽略 target),
+ * 组件层还会拦截点击走系统浏览器(见 main-window/MarkdownBody.tsx);
+ * 这里保证任何消费净化产物的地方都拿不到"可同窗导航"的链接。
+ * 注:hook 在属性白名单校验之后执行,故不受 ALLOWED_URI_REGEXP 影响。
+ */
+DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+  if (node.tagName === 'A') {
+    node.setAttribute('target', '_blank');
+    node.setAttribute('rel', 'noreferrer noopener');
+  }
+});
+
+/**
+ * DOMPurify 配置。注意:ALLOWED_URI_REGEXP 会被套用到**非 inert** 属性上
+ * (值必须长得像白名单 URI),故 type/start 这类普通属性
+ * 必须显式登记为 inert(ADD_URI_SAFE_ATTR),否则被误删
+ * (如 `<ol start="3">` 的 start 被剥掉后从 1 重新编号)。
+ * class 无需 ADD_ATTR:已在 DOMPurify 默认属性白名单与 inert 属性集合中。
  */
 const PURIFY = {
-  ADD_ATTR: ['class'],
-  ADD_URI_SAFE_ATTR: ['type'],
+  ADD_URI_SAFE_ATTR: ['type', 'start'],
   ALLOWED_URI_REGEXP: ALLOWED_URI,
 };
 
