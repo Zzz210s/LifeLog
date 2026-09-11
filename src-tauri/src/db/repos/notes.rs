@@ -22,6 +22,11 @@ fn collapse_line(line: &str) -> String {
     }
 }
 
+/// 词字符:字母/数字(含汉字)与下划线;其余(含空白、标点)一律视为词边界
+fn is_word_char(c: char) -> bool {
+    c.is_alphanumeric() || c == '_'
+}
+
 /// 存库前移除 #标签 词元:单遍扫描原文(词法同 extract_tags,共用 scan_tag_token),
 /// 保留非标签段、丢弃标签 token、裸 # 保留;最后逐行归一空白并保留行结构与行首缩进
 /// (多行笔记的换行、空行、嵌套列表/代码块的缩进原样保留;
@@ -29,17 +34,21 @@ fn collapse_line(line: &str) -> String {
 pub(crate) fn strip_tags(content: &str) -> String {
     let content = content.replace("\r\n", "\n"); // 统一换行,防 Windows 端混入 \r
     let mut out = String::new();
+    let mut prev: Option<char> = None; // out 的末字符,用于判断 # 是否位于词首
     let mut chars = content.chars().peekable();
     while let Some(c) = chars.next() {
         if c != '#' {
             out.push(c);
+            prev = Some(c);
             continue;
         }
         if crate::tags::scan_tag_token(&mut chars).is_none() {
             out.push(c); // 裸 # 不属于标签,保留为内容
-        } else {
-            // 标签后若紧跟一个空格/制表符则一并吞掉:避免行首标签剥离后残留前导空白
-            // (不吞换行,否则会把下一行并上来)
+            prev = Some(c);
+        } else if prev.is_none_or(|p| !is_word_char(p)) {
+            // 仅当标签起始于行首或被非词字符分隔时,才吞掉其后的一个空格/制表符:
+            // 消除行首标签剥离后的前导空白(不吞换行,否则会把下一行并上来)。
+            // # 位于词中间(issue#123、URL 片段)时不得吞空白,否则相邻词会粘连成 issue修复
             if let Some(&next) = chars.peek() {
                 if next == ' ' || next == '\t' {
                     chars.next();

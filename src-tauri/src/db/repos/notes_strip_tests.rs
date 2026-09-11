@@ -15,6 +15,14 @@ fn leading_tag_leaves_no_residual_space() {
 }
 
 #[test]
+fn mid_word_hash_keeps_separator() {
+    // '#' 位于词中间(issue#123、URL 片段)时剥离标签不得吞掉后随空白,否则相邻词会粘连
+    assert_eq!(strip_tags("issue#123 修复"), "issue 修复");
+    assert_eq!(strip_tags("a#tag b"), "a b");
+    assert_eq!(strip_tags("见 https://x.com#sec 结束"), "见 https://x.com 结束");
+}
+
+#[test]
 fn preserves_nested_list_indent() {
     let src = "- 一级\n  - 二级\n    - 三级 #标签";
     assert_eq!(strip_tags(src), "- 一级\n  - 二级\n    - 三级");
