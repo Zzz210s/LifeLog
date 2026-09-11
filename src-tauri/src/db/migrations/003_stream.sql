@@ -45,3 +45,13 @@ CREATE TRIGGER tag_links_ad AFTER DELETE ON tag_links WHEN old.target_type = 'no
 END;
 
 -- 约束:tag_links 仅允许 DELETE/INSERT,禁止 UPDATE(无 au 触发器,UPDATE 会致 FTS 漂移)
+
+-- 回填:触发器只覆盖迁移之后的写入,升级前已存在的 notes 没有 FTS 行,
+-- 会导致 >=3 字符关键词(走 FTS 分支)永久搜不到。DELETE 起手保证整体重建且可重复执行。
+DELETE FROM notes_fts;
+INSERT INTO notes_fts(rowid, content, tags)
+SELECT n.id, n.content,
+       COALESCE((SELECT group_concat(t.name, ' ') FROM tags t
+                 JOIN tag_links l ON l.tag_id = t.id
+                 WHERE l.target_type = 'note' AND l.target_id = n.id), '')
+FROM notes n;
