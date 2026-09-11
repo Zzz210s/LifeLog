@@ -1,7 +1,10 @@
 use rusqlite::Connection;
 
-const MIGRATIONS: &[&str] =
-    &[include_str!("migrations/001_init.sql"), include_str!("migrations/002_diary.sql")];
+const MIGRATIONS: &[&str] = &[
+    include_str!("migrations/001_init.sql"),
+    include_str!("migrations/002_diary.sql"),
+    include_str!("migrations/003_stream.sql"),
+];
 
 /// 按 PRAGMA user_version 顺序执行未应用的迁移
 pub fn run(conn: &Connection) -> rusqlite::Result<()> {
@@ -51,16 +54,44 @@ mod tests {
     }
 
     #[test]
-    fn migration_002_creates_diary() {
+    fn migration_003_drops_diary_and_adds_fts() {
         let conn = Connection::open_in_memory().unwrap();
         run(&conn).unwrap();
-        let n: i64 = conn
+        // v2 信息流:diary 表移除
+        let diary: i64 = conn
             .query_row(
-                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='diary_entries'",
+                "SELECT COUNT(*) FROM sqlite_master WHERE name='diary_entries'",
                 [],
                 |r| r.get(0),
             )
             .unwrap();
-        assert_eq!(n, 1);
+        assert_eq!(diary, 0);
+        // FTS 虚表与五个同步触发器齐备
+        for name in [
+            "notes_fts",
+            "notes_ai",
+            "notes_ad",
+            "notes_au",
+            "tag_links_ai",
+            "tag_links_ad",
+        ] {
+            let n: i64 = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM sqlite_master WHERE name=?1",
+                    [name],
+                    |r| r.get(0),
+                )
+                .unwrap();
+            assert_eq!(n, 1, "missing: {name}");
+        }
+        // 三条中文笔记入索引(触发器自动同步)
+        let mut conn = conn;
+        for text in ["今天心情很好", "天气不错", "看完了 #电影 神作"] {
+            crate::db::repos::notes::create(&mut conn, text).unwrap();
+        }
+        let fts: i64 = conn
+            .query_row("SELECT COUNT(*) FROM notes_fts", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(fts, 3);
     }
 }

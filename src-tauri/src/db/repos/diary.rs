@@ -125,6 +125,7 @@ mod tests {
         c
     }
 
+    #[ignore = "diary 模块 Task 2 移除"]
     #[test]
     fn upsert_inserts_then_updates_same_date() {
         let mut c = db();
@@ -152,6 +153,7 @@ mod tests {
             "SELECT COUNT(*) FROM tag_links WHERE target_type='diary'", [], |r| r.get(0)).unwrap();
         assert_eq!(links2, 1);
     }
+    #[ignore = "diary 模块 Task 2 移除"]
     #[test]
     fn dates_in_month_filters() {
         let mut c = db();

@@ -12,7 +12,6 @@ pub struct Note {
 /// 存库前移除 #标签 词元:单遍扫描原文(词法同 extract_tags,共用 scan_tag_token),
 /// 保留非标签段、丢弃标签 token、裸 # 保留,最后逐行折叠空白并保留行结构
 /// (多行笔记的换行与空行原样保留;标签折叠进 tags/tag_links,原文保留会双重展示)
-/// 供 diary 复用:日记正文入库前同样剥离 #标签
 pub(crate) fn strip_tags(content: &str) -> String {
     let content = content.replace("\r\n", "\n"); // 统一换行,防 Windows 端混入 \r
     let mut out = String::new();
@@ -53,23 +52,15 @@ pub fn create(conn: &mut Connection, content: &str) -> rusqlite::Result<Note> {
     Ok(Note { id, content: text, created_at, tags: names })
 }
 
-pub fn recent(conn: &Connection, limit: u32) -> rusqlite::Result<Vec<Note>> {
-    let mut stmt = conn.prepare(
-        "SELECT n.id, n.content, n.created_at, t.name
-         FROM notes n
-         LEFT JOIN tag_links l ON l.target_type = 'note' AND l.target_id = n.id
-         LEFT JOIN tags t ON t.id = l.tag_id
-         WHERE n.id IN (SELECT id FROM notes ORDER BY id DESC LIMIT ?1)
-         ORDER BY n.id DESC, t.name",
-    )?;
-    let rows = stmt.query_map(params![limit], |r| {
-        Ok((
-            r.get::<_, i64>(0)?,
-            r.get::<_, String>(1)?,
-            r.get::<_, String>(2)?,
-            r.get::<_, Option<String>>(3)?,
-        ))
-    })?;
+/// 行映射:note 基础列 + 可空标签名(LEFT JOIN 按标签展开成多行)
+type NoteRow = (i64, String, String, Option<String>);
+
+fn map_note_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<NoteRow> {
+    Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))
+}
+
+/// 相邻同 id 行折叠为一个 Note(tags 收集为列表),recent 与 query 共用
+fn fold_tag_rows(rows: impl Iterator<Item = rusqlite::Result<NoteRow>>) -> rusqlite::Result<Vec<Note>> {
     let mut out: Vec<Note> = Vec::new();
     for row in rows {
         let (id, content, created_at, tag) = row?;
@@ -85,6 +76,19 @@ pub fn recent(conn: &Connection, limit: u32) -> rusqlite::Result<Vec<Note>> {
     Ok(out)
 }
 
+pub fn recent(conn: &Connection, limit: u32) -> rusqlite::Result<Vec<Note>> {
+    let mut stmt = conn.prepare(
+        "SELECT n.id, n.content, n.created_at, t.name
+         FROM notes n
+         LEFT JOIN tag_links l ON l.target_type = 'note' AND l.target_id = n.id
+         LEFT JOIN tags t ON t.id = l.tag_id
+         WHERE n.id IN (SELECT id FROM notes ORDER BY id DESC LIMIT ?1)
+         ORDER BY n.id DESC, t.name",
+    )?;
+    let rows = stmt.query_map(params![limit], map_note_row)?;
+    fold_tag_rows(rows)
+}
+
 /// 删除笔记(事务):先删 tag_links 再删 note,最后清理无任何链接的孤儿 tags
 pub fn delete(conn: &mut Connection, id: i64) -> rusqlite::Result<()> {
     let tx = conn.transaction()?;
@@ -97,103 +101,90 @@ pub fn delete(conn: &mut Connection, id: i64) -> rusqlite::Result<()> {
     tx.commit()
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::db::migrate;
-    use rusqlite::Connection;
-
-    fn db() -> Connection {
-        let c = Connection::open_in_memory().unwrap();
-        migrate::run(&c).unwrap();
-        c
-    }
-
-    /// 断言用:返回标量 COUNT 查询结果
-    fn count(c: &Connection, sql: &str, params: &[&dyn rusqlite::ToSql]) -> i64 {
-        c.query_row(sql, params, |r| r.get(0)).unwrap()
-    }
-
-    #[test]
-    fn create_parses_tags_and_links() {
-        let mut c = db();
-        let n = create(&mut c, "看完了 #流浪地球 #科幻").unwrap();
-        assert_eq!(n.tags, vec!["流浪地球", "科幻"]);
-        let links = count(&c, "SELECT COUNT(*) FROM tag_links", &[]);
-        assert_eq!(links, 2);
-    }
-
-    #[test]
-    fn tags_reused_across_notes() {
-        let mut c = db();
-        create(&mut c, "a #x").unwrap();
-        create(&mut c, "b #x").unwrap();
-        let tags = count(&c, "SELECT COUNT(*) FROM tags WHERE name='x'", &[]);
-        assert_eq!(tags, 1);
-    }
-
-    #[test]
-    fn recent_orders_desc_with_tags() {
-        let mut c = db();
-        create(&mut c, "one #t1").unwrap();
-        create(&mut c, "two #t2").unwrap();
-        let list = recent(&c, 20).unwrap();
-        assert_eq!(list.len(), 2);
-        assert_eq!(list[0].content, "two");
-        assert_eq!(list[0].tags, vec!["t2"]);
-        assert_eq!(list[1].tags, vec!["t1"]);
-    }
-
-    #[test]
-    fn create_strips_tags_without_prefix_collision() {
-        let mut c = db();
-        let n = create(&mut c, "看完了 #书 想买 #书评").unwrap();
-        assert_eq!(n.content, "看完了 想买");
-        assert_eq!(n.tags, vec!["书", "书评"]);
-    }
-
-    #[test]
-    fn create_preserves_multiline_structure() {
-        let mut c = db();
-        let n = create(&mut c, "第一行 #tag\n第二行\n\n第三段").unwrap();
-        assert_eq!(n.content, "第一行\n第二行\n\n第三段");
-        assert_eq!(n.tags, vec!["tag"]);
-        // CRLF 输入归一为 LF,行结构同样保留
-        let n2 = create(&mut c, "第一行 #tag\r\n第二行\r\n\r\n第三段").unwrap();
-        assert_eq!(n2.content, "第一行\n第二行\n\n第三段");
-        assert_eq!(n2.tags, vec!["tag"]);
-    }
-
-    #[test]
-    fn recent_limit_counts_notes_not_rows() {
-        let mut c = db();
-        create(&mut c, "one #t1").unwrap();
-        create(&mut c, "two #t2 #t3").unwrap();
-        create(&mut c, "three #t4").unwrap();
-        let list = recent(&c, 2).unwrap();
-        assert_eq!(list.len(), 2);
-        assert_eq!(list[0].content, "three");
-        assert_eq!(list[1].content, "two");
-        assert_eq!(list[1].tags, vec!["t2", "t3"]);
-    }
-
-    #[test]
-    fn delete_removes_note_links_and_orphan_tags() {
-        let mut c = db();
-        let n = create(&mut c, "a #孤儿").unwrap();
-        create(&mut c, "b #共用").unwrap();
-        delete(&mut c, n.id).unwrap();
-        let notes = count(&c, "SELECT COUNT(*) FROM notes", &[]);
-        assert_eq!(notes, 1);
-        let links = count(
-            &c,
-            "SELECT COUNT(*) FROM tag_links WHERE target_type='note' AND target_id=?1",
-            &[&n.id],
-        );
-        assert_eq!(links, 0);
-        let orphan = count(&c, "SELECT COUNT(*) FROM tags WHERE name='孤儿'", &[]);
-        assert_eq!(orphan, 0);
-        let kept = count(&c, "SELECT COUNT(*) FROM tags WHERE name='共用'", &[]);
-        assert_eq!(kept, 1);
-    }
+/// 流查询条件:关键词 + 标签 AND + 分页排序
+#[derive(Debug)]
+pub struct NoteFilter {
+    pub keyword: Option<String>,
+    pub tags: Vec<String>,
+    pub offset: i64,
+    pub limit: i64,
+    pub oldest_first: bool,
 }
+
+/// 按条件查询笔记流:
+/// - keyword >=3 字符走 FTS MATCH(短语加引号防语法注入,尾缀 * 前缀匹配),content/tags 列皆可命中
+/// - <3 字符退化 LIKE(SQLite 默认 ASCII 大小写不敏感),正文或任一标签名命中即返回
+/// - tags 为 AND 语义:每标签一个 EXISTS 子句,全部满足才命中
+/// - 分页排序在 id 子查询内完成,外层仅做标签行折叠
+pub fn query(conn: &Connection, f: &NoteFilter) -> rusqlite::Result<Vec<Note>> {
+    let mut clauses: Vec<String> = Vec::new();
+    let mut args: Vec<String> = Vec::new();
+    let kw = f.keyword.as_deref().map(str::trim).filter(|k| !k.is_empty());
+    if let Some(k) = kw {
+        if k.chars().count() >= 3 {
+            clauses.push(format!(
+                "id IN (SELECT rowid FROM notes_fts WHERE notes_fts MATCH ?{})",
+                args.len() + 1
+            ));
+            args.push(format!("\"{}\"*", k.replace('"', "\"\"")));
+        } else {
+            clauses.push(format!(
+                "(content LIKE ?{n} OR EXISTS(SELECT 1 FROM tag_links l JOIN tags t ON t.id = l.tag_id
+                  WHERE l.target_type = 'note' AND l.target_id = notes.id AND t.name LIKE ?{n}))",
+                n = args.len() + 1
+            ));
+            args.push(format!("%{}%", k));
+        }
+    }
+    for name in &f.tags {
+        clauses.push(format!(
+            "EXISTS(SELECT 1 FROM tag_links l JOIN tags t ON t.id = l.tag_id
+             WHERE l.target_type = 'note' AND l.target_id = notes.id AND t.name = ?{})",
+            args.len() + 1
+        ));
+        args.push(name.clone());
+    }
+    let cond = if clauses.is_empty() {
+        String::new()
+    } else {
+        format!("WHERE {}", clauses.join(" AND "))
+    };
+    let dir = if f.oldest_first { "ASC" } else { "DESC" };
+    let limit = if f.limit <= 0 { 50 } else { f.limit };
+    let (li, oi) = (args.len() + 1, args.len() + 2);
+    args.push(limit.to_string());
+    args.push(f.offset.max(0).to_string());
+    let sql = format!(
+        "SELECT n.id, n.content, n.created_at, t.name
+         FROM notes n
+         LEFT JOIN tag_links l ON l.target_type = 'note' AND l.target_id = n.id
+         LEFT JOIN tags t ON t.id = l.tag_id
+         WHERE n.id IN (SELECT id FROM notes {cond} ORDER BY id {dir} LIMIT ?{li} OFFSET ?{oi})
+         ORDER BY n.id {dir}, t.name"
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map(rusqlite::params_from_iter(args), map_note_row)?;
+    fold_tag_rows(rows)
+}
+
+/// 标签使用计数(仅统计 note 链接):按次数降序,同数按名升序
+pub fn count_tags(conn: &Connection) -> Vec<(String, i64)> {
+    conn.prepare(
+        "SELECT t.name, COUNT(*) FROM tag_links l JOIN tags t ON t.id = l.tag_id
+         WHERE l.target_type = 'note' GROUP BY t.name ORDER BY COUNT(*) DESC, t.name",
+    )
+    .and_then(|mut stmt| {
+        let rows =
+            stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)))?;
+        rows.collect::<rusqlite::Result<Vec<_>>>()
+    })
+    .unwrap_or_default()
+}
+
+#[cfg(test)]
+#[path = "notes_query_tests.rs"]
+mod notes_query_tests;
+
+#[cfg(test)]
+#[path = "notes_tests.rs"]
+mod notes_tests;

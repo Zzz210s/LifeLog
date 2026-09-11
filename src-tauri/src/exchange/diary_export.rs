@@ -95,6 +95,7 @@ mod tests {
         c
     }
 
+    #[ignore = "diary 模块 Task 2 移除"]
     #[test]
     fn export_diary_produces_xlsx_bytes() {
         let mut c = db();
