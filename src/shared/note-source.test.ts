@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { composeSource, normalizeForSave } from './note-source';
+import { composeSource, normalizeForSave, prepareForSave } from './note-source';
 
 describe('composeSource', () => {
   it('正文与标签各占一行', () => {
@@ -50,5 +50,23 @@ describe('normalizeForSave', () => {
 
   it('纯空白归一为空内容(保存路径与按钮据此拒绝)', () => {
     expect(normalizeForSave('   \n\t').trim()).toBe('');
+  });
+});
+
+describe('prepareForSave', () => {
+  it('纯空白返回 null,拒绝保存', () => {
+    expect(prepareForSave('')).toBeNull();
+    expect(prepareForSave('   \n\t ')).toBeNull();
+  });
+
+  it('只裁行尾空白:整条缩进代码块的首行缩进在创建路径保留', () => {
+    expect(prepareForSave('    const a = 1;\n    const b = 2;\n')).toBe(
+      '    const a = 1;\n    const b = 2;'
+    );
+    expect(prepareForSave('  - 一\n  - 二')).toBe('  - 一\n  - 二');
+  });
+
+  it('标签行尾随空白裁掉(创建路径仍由后端剥离标签)', () => {
+    expect(prepareForSave('正文 #a  \n\n')).toBe('正文 #a');
   });
 });

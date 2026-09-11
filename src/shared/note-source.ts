@@ -19,3 +19,11 @@ export function composeSource(content: string, tags: string[]): string {
 export function normalizeForSave(source: string): string {
   return source.trimEnd();
 }
+
+/**
+ * 创建路径保存前准备:纯空白返回 null(拒绝保存),否则只裁行尾空白。
+ * 与编辑路径共用归一规则:整体 trim 会吞掉首行缩进(整条笔记是缩进代码块时数据损失)。
+ */
+export function prepareForSave(source: string): string | null {
+  return source.trim() ? normalizeForSave(source) : null;
+}

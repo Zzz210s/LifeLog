@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { api } from '../shared/api';
+import { prepareForSave } from '../shared/note-source';
 
 /** 顶部常驻输入框:自动增高,Ctrl+Enter 或按钮保存(语法与快捷窗一致) */
 export function Composer({ onSaved }: { onSaved: () => void }): ReactNode {
@@ -18,7 +19,7 @@ export function Composer({ onSaved }: { onSaved: () => void }): ReactNode {
   };
 
   const save = async () => {
-    const text = content.trim();
+    const text = prepareForSave(content);
     if (!text || saving) return;
     setSaving(true);
     setError('');
