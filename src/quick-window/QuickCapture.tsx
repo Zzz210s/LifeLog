@@ -20,6 +20,10 @@ export function QuickCapture() {
   useEffect(() => {
     void api.listRecentNotes().then(setRecent).catch(() => {});
     void api
+      .getSetting('quick_always_on_top')
+      .then((v) => setPinned(v !== 'false')) // 与 Rust show() 的持久化置顶状态同步;null 视为 true
+      .catch(() => {});
+    void api
       .getSetting('quick_zoom')
       .then((z) => {
         const v = z ? Number(z) : 1;

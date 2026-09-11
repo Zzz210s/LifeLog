@@ -10,8 +10,10 @@ pub struct Note {
 }
 
 /// 存库前移除 #标签 词元:单遍扫描原文(词法同 extract_tags,共用 scan_tag_token),
-/// 保留非标签段、丢弃标签 token、裸 # 保留,最后折叠空白(标签折叠进 tags/tag_links,原文保留会双重展示)
+/// 保留非标签段、丢弃标签 token、裸 # 保留,最后逐行折叠空白并保留行结构
+/// (多行笔记的换行与空行原样保留;标签折叠进 tags/tag_links,原文保留会双重展示)
 fn strip_tags(content: &str) -> String {
+    let content = content.replace("\r\n", "\n"); // 统一换行,防 Windows 端混入 \r
     let mut out = String::new();
     let mut chars = content.chars().peekable();
     while let Some(c) = chars.next() {
@@ -23,7 +25,10 @@ fn strip_tags(content: &str) -> String {
             out.push(c); // 裸 # 不属于标签,保留为内容
         }
     }
-    out.split_whitespace().collect::<Vec<_>>().join(" ")
+    out.split('\n')
+        .map(|l| l.split_whitespace().collect::<Vec<_>>().join(" "))
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 pub fn create(conn: &mut Connection, content: &str) -> rusqlite::Result<Note> {
@@ -131,6 +136,18 @@ mod tests {
         let n = create(&mut c, "看完了 #书 想买 #书评").unwrap();
         assert_eq!(n.content, "看完了 想买");
         assert_eq!(n.tags, vec!["书", "书评"]);
+    }
+
+    #[test]
+    fn create_preserves_multiline_structure() {
+        let mut c = db();
+        let n = create(&mut c, "第一行 #tag\n第二行\n\n第三段").unwrap();
+        assert_eq!(n.content, "第一行\n第二行\n\n第三段");
+        assert_eq!(n.tags, vec!["tag"]);
+        // CRLF 输入归一为 LF,行结构同样保留
+        let n2 = create(&mut c, "第一行 #tag\r\n第二行\r\n\r\n第三段").unwrap();
+        assert_eq!(n2.content, "第一行\n第二行\n\n第三段");
+        assert_eq!(n2.tags, vec!["tag"]);
     }
 
     #[test]
