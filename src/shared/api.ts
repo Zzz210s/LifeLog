@@ -1,21 +1,21 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { DiaryEntry, Note } from './types';
+import type { Note } from './types';
 
 export const api = {
   saveQuickNote: (content: string) => invoke<Note>('save_quick_note', { content }),
   listRecentNotes: (limit = 20) => invoke<Note[]>('list_recent_notes', { limit }),
+  queryNotes: (p: {
+    keyword?: string;
+    tags: string[];
+    offset: number;
+    limit: number;
+    oldestFirst: boolean;
+  }) => invoke<Note[]>('query_notes', p),
+  tagCounts: () => invoke<[string, number][]>('tag_counts'),
+  updateNote: (id: number, content: string) =>
+    invoke<Note | null>('update_note', { id, content }),
+  toggleTodo: (id: number) => invoke<Note | null>('toggle_todo', { id }),
   deleteNote: (id: number) => invoke<void>('delete_note', { id }),
-  saveDiary: (p: {
-    date: string;
-    title: string;
-    content: string;
-    mood: string | null;
-    weather: string | null;
-  }) => invoke<DiaryEntry>('save_diary', p),
-  getDiary: (date: string) => invoke<DiaryEntry | null>('get_diary', { date }),
-  diaryDates: (year: number, month: number) =>
-    invoke<string[]>('diary_dates', { year, month }),
-  exportDiary: (path: string) => invoke<void>('export_diary', { path }),
   hideQuickWindow: () => invoke<void>('hide_quick_window'),
   togglePin: () => invoke<boolean>('toggle_quick_pin'),
   setZoom: (zoom: number) => invoke<void>('set_quick_zoom', { zoom }),

@@ -50,3 +50,23 @@ pub fn delete_note(app: AppHandle, id: i64) -> Result<(), String> {
     let mut conn = db.0.lock().map_err(|e| e.to_string())?;
     repos::notes::delete(&mut conn, id).map_err(|e| e.to_string())
 }
+
+/// 更新笔记正文(替换语义重写标签链);id 不存在返回 null
+#[tauri::command]
+pub fn update_note(
+    app: AppHandle,
+    id: i64,
+    content: String,
+) -> Result<Option<repos::notes::Note>, String> {
+    let db: State<Db> = app.state();
+    let mut conn = db.0.lock().map_err(|e| e.to_string())?;
+    repos::notes::update(&mut conn, id, &content).map_err(|e| e.to_string())
+}
+
+/// 切换 #todo/#done 标签;均无则原样返回
+#[tauri::command]
+pub fn toggle_todo(app: AppHandle, id: i64) -> Result<Option<repos::notes::Note>, String> {
+    let db: State<Db> = app.state();
+    let mut conn = db.0.lock().map_err(|e| e.to_string())?;
+    repos::notes::toggle_todo(&mut conn, id).map_err(|e| e.to_string())
+}

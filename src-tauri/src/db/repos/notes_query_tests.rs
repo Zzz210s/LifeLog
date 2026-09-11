@@ -1,6 +1,7 @@
 //! notes 查询层测试(query/count_tags),测试先行(TDD)
 use super::*;
 use crate::db::migrate;
+use crate::db::repos::notes::create;
 use rusqlite::Connection;
 
 fn db() -> Connection {

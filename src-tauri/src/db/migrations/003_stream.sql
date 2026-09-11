@@ -43,3 +43,5 @@ CREATE TRIGGER tag_links_ad AFTER DELETE ON tag_links WHEN old.target_type = 'no
     WHERE l.target_type = 'note' AND l.target_id = n.id), '')
   FROM notes n WHERE n.id = old.target_id;
 END;
+
+-- 约束:tag_links 仅允许 DELETE/INSERT,禁止 UPDATE(无 au 触发器,UPDATE 会致 FTS 漂移)

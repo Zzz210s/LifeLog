@@ -3,7 +3,6 @@ use tauri_plugin_global_shortcut::GlobalShortcutExt;
 
 mod commands;
 mod db;
-mod exchange;
 mod tags;
 mod windowing;
 
@@ -26,11 +25,9 @@ pub fn run() {
             commands::notes::list_recent_notes,
             commands::notes::query_notes,
             commands::notes::tag_counts,
+            commands::notes::update_note,
+            commands::notes::toggle_todo,
             commands::notes::delete_note,
-            commands::diary::save_diary,
-            commands::diary::get_diary,
-            commands::diary::diary_dates,
-            commands::exchange::export_diary,
             commands::windowing::hide_quick_window,
             commands::windowing::toggle_quick_pin,
             commands::windowing::set_quick_zoom,
