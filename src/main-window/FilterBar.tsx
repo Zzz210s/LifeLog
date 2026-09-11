@@ -62,9 +62,10 @@ export function FilterBar(p: FilterBarProps): ReactNode {
             <button
               onClick={p.onExport}
               disabled={p.exporting}
+              title="导出全部笔记(不受筛选影响)"
               className="h-8 shrink-0 rounded-md border border-gray-300 px-2.5 text-xs text-gray-600 hover:border-blue-500 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {p.exporting ? '导出中' : '导出'}
+              {p.exporting ? '导出中' : '导出全部'}
             </button>
           </>
         )}

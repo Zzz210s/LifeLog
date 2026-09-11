@@ -23,13 +23,14 @@ export function useNotesExport(
 
   const onExport = useCallback(async () => {
     if (exporting) return;
-    const path = await save({
-      defaultPath: '笔记导出.xlsx',
-      filters: [{ name: 'Excel 工作簿', extensions: ['xlsx'] }],
-    });
-    if (!path) return;
     setExporting(true);
     try {
+      // 对话框也纳入 try:被强制关闭 / IPC 异常时不能产生未兜底 rejection
+      const path = await save({
+        defaultPath: '笔记导出.xlsx',
+        filters: [{ name: 'Excel 工作簿', extensions: ['xlsx'] }],
+      });
+      if (!path) return; // 用户取消:静默返回,finally 复位 exporting
       await api.exportNotes(path);
       setExported(true);
       clearError('action');
