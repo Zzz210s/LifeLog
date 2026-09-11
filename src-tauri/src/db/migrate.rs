@@ -1,6 +1,7 @@
 use rusqlite::Connection;
 
-const MIGRATIONS: &[&str] = &[include_str!("migrations/001_init.sql")];
+const MIGRATIONS: &[&str] =
+    &[include_str!("migrations/001_init.sql"), include_str!("migrations/002_diary.sql")];
 
 /// 按 PRAGMA user_version 顺序执行未应用的迁移
 pub fn run(conn: &Connection) -> rusqlite::Result<()> {
@@ -47,5 +48,19 @@ mod tests {
         let conn = Connection::open_in_memory().unwrap();
         run(&conn).unwrap();
         run(&conn).unwrap(); // 第二次应为 no-op 不报错
+    }
+
+    #[test]
+    fn migration_002_creates_diary() {
+        let conn = Connection::open_in_memory().unwrap();
+        run(&conn).unwrap();
+        let n: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='diary_entries'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(n, 1);
     }
 }

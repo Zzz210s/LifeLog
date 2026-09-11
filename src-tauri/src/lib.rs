@@ -22,6 +22,7 @@ pub fn run() {
             commands::settings::set_setting,
             commands::notes::save_quick_note,
             commands::notes::list_recent_notes,
+            commands::notes::delete_note,
             commands::windowing::hide_quick_window,
             commands::windowing::toggle_quick_pin,
             commands::windowing::set_quick_zoom,

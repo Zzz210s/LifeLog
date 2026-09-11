@@ -84,6 +84,18 @@ pub fn recent(conn: &Connection, limit: u32) -> rusqlite::Result<Vec<Note>> {
     Ok(out)
 }
 
+/// 删除笔记(事务):先删 tag_links 再删 note,最后清理无任何链接的孤儿 tags
+pub fn delete(conn: &mut Connection, id: i64) -> rusqlite::Result<()> {
+    let tx = conn.transaction()?;
+    tx.execute("DELETE FROM tag_links WHERE target_type='note' AND target_id=?1", params![id])?;
+    tx.execute("DELETE FROM notes WHERE id=?1", params![id])?;
+    tx.execute(
+        "DELETE FROM tags WHERE id NOT IN (SELECT DISTINCT tag_id FROM tag_links)",
+        [],
+    )?;
+    tx.commit()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -96,14 +108,17 @@ mod tests {
         c
     }
 
+    /// 断言用:返回标量 COUNT 查询结果
+    fn count(c: &Connection, sql: &str, params: &[&dyn rusqlite::ToSql]) -> i64 {
+        c.query_row(sql, params, |r| r.get(0)).unwrap()
+    }
+
     #[test]
     fn create_parses_tags_and_links() {
         let mut c = db();
         let n = create(&mut c, "看完了 #流浪地球 #科幻").unwrap();
         assert_eq!(n.tags, vec!["流浪地球", "科幻"]);
-        let links: i64 = c
-            .query_row("SELECT COUNT(*) FROM tag_links", [], |r| r.get(0))
-            .unwrap();
+        let links = count(&c, "SELECT COUNT(*) FROM tag_links", &[]);
         assert_eq!(links, 2);
     }
 
@@ -112,9 +127,7 @@ mod tests {
         let mut c = db();
         create(&mut c, "a #x").unwrap();
         create(&mut c, "b #x").unwrap();
-        let tags: i64 = c
-            .query_row("SELECT COUNT(*) FROM tags WHERE name='x'", [], |r| r.get(0))
-            .unwrap();
+        let tags = count(&c, "SELECT COUNT(*) FROM tags WHERE name='x'", &[]);
         assert_eq!(tags, 1);
     }
 
@@ -161,5 +174,25 @@ mod tests {
         assert_eq!(list[0].content, "three");
         assert_eq!(list[1].content, "two");
         assert_eq!(list[1].tags, vec!["t2", "t3"]);
+    }
+
+    #[test]
+    fn delete_removes_note_links_and_orphan_tags() {
+        let mut c = db();
+        let n = create(&mut c, "a #孤儿").unwrap();
+        create(&mut c, "b #共用").unwrap();
+        delete(&mut c, n.id).unwrap();
+        let notes = count(&c, "SELECT COUNT(*) FROM notes", &[]);
+        assert_eq!(notes, 1);
+        let links = count(
+            &c,
+            "SELECT COUNT(*) FROM tag_links WHERE target_type='note' AND target_id=?1",
+            &[&n.id],
+        );
+        assert_eq!(links, 0);
+        let orphan = count(&c, "SELECT COUNT(*) FROM tags WHERE name='孤儿'", &[]);
+        assert_eq!(orphan, 0);
+        let kept = count(&c, "SELECT COUNT(*) FROM tags WHERE name='共用'", &[]);
+        assert_eq!(kept, 1);
     }
 }
