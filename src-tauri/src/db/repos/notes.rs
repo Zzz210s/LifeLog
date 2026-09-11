@@ -9,9 +9,23 @@ pub struct Note {
     pub tags: Vec<String>,
 }
 
+/// 单行空白归一:保留行首空格/制表符(markdown 缩进语义),仅把行内连续空白折叠为一个空格,
+/// 行尾空白丢弃;纯空白行归一为空行,保持空行结构
+fn collapse_line(line: &str) -> String {
+    let indent_len = line.len() - line.trim_start_matches([' ', '\t']).len();
+    let (indent, rest) = line.split_at(indent_len);
+    let body = rest.split_whitespace().collect::<Vec<_>>().join(" ");
+    if body.is_empty() {
+        String::new()
+    } else {
+        format!("{indent}{body}")
+    }
+}
+
 /// 存库前移除 #标签 词元:单遍扫描原文(词法同 extract_tags,共用 scan_tag_token),
-/// 保留非标签段、丢弃标签 token、裸 # 保留,最后逐行折叠空白并保留行结构
-/// (多行笔记的换行与空行原样保留;标签折叠进 tags/tag_links,原文保留会双重展示)
+/// 保留非标签段、丢弃标签 token、裸 # 保留;最后逐行归一空白并保留行结构与行首缩进
+/// (多行笔记的换行、空行、嵌套列表/代码块的缩进原样保留;
+/// 标签折叠进 tags/tag_links,原文保留会双重展示)
 pub(crate) fn strip_tags(content: &str) -> String {
     let content = content.replace("\r\n", "\n"); // 统一换行,防 Windows 端混入 \r
     let mut out = String::new();
@@ -23,12 +37,17 @@ pub(crate) fn strip_tags(content: &str) -> String {
         }
         if crate::tags::scan_tag_token(&mut chars).is_none() {
             out.push(c); // 裸 # 不属于标签,保留为内容
+        } else {
+            // 标签后若紧跟一个空格/制表符则一并吞掉:避免行首标签剥离后残留前导空白
+            // (不吞换行,否则会把下一行并上来)
+            if let Some(&next) = chars.peek() {
+                if next == ' ' || next == '\t' {
+                    chars.next();
+                }
+            }
         }
     }
-    out.split('\n')
-        .map(|l| l.split_whitespace().collect::<Vec<_>>().join(" "))
-        .collect::<Vec<_>>()
-        .join("\n")
+    out.split('\n').map(collapse_line).collect::<Vec<_>>().join("\n")
 }
 
 pub fn create(conn: &mut Connection, content: &str) -> rusqlite::Result<Note> {
@@ -127,3 +146,7 @@ pub use notes_update::{toggle_todo, update};
 #[cfg(test)]
 #[path = "notes_tests.rs"]
 mod notes_tests;
+
+#[cfg(test)]
+#[path = "notes_strip_tests.rs"]
+mod notes_strip_tests;
