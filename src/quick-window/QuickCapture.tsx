@@ -96,6 +96,7 @@ export function QuickCapture() {
       <textarea
         autoFocus
         aria-label="快速输入内容"
+        name="content"
         value={content}
         onChange={(e) => setContent(e.target.value)}
         onKeyDown={onKeyDown}
