@@ -1,15 +1,15 @@
-import { useState } from 'react';
 import type { ReactNode } from 'react';
+import { buildMonthCells } from '../shared/calendar';
 
 interface Props {
-  /** 初始年月(仅作初值:年月导航状态由日历内部持有) */
+  /** 当前显示年月(受控:翻月请求交父级裁决,父级拒绝则日历不动) */
   year: number;
   month: number;
   marked: Set<string>;
   selected: string;
   onSelect: (date: string) => void;
-  /** 内部翻月时通知父级(父级据此刷新当月 marked) */
-  onMonthChange?: (year: number, month: number) => void;
+  /** 点击翻月:请求切到新年月;父级确认后回写 props,取消则原样保持 */
+  onMonthChange: (year: number, month: number) => void;
 }
 
 /** 周一为首的星期表头 */
@@ -19,17 +19,7 @@ function pad(n: number): string {
   return String(n).padStart(2, '0');
 }
 
-/** 某月天数:Date 日期参数 0 = 上月末日 */
-function daysInMonth(year: number, month: number): number {
-  return new Date(year, month, 0).getDate();
-}
-
-/** 该月 1 号的周一制偏移(周一=0):getDay() 周日=0,折算 (day+6)%7 */
-function firstDayOffset(year: number, month: number): number {
-  return (new Date(year, month - 1, 1).getDay() + 6) % 7;
-}
-
-/** 月历:有记录日期带圆点,选中高亮,顶栏翻月 */
+/** 月历:有记录日期带圆点,选中高亮,顶栏翻月;网格数学复用 shared/calendar */
 export function MiniCalendar({
   year,
   month,
@@ -38,12 +28,9 @@ export function MiniCalendar({
   onSelect,
   onMonthChange,
 }: Props): ReactNode {
-  const [y, setY] = useState(year);
-  const [m, setM] = useState(month);
-
   const nav = (delta: number) => {
-    let ny = y;
-    let nm = m + delta;
+    let ny = year;
+    let nm = month + delta;
     if (nm < 1) {
       nm = 12;
       ny -= 1;
@@ -51,17 +38,10 @@ export function MiniCalendar({
       nm = 1;
       ny += 1;
     }
-    setY(ny);
-    setM(nm);
-    onMonthChange?.(ny, nm);
+    onMonthChange(ny, nm);
   };
 
-  const offset = firstDayOffset(y, m);
-  const total = daysInMonth(y, m);
-  const cells: (number | null)[] = [
-    ...Array.from({ length: offset }, () => null),
-    ...Array.from({ length: total }, (_, i) => i + 1),
-  ];
+  const cells = buildMonthCells(year, month);
 
   return (
     <div className="w-64 shrink-0 border-r border-gray-200 bg-gray-50 p-3">
@@ -73,7 +53,7 @@ export function MiniCalendar({
           上月
         </button>
         <span className="text-sm font-medium text-gray-700">
-          {y}年{m}月
+          {year}年{month}月
         </span>
         <button
           onClick={() => nav(1)}
@@ -92,7 +72,7 @@ export function MiniCalendar({
           if (day === null) {
             return <div key={`blank-${i}`} />;
           }
-          const date = `${y}-${pad(m)}-${pad(day)}`;
+          const date = `${year}-${pad(month)}-${pad(day)}`;
           const isSelected = date === selected;
           const isMarked = marked.has(date);
           return (

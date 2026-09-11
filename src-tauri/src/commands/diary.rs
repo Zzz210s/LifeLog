@@ -57,3 +57,53 @@ pub fn diary_dates(app: AppHandle, year: i32, month: i32) -> Result<Vec<String>,
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     Ok(repos::diary::dates_in_month(&conn, year, month))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::valid_date;
+
+    #[test]
+    fn accepts_canonical_form() {
+        assert!(valid_date("2026-09-11"));
+    }
+
+    #[test]
+    fn rejects_unpadded_parts() {
+        assert!(!valid_date("2026-9-1"));
+    }
+
+    #[test]
+    fn rejects_slash_separator() {
+        assert!(!valid_date("2026/09/11"));
+    }
+
+    #[test]
+    fn rejects_compact_digits() {
+        assert!(!valid_date("20260911"));
+    }
+
+    #[test]
+    fn rejects_month_13() {
+        assert!(!valid_date("2026-13-01"));
+    }
+
+    #[test]
+    fn rejects_month_00() {
+        assert!(!valid_date("2026-00-10"));
+    }
+
+    #[test]
+    fn rejects_day_32() {
+        assert!(!valid_date("2026-09-32"));
+    }
+
+    #[test]
+    fn rejects_alpha() {
+        assert!(!valid_date("abc"));
+    }
+
+    #[test]
+    fn rejects_empty() {
+        assert!(!valid_date(""));
+    }
+}
