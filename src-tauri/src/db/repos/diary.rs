@@ -1,6 +1,3 @@
-// 临时:命令层(阶段 3 后续任务)接线前暂无调用方,接线后删除此行
-#![allow(dead_code)]
-
 use rusqlite::{params, Connection};
 use serde::Serialize;
 
@@ -25,7 +22,8 @@ pub fn upsert(
     mood: Option<&str>,
     weather: Option<&str>,
 ) -> rusqlite::Result<DiaryEntry> {
-    // 标签管线同 notes:提取 -> 正文剥离 -> 事务内 tags/tag_links 三连
+    // 标签管线同 notes:提取 -> 正文剥离;但为替换语义:
+    // 每次保存先清空旧链再插入当前标签(重存不残留旧标签)
     let names = crate::tags::extract_tags(content);
     let text = super::notes::strip_tags(content);
     let tx = conn.transaction()?;
@@ -42,6 +40,8 @@ pub fn upsert(
     )?;
     let id: i64 =
         tx.query_row("SELECT id FROM diary_entries WHERE date = ?1", params![date], |r| r.get(0))?;
+    // 替换语义:插入与更新路径统一,先删旧链再写当前标签
+    tx.execute("DELETE FROM tag_links WHERE target_type='diary' AND target_id=?1", params![id])?;
     for name in &names {
         tx.execute("INSERT OR IGNORE INTO tags(name) VALUES(?1)", params![name])?;
         let tid: i64 =
@@ -51,23 +51,20 @@ pub fn upsert(
             params![tid, id],
         )?;
     }
-    let entry = select_by_date(&tx, date)?;
+    // 孤儿标签回收(同 notes::delete):链已替换,无引用的 tag 行清掉
+    tx.execute(
+        "DELETE FROM tags WHERE id NOT IN (SELECT DISTINCT tag_id FROM tag_links)",
+        [],
+    )?;
+    // 返回前从 tag_links 读全量标签(与 get_by_date 语义一致)
+    let entry = read_entry(&tx, date)?.ok_or(rusqlite::Error::QueryReturnedNoRows)?;
     tx.commit()?;
-    Ok(DiaryEntry { tags: names, ..entry })
+    Ok(entry)
 }
 
 /// 按日期取单条(含 tag_links 关联标签);无该日返回 None
 pub fn get_by_date(conn: &Connection, date: &str) -> Option<DiaryEntry> {
-    let mut entry = select_by_date(conn, date).ok()?;
-    let mut stmt = conn
-        .prepare(
-            "SELECT t.name FROM tag_links l JOIN tags t ON t.id = l.tag_id
-             WHERE l.target_type = 'diary' AND l.target_id = ?1 ORDER BY t.name",
-        )
-        .ok()?;
-    let rows = stmt.query_map(params![entry.id], |r| r.get::<_, String>(0)).ok()?;
-    entry.tags = rows.filter_map(|r| r.ok()).collect();
-    Some(entry)
+    read_entry(conn, date).ok().flatten()
 }
 
 /// 月份内已有日记的日期列表(date LIKE 'YYYY-MM-%',升序)
@@ -81,9 +78,10 @@ pub fn dates_in_month(conn: &Connection, year: i32, month: i32) -> Vec<String> {
         .unwrap_or_default()
 }
 
-/// 单行读取(不含标签);date 唯一键,至多一行
-fn select_by_date(conn: &Connection, date: &str) -> rusqlite::Result<DiaryEntry> {
-    conn.query_row(
+/// 读单行 + tag_links 全量标签(按名升序);无该日返回 None。
+/// upsert(commit 前)与 get_by_date 共用,保证两路返回语义一致。
+fn read_entry(conn: &Connection, date: &str) -> rusqlite::Result<Option<DiaryEntry>> {
+    let row = conn.query_row(
         "SELECT id, date, title, content, mood, weather, created_at, updated_at
          FROM diary_entries WHERE date = ?1",
         params![date],
@@ -100,7 +98,19 @@ fn select_by_date(conn: &Connection, date: &str) -> rusqlite::Result<DiaryEntry>
                 tags: Vec::new(),
             })
         },
-    )
+    );
+    let mut entry = match row {
+        Ok(e) => e,
+        Err(rusqlite::Error::QueryReturnedNoRows) => return Ok(None),
+        Err(e) => return Err(e),
+    };
+    let mut stmt = conn.prepare(
+        "SELECT t.name FROM tag_links l JOIN tags t ON t.id = l.tag_id
+         WHERE l.target_type = 'diary' AND l.target_id = ?1 ORDER BY t.name",
+    )?;
+    let rows = stmt.query_map(params![entry.id], |r| r.get::<_, String>(0))?;
+    entry.tags = rows.collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(Some(entry))
 }
 
 #[cfg(test)]
@@ -121,14 +131,26 @@ mod tests {
         let a = upsert(&mut c, "2026-09-11", "标题", "今天 #开心", Some("好"), None).unwrap();
         assert_eq!(a.tags, vec!["开心"]);
         assert_eq!(a.content, "今天");
+        // 无标签重存:替换语义,旧链清空 + 孤儿标签回收,返回全量标签(空)
         let b = upsert(&mut c, "2026-09-11", "标题2", "改了", None, Some("晴")).unwrap();
         assert_eq!(b.id, a.id);
         assert_eq!(b.title, "标题2");
+        assert_eq!(b.tags, Vec::<String>::new());
         let count: i64 = c.query_row("SELECT COUNT(*) FROM diary_entries", [], |r| r.get(0)).unwrap();
         assert_eq!(count, 1);
         let links: i64 = c.query_row(
             "SELECT COUNT(*) FROM tag_links WHERE target_type='diary'", [], |r| r.get(0)).unwrap();
-        assert_eq!(links, 1);
+        assert_eq!(links, 0);
+        let orphan: i64 = c.query_row(
+            "SELECT COUNT(*) FROM tags WHERE name='开心'", [], |r| r.get(0)).unwrap();
+        assert_eq!(orphan, 0);
+        // 换新标签再存:库里只有新链,返回 tag_links 全量
+        let d = upsert(&mut c, "2026-09-11", "标题3", "心情 #平静", None, None).unwrap();
+        assert_eq!(d.tags, vec!["平静"]);
+        assert_eq!(get_by_date(&c, "2026-09-11").unwrap().tags, vec!["平静"]);
+        let links2: i64 = c.query_row(
+            "SELECT COUNT(*) FROM tag_links WHERE target_type='diary'", [], |r| r.get(0)).unwrap();
+        assert_eq!(links2, 1);
     }
     #[test]
     fn dates_in_month_filters() {
