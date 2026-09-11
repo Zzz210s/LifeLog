@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Note } from '../shared/types';
-import { mergeNotes, replaceNote, matchesTagFilter } from './notes-list';
+import { mergeNotes, replaceNote, matchesTagFilter, needsRefetchAfterChange } from './notes-list';
+import type { FeedFilters } from './notes-list';
 
 const note = (id: number, content = 'x'): Note => ({
   id,
@@ -53,5 +54,31 @@ describe('matchesTagFilter', () => {
     const n = { ...note(1), tags: ['a'] };
     expect(matchesTagFilter(n, ['a', 'b'])).toBe(false);
     expect(matchesTagFilter(n, ['b'])).toBe(false);
+  });
+});
+
+describe('needsRefetchAfterChange', () => {
+  const hit = { ...note(1, '苹果 好吃'), tags: ['水果'] };
+  const missKw = note(1, '香蕉 好吃');
+  const missTag = { ...note(1, '苹果 好吃'), tags: ['其他'] };
+
+  it('keyword 非空:命中与否一律重查首页(本地判不了命中与排序)', () => {
+    expect(needsRefetchAfterChange({ keyword: '苹果', tags: ['水果'] })).toBe(true);
+    expect(needsRefetchAfterChange({ keyword: '苹果', tags: [] })).toBe(true);
+    expect(needsRefetchAfterChange({ keyword: '  苹果  ', tags: ['水果'] })).toBe(true);
+  });
+
+  it('keyword 为空:不重查,由就地更新/本地移除完成', () => {
+    expect(needsRefetchAfterChange({ keyword: '', tags: ['水果'] })).toBe(false);
+    expect(needsRefetchAfterChange({ keyword: '   ', tags: ['水果'] })).toBe(false);
+  });
+
+  it('判定与变更后是否命中关键词/标签筛选无关(无关键词时不因失配而重查)', () => {
+    const decide = (n: Note, f: FeedFilters) =>
+      needsRefetchAfterChange(f) ? 'refetch' : matchesTagFilter(n, f.tags) ? 'in-place' : 'remove';
+    expect(decide(hit, { keyword: '', tags: ['水果'] })).toBe('in-place');
+    expect(decide(missTag, { keyword: '', tags: ['水果'] })).toBe('remove');
+    expect(decide(missKw, { keyword: '苹果', tags: ['水果'] })).toBe('refetch');
+    expect(decide(hit, { keyword: '苹果', tags: ['水果'] })).toBe('refetch');
   });
 });

@@ -3,10 +3,12 @@ import type { ReactNode } from 'react';
 import { api } from '../shared/api';
 import type { Note } from '../shared/types';
 import { Composer } from './Composer';
-import { ErrorBar } from './ErrorBar';
-import type { AppError } from './ErrorBar';
+import { ErrorBars } from './ErrorBars';
+import type { ErrorKind } from './ErrorBar';
+import { dropError, putError } from './errors';
+import type { ErrorMap } from './errors';
 import { FilterBar } from './FilterBar';
-import { matchesTagFilter, mergeNotes, replaceNote } from './notes-list';
+import { matchesTagFilter, mergeNotes, needsRefetchAfterChange, replaceNote } from './notes-list';
 import { NoteStream } from './NoteStream';
 
 const PAGE = 50;
@@ -20,14 +22,17 @@ export function App(): ReactNode {
   const [allTags, setAllTags] = useState<{ name: string; count: number }[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<AppError | null>(null);
+  const [errors, setErrors] = useState<ErrorMap>({});
   const [queryFailed, setQueryFailed] = useState(false); // 查询失败事实留存,供空态文案判定
   const [editingId, setEditingId] = useState<number | null>(null);
   const seq = useRef(0); // 过期响应丢弃(快速切筛选/翻页竞态)
 
-  /** 按来源清除:成功路径只清与本次操作同源的错误,不牵连其他来源 */
-  const clearError = useCallback((kind: AppError['kind']) => {
-    setError((prev) => (prev && prev.kind === kind ? null : prev));
+  /** 按来源留存/清除:G4 单值槽会被跨源覆盖造成错误被吞,改为每个来源一份,成功路径只清同源 */
+  const setError = useCallback((kind: ErrorKind, message: string) => {
+    setErrors((prev) => putError(prev, kind, message));
+  }, []);
+  const clearError = useCallback((kind: ErrorKind) => {
+    setErrors((prev) => dropError(prev, kind));
   }, []);
 
   const loadTags = useCallback(() => {
@@ -37,7 +42,7 @@ export function App(): ReactNode {
         setAllTags(rows.map(([name, count]) => ({ name, count })));
         clearError('tags');
       })
-      .catch((e) => setError({ kind: 'tags', message: '标签加载失败: ' + String(e) }));
+      .catch((e) => setError('tags', '标签加载失败: ' + String(e)));
   }, [clearError]);
 
   /** 拉一页:append=true 追加(offset=当前长度),否则整表重置 */
@@ -55,7 +60,7 @@ export function App(): ReactNode {
       } catch (e) {
         if (id !== seq.current) return;
         // 失败必须与"暂无记录"区分:错误行可见,且停掉分页避免哨兵反复重触发失败请求
-        setError({ kind: 'query', message: '加载笔记失败: ' + String(e) });
+        setError('query', '加载笔记失败: ' + String(e));
         setQueryFailed(true);
         setHasMore(false);
         if (!append) setNotes([]);
@@ -90,15 +95,23 @@ export function App(): ReactNode {
     void fetchPage(0, false);
   }, [fetchPage]);
 
-  /** 就地更新后若不再满足激活的标签筛选,则本地移除(与后端查询结果保持一致) */
+  /**
+   * 变更后落库视图(G5 权衡):
+   * 有关键词筛选时重查首页 —— keyword 同时匹配正文与标签两列,本地判不了命中,正确性优先于滚动位置;
+   * 无关键词时就地更新,并本地移除不再满足标签筛选的条目(保住分页与滚动位置,S3)。
+   */
   const applyNoteChange = useCallback(
     (updated: Note) => {
+      if (needsRefetchAfterChange({ keyword, tags })) {
+        void fetchPage(0, false);
+        return;
+      }
       setNotes((prev) => {
         const next = replaceNote(prev, updated);
         return matchesTagFilter(updated, tags) ? next : next.filter((n) => n.id !== updated.id);
       });
     },
-    [tags]
+    [keyword, tags, fetchPage]
   );
 
   const toggleTag = useCallback((name: string) => {
@@ -116,7 +129,7 @@ export function App(): ReactNode {
           clearError('action');
           loadTags();
         })
-        .catch((e) => setError({ kind: 'action', message: '删除失败: ' + String(e) }));
+        .catch((e) => setError('action', '删除失败: ' + String(e)));
     },
     [loadTags, clearError]
   );
@@ -130,7 +143,7 @@ export function App(): ReactNode {
           clearError('action');
           loadTags();
         })
-        .catch((e) => setError({ kind: 'action', message: '切换待办状态失败: ' + String(e) }));
+        .catch((e) => setError('action', '切换待办状态失败: ' + String(e)));
     },
     [applyNoteChange, loadTags, clearError]
   );
@@ -158,7 +171,7 @@ export function App(): ReactNode {
         oldestFirst={oldestFirst}
         onToggleSort={() => setOldestFirst((v) => !v)}
       />
-      {error && <ErrorBar error={error} onRetry={retry} onDismiss={() => setError(null)} />}
+      <ErrorBars errors={errors} onRetry={retry} onDismiss={clearError} />
       <NoteStream
         notes={notes}
         queryFailed={queryFailed}
