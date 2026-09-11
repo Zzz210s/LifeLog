@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ERROR_KINDS, dropError, putError } from './errors';
+import { ERROR_KINDS, dismissLabel, dropError, putError } from './errors';
 
 describe('putError', () => {
   it('不同来源并存,互不覆盖(跨源覆盖会让先到的错误被永久吞掉)', () => {
@@ -30,5 +30,13 @@ describe('dropError', () => {
 describe('ERROR_KINDS', () => {
   it('覆盖全部来源且顺序稳定(多错误纵向堆叠的渲染顺序)', () => {
     expect([...ERROR_KINDS]).toEqual(['query', 'tags', 'action']);
+  });
+});
+
+describe('dismissLabel', () => {
+  it('每个来源名称不同(多行同屏时读屏才能区分关的是哪条)', () => {
+    const labels = ERROR_KINDS.map(dismissLabel);
+    expect(labels).toEqual(['关闭查询错误提示', '关闭标签错误提示', '关闭操作错误提示']);
+    expect(new Set(labels).size).toBe(labels.length);
   });
 });

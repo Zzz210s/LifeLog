@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { dismissLabel } from './errors';
 
 /** 错误来源:查询分页 / 标签计数 / 操作(删除、勾选、编辑保存) */
 export type ErrorKind = 'query' | 'tags' | 'action';
@@ -29,7 +30,7 @@ export function ErrorBar(p: ErrorBarProps): ReactNode {
       )}
       <button
         onClick={p.onDismiss}
-        aria-label="关闭错误提示"
+        aria-label={dismissLabel(p.error.kind)}
         className="shrink-0 text-red-500 hover:text-red-700"
       >
         关闭
