@@ -3,7 +3,6 @@ import type { Note } from './types';
 
 export const api = {
   saveQuickNote: (content: string) => invoke<Note>('save_quick_note', { content }),
-  listRecentNotes: (limit = 20) => invoke<Note[]>('list_recent_notes', { limit }),
   queryNotes: (p: {
     keyword?: string;
     tags: string[];

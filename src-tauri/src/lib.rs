@@ -24,7 +24,6 @@ pub fn run() {
             commands::settings::get_setting,
             commands::settings::set_setting,
             commands::notes::save_quick_note,
-            commands::notes::list_recent_notes,
             commands::notes::query_notes,
             commands::notes::tag_counts,
             commands::notes::update_note,
