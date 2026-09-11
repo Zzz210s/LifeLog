@@ -34,3 +34,12 @@ export interface FeedFilters {
 export function needsRefetchAfterChange(f: FeedFilters): boolean {
   return f.keyword.trim() !== '';
 }
+
+/**
+ * 快捷窗保存新笔记后,主窗是否应自动回到首页刷新(W1)。
+ * 仅在“未翻页”(列表长度未超首页容量)且“未在编辑”时自动刷新:
+ * 已翻页时回首页会把用户滚动位置弹回;编辑态刷新会卸载 EditPanel、丢掉未保存文本。
+ */
+export function shouldAutoRefresh(noteCount: number, editingId: number | null): boolean {
+  return editingId === null && noteCount <= PAGE;
+}

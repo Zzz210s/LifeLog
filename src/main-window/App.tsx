@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { api } from '../shared/api';
 import type { Note } from '../shared/types';
@@ -8,8 +8,10 @@ import type { ErrorKind } from './ErrorBar';
 import { dropError, putError } from './errors';
 import type { ErrorMap } from './errors';
 import { FilterBar } from './FilterBar';
-import { PAGE, matchesTagFilter, mergeNotes, needsRefetchAfterChange, replaceNote } from './notes-list';
+import { matchesTagFilter, needsRefetchAfterChange, replaceNote } from './notes-list';
 import { NoteStream } from './NoteStream';
+import { useNoteCreatedRefresh } from './use-note-created';
+import { useNotesFeed } from './use-notes-feed';
 import { useNotesExport } from './use-export';
 
 /** 主窗 v2:单列流 = Composer + FilterBar + NoteStream(无左侧导航) */
@@ -17,14 +19,9 @@ export function App(): ReactNode {
   const [keyword, setKeyword] = useState('');
   const [tags, setTags] = useState<string[]>([]);
   const [oldestFirst, setOldestFirst] = useState(false);
-  const [notes, setNotes] = useState<Note[]>([]);
   const [allTags, setAllTags] = useState<{ name: string; count: number }[]>([]);
-  const [hasMore, setHasMore] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<ErrorMap>({});
-  const [queryFailed, setQueryFailed] = useState(false); // 查询失败事实留存,供空态文案判定
   const [editingId, setEditingId] = useState<number | null>(null);
-  const seq = useRef(0); // 过期响应丢弃(快速切筛选/翻页竞态)
 
   /** 按来源留存/清除:G4 单值槽会被跨源覆盖造成错误被吞,改为每个来源一份,成功路径只清同源 */
   const setError = useCallback((kind: ErrorKind, message: string) => {
@@ -34,6 +31,8 @@ export function App(): ReactNode {
     setErrors((prev) => dropError(prev, kind));
   }, []);
   const { exporting, exported, onExport } = useNotesExport(setError, clearError);
+  const { notes, setNotes, hasMore, loading, queryFailed, fetchPage, loadMore, retry } =
+    useNotesFeed({ keyword, tags, oldestFirst }, setError, clearError);
 
   const loadTags = useCallback(() => {
     void api
@@ -45,37 +44,10 @@ export function App(): ReactNode {
       .catch((e) => setError('tags', '标签加载失败: ' + String(e)));
   }, [clearError]);
 
-  /** 拉一页:append=true 追加(offset=当前长度),否则整表重置 */
-  const fetchPage = useCallback(
-    async (offset: number, append: boolean) => {
-      const id = ++seq.current;
-      setLoading(true);
-      try {
-        const page = await api.queryNotes({ keyword, tags, offset, limit: PAGE, oldestFirst });
-        if (id !== seq.current) return;
-        setNotes((prev) => (append ? mergeNotes(prev, page) : page));
-        setHasMore(page.length === PAGE);
-        setQueryFailed(false);
-        clearError('query');
-      } catch (e) {
-        if (id !== seq.current) return;
-        // 失败必须与"暂无记录"区分:错误行可见,且停掉分页避免哨兵反复重触发失败请求
-        setError('query', '加载笔记失败: ' + String(e));
-        setQueryFailed(true);
-        setHasMore(false);
-        if (!append) setNotes([]);
-      } finally {
-        if (id === seq.current) setLoading(false);
-      }
-    },
-    [keyword, tags, oldestFirst, clearError]
-  );
-
-  // 任何筛选变化:整表重查 + 退出编辑态(fetchPage 身份随筛选变化)
+  // 筛选变化:退出编辑态(列表重查由 useNotesFeed 负责)
   useEffect(() => {
     setEditingId(null);
-    void fetchPage(0, false);
-  }, [fetchPage]);
+  }, [keyword, tags, oldestFirst]);
 
   useEffect(loadTags, [loadTags]);
 
@@ -86,14 +58,8 @@ export function App(): ReactNode {
     loadTags();
   }, [fetchPage, loadTags]);
 
-  const loadMore = useCallback(() => {
-    void fetchPage(notes.length, true);
-  }, [fetchPage, notes]);
-
-  /** 查询失败的恢复入口:重发首页(瞬时故障无需改筛选) */
-  const retry = useCallback(() => {
-    void fetchPage(0, false);
-  }, [fetchPage]);
+  // 快捷窗保存后主窗自动出现(W1);已翻页或正在编辑时由 shouldAutoRefresh 拦下
+  useNoteCreatedRefresh(notes.length, editingId, refresh);
 
   /**
    * 变更后落库视图(G5 权衡):
@@ -161,7 +127,7 @@ export function App(): ReactNode {
 
   return (
     <div className="mx-auto flex h-screen w-full max-w-3xl flex-col bg-white text-gray-900">
-      <Composer onSaved={refresh} />
+      <Composer onSaved={refresh} disabled={editingId !== null} />
       <FilterBar
         keyword={keyword}
         onKeyword={setKeyword}

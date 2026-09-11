@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Note } from '../shared/types';
-import { mergeNotes, replaceNote, matchesTagFilter, needsRefetchAfterChange } from './notes-list';
+import { mergeNotes, replaceNote, matchesTagFilter, needsRefetchAfterChange, shouldAutoRefresh, PAGE } from './notes-list';
 import type { FeedFilters } from './notes-list';
 
 const note = (id: number, content = 'x'): Note => ({
@@ -80,5 +80,23 @@ describe('needsRefetchAfterChange', () => {
     expect(decide(missTag, { keyword: '', tags: ['水果'] })).toBe('remove');
     expect(decide(missKw, { keyword: '苹果', tags: ['水果'] })).toBe('refetch');
     expect(decide(hit, { keyword: '苹果', tags: ['水果'] })).toBe('refetch');
+  });
+});
+
+describe('shouldAutoRefresh', () => {
+  it('未翻页且未编辑:自动刷新', () => {
+    expect(shouldAutoRefresh(0, null)).toBe(true);
+    expect(shouldAutoRefresh(PAGE - 1, null)).toBe(true);
+    expect(shouldAutoRefresh(PAGE, null)).toBe(true);
+  });
+
+  it('已翻页(超过首页容量):不刷新,避免把滚动位置弹回顶部', () => {
+    expect(shouldAutoRefresh(PAGE + 1, null)).toBe(false);
+    expect(shouldAutoRefresh(PAGE * 2, null)).toBe(false);
+  });
+
+  it('编辑态:不刷新,避免卸载 EditPanel 丢弃未保存文本', () => {
+    expect(shouldAutoRefresh(0, 7)).toBe(false);
+    expect(shouldAutoRefresh(PAGE, 7)).toBe(false);
   });
 });

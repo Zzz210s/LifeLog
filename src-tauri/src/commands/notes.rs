@@ -1,12 +1,16 @@
 use crate::db::repos;
 use crate::db::Db;
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 #[tauri::command]
 pub fn save_quick_note(app: AppHandle, content: String) -> Result<repos::notes::Note, String> {
     let db: State<Db> = app.state();
     let mut conn = db.0.lock().map_err(|e| e.to_string())?;
-    repos::notes::create(&mut conn, &content).map_err(|e| e.to_string())
+    let note = repos::notes::create(&mut conn, &content).map_err(|e| e.to_string())?;
+    drop(conn);
+    // 跨窗通知:快捷窗保存后主窗在空闲时自动刷新,新笔记无需手动操作即可见
+    let _ = app.emit("note-created", note.id);
+    Ok(note)
 }
 
 /// 流查询:关键词(FTS/LIKE 自适应)+ 标签 AND + 分页排序
