@@ -3,6 +3,7 @@ use tauri_plugin_global_shortcut::GlobalShortcutExt;
 
 mod commands;
 mod db;
+mod exchange;
 mod tags;
 mod windowing;
 
@@ -17,6 +18,7 @@ pub fn run() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec!["--minimized"]),
         ))
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             commands::settings::get_setting,
             commands::settings::set_setting,
@@ -26,6 +28,7 @@ pub fn run() {
             commands::diary::save_diary,
             commands::diary::get_diary,
             commands::diary::diary_dates,
+            commands::exchange::export_diary,
             commands::windowing::hide_quick_window,
             commands::windowing::toggle_quick_pin,
             commands::windowing::set_quick_zoom,

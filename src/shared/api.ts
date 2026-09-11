@@ -15,6 +15,7 @@ export const api = {
   getDiary: (date: string) => invoke<DiaryEntry | null>('get_diary', { date }),
   diaryDates: (year: number, month: number) =>
     invoke<string[]>('diary_dates', { year, month }),
+  exportDiary: (path: string) => invoke<void>('export_diary', { path }),
   hideQuickWindow: () => invoke<void>('hide_quick_window'),
   togglePin: () => invoke<boolean>('toggle_quick_pin'),
   setZoom: (zoom: number) => invoke<void>('set_quick_zoom', { zoom }),
