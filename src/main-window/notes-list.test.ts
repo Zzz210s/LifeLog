@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Note } from '../shared/types';
-import { mergeNotes, replaceNote } from './notes-list';
+import { mergeNotes, replaceNote, matchesTagFilter } from './notes-list';
 
 const note = (id: number, content = 'x'): Note => ({
   id,
@@ -35,5 +35,23 @@ describe('replaceNote', () => {
   it('id 不在列表中原样返回', () => {
     const prev = [note(1)];
     expect(replaceNote(prev, note(9))).toEqual(prev);
+  });
+});
+
+describe('matchesTagFilter', () => {
+  it('未激活任何标签时恒命中', () => {
+    expect(matchesTagFilter(note(1), [])).toBe(true);
+  });
+
+  it('激活标签全部命中才保留', () => {
+    const n = { ...note(1), tags: ['a', 'b'] };
+    expect(matchesTagFilter(n, ['a'])).toBe(true);
+    expect(matchesTagFilter(n, ['a', 'b'])).toBe(true);
+  });
+
+  it('缺任一激活标签即不命中(需从列表移除)', () => {
+    const n = { ...note(1), tags: ['a'] };
+    expect(matchesTagFilter(n, ['a', 'b'])).toBe(false);
+    expect(matchesTagFilter(n, ['b'])).toBe(false);
   });
 });

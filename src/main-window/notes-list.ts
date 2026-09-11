@@ -10,3 +10,8 @@ export function mergeNotes(prev: Note[], page: Note[]): Note[] {
 export function replaceNote(prev: Note[], next: Note): Note[] {
   return prev.map((n) => (n.id === next.id ? next : n));
 }
+
+/** 激活标签筛选是否仍全部命中该条:就地更新(勾选/编辑掉标签)后据此决定是否从列表移除 */
+export function matchesTagFilter(note: Note, tags: string[]): boolean {
+  return tags.every((t) => note.tags.includes(t));
+}
