@@ -99,6 +99,9 @@ pub(crate) fn fold_tag_rows(rows: impl Iterator<Item = rusqlite::Result<NoteRow>
     Ok(out)
 }
 
+/// 最近 N 条(id 降序,含标签)。当前仅测试使用,生产路径走 query;
+/// 标 #[cfg(test)] 以消除非 test 构建的 dead_code 警告。
+#[cfg(test)]
 pub fn recent(conn: &Connection, limit: u32) -> rusqlite::Result<Vec<Note>> {
     let mut stmt = conn.prepare(
         "SELECT n.id, n.content, n.created_at, t.name
