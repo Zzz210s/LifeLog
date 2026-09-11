@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../shared/api';
+import { prepareForSave } from '../shared/note-source';
 import type { Note } from '../shared/types';
 import { wheelZoom } from '../shared/zoom';
 import { HeaderControls } from './HeaderControls';
-import { RecentList } from './RecentList';
+
+/** 输入区最多长到 5 行,再多转内部滚动(搜索栏规格) */
+const MAX_LINES = 5;
 
 export function QuickCapture() {
   const [content, setContent] = useState('');
@@ -11,14 +14,13 @@ export function QuickCapture() {
   const [error, setError] = useState('');
   const [zoom, setZoom] = useState(1);
   const [pinned, setPinned] = useState(true);
-  const [showRecent, setShowRecent] = useState(false);
-  const [recent, setRecent] = useState<Note[]>([]);
+  const [focused, setFocused] = useState(false);
   const zoomRef = useRef(1);
   const zoomTimer = useRef<number | null>(null);
   const saveTimer = useRef<number | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    void api.listRecentNotes().then(setRecent).catch(() => {});
     void api
       .getSetting('quick_always_on_top')
       .then((v) => setPinned(v !== 'false')) // 与 Rust show() 的持久化置顶状态同步;null 视为 true
@@ -56,15 +58,29 @@ export function QuickCapture() {
     return () => window.removeEventListener('wheel', onWheel);
   }, []);
 
+  /** 单行起自动长高:先归零再按内容撑开;到 5 行封顶,超出由 overflow-y 内部滚动 */
+  const resize = useCallback(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    const cs = getComputedStyle(el);
+    const line = parseFloat(cs.lineHeight) || 20;
+    const pad = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+    const border = parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth);
+    const max = line * MAX_LINES + pad + border;
+    el.style.height = Math.min(el.scrollHeight + border, max) + 'px';
+  }, []);
+
   const save = useCallback(async () => {
-    const text = content.trim();
+    const text = prepareForSave(content); // 只裁行尾空白:整条缩进代码块的首行缩进必须保留
     if (!text) return;
     try {
       const note = await api.saveQuickNote(text);
       setContent('');
       setError('');
       setSaved(note);
-      setRecent((prev) => [note, ...prev.filter((n) => n.id !== note.id)].slice(0, 20));
+      // 保存成功收回单行
+      if (inputRef.current) inputRef.current.style.height = 'auto';
       if (saveTimer.current) clearTimeout(saveTimer.current);
       saveTimer.current = window.setTimeout(() => setSaved(null), 2000);
     } catch (e) {
@@ -91,24 +107,37 @@ export function QuickCapture() {
   };
 
   return (
-    <div className="flex h-screen flex-col bg-white text-gray-800 text-sm">
+    <div className="flex h-screen flex-col bg-white text-sm text-gray-800">
       <HeaderControls
         pinned={pinned}
         zoom={zoom}
         onTogglePin={togglePin}
-        onToggleRecent={() => setShowRecent((v) => !v)}
         onHide={() => void api.hideQuickWindow()}
       />
-      <textarea
-        autoFocus
-        aria-label="快速输入内容"
-        name="content"
-        value={content}
-        onChange={(e) => setContent(e.target.value)}
-        onKeyDown={onKeyDown}
-        placeholder="记录... #标签 自动归类;滚轮缩放;Ctrl+Enter 保存;Esc 隐藏"
-        className="flex-1 resize-none px-3 py-2 outline-none bg-transparent leading-relaxed"
-      />
+      <div className="relative flex flex-1 flex-col px-2 pt-1.5">
+        <textarea
+          ref={inputRef}
+          autoFocus
+          rows={1}
+          aria-label="快速输入内容"
+          name="content"
+          value={content}
+          onChange={(e) => {
+            setContent(e.target.value);
+            resize();
+          }}
+          onKeyDown={onKeyDown}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          placeholder="记点什么... #标签 自动归类"
+          className="w-full resize-none overflow-y-auto rounded-2xl border border-gray-200 bg-white px-3 py-1.5 leading-relaxed outline-none transition-colors focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+        />
+        {focused && (
+          <div className="pointer-events-none absolute inset-x-2 bottom-0 rounded-b-2xl bg-blue-50/95 px-3 py-1 text-xs text-blue-500">
+            Ctrl+Enter 保存 · Esc 隐藏 · #标签 自动归类
+          </div>
+        )}
+      </div>
       <div className="flex h-7 items-center justify-between px-3 text-xs">
         <span className={saved ? 'text-green-600' : 'text-gray-400'}>
           {saved
@@ -117,13 +146,12 @@ export function QuickCapture() {
               }`
             : error
               ? '保存失败: ' + error
-              : 'Ctrl+Enter 保存'}
+              : ''}
         </span>
         <button onClick={() => void save()} className="text-blue-600 hover:underline">
           保存
         </button>
       </div>
-      {showRecent && <RecentList notes={recent} onPick={(n) => setContent(n.content)} />}
     </div>
   );
 }

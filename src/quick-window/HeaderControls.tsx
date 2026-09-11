@@ -2,11 +2,10 @@ interface Props {
   pinned: boolean;
   zoom: number;
   onTogglePin: () => void;
-  onToggleRecent: () => void;
   onHide: () => void;
 }
 
-export function HeaderControls({ pinned, zoom, onTogglePin, onToggleRecent, onHide }: Props) {
+export function HeaderControls({ pinned, zoom, onTogglePin, onHide }: Props) {
   return (
     <div
       data-tauri-drag-region
@@ -16,9 +15,6 @@ export function HeaderControls({ pinned, zoom, onTogglePin, onToggleRecent, onHi
       <span>{Math.round(zoom * 100)}%</span>
       <button onClick={onTogglePin} className="hover:text-gray-800" title="切换置顶">
         {pinned ? '[置顶]' : '[浮动]'}
-      </button>
-      <button onClick={onToggleRecent} className="hover:text-gray-800" title="最近 20 条">
-        最近
       </button>
       <button onClick={onHide} className="hover:text-gray-800" title="隐藏 (Esc)">
         收起
