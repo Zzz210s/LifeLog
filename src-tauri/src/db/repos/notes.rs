@@ -12,7 +12,8 @@ pub struct Note {
 /// 存库前移除 #标签 词元:单遍扫描原文(词法同 extract_tags,共用 scan_tag_token),
 /// 保留非标签段、丢弃标签 token、裸 # 保留,最后逐行折叠空白并保留行结构
 /// (多行笔记的换行与空行原样保留;标签折叠进 tags/tag_links,原文保留会双重展示)
-fn strip_tags(content: &str) -> String {
+/// 供 diary 复用:日记正文入库前同样剥离 #标签
+pub(crate) fn strip_tags(content: &str) -> String {
     let content = content.replace("\r\n", "\n"); // 统一换行,防 Windows 端混入 \r
     let mut out = String::new();
     let mut chars = content.chars().peekable();
