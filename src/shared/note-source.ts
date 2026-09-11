@@ -11,3 +11,11 @@ export function composeSource(content: string, tags: string[]): string {
   if (!tagLine) return body;
   return body ? `${body}\n${tagLine}` : tagLine;
 }
+
+/**
+ * 保存前归一:只裁行尾空白。
+ * 不能整体 trim:整条笔记是缩进代码块时,trim 会把首行缩进切掉,使“编辑-保存”往返损失数据。
+ */
+export function normalizeForSave(source: string): string {
+  return source.trimEnd();
+}

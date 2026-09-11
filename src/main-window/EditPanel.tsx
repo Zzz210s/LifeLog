@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { api } from '../shared/api';
 import { renderMarkdown } from '../shared/markdown';
-import { composeSource } from '../shared/note-source';
+import { composeSource, normalizeForSave } from '../shared/note-source';
 import type { Note } from '../shared/types';
 import { MarkdownBody } from './MarkdownBody';
 
@@ -31,8 +31,8 @@ export function EditPanel(p: EditPanelProps): ReactNode {
   };
 
   const save = async () => {
-    const text = source.trim();
-    if (!text || saving) return;
+    const text = normalizeForSave(source); // 只裁行尾空白:整体 trim 会吞掉首行缩进(整条缩进代码块)
+    if (!text.trim() || saving) return;
     setSaving(true);
     setError('');
     try {
