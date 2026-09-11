@@ -3,8 +3,10 @@ import type { ReactNode } from 'react';
 import { api } from '../shared/api';
 import type { Note } from '../shared/types';
 import { Composer } from './Composer';
+import { ErrorBar } from './ErrorBar';
+import type { AppError } from './ErrorBar';
 import { FilterBar } from './FilterBar';
-import { mergeNotes, replaceNote } from './notes-list';
+import { matchesTagFilter, mergeNotes, replaceNote } from './notes-list';
 import { NoteStream } from './NoteStream';
 
 const PAGE = 50;
@@ -18,16 +20,25 @@ export function App(): ReactNode {
   const [allTags, setAllTags] = useState<{ name: string; count: number }[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState<AppError | null>(null);
+  const [queryFailed, setQueryFailed] = useState(false); // 查询失败事实留存,供空态文案判定
   const [editingId, setEditingId] = useState<number | null>(null);
   const seq = useRef(0); // 过期响应丢弃(快速切筛选/翻页竞态)
+
+  /** 按来源清除:成功路径只清与本次操作同源的错误,不牵连其他来源 */
+  const clearError = useCallback((kind: AppError['kind']) => {
+    setError((prev) => (prev && prev.kind === kind ? null : prev));
+  }, []);
 
   const loadTags = useCallback(() => {
     void api
       .tagCounts()
-      .then((rows) => setAllTags(rows.map(([name, count]) => ({ name, count }))))
-      .catch((e) => setError('标签加载失败: ' + String(e)));
-  }, []);
+      .then((rows) => {
+        setAllTags(rows.map(([name, count]) => ({ name, count })));
+        clearError('tags');
+      })
+      .catch((e) => setError({ kind: 'tags', message: '标签加载失败: ' + String(e) }));
+  }, [clearError]);
 
   /** 拉一页:append=true 追加(offset=当前长度),否则整表重置 */
   const fetchPage = useCallback(
@@ -39,18 +50,20 @@ export function App(): ReactNode {
         if (id !== seq.current) return;
         setNotes((prev) => (append ? mergeNotes(prev, page) : page));
         setHasMore(page.length === PAGE);
-        setError('');
+        setQueryFailed(false);
+        clearError('query');
       } catch (e) {
         if (id !== seq.current) return;
         // 失败必须与"暂无记录"区分:错误行可见,且停掉分页避免哨兵反复重触发失败请求
-        setError('加载笔记失败: ' + String(e));
+        setError({ kind: 'query', message: '加载笔记失败: ' + String(e) });
+        setQueryFailed(true);
         setHasMore(false);
         if (!append) setNotes([]);
       } finally {
         if (id === seq.current) setLoading(false);
       }
     },
-    [keyword, tags, oldestFirst]
+    [keyword, tags, oldestFirst, clearError]
   );
 
   // 任何筛选变化:整表重查 + 退出编辑态(fetchPage 身份随筛选变化)
@@ -72,6 +85,22 @@ export function App(): ReactNode {
     void fetchPage(notes.length, true);
   }, [fetchPage, notes]);
 
+  /** 查询失败的恢复入口:重发首页(瞬时故障无需改筛选) */
+  const retry = useCallback(() => {
+    void fetchPage(0, false);
+  }, [fetchPage]);
+
+  /** 就地更新后若不再满足激活的标签筛选,则本地移除(与后端查询结果保持一致) */
+  const applyNoteChange = useCallback(
+    (updated: Note) => {
+      setNotes((prev) => {
+        const next = replaceNote(prev, updated);
+        return matchesTagFilter(updated, tags) ? next : next.filter((n) => n.id !== updated.id);
+      });
+    },
+    [tags]
+  );
+
   const toggleTag = useCallback((name: string) => {
     setTags((prev) => (prev.includes(name) ? prev.filter((t) => t !== name) : [...prev, name]));
   }, []);
@@ -84,12 +113,12 @@ export function App(): ReactNode {
         .then(() => {
           setNotes((prev) => prev.filter((n) => n.id !== note.id));
           setEditingId(null);
-          setError('');
+          clearError('action');
           loadTags();
         })
-        .catch((e) => setError('删除失败: ' + String(e)));
+        .catch((e) => setError({ kind: 'action', message: '删除失败: ' + String(e) }));
     },
-    [loadTags]
+    [loadTags, clearError]
   );
 
   const toggleTodo = useCallback(
@@ -97,24 +126,24 @@ export function App(): ReactNode {
       void api
         .toggleTodo(note.id)
         .then((updated) => {
-          if (updated) setNotes((prev) => replaceNote(prev, updated));
-          setError('');
+          if (updated) applyNoteChange(updated);
+          clearError('action');
           loadTags();
         })
-        .catch((e) => setError('切换待办状态失败: ' + String(e)));
+        .catch((e) => setError({ kind: 'action', message: '切换待办状态失败: ' + String(e) }));
     },
-    [loadTags]
+    [applyNoteChange, loadTags, clearError]
   );
 
   /** 编辑保存:用命令返回的就地更新,不重置分页(用户滚到深处编辑不会被弹回顶部) */
   const onEditSaved = useCallback(
     (note: Note) => {
-      setNotes((prev) => replaceNote(prev, note));
+      applyNoteChange(note);
       setEditingId(null);
-      setError('');
+      clearError('action');
       loadTags();
     },
-    [loadTags]
+    [applyNoteChange, loadTags, clearError]
   );
 
   return (
@@ -129,23 +158,11 @@ export function App(): ReactNode {
         oldestFirst={oldestFirst}
         onToggleSort={() => setOldestFirst((v) => !v)}
       />
-      {error && (
-        <div className="flex items-center gap-2 border-b border-red-200 bg-red-50 px-4 py-1.5 text-xs text-red-600">
-          <span role="alert" className="min-w-0 flex-1 truncate">
-            {error}
-          </span>
-          <button
-            onClick={() => setError('')}
-            aria-label="关闭错误提示"
-            className="shrink-0 text-red-500 hover:text-red-700"
-          >
-            关闭
-          </button>
-        </div>
-      )}
+      {error && <ErrorBar error={error} onRetry={retry} onDismiss={() => setError(null)} />}
       <NoteStream
         notes={notes}
-        error={error}
+        queryFailed={queryFailed}
+        onRetry={retry}
         activeTags={tags}
         editingId={editingId}
         hasMore={hasMore}

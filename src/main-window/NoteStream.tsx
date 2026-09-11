@@ -6,8 +6,10 @@ import { NoteItem } from './NoteItem';
 
 export interface NoteStreamProps {
   notes: Note[];
-  /** 非空时错误态优先于空态文案(查询失败不能伪装成"暂无记录") */
-  error: string;
+  /** 查询是否处于失败态:空列表据此显示失败文案而非"暂无记录"(即使错误行已被关闭) */
+  queryFailed: boolean;
+  /** 查询失败时的重试入口(重发首页) */
+  onRetry: () => void;
   activeTags: string[];
   editingId: number | null;
   hasMore: boolean;
@@ -24,6 +26,7 @@ export interface NoteStreamProps {
 /** 时间流:滚动到底自动加载;被编辑条目原位展开为分屏 */
 export function NoteStream(p: NoteStreamProps): ReactNode {
   const [sentinel, setSentinel] = useState<HTMLDivElement | null>(null);
+  const [scroller, setScroller] = useState<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!sentinel) return;
@@ -31,18 +34,31 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
       (entries) => {
         if (entries.some((e) => e.isIntersecting) && p.hasMore && !p.loading) p.onLoadMore();
       },
-      { rootMargin: '200px' } // 提前 200px 预取,改善滚动手感
+      // root 必须指向内层滚动容器:哨兵在该容器内,隐式 root=视口时二者永不相交,rootMargin 也不生效
+      { root: scroller, rootMargin: '200px' }
     );
     io.observe(sentinel);
     return () => io.disconnect();
     // 依赖变化时重建观察器:翻页/筛选/加载态翻转后需重新评估哨兵可见性
-  }, [sentinel, p.hasMore, p.loading, p.onLoadMore, p.notes.length]);
+  }, [sentinel, scroller, p.hasMore, p.loading, p.onLoadMore, p.notes.length]);
 
   return (
-    <div className="flex-1 overflow-y-auto">
+    <div ref={setScroller} className="flex-1 overflow-y-auto">
       {p.notes.length === 0 && !p.loading && (
-        <div className="flex h-full items-center justify-center text-sm text-gray-400">
-          {p.error ? '加载失败,请检查后重试' : '暂无记录,用快捷窗记点什么吧'}
+        <div className="flex h-full flex-col items-center justify-center gap-2 text-sm text-gray-400">
+          {p.queryFailed ? (
+            <>
+              <span>加载失败,请检查后重试</span>
+              <button
+                onClick={p.onRetry}
+                className="rounded border border-gray-300 px-2 py-0.5 text-xs text-gray-600 hover:bg-gray-50"
+              >
+                重试
+              </button>
+            </>
+          ) : (
+            '暂无记录,用快捷窗记点什么吧'
+          )}
         </div>
       )}
       <ul>
