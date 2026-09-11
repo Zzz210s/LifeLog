@@ -15,8 +15,19 @@ describe('composeSource', () => {
     expect(composeSource('   \n', ['a'])).toBe('#a');
   });
 
-  it('无标签时返回修剪后的正文', () => {
-    expect(composeSource(' 正文 \n', [])).toBe('正文');
+  it('无标签时只裁行尾空白，保留首行缩进', () => {
+    expect(composeSource(' 正文 \n', [])).toBe(' 正文');
     expect(composeSource('', [])).toBe('');
+  });
+
+  it('只裁行尾空白：整条缩进代码块与首行缩进往返不损失', () => {
+    expect(composeSource('    const a = 1;\n    const b = 2;', ['x'])).toBe(
+      '    const a = 1;\n    const b = 2;\n#x'
+    );
+    expect(composeSource('  - 任务\n  - 任务二', ['x'])).toBe('  - 任务\n  - 任务二\n#x');
+  });
+
+  it('去掉末尾多余空行', () => {
+    expect(composeSource('正文\n\n\n', ['x'])).toBe('正文\n#x');
   });
 });

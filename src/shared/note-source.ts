@@ -3,9 +3,10 @@
  * note.content 是已剥离标签的正文,编辑时补回 #标签 供用户查看/修改(保存时后端重新剥离)。
  * 用换行而非空格追加:否则正文以围栏代码块结尾时 ` #tag` 会落在闭合围栏行上,
  * 使围栏失效并让实时预览吞掉余下内容。
+ * 正文只裁行尾空白(不裁行首):整条笔记是缩进代码块时,整体 trim 会吞掉首行缩进造成往返损失。
  */
 export function composeSource(content: string, tags: string[]): string {
-  const body = content.trim();
+  const body = content.trimEnd();
   const tagLine = tags.map((t) => '#' + t).join(' ');
   if (!tagLine) return body;
   return body ? `${body}\n${tagLine}` : tagLine;
