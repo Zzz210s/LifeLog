@@ -46,8 +46,15 @@ pub fn show(app: &AppHandle) -> tauri::Result<()> {
             }
         }
         if let Some(z) = get_setting(app, "quick_zoom").and_then(|s| s.parse::<f64>().ok()) {
+            // 读回值可能被手改成 NaN/越界,收敛到 0.5-2.0(非有限值回退 1.0)
+            let z = if z.is_finite() { z.clamp(0.5, 2.0) } else { 1.0 };
             let _ = w.set_zoom(z);
         }
+        // 恢复记忆的置顶状态(默认 true);隐藏窗口上设置亦安全,须在 show 前
+        let pin = get_setting(app, "quick_always_on_top")
+            .map(|v| v != "false")
+            .unwrap_or(true);
+        let _ = w.set_always_on_top(pin);
         w.show()?;
         w.set_focus()?;
     }

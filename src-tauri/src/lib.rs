@@ -1,4 +1,5 @@
 use tauri::Manager;
+use tauri_plugin_global_shortcut::GlobalShortcutExt;
 
 mod commands;
 mod db;
@@ -31,7 +32,6 @@ pub fn run() {
             windowing::events::register(app)?;
             app.handle().plugin(
                 tauri_plugin_global_shortcut::Builder::new()
-                    .with_shortcuts(["ctrl+shift+q"])?
                     .with_handler(|app, _shortcut, event| {
                         if event.state == tauri_plugin_global_shortcut::ShortcutState::Pressed {
                             let _ = windowing::quick::toggle(app);
@@ -39,6 +39,10 @@ pub fn run() {
                     })
                     .build(),
             )?;
+            // 热键注册失败(如被其他应用占用)不阻断启动,快捷窗仍可从托盘唤起
+            if let Err(e) = app.global_shortcut().register("ctrl+shift+q") {
+                eprintln!("全局热键注册失败,快捷窗仍可从托盘唤起:{e}");
+            }
             // 手动启动(无 --minimized)时显示主窗口;自启静默进托盘
             if !std::env::args().any(|a| a == "--minimized") {
                 if let Some(w) = app.get_webview_window("main") {
