@@ -5,6 +5,9 @@ docs/superpowers/
 .claude/
 .aider*
 
+# 本机特定:构建产物重定向到其他盘(见 .cargo/config.toml)
+.cargo/
+
 # 依赖与构建
 node_modules/
 dist/
