@@ -9,8 +9,10 @@ export interface FilterBarProps {
   onToggleTag: (name: string) => void;
   oldestFirst: boolean;
   onToggleSort: () => void;
-  /** 导出(阶段 4 Task 4 接入;未传则不渲染按钮) */
+  /** 导出(整库 xlsx;未传则不渲染按钮) */
   onExport?: () => void;
+  exporting?: boolean;
+  exported?: boolean;
 }
 
 /** 筛选栏:关键词(内部 300ms 防抖上抛)| 标签多选 chips | 排序切换 | 导出(可选) */
@@ -55,12 +57,16 @@ export function FilterBar(p: FilterBarProps): ReactNode {
           排序: {p.oldestFirst ? '最早' : '最新'}
         </button>
         {p.onExport && (
-          <button
-            onClick={p.onExport}
-            className="h-8 shrink-0 rounded-md border border-gray-300 px-2.5 text-xs text-gray-600 hover:border-blue-500 hover:text-blue-600"
-          >
-            导出
-          </button>
+          <>
+            {p.exported && <span className="shrink-0 text-xs text-green-600">已导出</span>}
+            <button
+              onClick={p.onExport}
+              disabled={p.exporting}
+              className="h-8 shrink-0 rounded-md border border-gray-300 px-2.5 text-xs text-gray-600 hover:border-blue-500 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {p.exporting ? '导出中' : '导出'}
+            </button>
+          </>
         )}
       </div>
       {p.allTags.length > 0 && (

@@ -10,6 +10,7 @@ import type { ErrorMap } from './errors';
 import { FilterBar } from './FilterBar';
 import { matchesTagFilter, mergeNotes, needsRefetchAfterChange, replaceNote } from './notes-list';
 import { NoteStream } from './NoteStream';
+import { useNotesExport } from './use-export';
 
 const PAGE = 50;
 
@@ -34,6 +35,7 @@ export function App(): ReactNode {
   const clearError = useCallback((kind: ErrorKind) => {
     setErrors((prev) => dropError(prev, kind));
   }, []);
+  const { exporting, exported, onExport } = useNotesExport(setError, clearError);
 
   const loadTags = useCallback(() => {
     void api
@@ -170,6 +172,9 @@ export function App(): ReactNode {
         onToggleTag={toggleTag}
         oldestFirst={oldestFirst}
         onToggleSort={() => setOldestFirst((v) => !v)}
+        onExport={() => void onExport()}
+        exporting={exporting}
+        exported={exported}
       />
       <ErrorBars errors={errors} onRetry={retry} onDismiss={clearError} />
       <NoteStream
