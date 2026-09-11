@@ -59,7 +59,9 @@ export function App(): ReactNode {
   }, [fetchPage, loadTags]);
 
   // 快捷窗保存后主窗自动出现(W1);已翻页或正在编辑时由 shouldAutoRefresh 拦下
-  useNoteCreatedRefresh(notes.length, editingId, refresh);
+  useNoteCreatedRefresh(notes.length, editingId, refresh, (m) =>
+    setError('action', m)
+  );
 
   /**
    * 变更后落库视图(G5 权衡):
