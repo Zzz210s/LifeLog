@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../shared/api';
 import type { Note } from '../shared/types';
-import { clampZoom } from '../shared/zoom';
+import { wheelZoom } from '../shared/zoom';
 import { HeaderControls } from './HeaderControls';
 import { RecentList } from './RecentList';
 
@@ -33,13 +33,19 @@ export function QuickCapture() {
       .catch(() => {});
   }, []);
 
-  // Ctrl+滚轮缩放(WebView2 zoom factor)
+  // 裸滚轮缩放(贴纸式,固定行为);目标处于可滚动容器内时深先滚动内容
   useEffect(() => {
+    const inScrollable = (t: EventTarget | null): boolean => {
+      for (let el = t as HTMLElement | null; el && el !== document.body; el = el.parentElement) {
+        if (el.scrollHeight > el.clientHeight) return true;
+      }
+      return false;
+    };
     const onWheel = (e: WheelEvent) => {
-      if (!e.ctrlKey) return;
       if (e.deltaY === 0) return;
+      if (inScrollable(e.target)) return;
       e.preventDefault();
-      const next = clampZoom(zoomRef.current + (e.deltaY < 0 ? 0.05 : -0.05));
+      const next = wheelZoom(zoomRef.current, e.deltaY);
       if (next === zoomRef.current) return;
       zoomRef.current = next;
       setZoom(next);
@@ -100,13 +106,15 @@ export function QuickCapture() {
         value={content}
         onChange={(e) => setContent(e.target.value)}
         onKeyDown={onKeyDown}
-        placeholder="记录... 行内 #标签 自动归类;Ctrl+Enter 保存;Esc 隐藏"
+        placeholder="记录... #标签 自动归类;滚轮缩放;Ctrl+Enter 保存;Esc 隐藏"
         className="flex-1 resize-none px-3 py-2 outline-none bg-transparent leading-relaxed"
       />
       <div className="flex h-7 items-center justify-between px-3 text-xs">
         <span className={saved ? 'text-green-600' : 'text-gray-400'}>
           {saved
-            ? `已保存${saved.tags.length ? ': ' + saved.tags.map((t) => '#' + t).join(' ') : ''}`
+            ? `已保存 ${saved.created_at.slice(11, 16)}${
+                saved.tags.length ? ' ' + saved.tags.map((t) => '#' + t).join(' ') : ''
+              }`
             : error
               ? '保存失败: ' + error
               : 'Ctrl+Enter 保存'}

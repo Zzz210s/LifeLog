@@ -13,6 +13,7 @@ export function RecentList({ notes, onPick }: { notes: Note[]; onPick: (n: Note)
           className="block w-full truncate px-3 py-1.5 text-left text-xs hover:bg-gray-100"
           title={n.content}
         >
+          <span className="text-gray-400 mr-1 shrink-0">{n.created_at.slice(5, 16)}</span>
           {n.tags.length > 0 && (
             <span className="text-blue-500 mr-1">{n.tags.map((t) => `#${t}`).join(' ')}</span>
           )}

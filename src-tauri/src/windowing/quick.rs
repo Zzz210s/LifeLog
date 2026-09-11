@@ -76,9 +76,9 @@ pub fn hide(app: &AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
-/// 失焦是否自动隐藏(默认 true)
+/// 失焦是否自动隐藏(贴纸模式:默认不隐藏,仅显式设 "true" 才隐藏)
 pub fn blur_hide_enabled(app: &AppHandle) -> bool {
-    get_setting(app, "quick_hide_on_blur").map(|v| v != "false").unwrap_or(true)
+    get_setting(app, "quick_hide_on_blur").map(|v| v == "true").unwrap_or(false)
 }
 
 pub fn set_zoom(app: &AppHandle, zoom: f32) -> Result<(), String> {
