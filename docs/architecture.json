@@ -1,0 +1,289 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "app-lifelog Architecture",
+    "locale": "en",
+    "quality_profile": "standard",
+    "views": [
+      {
+        "id": "capture-path",
+        "label": "Quick capture path",
+        "focus": ["quick-window", "shared", "cmd-notes", "domain-repos", "domain-tags", "sqlite", "fts"],
+        "note": "Save from the quick window, tokenise #tags, write notes + tag_links, keep FTS in sync."
+      },
+      {
+        "id": "query-path",
+        "label": "Main window query path",
+        "focus": ["main-window", "shared", "cmd-notes", "domain-repos", "sqlite", "fts"],
+        "note": "query_notes goes through FTS5 MATCH for 3+ characters and falls back to LIKE."
+      },
+      {
+        "id": "side-paths",
+        "label": "Export and window control",
+        "focus": ["main-window", "shared", "cmd-exchange", "domain-exchange", "cmd-windowing", "domain-windowing"],
+        "note": "Excel export and tray / quick-window geometry are separate side branches."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "main-window",
+      "type": "frontend",
+      "label": "Main Window",
+      "sublabel": "index.html",
+      "tag": "use-notes-feed.ts",
+      "pos": [40, 60],
+      "size": [180, 64]
+    },
+    {
+      "id": "quick-window",
+      "type": "frontend",
+      "label": "Quick Capture Window",
+      "sublabel": "quick.html",
+      "tag": "QuickCapture.tsx",
+      "pos": [40, 300],
+      "size": [180, 64]
+    },
+    {
+      "id": "shared",
+      "type": "frontend",
+      "label": "src/shared/",
+      "sublabel": "api.ts, markdown.ts, links.ts",
+      "tag": "DOMPurify on every render",
+      "pos": [300, 160],
+      "size": [190, 72]
+    },
+    {
+      "id": "cmd-notes",
+      "type": "backend",
+      "label": "commands/notes.rs",
+      "sublabel": "save_quick_note, query_notes",
+      "tag": "update / toggle_todo / delete",
+      "pos": [590, 40],
+      "size": [180, 64]
+    },
+    {
+      "id": "cmd-settings",
+      "type": "backend",
+      "label": "commands/settings.rs",
+      "sublabel": "get_setting, set_setting",
+      "pos": [590, 200],
+      "size": [180, 64]
+    },
+    {
+      "id": "cmd-exchange",
+      "type": "backend",
+      "label": "commands/exchange.rs",
+      "sublabel": "export_notes",
+      "tag": "async, writes outside the lock",
+      "pos": [590, 360],
+      "size": [180, 64]
+    },
+    {
+      "id": "cmd-windowing",
+      "type": "backend",
+      "label": "commands/windowing.rs",
+      "sublabel": "hide_quick_window, pin, zoom",
+      "tag": "set_quick_zoom",
+      "pos": [590, 520],
+      "size": [180, 64]
+    },
+    {
+      "id": "domain-repos",
+      "type": "backend",
+      "label": "db/repos/",
+      "sublabel": "notes, notes_query, update",
+      "tag": "settings, tags repos",
+      "pos": [860, 40],
+      "size": [180, 64]
+    },
+    {
+      "id": "domain-tags",
+      "type": "backend",
+      "label": "tags.rs",
+      "sublabel": "extract_tags / strip_tags",
+      "tag": "#tag lexer",
+      "pos": [860, 200],
+      "size": [180, 64]
+    },
+    {
+      "id": "domain-exchange",
+      "type": "backend",
+      "label": "exchange/notes_export.rs",
+      "sublabel": "worksheet rows",
+      "tag": "rust_xlsxwriter",
+      "pos": [860, 360],
+      "size": [180, 64]
+    },
+    {
+      "id": "domain-windowing",
+      "type": "backend",
+      "label": "windowing/",
+      "sublabel": "tray.rs, events.rs, quick.rs",
+      "tag": "tray + ctrl+shift+q",
+      "pos": [860, 520],
+      "size": [180, 64]
+    },
+    {
+      "id": "sqlite",
+      "type": "database",
+      "label": "SQLite lifelog.db",
+      "sublabel": "notes, tags, tag_links",
+      "tag": "settings + WAL + FK + busy_timeout",
+      "pos": [1110, 120],
+      "size": [180, 80]
+    },
+    {
+      "id": "fts",
+      "type": "database",
+      "label": "notes_fts (FTS5)",
+      "sublabel": "content + tags, trigram",
+      "tag": "5 sync triggers",
+      "pos": [1110, 360],
+      "size": [180, 80]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Frontend: TypeScript + React",
+      "wraps": ["main-window", "quick-window", "shared"]
+    },
+    {
+      "kind": "region",
+      "label": "Rust: Tauri command and domain core",
+      "wraps": [
+        "cmd-notes",
+        "cmd-settings",
+        "cmd-exchange",
+        "cmd-windowing",
+        "domain-repos",
+        "domain-tags",
+        "domain-exchange",
+        "domain-windowing",
+        "sqlite",
+        "fts"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "main-to-shared",
+      "from": "main-window",
+      "to": "shared",
+      "label": "invoke"
+    },
+    {
+      "id": "quick-to-shared",
+      "from": "quick-window",
+      "to": "shared",
+      "label": "invoke"
+    },
+    {
+      "id": "shared-to-notes",
+      "from": "shared",
+      "to": "cmd-notes",
+      "label": "IPC",
+      "labelSegment": 1
+    },
+    {
+      "id": "shared-to-settings",
+      "from": "shared",
+      "to": "cmd-settings",
+      "label": "IPC",
+      "labelSegment": 2
+    },
+    {
+      "id": "shared-to-exchange",
+      "from": "shared",
+      "to": "cmd-exchange",
+      "label": "IPC",
+      "labelSegment": 2
+    },
+    {
+      "id": "shared-to-windowing",
+      "from": "shared",
+      "to": "cmd-windowing",
+      "label": "IPC",
+      "labelSegment": 2
+    },
+    {
+      "id": "notes-to-repos",
+      "from": "cmd-notes",
+      "to": "domain-repos",
+      "label": "notes repo"
+    },
+    {
+      "id": "settings-to-repos",
+      "from": "cmd-settings",
+      "to": "domain-repos",
+      "label": "settings repo"
+    },
+    {
+      "id": "exchange-to-export",
+      "from": "cmd-exchange",
+      "to": "domain-exchange",
+      "label": "xlsx bytes"
+    },
+    {
+      "id": "windowing-to-domain",
+      "from": "cmd-windowing",
+      "to": "domain-windowing",
+      "label": "window ctl"
+    },
+    {
+      "id": "repos-to-tags",
+      "from": "domain-repos",
+      "to": "domain-tags",
+      "label": "tag parser",
+      "labelAt": [950, 148]
+    },
+    {
+      "id": "repos-to-sqlite",
+      "from": "domain-repos",
+      "to": "sqlite",
+      "label": "rusqlite SQL"
+    },
+    {
+      "id": "sqlite-to-fts",
+      "from": "sqlite",
+      "to": "fts",
+      "label": "5 triggers",
+      "labelAt": [1220, 277]
+    },
+    {
+      "id": "notes-event-to-main",
+      "from": "cmd-notes",
+      "to": "main-window",
+      "label": "note-created",
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Two windows, one shared layer",
+      "items": [
+        "index.html hosts the main notes stream; quick.html hosts the capture window",
+        "src/shared/api.ts wraps every Tauri command; markdown.ts renders through DOMPurify"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Thin Rust command layer",
+      "items": [
+        "notes, settings, exchange and windowing commands each delegate to one domain module",
+        "save_quick_note emits note-created so the main window refreshes itself"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Domain and data",
+      "items": [
+        "db/repos owns queries, tags.rs tokenises #tags, exchange builds the Excel bytes",
+        "One shared Mutex<Connection>; SQLite triggers keep notes_fts (FTS5 trigram) in sync"
+      ]
+    }
+  ]
+}

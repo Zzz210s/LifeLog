@@ -1,0 +1,289 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "app-lifelog 架构图",
+    "locale": "zh-CN",
+    "quality_profile": "standard",
+    "views": [
+      {
+        "id": "capture-path",
+        "label": "快捷输入链路",
+        "focus": ["quick-window", "shared", "cmd-notes", "domain-repos", "domain-tags", "sqlite", "fts"],
+        "note": "从快捷窗保存,解析 #标签,写入 notes + tag_links,并同步 FTS 索引。"
+      },
+      {
+        "id": "query-path",
+        "label": "主窗查询链路",
+        "focus": ["main-window", "shared", "cmd-notes", "domain-repos", "sqlite", "fts"],
+        "note": "query_notes 对 3 个及以上字符走 FTS5 MATCH,否则退化为 LIKE。"
+      },
+      {
+        "id": "side-paths",
+        "label": "导出与窗口控制",
+        "focus": ["main-window", "shared", "cmd-exchange", "domain-exchange", "cmd-windowing", "domain-windowing"],
+        "note": "Excel 导出与托盘/快捷窗几何是两条独立支线。"
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "main-window",
+      "type": "frontend",
+      "label": "主窗口",
+      "sublabel": "index.html",
+      "tag": "use-notes-feed.ts",
+      "pos": [40, 60],
+      "size": [180, 64]
+    },
+    {
+      "id": "quick-window",
+      "type": "frontend",
+      "label": "快捷输入窗",
+      "sublabel": "quick.html",
+      "tag": "QuickCapture.tsx",
+      "pos": [40, 300],
+      "size": [180, 64]
+    },
+    {
+      "id": "shared",
+      "type": "frontend",
+      "label": "src/shared/",
+      "sublabel": "api / markdown / links",
+      "tag": "所有渲染经 DOMPurify",
+      "pos": [300, 160],
+      "size": [190, 72]
+    },
+    {
+      "id": "cmd-notes",
+      "type": "backend",
+      "label": "commands/notes.rs",
+      "sublabel": "save_quick_note, query_notes",
+      "tag": "update / toggle_todo / delete",
+      "pos": [590, 40],
+      "size": [180, 64]
+    },
+    {
+      "id": "cmd-settings",
+      "type": "backend",
+      "label": "commands/settings.rs",
+      "sublabel": "get_setting, set_setting",
+      "pos": [590, 200],
+      "size": [180, 64]
+    },
+    {
+      "id": "cmd-exchange",
+      "type": "backend",
+      "label": "commands/exchange.rs",
+      "sublabel": "export_notes",
+      "tag": "异步,锁外写盘",
+      "pos": [590, 360],
+      "size": [180, 64]
+    },
+    {
+      "id": "cmd-windowing",
+      "type": "backend",
+      "label": "commands/windowing.rs",
+      "sublabel": "hide_quick_window, pin, zoom",
+      "tag": "set_quick_zoom",
+      "pos": [590, 520],
+      "size": [180, 64]
+    },
+    {
+      "id": "domain-repos",
+      "type": "backend",
+      "label": "db/repos/",
+      "sublabel": "notes, notes_query, update",
+      "tag": "settings, tags 仓储",
+      "pos": [860, 40],
+      "size": [180, 64]
+    },
+    {
+      "id": "domain-tags",
+      "type": "backend",
+      "label": "tags.rs",
+      "sublabel": "extract_tags / strip_tags",
+      "tag": "#标签词法",
+      "pos": [860, 200],
+      "size": [180, 64]
+    },
+    {
+      "id": "domain-exchange",
+      "type": "backend",
+      "label": "exchange/notes_export.rs",
+      "sublabel": "xlsx 行组装",
+      "tag": "rust_xlsxwriter",
+      "pos": [860, 360],
+      "size": [180, 64]
+    },
+    {
+      "id": "domain-windowing",
+      "type": "backend",
+      "label": "windowing/",
+      "sublabel": "tray.rs, events.rs, quick.rs",
+      "tag": "tray + ctrl+shift+q",
+      "pos": [860, 520],
+      "size": [180, 64]
+    },
+    {
+      "id": "sqlite",
+      "type": "database",
+      "label": "SQLite lifelog.db",
+      "sublabel": "notes, tags, tag_links",
+      "tag": "settings + WAL + 外键 + 忙等",
+      "pos": [1110, 120],
+      "size": [180, 80]
+    },
+    {
+      "id": "fts",
+      "type": "database",
+      "label": "notes_fts (FTS5)",
+      "sublabel": "content + tags 两列",
+      "tag": "5 个同步触发器",
+      "pos": [1110, 360],
+      "size": [180, 80]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "前端:TypeScript + React",
+      "wraps": ["main-window", "quick-window", "shared"]
+    },
+    {
+      "kind": "region",
+      "label": "Rust:Tauri 命令层与领域核心",
+      "wraps": [
+        "cmd-notes",
+        "cmd-settings",
+        "cmd-exchange",
+        "cmd-windowing",
+        "domain-repos",
+        "domain-tags",
+        "domain-exchange",
+        "domain-windowing",
+        "sqlite",
+        "fts"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "main-to-shared",
+      "from": "main-window",
+      "to": "shared",
+      "label": "invoke"
+    },
+    {
+      "id": "quick-to-shared",
+      "from": "quick-window",
+      "to": "shared",
+      "label": "invoke"
+    },
+    {
+      "id": "shared-to-notes",
+      "from": "shared",
+      "to": "cmd-notes",
+      "label": "IPC",
+      "labelSegment": 1
+    },
+    {
+      "id": "shared-to-settings",
+      "from": "shared",
+      "to": "cmd-settings",
+      "label": "IPC",
+      "labelSegment": 2
+    },
+    {
+      "id": "shared-to-exchange",
+      "from": "shared",
+      "to": "cmd-exchange",
+      "label": "IPC",
+      "labelSegment": 2
+    },
+    {
+      "id": "shared-to-windowing",
+      "from": "shared",
+      "to": "cmd-windowing",
+      "label": "IPC",
+      "labelSegment": 2
+    },
+    {
+      "id": "notes-to-repos",
+      "from": "cmd-notes",
+      "to": "domain-repos",
+      "label": "notes 仓储"
+    },
+    {
+      "id": "settings-to-repos",
+      "from": "cmd-settings",
+      "to": "domain-repos",
+      "label": "settings 仓储"
+    },
+    {
+      "id": "exchange-to-export",
+      "from": "cmd-exchange",
+      "to": "domain-exchange",
+      "label": "xlsx 字节"
+    },
+    {
+      "id": "windowing-to-domain",
+      "from": "cmd-windowing",
+      "to": "domain-windowing",
+      "label": "窗口控制"
+    },
+    {
+      "id": "repos-to-tags",
+      "from": "domain-repos",
+      "to": "domain-tags",
+      "label": "#标签解析",
+      "labelAt": [950, 148]
+    },
+    {
+      "id": "repos-to-sqlite",
+      "from": "domain-repos",
+      "to": "sqlite",
+      "label": "rusqlite SQL"
+    },
+    {
+      "id": "sqlite-to-fts",
+      "from": "sqlite",
+      "to": "fts",
+      "label": "5 个触发器",
+      "labelAt": [1200, 277]
+    },
+    {
+      "id": "notes-event-to-main",
+      "from": "cmd-notes",
+      "to": "main-window",
+      "label": "note-created",
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "两个窗口,一个共享层",
+      "items": [
+        "index.html 承载主窗信息流,quick.html 承载快捷输入窗",
+        "src/shared/api.ts 封装全部 Tauri 命令,markdown.ts 经 DOMPurify 渲染"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "轻量 Rust 命令层",
+      "items": [
+        "notes / settings / exchange / windowing 四个命令模块各自下沉到一个领域模块",
+        "save_quick_note 写入后 emit note-created,主窗据此自动刷新"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "领域层与数据层",
+      "items": [
+        "db/repos 负责查询,tags.rs 解析 #标签,exchange 生成 Excel 字节",
+        "共享一个 Mutex<Connection>;SQLite 触发器同步 notes_fts(FTS5 trigram)"
+      ]
+    }
+  ]
+}
