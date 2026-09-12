@@ -100,9 +100,11 @@ pub fn blur_hide_enabled(app: &AppHandle) -> bool {
 /// 命令入口 set_quick_zoom 已随死代码清理移除(设置页直接写设置键,不复用命令),
 /// 此函数按 brief 要求保留:它是缩放应用路径的落点,后续若要单独调 zoom 直接复用;
 /// 保留未引用函数需显式豁免,以免破坏 cargo check --lib 零警告。
+/// 区间收敛复用 quick_scale::clamp_scale(不在此硬编码 0.5/2.0,避免第二真源);
+/// Task 4 设置页落地后若仍无调用方,可连同本函数一起删除。
 #[allow(dead_code)]
 pub fn set_zoom(app: &AppHandle, zoom: f32) -> Result<(), String> {
-    let z = (zoom as f64).clamp(0.5, 2.0);
+    let z = quick_scale::clamp_scale(zoom as f64);
     if let Some(w) = win(app) {
         w.set_zoom(z).map_err(|e| e.to_string())?;
     }
