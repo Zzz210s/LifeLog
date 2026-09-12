@@ -7,9 +7,12 @@ import { ErrorBars } from './ErrorBars';
 import type { ErrorKind } from './ErrorBar';
 import { dropError, putError } from './errors';
 import type { ErrorMap } from './errors';
+import type { MainView } from './settings/settings-model';
 import { FilterBar } from './FilterBar';
 import { matchesTagFilter, needsRefetchAfterChange, replaceNote } from './notes-list';
 import { NoteStream } from './NoteStream';
+import { SettingsView } from './SettingsView';
+import { TopBar } from './TopBar';
 import { useNoteCreatedRefresh } from './use-note-created';
 import { useNotesFeed } from './use-notes-feed';
 import { useNotesExport } from './use-export';
@@ -22,6 +25,7 @@ export function App(): ReactNode {
   const [allTags, setAllTags] = useState<{ name: string; count: number }[]>([]);
   const [errors, setErrors] = useState<ErrorMap>({});
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [view, setView] = useState<MainView>('stream');
 
   /** 按来源留存/清除:G4 单值槽会被跨源覆盖造成错误被吞,改为每个来源一份,成功路径只清同源 */
   const setError = useCallback((kind: ErrorKind, message: string) => {
@@ -129,6 +133,13 @@ export function App(): ReactNode {
 
   return (
     <div className="mx-auto flex h-screen w-full max-w-3xl flex-col bg-white text-gray-900">
+      <TopBar
+        view={view}
+        onOpenSettings={() => setView('settings')}
+        onBack={() => setView('stream')}
+      />
+      {/* 信息流始终挂载:切到设置页只是隐藏,返回时分页与滚动位置都不丢(不重新查询) */}
+      <div className={view === 'stream' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}>
       <Composer onSaved={refresh} disabled={editingId !== null} />
       <FilterBar
         keyword={keyword}
@@ -160,6 +171,8 @@ export function App(): ReactNode {
         onEditCancel={() => setEditingId(null)}
         onLinkError={(m) => setError('action', m)}
       />
+      </div>
+      {view === 'settings' && <SettingsView />}
     </div>
   );
 }

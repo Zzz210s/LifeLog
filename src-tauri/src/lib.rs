@@ -24,6 +24,7 @@ pub fn run() {
             commands::settings::get_setting,
             commands::settings::set_setting,
             commands::settings::set_quick_locks,
+            commands::app_info::get_db_info,
             commands::notes::save_quick_note,
             commands::notes::query_notes,
             commands::notes::tag_counts,

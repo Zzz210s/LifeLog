@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { Note } from './types';
+import type { DbInfo, Note } from './types';
 
 export const api = {
   saveQuickNote: (content: string) => invoke<Note>('save_quick_note', { content }),
@@ -26,4 +26,6 @@ export const api = {
     invoke<void>('set_quick_locks', { lockMove, lockClose, lockContent }),
   getSetting: (key: string) => invoke<string | null>('get_setting', { key }),
   setSetting: (key: string, value: string) => invoke<void>('set_setting', { key, value }),
+  /** 设置页「通用」分区:数据库文件路径与笔记条数(只读) */
+  getDbInfo: () => invoke<DbInfo>('get_db_info'),
 };
