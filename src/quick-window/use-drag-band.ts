@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { isInDragBand, pressKind } from '../shared/quick-gestures';
@@ -18,6 +18,22 @@ import { currentRatio } from './logical-size';
 // locked 只拦拖动,不拦双击(「阻止关闭」才拦隐藏)。
 export function useDragBand(opts: { locked: boolean; onDoubleClick: () => void }) {
   const { locked, onDoubleClick } = opts;
+  // 是否有已置位、等着结算的拖动会话。原生拖动期间页面收不到 mouseup(实测),故改用
+  // 挂载时注册一次的常驻监听(回调里判 pending),而不是每次拖动都 new 一个 { once: true }
+  // 监听 —— 那种监听永不触发却永久残留在 window 上,拖 N 次残留 N 个。
+  // 若页面终究收不到 mouseup,Rust 侧的空闲阈值会兜底结束会话(见 windowing/quick.rs)。
+  const pending = useRef(false);
+
+  useEffect(() => {
+    const onUp = () => {
+      if (!pending.current) return; // 非拖动结束的 mouseup 不结算
+      pending.current = false;
+      void invoke('end_quick_drag').catch(() => {});
+    };
+    window.addEventListener('mouseup', onUp);
+    return () => window.removeEventListener('mouseup', onUp);
+  }, []);
+
   return useCallback(
     (e: React.MouseEvent) => {
       if (e.button !== 0) return;
@@ -39,11 +55,7 @@ export function useDragBand(opts: { locked: boolean; onDoubleClick: () => void }
       // 拖动会话:进入系统移动循环会收到 Focused(false),失焦自动隐藏开启时会把窗口拖到一半就隐藏。
       // 置位必须 await —— 不 await 的话 IPC 可能晚于失焦事件到达,标志就白设了;
       // 置位/结算失败都不阻断拖动(最多失去“拖动期间不失焦隐藏”这层保护)。
-      window.addEventListener(
-        'mouseup',
-        () => void invoke('end_quick_drag').catch(() => {}),
-        { once: true },
-      );
+      pending.current = true;
       void (async () => {
         try {
           await invoke('begin_quick_drag');
