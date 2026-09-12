@@ -65,6 +65,21 @@ fn work_area_cap_wins_over_max_width() {
 }
 
 #[test]
+fn display_size_caps_width_command_path_to_work_area() {
+    // 宽度命令路径(apply_size)与缩放路径共用 display_size:
+    // 1024x768 工作区的 80% 宽 = 819,小于 900 硬上限 -> 意图 900 也得 819(而非越界的 900/1125)
+    assert_eq!(display_size(900, 87, 1.0, Some((1024, 768))), (819, 87));
+    // 同一小屏在系统缩放 1.25 下同样收口到 819(先物理换算 1125,再与工作区 80% 取小)
+    assert_eq!(display_size(900, 87, 1.25, Some((1024, 768))).0, 819);
+    // 1024x768 的 80% 高 = 614,高于 320 硬上限,高度不受工作区影响
+    assert_eq!(display_size(900, 10000, 1.0, Some((1024, 768))).1, MAX_HEIGHT);
+    // 取不到工作区时只做硬区间与物理换算
+    assert_eq!(display_size(900, 87, 1.25, None), (1125, 109));
+    // 工作区充足时不收口
+    assert_eq!(display_size(900, 320, 1.25, Some((1920, 1080))), (1125, 400));
+}
+
+#[test]
 fn base_size_divides_by_scale() {
     assert_eq!(base_size_from_actual(630, 450, 1.5), (420, 300));
     assert_eq!(base_size_from_actual(420, 300, 1.0), (420, 300));

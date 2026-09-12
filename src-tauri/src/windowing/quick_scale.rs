@@ -5,7 +5,7 @@
 //! 绝不由窗口实际尺寸反推(会把钳制结果固化)。旧语义(含缩放的尺寸)由 quick_geom::migrate_geometry 一次性迁移。
 
 use super::quick_geom;
-use tauri::{AppHandle, Manager, PhysicalSize};
+use tauri::{AppHandle, Manager, PhysicalSize, WebviewWindow};
 
 pub const MIN_WIDTH: u32 = 240;
 pub const MAX_WIDTH: u32 = 900;
@@ -86,6 +86,34 @@ pub fn migrate_size(w: f64, h: f64, scale: f64) -> (u32, u32) {
     base_size_from_actual(to_u32(w), to_u32(h), scale)
 }
 
+/// 逻辑尺寸 -> 落到窗口的物理尺寸:依次「钳宽 240-900 / 钳高 35-320 -> 物理换算 ->
+/// 与当前显示器工作区 80% 取较小者」。缩放路径(apply_scale)与宽度/自动高度命令路径
+/// (apply_size)共用,避免一条路径收口、另一条不收口导致 hide/show 与拖动互相抖动。
+/// 取不到工作区(无显示器信息)时只做前两步。
+pub fn display_size(
+    logical_w: u32,
+    logical_h: u32,
+    sf: f64,
+    work: Option<(u32, u32)>,
+) -> (u32, u32) {
+    let sf = if sf.is_finite() && sf > 0.0 { sf } else { 1.0 };
+    let phys = (
+        ((clamp_width(logical_w) as f64) * sf).round().max(1.0) as u32,
+        ((clamp_height(logical_h) as f64) * sf).round().max(1.0) as u32,
+    );
+    match work {
+        Some((w, h)) => cap_to_work_area(phys.0, phys.1, w, h),
+        None => phys,
+    }
+}
+
+/// 快捷窗当前所在显示器的工作区(物理像素);取不到时 None(不钳制)
+fn work_area_of(win: &WebviewWindow) -> Option<(u32, u32)> {
+    let mon = win.current_monitor().ok()??;
+    let area = mon.work_area();
+    Some((area.size.width, area.size.height))
+}
+
 /// 把逻辑尺寸落到窗口上,并把**由命令意图换算的基础尺寸**写入设置:
 /// 宽度只在真的变化时才写(自动高度路径每次都带一个宽度,不能反复改写用户宽度意图);
 /// 高度随内容行数变,每次按意图写回。
@@ -95,13 +123,14 @@ pub fn apply_size(app: &AppHandle, width: u32, height: u32) -> Result<(), String
     };
     let height = clamp_height(height);
     let sf = win.scale_factor().unwrap_or(1.0);
-    let phys_w = ((width as f64) * sf).round().max(1.0) as u32;
-    let phys_h = ((height as f64) * sf).round().max(1.0) as u32;
+    // 与缩放路径共用 display_size:宽度命令路径同样受工作区 80% 收口(小屏上拖到 900 也不越界)。
+    // 但写回设置用命令意图(base_from_intent),收口结果绝不固化成基础尺寸。
+    let phys = display_size(width, height, sf, work_area_of(&win));
     let width_changed = win
         .inner_size()
         .map(|s| width_intent_changed(s.to_logical::<f64>(sf).width, width))
         .unwrap_or(false);
-    win.set_size(PhysicalSize::new(phys_w, phys_h))
+    win.set_size(PhysicalSize::new(phys.0, phys.1))
         .map_err(|e| e.to_string())?;
     let zoom = clamp_scale(quick_geom::get_num(app, "quick_zoom").unwrap_or(1.0));
     if width_changed {
@@ -112,9 +141,9 @@ pub fn apply_size(app: &AppHandle, width: u32, height: u32) -> Result<(), String
 }
 
 /// 按缩放系数设置窗口尺寸与 webview zoom,并把系数写回 quick_zoom。
-/// 尺寸 = 基础尺寸(quick_w/quick_h,物理)x 系数;宽度先守 240-900 逻辑像素硬区间
-/// (冲突取较小者),**最后**与当前显示器工作区的 80% 取较小者 —— 顺序固定,
-/// 任何冲突都以「工作区 80%」为准(先钳硬区间再钳工作区,取不到显示器则不钳制)。
+/// 尺寸 = 基础尺寸(quick_w/quick_h,物理)x 系数,收口走 display_size(先钳 240-900 /
+/// 35-320 硬区间,再物理换算,**最后**与当前显示器工作区 80% 取较小者,冲突时 80% 优先)。
+/// 与 apply_size 同一函数,保证两条路径不会一条收口一条不收口。
 pub fn apply_scale(app: &AppHandle, scale: f64) -> Result<(), String> {
     let s = clamp_scale(scale);
     let Some(win) = app.get_webview_window("quick") else {
@@ -130,16 +159,7 @@ pub fn apply_scale(app: &AppHandle, scale: f64) -> Result<(), String> {
         (base_h / sf).round().max(1.0) as u32,
         s,
     );
-    let lw = clamp_width(lw);
-    let lh = clamp_height(lh);
-    let mut phys = (
-        ((lw as f64) * sf).round().max(1.0) as u32,
-        ((lh as f64) * sf).round().max(1.0) as u32,
-    );
-    if let Ok(Some(mon)) = win.current_monitor() {
-        let area = mon.work_area();
-        phys = cap_to_work_area(phys.0, phys.1, area.size.width, area.size.height);
-    }
+    let phys = display_size(lw, lh, sf, work_area_of(&win));
     win.set_size(PhysicalSize::new(phys.0, phys.1))
         .map_err(|e| e.to_string())?;
     win.set_zoom(s).map_err(|e| e.to_string())?;
