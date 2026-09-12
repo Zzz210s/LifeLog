@@ -29,17 +29,20 @@ export function StartupSection(): ReactNode {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const reload = useCallback(() => {
+  /** clearError=false 用于「写失败后的回读」:回读只刷新期望值/真实值,不能把刚设的失败原因清掉 */
+  const reload = useCallback((clearError = true) => {
     Promise.all([loadStartupSettings(), loadAutostartActual()])
       .then(([s, a]) => {
         setSettings(s);
         setActual(a);
-        setError('');
+        if (clearError) setError('');
       })
       .catch((e) => setError('读取启动设置失败: ' + String(e)));
   }, []);
 
-  useEffect(reload, [reload]);
+  useEffect(() => {
+    reload();
+  }, [reload]);
 
   /** 先落库用户意图,再让 Rust 真正注册并回读校验;失败时回读真实状态,由界面显示「需要修复」。 */
   const applyAutostart = useCallback(
@@ -52,10 +55,12 @@ export function StartupSection(): ReactNode {
         await api.setAutostart(enabled);
         setError('');
       } catch (e) {
-        setError('开机启动设置失败: ' + String(e));
+        // Rust 侧返回的已是完整中文文案(如「启用开机启动失败: …」),不再叠加前缀;
+        // 下面回读时 clearError=false,否则这条原因会在几毫秒后被清掉
+        setError(String(e));
       } finally {
         setBusy(false);
-        reload();
+        reload(false);
       }
     },
     [busy, reload]
@@ -69,7 +74,7 @@ export function StartupSection(): ReactNode {
         .then(() => setError(''))
         .catch((e) => {
           setError('保存启动显示方式失败: ' + String(e));
-          reload();
+          reload(false);
         });
     },
     [reload]
@@ -92,7 +97,7 @@ export function StartupSection(): ReactNode {
           {error && (
             <button
               type="button"
-              onClick={reload}
+              onClick={() => reload()}
               className="rounded border border-gray-300 px-2 py-0.5 text-xs text-gray-600 hover:bg-gray-50"
             >
               重试
