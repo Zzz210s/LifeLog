@@ -17,3 +17,15 @@ pub fn set_quick_size(app: AppHandle, width: u32, height: u32) -> Result<(), Str
 pub fn set_quick_scale(app: AppHandle, zoom: f32) -> Result<(), String> {
     quick_scale::apply_scale(&app, zoom as f64)
 }
+
+/// 进入拖动会话:页面在 startDragging 之前调用,让失焦自动隐藏在拖动期间跳过 Focused(false)
+#[tauri::command]
+pub fn begin_quick_drag() {
+    windowing::quick::begin_drag_session();
+}
+
+/// 结束拖动会话(页面 mouseup 调用;Rust 侧还会用「最后一次 Moved + 空闲期」自动退出兜底)
+#[tauri::command]
+pub fn end_quick_drag() {
+    windowing::quick::end_drag_session();
+}

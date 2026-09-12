@@ -35,6 +35,8 @@ pub fn run() {
             commands::windowing::hide_quick_window,
             commands::windowing::set_quick_size,
             commands::windowing::set_quick_scale,
+            commands::windowing::begin_quick_drag,
+            commands::windowing::end_quick_drag,
         ])
         .setup(|app| {
             db::init(app.handle())?;

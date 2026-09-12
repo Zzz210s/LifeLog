@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { isInDragBand, pressKind } from '../shared/quick-gestures';
 import { dragBandCss } from '../shared/quick-geometry';
@@ -35,7 +36,22 @@ export function useDragBand(opts: { locked: boolean; onDoubleClick: () => void }
         return;
       }
       if (locked) return;
-      void getCurrentWindow().startDragging();
+      // 拖动会话:进入系统移动循环会收到 Focused(false),失焦自动隐藏开启时会把窗口拖到一半就隐藏。
+      // 置位必须 await —— 不 await 的话 IPC 可能晚于失焦事件到达,标志就白设了;
+      // 置位/结算失败都不阻断拖动(最多失去“拖动期间不失焦隐藏”这层保护)。
+      window.addEventListener(
+        'mouseup',
+        () => void invoke('end_quick_drag').catch(() => {}),
+        { once: true },
+      );
+      void (async () => {
+        try {
+          await invoke('begin_quick_drag');
+        } catch {
+          // 吞掉:继续拖动
+        }
+        void getCurrentWindow().startDragging();
+      })();
     },
     [locked, onDoubleClick],
   );
