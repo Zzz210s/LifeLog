@@ -27,9 +27,8 @@ export function QuickCapture() {
     onError: setError,
   });
 
-  // 页面自己发起的隐藏(Esc/双击)要先 flush 视图状态:窗口隐藏后页面计时器会被冻结,
-  // 节流中的透明度就永远落不了库;而 tauri 的 hide() 不会触发 onFocusChanged(实测无事件),
-  // 热键/托盘隐藏只能靠「未结算键跳过回读」兜底,待窗口再次显示时补写。
+  // 页面自己发起的隐藏(Esc/双击)先 flush 视图状态再隐藏:窗口隐藏后页面计时器可能被冻结,
+  // 节流中的透明度就永远落不了库;Rust 侧隐藏(热键/托盘/失焦)由下面的 quick-hiding 事件兜底。
   const hideNow = useCallback(() => {
     flushView();
     void api.hideQuickWindow();
