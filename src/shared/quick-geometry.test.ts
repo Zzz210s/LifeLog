@@ -15,9 +15,10 @@ describe('clampWidth', () => {
     expect(clampWidth(899.6)).toBe(MAX_WIDTH);
   });
 
-  it('非有限值回退到下限', () => {
+  it('非有限值回退到有方向的一侧', () => {
     expect(clampWidth(Number.NaN)).toBe(MIN_WIDTH);
-    expect(clampWidth(Number.POSITIVE_INFINITY)).toBe(MIN_WIDTH);
+    expect(clampWidth(Number.POSITIVE_INFINITY)).toBe(MAX_WIDTH);
+    expect(clampWidth(Number.NEGATIVE_INFINITY)).toBe(MIN_WIDTH);
   });
 });
 

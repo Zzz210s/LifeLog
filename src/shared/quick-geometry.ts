@@ -1,6 +1,6 @@
 // 快捷窗几何的纯函数:宽度钳制、行数钳制、按行高算高度、左右边缘判定。
 // 单位说明:全部为「逻辑像素」(与 Rust set_quick_size 命令同一单位);
-// 光晕内边距 GLOW_PAD 与 Rust 侧 window_height_for_lines 的 pad 参数同源。
+// 光晕内边距 GLOW_PAD 与 Rust quick_scale 的 MIN_HEIGHT/MAX_HEIGHT 推导同源(见其常量注释)。
 
 export const MIN_WIDTH = 240;
 export const MAX_WIDTH = 900;
@@ -13,7 +13,8 @@ export const MAX_LINES = 5;
 export const EDGE_BAND = 8;
 
 export function clampWidth(w: number): number {
-  if (!Number.isFinite(w)) return MIN_WIDTH;
+  // NaN 取不到方向,回退下限;+/-Infinity 经 Math.round + Math.max/min 自然落到上/下限
+  if (Number.isNaN(w)) return MIN_WIDTH;
   return Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, Math.round(w)));
 }
 

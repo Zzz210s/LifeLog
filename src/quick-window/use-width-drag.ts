@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { getCurrentWindow, PhysicalPosition } from '@tauri-apps/api/window';
 import { api } from '../shared/api';
-import { clampWidth, edgeSide, type Side } from '../shared/quick-geometry';
+import { clampWidth, edgeSide, GLOW_PAD, type Side } from '../shared/quick-geometry';
 import { pressKind } from '../shared/quick-gestures';
 import { readGeometry } from './logical-size';
 import { windowHeightFor } from './use-auto-height';
@@ -59,7 +59,11 @@ async function startWidthDrag(
   const apply = (screenX: number) => {
     const delta = (side === 'left' ? -1 : 1) * (screenX - startScreenX);
     const width = clampWidth(startWidth + delta);
-    const height = windowHeightFor(ta, ratio, width / ratio);
+    // windowHeightFor 的第 3 个参数是**输入框**的 border-box 宽度(cssWidth),
+    // 而这里是**窗口**的 CSS 宽度:窗口根节点有 p-[14px] 且 Tailwind preflight 为 border-box,
+    // 输入框比窗口窄 2 x GLOW_PAD。不减掉就会按偏宽的宽度测量换行、少算一行,
+    // 窗口变矮、滚动条提前出现(拖动路径专用;自动高度路径传的是实测宽度,不受影响)。
+    const height = windowHeightFor(ta, ratio, width / ratio - 2 * GLOW_PAD);
     void api.setQuickSize(width, height).catch(() => {});
     if (side === 'left') {
       // 左边缘:窗口左边界跟手(宽度减多少,位置就右移多少)
@@ -71,6 +75,11 @@ async function startWidthDrag(
   };
 
   const onMove = (ev: MouseEvent) => {
+    // 主键已松开(mouseup 在甩动/指针出窗时可能丢失):立刻收尾,避免拖动会话残留
+    if ((ev.buttons & 1) === 0) {
+      onUp();
+      return;
+    }
     lastScreenX = ev.screenX;
     const now = performance.now();
     if (now - lastAt < THROTTLE_MS) return;
