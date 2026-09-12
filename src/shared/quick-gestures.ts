@@ -16,6 +16,7 @@ export function isInDragBand(
 export type PressKind = 'drag' | 'double';
 
 // 双击必须在 mousedown 阶段用 detail 判定:原生拖动会吞掉后续 dblclick。
+// detail >= 2 一律算双击,使三击的第三次按下不再启动拖动(与「双击即动作」的意图一致)。
 export function pressKind(detail: number): PressKind {
-  return detail === 2 ? 'double' : 'drag';
+  return detail >= 2 ? 'double' : 'drag';
 }

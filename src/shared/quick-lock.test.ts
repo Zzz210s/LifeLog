@@ -14,6 +14,18 @@ describe('lockStateFrom', () => {
     expect(canClose(l)).toBe(true);
     expect(canEdit(l)).toBe(true);
   });
+  it('仅阻止关闭时另两档仍可拖动、可编辑', () => {
+    const l = lockStateFrom({ lockMove: false, lockClose: true, lockContent: false });
+    expect(canClose(l)).toBe(false);
+    expect(canDrag(l)).toBe(true);
+    expect(canEdit(l)).toBe(true);
+  });
+  it('仅锁定内容时另两档仍可拖动、可关闭', () => {
+    const l = lockStateFrom({ lockMove: false, lockClose: false, lockContent: true });
+    expect(canEdit(l)).toBe(false);
+    expect(canDrag(l)).toBe(true);
+    expect(canClose(l)).toBe(true);
+  });
 });
 
 describe('emptyLock', () => {
