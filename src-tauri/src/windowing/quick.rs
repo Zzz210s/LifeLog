@@ -91,6 +91,11 @@ pub fn blur_hide_enabled(app: &AppHandle) -> bool {
     get_setting(app, "quick_hide_on_blur").map(|v| v == "true").unwrap_or(false)
 }
 
+/// 直接落 webview zoom 并写回 quick_zoom(不带尺寸换算)。
+/// 命令入口 set_quick_zoom 已随死代码清理移除(设置页直接写设置键,不复用命令),
+/// 此函数按 brief 要求保留:它是缩放应用路径的落点,后续若要单独调 zoom 直接复用;
+/// 保留未引用函数需显式豁免,以免破坏 cargo check --lib 零警告。
+#[allow(dead_code)]
 pub fn set_zoom(app: &AppHandle, zoom: f32) -> Result<(), String> {
     let z = (zoom as f64).clamp(0.5, 2.0);
     if let Some(w) = win(app) {
@@ -98,14 +103,4 @@ pub fn set_zoom(app: &AppHandle, zoom: f32) -> Result<(), String> {
     }
     set_setting(app, "quick_zoom", &format!("{z:.2}"));
     Ok(())
-}
-
-pub fn toggle_pin(app: &AppHandle) -> Result<bool, String> {
-    let cur = get_setting(app, "quick_always_on_top").unwrap_or_else(|| "true".into());
-    let next = cur != "true";
-    if let Some(w) = win(app) {
-        w.set_always_on_top(next).map_err(|e| e.to_string())?;
-    }
-    set_setting(app, "quick_always_on_top", if next { "true" } else { "false" });
-    Ok(next)
 }

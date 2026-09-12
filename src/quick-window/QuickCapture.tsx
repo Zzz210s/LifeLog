@@ -110,7 +110,6 @@ export function QuickCapture() {
         readOnly={!editing}
         onChange={(e) => setContent(e.target.value)}
         onKeyDown={onKeyDown}
-        placeholder="记点什么... #标签 自动归类"
         className="sticker-input h-full w-full resize-none overflow-y-auto bg-white px-3 py-2 text-sm leading-relaxed text-gray-800 read-only:text-gray-500"
       />
       {anyLock ? (

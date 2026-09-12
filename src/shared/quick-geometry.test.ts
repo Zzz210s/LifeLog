@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { clampLines, clampWidth, edgeSide, heightForLines, MAX_WIDTH, MIN_WIDTH } from './quick-geometry';
+import {
+  clampLines,
+  clampWidth,
+  dragBandCss,
+  edgeBandCss,
+  edgeSide,
+  GLOW_PAD,
+  heightForLines,
+  MAX_WIDTH,
+  MIN_WIDTH,
+} from './quick-geometry';
 
 describe('clampWidth', () => {
   it('钳制到 240-900', () => {
@@ -63,11 +73,32 @@ describe('edgeSide', () => {
     expect(edgeSide(3, 12)).toBe('left');
   });
 
-  it('带边界语义与拖动带一致', () => {
-    expect(edgeSide(7, 400)).toBe('left');
-    expect(edgeSide(8, 400)).toBeNull();
-    expect(edgeSide(392, 400)).toBe('right');
-    expect(edgeSide(391, 400)).toBeNull();
-    expect(edgeSide(3, 400, 4)).toBe('left');
+  it('缩放 0.5/1/2 下热区换算为 16/8/4 CSS px', () => {
+    expect(edgeBandCss(0.5)).toBe(16);
+    expect(edgeBandCss(1)).toBe(8);
+    expect(edgeBandCss(2)).toBe(4);
+    expect(edgeBandCss(1.3)).toBeCloseTo(6.1538, 3);
+  });
+
+  it('非法 ratio 按 1 处理,不会把热区炸成 Infinity', () => {
+    expect(edgeBandCss(0)).toBe(8);
+    expect(edgeBandCss(-2)).toBe(8);
+    expect(edgeBandCss(Number.NaN)).toBe(8);
+    expect(edgeBandCss(Number.POSITIVE_INFINITY)).toBe(8);
+  });
+
+  it('换算后的带直接用于 edgeSide:0.5 缩放覆盖 16 CSS px,2.0 缩放只剩 4 CSS px', () => {
+    expect(edgeSide(15, 400, edgeBandCss(0.5))).toBe('left');
+    expect(edgeSide(16, 400, edgeBandCss(0.5))).toBeNull();
+    expect(edgeSide(3, 400, edgeBandCss(2))).toBe('left');
+    expect(edgeSide(4, 400, edgeBandCss(2))).toBeNull();
+  });
+});
+
+describe('dragBandCss', () => {
+  it('移动窗口的拖动带不小于光晕内边距环(高缩放不把既有环缩窄)', () => {
+    expect(dragBandCss(2)).toBe(GLOW_PAD);
+    expect(dragBandCss(1.3)).toBe(GLOW_PAD);
+    expect(dragBandCss(0.5)).toBe(16); // 8 逻辑像素 > 14 CSS 环:热区随缩放放大
   });
 });

@@ -32,8 +32,6 @@ pub fn run() {
             commands::notes::delete_note,
             commands::exchange::export_notes,
             commands::windowing::hide_quick_window,
-            commands::windowing::toggle_quick_pin,
-            commands::windowing::set_quick_zoom,
             commands::windowing::set_quick_size,
             commands::windowing::set_quick_scale,
         ])

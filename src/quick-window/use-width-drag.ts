@@ -1,16 +1,20 @@
 import { useCallback } from 'react';
 import { getCurrentWindow, PhysicalPosition } from '@tauri-apps/api/window';
 import { api } from '../shared/api';
-import { clampWidth, edgeSide, GLOW_PAD, type Side } from '../shared/quick-geometry';
+import { clampWidth, edgeBandCss, edgeSide, GLOW_PAD, type Side } from '../shared/quick-geometry';
 import { pressKind } from '../shared/quick-gestures';
-import { readGeometry } from './logical-size';
+import { currentRatio, readGeometry } from './logical-size';
 import { windowHeightFor } from './use-auto-height';
 
 /** 拖动期间最多 10 次/秒落尺寸,避免 IPC 与重排过密 */
 const THROTTLE_MS = 100;
 
 /**
- * 左右最外 8 像素:按下拖动改宽度(逻辑像素 240-900),高度按新换行重算。
+ * 左右最外 8 **逻辑像素**:按下拖动改宽度(逻辑像素 240-900),高度按新换行重算。
+ * 热区随缩放同比放大(CSS 宽度 = edgeBandCss(ratio),0.5 缩放时 16 CSS px、2.0 时 4 CSS px),
+ * 故不同缩放下手感一致;edgeSide 仍按「CSS 像素 band」判定,换算在下面调用处完成。
+ * **宽度拉伸不受「阻止移动」锁定影响**(用户 2026-09-11 决定):该锁定只拦窗口移动
+ * (见 use-drag-band 的 locked),左右边缘始终可改宽度,此处故意不接收 locked。
  * 双击优先(detail >= 2 一律走双击动作,不进入宽度拖动)。
  * 返回 true 表示本次按下已被接管,调用方不再走「移动窗口」逻辑。
  */
@@ -24,7 +28,8 @@ export function useWidthDrag(opts: {
     (e: React.MouseEvent): boolean => {
       if (e.button !== 0) return false;
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-      const side = edgeSide(e.clientX - rect.left, rect.width);
+      // 热区换算:8 逻辑像素 -> CSS 像素(ratio 取自最近一次 readGeometry,同步可读)
+      const side = edgeSide(e.clientX - rect.left, rect.width, edgeBandCss(currentRatio()));
       if (!side) return false;
       if (pressKind(e.detail) === 'double') {
         e.preventDefault();

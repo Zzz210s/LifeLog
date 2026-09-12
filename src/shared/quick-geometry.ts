@@ -9,10 +9,32 @@ export const GLOW_PAD = 14;
 export const MIN_LINES = 1;
 export const MAX_LINES = 5;
 
-/** 左右边缘拖动带宽度(与 quick-gestures 的 DRAG_BAND 语义一致) */
-export const EDGE_BAND = 8;
+/** 边缘热区宽度(**逻辑像素**):热区随 webview 缩放同比放大,0.5-2.0 缩放下手感一致 */
+export const EDGE_BAND_LOGICAL = 8;
+
+/** 缩放=1 时的边缘带 CSS 宽度(与 quick-gestures 的 DRAG_BAND 语义一致),仅作默认值 */
+export const EDGE_BAND = EDGE_BAND_LOGICAL;
+
+/**
+ * 逻辑像素热区 -> CSS 像素:ratio = 逻辑像素 / CSS 像素(见 quick-window/logical-size.ts)。
+ * 缩放 0.5 时热区 16 CSS px、缩放 2.0 时 4 CSS px;ratio 非法(0/NaN/负数)按 1 处理。
+ */
+export function edgeBandCss(ratio: number): number {
+  return EDGE_BAND_LOGICAL / (Number.isFinite(ratio) && ratio > 0 ? ratio : 1);
+}
+
+/**
+ * 移动窗口的拖动带 CSS 宽度 = 光晕内边距环 GLOW_PAD 与「8 逻辑像素热区」取较大者:
+ * 低缩放(ratio 0.5)时 8 逻辑像素 = 16 CSS px,比环还宽,取大者才保住逻辑热区;
+ * 高缩放时环本身已覆盖 8 逻辑像素,取环即可(不把既有可拖动环缩窄)。
+ */
+export function dragBandCss(ratio: number): number {
+  return Math.max(GLOW_PAD, edgeBandCss(ratio));
+}
 
 export function clampWidth(w: number): number {
+  // 上限 900 只是硬区间:落到窗口时 Rust 侧再与当前显示器工作区的 80% 取较小者,
+  // 两者冲突时以 80% 为准(顺序:先钳 240-900,再钳工作区;见 quick_scale::apply_scale)。
   // NaN 取不到方向,回退下限;+/-Infinity 经 Math.round + Math.max/min 自然落到上/下限
   if (Number.isNaN(w)) return MIN_WIDTH;
   return Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, Math.round(w)));

@@ -17,6 +17,17 @@ export type WindowGeometry = {
   ratio: number;
 };
 
+/**
+ * 最近一次 readGeometry 读到的 ratio。热区宽度换算必须在同步的 mousedown 回调里完成,
+ * 不能等异步读数;readGeometry 每次成功都会刷新它(内容/宽度变化与缩放重算时都会读到)。
+ */
+let lastRatio = 1;
+
+/** 同步取当前 ratio(逻辑像素 / CSS 像素);尚未读到几何时按 1 处理 */
+export function currentRatio(): number {
+  return lastRatio;
+}
+
 export async function readGeometry(): Promise<WindowGeometry | null> {
   try {
     const win = getCurrentWindow();
@@ -27,13 +38,15 @@ export async function readGeometry(): Promise<WindowGeometry | null> {
     ]);
     const logical = phys.toLogical(scale);
     const css = document.documentElement.clientWidth;
+    const ratio = css > 0 ? logical.width / css : 1;
+    lastRatio = ratio;
     return {
       width: logical.width,
       height: logical.height,
       scale,
       x: pos.x,
       y: pos.y,
-      ratio: css > 0 ? logical.width / css : 1,
+      ratio,
     };
   } catch {
     return null; // 非 Tauri 环境(浏览器/单测)下静默降级

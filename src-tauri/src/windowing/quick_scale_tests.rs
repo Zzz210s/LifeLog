@@ -52,6 +52,19 @@ fn cap_to_work_area_is_80_percent_per_axis() {
 }
 
 #[test]
+fn work_area_cap_wins_over_max_width() {
+    // 钳制顺序:先钳 240-900,再与工作区 80% 取较小者 -> 冲突时 80% 优先(小屏不被 900 顶出工作区)
+    let clamped = clamp_width(1200); // 先落到硬上限 900
+    assert_eq!(clamped, MAX_WIDTH);
+    // 工作区 800 宽 -> 80% = 640,小于 900:取 640
+    assert_eq!(cap_to_work_area(clamped, MAX_HEIGHT, 800, 600).0, 640);
+    // 高度同理:硬上限 320 与工作区 300 的 80%(240)冲突时取 240
+    assert_eq!(cap_to_work_area(MIN_WIDTH, clamp_height(10_000), 800, 300).1, 240);
+    // 不冲突时两边都不变
+    assert_eq!(cap_to_work_area(MAX_WIDTH, MAX_HEIGHT, 1920, 1080), (900, 320));
+}
+
+#[test]
 fn base_size_divides_by_scale() {
     assert_eq!(base_size_from_actual(630, 450, 1.5), (420, 300));
     assert_eq!(base_size_from_actual(420, 300, 1.0), (420, 300));

@@ -112,8 +112,9 @@ pub fn apply_size(app: &AppHandle, width: u32, height: u32) -> Result<(), String
 }
 
 /// 按缩放系数设置窗口尺寸与 webview zoom,并把系数写回 quick_zoom。
-/// 尺寸 = 基础尺寸(quick_w/quick_h,物理)x 系数;宽度同时守住 240-900 逻辑像素
-/// (冲突取较小者),最后与当前显示器工作区的 80% 取较小者(取不到显示器则不钳制)。
+/// 尺寸 = 基础尺寸(quick_w/quick_h,物理)x 系数;宽度先守 240-900 逻辑像素硬区间
+/// (冲突取较小者),**最后**与当前显示器工作区的 80% 取较小者 —— 顺序固定,
+/// 任何冲突都以「工作区 80%」为准(先钳硬区间再钳工作区,取不到显示器则不钳制)。
 pub fn apply_scale(app: &AppHandle, scale: f64) -> Result<(), String> {
     let s = clamp_scale(scale);
     let Some(win) = app.get_webview_window("quick") else {
