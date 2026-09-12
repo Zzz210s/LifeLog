@@ -55,6 +55,14 @@ export function wheelAction(e: { ctrlKey: boolean }): 'opacity' | 'scale' {
   return e.ctrlKey ? 'opacity' : 'scale';
 }
 
+/**
+ * 设置重载回读时是否采用库里的值:本会话内已改但尚未结算(节流中或 IPC 在途)的键一律跳过。
+ * 否则库里的旧值会覆盖用户刚调好的透明度/缩放,界面自己弹回去。
+ */
+export function shouldApplyStored(key: string, pending: ReadonlySet<string>): boolean {
+  return !pending.has(key);
+}
+
 /** 滚轮方向:向上(deltaY < 0)为放大/更不透明 */
 export function wheelDirection(deltaY: number): WheelDirection {
   return deltaY < 0 ? 1 : -1;

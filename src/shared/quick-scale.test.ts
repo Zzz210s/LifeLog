@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { nextOpacity, nextScale, resetView, wheelAction } from './quick-scale';
+import { nextOpacity, nextScale, resetView, shouldApplyStored, wheelAction } from './quick-scale';
 import { QUICK_DEFAULTS } from './quick-settings';
 
 describe('nextScale', () => {
@@ -40,5 +40,18 @@ describe('wheelAction', () => {
   it('Ctrl 时调透明度,否则缩放', () => {
     expect(wheelAction({ ctrlKey: true })).toBe('opacity');
     expect(wheelAction({ ctrlKey: false })).toBe('scale');
+  });
+});
+
+describe('shouldApplyStored', () => {
+  it('未结算的键不采用库里的旧值', () => {
+    const pending = new Set(['quick_opacity']);
+    expect(shouldApplyStored('quick_opacity', pending)).toBe(false);
+    expect(shouldApplyStored('quick_zoom', pending)).toBe(true);
+  });
+
+  it('无未结算键时全部采用库值', () => {
+    expect(shouldApplyStored('quick_opacity', new Set())).toBe(true);
+    expect(shouldApplyStored('quick_zoom', new Set())).toBe(true);
   });
 });
