@@ -81,14 +81,19 @@ export function QuickCapture() {
       flash(savedStamp(new Date()));
       inputRef.current?.focus(); // 保存后光标留在输入框,可继续记下一条
     } catch (e) {
-      setError(String(e)); // 保存失败保留输入
+      setError(`保存失败: ${String(e)}`); // 保存失败保留输入
     }
   }, [content, flash]);
 
-  const onUnlock = useCallback(() => {
-    unlock();
-    flash('已解锁');
-    inputRef.current?.focus(); // 解锁后回到输入框
+  const onUnlock = useCallback(async () => {
+    try {
+      await unlock(); // 写库成功后才翻转本地锁定态(见 use-quick-lock)
+      setError('');
+      flash('已解锁');
+      inputRef.current?.focus(); // 解锁后回到输入框
+    } catch (e) {
+      setError(`解锁失败: ${String(e)}`); // 写库失败:保持锁定并复用错误浮层,不谎报已解锁
+    }
   }, [unlock, flash]);
 
   const onDoubleClick = useCallback(() => {
@@ -138,7 +143,7 @@ export function QuickCapture() {
       ) : null}
       {error ? (
         <span className="pointer-events-none absolute right-3 bottom-2 text-xs text-red-500">
-          保存失败: {error}
+          {error}
         </span>
       ) : shouldShowStamp(savedAt, Date.now()) ? (
         <span className="pointer-events-none absolute right-3 bottom-2 text-xs text-gray-400">

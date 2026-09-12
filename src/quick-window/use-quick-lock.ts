@@ -31,12 +31,11 @@ export function useQuickLock() {
       .catch(() => {});
   }, []);
 
-  // 锁图标:三档一并写回 false 并持久化
-  const unlock = useCallback(() => {
+  // 锁图标:三档一并写回 false 并持久化。全部写成功后返回,失败时抛错——
+  // 由调用方保持锁定态并提示,避免"界面已解锁、库里仍锁定"的乐观静默。
+  const unlock = useCallback(async () => {
+    await Promise.all(LOCK_KEYS.map((key) => invoke('set_setting', { key, value: 'false' })));
     setLock(emptyLock());
-    void Promise.all(LOCK_KEYS.map((key) => invoke('set_setting', { key, value: 'false' }))).catch(
-      () => {},
-    );
   }, []);
 
   return { lock, doubleClickAction, unlock };
