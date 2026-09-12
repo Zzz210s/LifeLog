@@ -2,6 +2,7 @@
 @font-face { font-family: 'JetBrains Mono'; font-weight: 500; src: local('JetBrains Mono'), local('JetBrainsMono-Regular'); }
 @font-face { font-family: 'JetBrains Mono'; font-weight: 600; src: local('JetBrains Mono'), local('JetBrainsMono-Regular'); }
 @font-face { font-family: 'JetBrains Mono'; font-weight: 700; src: local('JetBrains Mono'), local('JetBrainsMono-Regular'); }
+svg { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', 'Liberation Mono', 'Noto Sans Mono CJK SC', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', monospace; }
 :root, [data-theme="dark"] { --bg: #020617; --grid: #1e293b; --text: #ffffff; --text-muted: #94a3b8; --text-dim: #475569; --text-faint: #7d8da1; --panel: rgba(15, 23, 42, 0.5); --panel-border: #1e293b; --lane-fill: rgba(15, 23, 42, 0.22); --lane-stroke: #334155; --arrow: #64748b; --arrow-emphasis: #34d399; --mask: #0f172a; --frontend-fill: rgba(8, 51, 68, 0.4); --frontend-stroke: #22d3ee; --backend-fill: rgba(6, 78, 59, 0.4); --backend-stroke: #34d399; --database-fill: rgba(76, 29, 149, 0.4); --database-stroke: #a78bfa; --cloud-fill: rgba(120, 53, 15, 0.3); --cloud-stroke: #fbbf24; --security-fill: rgba(136, 19, 55, 0.4); --security-stroke: #fb7185; --messagebus-fill: rgba(251, 146, 60, 0.3); --messagebus-stroke: #fb923c; --external-fill: rgba(30, 41, 59, 0.5); --external-stroke: #94a3b8; --toolbar-bg: rgba(15, 23, 42, 0.8); --toolbar-border: #334155; --toolbar-text: #e2e8f0; --toolbar-hover: rgba(15, 23, 42, 0.95); --toolbar-menu-bg: #0f172a; }
 [data-theme="light"] { --bg: #f8fafc; --grid: #e2e8f0; --text: #0f172a; --text-muted: #64748b; --text-dim: #94a3b8; --text-faint: #64748b; --panel: #ffffff; --panel-border: #e2e8f0; --lane-fill: rgba(248, 250, 252, 0.65); --lane-stroke: #cbd5e1; --arrow: #94a3b8; --arrow-emphasis: #059669; --mask: #ffffff; --frontend-fill: rgba(34, 211, 238, 0.15); --frontend-stroke: #0891b2; --backend-fill: rgba(52, 211, 153, 0.18); --backend-stroke: #059669; --database-fill: rgba(167, 139, 250, 0.2); --database-stroke: #7c3aed; --cloud-fill: rgba(251, 191, 36, 0.18); --cloud-stroke: #d97706; --security-fill: rgba(251, 113, 133, 0.15); --security-stroke: #e11d48; --messagebus-fill: rgba(251, 146, 60, 0.15); --messagebus-stroke: #ea580c; --external-fill: rgba(148, 163, 184, 0.18); --external-stroke: #64748b; --toolbar-bg: rgba(255, 255, 255, 0.92); --toolbar-border: #cbd5e1; --toolbar-text: #334155; --toolbar-hover: #ffffff; --toolbar-menu-bg: #ffffff; }
 [data-preset="signal-flow"][data-theme="dark"] { --bg: #030711; --grid: #15233a; --panel: rgba(6, 14, 28, 0.78); --panel-border: #1d3350; --lane-fill: rgba(9, 22, 40, 0.5); --lane-stroke: #2c4564; --text: #f5fbff; --text-muted: #9eb0c7; --text-dim: #52667f; --text-faint: #7890ad; --mask: #07101e; --frontend-fill: rgba(6, 182, 212, 0.14); --frontend-stroke: #67e8f9; --backend-fill: rgba(16, 185, 129, 0.14); --backend-stroke: #5eead4; --database-fill: rgba(139, 92, 246, 0.16); --database-stroke: #c4b5fd; --cloud-fill: rgba(245, 158, 11, 0.13); --cloud-stroke: #fcd34d; --security-fill: rgba(244, 63, 94, 0.13); --security-stroke: #fda4af; --messagebus-fill: rgba(249, 115, 22, 0.13); --messagebus-stroke: #fdba74; --external-fill: rgba(71, 85, 105, 0.24); --external-stroke: #a5b4c7; --arrow: #7890ad; --arrow-emphasis: #2dd4bf; --toolbar-bg: rgba(7, 16, 30, 0.86); --toolbar-border: #29415f; --toolbar-menu-bg: #07101e; }
@@ -278,7 +279,6 @@ svg[data-preset="editorial"][data-animation="trace"] [data-animate="node"] { ani
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.48; transform: scale(0.78); }
 }
-svg { font-family: 'Microsoft YaHei', sans-serif, 'PingFang SC', 'Hiragino Sans GB', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 :root, svg { --bg: #020617; --grid: #1e293b; --text: #ffffff; --text-muted: #94a3b8; --text-dim: #475569; --text-faint: #7d8da1; --panel: rgba(15, 23, 42, 0.5); --panel-border: #1e293b; --lane-fill: rgba(15, 23, 42, 0.22); --lane-stroke: #334155; --arrow: #64748b; --arrow-emphasis: #34d399; --mask: #0f172a; --frontend-fill: rgba(8, 51, 68, 0.4); --frontend-stroke: #22d3ee; --backend-fill: rgba(6, 78, 59, 0.4); --backend-stroke: #34d399; --database-fill: rgba(76, 29, 149, 0.4); --database-stroke: #a78bfa; --cloud-fill: rgba(120, 53, 15, 0.3); --cloud-stroke: #fbbf24; --security-fill: rgba(136, 19, 55, 0.4); --security-stroke: #fb7185; --messagebus-fill: rgba(251, 146, 60, 0.3); --messagebus-stroke: #fb923c; --external-fill: rgba(30, 41, 59, 0.5); --external-stroke: #94a3b8; --toolbar-bg: rgba(15, 23, 42, 0.8); --toolbar-border: #334155; --toolbar-text: #e2e8f0; --toolbar-hover: rgba(15, 23, 42, 0.95); --toolbar-menu-bg: #0f172a; }
 @media (prefers-color-scheme: light) { :root, svg { --bg: #f8fafc; --grid: #e2e8f0; --text: #0f172a; --text-muted: #64748b; --text-dim: #94a3b8; --text-faint: #64748b; --panel: #ffffff; --panel-border: #e2e8f0; --lane-fill: rgba(248, 250, 252, 0.65); --lane-stroke: #cbd5e1; --arrow: #94a3b8; --arrow-emphasis: #059669; --mask: #ffffff; --frontend-fill: rgba(34, 211, 238, 0.15); --frontend-stroke: #0891b2; --backend-fill: rgba(52, 211, 153, 0.18); --backend-stroke: #059669; --database-fill: rgba(167, 139, 250, 0.2); --database-stroke: #7c3aed; --cloud-fill: rgba(251, 191, 36, 0.18); --cloud-stroke: #d97706; --security-fill: rgba(251, 113, 133, 0.15); --security-stroke: #e11d48; --messagebus-fill: rgba(251, 146, 60, 0.15); --messagebus-stroke: #ea580c; --external-fill: rgba(148, 163, 184, 0.18); --external-stroke: #64748b; --toolbar-bg: rgba(255, 255, 255, 0.92); --toolbar-border: #cbd5e1; --toolbar-text: #334155; --toolbar-hover: #ffffff; --toolbar-menu-bg: #ffffff; } }
 svg[data-theme="light"] { --bg: #f8fafc; --grid: #e2e8f0; --text: #0f172a; --text-muted: #64748b; --text-dim: #94a3b8; --text-faint: #64748b; --panel: #ffffff; --panel-border: #e2e8f0; --lane-fill: rgba(248, 250, 252, 0.65); --lane-stroke: #cbd5e1; --arrow: #94a3b8; --arrow-emphasis: #059669; --mask: #ffffff; --frontend-fill: rgba(34, 211, 238, 0.15); --frontend-stroke: #0891b2; --backend-fill: rgba(52, 211, 153, 0.18); --backend-stroke: #059669; --database-fill: rgba(167, 139, 250, 0.2); --database-stroke: #7c3aed; --cloud-fill: rgba(251, 191, 36, 0.18); --cloud-stroke: #d97706; --security-fill: rgba(251, 113, 133, 0.15); --security-stroke: #e11d48; --messagebus-fill: rgba(251, 146, 60, 0.15); --messagebus-stroke: #ea580c; --external-fill: rgba(148, 163, 184, 0.18); --external-stroke: #64748b; --toolbar-bg: rgba(255, 255, 255, 0.92); --toolbar-border: #cbd5e1; --toolbar-text: #334155; --toolbar-hover: #ffffff; --toolbar-menu-bg: #ffffff; }
@@ -316,7 +316,7 @@ rect.c-bg-rect { fill: var(--bg); }
 
         <!-- Connection paths (before components for correct z-order) -->
         <path data-edge-from="main-window" data-edge-to="shared" data-edge-label="invoke" data-edge-key="0" data-edge-id="main-to-shared" data-composition-points="220,99;260,99;260,189;300,189" d="M 220 99 L 252 99 Q 260 99 260 107 L 260 181 Q 260 189 268 189 L 300 189" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="quick-window" data-edge-to="shared" data-edge-label="invoke" data-edge-key="1" data-edge-id="quick-to-shared" data-composition-points="220,332;260,332;260,203;300,203" d="M 220 332 L 252 332 Q 260 332 260 324 L 260 211 Q 260 203 268 203 L 300 203" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="input-bar" data-edge-to="shared" data-edge-label="invoke" data-edge-key="1" data-edge-id="input-to-shared" data-composition-points="220,332;260,332;260,203;300,203" d="M 220 332 L 252 332 Q 260 332 260 324 L 260 211 Q 260 203 268 203 L 300 203" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         <path data-edge-from="shared" data-edge-to="cmd-notes" data-edge-label="IPC" data-edge-key="2" data-edge-id="shared-to-notes" data-composition-points="490,176;540,176;540,79;590,79" d="M 490 176 L 532 176 Q 540 176 540 168 L 540 87 Q 540 79 548 79 L 590 79" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         <path data-edge-from="shared" data-edge-to="cmd-settings" data-edge-label="IPC" data-edge-key="3" data-edge-id="shared-to-settings" data-composition-points="490,189.33333333333334;540,189.33333333333334;540,232;590,232" d="M 490 189.33333333333334 L 532 189.33333333333334 Q 540 189.33333333333334 540 197.33333333333334 L 540 224 Q 540 232 548 232 L 590 232" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         <path data-edge-from="shared" data-edge-to="cmd-exchange" data-edge-label="IPC" data-edge-key="4" data-edge-id="shared-to-exchange" data-composition-points="490,202.66666666666666;540,202.66666666666666;540,392;590,392" d="M 490 202.66666666666666 L 532 202.66666666666666 Q 540 202.66666666666666 540 210.66666666666666 L 540 384 Q 540 392 548 392 L 590 392" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
@@ -331,7 +331,7 @@ rect.c-bg-rect { fill: var(--bg); }
         <path data-edge-from="cmd-notes" data-edge-to="main-window" data-edge-label="note-created" data-edge-key="13" data-edge-id="notes-event-to-main" data-composition-points="590,65;405,65;405,85;220,85" d="M 590 65 L 413 65 Q 405 65 405 73 L 405 77 Q 405 85 397 85 L 220 85" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
 
         <!-- Components -->
-        <g class="relationship-hit-overlay" data-relationship-hit-overlay="" role="group" aria-label="直接关系浏览器"><desc id="archify-relationship-help">使用方向键浏览关系。按 Enter 或空格键固定详情；按 Escape 清除。</desc><g class="relationship-hit-target" data-relationship-hit-key="0" data-relationship-key="0" data-relationship-from="main-window" data-relationship-to="shared" data-relationship-id="main-to-shared" role="button" tabindex="0" aria-pressed="false" aria-describedby="archify-relationship-help" aria-label="检查第 1/14 条关系：主窗口 到 src/shared/，invoke。按 Enter 查看详情。"><title>主窗口 -> src/shared/ · invoke</title><path data-composition-points="220,99;260,99;260,189;300,189" d="M 220 99 L 252 99 Q 260 99 260 107 L 260 181 Q 260 189 268 189 L 300 189" stroke-width="1.5" class="relationship-hit-rail"/><path data-composition-points="220,99;260,99;260,189;300,189" d="M 220 99 L 252 99 Q 260 99 260 107 L 260 181 Q 260 189 268 189 L 300 189" stroke-width="1.5" class="relationship-focus-rail"/></g><g class="relationship-hit-target" data-relationship-hit-key="1" data-relationship-key="1" data-relationship-from="quick-window" data-relationship-to="shared" data-relationship-id="quick-to-shared" role="button" tabindex="-1" aria-pressed="false" aria-describedby="archify-relationship-help" aria-label="检查第 2/14 条关系：快捷输入窗 到 src/shared/，invoke。按 Enter 查看详情。"><title>快捷输入窗 -> src/shared/ · invoke</title><path data-composition-points="220,332;260,332;260,203;300,203" d="M 220 332 L 252 332 Q 260 332 260 324 L 260 211 Q 260 203 268 203 L 300 203" stroke-width="1.5" class="relationship-hit-rail"/><path data-composition-points="220,332;260,332;260,203;300,203" d="M 220 332 L 252 332 Q 260 332 260 324 L 260 211 Q 260 203 268 203 L 300 203" stroke-width="1.5" class="relationship-focus-rail"/></g><g class="relationship-hit-target" data-relationship-hit-key="2" data-relationship-key="2" data-relationship-from="shared" data-relationship-to="cmd-notes" data-relationship-id="shared-to-notes" role="button" tabindex="-1" aria-pressed="false" aria-describedby="archify-relationship-help" aria-label="检查第 3/14 条关系：src/shared/ 到 commands/notes.rs，IPC。按 Enter 查看详情。"><title>src/shared/ -> commands/notes.rs · IPC</title><path data-composition-points="490,176;540,176;540,79;590,79" d="M 490 176 L 532 176 Q 540 176 540 168 L 540 87 Q 540 79 548 79 L 590 79" stroke-width="1.5" class="relationship-hit-rail"/><path data-composition-points="490,176;540,176;540,79;590,79" d="M 490 176 L 532 176 Q 540 176 540 168 L 540 87 Q 540 79 548 79 L 590 79" stroke-width="1.5" class="relationship-focus-rail"/></g><g class="relationship-hit-target" data-relationship-hit-key="3" data-relationship-key="3" data-relationship-from="shared" data-relationship-to="cmd-settings" data-relationship-id="shared-to-settings" role="button" tabindex="-1" aria-pressed="false" aria-describedby="archify-relationship-help" aria-label="检查第 4/14 条关系：src/shared/ 到 commands/settings.rs，IPC。按 Enter 查看详情。"><title>src/shared/ -> commands/settings.rs · IPC</title><path data-composition-points="490,189.33333333333334;540,189.33333333333334;540,232;590,232" d="M 490 189.33333333333334 L 532 189.33333333333334 Q 540 189.33333333333334 540 197.33333333333334 L 540 224 Q 540 232 548 232 L 590 232" stroke-width="1.5" class="relationship-hit-rail"/><path data-composition-points="490,189.33333333333334;540,189.33333333333334;540,232;590,232" d="M 490 189.33333333333334 L 532 189.33333333333334 Q 540 189.33333333333334 540 197.33333333333334 L 540 224 Q 540 232 548 232 L 590 232" stroke-width="1.5" class="relationship-focus-rail"/></g><g class="relationship-hit-target" data-relationship-hit-key="4" data-relationship-key="4" data-relationship-from="shared" data-relationship-to="cmd-exchange" data-relationship-id="shared-to-exchange" role="button" tabindex="-1" aria-pressed="false" aria-describedby="archify-relationship-help" aria-label="检查第 5/14 条关系：src/shared/ 到 commands/exchange.rs，IPC。按 Enter 查看详情。"><title>src/shared/ -> commands/exchange.rs · IPC</title><path data-composition-points="490,202.66666666666666;540,202.66666666666666;540,392;590,392" d="M 490 202.66666666666666 L 532 202.66666666666666 Q 540 202.66666666666666 540 210.66666666666666 L 540 384 Q 540 392 548 392 L 590 392" stroke-width="1.5" class="relationship-hit-rail"/><path data-composition-points="490,202.66666666666666;540,202.66666666666666;540,392;590,392" d="M 490 202.66666666666666 L 532 202.66666666666666 Q 540 202.66666666666666 540 210.66666666666666 L 540 384 Q 540 392 548 392 L 590 392" stroke-width="1.5" class="relationship-focus-rail"/></g><g class="relationship-hit-target" data-relationship-hit-key="5" data-relationship-key="5" data-relationship-from="shared" data-relationship-to="cmd-windowing" data-relationship-id="shared-to-windowing" role="button" tabindex="-1" aria-pressed="false" aria-describedby="archify-relationship-help" aria-label="检查第 6/14 条关系：src/shared/ 到 commands/windowing.rs，IPC。按 Enter 查看详情。"><title>src/shared/ -> commands/windowing.rs · IPC</title><path data-composition-points="490,216;540,216;540,552;590,552" d="M 490 216 L 532 216 Q 540 216 540 224 L 540 544 Q 540 552 548 552 L 590 552" stroke-width="1.5" class="relationship-hit-rail"/><path data-composition-points="490,216;540,216;540,552;590,552" d="M 490 216 L 532 216 Q 540 216 540 224 L 540 544 Q 540 552 548 552 L 590 552" stroke-width="1.5" class="relationship-focus-rail"/></g><g class="relationship-hit-target" data-relationship-hit-key="6" data-relationship-key="6" data-relationship-from="cmd-notes" data-relationship-to="domain-repos" data-relationship-id="notes-to-repos" role="button" tabindex="-1" aria-pressed="false" aria-describedby="archify-relationship-help" aria-label="检查第 7/14 条关系：commands/notes.rs 到 db/repos/，notes 仓储。按 Enter 查看详情。"><title>commands/notes.rs -> db/repos/ · notes 仓储</title><path data-composition-points="770,65;860,65" d="M 770 65 L 860 65" stroke-width="1.5" class="relationship-hit-rail"/><path data-composition-points="770,65;860,65" d="M 770 65 L 860 65" stroke-width="1.5" class="relationship-focus-rail"/></g><g class="relationship-hit-target" data-relationship-hit-key="7" data-relationship-key="7" data-relationship-from="cmd-settings" data-relationship-to="domain-repos" data-relationship-id="settings-to-repos" role="button" tabindex="-1" aria-pressed="false" aria-describedby="archify-relationship-help" aria-label="检查第 8/14 条关系：commands/settings.rs 到 db/repos/，settings 仓储。按 Enter 查看详情。"><title>commands/settings.rs -> db/repos/ · settings 仓储</title><path data-composition-points="770,232;815,232;815,79;860,79" d="M 770 232 L 807 232 Q 815 232 815 224 L 815 87 Q 815 79 823 79 L 860 79" stroke-width="1.5" class="relationship-hit-rail"/><path data-composition-points="770,232;815,232;815,79;860,79" d="M 770 232 L 807 232 Q 815 232 815 224 L 815 87 Q 815 79 823 79 L 860 79" stroke-width="1.5" class="relationship-focus-rail"/></g><g class="relationship-hit-target" data-relationship-hit-key="8" data-relationship-key="8" data-relationship-from="cmd-exchange" data-relationship-to="domain-exchange" data-relationship-id="exchange-to-export" role="button" tabindex="-1" aria-pressed="false" aria-describedby="archify-relationship-help" aria-label="检查第 9/14 条关系：commands/exchange.rs 到 exchange/notes_export.rs，xlsx 字节。按 Enter 查看详情。"><title>commands/exchange.rs -> exchange/notes_export.rs · xlsx 字节</title><path data-composition-points="770,392;860,392" d="M 770 392 L 860 392" stroke-width="1.5" class="relationship-hit-rail"/><path data-composition-points="770,392;860,392" d="M 770 392 L 860 392" stroke-width="1.5" class="relationship-focus-rail"/></g><g class="relationship-hit-target" data-relationship-hit-key="9" data-relationship-key="9" data-relationship-from="cmd-windowing" data-relationship-to="domain-windowing" data-relationship-id="windowing-to-domain" role="button" tabindex="-1" aria-pressed="false" aria-describedby="archify-relationship-help" aria-label="检查第 10/14 条关系：commands/windowing.rs 到 windowing/，窗口控制。按 Enter 查看详情。"><title>commands/windowing.rs -> windowing/ · 窗口控制</title><path data-composition-points="770,552;860,552" d="M 770 552 L 860 552" stroke-width="1.5" class="relationship-hit-rail"/><path data-composition-points="770,552;860,552" d="M 770 552 L 860 552" stroke-width="1.5" class="relationship-focus-rail"/></g><g class="relationship-hit-target" data-relationship-hit-key="10" data-relationship-key="10" data-relationship-from="domain-repos" data-relationship-to="domain-tags" data-relationship-id="repos-to-tags" role="button" tabindex="-1" aria-pressed="false" aria-describedby="archify-relationship-help" aria-label="检查第 11/14 条关系：db/repos/ 到 tags.rs，#标签解析。按 Enter 查看详情。"><title>db/repos/ -> tags.rs · #标签解析</title><path data-composition-points="950,104;950,200" d="M 950 104 L 950 200" stroke-width="1.5" class="relationship-hit-rail"/><path data-composition-points="950,104;950,200" d="M 950 104 L 950 200" stroke-width="1.5" class="relationship-focus-rail"/></g><g class="relationship-hit-target" data-relationship-hit-key="11" data-relationship-key="11" data-relationship-from="domain-repos" data-relationship-to="sqlite" data-relationship-id="repos-to-sqlite" role="button" tabindex="-1" aria-pressed="false" aria-describedby="archify-relationship-help" aria-label="检查第 12/14 条关系：db/repos/ 到 SQLite lifelog.db，rusqlite SQL。按 Enter 查看详情。"><title>db/repos/ -> SQLite lifelog.db · rusqlite SQL</title><path data-composition-points="1040,72;1075,72;1075,160;1110,160" d="M 1040 72 L 1067 72 Q 1075 72 1075 80 L 1075 152 Q 1075 160 1083 160 L 1110 160" stroke-width="1.5" class="relationship-hit-rail"/><path data-composition-points="1040,72;1075,72;1075,160;1110,160" d="M 1040 72 L 1067 72 Q 1075 72 1075 80 L 1075 152 Q 1075 160 1083 160 L 1110 160" stroke-width="1.5" class="relationship-focus-rail"/></g><g class="relationship-hit-target" data-relationship-hit-key="12" data-relationship-key="12" data-relationship-from="sqlite" data-relationship-to="fts" data-relationship-id="sqlite-to-fts" role="button" tabindex="-1" aria-pressed="false" aria-describedby="archify-relationship-help" aria-label="检查第 13/14 条关系：SQLite lifelog.db 到 notes_fts (FTS5)，5 个触发器。按 Enter 查看详情。"><title>SQLite lifelog.db -> notes_fts (FTS5) · 5 个触发器</title><path data-composition-points="1200,200;1200,360" d="M 1200 200 L 1200 360" stroke-width="1.5" class="relationship-hit-rail"/><path data-composition-points="1200,200;1200,360" d="M 1200 200 L 1200 360" stroke-width="1.5" class="relationship-focus-rail"/></g><g class="relationship-hit-target" data-relationship-hit-key="13" data-relationship-key="13" data-relationship-from="cmd-notes" data-relationship-to="main-window" data-relationship-id="notes-event-to-main" role="button" tabindex="-1" aria-pressed="false" aria-describedby="archify-relationship-help" aria-label="检查第 14/14 条关系：commands/notes.rs 到 主窗口，note-created。按 Enter 查看详情。"><title>commands/notes.rs -> 主窗口 · note-created</title><path data-composition-points="590,65;405,65;405,85;220,85" d="M 590 65 L 413 65 Q 405 65 405 73 L 405 77 Q 405 85 397 85 L 220 85" stroke-width="1.5" class="relationship-hit-rail"/><path data-composition-points="590,65;405,65;405,85;220,85" d="M 590 65 L 413 65 Q 405 65 405 73 L 405 77 Q 405 85 397 85 L 220 85" stroke-width="1.5" class="relationship-focus-rail"/></g></g><g id="node-main-window" data-node-id="main-window" data-node-label="主窗口" tabindex="0" role="button" aria-label="聚焦主窗口，index.html, 前端:TypeScript + React" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="index.html" data-node-tag="use-notes-feed.ts" data-node-context="前端:TypeScript + React">
+        <g id="node-main-window" data-node-id="main-window" data-node-label="主窗口" tabindex="0" role="button" aria-label="聚焦主窗口，index.html, 前端:TypeScript + React" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="index.html" data-node-tag="use-notes-feed.ts" data-node-context="前端:TypeScript + React">
           <title>主窗口 · index.html · 前端:TypeScript + React · use-notes-feed.ts</title>
           <rect x="40" y="60" width="180" height="64" rx="6" class="c-mask"/>
           <rect x="40" y="60" width="180" height="64" rx="6" class="c-frontend" stroke-width="1.5"/>
@@ -341,13 +341,13 @@ rect.c-bg-rect { fill: var(--bg); }
             <circle cx="4.1" cy="4.8" r=".7" class="sigil-fill"/>
             <circle cx="6.3" cy="4.8" r=".7" class="sigil-fill"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="130" y="90" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">主窗口</text>
-        <text data-detail="context" x="130" y="106" class="t-muted" font-size="9" text-anchor="middle">index.html</text>
-        <text data-detail="fine" x="130" y="116" class="t-frontend" font-size="7" text-anchor="middle">use-notes-feed.ts</text>
+          <text data-node-label="" x="130" y="90" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">主窗口</text>
+        <text x="130" y="106" class="t-muted" font-size="9" text-anchor="middle">index.html</text>
+        <text x="130" y="116" class="t-frontend" font-size="7" text-anchor="middle">use-notes-feed.ts</text>
         </g>
 
-        <g id="node-quick-window" data-node-id="quick-window" data-node-label="快捷输入窗" tabindex="0" role="button" aria-label="聚焦快捷输入窗，quick.html, 前端:TypeScript + React" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="quick.html" data-node-tag="QuickCapture.tsx" data-node-context="前端:TypeScript + React">
-          <title>快捷输入窗 · quick.html · 前端:TypeScript + React · QuickCapture.tsx</title>
+        <g id="node-input-bar" data-node-id="input-bar" data-node-label="输入栏" tabindex="0" role="button" aria-label="聚焦输入栏，input.html, 前端:TypeScript + React" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="input.html" data-node-tag="InputBar.tsx" data-node-context="前端:TypeScript + React">
+          <title>输入栏 · input.html · 前端:TypeScript + React · InputBar.tsx</title>
           <rect x="40" y="300" width="180" height="64" rx="6" class="c-mask"/>
           <rect x="40" y="300" width="180" height="64" rx="6" class="c-frontend" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(46 306) scale(0.6875)">
@@ -356,9 +356,9 @@ rect.c-bg-rect { fill: var(--bg); }
             <circle cx="4.1" cy="4.8" r=".7" class="sigil-fill"/>
             <circle cx="6.3" cy="4.8" r=".7" class="sigil-fill"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="130" y="330" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">快捷输入窗</text>
-        <text data-detail="context" x="130" y="346" class="t-muted" font-size="9" text-anchor="middle">quick.html</text>
-        <text data-detail="fine" x="130" y="356" class="t-frontend" font-size="7" text-anchor="middle">QuickCapture.tsx</text>
+          <text data-node-label="" x="130" y="330" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">输入栏</text>
+        <text x="130" y="346" class="t-muted" font-size="9" text-anchor="middle">input.html</text>
+        <text x="130" y="356" class="t-frontend" font-size="7" text-anchor="middle">InputBar.tsx</text>
         </g>
 
         <g id="node-shared" data-node-id="shared" data-node-label="src/shared/" tabindex="0" role="button" aria-label="聚焦src/shared/，api / markdown / links, 前端:TypeScript + React" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="api / markdown / links" data-node-tag="所有渲染经 DOMPurify" data-node-context="前端:TypeScript + React">
@@ -371,21 +371,21 @@ rect.c-bg-rect { fill: var(--bg); }
             <circle cx="4.1" cy="4.8" r=".7" class="sigil-fill"/>
             <circle cx="6.3" cy="4.8" r=".7" class="sigil-fill"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="395" y="194" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">src/shared/</text>
-        <text data-detail="context" x="395" y="210" class="t-muted" font-size="9" text-anchor="middle">api / markdown / links</text>
-        <text data-detail="fine" x="395" y="224" class="t-frontend" font-size="7" text-anchor="middle">所有渲染经 DOMPurify</text>
+          <text data-node-label="" x="395" y="194" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">src/shared/</text>
+        <text x="395" y="210" class="t-muted" font-size="9" text-anchor="middle">api / markdown / links</text>
+        <text x="395" y="224" class="t-frontend" font-size="7" text-anchor="middle">所有渲染经 DOMPurify</text>
         </g>
 
-        <g id="node-cmd-notes" data-node-id="cmd-notes" data-node-label="commands/notes.rs" tabindex="0" role="button" aria-label="聚焦commands/notes.rs，save_quick_note, query_notes, Rust:Tauri 命令层与领域核心" aria-pressed="false" data-node-kind="backend" data-node-sublabel="save_quick_note, query_notes" data-node-tag="update / toggle_todo / delete" data-node-context="Rust:Tauri 命令层与领域核心">
-          <title>commands/notes.rs · save_quick_note, query_notes · Rust:Tauri 命令层与领域核心 · update / toggle_todo / delete</title>
+        <g id="node-cmd-notes" data-node-id="cmd-notes" data-node-label="commands/notes.rs" tabindex="0" role="button" aria-label="聚焦commands/notes.rs，save_input_note, query_notes, Rust:Tauri 命令层与领域核心" aria-pressed="false" data-node-kind="backend" data-node-sublabel="save_input_note, query_notes" data-node-tag="update / toggle_todo / delete" data-node-context="Rust:Tauri 命令层与领域核心">
+          <title>commands/notes.rs · save_input_note, query_notes · Rust:Tauri 命令层与领域核心 · update / toggle_todo / delete</title>
           <rect x="590" y="40" width="180" height="64" rx="6" class="c-mask"/>
           <rect x="590" y="40" width="180" height="64" rx="6" class="c-backend" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(596 46) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="680" y="70" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">commands/notes.rs</text>
-        <text data-detail="context" x="680" y="86" class="t-muted" font-size="9" text-anchor="middle">save_quick_note, query_notes</text>
-        <text data-detail="fine" x="680" y="96" class="t-backend" font-size="7" text-anchor="middle">update / toggle_todo / delete</text>
+          <text data-node-label="" x="680" y="70" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">commands/notes.rs</text>
+        <text x="680" y="86" class="t-muted" font-size="9" text-anchor="middle">save_input_note, query_notes</text>
+        <text x="680" y="96" class="t-backend" font-size="7" text-anchor="middle">update / toggle_todo / delete</text>
         </g>
 
         <g id="node-cmd-settings" data-node-id="cmd-settings" data-node-label="commands/settings.rs" tabindex="0" role="button" aria-label="聚焦commands/settings.rs，get_setting, set_setting, Rust:Tauri 命令层与领域核心" aria-pressed="false" data-node-kind="backend" data-node-sublabel="get_setting, set_setting" data-node-context="Rust:Tauri 命令层与领域核心">
@@ -395,8 +395,8 @@ rect.c-bg-rect { fill: var(--bg); }
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(596 206) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="680" y="230" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">commands/settings.rs</text>
-        <text data-detail="context" x="680" y="246" class="t-muted" font-size="9" text-anchor="middle">get_setting, set_setting</text>
+          <text data-node-label="" x="680" y="230" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">commands/settings.rs</text>
+        <text x="680" y="246" class="t-muted" font-size="9" text-anchor="middle">get_setting, set_setting</text>
         </g>
 
         <g id="node-cmd-exchange" data-node-id="cmd-exchange" data-node-label="commands/exchange.rs" tabindex="0" role="button" aria-label="聚焦commands/exchange.rs，export_notes, Rust:Tauri 命令层与领域核心" aria-pressed="false" data-node-kind="backend" data-node-sublabel="export_notes" data-node-tag="异步,锁外写盘" data-node-context="Rust:Tauri 命令层与领域核心">
@@ -406,21 +406,21 @@ rect.c-bg-rect { fill: var(--bg); }
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(596 366) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="680" y="390" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">commands/exchange.rs</text>
-        <text data-detail="context" x="680" y="406" class="t-muted" font-size="9" text-anchor="middle">export_notes</text>
-        <text data-detail="fine" x="680" y="416" class="t-backend" font-size="7" text-anchor="middle">异步,锁外写盘</text>
+          <text data-node-label="" x="680" y="390" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">commands/exchange.rs</text>
+        <text x="680" y="406" class="t-muted" font-size="9" text-anchor="middle">export_notes</text>
+        <text x="680" y="416" class="t-backend" font-size="7" text-anchor="middle">异步,锁外写盘</text>
         </g>
 
-        <g id="node-cmd-windowing" data-node-id="cmd-windowing" data-node-label="commands/windowing.rs" tabindex="0" role="button" aria-label="聚焦commands/windowing.rs，hide_quick_window, pin, zoom, Rust:Tauri 命令层与领域核心" aria-pressed="false" data-node-kind="backend" data-node-sublabel="hide_quick_window, pin, zoom" data-node-tag="set_quick_zoom" data-node-context="Rust:Tauri 命令层与领域核心">
-          <title>commands/windowing.rs · hide_quick_window, pin, zoom · Rust:Tauri 命令层与领域核心 · set_quick_zoom</title>
+        <g id="node-cmd-windowing" data-node-id="cmd-windowing" data-node-label="commands/windowing.rs" tabindex="0" role="button" aria-label="聚焦commands/windowing.rs，hide_input_bar, pin, zoom, Rust:Tauri 命令层与领域核心" aria-pressed="false" data-node-kind="backend" data-node-sublabel="hide_input_bar, pin, zoom" data-node-tag="set_input_scale" data-node-context="Rust:Tauri 命令层与领域核心">
+          <title>commands/windowing.rs · hide_input_bar, pin, zoom · Rust:Tauri 命令层与领域核心 · set_input_scale</title>
           <rect x="590" y="520" width="180" height="64" rx="6" class="c-mask"/>
           <rect x="590" y="520" width="180" height="64" rx="6" class="c-backend" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(596 526) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="680" y="550" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">commands/windowing.rs</text>
-        <text data-detail="context" x="680" y="566" class="t-muted" font-size="9" text-anchor="middle">hide_quick_window, pin, zoom</text>
-        <text data-detail="fine" x="680" y="576" class="t-backend" font-size="7" text-anchor="middle">set_quick_zoom</text>
+          <text data-node-label="" x="680" y="550" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">commands/windowing.rs</text>
+        <text x="680" y="566" class="t-muted" font-size="9" text-anchor="middle">hide_input_bar, pin, zoom</text>
+        <text x="680" y="576" class="t-backend" font-size="7" text-anchor="middle">set_input_scale</text>
         </g>
 
         <g id="node-domain-repos" data-node-id="domain-repos" data-node-label="db/repos/" tabindex="0" role="button" aria-label="聚焦db/repos/，notes, notes_query, update, Rust:Tauri 命令层与领域核心" aria-pressed="false" data-node-kind="backend" data-node-sublabel="notes, notes_query, update" data-node-tag="settings, tags 仓储" data-node-context="Rust:Tauri 命令层与领域核心">
@@ -430,9 +430,9 @@ rect.c-bg-rect { fill: var(--bg); }
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(866 46) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="950" y="70" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">db/repos/</text>
-        <text data-detail="context" x="950" y="86" class="t-muted" font-size="9" text-anchor="middle">notes, notes_query, update</text>
-        <text data-detail="fine" x="950" y="96" class="t-backend" font-size="7" text-anchor="middle">settings, tags 仓储</text>
+          <text data-node-label="" x="950" y="70" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">db/repos/</text>
+        <text x="950" y="86" class="t-muted" font-size="9" text-anchor="middle">notes, notes_query, update</text>
+        <text x="950" y="96" class="t-backend" font-size="7" text-anchor="middle">settings, tags 仓储</text>
         </g>
 
         <g id="node-domain-tags" data-node-id="domain-tags" data-node-label="tags.rs" tabindex="0" role="button" aria-label="聚焦tags.rs，extract_tags / strip_tags, Rust:Tauri 命令层与领域核心" aria-pressed="false" data-node-kind="backend" data-node-sublabel="extract_tags / strip_tags" data-node-tag="#标签词法" data-node-context="Rust:Tauri 命令层与领域核心">
@@ -442,9 +442,9 @@ rect.c-bg-rect { fill: var(--bg); }
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(866 206) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="950" y="230" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">tags.rs</text>
-        <text data-detail="context" x="950" y="246" class="t-muted" font-size="9" text-anchor="middle">extract_tags / strip_tags</text>
-        <text data-detail="fine" x="950" y="256" class="t-backend" font-size="7" text-anchor="middle">#标签词法</text>
+          <text data-node-label="" x="950" y="230" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">tags.rs</text>
+        <text x="950" y="246" class="t-muted" font-size="9" text-anchor="middle">extract_tags / strip_tags</text>
+        <text x="950" y="256" class="t-backend" font-size="7" text-anchor="middle">#标签词法</text>
         </g>
 
         <g id="node-domain-exchange" data-node-id="domain-exchange" data-node-label="exchange/notes_export.rs" tabindex="0" role="button" aria-label="聚焦exchange/notes_export.rs，xlsx 行组装, Rust:Tauri 命令层与领域核心" aria-pressed="false" data-node-kind="backend" data-node-sublabel="xlsx 行组装" data-node-tag="rust_xlsxwriter" data-node-context="Rust:Tauri 命令层与领域核心">
@@ -454,21 +454,21 @@ rect.c-bg-rect { fill: var(--bg); }
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(866 366) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="950" y="390" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">exchange/notes_export.rs</text>
-        <text data-detail="context" x="950" y="406" class="t-muted" font-size="9" text-anchor="middle">xlsx 行组装</text>
-        <text data-detail="fine" x="950" y="416" class="t-backend" font-size="7" text-anchor="middle">rust_xlsxwriter</text>
+          <text data-node-label="" x="950" y="390" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">exchange/notes_export.rs</text>
+        <text x="950" y="406" class="t-muted" font-size="9" text-anchor="middle">xlsx 行组装</text>
+        <text x="950" y="416" class="t-backend" font-size="7" text-anchor="middle">rust_xlsxwriter</text>
         </g>
 
-        <g id="node-domain-windowing" data-node-id="domain-windowing" data-node-label="windowing/" tabindex="0" role="button" aria-label="聚焦windowing/，tray.rs, events.rs, quick.rs, Rust:Tauri 命令层与领域核心" aria-pressed="false" data-node-kind="backend" data-node-sublabel="tray.rs, events.rs, quick.rs" data-node-tag="tray + ctrl+shift+q" data-node-context="Rust:Tauri 命令层与领域核心">
-          <title>windowing/ · tray.rs, events.rs, quick.rs · Rust:Tauri 命令层与领域核心 · tray + ctrl+shift+q</title>
+        <g id="node-domain-windowing" data-node-id="domain-windowing" data-node-label="windowing/" tabindex="0" role="button" aria-label="聚焦windowing/，tray.rs, events.rs, input.rs, Rust:Tauri 命令层与领域核心" aria-pressed="false" data-node-kind="backend" data-node-sublabel="tray.rs, events.rs, input.rs" data-node-tag="tray + ctrl+shift+q" data-node-context="Rust:Tauri 命令层与领域核心">
+          <title>windowing/ · tray.rs, events.rs, input.rs · Rust:Tauri 命令层与领域核心 · tray + ctrl+shift+q</title>
           <rect x="860" y="520" width="180" height="64" rx="6" class="c-mask"/>
           <rect x="860" y="520" width="180" height="64" rx="6" class="c-backend" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(866 526) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="950" y="550" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">windowing/</text>
-        <text data-detail="context" x="950" y="566" class="t-muted" font-size="9" text-anchor="middle">tray.rs, events.rs, quick.rs</text>
-        <text data-detail="fine" x="950" y="576" class="t-backend" font-size="7" text-anchor="middle">tray + ctrl+shift+q</text>
+          <text data-node-label="" x="950" y="550" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">windowing/</text>
+        <text x="950" y="566" class="t-muted" font-size="9" text-anchor="middle">tray.rs, events.rs, input.rs</text>
+        <text x="950" y="576" class="t-backend" font-size="7" text-anchor="middle">tray + ctrl+shift+q</text>
         </g>
 
         <g id="node-sqlite" data-node-id="sqlite" data-node-label="SQLite lifelog.db" tabindex="0" role="button" aria-label="聚焦SQLite lifelog.db，notes, tags, tag_links, Rust:Tauri 命令层与领域核心" aria-pressed="false" data-node-kind="database" data-node-sublabel="notes, tags, tag_links" data-node-tag="settings + WAL + 外键 + 忙等" data-node-context="Rust:Tauri 命令层与领域核心">
@@ -479,9 +479,9 @@ rect.c-bg-rect { fill: var(--bg); }
             <ellipse cx="8" cy="4" rx="5" ry="2"/>
             <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="1200" y="158" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">SQLite lifelog.db</text>
-        <text data-detail="context" x="1200" y="174" class="t-muted" font-size="9" text-anchor="middle">notes, tags, tag_links</text>
-        <text data-detail="fine" x="1200" y="192" class="t-database" font-size="7" text-anchor="middle">settings + WAL + 外键 + 忙等</text>
+          <text data-node-label="" x="1200" y="158" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">SQLite lifelog.db</text>
+        <text x="1200" y="174" class="t-muted" font-size="9" text-anchor="middle">notes, tags, tag_links</text>
+        <text x="1200" y="192" class="t-database" font-size="7" text-anchor="middle">settings + WAL + 外键 + 忙等</text>
         </g>
 
         <g id="node-fts" data-node-id="fts" data-node-label="notes_fts (FTS5)" tabindex="0" role="button" aria-label="聚焦notes_fts (FTS5)，content + tags 两列, Rust:Tauri 命令层与领域核心" aria-pressed="false" data-node-kind="database" data-node-sublabel="content + tags 两列" data-node-tag="5 个同步触发器" data-node-context="Rust:Tauri 命令层与领域核心">
@@ -492,65 +492,65 @@ rect.c-bg-rect { fill: var(--bg); }
             <ellipse cx="8" cy="4" rx="5" ry="2"/>
             <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="1200" y="398" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">notes_fts (FTS5)</text>
-        <text data-detail="context" x="1200" y="414" class="t-muted" font-size="9" text-anchor="middle">content + tags 两列</text>
-        <text data-detail="fine" x="1200" y="432" class="t-database" font-size="7" text-anchor="middle">5 个同步触发器</text>
+          <text data-node-label="" x="1200" y="398" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">notes_fts (FTS5)</text>
+        <text x="1200" y="414" class="t-muted" font-size="9" text-anchor="middle">content + tags 两列</text>
+        <text x="1200" y="432" class="t-database" font-size="7" text-anchor="middle">5 个同步触发器</text>
         </g>
 
         <!-- Connection labels -->
-        <g data-detail="context" data-edge-from="main-window" data-edge-to="shared" data-edge-label="invoke" data-edge-key="0" data-edge-id="main-to-shared">
+        <g data-edge-from="main-window" data-edge-to="shared" data-edge-label="invoke" data-edge-key="0" data-edge-id="main-to-shared">
           <rect x="240.6" y="124" width="38.8" height="14" rx="3" class="c-mask"/>
           <text x="260" y="134" class="t-muted" font-size="8" text-anchor="middle">invoke</text>
         </g>
-        <g data-detail="context" data-edge-from="quick-window" data-edge-to="shared" data-edge-label="invoke" data-edge-key="1" data-edge-id="quick-to-shared">
+        <g data-edge-from="input-bar" data-edge-to="shared" data-edge-label="invoke" data-edge-key="1" data-edge-id="input-to-shared">
           <rect x="240.6" y="247.5" width="38.8" height="14" rx="3" class="c-mask"/>
           <text x="260" y="257.5" class="t-muted" font-size="8" text-anchor="middle">invoke</text>
         </g>
-        <g data-detail="context" data-edge-from="shared" data-edge-to="cmd-notes" data-edge-label="IPC" data-edge-key="2" data-edge-id="shared-to-notes">
+        <g data-edge-from="shared" data-edge-to="cmd-notes" data-edge-label="IPC" data-edge-key="2" data-edge-id="shared-to-notes">
           <rect x="525" y="107.5" width="30" height="14" rx="3" class="c-mask"/>
           <text x="540" y="117.5" class="t-muted" font-size="8" text-anchor="middle">IPC</text>
         </g>
-        <g data-detail="context" data-edge-from="shared" data-edge-to="cmd-settings" data-edge-label="IPC" data-edge-key="3" data-edge-id="shared-to-settings">
+        <g data-edge-from="shared" data-edge-to="cmd-settings" data-edge-label="IPC" data-edge-key="3" data-edge-id="shared-to-settings">
           <rect x="550" y="212" width="30" height="14" rx="3" class="c-mask"/>
           <text x="565" y="222" class="t-muted" font-size="8" text-anchor="middle">IPC</text>
         </g>
-        <g data-detail="context" data-edge-from="shared" data-edge-to="cmd-exchange" data-edge-label="IPC" data-edge-key="4" data-edge-id="shared-to-exchange">
+        <g data-edge-from="shared" data-edge-to="cmd-exchange" data-edge-label="IPC" data-edge-key="4" data-edge-id="shared-to-exchange">
           <rect x="550" y="372" width="30" height="14" rx="3" class="c-mask"/>
           <text x="565" y="382" class="t-muted" font-size="8" text-anchor="middle">IPC</text>
         </g>
-        <g data-detail="context" data-edge-from="shared" data-edge-to="cmd-windowing" data-edge-label="IPC" data-edge-key="5" data-edge-id="shared-to-windowing">
+        <g data-edge-from="shared" data-edge-to="cmd-windowing" data-edge-label="IPC" data-edge-key="5" data-edge-id="shared-to-windowing">
           <rect x="550" y="532" width="30" height="14" rx="3" class="c-mask"/>
           <text x="565" y="542" class="t-muted" font-size="8" text-anchor="middle">IPC</text>
         </g>
-        <g data-detail="context" data-edge-from="cmd-notes" data-edge-to="domain-repos" data-edge-label="notes 仓储" data-edge-key="6" data-edge-id="notes-to-repos">
+        <g data-edge-from="cmd-notes" data-edge-to="domain-repos" data-edge-label="notes 仓储" data-edge-key="6" data-edge-id="notes-to-repos">
           <rect x="786" y="45" width="58" height="14" rx="3" class="c-mask"/>
           <text x="815" y="55" class="t-muted" font-size="8" text-anchor="middle">notes 仓储</text>
         </g>
-        <g data-detail="context" data-edge-from="cmd-settings" data-edge-to="domain-repos" data-edge-label="settings 仓储" data-edge-key="7" data-edge-id="settings-to-repos">
+        <g data-edge-from="cmd-settings" data-edge-to="domain-repos" data-edge-label="settings 仓储" data-edge-key="7" data-edge-id="settings-to-repos">
           <rect x="778.8" y="135.5" width="72.4" height="14" rx="3" class="c-mask"/>
           <text x="815" y="145.5" class="t-muted" font-size="8" text-anchor="middle">settings 仓储</text>
         </g>
-        <g data-detail="context" data-edge-from="cmd-exchange" data-edge-to="domain-exchange" data-edge-label="xlsx 字节" data-edge-key="8" data-edge-id="exchange-to-export">
+        <g data-edge-from="cmd-exchange" data-edge-to="domain-exchange" data-edge-label="xlsx 字节" data-edge-key="8" data-edge-id="exchange-to-export">
           <rect x="788.4" y="372" width="53.199999999999996" height="14" rx="3" class="c-mask"/>
           <text x="815" y="382" class="t-muted" font-size="8" text-anchor="middle">xlsx 字节</text>
         </g>
-        <g data-detail="context" data-edge-from="cmd-windowing" data-edge-to="domain-windowing" data-edge-label="窗口控制" data-edge-key="9" data-edge-id="windowing-to-domain">
+        <g data-edge-from="cmd-windowing" data-edge-to="domain-windowing" data-edge-label="窗口控制" data-edge-key="9" data-edge-id="windowing-to-domain">
           <rect x="790.8" y="532" width="48.4" height="14" rx="3" class="c-mask"/>
           <text x="815" y="542" class="t-muted" font-size="8" text-anchor="middle">窗口控制</text>
         </g>
-        <g data-detail="context" data-edge-from="domain-repos" data-edge-to="domain-tags" data-edge-label="#标签解析" data-edge-key="10" data-edge-id="repos-to-tags">
+        <g data-edge-from="domain-repos" data-edge-to="domain-tags" data-edge-label="#标签解析" data-edge-key="10" data-edge-id="repos-to-tags">
           <rect x="923.4" y="138" width="53.199999999999996" height="14" rx="3" class="c-mask"/>
           <text x="950" y="148" class="t-muted" font-size="8" text-anchor="middle">#标签解析</text>
         </g>
-        <g data-detail="context" data-edge-from="domain-repos" data-edge-to="sqlite" data-edge-label="rusqlite SQL" data-edge-key="11" data-edge-id="repos-to-sqlite">
+        <g data-edge-from="domain-repos" data-edge-to="sqlite" data-edge-label="rusqlite SQL" data-edge-key="11" data-edge-id="repos-to-sqlite">
           <rect x="1041.2" y="96" width="67.6" height="14" rx="3" class="c-mask"/>
           <text x="1075" y="106" class="t-muted" font-size="8" text-anchor="middle">rusqlite SQL</text>
         </g>
-        <g data-detail="context" data-edge-from="sqlite" data-edge-to="fts" data-edge-label="5 个触发器" data-edge-key="12" data-edge-id="sqlite-to-fts">
+        <g data-edge-from="sqlite" data-edge-to="fts" data-edge-label="5 个触发器" data-edge-key="12" data-edge-id="sqlite-to-fts">
           <rect x="1171" y="267" width="58" height="14" rx="3" class="c-mask"/>
           <text x="1200" y="277" class="t-muted" font-size="8" text-anchor="middle">5 个触发器</text>
         </g>
-        <g data-detail="context" data-edge-from="cmd-notes" data-edge-to="main-window" data-edge-label="note-created" data-edge-key="13" data-edge-id="notes-event-to-main">
+        <g data-edge-from="cmd-notes" data-edge-to="main-window" data-edge-label="note-created" data-edge-key="13" data-edge-id="notes-event-to-main">
           <rect x="371.2" y="55" width="67.6" height="14" rx="3" class="c-mask"/>
           <text x="405" y="65" class="t-messagebus" font-size="8" text-anchor="middle">note-created</text>
         </g>
@@ -567,19 +567,19 @@ rect.c-bg-rect { fill: var(--bg); }
         </g>
 
         <!-- Legend -->
-        <g data-legend="" data-legend-bridge="" role="toolbar" aria-label="语义图例">
+        <g data-legend="">
           <text x="40" y="636" class="t-primary" font-size="12" font-weight="650">图例</text>
-          <g data-legend-semantic-kind="frontend" data-legend-kind="frontend" data-legend-label="前端" data-legend-x="40" data-legend-baseline="656" data-legend-width="63" data-legend-count="3" role="button" tabindex="0" aria-label="检查前端，3 个节点" aria-pressed="false" aria-haspopup="dialog" aria-controls="semantic-lens" aria-expanded="false"><rect data-legend-bridge-runtime="" data-legend-hit="" aria-hidden="true" x="35.00" y="640.46" width="69.11" height="24" rx="4"/>
+          <g data-legend-semantic-kind="frontend" data-legend-x="40" data-legend-baseline="656" data-legend-width="63">
             <rect x="40" y="647" width="16" height="10" rx="2.5" class="c-frontend" stroke-width="1"/>
             <text x="62" y="656" class="t-muted" font-size="10" font-weight="500">前端</text>
-          <g data-legend-bridge-runtime="" data-legend-count-badge="" aria-hidden="true"><rect x="86.11" y="645.46" width="14.00" height="14" rx="7"/><text x="93.11" y="654.96">3</text></g></g>
-          <g data-legend-semantic-kind="backend" data-legend-kind="backend" data-legend-label="后端" data-legend-x="125" data-legend-baseline="656" data-legend-width="63" data-legend-count="8" role="button" tabindex="-1" aria-label="检查后端，8 个节点" aria-pressed="false" aria-haspopup="dialog" aria-controls="semantic-lens" aria-expanded="false"><rect data-legend-bridge-runtime="" data-legend-hit="" aria-hidden="true" x="120.00" y="640.46" width="69.11" height="24" rx="4"/>
+          </g>
+          <g data-legend-semantic-kind="backend" data-legend-x="125" data-legend-baseline="656" data-legend-width="63">
             <rect x="125" y="647" width="16" height="10" rx="2.5" class="c-backend" stroke-width="1"/>
             <text x="147" y="656" class="t-muted" font-size="10" font-weight="500">后端</text>
-          <g data-legend-bridge-runtime="" data-legend-count-badge="" aria-hidden="true"><rect x="171.11" y="645.46" width="14.00" height="14" rx="7"/><text x="178.11" y="654.96">8</text></g></g>
-          <g data-legend-semantic-kind="database" data-legend-kind="database" data-legend-label="数据库" data-legend-x="210" data-legend-baseline="656" data-legend-width="73" data-legend-count="2" role="button" tabindex="-1" aria-label="检查数据库，2 个节点" aria-pressed="false" aria-haspopup="dialog" aria-controls="semantic-lens" aria-expanded="false"><rect data-legend-bridge-runtime="" data-legend-hit="" aria-hidden="true" x="205.00" y="640.46" width="79.10" height="24" rx="4"/>
+          </g>
+          <g data-legend-semantic-kind="database" data-legend-x="210" data-legend-baseline="656" data-legend-width="73">
             <rect x="210" y="647" width="16" height="10" rx="2.5" class="c-database" stroke-width="1"/>
             <text x="232" y="656" class="t-muted" font-size="10" font-weight="500">数据库</text>
-          <g data-legend-bridge-runtime="" data-legend-count-badge="" aria-hidden="true"><rect x="266.10" y="645.46" width="14.00" height="14" rx="7"/><text x="273.10" y="654.96">2</text></g></g>
+          </g>
         </g>
       </svg>

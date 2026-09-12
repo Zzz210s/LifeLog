@@ -1,16 +1,50 @@
-// 设置页的数据模型:快捷输入分区 9 行的元数据、整批恢复默认与构建期版本号。
-// 只放纯数据与纯逻辑(便于单测),控件与页面见同目录 controls/QuickWindowSection 等。
+// 设置页的数据模型:输入栏分区 9 行的元数据、整批恢复默认与构建期版本号。
+// 只放纯数据与纯逻辑(便于单测),控件与页面见同目录 controls/InputBarSection 等。
 import {
-  QUICK_DEFAULTS,
-  saveQuickSetting,
-  type QuickSettings,
-} from '../../shared/quick-settings';
-import { OPACITY_MAX, OPACITY_MIN, STEP_MAX, STEP_MIN } from '../../shared/quick-scale';
+  INPUT_DEFAULTS,
+  saveInputSetting,
+  type InputSettings,
+} from '../../shared/input-settings';
+import { OPACITY_MAX, OPACITY_MIN, STEP_MAX, STEP_MIN } from '../../shared/input-scale';
+import type { StartupShow } from '../../shared/startup-settings';
+
+/** 启动分区的一行:开机启动开关与启动时显示方式(键见 shared/startup-settings) */
+export interface StartupRow {
+  key: 'autostart' | 'startupShow';
+  label: string;
+  hint: string;
+  kind: 'toggle' | 'select';
+  options?: { value: StartupShow; label: string }[];
+}
+
+const STARTUP_ROWS: StartupRow[] = [
+  {
+    key: 'autostart',
+    label: '开机启动',
+    hint: '登录系统后自动启动应用;关闭则只能手动打开',
+    kind: 'toggle',
+  },
+  {
+    key: 'startupShow',
+    label: '启动时显示',
+    hint: '启动后直接显示输入栏,或者只驻留托盘不打扰',
+    kind: 'select',
+    options: [
+      { value: 'input-bar', label: '输入栏' },
+      { value: 'tray-only', label: '仅托盘' },
+    ],
+  },
+];
+
+/** 启动分区的 2 行元数据(每次返回浅拷贝,调用方改不到真源) */
+export function startupRows(): StartupRow[] {
+  return STARTUP_ROWS.map((row) => ({ ...row, options: row.options?.map((o) => ({ ...o })) }));
+}
 
 /** 主窗的两个整页视图:信息流与设置 */
 export type MainView = 'stream' | 'settings';
 
-/** 数值行的合法区间:与快捷窗读取时的钳制共用同一真源(quick-scale) */
+/** 数值行的合法区间:与输入栏读取时的钳制共用同一真源(input-scale) */
 export interface RowRange {
   min: number;
   max: number;
@@ -20,7 +54,7 @@ export interface RowRange {
 export type SelectValue = 'hide' | 'none';
 
 export interface SettingsRow {
-  key: keyof QuickSettings;
+  key: keyof InputSettings;
   label: string;
   hint: string;
   kind: 'percent' | 'number' | 'toggle' | 'select';
@@ -28,18 +62,18 @@ export interface SettingsRow {
   range?: RowRange;
 }
 
-/** 顺序与设计文档第 4 节的表格一致(与 QuickSettings 字段声明顺序无关) */
+/** 顺序与设计文档第 4 节的表格一致(与 InputSettings 字段声明顺序无关) */
 const ROWS: SettingsRow[] = [
   {
     key: 'alwaysOnTop',
     label: '窗口置顶',
-    hint: '快捷窗唤起时是否始终显示在其他窗口前面',
+    hint: '输入栏唤起时是否始终显示在其他窗口前面',
     kind: 'toggle',
   },
   {
     key: 'hideOnBlur',
     label: '失焦自动隐藏',
-    hint: '快捷窗失去焦点时自动隐藏;关闭则常驻(贴纸模式)',
+    hint: '输入栏失去焦点时自动隐藏;关闭则常驻(贴纸模式)',
     kind: 'toggle',
   },
   {
@@ -72,7 +106,7 @@ const ROWS: SettingsRow[] = [
   {
     key: 'lockClose',
     label: '阻止关闭',
-    hint: '开启后 Esc 与双击空白区都不再隐藏快捷窗(托盘菜单仍可用)',
+    hint: '开启后 Esc 与双击空白区都不再隐藏输入栏(托盘菜单仍可用)',
     kind: 'toggle',
   },
   {
@@ -94,31 +128,31 @@ const ROWS: SettingsRow[] = [
 ];
 
 /** 设置页展示的 9 行元数据(每次返回浅拷贝,调用方改不到真源) */
-export function quickRows(): SettingsRow[] {
+export function inputRows(): SettingsRow[] {
   return ROWS.map((row) => ({ ...row, options: row.options?.map((o) => ({ ...o })) }));
 }
 
-/** 「恢复快捷输入分区默认」需要写回的键 */
-export function quickResetKeys(): (keyof QuickSettings)[] {
+/** 「恢复输入栏分区默认」需要写回的键 */
+export function inputResetKeys(): (keyof InputSettings)[] {
   return ROWS.map((row) => row.key);
 }
 
 /** 更新单个设置字段:计算属性写在泛型函数里,避免联合类型键导致的赋值窄化报错 */
-export function withQuickSetting<K extends keyof QuickSettings>(
-  settings: QuickSettings,
+export function withInputSetting<K extends keyof InputSettings>(
+  settings: InputSettings,
   key: K,
-  value: QuickSettings[K],
-): QuickSettings {
+  value: InputSettings[K],
+): InputSettings {
   return { ...settings, [key]: value };
 }
 
-/** 恢复快捷输入分区全部默认值(逐键写库;任一失败由调用方提示并回读) */
-export function resetQuickSettings(): Promise<void[]> {
-  return Promise.all(quickResetKeys().map((key) => writeDefault(key)));
+/** 恢复输入栏分区全部默认值(逐键写库;任一失败由调用方提示并回读) */
+export function resetInputSettings(): Promise<void[]> {
+  return Promise.all(inputResetKeys().map((key) => writeDefault(key)));
 }
 
-function writeDefault<K extends keyof QuickSettings>(key: K): Promise<void> {
-  return saveQuickSetting(key, QUICK_DEFAULTS[key]);
+function writeDefault<K extends keyof InputSettings>(key: K): Promise<void> {
+  return saveInputSetting(key, INPUT_DEFAULTS[key]);
 }
 
 declare const __APP_VERSION__: string | undefined;

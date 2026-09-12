@@ -8,9 +8,9 @@
     "views": [
       {
         "id": "capture-path",
-        "label": "快捷输入链路",
-        "focus": ["quick-window", "shared", "cmd-notes", "domain-repos", "domain-tags", "sqlite", "fts"],
-        "note": "从快捷窗保存,解析 #标签,写入 notes + tag_links,并同步 FTS 索引。"
+        "label": "输入栏写入链路",
+        "focus": ["input-bar", "shared", "cmd-notes", "domain-repos", "domain-tags", "sqlite", "fts"],
+        "note": "从输入栏保存,解析 #标签,写入 notes + tag_links,并同步 FTS 索引。"
       },
       {
         "id": "query-path",
@@ -22,7 +22,7 @@
         "id": "side-paths",
         "label": "导出与窗口控制",
         "focus": ["main-window", "shared", "cmd-exchange", "domain-exchange", "cmd-windowing", "domain-windowing"],
-        "note": "Excel 导出与托盘/快捷窗几何是两条独立支线。"
+        "note": "Excel 导出与托盘/输入栏几何是两条独立支线。"
       }
     ]
   },
@@ -37,11 +37,11 @@
       "size": [180, 64]
     },
     {
-      "id": "quick-window",
+      "id": "input-bar",
       "type": "frontend",
-      "label": "快捷输入窗",
-      "sublabel": "quick.html",
-      "tag": "QuickCapture.tsx",
+      "label": "输入栏",
+      "sublabel": "input.html",
+      "tag": "InputBar.tsx",
       "pos": [40, 300],
       "size": [180, 64]
     },
@@ -58,7 +58,7 @@
       "id": "cmd-notes",
       "type": "backend",
       "label": "commands/notes.rs",
-      "sublabel": "save_quick_note, query_notes",
+      "sublabel": "save_input_note, query_notes",
       "tag": "update / toggle_todo / delete",
       "pos": [590, 40],
       "size": [180, 64]
@@ -84,8 +84,8 @@
       "id": "cmd-windowing",
       "type": "backend",
       "label": "commands/windowing.rs",
-      "sublabel": "hide_quick_window, pin, zoom",
-      "tag": "set_quick_zoom",
+      "sublabel": "hide_input_bar, pin, zoom",
+      "tag": "set_input_scale",
       "pos": [590, 520],
       "size": [180, 64]
     },
@@ -120,7 +120,7 @@
       "id": "domain-windowing",
       "type": "backend",
       "label": "windowing/",
-      "sublabel": "tray.rs, events.rs, quick.rs",
+      "sublabel": "tray.rs, events.rs, input.rs",
       "tag": "tray + ctrl+shift+q",
       "pos": [860, 520],
       "size": [180, 64]
@@ -148,7 +148,7 @@
     {
       "kind": "region",
       "label": "前端:TypeScript + React",
-      "wraps": ["main-window", "quick-window", "shared"]
+      "wraps": ["main-window", "input-bar", "shared"]
     },
     {
       "kind": "region",
@@ -175,8 +175,8 @@
       "label": "invoke"
     },
     {
-      "id": "quick-to-shared",
-      "from": "quick-window",
+      "id": "input-to-shared",
+      "from": "input-bar",
       "to": "shared",
       "label": "invoke"
     },
@@ -265,7 +265,7 @@
       "dot": "cyan",
       "title": "两个窗口,一个共享层",
       "items": [
-        "index.html 承载主窗信息流,quick.html 承载快捷输入窗",
+        "index.html 承载主窗信息流,input.html 承载输入栏",
         "src/shared/api.ts 封装全部 Tauri 命令,markdown.ts 经 DOMPurify 渲染"
       ]
     },
@@ -274,7 +274,7 @@
       "title": "轻量 Rust 命令层",
       "items": [
         "notes / settings / exchange / windowing 四个命令模块各自下沉到一个领域模块",
-        "save_quick_note 写入后 emit note-created,主窗据此自动刷新"
+        "save_input_note 写入后 emit note-created,主窗据此自动刷新"
       ]
     },
     {

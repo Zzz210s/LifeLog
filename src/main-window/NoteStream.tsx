@@ -59,7 +59,7 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
               </button>
             </>
           ) : (
-            '暂无记录,用快捷窗记点什么吧'
+            '暂无记录,用输入栏记点什么吧'
           )}
         </div>
       )}

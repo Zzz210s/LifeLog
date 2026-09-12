@@ -5,6 +5,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("migrations/002_diary.sql"),
     include_str!("migrations/003_stream.sql"),
     include_str!("migrations/004_stream_backfill.sql"),
+    include_str!("migrations/005_rename_keys.sql"),
 ];
 
 /// 按 PRAGMA user_version 顺序执行未应用的迁移
@@ -21,6 +22,10 @@ pub fn run(conn: &Connection) -> rusqlite::Result<()> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "rename_keys_tests.rs"]
+mod rename_keys_tests;
 
 #[cfg(test)]
 mod tests {

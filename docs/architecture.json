@@ -8,9 +8,9 @@
     "views": [
       {
         "id": "capture-path",
-        "label": "Quick capture path",
-        "focus": ["quick-window", "shared", "cmd-notes", "domain-repos", "domain-tags", "sqlite", "fts"],
-        "note": "Save from the quick window, tokenise #tags, write notes + tag_links, keep FTS in sync."
+        "label": "Input bar capture path",
+        "focus": ["input-bar", "shared", "cmd-notes", "domain-repos", "domain-tags", "sqlite", "fts"],
+        "note": "Save from the input bar, tokenise #tags, write notes + tag_links, keep FTS in sync."
       },
       {
         "id": "query-path",
@@ -22,7 +22,7 @@
         "id": "side-paths",
         "label": "Export and window control",
         "focus": ["main-window", "shared", "cmd-exchange", "domain-exchange", "cmd-windowing", "domain-windowing"],
-        "note": "Excel export and tray / quick-window geometry are separate side branches."
+        "note": "Excel export and tray / input-bar geometry are separate side branches."
       }
     ]
   },
@@ -37,11 +37,11 @@
       "size": [180, 64]
     },
     {
-      "id": "quick-window",
+      "id": "input-bar",
       "type": "frontend",
-      "label": "Quick Capture Window",
-      "sublabel": "quick.html",
-      "tag": "QuickCapture.tsx",
+      "label": "Input Bar",
+      "sublabel": "input.html",
+      "tag": "InputBar.tsx",
       "pos": [40, 300],
       "size": [180, 64]
     },
@@ -58,7 +58,7 @@
       "id": "cmd-notes",
       "type": "backend",
       "label": "commands/notes.rs",
-      "sublabel": "save_quick_note, query_notes",
+      "sublabel": "save_input_note, query_notes",
       "tag": "update / toggle_todo / delete",
       "pos": [590, 40],
       "size": [180, 64]
@@ -84,8 +84,8 @@
       "id": "cmd-windowing",
       "type": "backend",
       "label": "commands/windowing.rs",
-      "sublabel": "hide_quick_window, pin, zoom",
-      "tag": "set_quick_zoom",
+      "sublabel": "hide_input_bar, pin, zoom",
+      "tag": "set_input_scale",
       "pos": [590, 520],
       "size": [180, 64]
     },
@@ -120,7 +120,7 @@
       "id": "domain-windowing",
       "type": "backend",
       "label": "windowing/",
-      "sublabel": "tray.rs, events.rs, quick.rs",
+      "sublabel": "tray.rs, events.rs, input.rs",
       "tag": "tray + ctrl+shift+q",
       "pos": [860, 520],
       "size": [180, 64]
@@ -148,7 +148,7 @@
     {
       "kind": "region",
       "label": "Frontend: TypeScript + React",
-      "wraps": ["main-window", "quick-window", "shared"]
+      "wraps": ["main-window", "input-bar", "shared"]
     },
     {
       "kind": "region",
@@ -175,8 +175,8 @@
       "label": "invoke"
     },
     {
-      "id": "quick-to-shared",
-      "from": "quick-window",
+      "id": "input-to-shared",
+      "from": "input-bar",
       "to": "shared",
       "label": "invoke"
     },
@@ -265,7 +265,7 @@
       "dot": "cyan",
       "title": "Two windows, one shared layer",
       "items": [
-        "index.html hosts the main notes stream; quick.html hosts the capture window",
+        "index.html hosts the main notes stream; input.html hosts the input bar",
         "src/shared/api.ts wraps every Tauri command; markdown.ts renders through DOMPurify"
       ]
     },
@@ -274,7 +274,7 @@
       "title": "Thin Rust command layer",
       "items": [
         "notes, settings, exchange and windowing commands each delegate to one domain module",
-        "save_quick_note emits note-created so the main window refreshes itself"
+        "save_input_note emits note-created so the main window refreshes itself"
       ]
     },
     {

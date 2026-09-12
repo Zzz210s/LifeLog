@@ -1,13 +1,13 @@
 use crate::windowing;
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::Manager;
 
 pub fn create(app: &tauri::App) -> tauri::Result<()> {
-    let open = MenuItem::with_id(app, "open", "打开主窗口", true, None::<&str>)?;
-    let quick = MenuItem::with_id(app, "quick", "快捷输入", true, None::<&str>)?;
+    let open_input = MenuItem::with_id(app, "open-input", "打开输入栏", true, None::<&str>)?;
+    let open_main = MenuItem::with_id(app, "open-main", "打开主窗口", true, None::<&str>)?;
+    let open_settings = MenuItem::with_id(app, "open-settings", "设置", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&open, &quick, &quit])?;
+    let menu = Menu::with_items(app, &[&open_input, &open_main, &open_settings, &quit])?;
     let icon = app
         .default_window_icon()
         .cloned()
@@ -17,21 +17,25 @@ pub fn create(app: &tauri::App) -> tauri::Result<()> {
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id.as_ref() {
-            "open" => {
-                if let Some(w) = app.get_webview_window("main") {
-                    let _ = w.show();
-                    let _ = w.set_focus();
-                }
+            // 只显示/置前,不做切换:启动后输入栏默认就是可见的,若用 toggle 则点「打开输入栏」
+            // 反而会把它藏起来(与菜单文案相反),也与左键行为完全重复
+            "open-input" => {
+                let _ = windowing::input::show(app);
             }
-            "quick" => {
-                let _ = windowing::quick::toggle(app);
+            "open-main" => {
+                let _ = windowing::startup::open_main_window(app);
             }
-            "quit" => app.exit(0),
+            "open-settings" => {
+                let _ = windowing::startup::open_settings_window(app);
+            }
+            // 退出前把输入栏位置与视图状态落库(见 events::quit)
+            "quit" => windowing::events::quit(app),
             _ => {}
         })
         .on_tray_icon_event(|tray, event| {
+            // 左键唤起/隐藏输入栏(切换显隐,spec 3.1 与设置页说明一致)
             if let TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, .. } = event {
-                let _ = windowing::quick::toggle(tray.app_handle());
+                let _ = windowing::input::toggle(tray.app_handle());
             }
         })
         .build(app)?;

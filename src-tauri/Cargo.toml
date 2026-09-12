@@ -22,6 +22,11 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tauri-plugin-opener = "2.5.5"
 
+# 读注册表 Run 值里的真实路径(自启「修复」需要判断路径是否指向当前程序);
+# 仅 Windows 构建使用,与 auto-launch 用的是同一个 crate,无需新增下载。
+[target.'cfg(windows)'.dependencies]
+winreg = "0.55"
+
 [profile.release]
 lto = true
 codegen-units = 1

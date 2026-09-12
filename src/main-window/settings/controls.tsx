@@ -2,9 +2,9 @@
 // 全部受控:变更即回调,没有"保存"按钮;输入框失焦时收敛并落库。
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import type { QuickSettings } from '../../shared/quick-settings';
-import { STEP_MAX, STEP_MIN } from '../../shared/quick-scale';
-import type { SelectValue, SettingsRow } from './settings-model';
+import type { InputSettings } from '../../shared/input-settings';
+import { STEP_MAX, STEP_MIN } from '../../shared/input-scale';
+import type { SettingsRow } from './settings-model';
 
 export interface SettingsRowProps {
   label: string;
@@ -101,21 +101,27 @@ export function PercentInput({ value, label, min, max, onCommit }: PercentInputP
   );
 }
 
-export interface SelectInputProps {
+export interface SelectInputProps<T extends string> {
   value: string;
   label: string;
-  options: { value: SelectValue; label: string }[];
-  onChange: (value: SelectValue) => void;
+  options: { value: T; label: string }[];
+  onChange: (value: T) => void;
 }
 
-export function SelectInput({ value, label, options, onChange }: SelectInputProps): ReactNode {
+export function SelectInput<T extends string>({
+  value,
+  label,
+  options,
+  onChange,
+}: SelectInputProps<T>): ReactNode {
   return (
     <select
       aria-label={label}
       value={value}
       onChange={(e) => {
-        const v = e.target.value;
-        if (v === 'hide' || v === 'none') onChange(v);
+        // 只接受元数据里列出的白名单值:越界输入一律忽略(下拉本不该产生越界值)
+        const hit = options.find((o) => o.value === e.target.value);
+        if (hit) onChange(hit.value);
       }}
       className="h-8 rounded-md border border-gray-300 bg-white px-2 text-sm text-gray-700 outline-none focus:border-blue-500"
     >
@@ -130,11 +136,11 @@ export function SelectInput({ value, label, options, onChange }: SelectInputProp
 
 export interface RowControlProps {
   row: SettingsRow;
-  value: QuickSettings[keyof QuickSettings];
-  onChange: (key: keyof QuickSettings, value: QuickSettings[keyof QuickSettings]) => void;
+  value: InputSettings[keyof InputSettings];
+  onChange: (key: keyof InputSettings, value: InputSettings[keyof InputSettings]) => void;
 }
 
-/** 按行的 kind 选择控件(值与键的对应关系由 quickRows 的元数据保证) */
+/** 按行的 kind 选择控件(值与键的对应关系由 inputRows 的元数据保证) */
 export function RowControl({ row, value, onChange }: RowControlProps): ReactNode {
   if (row.kind === 'toggle') {
     return <Toggle checked={value === true} label={row.label} onChange={(v) => onChange(row.key, v)} />;
@@ -149,7 +155,7 @@ export function RowControl({ row, value, onChange }: RowControlProps): ReactNode
       />
     );
   }
-  // 数值行的区间由 settings-model 的元数据显式给出(真源是 shared/quick-scale 的
+  // 数值行的区间由 settings-model 的元数据显式给出(真源是 shared/input-scale 的
   // STEP_*/OPACITY_*)。缺失时退回步长区间而不是再造一套字面量兜底常量(旧实现写死
   // {min:1,max:50},是第二真源);新增 percent 行必须自带 range。
   const range = row.range ?? { min: STEP_MIN, max: STEP_MAX };

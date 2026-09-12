@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+/* 输入栏为无边框透明窗口:页面背景必须透明,输入框自身提供可见底色 */
+html,
+body {
+  margin: 0;
+  overflow: hidden;
+  background: transparent;
+}
+
+#root {
+  height: 100%;
+}
+
+/* 输入框光晕:未聚焦浅黑,聚焦蓝色。
+   窗口四周留 14 像素透明内边距容纳外阴影,:focus-within 在 textarea 自身上同样命中。 */
+.sticker-input {
+  border: 1px solid rgb(0 0 0 / 12%);
+  box-shadow: 0 2px 10px rgb(0 0 0 / 10%);
+  outline: none;
+}
+
+.sticker-input:focus,
+.sticker-input:focus-within {
+  border-color: rgb(59 130 246 / 65%);
+  box-shadow: 0 0 0 1px rgb(59 130 246 / 65%), 0 0 12px rgb(59 130 246 / 35%);
+}

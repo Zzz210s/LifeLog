@@ -2,7 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import type { DbInfo, Note } from './types';
 
 export const api = {
-  saveQuickNote: (content: string) => invoke<Note>('save_quick_note', { content }),
+  saveInputNote: (content: string) => invoke<Note>('save_input_note', { content }),
   queryNotes: (p: {
     keyword?: string;
     tags: string[];
@@ -16,16 +16,21 @@ export const api = {
   toggleTodo: (id: number) => invoke<Note | null>('toggle_todo', { id }),
   deleteNote: (id: number) => invoke<void>('delete_note', { id }),
   exportNotes: (path: string) => invoke<void>('export_notes', { path }),
-  hideQuickWindow: () => invoke<void>('hide_quick_window'),
+  hideInputBar: () => invoke<void>('hide_input_bar'),
   /** 缩放:窗口尺寸 = 基础尺寸 x 系数,并落到 webview zoom */
-  setQuickScale: (zoom: number) => invoke<void>('set_quick_scale', { zoom }),
-  setQuickSize: (width: number, height: number) =>
-    invoke<void>('set_quick_size', { width, height }),
+  setInputScale: (zoom: number) => invoke<void>('set_input_scale', { zoom }),
+  setInputSize: (width: number, height: number) =>
+    invoke<void>('set_input_size', { width, height }),
   /** 三档锁定一次事务写库 */
-  setQuickLocks: (lockMove: boolean, lockClose: boolean, lockContent: boolean) =>
-    invoke<void>('set_quick_locks', { lockMove, lockClose, lockContent }),
+  setInputLocks: (lockMove: boolean, lockClose: boolean, lockContent: boolean) =>
+    invoke<void>('set_input_locks', { lockMove, lockClose, lockContent }),
   getSetting: (key: string) => invoke<string | null>('get_setting', { key }),
   setSetting: (key: string, value: string) => invoke<void>('set_setting', { key, value }),
   /** 设置页「通用」分区:数据库文件路径与笔记条数(只读) */
   getDbInfo: () => invoke<DbInfo>('get_db_info'),
+  /** 设置页「启动」分区:注册表里的真实开机启动状态(只读;path_ok=false 表示路径已失效)。
+   *  字段名与 Rust 结构体一致(snake_case 直传,见 shared/types.ts 的惯例) */
+  getAutostartStatus: () => invoke<{ enabled: boolean; path_ok: boolean }>('get_autostart_status'),
+  /** 实际注册/取消开机启动;Rust 侧写后回读校验,不一致会 reject */
+  setAutostart: (enabled: boolean) => invoke<void>('set_autostart', { enabled }),
 };

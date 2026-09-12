@@ -17,7 +17,7 @@ export interface EditPanelProps {
 /** 编辑态分屏(左源码右预览):源 = 正文 + 标签回显为 #tag */
 export function EditPanel(p: EditPanelProps): ReactNode {
   // 决策:note.content 是已剥离标签的正文;编辑源码补回 '#标签' 尾缀,
-  // 与快捷窗捕获语法一致(用户可看/改标签),保存时后端重新剥离归类。
+  // 与输入栏捕获语法一致(用户可看/改标签),保存时后端重新剥离归类。
   const [source, setSource] = useState(() => composeSource(p.note.content, p.note.tags));
   const [preview, setPreview] = useState(() => renderMarkdown(source));
   const [error, setError] = useState('');
