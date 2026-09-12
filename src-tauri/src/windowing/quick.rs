@@ -55,6 +55,12 @@ pub fn show(app: &AppHandle) -> tauri::Result<()> {
             .map(|v| v != "false")
             .unwrap_or(true);
         let _ = w.set_always_on_top(pin);
+        // 窗口实际已隐藏而 tao 缓存认为仍可见时(例如被外部 ShowWindow(SW_HIDE) 隐藏过),
+        // show() 的 flags diff 为空会静默早退、窗口唤不出来。系统未可见时先 hide() 对齐缓存,
+        // 再 show();两边一致时这步是空操作。
+        if !w.is_visible().unwrap_or(true) {
+            w.hide()?;
+        }
         w.show()?;
         w.set_focus()?;
     }
@@ -70,6 +76,13 @@ pub fn hide(app: &AppHandle) -> tauri::Result<()> {
         if let Ok(s) = w.outer_size() {
             set_setting(app, "quick_w", &s.width.to_string());
             set_setting(app, "quick_h", &s.height.to_string());
+        }
+        // 窗口实际可见而 tao 缓存认为已隐藏时(例如被外部 ShowWindow / SetWindowPos
+        // (SWP_SHOWWINDOW) 显示过,或由系统恢复),hide() 的 flags diff 为空会静默早退
+        // (返回 Ok 但窗口留在屏幕上)。先 show() 让缓存对齐,再 hide() 才真正执行 SW_HIDE;
+        // 窗口本来就隐藏时跳过 show(),避免闪现。
+        if w.is_visible().unwrap_or(false) {
+            w.show()?;
         }
         w.hide()?;
     }
