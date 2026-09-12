@@ -155,7 +155,8 @@ export function QuickCapture() {
         </button>
       ) : null}
       {error ? (
-        <span className="pointer-events-none absolute right-4 bottom-4 text-xs text-red-500">
+        // 长错误(如路径/原始异常)不再从左侧被裁掉前缀:限宽(max 窗口宽-两侧各 1rem)并省略尾部
+        <span className="pointer-events-none absolute right-4 bottom-4 max-w-[calc(100%-2rem)] truncate text-xs text-red-500">
           {error}
         </span>
       ) : shouldShowStamp(savedAt, Date.now()) ? (
