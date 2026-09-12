@@ -20,7 +20,11 @@ export function QuickCapture() {
   const anyLock = lock.move || lock.close || lock.content;
   // 内容变化后按真实换行行数(1-5 行)自动长高;滚轮缩放后手动再同步一次
   const syncHeight = useAutoHeight({ textareaRef: inputRef, value: content });
-  const { opacity, onMiddleDown } = useQuickWheel({ settings, onResized: syncHeight });
+  const { opacity, onMiddleDown } = useQuickWheel({
+    settings,
+    onResized: syncHeight,
+    onError: setError,
+  });
 
   // 窗口级 Esc:焦点在 BODY 时 textarea 上的 keydown 收不到,
   // 会导致点空白后 Esc 隐藏失效,故提升到 window 级
