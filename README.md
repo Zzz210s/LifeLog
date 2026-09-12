@@ -30,8 +30,9 @@ have to switch between.
 
 This project takes the opposite approach:
 
-- **Capture is a search bar.** A global hotkey opens a slim, always-on-top input window; type,
-  press `Ctrl+Enter`, and it is stored. No window switching, no category to pick first.
+- **Capture is a search bar.** A global hotkey opens a frameless, always-on-top input box — one
+  input field, no title bar, no buttons; type, press `Ctrl+Enter`, and it is stored. No window
+  switching, no category to pick first.
 - **Organisation is derived, never declared.** No folders, no note types, no diary/film/todo
   modules — one stream plus `#tags` parsed out of the text.
 - **Retrieval is filtering.** Full-text search (SQLite FTS5 with the `trigram` tokenizer, so Chinese
@@ -48,13 +49,26 @@ browser engine (it uses the system WebView2).
 
 **Quick capture window**
 
+The window *is* the input box: no frame, no title bar, no buttons, transparent square corners.
+
 - Toggled by the global hotkey `Ctrl+Shift+Q` (falls back to the tray menu if the hotkey is taken)
-- Search-bar styling: starts as a single slim rounded line and grows automatically up to five lines
-- Sticker mode: stays on top and does not hide when it loses focus, so it can be left open while
-  you work; `Esc` or the collapse button hides it
-- Mouse-wheel zoom from 50% to 200%, no modifier key required
-- Remembers position, size, zoom level and pin state across restarts
-- Shows a "saved at HH:MM" confirmation and clears itself, ready for the next entry
+- The input fills the whole window: one line when empty, growing with the content up to five lines,
+  then scrolling inside
+- A glow instead of a frame — idle: 1 px `rgba(0,0,0,0.12)` border with a `0 2px 10px` soft shadow;
+  focused: 2 px `rgba(59,130,246,0.65)` blue border with a `0 0 12px` blue glow
+- The outermost 8 logical pixels are a drag band, so the window can be moved from any edge; the
+  left and right edges instead drag the width (240–900 logical pixels, and never more than 80% of
+  the screen work area)
+- Sticker mode by default: it stays on top and does not hide when it loses focus, so it can be left
+  open while you work (switch it back to hide-on-blur in the settings page)
+- `Esc`, or a double-click on a drag band, hides it
+- `Ctrl+Enter` saves: the input clears, `已保存 HH:MM` flashes in grey for 1.5 s at the bottom right,
+  and the caret stays in the input for the next entry
+- Mouse-wheel zoom from 50% to 200% with no modifier key; `Ctrl` + wheel changes the opacity from
+  30% to 100%; middle-click restores 100% zoom and the configured default opacity
+- Three locks — block moving, block closing, lock content — each switchable in the settings page;
+  while any lock is on, a padlock appears in the top-right corner and unlocks all three in one click
+- Remembers position, size, zoom and opacity across restarts
 
 **Main window**
 
@@ -64,6 +78,10 @@ browser engine (it uses the system WebView2).
 - Inline editing in a VSCode-style split pane: Markdown source on the left, live preview on the
   right, `Ctrl+Enter` to save
 - Deleting asks for confirmation
+- A gear in the top bar opens an inline settings page (the stream stays mounted behind it, so
+  returning neither re-queries nor loses the scroll position): the nine quick-window options, plus a
+  general section with the version, the database path, an "open containing folder" button and a
+  reset for the quick-window section
 
 **Notes**
 
@@ -104,7 +122,9 @@ Artifacts:
 ## Usage
 
 1. Launch the app. The main window opens; the tray icon appears next to the clock.
-2. Press `Ctrl+Shift+Q` anywhere to open the quick capture window.
+2. Press `Ctrl+Shift+Q` anywhere to open the quick capture window. It can be moved by dragging any
+   edge, resized in width from its left or right edge, zoomed with the wheel, and hidden with `Esc`
+   or a double-click on an edge.
 3. Type a note. Include `#tags` to classify it, for example:
 
    ```
@@ -113,7 +133,8 @@ Artifacts:
    2026-09-11 阴,下午写完了迁移脚本 #日记
    ```
 
-4. Press `Ctrl+Enter` (or click Save). The note is stored and the main window refreshes.
+4. Press `Ctrl+Enter`. The note is stored, the input clears, `已保存 HH:MM` flashes and the main
+   window refreshes.
 5. In the main window, search by keyword, click a tag chip to filter, switch the ordering, edit a
    note in the split pane, tick `#todo` items, or export everything to Excel.
 
@@ -136,10 +157,16 @@ All state lives in SQLite; the frontend never talks to the database directly.
     machine (paging, request sequencing, error sources); `use-note-created.ts` subscribes to the
     backend event that refreshes the list after a quick capture; `NoteStream`/`NoteItem`/`EditPanel`
     render, filter and edit notes.
-  - `src/quick-window/` — `QuickCapture.tsx` plus window controls.
+  - `src/quick-window/` — `QuickCapture.tsx` (a single textarea filling the window) and its
+    behaviour hooks: `use-drag-band` (move / double-click), `use-width-drag` (edge resize),
+    `use-auto-height` (1–5 line growth), `use-quick-wheel` + `use-quick-view-store` (zoom, opacity
+    and their persistence), `use-quick-settings`, `logical-size.ts`.
+  - `src/main-window/settings/` — the settings page model and its two sections.
   - `src/shared/` — `api.ts` (typed command wrappers), `markdown.ts` (Markdown-it pipeline and
     DOMPurify policy), `links.ts` (external links open in the system browser), `zoom.ts`,
-    `note-source.ts` (shared pre-save normalisation), `time.ts`.
+    `note-source.ts` (shared pre-save normalisation), `time.ts`, and the pure quick-window models
+    (`quick-geometry.ts`, `quick-gestures.ts`, `quick-lock.ts`, `quick-scale.ts`,
+    `quick-settings.ts`, `quick-feedback.ts`).
 - **Command layer (`src-tauri/src/commands/`)** — thin Tauri commands for notes, settings, window
   control and export.
 - **Domain layer (`src-tauri/src/`)** — `tags.rs` (tag tokeniser), `db/repos/` (notes CRUD, search
@@ -170,8 +197,8 @@ pnpm test               # vitest
 cd src-tauri && cargo test
 ```
 
-Verification status at the time of writing: 63 frontend tests, 58 Rust tests, typecheck and build
-clean, `cargo check` with no warnings.
+Verification status at the time of writing: 121 frontend tests, 80 Rust tests, typecheck and build
+clean.
 
 Debugging the webviews over CDP: set
 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9222` before `pnpm tauri dev`, then
