@@ -38,8 +38,10 @@ export function useQuickSettings() {
     let alive = true;
     let unlisten: (() => void) | null = null;
     void win
-      .onFocusChanged(() => {
-        if (alive) void reload();
+      .onFocusChanged(({ payload: focused }) => {
+        // 只处理「获得焦点」:失焦也重载会把节流窗口内(未落库)的透明度等视图状态
+        // 按库里的旧值覆盖回去,窗口常驻时用户会看到透明度自己弹回
+        if (alive && focused) void reload();
       })
       .then((off) => {
         if (alive) unlisten = off;

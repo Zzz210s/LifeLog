@@ -2,8 +2,9 @@
 //! 单位约定:命令与钳制都用**逻辑像素**(宽度 240-900、高度 35-320);设置里的 quick_w/quick_h
 //! 存**基础物理尺寸**(缩放系数为 1 时的物理尺寸),显示时按 quick_zoom 乘开后落到窗口;
 //! 缩放系数存 quick_zoom(0.5-2.0)。基础尺寸只由 apply_size 按**命令意图**写回;hide() 只写位置,
-//! 绝不由窗口实际尺寸反推(会把钳制结果固化)。旧语义(含缩放的尺寸)由 migrate_geometry 一次性迁移。
+//! 绝不由窗口实际尺寸反推(会把钳制结果固化)。旧语义(含缩放的尺寸)由 quick_geom::migrate_geometry 一次性迁移。
 
+use super::quick_geom;
 use tauri::{AppHandle, Manager, PhysicalSize};
 
 pub const MIN_WIDTH: u32 = 240;
@@ -78,50 +79,11 @@ pub fn width_intent_changed(current_logical: f64, intent_logical: u32) -> bool {
     (current_logical - intent_logical as f64).abs() > 0.5
 }
 
-/// 几何语义版本标记键:存在即视为已迁移(幂等)
-pub const GEOM_VERSION_KEY: &str = "quick_geom_ver";
-
 /// 旧几何 -> 新几何:quick_w/quick_h 从「含缩放的尺寸」换算成「缩放=1 的基础尺寸」。
 /// 与本文件基础的「实际 -> 基础」同一换算,只是输入是设置里的 f64 原始值。
 pub fn migrate_size(w: f64, h: f64, scale: f64) -> (u32, u32) {
     let to_u32 = |v: f64| if v.is_finite() { v.round().max(0.0) as u32 } else { 0 };
     base_size_from_actual(to_u32(w), to_u32(h), scale)
-}
-
-/// 一次性幂等迁移:标记键已存在直接返回;否则按 quick_zoom 把 quick_w/quick_h 除回基础尺寸,
-/// 最后写标记键。必须在任何新语义构建跑过之前执行(否则会把新值再除一次)。
-pub fn migrate_geometry(app: &AppHandle) {
-    if get_setting_str(app, GEOM_VERSION_KEY).is_some() {
-        return;
-    }
-    if let (Some(w), Some(h), Some(zoom)) = (
-        get_setting_num(app, "quick_w"),
-        get_setting_num(app, "quick_h"),
-        get_setting_num(app, "quick_zoom"),
-    ) {
-        let (bw, bh) = migrate_size(w, h, zoom);
-        set_setting(app, "quick_w", &bw.to_string());
-        set_setting(app, "quick_h", &bh.to_string());
-    }
-    set_setting(app, GEOM_VERSION_KEY, "1");
-}
-
-fn get_setting_str(app: &AppHandle, key: &str) -> Option<String> {
-    let db = app.try_state::<crate::db::Db>()?;
-    let conn = db.0.lock().ok()?;
-    crate::db::repos::settings::get(&conn, key).ok().flatten()
-}
-
-fn get_setting_num(app: &AppHandle, key: &str) -> Option<f64> {
-    get_setting_str(app, key)?.trim().parse::<f64>().ok()
-}
-
-fn set_setting(app: &AppHandle, key: &str, value: &str) {
-    if let Some(db) = app.try_state::<crate::db::Db>() {
-        if let Ok(conn) = db.0.lock() {
-            let _ = crate::db::repos::settings::set(&conn, key, value);
-        }
-    }
 }
 
 /// 把逻辑尺寸落到窗口上,并把**由命令意图换算的基础尺寸**写入设置:
@@ -141,11 +103,11 @@ pub fn apply_size(app: &AppHandle, width: u32, height: u32) -> Result<(), String
         .unwrap_or(false);
     win.set_size(PhysicalSize::new(phys_w, phys_h))
         .map_err(|e| e.to_string())?;
-    let zoom = clamp_scale(get_setting_num(app, "quick_zoom").unwrap_or(1.0));
+    let zoom = clamp_scale(quick_geom::get_num(app, "quick_zoom").unwrap_or(1.0));
     if width_changed {
-        set_setting(app, "quick_w", &base_from_intent(width, sf, zoom).to_string());
+        quick_geom::set(app, "quick_w", &base_from_intent(width, sf, zoom).to_string());
     }
-    set_setting(app, "quick_h", &base_from_intent(height, sf, zoom).to_string());
+    quick_geom::set(app, "quick_h", &base_from_intent(height, sf, zoom).to_string());
     Ok(())
 }
 
@@ -155,12 +117,12 @@ pub fn apply_size(app: &AppHandle, width: u32, height: u32) -> Result<(), String
 pub fn apply_scale(app: &AppHandle, scale: f64) -> Result<(), String> {
     let s = clamp_scale(scale);
     let Some(win) = app.get_webview_window("quick") else {
-        set_setting(app, "quick_zoom", &format!("{s:.2}"));
+        quick_geom::set(app, "quick_zoom", &format!("{s:.2}"));
         return Ok(());
     };
     let sf = win.scale_factor().unwrap_or(1.0);
-    let base_w = get_setting_num(app, "quick_w").unwrap_or(DEFAULT_WIDTH as f64 * sf);
-    let base_h = get_setting_num(app, "quick_h").unwrap_or(DEFAULT_HEIGHT as f64 * sf);
+    let base_w = quick_geom::get_num(app, "quick_w").unwrap_or(DEFAULT_WIDTH as f64 * sf);
+    let base_h = quick_geom::get_num(app, "quick_h").unwrap_or(DEFAULT_HEIGHT as f64 * sf);
     // 截断会带来系统性持续下偏,这里四舍五入;高度与 apply_size 用同一区间兜底
     let (lw, lh) = scaled_size(
         (base_w / sf).round().max(1.0) as u32,
@@ -180,7 +142,7 @@ pub fn apply_scale(app: &AppHandle, scale: f64) -> Result<(), String> {
     win.set_size(PhysicalSize::new(phys.0, phys.1))
         .map_err(|e| e.to_string())?;
     win.set_zoom(s).map_err(|e| e.to_string())?;
-    set_setting(app, "quick_zoom", &format!("{s:.2}"));
+    quick_geom::set(app, "quick_zoom", &format!("{s:.2}"));
     Ok(())
 }
 
