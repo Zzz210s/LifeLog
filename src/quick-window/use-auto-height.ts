@@ -10,7 +10,8 @@ import { readGeometry } from './logical-size';
  * 故先把它压到 0 高再读 scrollHeight,拿到真实换行后的内容高度,再钳到 1-5 行。
  * scrollHeight 含内边距、不含边框,故行高换算只减内边距,回加时补回边框。
  * 占位文案会按当前宽度参与换行、也被算进 scrollHeight(实测窄窗口空输入会多算一行),
- * 故测量期间暂清占位文案。
+ * 故测量期间暂清占位文案;但空内容时占位文案本身就可能折行(最小宽度实测折成 2 行),
+ * 比内容高时按它兜底,否则空输入会顶出滚动条。
  */
 export function windowHeightFor(
   ta: HTMLTextAreaElement,
@@ -28,10 +29,18 @@ export function windowHeightFor(
   ta.placeholder = '';
   ta.style.height = '0px';
   const content = ta.scrollHeight - padY;
+  let placeholder = content;
+  if (!ta.value) {
+    // 占位文案按真实宽度单独量一次:窄窗口折行后比一行内容高,按它取 max(只空内容时)
+    ta.placeholder = prevPlaceholder;
+    ta.style.height = '0px';
+    placeholder = ta.scrollHeight - padY;
+    ta.placeholder = '';
+  }
   ta.style.height = prevHeight;
   ta.placeholder = prevPlaceholder;
   ta.style.width = prevWidth;
-  const lines = clampLines(line > 0 ? content / line : 1);
+  const lines = clampLines(line > 0 ? Math.max(content, placeholder) / line : 1);
   // 向上取整:逻辑高度还要经「scale 换算 + 物理取整」才落到窗口上,
   // 四舍五入可能让实际 CSS 高度比内容少不到 1 像素,溢出即触发 overflow-y-auto 滚动条。
   return Math.ceil((heightForLines(lines, line) + padY + borderY + 2 * GLOW_PAD) * ratio);

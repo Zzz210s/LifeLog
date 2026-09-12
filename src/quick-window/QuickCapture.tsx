@@ -3,75 +3,37 @@ import { api } from '../shared/api';
 import { prepareForSave } from '../shared/note-source';
 import { savedStamp, shouldShowStamp } from '../shared/quick-feedback';
 import { canClose, canDrag, canEdit } from '../shared/quick-lock';
-import { wheelZoom } from '../shared/zoom';
 import { useDragBand } from './use-drag-band';
 import { useWidthDrag } from './use-width-drag';
 import { useAutoHeight } from './use-auto-height';
-import { useQuickLock } from './use-quick-lock';
+import { useQuickSettings } from './use-quick-settings';
+import { useQuickWheel } from './use-quick-wheel';
 
 export function QuickCapture() {
   const [content, setContent] = useState('');
-  const [error, setError] = useState('');
   const [stamp, setStamp] = useState('');
   const [savedAt, setSavedAt] = useState(0);
-  const zoomRef = useRef(1);
-  const zoomTimer = useRef<number | null>(null);
   const saveTimer = useRef<number | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const { lock, doubleClickAction, unlock } = useQuickLock();
+  const { settings, lock, error, setError, unlock } = useQuickSettings();
   const editing = canEdit(lock);
   const anyLock = lock.move || lock.close || lock.content;
   // 内容变化后按真实换行行数(1-5 行)自动长高;滚轮缩放后手动再同步一次
   const syncHeight = useAutoHeight({ textareaRef: inputRef, value: content });
+  const { opacity, onMiddleDown } = useQuickWheel({ settings, onResized: syncHeight });
 
-  useEffect(() => {
-    void api
-      .getSetting('quick_zoom')
-      .then((z) => {
-        zoomRef.current = z ? Number(z) : 1;
-      })
-      .catch(() => {});
-  }, []);
-
-  // 裸滚轮缩放(贴纸式,固定行为);目标处于可滚动容器内时深先滚动内容
-  // 同一 effect 兼顾窗口级 Esc:焦点在 BODY 时 textarea 上的 keydown 收不到,
+  // 窗口级 Esc:焦点在 BODY 时 textarea 上的 keydown 收不到,
   // 会导致点空白后 Esc 隐藏失效,故提升到 window 级
   useEffect(() => {
-    const inScrollable = (t: EventTarget | null): boolean => {
-      for (let el = t as HTMLElement | null; el && el !== document.body; el = el.parentElement) {
-        if (el.scrollHeight > el.clientHeight) return true;
-      }
-      return false;
-    };
-    const onWheel = (e: WheelEvent) => {
-      if (e.deltaY === 0) return;
-      if (inScrollable(e.target)) return;
-      e.preventDefault();
-      const next = wheelZoom(zoomRef.current, e.deltaY);
-      if (next === zoomRef.current) return;
-      zoomRef.current = next;
-      if (zoomTimer.current) clearTimeout(zoomTimer.current);
-      zoomTimer.current = window.setTimeout(() => {
-        // 缩放会改变窗口的 CSS 空间,高度需按新比例重算,否则一行内容会挤出滚动条
-        void api
-          .setZoom(next)
-          .then(() => window.setTimeout(syncHeight, 120))
-          .catch(() => {});
-      }, 150);
-    };
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || e.isComposing) return; // 输入法组合中不抢 Esc
       e.preventDefault();
       if (!canClose(lock)) return; // 阻止关闭:Esc 无效(托盘菜单仍可隐藏)
       void api.hideQuickWindow();
     };
-    window.addEventListener('wheel', onWheel, { passive: false });
     window.addEventListener('keydown', onKey);
-    return () => {
-      window.removeEventListener('wheel', onWheel);
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [lock, syncHeight]);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [lock]);
 
   // 右下角浮层:保存/解锁的短暂提示共用同一计时器
   const flash = useCallback((text: string) => {
@@ -93,28 +55,29 @@ export function QuickCapture() {
     } catch (e) {
       setError(`保存失败: ${String(e)}`); // 保存失败保留输入
     }
-  }, [content, flash]);
+  }, [content, flash, setError]);
 
   const onUnlock = useCallback(async () => {
     try {
-      await unlock(); // 写库成功后才翻转本地锁定态(见 use-quick-lock)
+      await unlock(); // 事务写库成功后才翻转本地锁定态(见 use-quick-settings)
       setError('');
       flash('已解锁');
       inputRef.current?.focus(); // 解锁后回到输入框
     } catch (e) {
       setError(`解锁失败: ${String(e)}`); // 写库失败:保持锁定并复用错误浮层,不谎报已解锁
     }
-  }, [unlock, flash]);
+  }, [unlock, flash, setError]);
 
   const onDoubleClick = useCallback(() => {
-    if (doubleClickAction !== 'hide' || !canClose(lock)) return;
+    if (settings.doubleClickAction !== 'hide' || !canClose(lock)) return;
     void api.hideQuickWindow();
-  }, [doubleClickAction, lock]);
+  }, [settings.doubleClickAction, lock]);
 
   const onMouseDown = useDragBand({ locked: !canDrag(lock), onDoubleClick });
   const onWidthMouseDown = useWidthDrag({ textareaRef: inputRef, onDoubleClick });
-  // 左右带优先:命中即接管(双击或宽度拖动),其余交给上下带(双击或移动窗口)
+  // 中键恢复视图 -> 左右带优先(双击或宽度拖动)-> 其余交给上下带(双击或移动窗口)
   const onRootMouseDown = (e: React.MouseEvent) => {
+    if (onMiddleDown(e)) return;
     if (onWidthMouseDown(e)) return;
     onMouseDown(e);
   };
@@ -131,6 +94,7 @@ export function QuickCapture() {
   return (
     <div
       className="relative box-border h-screen w-full p-[14px]"
+      style={{ opacity: opacity / 100 }}
       onMouseDown={onRootMouseDown}
     >
       <textarea

@@ -19,7 +19,13 @@ export const api = {
   hideQuickWindow: () => invoke<void>('hide_quick_window'),
   togglePin: () => invoke<boolean>('toggle_quick_pin'),
   setZoom: (zoom: number) => invoke<void>('set_quick_zoom', { zoom }),
+  /** 缩放:窗口尺寸 = 基础尺寸 x 系数,并落到 webview zoom */
+  setQuickScale: (zoom: number) => invoke<void>('set_quick_scale', { zoom }),
   setQuickSize: (width: number, height: number) =>
     invoke<void>('set_quick_size', { width, height }),
+  /** 三档锁定一次事务写库 */
+  setQuickLocks: (lockMove: boolean, lockClose: boolean, lockContent: boolean) =>
+    invoke<void>('set_quick_locks', { lockMove, lockClose, lockContent }),
   getSetting: (key: string) => invoke<string | null>('get_setting', { key }),
+  setSetting: (key: string, value: string) => invoke<void>('set_setting', { key, value }),
 };
