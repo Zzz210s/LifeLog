@@ -5,9 +5,9 @@ use tauri::Manager;
 
 pub fn create(app: &tauri::App) -> tauri::Result<()> {
     let open = MenuItem::with_id(app, "open", "打开主窗口", true, None::<&str>)?;
-    let quick = MenuItem::with_id(app, "quick", "快捷输入", true, None::<&str>)?;
+    let input = MenuItem::with_id(app, "input", "输入栏", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&open, &quick, &quit])?;
+    let menu = Menu::with_items(app, &[&open, &input, &quit])?;
     let icon = app
         .default_window_icon()
         .cloned()
@@ -23,15 +23,15 @@ pub fn create(app: &tauri::App) -> tauri::Result<()> {
                     let _ = w.set_focus();
                 }
             }
-            "quick" => {
-                let _ = windowing::quick::toggle(app);
+            "input" => {
+                let _ = windowing::input::toggle(app);
             }
             "quit" => app.exit(0),
             _ => {}
         })
         .on_tray_icon_event(|tray, event| {
             if let TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, .. } = event {
-                let _ = windowing::quick::toggle(tray.app_handle());
+                let _ = windowing::input::toggle(tray.app_handle());
             }
         })
         .build(app)?;

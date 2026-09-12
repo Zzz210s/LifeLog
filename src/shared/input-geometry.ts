@@ -1,8 +1,8 @@
-// 快捷窗几何的纯函数:宽度钳制、行数钳制、按行高算高度、左右边缘判定。
-// 单位表(换算靠 quick-window/logical-size.ts 的 ratio = 逻辑像素 / CSS 像素,勿混用):
+// 输入栏几何的纯函数:宽度钳制、行数钳制、按行高算高度、左右边缘判定。
+// 单位表(换算靠 input-bar/logical-size.ts 的 ratio = 逻辑像素 / CSS 像素,勿混用):
 // - 逻辑像素:MIN_WIDTH / MAX_WIDTH(宽度区间)、EDGE_BAND_LOGICAL(边缘热区),
-//   与 Rust set_quick_size / quick_scale 同一单位;
-// - CSS 像素:GLOW_PAD(光晕内边距环),与 Rust quick_scale 的 MIN_HEIGHT/MAX_HEIGHT 推导同源。
+//   与 Rust set_input_size / input_scale 同一单位;
+// - CSS 像素:GLOW_PAD(光晕内边距环),与 Rust input_scale 的 MIN_HEIGHT/MAX_HEIGHT 推导同源。
 
 export const MIN_WIDTH = 240;
 export const MAX_WIDTH = 900;
@@ -15,7 +15,7 @@ export const MAX_LINES = 5;
 export const EDGE_BAND_LOGICAL = 8;
 
 /**
- * 逻辑像素热区 -> CSS 像素:ratio = 逻辑像素 / CSS 像素(见 quick-window/logical-size.ts)。
+ * 逻辑像素热区 -> CSS 像素:ratio = 逻辑像素 / CSS 像素(见 input-bar/logical-size.ts)。
  * 缩放 0.5 时热区 16 CSS px、缩放 2.0 时 4 CSS px;ratio 非法(0/NaN/负数)按 1 处理。
  */
 export function edgeBandCss(ratio: number): number {
@@ -35,7 +35,7 @@ export function dragBandCss(ratio: number): number {
 
 export function clampWidth(w: number): number {
   // 上限 900 只是硬区间:落到窗口时 Rust 侧再与当前显示器工作区的 80% 取较小者,
-  // 两者冲突时以 80% 为准(顺序:先钳 240-900,再钳工作区;见 quick_scale::apply_scale)。
+  // 两者冲突时以 80% 为准(顺序:先钳 240-900,再钳工作区;见 input_scale::apply_scale)。
   // NaN 取不到方向,回退下限;+/-Infinity 经 Math.round + Math.max/min 自然落到上/下限
   if (Number.isNaN(w)) return MIN_WIDTH;
   return Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, Math.round(w)));

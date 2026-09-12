@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { api } from '../shared/api';
 import { prepareForSave } from '../shared/note-source';
 
-/** 顶部常驻输入框:自动增高,Ctrl+Enter 或按钮保存(语法与快捷窗一致)。
+/** 顶部常驻输入框:自动增高,Ctrl+Enter 或按钮保存(语法与输入栏一致)。
  *  editing 态下由父组件传 disabled:两个可写入口互斥,避免刷新时卸载 EditPanel 丢掉未保存文本 */
 export function Composer({ onSaved, disabled = false }: { onSaved: () => void; disabled?: boolean }): ReactNode {
   const [content, setContent] = useState('');
@@ -25,7 +25,7 @@ export function Composer({ onSaved, disabled = false }: { onSaved: () => void; d
     setSaving(true);
     setError('');
     try {
-      await api.saveQuickNote(text);
+      await api.saveInputNote(text);
       setContent('');
       if (ref.current) ref.current.style.height = 'auto';
       onSaved();

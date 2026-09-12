@@ -1,4 +1,4 @@
--- 001: 核心表(阶段 2 快捷输入所需)
+-- 001: 核心表(阶段 2 输入栏所需)
 CREATE TABLE settings (
   key   TEXT PRIMARY KEY,
   value TEXT NOT NULL

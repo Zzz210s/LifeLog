@@ -41,7 +41,7 @@
 
 ## 功能
 
-**快捷输入窗**
+**输入栏**
 
 窗口本身就是输入框:无边框、无标题栏、无按钮,方角透明。
 
@@ -68,7 +68,7 @@
 - VSCode 式分屏编辑:左侧 Markdown 源码、右侧实时预览,`Ctrl+Enter` 保存
 - 删除需要确认
 - 顶栏齿轮进入内嵌设置页(信息流仍挂载在另一个分支,返回时不重查、滚动位置不丢):
-  快捷输入 9 项设置,加一个通用区(版本号、数据库路径、打开所在文件夹、恢复快捷窗分区默认)
+  输入栏 9 项设置,加一个通用区(版本号、数据库路径、打开所在文件夹、恢复输入栏分区默认)
 
 **笔记**
 
@@ -105,7 +105,7 @@ pnpm tauri build
 ## 使用
 
 1. 启动后主窗口出现,托盘图标出现在任务栏右下角。
-2. 任意界面按 `Ctrl+Shift+Q` 唤起快捷输入窗。拖任意边缘可移动窗口,拖左右边缘改宽度,
+2. 任意界面按 `Ctrl+Shift+Q` 唤起输入栏。拖任意边缘可移动窗口,拖左右边缘改宽度,
    滚轮缩放,`Esc` 或双击边缘隐藏。
 3. 输入内容,用 `#标签` 归类,例如:
 
@@ -119,7 +119,7 @@ pnpm tauri build
 5. 在主窗口里:关键词搜索、点击标签筛选、切换排序、在分屏里编辑、勾选 `#todo` 待办,
    或把整库导出为 Excel。
 
-托盘菜单:打开主窗口、快捷输入、退出。重复启动不会产生第二个实例 —— 它会唤起已运行实例的快捷输入窗。
+托盘菜单:打开主窗口、输入栏、退出。重复启动不会产生第二个实例 —— 它会唤起已运行实例的输入栏。
 
 开机自启由 Tauri 自启插件支持;由系统启动时带 `--minimized` 参数,直接进托盘而不弹主窗口。
 
@@ -129,22 +129,22 @@ pnpm tauri build
 
 ![架构图](docs/architecture.zh-CN.svg)
 
-- **前端(`src/`)** —— TypeScript + React,两个 Vite 入口:`index.html`(主窗)与 `quick.html`(快捷输入窗)。
+- **前端(`src/`)** —— TypeScript + React,两个 Vite 入口:`index.html`(主窗)与 `input.html`(输入栏)。
   - `src/main-window/` —— 信息流界面:`App.tsx` 负责编排;`use-notes-feed.ts` 持有查询状态机
-    (分页、请求序号、错误来源);`use-note-created.ts` 订阅后端事件,在快捷输入保存后刷新列表;
+    (分页、请求序号、错误来源);`use-note-created.ts` 订阅后端事件,在输入栏保存后刷新列表;
     `NoteStream`/`NoteItem`/`EditPanel` 负责渲染、筛选与编辑。
-  - `src/quick-window/` —— `QuickCapture.tsx`(铺满窗口的单个 textarea)与它的行为 hook:
+  - `src/input-bar/` —— `InputBar.tsx`(铺满窗口的单个 textarea)与它的行为 hook:
     `use-drag-band`(移动 / 双击)、`use-width-drag`(边缘拉伸宽度)、`use-auto-height`(1-5 行自动长高)、
-    `use-quick-wheel` + `use-quick-view-store`(缩放、透明度与两者的落库)、`use-quick-settings`、
+    `use-input-wheel` + `use-input-view-store`(缩放、透明度与两者的落库)、`use-input-settings`、
     `logical-size.ts`。
   - `src/main-window/settings/` —— 设置页的数据模型与两个分区。
   - `src/shared/` —— `api.ts`(带类型的命令封装)、`markdown.ts`(Markdown-it 管线与 DOMPurify 策略)、
     `links.ts`(外链交给系统浏览器)、`zoom.ts`、`note-source.ts`(创建与编辑共用的保存前归一)、`time.ts`,
-    以及快捷窗的纯模型(`quick-geometry.ts`、`quick-gestures.ts`、`quick-lock.ts`、`quick-scale.ts`、
-    `quick-settings.ts`、`quick-feedback.ts`)。
+    以及输入栏的纯模型(`input-geometry.ts`、`input-gestures.ts`、`input-lock.ts`、`input-scale.ts`、
+    `input-settings.ts`、`input-feedback.ts`)。
 - **命令层(`src-tauri/src/commands/`)** —— 笔记、设置、窗口控制、导出的薄命令包装。
 - **领域层(`src-tauri/src/`)** —— `tags.rs`(标签解析)、`db/repos/`(笔记增删改查、搜索查询、
-  标签计数、设置)、`exchange/`(Excel 导出)、`windowing/`(托盘、全局热键、快捷窗几何与缩放)。
+  标签计数、设置)、`exchange/`(Excel 导出)、`windowing/`(托盘、全局热键、输入栏几何与缩放)。
 - **数据层(`src-tauri/src/db/`)** —— Tauri 状态里的一份共享 `Mutex<Connection>`,开启 WAL 日志、
   外键约束与 busy timeout;版本化 SQL 迁移放在 `db/migrations/`。
 

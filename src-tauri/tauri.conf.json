@@ -20,9 +20,9 @@
         "visible": false
       },
       {
-        "label": "quick",
-        "title": "快捷输入",
-        "url": "quick.html",
+        "label": "input",
+        "title": "输入栏",
+        "url": "input.html",
         "width": 420,
         "height": 300,
         "visible": false,

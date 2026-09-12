@@ -1,12 +1,12 @@
-//! 快捷窗尺寸与视图缩放:尺寸钳制、缩放换算、落到窗口并落库。
+//! 输入栏尺寸与视图缩放:尺寸钳制、缩放换算、落到窗口并落库。
 //! 单位约定:命令都用**逻辑像素**(高度 35-320);宽度 240-900 是**拖动意图区间**,
 //! 只在宽度/自动高度命令路径(apply_size)生效;缩放路径(apply_scale)只受工作区 80% 上限。
-//! 设置里的 quick_w/quick_h 存**基础物理尺寸**(缩放系数为 1 时的物理尺寸),显示时按 quick_zoom
-//! 乘开后落到窗口;缩放系数存 quick_zoom(0.5-2.0)。基础尺寸只由 apply_size 按**命令意图**写回;
+//! 设置里的 input_w/input_h 存**基础物理尺寸**(缩放系数为 1 时的物理尺寸),显示时按 input_zoom
+//! 乘开后落到窗口;缩放系数存 input_zoom(0.5-2.0)。基础尺寸只由 apply_size 按**命令意图**写回;
 //! hide() 只写位置,绝不由窗口实际尺寸反推(会把钳制结果固化)。旧语义(含缩放的尺寸)由
-//! quick_geom::migrate_geometry 一次性迁移。
+//! input_geom::migrate_geometry 一次性迁移。
 
-use super::quick_geom;
+use super::input_geom;
 use tauri::{AppHandle, Manager, PhysicalSize, WebviewWindow};
 
 pub const MIN_WIDTH: u32 = 240;
@@ -25,7 +25,7 @@ pub const MAX_SCALE: f64 = 2.0;
 
 /// 缩放后的窗口不得超出当前显示器工作区的这个比例
 const WORK_AREA_RATIO: f64 = 0.8;
-/// 设置缺失时的基础尺寸(逻辑像素),与 tauri.conf.json 的 quick 窗口默认值一致
+/// 设置缺失时的基础尺寸(逻辑像素),与 tauri.conf.json 的 input 窗口默认值一致
 const DEFAULT_WIDTH: u32 = 420;
 const DEFAULT_HEIGHT: u32 = 300;
 
@@ -76,12 +76,12 @@ pub fn base_from_intent(logical: u32, sf: f64, scale: f64) -> u32 {
 }
 
 /// 宽度意图与当前逻辑宽是否算「真的变了」(容差 0.5 逻辑像素,吸收物理取整抖动)。
-/// 自动高度路径每次都带一个宽度,用它挡掉「没拖动也反复改写 quick_w」。
+/// 自动高度路径每次都带一个宽度,用它挡掉「没拖动也反复改写 input_w」。
 pub fn width_intent_changed(current_logical: f64, intent_logical: u32) -> bool {
     (current_logical - intent_logical as f64).abs() > 0.5
 }
 
-/// 旧几何 -> 新几何:quick_w/quick_h 从「含缩放的尺寸」换算成「缩放=1 的基础尺寸」。
+/// 旧几何 -> 新几何:input_w/input_h 从「含缩放的尺寸」换算成「缩放=1 的基础尺寸」。
 /// 与本文件基础的「实际 -> 基础」同一换算,只是输入是设置里的 f64 原始值。
 pub fn migrate_size(w: f64, h: f64, scale: f64) -> (u32, u32) {
     let to_u32 = |v: f64| if v.is_finite() { v.round().max(0.0) as u32 } else { 0 };
@@ -116,7 +116,7 @@ pub fn display_size(
     }
 }
 
-/// 快捷窗当前所在显示器的工作区(物理像素);取不到时 None(不钳制)
+/// 输入栏当前所在显示器的工作区(物理像素);取不到时 None(不钳制)
 fn work_area_of(win: &WebviewWindow) -> Option<(u32, u32)> {
     let mon = win.current_monitor().ok()??;
     let area = mon.work_area();
@@ -127,7 +127,7 @@ fn work_area_of(win: &WebviewWindow) -> Option<(u32, u32)> {
 /// 宽度只在真的变化时才写(自动高度路径每次都带一个宽度,不能反复改写用户宽度意图);
 /// 高度随内容行数变,每次按意图写回。
 pub fn apply_size(app: &AppHandle, width: u32, height: u32) -> Result<(), String> {
-    let Some(win) = app.get_webview_window("quick") else {
+    let Some(win) = app.get_webview_window("input") else {
         return Ok(());
     };
     let height = clamp_height(height);
@@ -141,27 +141,27 @@ pub fn apply_size(app: &AppHandle, width: u32, height: u32) -> Result<(), String
         .unwrap_or(false);
     win.set_size(PhysicalSize::new(phys.0, phys.1))
         .map_err(|e| e.to_string())?;
-    let zoom = clamp_scale(quick_geom::get_num(app, "quick_zoom").unwrap_or(1.0));
+    let zoom = clamp_scale(input_geom::get_num(app, "input_zoom").unwrap_or(1.0));
     if width_changed {
-        quick_geom::set(app, "quick_w", &base_from_intent(width, sf, zoom).to_string());
+        input_geom::set(app, "input_w", &base_from_intent(width, sf, zoom).to_string());
     }
-    quick_geom::set(app, "quick_h", &base_from_intent(height, sf, zoom).to_string());
+    input_geom::set(app, "input_h", &base_from_intent(height, sf, zoom).to_string());
     Ok(())
 }
 
-/// 按缩放系数设置窗口尺寸与 webview zoom,并把系数写回 quick_zoom。
-/// 尺寸 = 基础尺寸(quick_w/quick_h,物理)x 系数,收口走 display_size(clamp_intent=false:
+/// 按缩放系数设置窗口尺寸与 webview zoom,并把系数写回 input_zoom。
+/// 尺寸 = 基础尺寸(input_w/input_h,物理)x 系数,收口走 display_size(clamp_intent=false:
 /// 宽度不套 240-900,只与当前显示器工作区 80% 取较小者;高度仍钳 35-320)。
 /// 与 apply_size 共用同一函数,只是「是否套 240-900」不同。
 pub fn apply_scale(app: &AppHandle, scale: f64) -> Result<(), String> {
     let s = clamp_scale(scale);
-    let Some(win) = app.get_webview_window("quick") else {
-        quick_geom::set(app, "quick_zoom", &format!("{s:.2}"));
+    let Some(win) = app.get_webview_window("input") else {
+        input_geom::set(app, "input_zoom", &format!("{s:.2}"));
         return Ok(());
     };
     let sf = win.scale_factor().unwrap_or(1.0);
-    let base_w = quick_geom::get_num(app, "quick_w").unwrap_or(DEFAULT_WIDTH as f64 * sf);
-    let base_h = quick_geom::get_num(app, "quick_h").unwrap_or(DEFAULT_HEIGHT as f64 * sf);
+    let base_w = input_geom::get_num(app, "input_w").unwrap_or(DEFAULT_WIDTH as f64 * sf);
+    let base_h = input_geom::get_num(app, "input_h").unwrap_or(DEFAULT_HEIGHT as f64 * sf);
     // 截断会带来系统性持续下偏,这里四舍五入;高度与 apply_size 用同一区间兜底
     let (lw, lh) = scaled_size(
         (base_w / sf).round().max(1.0) as u32,
@@ -172,10 +172,10 @@ pub fn apply_scale(app: &AppHandle, scale: f64) -> Result<(), String> {
     win.set_size(PhysicalSize::new(phys.0, phys.1))
         .map_err(|e| e.to_string())?;
     win.set_zoom(s).map_err(|e| e.to_string())?;
-    quick_geom::set(app, "quick_zoom", &format!("{s:.2}"));
+    input_geom::set(app, "input_zoom", &format!("{s:.2}"));
     Ok(())
 }
 
 #[cfg(test)]
-#[path = "quick_scale_tests.rs"]
-mod quick_scale_tests;
+#[path = "input_scale_tests.rs"]
+mod input_scale_tests;

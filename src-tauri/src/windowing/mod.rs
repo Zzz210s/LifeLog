@@ -1,5 +1,5 @@
 pub mod events;
-pub mod quick;
-pub mod quick_geom;
-pub mod quick_scale;
+pub mod input;
+pub mod input_geom;
+pub mod input_scale;
 pub mod tray;

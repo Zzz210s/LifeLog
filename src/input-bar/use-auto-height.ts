@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { api } from '../shared/api';
-import { clampLines, GLOW_PAD, heightForLines } from '../shared/quick-geometry';
+import { clampLines, GLOW_PAD, heightForLines } from '../shared/input-geometry';
 import { readGeometry } from './logical-size';
 
 /**
@@ -77,7 +77,7 @@ export function useAutoHeight(opts: {
       // 1 逻辑像素容差:物理尺寸往返取整会带来不到 1 像素的抖动,避免每次内容变化都改窗口
       if (Math.abs(height - geo.height) <= 1) return;
       // 宽度必须是整数:命令签名是 u32,浮点会被 IPC 拒绝
-      void api.setQuickSize(Math.round(geo.width), height).catch(() => {});
+      void api.setInputSize(Math.round(geo.width), height).catch(() => {});
     });
   }, [activated, textareaRef]);
 

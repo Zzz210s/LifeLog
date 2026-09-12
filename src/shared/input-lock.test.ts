@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canClose, canDrag, canEdit, emptyLock, lockStateFrom } from './quick-lock';
+import { canClose, canDrag, canEdit, emptyLock, lockStateFrom } from './input-lock';
 
 describe('lockStateFrom', () => {
   it('默认全解锁', () => {

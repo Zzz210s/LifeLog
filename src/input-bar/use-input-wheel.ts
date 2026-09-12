@@ -1,33 +1,33 @@
 import { useCallback, useEffect } from 'react';
-import { hasScrollOverflow } from '../shared/quick-gestures';
+import { hasScrollOverflow } from '../shared/input-gestures';
 import {
   nextOpacity,
   nextScale,
   resetView,
   wheelAction,
   wheelDirection,
-} from '../shared/quick-scale';
-import type { QuickSettings } from '../shared/quick-settings';
-import { useQuickViewStore } from './use-quick-view-store';
+} from '../shared/input-scale';
+import type { InputSettings } from '../shared/input-settings';
+import { useInputViewStore } from './use-input-view-store';
 
 /**
- * 快捷窗视图接线:普通滚轮缩放、Ctrl+滚轮调透明度、中键恢复(缩放 100% + 默认透明度)。
- * 本地值、节流落库与回读防覆盖都在 use-quick-view-store(见其文档)。
+ * 输入栏视图接线:普通滚轮缩放、Ctrl+滚轮调透明度、中键恢复(缩放 100% + 默认透明度)。
+ * 本地值、节流落库与回读防覆盖都在 use-input-view-store(见其文档)。
  */
-export function useQuickWheel(opts: {
-  settings: QuickSettings;
+export function useInputWheel(opts: {
+  settings: InputSettings;
   onResized: () => void;
   onError?: (message: string) => void;
 }) {
   const { settings, onResized, onError } = opts;
   const { opacity, opacityRef, zoomRef, applyOpacity, applyScale, flushOpacity } =
-    useQuickViewStore({ settings, onResized, onError });
+    useInputViewStore({ settings, onResized, onError });
 
   // 滚轮:手动注册为非 passive(React 的 wheel 监听是被动的,preventDefault 会失效)
   useEffect(() => {
     // 目标处于可滚动容器内时,普通滚轮优先滚内容(既有行为);Ctrl+滚轮一律调透明度。
     // 判定必须带容差(hasScrollOverflow):输入框撑满窗口,取整残差会让 `>` 恒真,
-    // 于是空输入时在输入框上滚动也走内容分支、缩放失效(详见 quick-gestures 的说明)。
+    // 于是空输入时在输入框上滚动也走内容分支、缩放失效(详见 input-gestures 的说明)。
     const inScrollable = (t: EventTarget | null): boolean => {
       for (let el = t as HTMLElement | null; el && el !== document.body; el = el.parentElement) {
         if (hasScrollOverflow(el.scrollHeight, el.clientHeight)) return true;

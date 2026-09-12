@@ -4,7 +4,7 @@ import {
   isInDragBand,
   pressKind,
   SCROLL_OVERFLOW_TOLERANCE_PX,
-} from './quick-gestures';
+} from './input-gestures';
 
 describe('isInDragBand', () => {
   it('四边 8 CSS 像素内为真', () => {

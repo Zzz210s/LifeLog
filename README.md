@@ -47,7 +47,7 @@ browser engine (it uses the system WebView2).
 
 ## Features
 
-**Quick capture window**
+**Input bar**
 
 The window *is* the input box: no frame, no title bar, no buttons, transparent square corners.
 
@@ -79,9 +79,9 @@ The window *is* the input box: no frame, no title bar, no buttons, transparent s
   right, `Ctrl+Enter` to save
 - Deleting asks for confirmation
 - A gear in the top bar opens an inline settings page (the stream stays mounted behind it, so
-  returning neither re-queries nor loses the scroll position): the nine quick-window options, plus a
+  returning neither re-queries nor loses the scroll position): the nine input-bar options, plus a
   general section with the version, the database path, an "open containing folder" button and a
-  reset for the quick-window section
+  reset for the input-bar section
 
 **Notes**
 
@@ -122,7 +122,7 @@ Artifacts:
 ## Usage
 
 1. Launch the app. The main window opens; the tray icon appears next to the clock.
-2. Press `Ctrl+Shift+Q` anywhere to open the quick capture window. It can be moved by dragging any
+2. Press `Ctrl+Shift+Q` anywhere to open the input bar. It can be moved by dragging any
    edge, resized in width from its left or right edge, zoomed with the wheel, and hidden with `Esc`
    or a double-click on an edge.
 3. Type a note. Include `#tags` to classify it, for example:
@@ -138,8 +138,8 @@ Artifacts:
 5. In the main window, search by keyword, click a tag chip to filter, switch the ordering, edit a
    note in the split pane, tick `#todo` items, or export everything to Excel.
 
-Tray menu: open the main window, open quick capture, quit. A second launch of the app does not
-start another instance — it surfaces the quick capture window of the running one.
+Tray menu: open the main window, open the input bar, quit. A second launch of the app does not
+start another instance — it surfaces the input bar of the running one.
 
 Autostart is supported through the Tauri autostart plugin; when started by the system the app
 passes `--minimized` and goes straight to the tray instead of showing the main window.
@@ -152,26 +152,27 @@ All state lives in SQLite; the frontend never talks to the database directly.
 ![Architecture](docs/architecture.svg)
 
 - **Frontend (`src/`)** — TypeScript + React, two Vite entry points: `index.html` (main window) and
-  `quick.html` (quick capture).
+  `input.html` (input bar).
   - `src/main-window/` — stream UI: `App.tsx` orchestrates; `use-notes-feed.ts` owns the query state
     machine (paging, request sequencing, error sources); `use-note-created.ts` subscribes to the
-    backend event that refreshes the list after a quick capture; `NoteStream`/`NoteItem`/`EditPanel`
+    backend event that refreshes the list after a save from the input bar;
+    `NoteStream`/`NoteItem`/`EditPanel`
     render, filter and edit notes.
-  - `src/quick-window/` — `QuickCapture.tsx` (a single textarea filling the window) and its
+  - `src/input-bar/` — `InputBar.tsx` (a single textarea filling the window) and its
     behaviour hooks: `use-drag-band` (move / double-click), `use-width-drag` (edge resize),
-    `use-auto-height` (1–5 line growth), `use-quick-wheel` + `use-quick-view-store` (zoom, opacity
-    and their persistence), `use-quick-settings`, `logical-size.ts`.
+    `use-auto-height` (1–5 line growth), `use-input-wheel` + `use-input-view-store` (zoom, opacity
+    and their persistence), `use-input-settings`, `logical-size.ts`.
   - `src/main-window/settings/` — the settings page model and its two sections.
   - `src/shared/` — `api.ts` (typed command wrappers), `markdown.ts` (Markdown-it pipeline and
     DOMPurify policy), `links.ts` (external links open in the system browser), `zoom.ts`,
-    `note-source.ts` (shared pre-save normalisation), `time.ts`, and the pure quick-window models
-    (`quick-geometry.ts`, `quick-gestures.ts`, `quick-lock.ts`, `quick-scale.ts`,
-    `quick-settings.ts`, `quick-feedback.ts`).
+    `note-source.ts` (shared pre-save normalisation), `time.ts`, and the pure input-bar models
+    (`input-geometry.ts`, `input-gestures.ts`, `input-lock.ts`, `input-scale.ts`,
+    `input-settings.ts`, `input-feedback.ts`).
 - **Command layer (`src-tauri/src/commands/`)** — thin Tauri commands for notes, settings, window
   control and export.
 - **Domain layer (`src-tauri/src/`)** — `tags.rs` (tag tokeniser), `db/repos/` (notes CRUD, search
   queries, tag counts, settings), `exchange/` (Excel export), `windowing/` (tray, global hotkey,
-  quick-window geometry and zoom).
+  input-bar geometry and zoom).
 - **Data layer (`src-tauri/src/db/`)** — a shared `Mutex<Connection>` behind Tauri state, opened
   with WAL journaling, foreign keys on and a busy timeout; versioned SQL migrations in
   `db/migrations/`.

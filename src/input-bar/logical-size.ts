@@ -1,9 +1,9 @@
-// 读取快捷窗当前几何:逻辑尺寸(命令与钳制的单位)、系统缩放、物理位置,
+// 读取输入栏当前几何:逻辑尺寸(命令与钳制的单位)、系统缩放、物理位置,
 // 以及「逻辑像素 / CSS 像素」比值 —— webview 缩放会让两者不等,换算窗口尺寸必须用它。
 import { getCurrentWindow } from '@tauri-apps/api/window';
 
 export type WindowGeometry = {
-  /** 逻辑宽度(与 Rust set_quick_size 同一单位) */
+  /** 逻辑宽度(与 Rust set_input_size 同一单位) */
   width: number;
   /** 逻辑高度 */
   height: number;

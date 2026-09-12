@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { nextOpacity, nextScale, resetView, shouldApplyStored, wheelAction } from './quick-scale';
-import { QUICK_DEFAULTS } from './quick-settings';
+import { nextOpacity, nextScale, resetView, shouldApplyStored, wheelAction } from './input-scale';
+import { INPUT_DEFAULTS } from './input-settings';
 
 describe('nextScale', () => {
   it('按步长升降并钳制到 0.5-2.0', () => {
@@ -31,7 +31,7 @@ describe('nextOpacity', () => {
 
 describe('resetView', () => {
   it('缩放回 100%,透明度回默认值', () => {
-    const r = resetView({ ...QUICK_DEFAULTS, defaultOpacity: 70 });
+    const r = resetView({ ...INPUT_DEFAULTS, defaultOpacity: 70 });
     expect(r).toEqual({ scale: 1, opacity: 70 });
   });
 });
@@ -45,13 +45,13 @@ describe('wheelAction', () => {
 
 describe('shouldApplyStored', () => {
   it('未结算的键不采用库里的旧值', () => {
-    const pending = new Set(['quick_opacity']);
-    expect(shouldApplyStored('quick_opacity', pending)).toBe(false);
-    expect(shouldApplyStored('quick_zoom', pending)).toBe(true);
+    const pending = new Set(['input_opacity']);
+    expect(shouldApplyStored('input_opacity', pending)).toBe(false);
+    expect(shouldApplyStored('input_zoom', pending)).toBe(true);
   });
 
   it('无未结算键时全部采用库值', () => {
-    expect(shouldApplyStored('quick_opacity', new Set())).toBe(true);
-    expect(shouldApplyStored('quick_zoom', new Set())).toBe(true);
+    expect(shouldApplyStored('input_opacity', new Set())).toBe(true);
+    expect(shouldApplyStored('input_zoom', new Set())).toBe(true);
   });
 });

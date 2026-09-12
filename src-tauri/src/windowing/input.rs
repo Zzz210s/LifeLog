@@ -1,6 +1,6 @@
 use crate::db::repos;
 use crate::db::Db;
-use crate::windowing::quick_scale;
+use crate::windowing::input_scale;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, WebviewWindow};
@@ -68,8 +68,8 @@ pub fn commit_position(app: &AppHandle) {
 /// 把当前窗口位置写入设置(调用方先确认窗口可见)
 fn remember_position(app: &AppHandle, w: &WebviewWindow) {
     if let Ok(p) = w.outer_position() {
-        set_setting(app, "quick_x", &p.x.to_string());
-        set_setting(app, "quick_y", &p.y.to_string());
+        set_setting(app, "input_x", &p.x.to_string());
+        set_setting(app, "input_y", &p.y.to_string());
     }
 }
 
@@ -88,7 +88,7 @@ fn set_setting(app: &AppHandle, key: &str, value: &str) {
 }
 
 fn win(app: &AppHandle) -> Option<WebviewWindow> {
-    app.get_webview_window("quick")
+    app.get_webview_window("input")
 }
 
 pub fn toggle(app: &AppHandle) -> tauri::Result<()> {
@@ -106,20 +106,20 @@ pub fn toggle(app: &AppHandle) -> tauri::Result<()> {
 pub fn show(app: &AppHandle) -> tauri::Result<()> {
     if let Some(w) = win(app) {
         // 恢复记忆的几何
-        if let (Some(x), Some(y)) = (get_setting(app, "quick_x"), get_setting(app, "quick_y")) {
+        if let (Some(x), Some(y)) = (get_setting(app, "input_x"), get_setting(app, "input_y")) {
             if let (Ok(x), Ok(y)) = (x.parse::<i32>(), y.parse::<i32>()) {
                 let _ = w.set_position(PhysicalPosition::new(x, y));
             }
         }
-        // 尺寸 = 基础尺寸(quick_w/quick_h)x 缩放系数,再由工作区收口;缩放同时落到 webview zoom。
+        // 尺寸 = 基础尺寸(input_w/input_h)x 缩放系数,再由工作区收口;缩放同时落到 webview zoom。
         // 读回值可能被手改成 NaN/越界,clamp_scale 收敛到 0.5-2.0(非有限值回退 1.0)。
-        let zoom = get_setting(app, "quick_zoom")
+        let zoom = get_setting(app, "input_zoom")
             .and_then(|s| s.parse::<f64>().ok())
-            .map(quick_scale::clamp_scale)
+            .map(input_scale::clamp_scale)
             .unwrap_or(1.0);
-        let _ = quick_scale::apply_scale(app, zoom);
+        let _ = input_scale::apply_scale(app, zoom);
         // 恢复记忆的置顶状态(默认 true);隐藏窗口上设置亦安全,须在 show 前
-        let pin = get_setting(app, "quick_always_on_top")
+        let pin = get_setting(app, "input_always_on_top")
             .map(|v| v != "false")
             .unwrap_or(true);
         let _ = w.set_always_on_top(pin);
@@ -141,18 +141,18 @@ pub fn hide(app: &AppHandle) -> tauri::Result<()> {
         // 启动阶段 tao 对**尚未显示过**的隐藏窗口也会发一次 Focused(false),若此时开了
         // 「失焦自动隐藏」,windowing/events 会立刻调到这里;这时读到的 outer_position 只是
         // tauri.conf.json 的创建默认位置(实测 96,96),写回会把用户记忆的位置覆盖掉
-        // (实测 724,428 -> 96,96,重启即丢)。同理,没显示过的窗口不需要 quick-hiding 兜底。
+        // (实测 724,428 -> 96,96,重启即丢)。同理,没显示过的窗口不需要 input-hiding 兜底。
         let was_visible = w.is_visible().unwrap_or(false);
         if was_visible {
             remember_position(app, &w);
             // 隐藏前给页面最后一次 flush 机会:透明度的 200ms 节流 / 缩放 IPC 可能仍在途,
             // 而 hide() 不触发 onFocusChanged(实测),窗口隐藏后页面计时器还可能被冻结。
-            // 页面监听 quick-hiding 并立即结算(见 QuickCapture)。发送失败只能吞掉:
+            // 页面监听 input-hiding 并立即结算(见 InputBar)。发送失败只能吞掉:
             // 事件是尽力而为,绝不能因它阻断隐藏。
-            let _ = w.emit("quick-hiding", ());
+            let _ = w.emit("input-hiding", ());
         }
         // 尺寸不回写:窗口不可手动 resize(resizable:false),所有尺寸变化都经
-        // set_quick_size(apply_size,按意图写回)或 apply_scale;由 outer_size 反推基础尺寸
+        // set_input_size(apply_size,按意图写回)或 apply_scale;由 outer_size 反推基础尺寸
         // 会把钳制/工作区收口的结果固化成"用户的基础尺寸"(缩放系数越大越错),且无法还原。
         // 窗口实际可见而 tao 缓存认为已隐藏时(例如被外部 ShowWindow / SetWindowPos
         // (SWP_SHOWWINDOW) 显示过,或由系统恢复),hide() 的 flags diff 为空会静默早退
@@ -170,5 +170,5 @@ pub fn hide(app: &AppHandle) -> tauri::Result<()> {
 
 /// 失焦是否自动隐藏(贴纸模式:默认不隐藏,仅显式设 "true" 才隐藏)
 pub fn blur_hide_enabled(app: &AppHandle) -> bool {
-    get_setting(app, "quick_hide_on_blur").map(|v| v == "true").unwrap_or(false)
+    get_setting(app, "input_hide_on_blur").map(|v| v == "true").unwrap_or(false)
 }

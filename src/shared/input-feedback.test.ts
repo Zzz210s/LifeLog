@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { savedStamp, shouldShowStamp } from './quick-feedback';
+import { savedStamp, shouldShowStamp } from './input-feedback';
 
 describe('savedStamp', () => {
   it('格式为 已保存 HH:MM,分钟补零', () => {

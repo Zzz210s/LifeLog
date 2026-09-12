@@ -2,46 +2,46 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { api } from '../shared/api';
 import { prepareForSave } from '../shared/note-source';
-import { savedStamp, shouldShowStamp } from '../shared/quick-feedback';
-import { canClose, canDrag, canEdit } from '../shared/quick-lock';
+import { savedStamp, shouldShowStamp } from '../shared/input-feedback';
+import { canClose, canDrag, canEdit } from '../shared/input-lock';
 import { useDragBand } from './use-drag-band';
 import { useWidthDrag } from './use-width-drag';
 import { useAutoHeight } from './use-auto-height';
-import { useQuickSettings } from './use-quick-settings';
-import { useQuickWheel } from './use-quick-wheel';
+import { useInputSettings } from './use-input-settings';
+import { useInputWheel } from './use-input-wheel';
 
-export function QuickCapture() {
+export function InputBar() {
   const [content, setContent] = useState('');
   const [stamp, setStamp] = useState('');
   const [savedAt, setSavedAt] = useState(0);
   const saveTimer = useRef<number | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const { settings, lock, error, setError, unlock } = useQuickSettings();
+  const { settings, lock, error, setError, unlock } = useInputSettings();
   const editing = canEdit(lock);
   const anyLock = lock.move || lock.close || lock.content;
   // 内容变化后按真实换行行数(1-5 行)自动长高;滚轮缩放后手动再同步一次
   const syncHeight = useAutoHeight({ textareaRef: inputRef, value: content });
-  const { opacity, onMiddleDown, flushView } = useQuickWheel({
+  const { opacity, onMiddleDown, flushView } = useInputWheel({
     settings,
     onResized: syncHeight,
     onError: setError,
   });
 
   // 页面自己发起的隐藏(Esc/双击)先 flush 视图状态再隐藏:窗口隐藏后页面计时器可能被冻结,
-  // 节流中的透明度就永远落不了库;Rust 侧隐藏(热键/托盘/失焦)由下面的 quick-hiding 事件兜底。
+  // 节流中的透明度就永远落不了库;Rust 侧隐藏(热键/托盘/失焦)由下面的 input-hiding 事件兜底。
   const hideNow = useCallback(() => {
     flushView();
-    void api.hideQuickWindow();
+    void api.hideInputBar();
   }, [flushView]);
 
-  // Rust 侧隐藏(热键/托盘/失焦自动隐藏)在 w.hide() 前会发出 quick-hiding:
+  // Rust 侧隐藏(热键/托盘/失焦自动隐藏)在 w.hide() 前会发出 input-hiding:
   // hide() 不触发 onFocusChanged(实测),隐藏后页面计时器还可能被冻结,页面自己发起的
   // 隐藏(Esc/双击)已由 hideNow 先 flush,热键/托盘路径靠这个事件补上最后一次 flush。
   // 残留风险:事件送达与页面处理都是异步的,页面若已被挂起仍可能漏掉(非 100% 可靠)。
   useEffect(() => {
     let dispose: (() => void) | undefined;
     let cancelled = false;
-    void listen('quick-hiding', () => flushView())
+    void listen('input-hiding', () => flushView())
       .then((un) => {
         if (cancelled) un();
         else dispose = un;
@@ -78,7 +78,7 @@ export function QuickCapture() {
     const text = prepareForSave(content); // 只裁行尾空白:整条缩进代码块的首行缩进必须保留
     if (!text) return;
     try {
-      await api.saveQuickNote(text);
+      await api.saveInputNote(text);
       setContent('');
       setError('');
       flash(savedStamp(new Date()));
@@ -90,7 +90,7 @@ export function QuickCapture() {
 
   const onUnlock = useCallback(async () => {
     try {
-      await unlock(); // 事务写库成功后才翻转本地锁定态(见 use-quick-settings)
+      await unlock(); // 事务写库成功后才翻转本地锁定态(见 use-input-settings)
       setError('');
       flash('已解锁');
       inputRef.current?.focus(); // 解锁后回到输入框

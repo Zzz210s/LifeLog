@@ -3,7 +3,7 @@ import { listen } from '@tauri-apps/api/event';
 import { shouldAutoRefresh } from './notes-list';
 
 /**
- * 订阅后端 note-created(快捷窗保存成功):满足 shouldAutoRefresh 时自动刷新主窗列表。
+ * 订阅后端 note-created(输入栏保存成功):满足 shouldAutoRefresh 时自动刷新主窗列表。
  * 用 ref 读取最新的列表长度与编辑态,订阅只注册一次;卸载时取消(含 listen 未 resolve 的竞态)。
  * 订阅失败(无 Tauri 运行时/权限缺失)会静默失去自动刷新,故必须经 onError 上报而非吞掉。
  */

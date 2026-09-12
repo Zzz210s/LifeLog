@@ -1,8 +1,8 @@
 import { useCallback } from 'react';
 import { getCurrentWindow, PhysicalPosition } from '@tauri-apps/api/window';
 import { api } from '../shared/api';
-import { clampWidth, edgeBandCss, edgeSide, GLOW_PAD, type Side } from '../shared/quick-geometry';
-import { pressKind } from '../shared/quick-gestures';
+import { clampWidth, edgeBandCss, edgeSide, GLOW_PAD, type Side } from '../shared/input-geometry';
+import { pressKind } from '../shared/input-gestures';
 import { currentRatio, readGeometry } from './logical-size';
 import { windowHeightFor } from './use-auto-height';
 
@@ -69,7 +69,7 @@ async function startWidthDrag(
     // 输入框比窗口窄 2 x GLOW_PAD。不减掉就会按偏宽的宽度测量换行、少算一行,
     // 窗口变矮、滚动条提前出现(拖动路径专用;自动高度路径传的是实测宽度,不受影响)。
     const height = windowHeightFor(ta, ratio, width / ratio - 2 * GLOW_PAD);
-    void api.setQuickSize(width, height).catch(() => {});
+    void api.setInputSize(width, height).catch(() => {});
     if (side === 'left') {
       // 左边缘:窗口左边界跟手(宽度减多少,位置就右移多少)
       const dx = Math.round((startWidth - width) * scale);

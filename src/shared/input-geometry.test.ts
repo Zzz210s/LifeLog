@@ -9,7 +9,7 @@ import {
   heightForLines,
   MAX_WIDTH,
   MIN_WIDTH,
-} from './quick-geometry';
+} from './input-geometry';
 
 describe('clampWidth', () => {
   it('钳制到 240-900', () => {

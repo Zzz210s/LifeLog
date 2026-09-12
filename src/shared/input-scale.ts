@@ -1,6 +1,6 @@
-// 快捷窗视图(缩放/透明度)的纯函数与取值范围。
+// 输入栏视图(缩放/透明度)的纯函数与取值范围。
 // 步长语义:设置里的步长是「百分点」——缩放 10 表示每次 0.10;透明度 5 表示每次 5 个点。
-import type { QuickSettings } from './quick-settings';
+import type { InputSettings } from './input-settings';
 
 export const SCALE_MIN = 0.5;
 export const SCALE_MAX = 2.0;
@@ -46,7 +46,7 @@ export function nextOpacity(
 }
 
 /** 中键:缩放回 100%,透明度回「默认透明度」设置值 */
-export function resetView(s: QuickSettings): { scale: number; opacity: number } {
+export function resetView(s: InputSettings): { scale: number; opacity: number } {
   return { scale: 1, opacity: clampOpacity(s.defaultOpacity) };
 }
 
