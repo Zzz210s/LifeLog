@@ -1,4 +1,3 @@
-use tauri::Manager;
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
 
 mod commands;
@@ -59,12 +58,11 @@ pub fn run() {
             if let Err(e) = app.global_shortcut().register("ctrl+shift+q") {
                 eprintln!("全局热键注册失败,输入栏仍可从托盘唤起:{e}");
             }
-            // 手动启动(无 --minimized)时显示主窗口;自启静默进托盘
-            if !std::env::args().any(|a| a == "--minimized") {
-                if let Some(w) = app.get_webview_window("main") {
-                    w.show()?;
-                }
-            }
+            // 启动动作只由设置决定(spec 3.1:手动启动与开机自启一致):
+            // 「输入栏」唤起输入栏,「仅托盘」不显示任何窗口。主窗口在任何情况下都不自动显示。
+            // 自启插件会带 --minimized,该参数只作为「本次由自启拉起」的事实传入(当前不改变动作)。
+            let autostart_launch = std::env::args().any(|a| a == "--minimized");
+            windowing::startup::apply(app.handle(), autostart_launch);
             Ok(())
         })
         .run(tauri::generate_context!())
