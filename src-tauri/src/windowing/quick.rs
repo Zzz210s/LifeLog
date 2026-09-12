@@ -1,30 +1,38 @@
 use crate::db::repos;
 use crate::db::Db;
 use crate::windowing::quick_scale;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, WebviewWindow};
 
-/// 拖动会话最近活动时刻(毫秒时戳,0 = 无会话)。两个必需能力组合下不可用:开启「失焦自动隐藏」后
+/// 拖动会话最近活动时刻(None = 无会话)。两个必需能力组合下不可用:开启「失焦自动隐藏」后
 /// 拖动会进入系统移动循环并收到 Focused(false)(2026-09-12 实测:按下开始拖动即发一对
 /// Focused(false)/Focused(true)),若照常隐藏,窗口会拖到一半就消失;且该次 hide() 会把
 /// 拖动前的旧坐标写成记忆位置。会话期间跳过失焦隐藏。
 /// 结束信号不可靠:mouseup 到不了页面(系统模态移动循环把鼠标事件吃掉,实测 up=0),
-/// 所以用「最后一次 Moved + DRAG_SESSION_IDLE_MS」作为会话存活期,超时自动退出,
+/// 所以用「最后一次 Moved + DRAG_SESSION_IDLE」作为会话存活期,超时自动退出,
 /// 避免标志残留导致失焦隐藏永久失效。
-static DRAG_SESSION_MS: AtomicU64 = AtomicU64::new(0);
-const DRAG_SESSION_IDLE_MS: u64 = 1200;
+/// 时刻用单调时钟 Instant 而非墙钟(SystemTime):系统时间被回拨(NTP 步进/手动改钟)时,
+/// 墙钟差值会恒为 0,会话就一直「活跃」、失焦隐藏被静默跳过,直到墙上时间追平;
+/// Instant 只随进程单调前进,不受改钟影响。锁只做瞬时存取,不跨调用持有。
+static DRAG_SESSION_AT: Mutex<Option<Instant>> = Mutex::new(None);
 
-fn now_ms() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_millis() as u64)
-        .unwrap_or(0)
-}
+/// 拖动会话空闲阈值:最后一次 Moved 之后超过它就视为已松手(松手后再无 Moved,
+/// 「最后一次 Moved + 阈值」天然就是松手时刻)。取 300ms 而非更长,是为了让松手后
+/// 紧接着点别的窗口所产生的 Focused(false) 仍算正常失焦、照常把窗口隐藏;阈值过大
+/// (曾为 1200ms)会把它误判成拖动中的失焦而丢弃,「失焦自动隐藏」下
+/// 「松手后点别处关闭」这个手势就丢了。300ms 远大于拖动中相邻 Moved 的间隔,
+/// 拖到一半不会因暂停而误判超时。
+const DRAG_SESSION_IDLE: Duration = Duration::from_millis(300);
 
 /// 是否处于拖动会话中(events.rs 用它跳过失焦隐藏)
 pub fn drag_session_active() -> bool {
-    let t = DRAG_SESSION_MS.load(Ordering::SeqCst);
-    t != 0 && now_ms().saturating_sub(t) < DRAG_SESSION_IDLE_MS
+    // Option<Instant> 是 Copy,拷出后立即释放锁;锁中毒(仅持锁 panic)时按无会话处理
+    let at = match DRAG_SESSION_AT.lock() {
+        Ok(g) => *g,
+        Err(_) => None,
+    };
+    at.map(|t| t.elapsed() < DRAG_SESSION_IDLE).unwrap_or(false)
 }
 
 /// 进入拖动会话(页面在 startDragging 之前调用)
@@ -34,12 +42,16 @@ pub fn begin_drag_session() {
 
 /// 续期拖动会话(拖动中的 Moved 调用)
 pub fn touch_drag_session() {
-    DRAG_SESSION_MS.store(now_ms().max(1), Ordering::SeqCst);
+    if let Ok(mut g) = DRAG_SESSION_AT.lock() {
+        *g = Some(Instant::now());
+    }
 }
 
 /// 退出拖动会话(页面 mouseup 调用;hide() 也会清)
 pub fn end_drag_session() {
-    DRAG_SESSION_MS.store(0, Ordering::SeqCst);
+    if let Ok(mut g) = DRAG_SESSION_AT.lock() {
+        *g = None;
+    }
 }
 
 /// 窗口位置变化即落库(events.rs 在 Moved 上调):拖动由系统模态移动循环处理,
