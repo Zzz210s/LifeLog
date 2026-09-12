@@ -1,3 +1,4 @@
+pub mod backup;
 pub mod migrate;
 pub mod repos;
 
@@ -13,6 +14,14 @@ pub fn open(path: &Path) -> rusqlite::Result<Connection> {
     conn.pragma_update(None, "journal_mode", "WAL")?;
     conn.pragma_update(None, "foreign_keys", "ON")?;
     conn.pragma_update(None, "busy_timeout", 3000)?;
+    // 仅在确实有迁移要跑时先落一份可恢复快照;
+    // 备份失败不阻断迁移(迁移本身有事务兜底),只打印中文警告
+    let current: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
+    if current < migrate::latest_version() {
+        if let Err(e) = backup::backup_before_migration(&conn, path, current) {
+            eprintln!("警告: 迁移前数据库备份失败,继续执行迁移: {e}");
+        }
+    }
     migrate::run(&conn)?;
     Ok(conn)
 }

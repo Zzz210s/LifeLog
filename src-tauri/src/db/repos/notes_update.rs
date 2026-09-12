@@ -5,12 +5,19 @@ use rusqlite::{params, Connection};
 
 /// 替换笔记标签集合(事务内):删旧链 -> 归一写新链 -> 清孤儿 tags。
 /// tag_links 触发器负责将聚合结果同步进 FTS tags 列。
+/// 006 起 tags 为树:此处沿用旧行为只建根级标签(父为空、路径=名称、深度=1)。
 fn set_tags(tx: &rusqlite::Transaction<'_>, id: i64, names: &[String]) -> rusqlite::Result<()> {
     tx.execute("DELETE FROM tag_links WHERE target_type='note' AND target_id=?1", params![id])?;
     for name in names {
-        tx.execute("INSERT OR IGNORE INTO tags(name) VALUES(?1)", params![name])?;
-        let tid: i64 =
-            tx.query_row("SELECT id FROM tags WHERE name = ?1", params![name], |r| r.get(0))?;
+        tx.execute(
+            "INSERT OR IGNORE INTO tags(name, parent_id, path, depth) VALUES(?1, NULL, ?1, 1)",
+            params![name],
+        )?;
+        let tid: i64 = tx.query_row(
+            "SELECT id FROM tags WHERE name = ?1 AND parent_id IS NULL",
+            params![name],
+            |r| r.get(0),
+        )?;
         tx.execute(
             "INSERT OR IGNORE INTO tag_links(tag_id, target_type, target_id) VALUES(?1, 'note', ?2)",
             params![tid, id],

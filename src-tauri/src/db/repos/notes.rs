@@ -61,9 +61,17 @@ pub fn create(conn: &mut Connection, content: &str) -> rusqlite::Result<Note> {
     tx.execute("INSERT INTO notes(content) VALUES(?1)", params![text])?;
     let id = tx.last_insert_rowid();
     for name in &names {
-        tx.execute("INSERT OR IGNORE INTO tags(name) VALUES(?1)", params![name])?;
-        let tid: i64 = tx
-            .query_row("SELECT id FROM tags WHERE name = ?1", params![name], |r| r.get(0))?;
+        // 006 起 tags 为树:此处只建根级标签(父为空、路径=名称、深度=1);
+        // 多层路径的建父级由标签树仓库层掌舵
+        tx.execute(
+            "INSERT OR IGNORE INTO tags(name, parent_id, path, depth) VALUES(?1, NULL, ?1, 1)",
+            params![name],
+        )?;
+        let tid: i64 = tx.query_row(
+            "SELECT id FROM tags WHERE name = ?1 AND parent_id IS NULL",
+            params![name],
+            |r| r.get(0),
+        )?;
         tx.execute(
             "INSERT OR IGNORE INTO tag_links(tag_id, target_type, target_id) VALUES(?1, 'note', ?2)",
             params![tid, id],
