@@ -58,19 +58,19 @@ describe('heightForLines', () => {
 });
 
 describe('edgeSide', () => {
-  it('左侧 8 像素内为 left', () => {
-    expect(edgeSide(3, 400)).toBe('left');
+  it('左侧 8 CSS 像素带内为 left', () => {
+    expect(edgeSide(3, 400, 8)).toBe('left');
   });
-  it('右侧 8 像素内为 right', () => {
-    expect(edgeSide(396, 400)).toBe('right');
+  it('右侧 8 CSS 像素带内为 right', () => {
+    expect(edgeSide(396, 400, 8)).toBe('right');
   });
   it('内部为 null', () => {
-    expect(edgeSide(200, 400)).toBeNull();
+    expect(edgeSide(200, 400, 8)).toBeNull();
   });
 
   it('左带优先于右带判定', () => {
     // 窄窗口时左右带重叠,退回左带,避免同一按下被两套逻辑抢
-    expect(edgeSide(3, 12)).toBe('left');
+    expect(edgeSide(3, 12, 8)).toBe('left');
   });
 
   it('缩放 0.5/1/2 下热区换算为 16/8/4 CSS px', () => {

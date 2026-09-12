@@ -1,6 +1,8 @@
 // 快捷窗几何的纯函数:宽度钳制、行数钳制、按行高算高度、左右边缘判定。
-// 单位说明:全部为「逻辑像素」(与 Rust set_quick_size 命令同一单位);
-// 光晕内边距 GLOW_PAD 与 Rust quick_scale 的 MIN_HEIGHT/MAX_HEIGHT 推导同源(见其常量注释)。
+// 单位表(换算靠 quick-window/logical-size.ts 的 ratio = 逻辑像素 / CSS 像素,勿混用):
+// - 逻辑像素:MIN_WIDTH / MAX_WIDTH(宽度区间)、EDGE_BAND_LOGICAL(边缘热区),
+//   与 Rust set_quick_size / quick_scale 同一单位;
+// - CSS 像素:GLOW_PAD(光晕内边距环),与 Rust quick_scale 的 MIN_HEIGHT/MAX_HEIGHT 推导同源。
 
 export const MIN_WIDTH = 240;
 export const MAX_WIDTH = 900;
@@ -11,9 +13,6 @@ export const MAX_LINES = 5;
 
 /** 边缘热区宽度(**逻辑像素**):热区随 webview 缩放同比放大,0.5-2.0 缩放下手感一致 */
 export const EDGE_BAND_LOGICAL = 8;
-
-/** 缩放=1 时的边缘带 CSS 宽度(与 quick-gestures 的 DRAG_BAND 语义一致),仅作默认值 */
-export const EDGE_BAND = EDGE_BAND_LOGICAL;
 
 /**
  * 逻辑像素热区 -> CSS 像素:ratio = 逻辑像素 / CSS 像素(见 quick-window/logical-size.ts)。
@@ -27,6 +26,8 @@ export function edgeBandCss(ratio: number): number {
  * 移动窗口的拖动带 CSS 宽度 = 光晕内边距环 GLOW_PAD 与「8 逻辑像素热区」取较大者:
  * 低缩放(ratio 0.5)时 8 逻辑像素 = 16 CSS px,比环还宽,取大者才保住逻辑热区;
  * 高缩放时环本身已覆盖 8 逻辑像素,取环即可(不把既有可拖动环缩窄)。
+ * 取 max 而非纯换算:纯换算会在高缩放下把「整圈 14 CSS px 可拖」缩到 4 px,属能力回归;
+ * **控制端已裁决保留**(详见 use-drag-band 头注释)。
  */
 export function dragBandCss(ratio: number): number {
   return Math.max(GLOW_PAD, edgeBandCss(ratio));
@@ -53,10 +54,12 @@ export function heightForLines(lines: number, lineHeight: number): number {
 export type Side = 'left' | 'right';
 
 /**
- * 判断按下点落在哪条竖向边缘带内;内部返回 null。
+ * 判断按下点落在哪条竖向边缘带内;内部返回 null。band 是 **CSS 像素**(调用方用
+ * edgeBandCss(ratio) 换算),必须显式传入:不再提供默认值,避免与 EDGE_BAND_LOGICAL
+ * 的同值常量漂移。
  * 窄窗口(宽度不足 2 x band)时左右带重叠,退回左带,避免同一次按下被两套逻辑争抢。
  */
-export function edgeSide(x: number, width: number, band: number = EDGE_BAND): Side | null {
+export function edgeSide(x: number, width: number, band: number): Side | null {
   if (x < band) return 'left';
   if (x >= width - band) return 'right';
   return null;

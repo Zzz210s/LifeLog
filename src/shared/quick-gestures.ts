@@ -1,6 +1,8 @@
-// 窗口最外 band 像素判定与按下序列判定,供拖动带复用。
+// 窗口最外 band 像素(CSS 像素)判定与按下序列判定,供拖动带复用。
 // 不依赖 offsetX/offsetY:子元素会影响那对值,故统一用 clientX/clientY + 元素包围盒。
 
+/** isInDragBand 的默认 band(仅单测用;生产调用点 use-drag-band 一律显式传换算后的 CSS 值)。
+ * 与 quick-geometry 的 EDGE_BAND_LOGICAL(8 逻辑像素)同数值但**单位不同**,勿直接互换 */
 export const DRAG_BAND = 8;
 
 export function isInDragBand(
