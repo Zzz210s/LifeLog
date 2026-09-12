@@ -39,6 +39,8 @@ pub fn run() {
         ])
         .setup(|app| {
             db::init(app.handle())?;
+            // 旧几何键语义(含缩放的尺寸)一次性迁移到新语义(基础物理尺寸),幂等
+            windowing::quick_scale::migrate_geometry(app.handle());
             windowing::tray::create(app)?;
             windowing::events::register(app)?;
             app.handle().plugin(

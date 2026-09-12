@@ -71,16 +71,9 @@ pub fn hide(app: &AppHandle) -> tauri::Result<()> {
             set_setting(app, "quick_x", &p.x.to_string());
             set_setting(app, "quick_y", &p.y.to_string());
         }
-        if let Ok(s) = w.outer_size() {
-            // 写回的是基础尺寸:当前窗口已含缩放,除回系数(缩放系数不回退,下次 show 仍按它放大)
-            let zoom = get_setting(app, "quick_zoom")
-                .and_then(|v| v.parse::<f64>().ok())
-                .map(quick_scale::clamp_scale)
-                .unwrap_or(1.0);
-            let (bw, bh) = quick_scale::base_size_from_actual(s.width, s.height, zoom);
-            set_setting(app, "quick_w", &bw.to_string());
-            set_setting(app, "quick_h", &bh.to_string());
-        }
+        // 尺寸不回写:窗口不可手动 resize(resizable:false),所有尺寸变化都经
+        // set_quick_size(apply_size,按意图写回)或 apply_scale;由 outer_size 反推基础尺寸
+        // 会把钳制/工作区收口的结果固化成"用户的基础尺寸"(缩放系数越大越错),且无法还原。
         // 窗口实际可见而 tao 缓存认为已隐藏时(例如被外部 ShowWindow / SetWindowPos
         // (SWP_SHOWWINDOW) 显示过,或由系统恢复),hide() 的 flags diff 为空会静默早退
         // (返回 Ok 但窗口留在屏幕上)。先 show() 让缓存对齐,再 hide() 才真正执行 SW_HIDE;

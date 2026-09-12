@@ -1,7 +1,8 @@
 //! 快捷窗尺寸与视图缩放:尺寸钳制、缩放换算、落到窗口并落库。
 //! 单位约定:命令与钳制都用**逻辑像素**(宽度 240-900、高度 35-320);设置里的 quick_w/quick_h
 //! 存**基础物理尺寸**(缩放系数为 1 时的物理尺寸),显示时按 quick_zoom 乘开后落到窗口;
-//! 缩放系数存 quick_zoom(0.5-2.0),hide() 只写回基础尺寸,系数不回退。
+//! 缩放系数存 quick_zoom(0.5-2.0)。基础尺寸只由 apply_size 按**命令意图**写回;hide() 只写位置,
+//! 绝不由窗口实际尺寸反推(会把钳制结果固化)。旧语义(含缩放的尺寸)由 migrate_geometry 一次性迁移。
 
 use tauri::{AppHandle, Manager, PhysicalSize};
 
@@ -62,11 +63,57 @@ pub fn base_size_from_actual(w: u32, h: u32, scale: f64) -> (u32, u32) {
     (f(w), f(h))
 }
 
-fn get_setting_num(app: &AppHandle, key: &str) -> Option<f64> {
+/// 由命令收到的尺寸**意图**(逻辑像素)换算要写回设置的基础物理尺寸:
+/// 基础物理 = 逻辑意图 x 系统缩放 / 缩放系数。
+/// 只能按意图换算:拿窗口实际尺寸反推会把钳制/工作区收口结果固化成用户几何。
+pub fn base_from_intent(logical: u32, sf: f64, scale: f64) -> u32 {
+    let s = clamp_scale(scale);
+    let sf = if sf.is_finite() && sf > 0.0 { sf } else { 1.0 };
+    ((logical as f64) * sf / s).round().max(1.0) as u32
+}
+
+/// 宽度意图与当前逻辑宽是否算「真的变了」(容差 0.5 逻辑像素,吸收物理取整抖动)。
+/// 自动高度路径每次都带一个宽度,用它挡掉「没拖动也反复改写 quick_w」。
+pub fn width_intent_changed(current_logical: f64, intent_logical: u32) -> bool {
+    (current_logical - intent_logical as f64).abs() > 0.5
+}
+
+/// 几何语义版本标记键:存在即视为已迁移(幂等)
+pub const GEOM_VERSION_KEY: &str = "quick_geom_ver";
+
+/// 旧几何 -> 新几何:quick_w/quick_h 从「含缩放的尺寸」换算成「缩放=1 的基础尺寸」。
+/// 与本文件基础的「实际 -> 基础」同一换算,只是输入是设置里的 f64 原始值。
+pub fn migrate_size(w: f64, h: f64, scale: f64) -> (u32, u32) {
+    let to_u32 = |v: f64| if v.is_finite() { v.round().max(0.0) as u32 } else { 0 };
+    base_size_from_actual(to_u32(w), to_u32(h), scale)
+}
+
+/// 一次性幂等迁移:标记键已存在直接返回;否则按 quick_zoom 把 quick_w/quick_h 除回基础尺寸,
+/// 最后写标记键。必须在任何新语义构建跑过之前执行(否则会把新值再除一次)。
+pub fn migrate_geometry(app: &AppHandle) {
+    if get_setting_str(app, GEOM_VERSION_KEY).is_some() {
+        return;
+    }
+    if let (Some(w), Some(h), Some(zoom)) = (
+        get_setting_num(app, "quick_w"),
+        get_setting_num(app, "quick_h"),
+        get_setting_num(app, "quick_zoom"),
+    ) {
+        let (bw, bh) = migrate_size(w, h, zoom);
+        set_setting(app, "quick_w", &bw.to_string());
+        set_setting(app, "quick_h", &bh.to_string());
+    }
+    set_setting(app, GEOM_VERSION_KEY, "1");
+}
+
+fn get_setting_str(app: &AppHandle, key: &str) -> Option<String> {
     let db = app.try_state::<crate::db::Db>()?;
     let conn = db.0.lock().ok()?;
-    let raw = crate::db::repos::settings::get(&conn, key).ok().flatten()?;
-    raw.trim().parse::<f64>().ok()
+    crate::db::repos::settings::get(&conn, key).ok().flatten()
+}
+
+fn get_setting_num(app: &AppHandle, key: &str) -> Option<f64> {
+    get_setting_str(app, key)?.trim().parse::<f64>().ok()
 }
 
 fn set_setting(app: &AppHandle, key: &str, value: &str) {
@@ -77,22 +124,28 @@ fn set_setting(app: &AppHandle, key: &str, value: &str) {
     }
 }
 
-/// 把逻辑尺寸落到窗口上,并把实际**基础**物理尺寸写入设置:
-/// 当前窗口已含 webview 缩放,故写回前先除回缩放系数(系数为 1 时与旧行为一致)。
+/// 把逻辑尺寸落到窗口上,并把**由命令意图换算的基础尺寸**写入设置:
+/// 宽度只在真的变化时才写(自动高度路径每次都带一个宽度,不能反复改写用户宽度意图);
+/// 高度随内容行数变,每次按意图写回。
 pub fn apply_size(app: &AppHandle, width: u32, height: u32) -> Result<(), String> {
     let Some(win) = app.get_webview_window("quick") else {
         return Ok(());
     };
     let height = clamp_height(height);
-    let scale = win.scale_factor().unwrap_or(1.0);
-    let phys_w = ((width as f64) * scale).round().max(1.0) as u32;
-    let phys_h = ((height as f64) * scale).round().max(1.0) as u32;
+    let sf = win.scale_factor().unwrap_or(1.0);
+    let phys_w = ((width as f64) * sf).round().max(1.0) as u32;
+    let phys_h = ((height as f64) * sf).round().max(1.0) as u32;
+    let width_changed = win
+        .inner_size()
+        .map(|s| width_intent_changed(s.to_logical::<f64>(sf).width, width))
+        .unwrap_or(false);
     win.set_size(PhysicalSize::new(phys_w, phys_h))
         .map_err(|e| e.to_string())?;
     let zoom = clamp_scale(get_setting_num(app, "quick_zoom").unwrap_or(1.0));
-    let (base_w, base_h) = base_size_from_actual(phys_w, phys_h, zoom);
-    set_setting(app, "quick_w", &base_w.to_string());
-    set_setting(app, "quick_h", &base_h.to_string());
+    if width_changed {
+        set_setting(app, "quick_w", &base_from_intent(width, sf, zoom).to_string());
+    }
+    set_setting(app, "quick_h", &base_from_intent(height, sf, zoom).to_string());
     Ok(())
 }
 
@@ -108,8 +161,14 @@ pub fn apply_scale(app: &AppHandle, scale: f64) -> Result<(), String> {
     let sf = win.scale_factor().unwrap_or(1.0);
     let base_w = get_setting_num(app, "quick_w").unwrap_or(DEFAULT_WIDTH as f64 * sf);
     let base_h = get_setting_num(app, "quick_h").unwrap_or(DEFAULT_HEIGHT as f64 * sf);
-    let (lw, lh) = scaled_size((base_w / sf) as u32, (base_h / sf) as u32, s);
+    // 截断会带来系统性持续下偏,这里四舍五入;高度与 apply_size 用同一区间兜底
+    let (lw, lh) = scaled_size(
+        (base_w / sf).round().max(1.0) as u32,
+        (base_h / sf).round().max(1.0) as u32,
+        s,
+    );
     let lw = clamp_width(lw);
+    let lh = clamp_height(lh);
     let mut phys = (
         ((lw as f64) * sf).round().max(1.0) as u32,
         ((lh as f64) * sf).round().max(1.0) as u32,
