@@ -15,11 +15,40 @@ fn leading_tag_leaves_no_residual_space() {
 }
 
 #[test]
-fn mid_word_hash_keeps_separator() {
-    // '#' 位于词中间(issue#123、URL 片段)时剥离标签不得吞掉后随空白,否则相邻词会粘连
-    assert_eq!(strip_tags("issue#123 修复"), "issue 修复");
-    assert_eq!(strip_tags("a#tag b"), "a b");
-    assert_eq!(strip_tags("见 https://x.com#sec 结束"), "见 https://x.com 结束");
+fn mid_word_hash_is_plain_text() {
+    // spec 3.3.1 前导字符规则:'#' 前是 ASCII 字母数字时不视为标签 ->
+    // 整段原样保留(既不剥离,也不吞掉其后的分隔空白;旧实现会剥成 "issue 修复")
+    assert_eq!(strip_tags("issue#123 修复"), "issue#123 修复");
+    assert_eq!(strip_tags("a#tag b"), "a#tag b");
+    assert_eq!(strip_tags("见 https://x.com#sec 结束"), "见 https://x.com#sec 结束");
+}
+
+#[test]
+fn invalid_tag_syntax_is_not_stripped() {
+    // 不合法的 # 写法整串按文本保留,不做部分剥离
+    assert_eq!(strip_tags("#工作/项目 A"), "#工作/项目 A");
+    assert_eq!(strip_tags("#a//b 正文"), "#a//b 正文");
+    assert_eq!(strip_tags("#a/ 结束"), "#a/ 结束");
+    assert_eq!(strip_tags("#a/b/c/d/e/f 深"), "#a/b/c/d/e/f 深");
+    assert_eq!(strip_tags("##标题"), "##标题");
+    assert_eq!(strip_tags("`#工作` 是代码"), "`#工作` 是代码");
+    assert_eq!(strip_tags("\\#工作 不是标签"), "\\#工作 不是标签");
+}
+
+#[test]
+fn nested_path_is_stripped_at_clean_boundary() {
+    // 行尾/换行是干净边界:多层标签正常剥离
+    assert_eq!(strip_tags("#工作/项目A/会议"), "");
+    assert_eq!(strip_tags("#工作/项目A/会议\n记录"), "\n记录");
+    assert_eq!(strip_tags("记录 备注\n#工作/项目A/会议"), "记录 备注\n");
+}
+
+#[test]
+fn nested_path_before_a_word_is_plain_text() {
+    // spec 3.3.1 整体判定:含 '/' 的 token 被行内空白截断、且其后仍是名称字符
+    // => 判为某一段未闭合,整串当文本(`#工作/项目 A` 是其最短形式,不建 `工作`)
+    assert_eq!(strip_tags("#工作/项目A/会议 记录"), "#工作/项目A/会议 记录");
+    assert_eq!(strip_tags("记录 #工作/项目A 完成"), "记录 #工作/项目A 完成");
 }
 
 #[test]

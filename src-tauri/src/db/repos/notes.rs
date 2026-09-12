@@ -22,35 +22,32 @@ fn collapse_line(line: &str) -> String {
     }
 }
 
-/// 存库前移除 #标签 词元:单遍扫描原文(词法同 extract_tags,共用 scan_tag_token),
-/// 保留非标签段、丢弃标签 token、裸 # 保留;最后逐行归一空白并保留行结构与行首缩进
-/// (多行笔记的换行、空行、嵌套列表/代码块的缩进原样保留;
+/// 存库前移除 #标签 词元:用 `tags::tag_spans`(与 extract_tags 同一解析器)定位
+/// **确认合法**的标签区间并只剥离这些区间;不合法的 # 写法(如 `#工作/项目 A`、`##标题`、
+/// 行内/围栏代码块里的 #、`\#`)整串原样保留。
+/// 起始于行首或紧跟空白之后的标签,额外吞掉其后的连续空格/制表符(不吞换行);
+/// 最后逐行归一空白并保留行结构与行首缩进(多行笔记的换行、空行、嵌套列表缩进原样保留;
 /// 标签折叠进 tags/tag_links,原文保留会双重展示)
 pub(crate) fn strip_tags(content: &str) -> String {
     let content = content.replace("\r\n", "\n"); // 统一换行,防 Windows 端混入 \r
     let mut out = String::new();
-    let mut prev: Option<char> = None; // out 的末字符,用于判断 # 是否位于行首/空白后
-    let mut chars = content.chars().peekable();
-    while let Some(c) = chars.next() {
-        if c != '#' {
-            out.push(c);
-            prev = Some(c);
-            continue;
-        }
-        if crate::tags::scan_tag_token(&mut chars).is_none() {
-            out.push(c); // 裸 # 不属于标签,保留为内容
-            prev = Some(c);
-        } else if prev.is_none_or(char::is_whitespace) {
-            // 仅当标签起始于行首或紧跟在空白之后,才吞掉其后的连续空格/制表符:
-            // 行首标签剥离后不留残余空白被误当缩进;
-            // 行中标签(前面是词或标点)必须保留分隔空白,否则 "a-#tag b" 会粘连成 "a-b"、
-            // "版本(#v2 备注)" 会粘连成 "版本(备注)",相邻文本被并成一个词(语义被改)。
-            // 只吞空格/制表符,不吞换行,否则会把下一行并上来。
-            while matches!(chars.peek(), Some(' ' | '\t')) {
-                chars.next();
+    let mut cursor = 0usize;
+    for span in crate::tags::tag_spans(&content) {
+        out.push_str(&content[cursor..span.start]);
+        // 仅当标签起始于行首或紧跟空白之后,才吞掉其后的连续空格/制表符:
+        // 行首标签剥离后不留残余空白被误当缩进;
+        // 行中标签(前面是词或标点)必须保留分隔空白,否则 "a-#tag b" 会粘连成 "a-b"、
+        // "版本(#v2 备注)" 会粘连成 "版本(备注)",相邻文本被并成一个词(语义被改)。
+        // 只吞空格/制表符,不吞换行,否则会把下一行并上来。
+        let leading = out.chars().next_back().is_none_or(char::is_whitespace);
+        cursor = span.end;
+        if leading {
+            while matches!(content[cursor..].chars().next(), Some(' ' | '\t')) {
+                cursor += 1;
             }
         }
     }
+    out.push_str(&content[cursor..]);
     out.split('\n').map(collapse_line).collect::<Vec<_>>().join("\n")
 }
 
