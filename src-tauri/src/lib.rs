@@ -23,6 +23,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::settings::get_setting,
             commands::settings::set_setting,
+            commands::settings::set_quick_locks,
             commands::notes::save_quick_note,
             commands::notes::query_notes,
             commands::notes::tag_counts,
@@ -34,6 +35,7 @@ pub fn run() {
             commands::windowing::toggle_quick_pin,
             commands::windowing::set_quick_zoom,
             commands::windowing::set_quick_size,
+            commands::windowing::set_quick_scale,
         ])
         .setup(|app| {
             db::init(app.handle())?;
