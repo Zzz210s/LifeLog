@@ -26,7 +26,7 @@ fn mid_word_hash_is_plain_text() {
 #[test]
 fn invalid_tag_syntax_is_not_stripped() {
     // 不合法的 # 写法整串按文本保留,不做部分剥离
-    assert_eq!(strip_tags("#工作/项目 A"), "#工作/项目 A");
+    assert_eq!(strip_tags("#/工作 正文"), "#/工作 正文");
     assert_eq!(strip_tags("#a//b 正文"), "#a//b 正文");
     assert_eq!(strip_tags("#a/ 结束"), "#a/ 结束");
     assert_eq!(strip_tags("#a/b/c/d/e/f 深"), "#a/b/c/d/e/f 深");
@@ -44,11 +44,12 @@ fn nested_path_is_stripped_at_clean_boundary() {
 }
 
 #[test]
-fn nested_path_before_a_word_is_plain_text() {
-    // spec 3.3.1 整体判定:含 '/' 的 token 被行内空白截断、且其后仍是名称字符
-    // => 判为某一段未闭合,整串当文本(`#工作/项目 A` 是其最短形式,不建 `工作`)
-    assert_eq!(strip_tags("#工作/项目A/会议 记录"), "#工作/项目A/会议 记录");
-    assert_eq!(strip_tags("记录 #工作/项目A 完成"), "记录 #工作/项目A 完成");
+fn nested_path_terminates_at_space() {
+    // 修复轮 1:空白与标点只终止标签,标签照常剥离,其后正文原样保留
+    assert_eq!(strip_tags("#工作/项目 A"), "A");
+    assert_eq!(strip_tags("#a/b,然后"), ",然后");
+    assert_eq!(strip_tags("#工作/项目A/会议 记录"), "记录");
+    assert_eq!(strip_tags("记录 #工作/项目A 完成"), "记录 完成");
 }
 
 #[test]

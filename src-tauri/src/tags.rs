@@ -1,4 +1,6 @@
 //! 标签语法解析(spec 3.3.1):严格名称字符集 + Markdown 感知 + 整串判定。
+//! 终止规则:空白与标点一律正常终止标签(标签有效、后随字符留在正文);
+//! 只有结构非法(空段/首尾或连续斜杠/深度超限/# 后无名称字符)才整串丢弃。
 //! 不符合语法的一律当普通文本原样保留 —— 不建标签,也不剥离任何字符。
 use std::iter::Peekable;
 use std::str::CharIndices;
@@ -88,7 +90,8 @@ fn scan_line(content: &str, base: usize, line: &str, out: &mut Vec<TagSpan>) {
     }
 }
 
-/// 在 '#' 处尝试解析:查前导字符 -> 排除 Markdown 标题 -> 收名称与 '/' -> 整串校验
+/// 在 '#' 处尝试解析:查前导字符 -> 排除 Markdown 标题 -> 收名称与 '/' -> 整串校验。
+/// 收名称时遇到空白/标点即停(正常终止,标签仍有效);只有整串结构非法才丢弃。
 fn try_tag(
     content: &str,
     base: usize,
@@ -122,26 +125,7 @@ fn try_tag(
     if parse_tag_path(&raw).is_none() {
         return; // 整串不合法:整串丢弃,不做部分提取,也不剥离字符
     }
-    if raw.contains('/') && unclosed_segment(content, end) {
-        return; // 含 '/' 却被行内空白截断且后续仍是名称 -> 某一段未闭合(如 `#工作/项目 A`)
-    }
     out.push(TagSpan { start: base + hash, end, path: raw });
-}
-
-/// 含 '/' 的 token 被空格/制表符截断、且其后仍是名称字符 => 判定为某一段未闭合。
-/// 行尾、换行与标点是干净边界(`#工作,然后` 正常终止,`#工作/项目A\n下一行` 也有效)
-fn unclosed_segment(content: &str, end: usize) -> bool {
-    let rest = &content[end..];
-    let Some(first) = rest.chars().next() else {
-        return false; // 文末
-    };
-    if !matches!(first, ' ' | '\t') {
-        return false; // 换行与标点
-    }
-    rest.trim_start_matches([' ', '\t'])
-        .chars()
-        .next()
-        .is_some_and(is_tag_char)
 }
 
 #[cfg(test)]

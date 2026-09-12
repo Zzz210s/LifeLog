@@ -85,8 +85,31 @@ fn too_deep_invalid() {
 }
 
 #[test]
-fn no_partial_extraction() {
-    assert!(extract_tags("#工作/项目 A").is_empty());
+fn space_terminates_nested_path() {
+    // 修复轮 1:空白不再导致整串作废,只正常终止标签;其后文字留在正文
+    assert_eq!(extract_tags("#工作/项目 A"), vec!["工作/项目"]);
+    assert_eq!(
+        extract_tags("#工作/项目A/会议 记录"),
+        vec!["工作/项目A/会议"]
+    );
+}
+
+#[test]
+fn punctuation_terminates_nested_path() {
+    // 修复轮 1:标点同样只是正常终止(`#工作,然后` 与 `#a/b,然后` 同理)
+    assert_eq!(extract_tags("#a/b,然后"), vec!["a/b"]);
+    assert_eq!(extract_tags("#工作 项目"), vec!["工作"]);
+}
+
+#[test]
+fn structurally_invalid_paths_are_void() {
+    // 仅结构非法才整串丢弃:斜杠后无名称字符(段未闭合)、空段、深度超限
+    assert!(extract_tags("#工作/").is_empty());
+    assert!(extract_tags("#工作/ 结束").is_empty());
+    assert!(extract_tags("#工作/项目/").is_empty());
+    assert!(extract_tags("#/工作").is_empty());
+    assert!(extract_tags("#a//b").is_empty());
+    assert!(extract_tags("#a/b/c/d/e/f").is_empty());
 }
 
 #[test]
