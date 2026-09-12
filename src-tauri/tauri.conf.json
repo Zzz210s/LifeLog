@@ -30,7 +30,8 @@
         "skipTaskbar": true,
         "alwaysOnTop": true,
         "resizable": true,
-        "shadow": true
+        "transparent": true,
+        "shadow": false
       }
     ],
     "security": { "csp": null }

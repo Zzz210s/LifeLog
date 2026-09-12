@@ -1,1 +1,13 @@
 @import "tailwindcss";
+
+/* 快捷窗为无边框透明窗口:页面背景必须透明,输入框自身提供可见底色 */
+html,
+body {
+  margin: 0;
+  overflow: hidden;
+  background: transparent;
+}
+
+#root {
+  height: 100%;
+}
