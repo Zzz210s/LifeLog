@@ -1,178 +1,173 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { listen } from '@tauri-apps/api/event';
 import { api } from '../shared/api';
 import { prepareForSave } from '../shared/note-source';
-import type { Note } from '../shared/types';
-import { wheelZoom } from '../shared/zoom';
-import { HeaderControls } from './HeaderControls';
-
-/** 输入区最多长到 5 行,再多转内部滚动(搜索栏规格) */
-const MAX_LINES = 5;
+import { savedStamp, shouldShowStamp } from '../shared/quick-feedback';
+import { canClose, canDrag, canEdit } from '../shared/quick-lock';
+import { useDragBand } from './use-drag-band';
+import { useWidthDrag } from './use-width-drag';
+import { useAutoHeight } from './use-auto-height';
+import { useQuickSettings } from './use-quick-settings';
+import { useQuickWheel } from './use-quick-wheel';
 
 export function QuickCapture() {
   const [content, setContent] = useState('');
-  const [saved, setSaved] = useState<Note | null>(null);
-  const [error, setError] = useState('');
-  const [zoom, setZoom] = useState(1);
-  const [pinned, setPinned] = useState(true);
-  const [focused, setFocused] = useState(false);
-  const zoomRef = useRef(1);
-  const zoomTimer = useRef<number | null>(null);
+  const [stamp, setStamp] = useState('');
+  const [savedAt, setSavedAt] = useState(0);
   const saveTimer = useRef<number | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const { settings, lock, error, setError, unlock } = useQuickSettings();
+  const editing = canEdit(lock);
+  const anyLock = lock.move || lock.close || lock.content;
+  // 内容变化后按真实换行行数(1-5 行)自动长高;滚轮缩放后手动再同步一次
+  const syncHeight = useAutoHeight({ textareaRef: inputRef, value: content });
+  const { opacity, onMiddleDown, flushView } = useQuickWheel({
+    settings,
+    onResized: syncHeight,
+    onError: setError,
+  });
 
+  // 页面自己发起的隐藏(Esc/双击)先 flush 视图状态再隐藏:窗口隐藏后页面计时器可能被冻结,
+  // 节流中的透明度就永远落不了库;Rust 侧隐藏(热键/托盘/失焦)由下面的 quick-hiding 事件兜底。
+  const hideNow = useCallback(() => {
+    flushView();
+    void api.hideQuickWindow();
+  }, [flushView]);
+
+  // Rust 侧隐藏(热键/托盘/失焦自动隐藏)在 w.hide() 前会发出 quick-hiding:
+  // hide() 不触发 onFocusChanged(实测),隐藏后页面计时器还可能被冻结,页面自己发起的
+  // 隐藏(Esc/双击)已由 hideNow 先 flush,热键/托盘路径靠这个事件补上最后一次 flush。
+  // 残留风险:事件送达与页面处理都是异步的,页面若已被挂起仍可能漏掉(非 100% 可靠)。
   useEffect(() => {
-    void api
-      .getSetting('quick_always_on_top')
-      .then((v) => setPinned(v !== 'false')) // 与 Rust show() 的持久化置顶状态同步;null 视为 true
-      .catch(() => {});
-    void api
-      .getSetting('quick_zoom')
-      .then((z) => {
-        const v = z ? Number(z) : 1;
-        zoomRef.current = v;
-        setZoom(v);
+    let dispose: (() => void) | undefined;
+    let cancelled = false;
+    void listen('quick-hiding', () => flushView())
+      .then((un) => {
+        if (cancelled) un();
+        else dispose = un;
       })
-      .catch(() => {});
-  }, []);
+      .catch(() => {}); // 订阅失败不阻断隐藏流程
+    return () => {
+      cancelled = true;
+      dispose?.();
+    };
+  }, [flushView]);
 
-  // 裸滚轮缩放(贴纸式,固定行为);目标处于可滚动容器内时深先滚动内容
-  // 同一 effect 兼顾窗口级 Esc:焦点在 BODY 时 textarea 上的 keydown 收不到,
+  // 窗口级 Esc:焦点在 BODY 时 textarea 上的 keydown 收不到,
   // 会导致点空白后 Esc 隐藏失效,故提升到 window 级
   useEffect(() => {
-    const inScrollable = (t: EventTarget | null): boolean => {
-      for (let el = t as HTMLElement | null; el && el !== document.body; el = el.parentElement) {
-        if (el.scrollHeight > el.clientHeight) return true;
-      }
-      return false;
-    };
-    const onWheel = (e: WheelEvent) => {
-      if (e.deltaY === 0) return;
-      if (inScrollable(e.target)) return;
-      e.preventDefault();
-      const next = wheelZoom(zoomRef.current, e.deltaY);
-      if (next === zoomRef.current) return;
-      zoomRef.current = next;
-      setZoom(next);
-      if (zoomTimer.current) clearTimeout(zoomTimer.current);
-      zoomTimer.current = window.setTimeout(() => void api.setZoom(next).catch(() => {}), 150);
-    };
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || e.isComposing) return; // 输入法组合中不抢 Esc
       e.preventDefault();
-      void api.hideQuickWindow();
+      if (!canClose(lock)) return; // 阻止关闭:Esc 无效(托盘菜单仍可隐藏)
+      hideNow();
     };
-    window.addEventListener('wheel', onWheel, { passive: false });
     window.addEventListener('keydown', onKey);
-    return () => {
-      window.removeEventListener('wheel', onWheel);
-      window.removeEventListener('keydown', onKey);
-    };
-  }, []);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [lock, hideNow]);
 
-  /** 单行起自动长高:先归零再按内容撑开;到 5 行封顶,超出由 overflow-y 内部滚动 */
-  const resize = useCallback(() => {
-    const el = inputRef.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    const cs = getComputedStyle(el);
-    const line = parseFloat(cs.lineHeight) || 20;
-    const pad = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
-    const border = parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth);
-    const max = line * MAX_LINES + pad + border;
-    el.style.height = Math.min(el.scrollHeight + border, max) + 'px';
+  // 右下角浮层:保存/解锁的短暂提示共用同一计时器
+  const flash = useCallback((text: string) => {
+    setStamp(text);
+    setSavedAt(Date.now());
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = window.setTimeout(() => setSavedAt(0), 1500);
   }, []);
 
   const save = useCallback(async () => {
     const text = prepareForSave(content); // 只裁行尾空白:整条缩进代码块的首行缩进必须保留
     if (!text) return;
     try {
-      const note = await api.saveQuickNote(text);
+      await api.saveQuickNote(text);
       setContent('');
       setError('');
-      setSaved(note);
-      // 保存成功收回单行
-      if (inputRef.current) inputRef.current.style.height = 'auto';
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-      saveTimer.current = window.setTimeout(() => setSaved(null), 2000);
+      flash(savedStamp(new Date()));
+      inputRef.current?.focus(); // 保存后光标留在输入框,可继续记下一条
     } catch (e) {
-      setError(String(e)); // 保存失败保留输入
+      setError(`保存失败: ${String(e)}`); // 保存失败保留输入
     }
-  }, [content]);
+  }, [content, flash, setError]);
+
+  const onUnlock = useCallback(async () => {
+    try {
+      await unlock(); // 事务写库成功后才翻转本地锁定态(见 use-quick-settings)
+      setError('');
+      flash('已解锁');
+      inputRef.current?.focus(); // 解锁后回到输入框
+    } catch (e) {
+      setError(`解锁失败: ${String(e)}`); // 写库失败:保持锁定并复用错误浮层,不谎报已解锁
+    }
+  }, [unlock, flash, setError]);
+
+  const onDoubleClick = useCallback(() => {
+    if (settings.doubleClickAction !== 'hide' || !canClose(lock)) return;
+    hideNow();
+  }, [settings.doubleClickAction, lock, hideNow]);
+
+  const onMouseDown = useDragBand({ locked: !canDrag(lock), onDoubleClick });
+  const onWidthMouseDown = useWidthDrag({ textareaRef: inputRef, onDoubleClick });
+  // 中键恢复视图 -> 左右带优先(双击或宽度拖动)-> 其余交给上下带(双击或移动窗口)
+  const onRootMouseDown = (e: React.MouseEvent) => {
+    if (onMiddleDown(e)) return;
+    if (onWidthMouseDown(e)) return;
+    onMouseDown(e);
+  };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     // Esc 由窗口级监听兜底(见上 effect),此处只处理 Ctrl+Enter
     if (e.ctrlKey && e.key === 'Enter') {
       e.preventDefault();
+      if (!editing) return; // 锁定内容:不保存
       void save();
     }
   };
 
-  const togglePin = async () => {
-    try {
-      setPinned(await api.togglePin());
-    } catch {
-      /* 忽略 */
-    }
-  };
-
   return (
-    <div className="flex h-screen flex-col bg-white text-sm text-gray-800">
-      <HeaderControls
-        pinned={pinned}
-        zoom={zoom}
-        onTogglePin={togglePin}
-        onHide={() => void api.hideQuickWindow()}
+    <div
+      className="relative box-border h-screen w-full p-[14px]"
+      style={{ opacity: opacity / 100 }}
+      onMouseDown={onRootMouseDown}
+    >
+      <textarea
+        ref={inputRef}
+        autoFocus
+        aria-label="快速输入内容"
+        name="content"
+        value={content}
+        readOnly={!editing}
+        onChange={(e) => setContent(e.target.value)}
+        onKeyDown={onKeyDown}
+        className="sticker-input h-full w-full resize-none overflow-y-auto bg-white px-3 py-2 text-sm leading-relaxed text-gray-800 read-only:text-gray-500"
       />
-      {/* min-h-0:窗口缩到极小时允许内容区收缩,不顶出/不产生窗口滚动条 */}
-      <div
-        className="relative flex min-h-0 flex-1 flex-col px-2 pt-1.5"
-        // 点击空白区(非 textarea)时把焦点拉回输入框:否则焦点落到 BODY,
-        // 提示条消失且窗口级 Esc 外的输入行为异常;preventDefault 避免先 blur 再 focus 抖动
-        onMouseDown={(e) => {
-          // 只接管左键:右键/中键要留给 WebView2 默认上下文菜单等原生行为
-          if (e.button !== 0) return;
-          if (e.target === inputRef.current) return;
-          e.preventDefault();
-          inputRef.current?.focus();
-        }}
-      >
-        <textarea
-          ref={inputRef}
-          autoFocus
-          rows={1}
-          aria-label="快速输入内容"
-          name="content"
-          value={content}
-          onChange={(e) => {
-            setContent(e.target.value);
-            resize();
-          }}
-          onKeyDown={onKeyDown}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
-          placeholder="记点什么... #标签 自动归类"
-          className="w-full resize-none overflow-y-auto rounded-2xl border border-gray-200 bg-white px-3 py-1.5 leading-relaxed outline-none transition-colors focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-        />
-        {focused && (
-          <div className="pointer-events-none absolute inset-x-2 bottom-0 rounded-b-2xl bg-blue-50/95 px-3 py-1 text-xs text-blue-500">
-            Ctrl+Enter 保存 · Esc 隐藏 · #标签 自动归类
-          </div>
-        )}
-      </div>
-      <div className="flex h-7 items-center justify-between px-3 text-xs">
-        <span className={saved ? 'text-green-600' : 'text-gray-400'}>
-          {saved
-            ? `已保存 ${saved.created_at.slice(11, 16)}${
-                saved.tags.length ? ' ' + saved.tags.map((t) => '#' + t).join(' ') : ''
-              }`
-            : error
-              ? '保存失败: ' + error
-              : ''}
-        </span>
-        <button onClick={() => void save()} className="text-blue-600 hover:underline">
-          保存
+      {anyLock ? (
+        <button
+          type="button"
+          aria-label="解除锁定"
+          title="解除锁定"
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={onUnlock}
+          className="absolute top-4 right-4 flex h-5 w-5 items-center justify-center rounded text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+        >
+          <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden="true">
+            <path d="M5 7V5.5a3 3 0 0 1 6 0V7" fill="none" stroke="currentColor" strokeWidth="1.5" />
+            <rect x="3.5" y="7" width="9" height="6" rx="1.5" fill="currentColor" />
+          </svg>
         </button>
-      </div>
+      ) : null}
+      {error ? (
+        // 长错误(如路径/原始异常)不再从左侧被裁掉前缀:限宽(max 窗口宽-两侧各 1rem)并省略尾部
+        <span className="pointer-events-none absolute right-4 bottom-4 max-w-[calc(100%-2rem)] truncate text-xs text-red-500">
+          {error}
+        </span>
+      ) : shouldShowStamp(savedAt, Date.now()) ? (
+        <span className="pointer-events-none absolute right-4 bottom-4 text-xs text-gray-400">
+          {stamp}
+        </span>
+      ) : !editing ? (
+        <span className="pointer-events-none absolute right-4 bottom-4 text-xs text-gray-400">
+          内容已锁定
+        </span>
+      ) : null}
     </div>
   );
 }

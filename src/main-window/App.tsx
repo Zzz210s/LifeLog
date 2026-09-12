@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
+import { confirm } from '@tauri-apps/plugin-dialog';
 import { api } from '../shared/api';
 import type { Note } from '../shared/types';
 import { Composer } from './Composer';
@@ -7,9 +8,12 @@ import { ErrorBars } from './ErrorBars';
 import type { ErrorKind } from './ErrorBar';
 import { dropError, putError } from './errors';
 import type { ErrorMap } from './errors';
+import type { MainView } from './settings/settings-model';
 import { FilterBar } from './FilterBar';
 import { matchesTagFilter, needsRefetchAfterChange, replaceNote } from './notes-list';
 import { NoteStream } from './NoteStream';
+import { SettingsView } from './SettingsView';
+import { TopBar } from './TopBar';
 import { useNoteCreatedRefresh } from './use-note-created';
 import { useNotesFeed } from './use-notes-feed';
 import { useNotesExport } from './use-export';
@@ -22,6 +26,7 @@ export function App(): ReactNode {
   const [allTags, setAllTags] = useState<{ name: string; count: number }[]>([]);
   const [errors, setErrors] = useState<ErrorMap>({});
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [view, setView] = useState<MainView>('stream');
 
   /** 按来源留存/清除:G4 单值槽会被跨源覆盖造成错误被吞,改为每个来源一份,成功路径只清同源 */
   const setError = useCallback((kind: ErrorKind, message: string) => {
@@ -86,18 +91,29 @@ export function App(): ReactNode {
     setTags((prev) => (prev.includes(name) ? prev.filter((t) => t !== name) : [...prev, name]));
   }, []);
 
+  /**
+   * 删除前必须问一次:不能用 window.confirm —— tauri-plugin-dialog 的初始化脚本把它覆写成
+   * async(invoke) 的 Promise,`!Promise` 恒为 false,确认形同虚设直接删库(2026-09-12 实测)。
+   * 插件导出的 confirm 走 plugin:dialog|message,在 dialog:default 权限内。
+   */
   const remove = useCallback(
     (note: Note) => {
-      if (!window.confirm('删除这条笔记?')) return;
-      void api
-        .deleteNote(note.id)
-        .then(() => {
+      void (async () => {
+        const ok = await confirm('删除这条笔记?', {
+          title: '删除笔记',
+          kind: 'warning',
+        }).catch(() => false); // 弹窗失败一律当作取消,绝不静默删除
+        if (!ok) return;
+        try {
+          await api.deleteNote(note.id);
           setNotes((prev) => prev.filter((n) => n.id !== note.id));
           setEditingId(null);
           clearError('action');
           loadTags();
-        })
-        .catch((e) => setError('action', '删除失败: ' + String(e)));
+        } catch (e) {
+          setError('action', '删除失败: ' + String(e));
+        }
+      })();
     },
     [loadTags, clearError]
   );
@@ -129,6 +145,13 @@ export function App(): ReactNode {
 
   return (
     <div className="mx-auto flex h-screen w-full max-w-3xl flex-col bg-white text-gray-900">
+      <TopBar
+        view={view}
+        onOpenSettings={() => setView('settings')}
+        onBack={() => setView('stream')}
+      />
+      {/* 信息流始终挂载:切到设置页只是隐藏,返回时分页与滚动位置都不丢(不重新查询) */}
+      <div className={view === 'stream' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}>
       <Composer onSaved={refresh} disabled={editingId !== null} />
       <FilterBar
         keyword={keyword}
@@ -160,6 +183,8 @@ export function App(): ReactNode {
         onEditCancel={() => setEditingId(null)}
         onLinkError={(m) => setError('action', m)}
       />
+      </div>
+      {view === 'settings' && <SettingsView />}
     </div>
   );
 }

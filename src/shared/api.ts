@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { Note } from './types';
+import type { DbInfo, Note } from './types';
 
 export const api = {
   saveQuickNote: (content: string) => invoke<Note>('save_quick_note', { content }),
@@ -17,7 +17,15 @@ export const api = {
   deleteNote: (id: number) => invoke<void>('delete_note', { id }),
   exportNotes: (path: string) => invoke<void>('export_notes', { path }),
   hideQuickWindow: () => invoke<void>('hide_quick_window'),
-  togglePin: () => invoke<boolean>('toggle_quick_pin'),
-  setZoom: (zoom: number) => invoke<void>('set_quick_zoom', { zoom }),
+  /** 缩放:窗口尺寸 = 基础尺寸 x 系数,并落到 webview zoom */
+  setQuickScale: (zoom: number) => invoke<void>('set_quick_scale', { zoom }),
+  setQuickSize: (width: number, height: number) =>
+    invoke<void>('set_quick_size', { width, height }),
+  /** 三档锁定一次事务写库 */
+  setQuickLocks: (lockMove: boolean, lockClose: boolean, lockContent: boolean) =>
+    invoke<void>('set_quick_locks', { lockMove, lockClose, lockContent }),
   getSetting: (key: string) => invoke<string | null>('get_setting', { key }),
+  setSetting: (key: string, value: string) => invoke<void>('set_setting', { key, value }),
+  /** 设置页「通用」分区:数据库文件路径与笔记条数(只读) */
+  getDbInfo: () => invoke<DbInfo>('get_db_info'),
 };

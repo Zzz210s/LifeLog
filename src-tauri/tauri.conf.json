@@ -29,8 +29,9 @@
         "decorations": false,
         "skipTaskbar": true,
         "alwaysOnTop": true,
-        "resizable": true,
-        "shadow": true
+        "resizable": false,
+        "transparent": true,
+        "shadow": false
       }
     ],
     "security": { "csp": null }

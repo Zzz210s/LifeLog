@@ -23,6 +23,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::settings::get_setting,
             commands::settings::set_setting,
+            commands::settings::set_quick_locks,
+            commands::app_info::get_db_info,
             commands::notes::save_quick_note,
             commands::notes::query_notes,
             commands::notes::tag_counts,
@@ -31,11 +33,15 @@ pub fn run() {
             commands::notes::delete_note,
             commands::exchange::export_notes,
             commands::windowing::hide_quick_window,
-            commands::windowing::toggle_quick_pin,
-            commands::windowing::set_quick_zoom,
+            commands::windowing::set_quick_size,
+            commands::windowing::set_quick_scale,
+            commands::windowing::begin_quick_drag,
+            commands::windowing::end_quick_drag,
         ])
         .setup(|app| {
             db::init(app.handle())?;
+            // 旧几何键语义(含缩放的尺寸)一次性迁移到新语义(基础物理尺寸),单事务幂等
+            windowing::quick_geom::migrate_geometry(app.handle());
             windowing::tray::create(app)?;
             windowing::events::register(app)?;
             app.handle().plugin(
