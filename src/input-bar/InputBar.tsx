@@ -131,7 +131,7 @@ export function InputBar() {
       <textarea
         ref={inputRef}
         autoFocus
-        aria-label="快速输入内容"
+        aria-label="输入栏内容"
         name="content"
         value={content}
         readOnly={!editing}

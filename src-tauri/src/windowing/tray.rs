@@ -17,8 +17,10 @@ pub fn create(app: &tauri::App) -> tauri::Result<()> {
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id.as_ref() {
+            // 只显示/置前,不做切换:启动后输入栏默认就是可见的,若用 toggle 则点「打开输入栏」
+            // 反而会把它藏起来(与菜单文案相反),也与左键行为完全重复
             "open-input" => {
-                let _ = windowing::input::toggle(app);
+                let _ = windowing::input::show(app);
             }
             "open-main" => {
                 let _ = windowing::startup::open_main_window(app);
@@ -31,7 +33,7 @@ pub fn create(app: &tauri::App) -> tauri::Result<()> {
             _ => {}
         })
         .on_tray_icon_event(|tray, event| {
-            // 左键固定唤起输入栏(不做开关,spec 3.1)
+            // 左键唤起/隐藏输入栏(切换显隐,spec 3.1 与设置页说明一致)
             if let TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, .. } = event {
                 let _ = windowing::input::toggle(tray.app_handle());
             }

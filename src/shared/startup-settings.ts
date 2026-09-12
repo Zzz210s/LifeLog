@@ -24,8 +24,16 @@ export const STARTUP_DEFAULTS: StartupSettings = {
 /** startupShow 的白名单:只有这两个值生效,其余(含空串、未知字符串)回退默认 */
 export const STARTUP_SHOW_VALUES: StartupShow[] = ['input-bar', 'tray-only'];
 
-/** 期望值与系统实际值是否一致;不一致表示注册表被外部改动,界面应提示"需要修复" */
+/** 期望值与系统实际值是否一致;不一致表示注册表被外部改动或路径已失效,界面应提示"需要修复" */
 export type AutostartStatus = 'off' | 'on' | 'needs-repair';
+
+/** 注册表里的真实自启状态(由 Rust 读系统得到,前端不直接依赖插件权限) */
+export interface AutostartActual {
+  /** Run 值存在且未被任务管理器禁用 */
+  enabled: boolean;
+  /** Run 值里的可执行文件路径是否就是当前进程路径(换过安装位置后为 false) */
+  pathOk: boolean;
+}
 
 function pick(raw: Record<string, string | null>, key: keyof StartupSettings): string | null {
   return raw[STARTUP_KEYS[key]] ?? null;
@@ -49,10 +57,15 @@ export function serializeStartupSetting<K extends keyof StartupSettings>(
   return String(value);
 }
 
-/** 期望与实际一致 -> off/on;不一致 -> needs-repair(纯函数,界面据此显示修复入口) */
-export function resolveAutostartStatus(wanted: boolean, actual: boolean): AutostartStatus {
-  if (wanted === actual) return wanted ? 'on' : 'off';
-  return 'needs-repair';
+/**
+ * 期望与实际一致 -> off/on;不一致 -> needs-repair(纯函数,界面据此显示修复入口)。
+ * 期望关闭时只看 enabled(值删掉就是目标态,值里的路径已无意义);
+ * 期望开启时路径也必须指向当前可执行文件 —— 只判存在会漏掉「注册表里残留旧安装路径」的情况:
+ * 那种状态下 is_enabled() 仍为 true,界面会显示「已开启」而永远不给修复入口。
+ */
+export function resolveAutostartStatus(wanted: boolean, actual: AutostartActual): AutostartStatus {
+  if (wanted) return actual.enabled && actual.pathOk ? 'on' : 'needs-repair';
+  return actual.enabled ? 'needs-repair' : 'off';
 }
 
 export async function loadStartupSettings(): Promise<StartupSettings> {
@@ -72,8 +85,9 @@ export async function saveStartupSetting<K extends keyof StartupSettings>(
   await api.setSetting(STARTUP_KEYS[key], serializeStartupSetting(key, value));
 }
 
-/** 读取注册表里的真实自启状态(由 Rust 调用 autostart 插件,前端不直接依赖插件权限) */
-export async function loadAutostartActual(): Promise<boolean> {
+/** 读取注册表里的真实自启状态(由 Rust 调用 autostart 插件与注册表,前端不直接依赖插件权限)。
+ *  注意 IPC 返回的是 Rust 字段名 path_ok(snake_case 直传),这里再转成本模块的 camelCase */
+export async function loadAutostartActual(): Promise<AutostartActual> {
   const status = await api.getAutostartStatus();
-  return status.enabled;
+  return { enabled: status.enabled, pathOk: status.path_ok };
 }

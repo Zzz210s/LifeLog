@@ -9,6 +9,7 @@ import {
   loadStartupSettings,
   resolveAutostartStatus,
   saveStartupSetting,
+  type AutostartActual,
   type AutostartStatus as AutostartState,
   type StartupSettings,
   type StartupShow,
@@ -24,7 +25,7 @@ const STATUS_TEXT: Record<AutostartState, string> = {
 
 export function StartupSection(): ReactNode {
   const [settings, setSettings] = useState<StartupSettings | null>(null);
-  const [actual, setActual] = useState<boolean | null>(null);
+  const [actual, setActual] = useState<AutostartActual | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 

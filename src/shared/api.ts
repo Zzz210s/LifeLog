@@ -28,8 +28,9 @@ export const api = {
   setSetting: (key: string, value: string) => invoke<void>('set_setting', { key, value }),
   /** 设置页「通用」分区:数据库文件路径与笔记条数(只读) */
   getDbInfo: () => invoke<DbInfo>('get_db_info'),
-  /** 设置页「启动」分区:注册表里的真实开机启动状态(只读) */
-  getAutostartStatus: () => invoke<{ enabled: boolean }>('get_autostart_status'),
+  /** 设置页「启动」分区:注册表里的真实开机启动状态(只读;path_ok=false 表示路径已失效)。
+   *  字段名与 Rust 结构体一致(snake_case 直传,见 shared/types.ts 的惯例) */
+  getAutostartStatus: () => invoke<{ enabled: boolean; path_ok: boolean }>('get_autostart_status'),
   /** 实际注册/取消开机启动;Rust 侧写后回读校验,不一致会 reject */
   setAutostart: (enabled: boolean) => invoke<void>('set_autostart', { enabled }),
 };

@@ -79,8 +79,9 @@ The window *is* the input box: no frame, no title bar, no buttons, transparent s
   right, `Ctrl+Enter` to save
 - Deleting asks for confirmation
 - A gear in the top bar opens an inline settings page (the stream stays mounted behind it, so
-  returning neither re-queries nor loses the scroll position): the nine input-bar options, plus a
-  general section with the version, the database path, an "open containing folder" button and a
+  returning neither re-queries nor loses the scroll position): the nine input-bar options, a startup
+  section (autostart with the real registry state and a repair button, plus what to show on launch),
+  and a general section with the version, the database path, an "open containing folder" button and a
   reset for the input-bar section
 
 **Notes**
@@ -121,7 +122,8 @@ Artifacts:
 
 ## Usage
 
-1. Launch the app. The main window opens; the tray icon appears next to the clock.
+1. Launch the app. The input bar appears and the main window does not open automatically — open the
+   main window from the tray icon's right-click menu. The tray icon appears next to the clock.
 2. Press `Ctrl+Shift+Q` anywhere to open the input bar. It can be moved by dragging any
    edge, resized in width from its left or right edge, zoomed with the wheel, and hidden with `Esc`
    or a double-click on an edge.
@@ -138,11 +140,13 @@ Artifacts:
 5. In the main window, search by keyword, click a tag chip to filter, switch the ordering, edit a
    note in the split pane, tick `#todo` items, or export everything to Excel.
 
-Tray menu: open the main window, open the input bar, quit. A second launch of the app does not
-start another instance — it surfaces the input bar of the running one.
+Tray menu (right click): open the input bar, open the main window, settings, quit. A second launch
+of the app does not start another instance — it surfaces the input bar of the running one.
 
-Autostart is supported through the Tauri autostart plugin; when started by the system the app
-passes `--minimized` and goes straight to the tray instead of showing the main window.
+Autostart is supported through the Tauri autostart plugin; the settings page shows the real registry
+state and offers a one-click repair when the registered path goes stale. Whether launching shows the
+input bar or stays in the tray is decided by the `启动时显示` setting (input bar by default), so a
+system-triggered launch behaves exactly like a manual one.
 
 ## Architecture
 
@@ -162,7 +166,7 @@ All state lives in SQLite; the frontend never talks to the database directly.
     behaviour hooks: `use-drag-band` (move / double-click), `use-width-drag` (edge resize),
     `use-auto-height` (1–5 line growth), `use-input-wheel` + `use-input-view-store` (zoom, opacity
     and their persistence), `use-input-settings`, `logical-size.ts`.
-  - `src/main-window/settings/` — the settings page model and its two sections.
+  - `src/main-window/settings/` — the settings page model and its three sections.
   - `src/shared/` — `api.ts` (typed command wrappers), `markdown.ts` (Markdown-it pipeline and
     DOMPurify policy), `links.ts` (external links open in the system browser), `zoom.ts`,
     `note-source.ts` (shared pre-save normalisation), `time.ts`, and the pure input-bar models
