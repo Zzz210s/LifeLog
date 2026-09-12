@@ -10,8 +10,10 @@ mod windowing;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
-            // 二次启动:唤起输入栏
-            let _ = windowing::input::toggle(app);
+            // 二次启动:唤起已运行实例的输入栏。用 show 而非 toggle —— 输入栏在启动时默认
+            // 就是可见的,再次双击 exe 若走 toggle 会把用户眼前的输入栏隐藏掉(与 README 相反)。
+            // 热键与托盘左键仍是切换语义。
+            let _ = windowing::input::show(app);
         }))
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
