@@ -5,6 +5,8 @@ import { savedStamp, shouldShowStamp } from '../shared/quick-feedback';
 import { canClose, canDrag, canEdit } from '../shared/quick-lock';
 import { wheelZoom } from '../shared/zoom';
 import { useDragBand } from './use-drag-band';
+import { useWidthDrag } from './use-width-drag';
+import { useAutoHeight } from './use-auto-height';
 import { useQuickLock } from './use-quick-lock';
 
 export function QuickCapture() {
@@ -19,6 +21,8 @@ export function QuickCapture() {
   const { lock, doubleClickAction, unlock } = useQuickLock();
   const editing = canEdit(lock);
   const anyLock = lock.move || lock.close || lock.content;
+  // 内容变化后按真实换行行数(1-5 行)自动长高;滚轮缩放后手动再同步一次
+  const syncHeight = useAutoHeight({ textareaRef: inputRef, value: content });
 
   useEffect(() => {
     void api
@@ -47,7 +51,13 @@ export function QuickCapture() {
       if (next === zoomRef.current) return;
       zoomRef.current = next;
       if (zoomTimer.current) clearTimeout(zoomTimer.current);
-      zoomTimer.current = window.setTimeout(() => void api.setZoom(next).catch(() => {}), 150);
+      zoomTimer.current = window.setTimeout(() => {
+        // 缩放会改变窗口的 CSS 空间,高度需按新比例重算,否则一行内容会挤出滚动条
+        void api
+          .setZoom(next)
+          .then(() => window.setTimeout(syncHeight, 120))
+          .catch(() => {});
+      }, 150);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || e.isComposing) return; // 输入法组合中不抢 Esc
@@ -61,7 +71,7 @@ export function QuickCapture() {
       window.removeEventListener('wheel', onWheel);
       window.removeEventListener('keydown', onKey);
     };
-  }, [lock]);
+  }, [lock, syncHeight]);
 
   // 右下角浮层:保存/解锁的短暂提示共用同一计时器
   const flash = useCallback((text: string) => {
@@ -102,6 +112,12 @@ export function QuickCapture() {
   }, [doubleClickAction, lock]);
 
   const onMouseDown = useDragBand({ locked: !canDrag(lock), onDoubleClick });
+  const onWidthMouseDown = useWidthDrag({ textareaRef: inputRef, onDoubleClick });
+  // 左右带优先:命中即接管(双击或宽度拖动),其余交给上下带(双击或移动窗口)
+  const onRootMouseDown = (e: React.MouseEvent) => {
+    if (onWidthMouseDown(e)) return;
+    onMouseDown(e);
+  };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     // Esc 由窗口级监听兜底(见上 effect),此处只处理 Ctrl+Enter
@@ -113,7 +129,10 @@ export function QuickCapture() {
   };
 
   return (
-    <div className="relative flex h-screen w-full flex-col" onMouseDown={onMouseDown}>
+    <div
+      className="relative box-border h-screen w-full p-[14px]"
+      onMouseDown={onRootMouseDown}
+    >
       <textarea
         ref={inputRef}
         autoFocus
@@ -123,8 +142,8 @@ export function QuickCapture() {
         readOnly={!editing}
         onChange={(e) => setContent(e.target.value)}
         onKeyDown={onKeyDown}
-        placeholder="记点什么... #标签 自动归类"
-        className="h-full w-full flex-1 resize-none border-0 bg-white px-3 py-2 text-sm leading-relaxed text-gray-800 outline-none read-only:text-gray-500"
+        placeholder="记点什么... #标签"
+        className="sticker-input h-full w-full resize-none overflow-y-auto bg-white px-3 py-2 text-sm leading-relaxed text-gray-800 read-only:text-gray-500"
       />
       {anyLock ? (
         <button
@@ -133,7 +152,7 @@ export function QuickCapture() {
           title="解除锁定"
           onMouseDown={(e) => e.stopPropagation()}
           onClick={onUnlock}
-          className="absolute top-2 right-2 flex h-5 w-5 items-center justify-center rounded text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+          className="absolute top-4 right-4 flex h-5 w-5 items-center justify-center rounded text-gray-400 hover:bg-gray-100 hover:text-gray-600"
         >
           <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden="true">
             <path d="M5 7V5.5a3 3 0 0 1 6 0V7" fill="none" stroke="currentColor" strokeWidth="1.5" />
@@ -142,15 +161,15 @@ export function QuickCapture() {
         </button>
       ) : null}
       {error ? (
-        <span className="pointer-events-none absolute right-3 bottom-2 text-xs text-red-500">
+        <span className="pointer-events-none absolute right-4 bottom-4 text-xs text-red-500">
           {error}
         </span>
       ) : shouldShowStamp(savedAt, Date.now()) ? (
-        <span className="pointer-events-none absolute right-3 bottom-2 text-xs text-gray-400">
+        <span className="pointer-events-none absolute right-4 bottom-4 text-xs text-gray-400">
           {stamp}
         </span>
       ) : !editing ? (
-        <span className="pointer-events-none absolute right-3 bottom-2 text-xs text-gray-400">
+        <span className="pointer-events-none absolute right-4 bottom-4 text-xs text-gray-400">
           内容已锁定
         </span>
       ) : null}

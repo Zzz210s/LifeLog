@@ -33,6 +33,7 @@ pub fn run() {
             commands::windowing::hide_quick_window,
             commands::windowing::toggle_quick_pin,
             commands::windowing::set_quick_zoom,
+            commands::windowing::set_quick_size,
         ])
         .setup(|app| {
             db::init(app.handle())?;

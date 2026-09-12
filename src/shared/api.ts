@@ -19,5 +19,7 @@ export const api = {
   hideQuickWindow: () => invoke<void>('hide_quick_window'),
   togglePin: () => invoke<boolean>('toggle_quick_pin'),
   setZoom: (zoom: number) => invoke<void>('set_quick_zoom', { zoom }),
+  setQuickSize: (width: number, height: number) =>
+    invoke<void>('set_quick_size', { width, height }),
   getSetting: (key: string) => invoke<string | null>('get_setting', { key }),
 };
