@@ -72,7 +72,7 @@ const ROWS: SettingsRow[] = [
   {
     key: 'lockClose',
     label: '阻止关闭',
-    hint: '开启后 Esc 不再隐藏快捷窗(托盘菜单仍可用)',
+    hint: '开启后 Esc 与双击空白区都不再隐藏快捷窗(托盘菜单仍可用)',
     kind: 'toggle',
   },
   {
