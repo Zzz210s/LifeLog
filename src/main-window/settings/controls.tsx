@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { InputSettings } from '../../shared/input-settings';
 import { STEP_MAX, STEP_MIN } from '../../shared/input-scale';
-import type { SelectValue, SettingsRow } from './settings-model';
+import type { SettingsRow } from './settings-model';
 
 export interface SettingsRowProps {
   label: string;
@@ -101,21 +101,27 @@ export function PercentInput({ value, label, min, max, onCommit }: PercentInputP
   );
 }
 
-export interface SelectInputProps {
+export interface SelectInputProps<T extends string> {
   value: string;
   label: string;
-  options: { value: SelectValue; label: string }[];
-  onChange: (value: SelectValue) => void;
+  options: { value: T; label: string }[];
+  onChange: (value: T) => void;
 }
 
-export function SelectInput({ value, label, options, onChange }: SelectInputProps): ReactNode {
+export function SelectInput<T extends string>({
+  value,
+  label,
+  options,
+  onChange,
+}: SelectInputProps<T>): ReactNode {
   return (
     <select
       aria-label={label}
       value={value}
       onChange={(e) => {
-        const v = e.target.value;
-        if (v === 'hide' || v === 'none') onChange(v);
+        // 只接受元数据里列出的白名单值:越界输入一律忽略(下拉本不该产生越界值)
+        const hit = options.find((o) => o.value === e.target.value);
+        if (hit) onChange(hit.value);
       }}
       className="h-8 rounded-md border border-gray-300 bg-white px-2 text-sm text-gray-700 outline-none focus:border-blue-500"
     >

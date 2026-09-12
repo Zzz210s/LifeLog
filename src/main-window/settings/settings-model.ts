@@ -6,6 +6,40 @@ import {
   type InputSettings,
 } from '../../shared/input-settings';
 import { OPACITY_MAX, OPACITY_MIN, STEP_MAX, STEP_MIN } from '../../shared/input-scale';
+import type { StartupShow } from '../../shared/startup-settings';
+
+/** 启动分区的一行:开机启动开关与启动时显示方式(键见 shared/startup-settings) */
+export interface StartupRow {
+  key: 'autostart' | 'startupShow';
+  label: string;
+  hint: string;
+  kind: 'toggle' | 'select';
+  options?: { value: StartupShow; label: string }[];
+}
+
+const STARTUP_ROWS: StartupRow[] = [
+  {
+    key: 'autostart',
+    label: '开机启动',
+    hint: '登录系统后自动启动应用;关闭则只能手动打开',
+    kind: 'toggle',
+  },
+  {
+    key: 'startupShow',
+    label: '启动时显示',
+    hint: '启动后直接显示输入栏,或者只驻留托盘不打扰',
+    kind: 'select',
+    options: [
+      { value: 'input-bar', label: '输入栏' },
+      { value: 'tray-only', label: '仅托盘' },
+    ],
+  },
+];
+
+/** 启动分区的 2 行元数据(每次返回浅拷贝,调用方改不到真源) */
+export function startupRows(): StartupRow[] {
+  return STARTUP_ROWS.map((row) => ({ ...row, options: row.options?.map((o) => ({ ...o })) }));
+}
 
 /** 主窗的两个整页视图:信息流与设置 */
 export type MainView = 'stream' | 'settings';

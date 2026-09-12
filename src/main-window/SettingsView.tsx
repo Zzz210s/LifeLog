@@ -2,6 +2,7 @@
 import type { ReactNode } from 'react';
 import { GeneralSection } from './settings/GeneralSection';
 import { InputBarSection } from './settings/InputBarSection';
+import { StartupSection } from './settings/StartupSection';
 
 export function SettingsView(): ReactNode {
   return (
@@ -9,6 +10,7 @@ export function SettingsView(): ReactNode {
       <div className="mx-auto flex max-w-2xl flex-col gap-5 px-4 py-5">
         <h1 className="text-base font-semibold text-gray-900">设置</h1>
         <InputBarSection />
+        <StartupSection />
         <GeneralSection />
       </div>
     </div>

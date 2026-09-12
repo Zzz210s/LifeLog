@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { INPUT_DEFAULTS } from '../../shared/input-settings';
 import { OPACITY_MAX, OPACITY_MIN, STEP_MAX, STEP_MIN } from '../../shared/input-scale';
-import { inputResetKeys, inputRows } from './settings-model';
+import { STARTUP_SHOW_VALUES } from '../../shared/startup-settings';
+import { inputResetKeys, inputRows, startupRows } from './settings-model';
 
 describe('inputRows', () => {
   it('恰好 9 项且顺序与设计一致', () => {
@@ -47,5 +48,16 @@ describe('inputRows', () => {
 describe('inputResetKeys', () => {
   it('返回全部 9 个键', () => {
     expect(inputResetKeys()).toHaveLength(9);
+  });
+});
+
+describe('startupRows', () => {
+  it('两行:开机启动开关 + 启动显示下拉', () => {
+    expect(startupRows().map((r) => r.key)).toEqual(['autostart', 'startupShow']);
+    expect(startupRows()[0].kind).toBe('toggle');
+    const show = startupRows()[1];
+    expect(show.kind).toBe('select');
+    // 白名单必须与解析函数的回退口径一致(值域只有这两项,否则会被 parseStartupSettings 回退默认)
+    expect(show.options?.map((o) => o.value)).toEqual(STARTUP_SHOW_VALUES);
   });
 });

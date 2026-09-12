@@ -15,6 +15,7 @@ import { NoteStream } from './NoteStream';
 import { SettingsView } from './SettingsView';
 import { TopBar } from './TopBar';
 import { useNoteCreatedRefresh } from './use-note-created';
+import { useOpenSettings } from './use-open-settings';
 import { useNotesFeed } from './use-notes-feed';
 import { useNotesExport } from './use-export';
 
@@ -67,6 +68,11 @@ export function App(): ReactNode {
   useNoteCreatedRefresh(notes.length, editingId, refresh, (m) =>
     setError('action', m)
   );
+
+  // 托盘「设置」菜单:窗口已由 Rust 显示,这里只切视图
+  const openSettings = useCallback(() => setView('settings'), []);
+  const reportSettingsError = useCallback((m: string) => setError('action', m), [setError]);
+  useOpenSettings(openSettings, reportSettingsError);
 
   /**
    * 变更后落库视图(G5 权衡):
