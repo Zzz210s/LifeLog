@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
+import { confirm } from '@tauri-apps/plugin-dialog';
 import { api } from '../shared/api';
 import type { Note } from '../shared/types';
 import { Composer } from './Composer';
@@ -90,18 +91,29 @@ export function App(): ReactNode {
     setTags((prev) => (prev.includes(name) ? prev.filter((t) => t !== name) : [...prev, name]));
   }, []);
 
+  /**
+   * 删除前必须问一次:不能用 window.confirm —— tauri-plugin-dialog 的初始化脚本把它覆写成
+   * async(invoke) 的 Promise,`!Promise` 恒为 false,确认形同虚设直接删库(2026-09-12 实测)。
+   * 插件导出的 confirm 走 plugin:dialog|message,在 dialog:default 权限内。
+   */
   const remove = useCallback(
     (note: Note) => {
-      if (!window.confirm('删除这条笔记?')) return;
-      void api
-        .deleteNote(note.id)
-        .then(() => {
+      void (async () => {
+        const ok = await confirm('删除这条笔记?', {
+          title: '删除笔记',
+          kind: 'warning',
+        }).catch(() => false); // 弹窗失败一律当作取消,绝不静默删除
+        if (!ok) return;
+        try {
+          await api.deleteNote(note.id);
           setNotes((prev) => prev.filter((n) => n.id !== note.id));
           setEditingId(null);
           clearError('action');
           loadTags();
-        })
-        .catch((e) => setError('action', '删除失败: ' + String(e)));
+        } catch (e) {
+          setError('action', '删除失败: ' + String(e));
+        }
+      })();
     },
     [loadTags, clearError]
   );
