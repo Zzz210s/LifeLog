@@ -1,7 +1,7 @@
 use crate::db::repos;
 use crate::db::Db;
 use crate::windowing::quick_scale;
-use tauri::{AppHandle, Manager, PhysicalPosition, WebviewWindow};
+use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, WebviewWindow};
 
 fn get_setting(app: &AppHandle, key: &str) -> Option<String> {
     let db: tauri::State<Db> = app.state();
@@ -71,6 +71,11 @@ pub fn hide(app: &AppHandle) -> tauri::Result<()> {
             set_setting(app, "quick_x", &p.x.to_string());
             set_setting(app, "quick_y", &p.y.to_string());
         }
+        // 隐藏前给页面最后一次 flush 机会:透明度的 200ms 节流 / 缩放 IPC 可能仍在途,
+        // 而 hide() 不触发 onFocusChanged(实测),窗口隐藏后页面计时器还可能被冻结。
+        // 页面监听 quick-hiding 并立即结算(见 QuickCapture)。发送失败只能吞掉:
+        // 事件是尽力而为,绝不能因它阻断隐藏。
+        let _ = w.emit("quick-hiding", ());
         // 尺寸不回写:窗口不可手动 resize(resizable:false),所有尺寸变化都经
         // set_quick_size(apply_size,按意图写回)或 apply_scale;由 outer_size 反推基础尺寸
         // 会把钳制/工作区收口的结果固化成"用户的基础尺寸"(缩放系数越大越错),且无法还原。

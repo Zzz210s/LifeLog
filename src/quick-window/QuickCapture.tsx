@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { listen } from '@tauri-apps/api/event';
 import { api } from '../shared/api';
 import { prepareForSave } from '../shared/note-source';
 import { savedStamp, shouldShowStamp } from '../shared/quick-feedback';
@@ -32,6 +33,25 @@ export function QuickCapture() {
   const hideNow = useCallback(() => {
     flushView();
     void api.hideQuickWindow();
+  }, [flushView]);
+
+  // Rust 侧隐藏(热键/托盘/失焦自动隐藏)在 w.hide() 前会发出 quick-hiding:
+  // hide() 不触发 onFocusChanged(实测),隐藏后页面计时器还可能被冻结,页面自己发起的
+  // 隐藏(Esc/双击)已由 hideNow 先 flush,热键/托盘路径靠这个事件补上最后一次 flush。
+  // 残留风险:事件送达与页面处理都是异步的,页面若已被挂起仍可能漏掉(非 100% 可靠)。
+  useEffect(() => {
+    let dispose: (() => void) | undefined;
+    let cancelled = false;
+    void listen('quick-hiding', () => flushView())
+      .then((un) => {
+        if (cancelled) un();
+        else dispose = un;
+      })
+      .catch(() => {}); // 订阅失败不阻断隐藏流程
+    return () => {
+      cancelled = true;
+      dispose?.();
+    };
   }, [flushView]);
 
   // 窗口级 Esc:焦点在 BODY 时 textarea 上的 keydown 收不到,
