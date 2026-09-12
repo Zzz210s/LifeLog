@@ -66,17 +66,40 @@ fn work_area_cap_wins_over_max_width() {
 
 #[test]
 fn display_size_caps_width_command_path_to_work_area() {
-    // 宽度命令路径(apply_size)与缩放路径共用 display_size:
+    // 宽度命令路径(apply_size,clamp_intent=true)与缩放路径共用 display_size:
     // 1024x768 工作区的 80% 宽 = 819,小于 900 硬上限 -> 意图 900 也得 819(而非越界的 900/1125)
-    assert_eq!(display_size(900, 87, 1.0, Some((1024, 768))), (819, 87));
+    assert_eq!(display_size(900, 87, 1.0, Some((1024, 768)), true), (819, 87));
     // 同一小屏在系统缩放 1.25 下同样收口到 819(先物理换算 1125,再与工作区 80% 取小)
-    assert_eq!(display_size(900, 87, 1.25, Some((1024, 768))).0, 819);
+    assert_eq!(display_size(900, 87, 1.25, Some((1024, 768)), true).0, 819);
     // 1024x768 的 80% 高 = 614,高于 320 硬上限,高度不受工作区影响
-    assert_eq!(display_size(900, 10000, 1.0, Some((1024, 768))).1, MAX_HEIGHT);
+    assert_eq!(display_size(900, 10000, 1.0, Some((1024, 768)), true).1, MAX_HEIGHT);
     // 取不到工作区时只做硬区间与物理换算
-    assert_eq!(display_size(900, 87, 1.25, None), (1125, 109));
+    assert_eq!(display_size(900, 87, 1.25, None, true), (1125, 109));
     // 工作区充足时不收口
-    assert_eq!(display_size(900, 320, 1.25, Some((1920, 1080))), (1125, 400));
+    assert_eq!(display_size(900, 320, 1.25, Some((1920, 1080)), true), (1125, 400));
+}
+
+#[test]
+fn display_size_scale_path_ignores_width_intent_range() {
+    // 缩放路径(clamp_intent=false):基宽 900 逻辑 @2.0 -> 1800,不再被 900 硬上限卡住,
+    // 只被工作区 80%(1920x1080 -> 1536)收口 —— 宽度与字号才真正等比。
+    let lw = scaled_size(900, 87, 2.0).0;
+    assert_eq!(lw, 1800);
+    assert_eq!(display_size(lw, 87, 1.0, Some((1920, 1080)), false).0, 1536);
+    // 工作区足够大时完全不被 900 或工作区改变
+    assert_eq!(display_size(lw, 87, 1.0, Some((3840, 2160)), false).0, 1800);
+    // 下限同理不强制 240:缩小后的 100 逻辑像素原样保留
+    assert_eq!(display_size(100, 87, 1.0, None, false).0, 100);
+    // 高度仍兜底钳制
+    assert_eq!(display_size(100, 10_000, 1.0, None, false).1, MAX_HEIGHT);
+}
+
+#[test]
+fn display_size_drag_intent_path_still_clamps_to_900() {
+    // 拖动意图 5000 仍被钳到 900(工作区 80% = 1536 > 900,不参与收口)
+    assert_eq!(display_size(5000, 87, 1.0, Some((1920, 1080)), true).0, MAX_WIDTH);
+    // 拖动意图 100 被抬到 240
+    assert_eq!(display_size(100, 87, 1.0, None, true).0, MIN_WIDTH);
 }
 
 #[test]
