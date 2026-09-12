@@ -67,15 +67,23 @@ pub fn show(app: &AppHandle) -> tauri::Result<()> {
 
 pub fn hide(app: &AppHandle) -> tauri::Result<()> {
     if let Some(w) = win(app) {
-        if let Ok(p) = w.outer_position() {
-            set_setting(app, "quick_x", &p.x.to_string());
-            set_setting(app, "quick_y", &p.y.to_string());
+        // 「隐藏前确实在屏幕上」是本函数一切副作用的开关:
+        // 启动阶段 tao 对**尚未显示过**的隐藏窗口也会发一次 Focused(false),若此时开了
+        // 「失焦自动隐藏」,windowing/events 会立刻调到这里;这时读到的 outer_position 只是
+        // tauri.conf.json 的创建默认位置(实测 96,96),写回会把用户记忆的位置覆盖掉
+        // (实测 724,428 -> 96,96,重启即丢)。同理,没显示过的窗口不需要 quick-hiding 兜底。
+        let was_visible = w.is_visible().unwrap_or(false);
+        if was_visible {
+            if let Ok(p) = w.outer_position() {
+                set_setting(app, "quick_x", &p.x.to_string());
+                set_setting(app, "quick_y", &p.y.to_string());
+            }
+            // 隐藏前给页面最后一次 flush 机会:透明度的 200ms 节流 / 缩放 IPC 可能仍在途,
+            // 而 hide() 不触发 onFocusChanged(实测),窗口隐藏后页面计时器还可能被冻结。
+            // 页面监听 quick-hiding 并立即结算(见 QuickCapture)。发送失败只能吞掉:
+            // 事件是尽力而为,绝不能因它阻断隐藏。
+            let _ = w.emit("quick-hiding", ());
         }
-        // 隐藏前给页面最后一次 flush 机会:透明度的 200ms 节流 / 缩放 IPC 可能仍在途,
-        // 而 hide() 不触发 onFocusChanged(实测),窗口隐藏后页面计时器还可能被冻结。
-        // 页面监听 quick-hiding 并立即结算(见 QuickCapture)。发送失败只能吞掉:
-        // 事件是尽力而为,绝不能因它阻断隐藏。
-        let _ = w.emit("quick-hiding", ());
         // 尺寸不回写:窗口不可手动 resize(resizable:false),所有尺寸变化都经
         // set_quick_size(apply_size,按意图写回)或 apply_scale;由 outer_size 反推基础尺寸
         // 会把钳制/工作区收口的结果固化成"用户的基础尺寸"(缩放系数越大越错),且无法还原。
@@ -83,7 +91,7 @@ pub fn hide(app: &AppHandle) -> tauri::Result<()> {
         // (SWP_SHOWWINDOW) 显示过,或由系统恢复),hide() 的 flags diff 为空会静默早退
         // (返回 Ok 但窗口留在屏幕上)。先 show() 让缓存对齐,再 hide() 才真正执行 SW_HIDE;
         // 窗口本来就隐藏时跳过 show(),避免闪现。
-        if w.is_visible().unwrap_or(false) {
+        if was_visible {
             let _ = w.show(); // 尽力而为:对齐失败也要继续走主操作 hide()
         }
         w.hide()?;

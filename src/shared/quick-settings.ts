@@ -28,6 +28,9 @@ export const QUICK_KEYS: Record<keyof QuickSettings, string> = {
   doubleClickAction: 'quick_double_click_action',
 };
 
+/** 设置变更广播事件名:主窗写库成功后广播,快捷窗收到即重载(见 use-quick-settings) */
+export const QUICK_SETTINGS_CHANGED_EVENT = 'quick-settings-changed';
+
 export const QUICK_DEFAULTS: QuickSettings = {
   alwaysOnTop: true,
   hideOnBlur: false,

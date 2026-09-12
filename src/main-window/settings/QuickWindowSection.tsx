@@ -1,12 +1,14 @@
 // 快捷输入分区:9 项设置读取自 settings 表,改动即落库(无保存按钮),底部可整批恢复默认。
 import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
+import { confirm } from '@tauri-apps/plugin-dialog';
 import {
   loadQuickSettings,
   saveQuickSetting,
   type QuickSettings,
 } from '../../shared/quick-settings';
 import { RowControl, SettingsRow } from './controls';
+import { notifyQuickSettingsChanged } from './quick-settings-events';
 import { quickResetKeys, quickRows, resetQuickSettings, withQuickSetting } from './settings-model';
 
 export function QuickWindowSection(): ReactNode {
@@ -24,22 +26,34 @@ export function QuickWindowSection(): ReactNode {
 
   useEffect(reload, [reload]);
 
-  /** 乐观更新:先动界面再写库;写失败时提示并回读,避免界面与库反向偏离 */
+  /** 乐观更新:先动界面再写库;写失败时提示并回读,避免界面与库反向偏离。
+   * 写成功后广播 quick-settings-changed:快捷窗常驻可见时也立即重载(见 quick-settings-events)。 */
   const update = useCallback(
     (key: keyof QuickSettings, value: QuickSettings[keyof QuickSettings]) => {
       setSettings((prev) => (prev ? withQuickSetting(prev, key, value) : prev));
-      void saveQuickSetting(key, value).catch((e) => {
-        setError('保存失败: ' + String(e));
-        reload();
-      });
+      void saveQuickSetting(key, value)
+        .then(() => notifyQuickSettingsChanged())
+        .catch((e) => {
+          setError('保存失败: ' + String(e));
+          reload();
+        });
     },
     [reload]
   );
 
-  const onReset = useCallback(() => {
+  const onReset = useCallback(async () => {
     const count = quickResetKeys().length;
-    if (!window.confirm(`恢复快捷输入分区的 ${count} 项设置为默认值?`)) return;
+    // 二次确认必须用插件导出的 async confirm(走 plugin:dialog|message,在 dialog:default 权限内)。
+    // 不能用 window.confirm:tauri-plugin-dialog 的初始化脚本把它改成了 async(返回 Promise),
+    // 布尔上下文恒为真;且它走的 plugin:dialog|confirm 不在默认权限里会直接 reject
+    // ——既不等回答也不弹窗,确认形同虚设(2026-09-12 实测,见 task-5 报告)。
+    const ok = await confirm(`恢复快捷输入分区的 ${count} 项设置为默认值?`, {
+      title: '恢复快捷输入分区默认',
+      kind: 'warning',
+    }).catch(() => false); // 弹窗失败一律当作取消,不意外清空用户设置
+    if (!ok) return;
     void resetQuickSettings()
+      .then(() => notifyQuickSettingsChanged())
       .then(() => {
         setError('');
         reload();

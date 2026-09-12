@@ -2,5 +2,5 @@
   "identifier": "default",
   "description": "两窗口默认能力:核心 API + 标题栏拖动",
   "windows": ["main", "quick"],
-  "permissions": ["core:default", "core:window:allow-start-dragging", "core:window:allow-set-position", "dialog:default", "opener:default"]
+  "permissions": ["core:default", "core:window:allow-start-dragging", "core:window:allow-set-position", "core:window:allow-set-always-on-top", "dialog:default", "opener:default"]
 }

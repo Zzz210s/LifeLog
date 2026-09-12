@@ -1,5 +1,5 @@
-// 通用分区:应用版本号与数据库文件路径(均只读),并提供"打开所在文件夹"。
-import { useEffect, useState } from 'react';
+// 通用分区:应用版本号与数据库文件路径(均只读),并提供"打开所在文件夹"与读取失败重试。
+import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { revealItemInDir } from '@tauri-apps/plugin-opener';
 import { api } from '../../shared/api';
@@ -11,15 +11,16 @@ export function GeneralSection(): ReactNode {
   const [info, setInfo] = useState<DbInfo | null>(null);
   const [error, setError] = useState('');
 
-  useEffect(() => {
+  // 读取失败时必须把「正在读取...」换成「读取失败」并给出重试入口:
+  // 否则失败态与进行中态在界面上无法区分,用户只能等(旧实现就是永远停在读取中)。
+  const load = useCallback(() => {
+    setInfo(null);
+    setError('');
     let alive = true;
     api
       .getDbInfo()
       .then((i) => {
-        if (alive) {
-          setInfo(i);
-          setError('');
-        }
+        if (alive) setInfo(i);
       })
       .catch((e) => {
         if (alive) setError('读取数据库信息失败: ' + String(e));
@@ -29,10 +30,14 @@ export function GeneralSection(): ReactNode {
     };
   }, []);
 
+  useEffect(load, [load]);
+
   const reveal = () => {
     if (!info) return;
     void revealItemInDir(info.path).catch((e) => setError('打开文件夹失败: ' + String(e)));
   };
+
+  const hint = info ? `共 ${info.notes} 条笔记` : error ? '读取失败' : '正在读取...';
 
   return (
     <section className="rounded-lg border border-gray-200 bg-white">
@@ -40,12 +45,23 @@ export function GeneralSection(): ReactNode {
         <h2 className="text-sm font-medium text-gray-900">通用</h2>
         <p className="mt-0.5 text-xs text-gray-500">应用与数据文件信息,均只读</p>
       </div>
-      {error && <p className="px-4 pt-3 text-xs text-red-500">{error}</p>}
+      {error && (
+        <div className="flex items-center gap-2 px-4 pt-3">
+          <p className="text-xs text-red-500">{error}</p>
+          <button
+            type="button"
+            onClick={load}
+            className="shrink-0 rounded border border-gray-300 px-2 py-0.5 text-xs text-gray-600 hover:border-blue-500 hover:text-blue-600"
+          >
+            重试
+          </button>
+        </div>
+      )}
       <div className="px-4">
         <SettingsRow label="版本号" hint="当前应用版本,构建时写入">
           <span className="text-sm text-gray-700">{appVersion()}</span>
         </SettingsRow>
-        <SettingsRow label="数据库文件" hint={info ? `共 ${info.notes} 条笔记` : '正在读取...'}>
+        <SettingsRow label="数据库文件" hint={hint}>
           <button
             type="button"
             onClick={reveal}
@@ -57,7 +73,7 @@ export function GeneralSection(): ReactNode {
         </SettingsRow>
       </div>
       <p className="border-t border-gray-100 px-4 py-3 font-mono text-xs break-all text-gray-500 select-all">
-        {info ? info.path : '读取中...'}
+        {info ? info.path : error ? '读取失败' : '读取中...'}
       </p>
     </section>
   );

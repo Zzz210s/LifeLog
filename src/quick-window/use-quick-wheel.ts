@@ -1,4 +1,5 @@
 import { useCallback, useEffect } from 'react';
+import { hasScrollOverflow } from '../shared/quick-gestures';
 import {
   nextOpacity,
   nextScale,
@@ -24,10 +25,12 @@ export function useQuickWheel(opts: {
 
   // 滚轮:手动注册为非 passive(React 的 wheel 监听是被动的,preventDefault 会失效)
   useEffect(() => {
-    // 目标处于可滚动容器内时,普通滚轮优先滚内容(既有行为);Ctrl+滚轮一律调透明度
+    // 目标处于可滚动容器内时,普通滚轮优先滚内容(既有行为);Ctrl+滚轮一律调透明度。
+    // 判定必须带容差(hasScrollOverflow):输入框撑满窗口,取整残差会让 `>` 恒真,
+    // 于是空输入时在输入框上滚动也走内容分支、缩放失效(详见 quick-gestures 的说明)。
     const inScrollable = (t: EventTarget | null): boolean => {
       for (let el = t as HTMLElement | null; el && el !== document.body; el = el.parentElement) {
-        if (el.scrollHeight > el.clientHeight) return true;
+        if (hasScrollOverflow(el.scrollHeight, el.clientHeight)) return true;
       }
       return false;
     };

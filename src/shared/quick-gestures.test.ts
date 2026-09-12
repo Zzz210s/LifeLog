@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { isInDragBand, pressKind } from './quick-gestures';
+import {
+  hasScrollOverflow,
+  isInDragBand,
+  pressKind,
+  SCROLL_OVERFLOW_TOLERANCE_PX,
+} from './quick-gestures';
 
 describe('isInDragBand', () => {
   it('四边 8 CSS 像素内为真', () => {
@@ -30,6 +35,21 @@ describe('isInDragBand', () => {
     expect(isInDragBand(387, 100, 400, 300, 12)).toBe(false);
     expect(isInDragBand(200, 288, 400, 300, 12)).toBe(true);
     expect(isInDragBand(200, 287, 400, 300, 12)).toBe(false);
+  });
+});
+
+describe('hasScrollOverflow', () => {
+  it('无溢出与亚像素残差不让位(滚轮继续缩放)', () => {
+    expect(hasScrollOverflow(300, 300)).toBe(false);
+    expect(hasScrollOverflow(301, 300)).toBe(false);
+    expect(hasScrollOverflow(302, 300)).toBe(false);
+  });
+  it('超出容差才算可滚动(滚轮让位给内容)', () => {
+    expect(hasScrollOverflow(303, 300)).toBe(true);
+    expect(hasScrollOverflow(500, 300)).toBe(true);
+  });
+  it('容差恒为 2 像素', () => {
+    expect(SCROLL_OVERFLOW_TOLERANCE_PX).toBe(2);
   });
 });
 
