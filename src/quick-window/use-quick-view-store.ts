@@ -3,6 +3,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { api } from '../shared/api';
 import { clampOpacity, clampScale, shouldApplyStored } from '../shared/quick-scale';
 import type { QuickSettings } from '../shared/quick-settings';
+import { readGeometry } from './logical-size';
 
 /** 透明度落库节流:连续 Ctrl+滚轮只写最后一次 */
 const PERSIST_MS = 200;
@@ -143,6 +144,9 @@ export function useQuickViewStore(opts: {
         .then(() => api.setQuickScale(value))
         .then(() => {
           appliedRef.current = value;
+          // Minor 6:ratio(逻辑像素/CSS 像素)只在 readGeometry 成功时刷新,缩放刚落定就重读一次;
+          // 否则重算高度前的约 120ms 内热区换算仍按旧 ratio,热区会比实际缩放偏宽/偏窄。
+          void readGeometry();
           if (id !== scaleSeq.current) return; // 有更新的意图在排队,由它负责重算高度
           pendingKeys.current.delete(ZOOM_KEY); // 缩放已结算,之后才认库里的 quick_zoom
           if (resyncTimer.current) clearTimeout(resyncTimer.current);
