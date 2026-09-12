@@ -2,7 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../shared/api';
 import { prepareForSave } from '../shared/note-source';
 import { savedStamp, shouldShowStamp } from '../shared/quick-feedback';
+import { canClose, canDrag, canEdit } from '../shared/quick-lock';
 import { wheelZoom } from '../shared/zoom';
+import { useDragBand } from './use-drag-band';
+import { useQuickLock } from './use-quick-lock';
 
 export function QuickCapture() {
   const [content, setContent] = useState('');
@@ -13,6 +16,9 @@ export function QuickCapture() {
   const zoomTimer = useRef<number | null>(null);
   const saveTimer = useRef<number | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const { lock, doubleClickAction, unlock } = useQuickLock();
+  const editing = canEdit(lock);
+  const anyLock = lock.move || lock.close || lock.content;
 
   useEffect(() => {
     void api
@@ -46,6 +52,7 @@ export function QuickCapture() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || e.isComposing) return; // 输入法组合中不抢 Esc
       e.preventDefault();
+      if (!canClose(lock)) return; // 阻止关闭:Esc 无效(托盘菜单仍可隐藏)
       void api.hideQuickWindow();
     };
     window.addEventListener('wheel', onWheel, { passive: false });
@@ -54,6 +61,14 @@ export function QuickCapture() {
       window.removeEventListener('wheel', onWheel);
       window.removeEventListener('keydown', onKey);
     };
+  }, [lock]);
+
+  // 右下角浮层:保存/解锁的短暂提示共用同一计时器
+  const flash = useCallback((text: string) => {
+    setStamp(text);
+    setSavedAt(Date.now());
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = window.setTimeout(() => setSavedAt(0), 1500);
   }, []);
 
   const save = useCallback(async () => {
@@ -63,37 +78,64 @@ export function QuickCapture() {
       await api.saveQuickNote(text);
       setContent('');
       setError('');
-      setStamp(savedStamp(new Date()));
-      setSavedAt(Date.now());
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-      saveTimer.current = window.setTimeout(() => setSavedAt(0), 1500);
+      flash(savedStamp(new Date()));
       inputRef.current?.focus(); // 保存后光标留在输入框,可继续记下一条
     } catch (e) {
       setError(String(e)); // 保存失败保留输入
     }
-  }, [content]);
+  }, [content, flash]);
+
+  const onUnlock = useCallback(() => {
+    unlock();
+    flash('已解锁');
+    inputRef.current?.focus(); // 解锁后回到输入框
+  }, [unlock, flash]);
+
+  const onDoubleClick = useCallback(() => {
+    if (doubleClickAction !== 'hide' || !canClose(lock)) return;
+    void api.hideQuickWindow();
+  }, [doubleClickAction, lock]);
+
+  const onMouseDown = useDragBand({ locked: !canDrag(lock), onDoubleClick });
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     // Esc 由窗口级监听兜底(见上 effect),此处只处理 Ctrl+Enter
     if (e.ctrlKey && e.key === 'Enter') {
       e.preventDefault();
+      if (!editing) return; // 锁定内容:不保存
       void save();
     }
   };
 
   return (
-    <div className="relative flex h-screen w-full flex-col">
+    <div className="relative flex h-screen w-full flex-col" onMouseDown={onMouseDown}>
       <textarea
         ref={inputRef}
         autoFocus
         aria-label="快速输入内容"
         name="content"
         value={content}
+        readOnly={!editing}
         onChange={(e) => setContent(e.target.value)}
         onKeyDown={onKeyDown}
         placeholder="记点什么... #标签 自动归类"
-        className="h-full w-full flex-1 resize-none border-0 bg-white px-3 py-2 text-sm leading-relaxed text-gray-800 outline-none"
+        className="h-full w-full flex-1 resize-none border-0 bg-white px-3 py-2 text-sm leading-relaxed text-gray-800 outline-none read-only:text-gray-500"
       />
+      {anyLock ? (
+        <button
+          type="button"
+          aria-label="解除锁定"
+          title="解除锁定"
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={onUnlock}
+          className="absolute top-2 right-2 flex h-5 w-5 items-center justify-center rounded text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+        >
+          <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden="true">
+            <path d="M5 7V5.5a3 3 0 0 1 6 0V7" fill="none" stroke="currentColor" strokeWidth="1.5" />
+            <rect x="3.5" y="7" width="9" height="6" rx="1.5" fill="currentColor" />
+          </svg>
+        </button>
+      ) : null}
       {error ? (
         <span className="pointer-events-none absolute right-3 bottom-2 text-xs text-red-500">
           保存失败: {error}
@@ -101,6 +143,10 @@ export function QuickCapture() {
       ) : shouldShowStamp(savedAt, Date.now()) ? (
         <span className="pointer-events-none absolute right-3 bottom-2 text-xs text-gray-400">
           {stamp}
+        </span>
+      ) : !editing ? (
+        <span className="pointer-events-none absolute right-3 bottom-2 text-xs text-gray-400">
+          内容已锁定
         </span>
       ) : null}
     </div>
