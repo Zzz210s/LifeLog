@@ -26,13 +26,15 @@ pub fn fit_cell(content: &str) -> String {
     out
 }
 
-/// 笔记标签按条目聚合:id -> "#a #b"(名升序,空格分隔),与 v1 导出同构
+/// 笔记标签按条目聚合:id -> "#a #b"(完整路径升序,空格分隔)
+/// 聚合真源是 t.path 而非 t.name:嵌套标签只留末级名会丢层级,
+/// 且不同父级下的同名末级(如 工作/会议 与 生活/会议)无法区分。
 fn note_tags(conn: &Connection) -> Result<HashMap<i64, String>, String> {
     let mut stmt = conn
         .prepare(
-            "SELECT l.target_id, t.name FROM tag_links l
+            "SELECT l.target_id, t.path FROM tag_links l
              JOIN tags t ON t.id = l.tag_id
-             WHERE l.target_type = 'note' ORDER BY l.target_id, t.name",
+             WHERE l.target_type = 'note' ORDER BY l.target_id, t.path",
         )
         .map_err(|e| e.to_string())?;
     let rows = stmt

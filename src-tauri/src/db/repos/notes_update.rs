@@ -29,7 +29,8 @@ pub fn update(conn: &mut Connection, id: i64, content: &str) -> rusqlite::Result
 }
 
 /// 读取笔记当前标签的完整路径(树语义真源)。toggle 必须按路径往返:
-/// 两级标签的 read_full 只给末级名,按名回写会串到别的同名节点上。
+/// read_full 已改按 t.path 返回完整路径,此处同取路径,同名末级(不同父级)
+/// 不会串到别的节点上。
 fn tag_paths(conn: &rusqlite::Connection, id: i64) -> rusqlite::Result<Vec<String>> {
     let mut stmt = conn.prepare(
         "SELECT t.path FROM tag_links l JOIN tags t ON t.id = l.tag_id
@@ -70,7 +71,7 @@ pub fn toggle_todo(conn: &mut Connection, id: i64) -> rusqlite::Result<Option<su
     } else {
         return Ok(Some(current));
     }
-    tags.sort(); // 与 read_full 的 ORDER BY t.name 序一致
+    tags.sort(); // 与 read_full 的 ORDER BY t.path 序一致
     let tx = conn.transaction()?;
     let ids = resolve_ids(&tx, &tags)?;
     crate::db::repos::tags_tree::replace_links(&tx, id, &ids)?;
