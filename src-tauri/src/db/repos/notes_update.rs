@@ -1,33 +1,12 @@
 //! notes 更新层(自 notes.rs 拆出以守 200 行上限):update/toggle_todo。
-/// 替换语义沿用旧 diary 修订先例:先删旧链再写新链,最后回收无引用孤儿 tags。
+/// 链接为增量替换(未变化的标签链不动),收尾由 tags_tree 精确回收孤儿。
 use super::{read_full, strip_tags};
 use rusqlite::{params, Connection};
 
-/// 替换笔记标签集合(事务内):删旧链 -> 归一写新链 -> 清孤儿 tags。
+/// 替换笔记标签集合(事务内):路径经校验后建/复用节点并做增量链接,最后收窄回收孤儿。
 /// tag_links 触发器负责将聚合结果同步进 FTS tags 列。
-/// 006 起 tags 为树:此处沿用旧行为只建根级标签(父为空、路径=名称、深度=1)。
-fn set_tags(tx: &rusqlite::Transaction<'_>, id: i64, names: &[String]) -> rusqlite::Result<()> {
-    tx.execute("DELETE FROM tag_links WHERE target_type='note' AND target_id=?1", params![id])?;
-    for name in names {
-        tx.execute(
-            "INSERT OR IGNORE INTO tags(name, parent_id, path, depth) VALUES(?1, NULL, ?1, 1)",
-            params![name],
-        )?;
-        let tid: i64 = tx.query_row(
-            "SELECT id FROM tags WHERE name = ?1 AND parent_id IS NULL",
-            params![name],
-            |r| r.get(0),
-        )?;
-        tx.execute(
-            "INSERT OR IGNORE INTO tag_links(tag_id, target_type, target_id) VALUES(?1, 'note', ?2)",
-            params![tid, id],
-        )?;
-    }
-    tx.execute(
-        "DELETE FROM tags WHERE id NOT IN (SELECT DISTINCT tag_id FROM tag_links)",
-        [],
-    )?;
-    Ok(())
+fn set_tags(tx: &rusqlite::Transaction<'_>, id: i64, paths: &[String]) -> rusqlite::Result<()> {
+    crate::db::repos::tags_tree::link_paths(tx, id, paths)
 }
 
 /// 更新笔记正文(事务):剥离/提取标签后整条重存,链接为替换语义。
@@ -49,6 +28,17 @@ pub fn update(conn: &mut Connection, id: i64, content: &str) -> rusqlite::Result
     Ok(note)
 }
 
+/// 读取笔记当前标签的完整路径(树语义真源)。toggle 必须按路径往返:
+/// 两级标签的 read_full 只给末级名,按名回写会串到别的同名节点上。
+fn tag_paths(conn: &rusqlite::Connection, id: i64) -> rusqlite::Result<Vec<String>> {
+    let mut stmt = conn.prepare(
+        "SELECT t.path FROM tag_links l JOIN tags t ON t.id = l.tag_id
+         WHERE l.target_type='note' AND l.target_id=?1 ORDER BY t.path",
+    )?;
+    let rows = stmt.query_map(params![id], |r| r.get(0))?;
+    rows.collect()
+}
+
 /// 切换 #todo/#done:含 todo 换 done,含 done 换 todo,均无则原样返回不写库。
 /// 仅改标签集合,正文字节不动;id 不存在返回 None。
 pub fn toggle_todo(conn: &mut Connection, id: i64) -> rusqlite::Result<Option<super::Note>> {
@@ -56,7 +46,7 @@ pub fn toggle_todo(conn: &mut Connection, id: i64) -> rusqlite::Result<Option<su
         Some(n) => n,
         None => return Ok(None),
     };
-    let mut tags = current.tags.clone();
+    let mut tags = tag_paths(conn, id)?;
     if tags.iter().any(|t| t == "todo") {
         tags.retain(|t| t != "todo");
         tags.push("done".to_string());
@@ -77,3 +67,7 @@ pub fn toggle_todo(conn: &mut Connection, id: i64) -> rusqlite::Result<Option<su
 #[cfg(test)]
 #[path = "notes_update_tests.rs"]
 mod notes_update_tests;
+
+#[cfg(test)]
+#[path = "notes_tree_edit_tests.rs"]
+mod notes_tree_edit_tests;

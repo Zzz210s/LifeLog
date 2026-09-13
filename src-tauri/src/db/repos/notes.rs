@@ -57,23 +57,8 @@ pub fn create(conn: &mut Connection, content: &str) -> rusqlite::Result<Note> {
     let tx = conn.transaction()?;
     tx.execute("INSERT INTO notes(content) VALUES(?1)", params![text])?;
     let id = tx.last_insert_rowid();
-    for name in &names {
-        // 006 起 tags 为树:此处只建根级标签(父为空、路径=名称、深度=1);
-        // 多层路径的建父级由标签树仓库层掌舵
-        tx.execute(
-            "INSERT OR IGNORE INTO tags(name, parent_id, path, depth) VALUES(?1, NULL, ?1, 1)",
-            params![name],
-        )?;
-        let tid: i64 = tx.query_row(
-            "SELECT id FROM tags WHERE name = ?1 AND parent_id IS NULL",
-            params![name],
-            |r| r.get(0),
-        )?;
-        tx.execute(
-            "INSERT OR IGNORE INTO tag_links(tag_id, target_type, target_id) VALUES(?1, 'note', ?2)",
-            params![tid, id],
-        )?;
-    }
+    // 006 起 tags 为树:按路径自动建父级并做增量链接(孤儿回收已收窄为"无链接且无子")
+    crate::db::repos::tags_tree::link_paths(&tx, id, &names)?;
     let created_at: String = tx
         .query_row("SELECT created_at FROM notes WHERE id = ?1", params![id], |r| r.get(0))?;
     tx.commit()?;
@@ -120,15 +105,13 @@ pub fn recent(conn: &Connection, limit: u32) -> rusqlite::Result<Vec<Note>> {
     fold_tag_rows(rows)
 }
 
-/// 删除笔记(事务):先删 tag_links 再删 note,最后清理无任何链接的孤儿 tags
+/// 删除笔记(事务):先删 tag_links 再删 note,最后精确回收"无链接且无子节点"的孤儿标签
+/// (父节点天生没有 tag_links 行,旧实现的"无链接即孤儿"会连带删掉整棵子树)。
 pub fn delete(conn: &mut Connection, id: i64) -> rusqlite::Result<()> {
     let tx = conn.transaction()?;
     tx.execute("DELETE FROM tag_links WHERE target_type='note' AND target_id=?1", params![id])?;
     tx.execute("DELETE FROM notes WHERE id=?1", params![id])?;
-    tx.execute(
-        "DELETE FROM tags WHERE id NOT IN (SELECT DISTINCT tag_id FROM tag_links)",
-        [],
-    )?;
+    crate::db::repos::tags_tree::gc_orphans(&tx)?;
     tx.commit()
 }
 

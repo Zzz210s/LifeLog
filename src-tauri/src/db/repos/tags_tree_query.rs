@@ -1,0 +1,70 @@
+//! 标签树查询(自 tags_tree.rs / ops 拆出以守 200 行上限):计数 / 补全 / 影响面。
+// Task 4 命令层接入前本模块暂无生产调用方,allow 只为守住 cargo check --lib 零警告
+#![allow(dead_code)]
+use super::{subtree_ids, COMPLETE_LIMIT};
+use rusqlite::{params, Connection};
+use serde::Serialize;
+
+/// 标签计数(供标签面板):self_count 为本级链接数,subtree_count 含全部子孙
+#[derive(Serialize, Debug, PartialEq)]
+pub struct TagCount {
+    pub path: String,
+    pub depth: i64,
+    pub self_count: i64,
+    pub subtree_count: i64,
+}
+
+/// 全部标签及其本级 / 含子级链接数,按 path 升序
+pub fn counts(conn: &Connection) -> rusqlite::Result<Vec<TagCount>> {
+    let mut stmt = conn.prepare(
+        "WITH RECURSIVE sub(root, id) AS (
+           SELECT id, id FROM tags
+           UNION ALL SELECT s.root, t.id FROM tags t JOIN sub s ON t.parent_id = s.id
+         ),
+         own AS (SELECT tag_id, COUNT(*) AS n FROM tag_links
+                 WHERE target_type = 'note' GROUP BY tag_id),
+         roll AS (SELECT sub.root AS root, SUM(COALESCE(own.n, 0)) AS n
+                  FROM sub LEFT JOIN own ON own.tag_id = sub.id GROUP BY sub.root)
+         SELECT t.path, t.depth, COALESCE(own.n, 0), COALESCE(roll.n, 0)
+         FROM tags t
+         LEFT JOIN own ON own.tag_id = t.id
+         LEFT JOIN roll ON roll.root = t.id
+         ORDER BY t.path",
+    )?;
+    let rows = stmt.query_map([], |r| {
+        Ok(TagCount {
+            path: r.get(0)?,
+            depth: r.get(1)?,
+            self_count: r.get(2)?,
+            subtree_count: r.get(3)?,
+        })
+    })?;
+    rows.collect()
+}
+
+/// 路径前缀补全(substr 字面比较而非 LIKE:名称可能含 % 或 _)
+pub fn complete(conn: &Connection, prefix: &str) -> rusqlite::Result<Vec<String>> {
+    let mut stmt = conn.prepare(
+        "SELECT path FROM tags WHERE substr(path, 1, length(?1)) = ?1 ORDER BY path LIMIT ?2",
+    )?;
+    let rows = stmt.query_map(params![prefix, COMPLETE_LIMIT], |r| r.get(0))?;
+    rows.collect()
+}
+
+/// 影响面:(子孙标签数, 子树内 note 链接行数)。供删除前二次确认。
+pub fn impact(conn: &Connection, tag_id: i64) -> rusqlite::Result<(i64, i64)> {
+    let ids = subtree_ids(conn, tag_id)?;
+    if ids.is_empty() {
+        return Ok((0, 0));
+    }
+    let marks = vec!["?"; ids.len()].join(",");
+    let links: i64 = conn.query_row(
+        &format!(
+            "SELECT COUNT(*) FROM tag_links WHERE target_type = 'note' AND tag_id IN ({marks})"
+        ),
+        rusqlite::params_from_iter(ids.iter()),
+        |r| r.get(0),
+    )?;
+    Ok((ids.len() as i64 - 1, links))
+}
+
