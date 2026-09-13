@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { DbInfo, Note, TagCount, TagImpact } from './types';
+import type { DbInfo, Note, SavedView, TagCount, TagImpact } from './types';
 import type { FilterConditions } from './filter-conditions';
 
 export const api = {
@@ -22,6 +22,17 @@ export const api = {
   tagImpact: (tagId: number) => invoke<TagImpact>('tag_impact', { tagId }),
   /** 输入栏补全:按路径前缀列出候选 */
   completeTags: (prefix: string) => invoke<string[]>('complete_tags', { prefix }),
+  /** 视图命令(MVP-3):自建视图 CRUD 与排序;内置视图是前端常量不经命令 */
+  listViews: () => invoke<SavedView[]>('list_views'),
+  createView: (title: string, conditions: FilterConditions) =>
+    invoke<number>('create_view', { title, conditions }),
+  updateView: (id: number, title: string, conditions: FilterConditions) =>
+    invoke<void>('update_view', { id, title, conditions }),
+  deleteView: (id: number) => invoke<void>('delete_view', { id }),
+  /** ids 须为全部自建视图的新顺序(整批重写排序) */
+  reorderViews: (ids: number[]) => invoke<void>('reorder_views', { ids }),
+  /** 命中计数:内置键 all/todo/untagged,自建键 view:<id>;供侧栏徽标 */
+  countViewHits: () => invoke<[string, number][]>('count_view_hits'),
   updateNote: (id: number, content: string) =>
     invoke<Note | null>('update_note', { id, content }),
   toggleTodo: (id: number) => invoke<Note | null>('toggle_todo', { id }),

@@ -1,19 +1,21 @@
 //! 结构化筛选条件(前端 `filter-conditions.ts` 的等价定义)与"条件 -> SQL 片段"生成。
 //! 真源是结构化条件对象(D6),而非表达式字符串;标签匹配一律参数占位 + `substr` 前缀,
 //! 禁止 LIKE 通配符(标签名可能含 `%`/`_`)。LIKE 只用于既有行为中的短关键词子串匹配。
+//! Serialize 派生供自建视图把条件落库为 JSON(views.rs),查询语义不变。
 use rusqlite::types::Value;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 /// 单个标签条件:完整路径 + 是否含子级(前端默认含子级)
-#[derive(Debug, Clone, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(default, rename_all = "camelCase")]
 pub struct TagCond {
     pub path: String,
     pub include_children: bool,
 }
 
-/// 流查询条件对象;字段名与前端 `FilterConditions` 完全一致(JSON camelCase)
-#[derive(Debug, Clone, Deserialize, Default)]
+/// 流查询条件对象;字段名与前端 `FilterConditions` 完全一致(JSON camelCase)。
+/// Serialize 供自建视图把条件对象落库为 JSON(views.rs),反序列化路径与语义不变。
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(default, rename_all = "camelCase")]
 pub struct FilterConditions {
     pub keyword: Option<String>,

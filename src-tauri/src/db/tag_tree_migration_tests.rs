@@ -4,14 +4,18 @@ use super::{latest_version, run, MIGRATIONS};
 use crate::db::repos::notes::{notes_filter::*, query};
 use rusqlite::Connection;
 
+/// 006 在迁移序列中的位次(1 起);旧库 = 应用到 006 之前。
+/// 不写成“len - 1”是因为后续新增迁移(007 起)会改变末尾位置。
+const V_006: usize = 6;
+
 /// 升级前旧库:应用到 006 之前为止,user_version 停在 5,外键开启(与真实运行时一致)
 fn old_db() -> Connection {
     let conn = Connection::open_in_memory().unwrap();
     conn.pragma_update(None, "foreign_keys", "ON").unwrap();
-    for sql in &MIGRATIONS[..MIGRATIONS.len() - 1] {
+    for sql in &MIGRATIONS[..(V_006 - 1)] {
         conn.execute_batch(sql).unwrap();
     }
-    conn.pragma_update(None, "user_version", (MIGRATIONS.len() - 1) as i64)
+    conn.pragma_update(None, "user_version", (V_006 - 1) as i64)
         .unwrap();
     conn
 }

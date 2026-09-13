@@ -7,6 +7,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("migrations/004_stream_backfill.sql"),
     include_str!("migrations/005_rename_keys.sql"),
     include_str!("migrations/006_tag_tree.sql"),
+    include_str!("migrations/007_saved_views.sql"),
 ];
 
 /// 需要临时关闭外键约束的迁移:重建仍被 tag_links 引用的父表时,外键 ON 会让
@@ -56,6 +57,10 @@ mod rename_keys_tests;
 #[cfg(test)]
 #[path = "tag_tree_migration_tests.rs"]
 mod tag_tree_migration_tests;
+
+#[cfg(test)]
+#[path = "views_migration_tests.rs"]
+mod views_migration_tests;
 
 #[cfg(test)]
 #[path = "migration_atomicity_tests.rs"]

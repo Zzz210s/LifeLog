@@ -3,6 +3,7 @@
 use super::{open, open_with, BackupFn, OpenFailure};
 use rusqlite::Connection;
 use std::path::{Path, PathBuf};
+use super::migrate::latest_version;
 
 /// 006 之前的全部迁移(与 migrate::MIGRATIONS 前 5 项一致),用于造一个停在 v5 的库
 const UPTO_V5: &[&str] = &[
@@ -104,7 +105,7 @@ fn migration_success_reports_backup_path_and_no_warning() {
     let backup = report.backup.expect("有迁移要跑时必须生成备份");
     assert!(backup.exists());
     assert!(report.backup_warning.is_none(), "备份成功不应有警告");
-    assert_eq!(scalar(&report.conn, "PRAGMA user_version"), 6);
+    assert_eq!(scalar(&report.conn, "PRAGMA user_version"), latest_version());
     assert_eq!(
         scalar(
             &report.conn,
@@ -131,6 +132,6 @@ fn backup_failure_becomes_warning_and_migration_still_runs() {
         "备份失败原因必须传给上层弹警告"
     );
     // 备份失败不影响迁移结果
-    assert_eq!(scalar(&report.conn, "PRAGMA user_version"), 6);
+    assert_eq!(scalar(&report.conn, "PRAGMA user_version"), latest_version());
     assert_eq!(scalar(&report.conn, "SELECT COUNT(*) FROM notes"), 1);
 }

@@ -1,3 +1,5 @@
+import type { FilterConditions } from './filter-conditions';
+
 export interface Note {
   id: number;
   content: string;
@@ -18,6 +20,15 @@ export interface TagCount {
 export interface TagImpact {
   tags: number;
   notes: number;
+}
+
+/** 自建保存视图(内置视图是代码常量不入表;字段 snake_case 直传,同 Note 惯例) */
+export interface SavedView {
+  id: number;
+  title: string;
+  conditions: FilterConditions;
+  sort_order: number;
+  created_at: string;
 }
 
 /** 设置页「通用」分区展示的数据库信息(只读) */
