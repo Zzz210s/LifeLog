@@ -9,9 +9,37 @@ use std::str::CharIndices;
 const MAX_DEPTH: usize = 5;
 
 /// 标签名允许的字符:中文、字母、数字、下划线、连字符;
-/// `/` 仅作层级分隔,其它标点(含 `.`、`·`)、空白与 emoji 都不算名称字符
+/// `/` 仅作层级分隔,其它标点、空白与 emoji 都不算名称字符
 pub fn is_tag_char(c: char) -> bool {
     c.is_alphanumeric() || c == '_' || c == '-'
+}
+
+/// 允许出现在名称**内部**的分隔标点:仅当其后紧跟名称字符时才算名称的一部分。
+/// 于是 `v1.0` 是标签,而 `工作.` 句末的句点仍是终止符(标签为 `工作`)。
+pub fn is_inner_punct(c: char) -> bool {
+    c == '.' || c == '·'
+}
+
+/// 单段合法性:非空;`.`/`·` 只允许夹在名称字符之间(前后都必须是名称字符)。
+fn valid_segment(seg: &str) -> bool {
+    if seg.is_empty() {
+        return false;
+    }
+    let mut prev_name = false;
+    let mut chars = seg.chars().peekable();
+    while let Some(c) = chars.next() {
+        if is_tag_char(c) {
+            prev_name = true;
+            continue;
+        }
+        let next_name = matches!(chars.peek(), Some(n) if is_tag_char(*n));
+        if is_inner_punct(c) && prev_name && next_name {
+            prev_name = false;
+            continue;
+        }
+        return false;
+    }
+    true
 }
 
 /// 深度上限(供调用方与测试读取)
@@ -21,11 +49,8 @@ pub fn max_depth() -> usize {
 
 /// 校验并切分标签路径:空串、非法字符、空段、首尾或连续斜杠、超过深度都返回 None
 pub fn parse_tag_path(raw: &str) -> Option<Vec<String>> {
-    if raw.is_empty() || !raw.chars().all(|c| is_tag_char(c) || c == '/') {
-        return None;
-    }
     let parts: Vec<&str> = raw.split('/').collect();
-    if parts.len() > max_depth() || parts.iter().any(|p| p.is_empty()) {
+    if parts.len() > max_depth() || parts.iter().any(|p| !valid_segment(p)) {
         return None;
     }
     Some(parts.into_iter().map(str::to_string).collect())
@@ -115,12 +140,23 @@ fn try_tag(
     let mut raw = String::new();
     let mut end = base + hash + 1;
     while let Some(&(j, n)) = chars.peek() {
-        if !(is_tag_char(n) || n == '/') {
+        if is_tag_char(n) || n == '/' {
+            raw.push(n);
+            end = base + j + n.len_utf8();
+            chars.next();
+        } else if is_inner_punct(n) {
+            // `.`/`·` 只有后一个字符仍是名称字符时才并入名称,否则当终止符(保留在正文)
+            let mut probe = chars.clone();
+            probe.next();
+            if !matches!(probe.peek(), Some(&(_, c)) if is_tag_char(c)) {
+                break;
+            }
+            raw.push(n);
+            end = base + j + n.len_utf8();
+            chars.next();
+        } else {
             break;
         }
-        raw.push(n);
-        end = base + j + n.len_utf8();
-        chars.next();
     }
     if parse_tag_path(&raw).is_none() {
         return; // 整串不合法:整串丢弃,不做部分提取,也不剥离字符

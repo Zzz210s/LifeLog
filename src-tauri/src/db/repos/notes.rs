@@ -94,12 +94,12 @@ pub(crate) fn fold_tag_rows(rows: impl Iterator<Item = rusqlite::Result<NoteRow>
 #[cfg(test)]
 pub fn recent(conn: &Connection, limit: u32) -> rusqlite::Result<Vec<Note>> {
     let mut stmt = conn.prepare(
-        "SELECT n.id, n.content, n.created_at, t.name
+        "SELECT n.id, n.content, n.created_at, t.path
          FROM notes n
          LEFT JOIN tag_links l ON l.target_type = 'note' AND l.target_id = n.id
          LEFT JOIN tags t ON t.id = l.tag_id
          WHERE n.id IN (SELECT id FROM notes ORDER BY id DESC LIMIT ?1)
-         ORDER BY n.id DESC, t.name",
+         ORDER BY n.id DESC, t.path",
     )?;
     let rows = stmt.query_map(params![limit], map_note_row)?;
     fold_tag_rows(rows)
@@ -115,15 +115,15 @@ pub fn delete(conn: &mut Connection, id: i64) -> rusqlite::Result<()> {
     tx.commit()
 }
 
-/// 读取单条完整笔记(含 tag_links 全量标签,按名升序);无该 id 返回 None。
-/// update/toggle_todo 事务内重读共用。
+/// 读取单条完整笔记(含 tag_links 全量标签的**完整路径**,按 path 升序);无该 id 返回 None。
+/// 路径是树语义真源(同名末级可能出现在多个父级下),update/toggle_todo 事务内重读共用。
 pub(crate) fn read_full(conn: &Connection, id: i64) -> rusqlite::Result<Option<Note>> {
     let mut stmt = conn.prepare(
-        "SELECT n.id, n.content, n.created_at, t.name
+        "SELECT n.id, n.content, n.created_at, t.path
          FROM notes n
          LEFT JOIN tag_links l ON l.target_type = 'note' AND l.target_id = n.id
          LEFT JOIN tags t ON t.id = l.tag_id
-         WHERE n.id = ?1 ORDER BY t.name",
+         WHERE n.id = ?1 ORDER BY t.path",
     )?;
     let rows = stmt.query_map(params![id], map_note_row)?;
     Ok(fold_tag_rows(rows)?.into_iter().next())

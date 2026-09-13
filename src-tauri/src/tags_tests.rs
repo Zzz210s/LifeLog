@@ -125,15 +125,17 @@ fn full_path_returned_for_dedup() {
 // ---- 语法边界补充用例 ----
 
 #[test]
-fn name_charset_excludes_dot_and_middle_dot() {
-    // 新字符集不再含 `.` 与 `·`:它们终止标签,标签名只留前面的合法部分
-    assert_eq!(
-        extract_tags("看完 #流浪地球 特效不错 #sci-fi"),
-        vec!["流浪地球", "sci-fi"]
-    );
+fn inner_dot_and_middle_dot_kept_before_name_char() {
+    // 小账 A:`.`/`·` 夹在名称字符之间是名称的一部分(不再把 `#v1.0` 打碎成 `#v1`)
+    assert_eq!(extract_tags("#v1.0"), vec!["v1.0"]);
+    assert_eq!(extract_tags("#观影.记录 不错"), vec!["观影.记录"]);
+    assert_eq!(extract_tags("#a·b"), vec!["a·b"]);
+    assert_eq!(extract_tags("#v1.0.1 发布"), vec!["v1.0.1"]);
+    // 句末/词尾的点仍是终止符,标签只留点之前的合法名
+    assert_eq!(extract_tags("#工作. 然后"), vec!["工作"]);
+    assert_eq!(extract_tags("#v1."), vec!["v1"]);
+    assert_eq!(extract_tags("#v1..0"), vec!["v1"]);
     assert_eq!(extract_tags("#a-b_c/d"), vec!["a-b_c/d"]);
-    assert_eq!(extract_tags("#a·b"), vec!["a"]);
-    assert_eq!(extract_tags("#a.b"), vec!["a"]);
 }
 
 #[test]
@@ -169,7 +171,11 @@ fn parse_tag_path_validates_segments_and_depth() {
     assert!(parse_tag_path("a/b/c/d/e").is_some());
     assert!(parse_tag_path("a/b/c/d/e/f").is_none());
     assert!(parse_tag_path("a b").is_none());
-    assert!(parse_tag_path("a.b").is_none());
+    // 小账 A:内部点可解析;首尾点/连续点仍非法
+    assert_eq!(parse_tag_path("a.b"), Some(vec!["a.b".to_string()]));
+    assert!(parse_tag_path("a.").is_none());
+    assert!(parse_tag_path(".a").is_none());
+    assert!(parse_tag_path("a..b").is_none());
 }
 
 #[test]
@@ -184,4 +190,8 @@ fn is_tag_char_covers_spec_charset() {
     assert!(!is_tag_char('·'));
     assert!(!is_tag_char('，'));
     assert!(!is_tag_char(' '));
+    // `.`/`·` 属“内部标点”,由 valid_segment 控制位置而非名称字符
+    assert!(is_inner_punct('.'));
+    assert!(is_inner_punct('·'));
+    assert!(!is_inner_punct('，'));
 }

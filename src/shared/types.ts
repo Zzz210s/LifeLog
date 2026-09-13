@@ -2,7 +2,22 @@ export interface Note {
   id: number;
   content: string;
   created_at: string;
+  /** 标签**完整路径**(树语义真源;根级标签即其名称) */
   tags: string[];
+}
+
+/** 标签树节点计数:path 为完整路径,self_count 本级链接数,subtree_count 含全部子孙 */
+export interface TagCount {
+  path: string;
+  depth: number;
+  self_count: number;
+  subtree_count: number;
+}
+
+/** 删除标签前的二次确认数据:将影响的子孙标签数与去重笔记数 */
+export interface TagImpact {
+  tags: number;
+  notes: number;
 }
 
 /** 设置页「通用」分区展示的数据库信息(只读) */

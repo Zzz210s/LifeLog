@@ -161,7 +161,7 @@ pub(crate) fn gc_orphans(conn: &Connection) -> rusqlite::Result<()> {
     }
 }
 
-// Task 4 命令层接入前,结构化/查询接口暂无生产调用方;两处 allow 只为守住 cargo check --lib 零警告
+// Task 4 命令层已接入:结构化/查询接口均有生产调用方,不再需要 allow(dead_code)
 #[path = "tags_tree_ops.rs"]
 mod ops;
 #[path = "tags_tree_path.rs"]
@@ -170,10 +170,8 @@ mod path;
 mod query;
 #[path = "tags_tree_replace.rs"]
 mod replace;
-#[allow(unused_imports)]
 pub use ops::{delete_subtree, move_to, rename};
 pub(crate) use replace::{replace_links, resolve_id};
-#[allow(unused_imports)]
 pub use query::{complete, counts, impact, TagCount};
 
 #[cfg(test)]
@@ -183,6 +181,10 @@ mod tags_tree_tests;
 #[cfg(test)]
 #[path = "tags_tree_ops_tests.rs"]
 mod tags_tree_ops_tests;
+
+#[cfg(test)]
+#[path = "tags_tree_ops_extra_tests.rs"]
+mod tags_tree_ops_extra_tests;
 
 #[cfg(test)]
 #[path = "tags_tree_replace_tests.rs"]

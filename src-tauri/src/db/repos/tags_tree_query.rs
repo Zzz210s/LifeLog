@@ -1,6 +1,4 @@
 //! 标签树查询(自 tags_tree.rs / ops 拆出以守 200 行上限):计数 / 补全 / 影响面。
-// Task 4 命令层接入前本模块暂无生产调用方,allow 只为守住 cargo check --lib 零警告
-#![allow(dead_code)]
 use super::{subtree_ids, COMPLETE_LIMIT};
 use rusqlite::{params, Connection};
 use serde::Serialize;
@@ -51,7 +49,8 @@ pub fn complete(conn: &Connection, prefix: &str) -> rusqlite::Result<Vec<String>
     rows.collect()
 }
 
-/// 影响面:(子孙标签数, 子树内 note 链接行数)。供删除前二次确认;
+/// 影响面:(子孙标签数, 子树内**去重后的笔记数**)。供删除前二次确认;
+/// 去重是必要的:一条笔记可能同时链接子树内的父与子标签,否则会重复计数;
 /// 与 delete_subtree 一致:tag_id 不存在时报错(不能回 (0,0),否则确认弹窗会对过期 id 显示"影响 0 条")。
 pub fn impact(conn: &Connection, tag_id: i64) -> rusqlite::Result<(i64, i64)> {
     let ids = subtree_ids(conn, tag_id)?;
@@ -61,13 +60,14 @@ pub fn impact(conn: &Connection, tag_id: i64) -> rusqlite::Result<(i64, i64)> {
         )));
     }
     let marks = vec!["?"; ids.len()].join(",");
-    let links: i64 = conn.query_row(
+    let notes: i64 = conn.query_row(
         &format!(
-            "SELECT COUNT(*) FROM tag_links WHERE target_type = 'note' AND tag_id IN ({marks})"
+            "SELECT COUNT(DISTINCT target_id) FROM tag_links
+             WHERE target_type = 'note' AND tag_id IN ({marks})"
         ),
         rusqlite::params_from_iter(ids.iter()),
         |r| r.get(0),
     )?;
-    Ok((ids.len() as i64 - 1, links))
+    Ok((ids.len() as i64 - 1, notes))
 }
 

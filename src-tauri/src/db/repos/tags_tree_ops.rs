@@ -1,7 +1,5 @@
 //! 标签树结构变更(自 tags_tree.rs 拆出以守 200 行上限):改名 / 移动 / 删除子树。
 //! 写操作各自整事务提交,任一步失败整体回滚(path 重写与 FTS 刷新同事务)。
-// Task 4 命令层接入前本模块暂无生产调用方,allow 只为守住 cargo check --lib 零警告
-#![allow(dead_code)]
 use super::path::{child_path, unique_conflict};
 use super::{gc_orphans, linked_notes, refresh_fts, subtree_ids};
 use rusqlite::{params, Connection, OptionalExtension};
@@ -110,6 +108,8 @@ pub fn rename(conn: &mut Connection, tag_id: i64, new_name: &str) -> Result<(), 
 }
 
 /// 移动标签到新父级(None 为根级):环检测 + 深度上限 + 同级重名,全部通过才写。
+/// 末尾与 delete_subtree/link_paths 一致地回收空容器:移走最后的子节点后,旧父级会
+/// 变成"无链接且无子节点"的空标签,不回收就会在标签面板里残留。
 pub fn move_to(conn: &mut Connection, tag_id: i64, new_parent: Option<i64>) -> Result<(), String> {
     let tx = conn.transaction().map_err(|e| e.to_string())?;
     let node = load(&tx, tag_id)?;
@@ -156,6 +156,7 @@ pub fn move_to(conn: &mut Connection, tag_id: i64, new_parent: Option<i64>) -> R
     rewrite_subtree_paths(&tx, &node.path, &new_path)
         .map_err(|e| unique_conflict(e, "该层级下已有同名标签"))?;
     shift_subtree_depths(&tx, tag_id, delta).map_err(|e| e.to_string())?;
+    gc_orphans(&tx).map_err(|e| e.to_string())?;
     refresh_fts(&tx, &notes).map_err(|e| e.to_string())?;
     tx.commit().map_err(|e| unique_conflict(e, "该层级下已有同名标签"))
 }

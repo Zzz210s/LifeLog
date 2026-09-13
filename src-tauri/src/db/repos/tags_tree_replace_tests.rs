@@ -1,5 +1,6 @@
 //! 按 id 替换链接与存量标签解析(修复轮 1):toggle_todo 在迁移数据上不得失败。
-//! 存量标签(名称含 '.'/'·'/空格/'/')的 path 不可解析,必须沿用既有 tag_id 而非重新校验。
+//! 存量标签(名称含空格、句末点等)的 path 不可解析时沿用既有 tag_id;
+//! 小账 A 后名称内部的 `.`/`·`(如 v1.0)已可解析,走 ensure_path 按 path 复用既有行,同样不新建。
 use super::*;
 use crate::db::migrate;
 use crate::db::repos::notes;
@@ -71,12 +72,14 @@ fn toggle_todo_keeps_legacy_tag_link() {
     let mut c = db();
     let n = notes::create(&mut c, "买牛奶 #todo").unwrap();
     let legacy = seed_legacy(&c, "v1.0");
+    let legacy2 = seed_legacy(&c, "看电影."); // 句末点仍不可解析,走既有 tag_id 分支
     c.execute(
-        "INSERT INTO tag_links(tag_id, target_type, target_id) VALUES(?1, 'note', ?2)",
-        rusqlite::params![legacy, n.id],
+        "INSERT INTO tag_links(tag_id, target_type, target_id) VALUES(?1, 'note', ?2), (?3, 'note', ?2)",
+        rusqlite::params![legacy, n.id, legacy2],
     )
     .unwrap();
-    assert!(crate::tags::parse_tag_path("v1.0").is_none(), "前提:存量名不可解析");
+    assert_eq!(crate::tags::parse_tag_path("v1.0"), Some(vec!["v1.0".to_string()]));
+    assert!(crate::tags::parse_tag_path("看电影.").is_none(), "前提:句末点不可解析");
 
     let done = notes::toggle_todo(&mut c, n.id).unwrap().unwrap();
     assert!(done.tags.contains(&"done".to_string()), "todo -> done");
@@ -90,6 +93,11 @@ fn toggle_todo_keeps_legacy_tag_link() {
         count(&c, &format!("SELECT COUNT(*) FROM tag_links WHERE tag_id={legacy} AND target_id={}", n.id)),
         1,
         "存量链接必须仍在"
+    );
+    assert_eq!(
+        count(&c, &format!("SELECT COUNT(*) FROM tag_links WHERE tag_id={legacy2} AND target_id={}", n.id)),
+        1,
+        "不可解析的存量链接也必须仍在"
     );
     assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tags WHERE path='done'")), 1);
 

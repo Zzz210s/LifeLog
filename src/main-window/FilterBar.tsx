@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import { tagDisplayName } from './tag-display';
 
 export interface FilterBarProps {
   keyword: string;
   onKeyword: (kw: string) => void;
   tags: string[];
+  /** 标签过滤板的数据源:name 为**完整路径**,count 为本级链接数(精确路径匹配) */
   allTags: { name: string; count: number }[];
   onToggleTag: (name: string) => void;
   oldestFirst: boolean;
@@ -79,6 +81,7 @@ export function FilterBar(p: FilterBarProps): ReactNode {
                 key={name}
                 onClick={() => p.onToggleTag(name)}
                 aria-pressed={active}
+                title={name}
                 className={
                   'rounded-full border px-2.5 py-0.5 text-xs transition-colors ' +
                   (active
@@ -86,7 +89,7 @@ export function FilterBar(p: FilterBarProps): ReactNode {
                     : 'border-gray-300 bg-white text-gray-600 hover:border-blue-400 hover:text-blue-600')
                 }
               >
-                #{name}
+                #{tagDisplayName(name)}
                 <span className={active ? 'ml-1 opacity-80' : 'ml-1 text-gray-400'}>{count}</span>
               </button>
             );

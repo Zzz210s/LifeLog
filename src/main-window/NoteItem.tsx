@@ -4,6 +4,7 @@ import { renderMarkdown } from '../shared/markdown';
 import { formatStamp, toDateTimeAttr } from '../shared/time';
 import type { Note } from '../shared/types';
 import { MarkdownBody } from './MarkdownBody';
+import { tagDisplayName } from './tag-display';
 
 export interface NoteItemProps {
   note: Note;
@@ -65,12 +66,13 @@ export function NoteItem(p: NoteItemProps): ReactNode {
                 key={t}
                 onClick={() => p.onTagClick(t)}
                 aria-pressed={active}
+                title={t}
                 className={
                   'rounded px-1.5 py-0.5 text-xs transition-colors ' +
                   (active ? 'bg-blue-100 text-blue-700' : 'text-blue-500 hover:bg-blue-50')
                 }
               >
-                #{t}
+                #{tagDisplayName(t)}
               </button>
             );
           })}
