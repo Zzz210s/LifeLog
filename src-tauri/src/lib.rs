@@ -3,6 +3,7 @@ use tauri_plugin_global_shortcut::GlobalShortcutExt;
 mod commands;
 mod db;
 mod exchange;
+mod startup_report;
 mod tags;
 mod windowing;
 
@@ -48,7 +49,24 @@ pub fn run() {
             commands::windowing::end_input_drag,
         ])
         .setup(|app| {
-            db::init(app.handle())?;
+            // 数据库初始化失败不能 panic(用户只会看到闪退、拿不到原因):弹中文对话框说明
+            // 失败原因与已生成的备份,用户确认后以退出码 1 正常退出;迁移成功但备份失败时
+            // 给一个不阻断的警告(应用照常可用)。
+            match db::init(app.handle()) {
+                Ok(report) => {
+                    if let Some(warning) = report.backup_warning {
+                        startup_report::show_backup_warning(app.handle(), &warning);
+                    }
+                }
+                Err(failure) => {
+                    eprintln!("数据库初始化失败(应用将以退出码 1 退出): {}", failure.reason);
+                    if let Some(backup) = &failure.backup {
+                        eprintln!("迁移前已生成的备份: {}", backup.display());
+                    }
+                    startup_report::show_failure(app.handle(), &failure);
+                    return Ok(());
+                }
+            }
             // 旧几何键语义(含缩放的尺寸)一次性迁移到新语义(基础物理尺寸),单事务幂等
             windowing::input_geom::migrate_geometry(app.handle());
             windowing::tray::create(app)?;
