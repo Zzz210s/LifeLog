@@ -1,0 +1,102 @@
+import { describe, expect, it } from 'vitest';
+import {
+  EMPTY_FILTER,
+  canEvaluateLocally,
+  matchesTagsByPath,
+  normalizeFilter,
+  parseFilterJson,
+} from './filter-conditions';
+import type { FilterConditions, TagCond } from './filter-conditions';
+
+const tag = (path: string, includeChildren = false): TagCond => ({ path, includeChildren });
+const cond = (patch: Partial<FilterConditions>): FilterConditions => ({ ...EMPTY_FILTER, ...patch });
+
+describe('parseFilterJson', () => {
+  it('空串、null、坏 JSON 一律回退默认', () => {
+    expect(parseFilterJson(null)).toBe(EMPTY_FILTER);
+    expect(parseFilterJson('')).toBe(EMPTY_FILTER);
+    expect(parseFilterJson('   ')).toBe(EMPTY_FILTER);
+    expect(parseFilterJson('{不是 json')).toBe(EMPTY_FILTER);
+    expect(parseFilterJson('"字符串"')).toBe(EMPTY_FILTER);
+    expect(parseFilterJson('[1,2]')).toBe(EMPTY_FILTER);
+  });
+
+  it('字段类型非法或校验不通过回退默认', () => {
+    expect(parseFilterJson(JSON.stringify({ tags: 'x' }))).toBe(EMPTY_FILTER);
+    expect(parseFilterJson(JSON.stringify({ tags: [{ path: 1 }] }))).toBe(EMPTY_FILTER);
+    expect(parseFilterJson(JSON.stringify({ tagPresence: 'some' }))).toBe(EMPTY_FILTER);
+    expect(parseFilterJson(JSON.stringify({ sort: 'sideways' }))).toBe(EMPTY_FILTER);
+    expect(parseFilterJson(JSON.stringify({ from: '2026-09-13', to: '2026-08-01' }))).toBe(EMPTY_FILTER);
+    expect(parseFilterJson(JSON.stringify({ keyword: 'x'.repeat(201) }))).toBe(EMPTY_FILTER);
+  });
+
+  it('合法条件完整读回,多余字段忽略', () => {
+    const raw = JSON.stringify({
+      keyword: '电影',
+      tags: [{ path: '工作', includeChildren: true }],
+      excludeTags: [{ path: '临时', includeChildren: false }],
+      from: '2026-08-01',
+      to: '2026-09-13',
+      tagPresence: 'any',
+      sort: 'oldest',
+      unknownField: 42,
+    });
+    expect(parseFilterJson(raw)).toEqual({
+      keyword: '电影',
+      tags: [{ path: '工作', includeChildren: true }],
+      excludeTags: [{ path: '临时', includeChildren: false }],
+      from: '2026-08-01',
+      to: '2026-09-13',
+      tagPresence: 'any',
+      sort: 'oldest',
+    });
+  });
+
+  it('缺字段走各自默认,空白关键词归一为 null', () => {
+    expect(parseFilterJson(JSON.stringify({ keyword: '  ' }))).toEqual(EMPTY_FILTER);
+    expect(parseFilterJson(JSON.stringify({ sort: 'oldest' }))).toEqual(cond({ sort: 'oldest' }));
+    expect(parseFilterJson(JSON.stringify({ tags: [{ path: '工作' }] }))).toEqual(
+      cond({ tags: [tag('工作')] })
+    );
+  });
+});
+
+describe('本地重判(就地更新用)', () => {
+  it('仅本级且无排除/日期/有无标签时可本地判定', () => {
+    expect(canEvaluateLocally(EMPTY_FILTER)).toBe(true);
+    expect(canEvaluateLocally(cond({ tags: [tag('a')], keyword: 'x' }))).toBe(true);
+    expect(canEvaluateLocally(cond({ tags: [tag('a', true)] }))).toBe(false);
+    expect(canEvaluateLocally(cond({ excludeTags: [tag('x')] }))).toBe(false);
+    expect(canEvaluateLocally(cond({ from: '2026-08-01' }))).toBe(false);
+    expect(canEvaluateLocally(cond({ tagPresence: 'none' }))).toBe(false);
+  });
+
+  it('同路径集合重判(AND)', () => {
+    const note = { tags: ['a', 'b/c'] };
+    expect(matchesTagsByPath(note, EMPTY_FILTER)).toBe(true);
+    expect(matchesTagsByPath(note, cond({ tags: [tag('a'), tag('b/c')] }))).toBe(true);
+    expect(matchesTagsByPath(note, cond({ tags: [tag('a'), tag('缺')] }))).toBe(false);
+  });
+});
+
+describe('normalizeFilter(应用保存视图时归一)', () => {
+  it('缺字段/null sort/undefined 回退默认,防半成品对象进状态机', () => {
+    expect(normalizeFilter(undefined)).toEqual(EMPTY_FILTER);
+    expect(normalizeFilter(null)).toEqual(EMPTY_FILTER);
+    expect(normalizeFilter({})).toEqual(EMPTY_FILTER);
+    expect(normalizeFilter({ keyword: '电影', sort: null as unknown as undefined })).toEqual(
+      cond({ keyword: '电影' })
+    );
+  });
+
+  it('合法字段原样保留,非法 sort/tagPresence 按默认处理', () => {
+    const c = cond({ tags: [tag('工作', true)], from: '2026-08-01', sort: 'oldest' });
+    expect(normalizeFilter(c)).toEqual(c);
+    expect(
+      normalizeFilter({ ...c, sort: 'sideways' as unknown as FilterConditions['sort'] })
+    ).toEqual(cond({ tags: [tag('工作', true)], from: '2026-08-01' }));
+    expect(
+      normalizeFilter({ tagPresence: 'some' as unknown as FilterConditions['tagPresence'] })
+    ).toEqual(EMPTY_FILTER);
+  });
+});

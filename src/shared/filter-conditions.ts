@@ -76,17 +76,18 @@ export function isValidTagPath(path: string): boolean {
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-/** ISO 日期格式 + 基本日历合法性(闰年 2 月按公历) */
+/** ISO 日期格式 + 基本日历合法性(闰年 2 月按公历;年份下限 1 与 Rust y>=1 对齐) */
 function isIsoDate(s: string): boolean {
   if (!ISO_DATE.test(s)) return false;
   const [y, m, d] = s.split('-').map(Number) as [number, number, number];
-  if (m < 1 || m > 12 || d < 1) return false;
+  if (y < 1 || m < 1 || m > 12 || d < 1) return false;
   return d <= new Date(y, m, 0).getDate();
 }
 
 /** 校验条件:返回中文提示,合法返回 null(后端仍是唯一权威) */
 export function validateFilter(c: FilterConditions): string | null {
-  if ((c.keyword ?? '').trim().length > MAX_FILTER_KEYWORD_CHARS) {
+  // 码点计数与 Rust chars().count() 对齐:代理对字符按 1 个字计
+  if ([...(c.keyword ?? '').trim()].length > MAX_FILTER_KEYWORD_CHARS) {
     return `关键词最多 ${MAX_FILTER_KEYWORD_CHARS} 字`;
   }
   if (c.tags.length > MAX_FILTER_TAG_ITEMS) return `引入标签最多 ${MAX_FILTER_TAG_ITEMS} 项`;
@@ -119,6 +120,22 @@ export function parseFilterJson(raw: string | null): FilterConditions {
   const parsed = normalize(data);
   if (parsed === null || validateFilter(parsed) !== null) return EMPTY_FILTER;
   return parsed;
+}
+
+/**
+ * 应用保存视图/其它外部来源的条件时归一:与 EMPTY_FILTER 合并补齐缺字段,
+ * 非法或缺失的 sort/tagPresence 回退默认 —— 防半成品对象(如 null sort)进状态机。
+ */
+export function normalizeFilter(c: Partial<FilterConditions> | null | undefined): FilterConditions {
+  return {
+    keyword: c?.keyword ?? null,
+    tags: Array.isArray(c?.tags) ? c.tags : [],
+    excludeTags: Array.isArray(c?.excludeTags) ? c.excludeTags : [],
+    from: c?.from ?? null,
+    to: c?.to ?? null,
+    tagPresence: c?.tagPresence === 'any' || c?.tagPresence === 'none' ? c.tagPresence : null,
+    sort: c?.sort === 'oldest' ? 'oldest' : 'newest',
+  };
 }
 
 /** 就地变更后能否本地重判:仅"引入标签全为仅本级且无排除/日期/有无标签"时成立 */

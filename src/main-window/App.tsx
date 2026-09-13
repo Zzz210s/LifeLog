@@ -83,10 +83,7 @@ export function App(): ReactNode {
   const applyNoteChange = useCallback(
     (updated: Note) => {
       // 含子级/排除/日期/有无标签这类条件本地判不了,统一重查首页,正确性优先于滚动位置
-      if (
-        !canEvaluateLocally(conditions) ||
-        needsRefetchAfterChange({ keyword: conditions.keyword ?? '', tags: [] })
-      ) {
+      if (!canEvaluateLocally(conditions) || needsRefetchAfterChange(conditions.keyword ?? '')) {
         void fetchPage(0, false);
         return;
       }

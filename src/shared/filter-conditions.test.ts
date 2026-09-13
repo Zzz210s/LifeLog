@@ -7,6 +7,7 @@ import {
   isFilterEmpty,
   isValidTagPath,
   matchesTagsByPath,
+  normalizeFilter,
   parseFilterJson,
   validateFilter,
 } from './filter-conditions';
@@ -100,72 +101,17 @@ describe('validateFilter', () => {
     ).toBeNull();
     expect(validateFilter(cond({ from: '2026-02-28', to: '2026-03-01' }))).toBeNull();
   });
-});
 
-describe('parseFilterJson', () => {
-  it('空串、null、坏 JSON 一律回退默认', () => {
-    expect(parseFilterJson(null)).toBe(EMPTY_FILTER);
-    expect(parseFilterJson('')).toBe(EMPTY_FILTER);
-    expect(parseFilterJson('   ')).toBe(EMPTY_FILTER);
-    expect(parseFilterJson('{不是 json')).toBe(EMPTY_FILTER);
-    expect(parseFilterJson('"字符串"')).toBe(EMPTY_FILTER);
-    expect(parseFilterJson('[1,2]')).toBe(EMPTY_FILTER);
+  it('关键词按字符数(码点)计,与 Rust chars().count() 对齐', () => {
+    // 101 个表情符号 = 101 码点 = 202 个 UTF-16 码元:按码元数会误判超限
+    expect(validateFilter(cond({ keyword: '😀'.repeat(101) }))).toBeNull();
+    expect(validateFilter(cond({ keyword: '😀'.repeat(201) }))).toContain('关键词');
   });
 
-  it('字段类型非法或校验不通过回退默认', () => {
-    expect(parseFilterJson(JSON.stringify({ tags: 'x' }))).toBe(EMPTY_FILTER);
-    expect(parseFilterJson(JSON.stringify({ tags: [{ path: 1 }] }))).toBe(EMPTY_FILTER);
-    expect(parseFilterJson(JSON.stringify({ tagPresence: 'some' }))).toBe(EMPTY_FILTER);
-    expect(parseFilterJson(JSON.stringify({ sort: 'sideways' }))).toBe(EMPTY_FILTER);
-    expect(parseFilterJson(JSON.stringify({ from: '2026-09-13', to: '2026-08-01' }))).toBe(EMPTY_FILTER);
-    expect(parseFilterJson(JSON.stringify({ keyword: 'x'.repeat(201) }))).toBe(EMPTY_FILTER);
-  });
-
-  it('合法条件完整读回,多余字段忽略', () => {
-    const raw = JSON.stringify({
-      keyword: '电影',
-      tags: [{ path: '工作', includeChildren: true }],
-      excludeTags: [{ path: '临时', includeChildren: false }],
-      from: '2026-08-01',
-      to: '2026-09-13',
-      tagPresence: 'any',
-      sort: 'oldest',
-      unknownField: 42,
-    });
-    expect(parseFilterJson(raw)).toEqual({
-      keyword: '电影',
-      tags: [{ path: '工作', includeChildren: true }],
-      excludeTags: [{ path: '临时', includeChildren: false }],
-      from: '2026-08-01',
-      to: '2026-09-13',
-      tagPresence: 'any',
-      sort: 'oldest',
-    });
-  });
-
-  it('缺字段走各自默认,空白关键词归一为 null', () => {
-    expect(parseFilterJson(JSON.stringify({ keyword: '  ' }))).toEqual(EMPTY_FILTER);
-    expect(parseFilterJson(JSON.stringify({ sort: 'oldest' }))).toEqual(cond({ sort: 'oldest' }));
-    expect(parseFilterJson(JSON.stringify({ tags: [{ path: '工作' }] }))).toEqual(
-      cond({ tags: [tag('工作')] })
-    );
+  it('年份下限 1:0000 年非法(与 Rust y>=1 对齐)', () => {
+    expect(validateFilter(cond({ from: '0000-01-01' }))).toContain('开始日期');
+    expect(validateFilter(cond({ to: '0001-01-01' }))).toBeNull();
   });
 });
 
-describe('本地重判(就地更新用)', () => {
-  it('仅本级且无排除/日期/有无标签时可本地判定', () => {
-    expect(canEvaluateLocally(EMPTY_FILTER)).toBe(true);
-    expect(canEvaluateLocally(cond({ tags: [tag('a')], keyword: 'x' }))).toBe(true);
-    expect(canEvaluateLocally(cond({ tags: [tag('a', true)] }))).toBe(false);
-    expect(canEvaluateLocally(cond({ excludeTags: [tag('x')] }))).toBe(false);
-    expect(canEvaluateLocally(cond({ from: '2026-08-01' }))).toBe(false);
-    expect(canEvaluateLocally(cond({ tagPresence: 'none' }))).toBe(false);
-  });
 
-  it('同路径集合重判(AND)', () => {
-    const note = { tags: ['a', 'b/c'] };
-    expect(matchesTagsByPath(note, EMPTY_FILTER)).toBe(true);
-    expect(matchesTagsByPath(note, cond({ tags: [tag('a'), tag('b/c')] }))).toBe(true);
-    expect(matchesTagsByPath(note, cond({ tags: [tag('a'), tag('缺')] }))).toBe(false);
-  });
-});

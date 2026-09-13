@@ -4,6 +4,8 @@ import { api } from '../shared/api';
 import { prepareForSave } from '../shared/note-source';
 import { savedStamp, shouldShowStamp } from '../shared/input-feedback';
 import { canClose, canDrag, canEdit } from '../shared/input-lock';
+import { useTagComplete } from './use-tag-complete';
+import { TagCompleteList } from './TagCompleteList';
 import { useDragBand } from './use-drag-band';
 import { useWidthDrag } from './use-width-drag';
 import { useAutoHeight } from './use-auto-height';
@@ -19,6 +21,8 @@ export function InputBar() {
   const { settings, lock, error, setError, unlock } = useInputSettings();
   const editing = canEdit(lock);
   const anyLock = lock.move || lock.close || lock.content;
+  // # 标签补全:词元拉候选、↑↓/Enter/Tab/Esc 路由;Ctrl+Enter 保存不受影响
+  const complete = useTagComplete({ textareaRef: inputRef, value: content, onReplace: setContent });
   // 内容变化后按真实换行行数(1-5 行)自动长高;滚轮缩放后手动再同步一次
   const syncHeight = useAutoHeight({ textareaRef: inputRef, value: content });
   const { opacity, onMiddleDown, flushView } = useInputWheel({
@@ -113,8 +117,9 @@ export function InputBar() {
     onMouseDown(e);
   };
 
-  const onKeyDown = (e: React.KeyboardEvent) => {
-    // Esc 由窗口级监听兜底(见上 effect),此处只处理 Ctrl+Enter
+  const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // 补全先拿键(返回 true 表示已消费);Esc 由窗口级监听兜底,此处只处理 Ctrl+Enter
+    if (complete.onKeyDown(e)) return;
     if (e.ctrlKey && e.key === 'Enter') {
       e.preventDefault();
       if (!editing) return; // 锁定内容:不保存
@@ -139,6 +144,13 @@ export function InputBar() {
         onKeyDown={onKeyDown}
         className="sticker-input h-full w-full resize-none overflow-y-auto bg-white px-3 py-2 text-sm leading-relaxed text-gray-800 read-only:text-gray-500"
       />
+      {complete.open && (
+        <TagCompleteList
+          items={complete.items}
+          activeIndex={complete.activeIndex}
+          onPick={complete.onPick}
+        />
+      )}
       {anyLock ? (
         <button
           type="button"

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../shared/api';
 import type { Note } from '../shared/types';
-import { filterKey } from '../shared/filter-conditions';
+import { filterKey, normalizeFilter } from '../shared/filter-conditions';
 import type { FilterConditions } from '../shared/filter-conditions';
 import type { ErrorKind } from './ErrorBar';
 import { PAGE, mergeNotes } from './notes-list';
@@ -21,9 +21,10 @@ export function useNotesFeed(
   const [queryFailed, setQueryFailed] = useState(false); // 查询失败事实留存,供空态文案判定
   const seq = useRef(0); // 过期响应丢弃(快速切筛选/翻页竞态)
 
-  // 按值稳定的条件对象:key 不变则沿用同一引用,fetchPage 身份不抖,分页不会被反复重置
+  // 按值稳定的条件对象:key 不变则沿用同一引用,fetchPage 身份不抖,分页不会被反复重置;
+  // 查询前经 normalizeFilter 归一(缺字段/null sort 回退默认),防半成品条件打到后端
   const key = filterKey(conditions);
-  const current = useMemo(() => conditions, [key]);
+  const current = useMemo(() => normalizeFilter(conditions), [key]);
 
   /** 拉一页:append=true 追加(offset=当前长度),否则整表重置 */
   const fetchPage = useCallback(
