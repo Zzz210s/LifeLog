@@ -43,6 +43,20 @@ fn rows_are_ordered_tagged_and_verbatim() {
 }
 
 #[test]
+fn nested_tags_export_as_full_paths() {
+    let mut c = db();
+    // 不同父级下的同名末级:导出必须给完整路径,否则无法区分
+    notes::create(&mut c, "开会 #工作/项目A/会议").unwrap();
+    notes::create(&mut c, "开会 #生活/会议").unwrap();
+    // 父级与子级同时挂:按路径升序聚合
+    notes::create(&mut c, "多层 #工作/项目A #工作").unwrap();
+    let rows = rows(&c).unwrap();
+    assert_eq!(rows[0].tags, "#工作 #工作/项目A");
+    assert_eq!(rows[1].tags, "#生活/会议");
+    assert_eq!(rows[2].tags, "#工作/项目A/会议");
+}
+
+#[test]
 fn long_content_is_truncated_with_mark() {
     let mut c = db();
     notes::create(&mut c, &"a".repeat(MAX_CELL_CHARS + 100)).unwrap();

@@ -14,8 +14,8 @@ pub struct NoteFilter {
 
 /// 按条件查询笔记流:
 /// - keyword >=3 字符走 FTS MATCH(短语加引号防语法注入,尾缀 * 前缀匹配),content/tags 列皆可命中
-/// - <3 字符退化 LIKE(SQLite 默认 ASCII 大小写不敏感),正文或任一标签名命中即返回
-/// - tags 为 AND 语义:每标签一个 EXISTS 子句,全部满足才命中
+/// - <3 字符退化 LIKE(SQLite 默认 ASCII 大小写不敏感),正文或任一标签**完整路径**命中即返回
+/// - tags 为 AND 语义:每标签一个 EXISTS 子句(按 t.path 精确路径匹配,含子级开关属 MVP-3)
 /// - 分页排序在 id 子查询内完成,外层仅做标签行折叠
 pub fn query(conn: &Connection, f: &NoteFilter) -> rusqlite::Result<Vec<Note>> {
     let mut clauses: Vec<String> = Vec::new();
@@ -31,7 +31,7 @@ pub fn query(conn: &Connection, f: &NoteFilter) -> rusqlite::Result<Vec<Note>> {
         } else {
             clauses.push(format!(
                 "(content LIKE ?{n} OR EXISTS(SELECT 1 FROM tag_links l JOIN tags t ON t.id = l.tag_id
-                  WHERE l.target_type = 'note' AND l.target_id = notes.id AND t.name LIKE ?{n}))",
+                  WHERE l.target_type = 'note' AND l.target_id = notes.id AND t.path LIKE ?{n}))",
                 n = args.len() + 1
             ));
             args.push(format!("%{}%", k));
@@ -40,7 +40,7 @@ pub fn query(conn: &Connection, f: &NoteFilter) -> rusqlite::Result<Vec<Note>> {
     for name in &f.tags {
         clauses.push(format!(
             "EXISTS(SELECT 1 FROM tag_links l JOIN tags t ON t.id = l.tag_id
-             WHERE l.target_type = 'note' AND l.target_id = notes.id AND t.name = ?{})",
+             WHERE l.target_type = 'note' AND l.target_id = notes.id AND t.path = ?{})",
             args.len() + 1
         ));
         args.push(name.clone());
@@ -56,24 +56,24 @@ pub fn query(conn: &Connection, f: &NoteFilter) -> rusqlite::Result<Vec<Note>> {
     args.push(limit.to_string());
     args.push(f.offset.max(0).to_string());
     let sql = format!(
-        "SELECT n.id, n.content, n.created_at, t.name
+        "SELECT n.id, n.content, n.created_at, t.path
          FROM notes n
          LEFT JOIN tag_links l ON l.target_type = 'note' AND l.target_id = n.id
          LEFT JOIN tags t ON t.id = l.tag_id
          WHERE n.id IN (SELECT id FROM notes {cond} ORDER BY id {dir} LIMIT ?{li} OFFSET ?{oi})
-         ORDER BY n.id {dir}, t.name"
+         ORDER BY n.id {dir}, t.path"
     );
     let mut stmt = conn.prepare(&sql)?;
     let rows = stmt.query_map(rusqlite::params_from_iter(args), map_note_row)?;
     fold_tag_rows(rows)
 }
 
-/// 标签使用计数(仅统计 note 链接):按次数降序,同数按名升序。
+/// 标签使用计数(仅统计 note 链接)返回**完整路径**:按次数降序,同数按路径升序。
 /// 查询失败静默吞为空表(unwrap_or_default):筛选栏拿不到数据不阻断主界面,代价是错误被掩盖。
 pub fn count_tags(conn: &Connection) -> Vec<(String, i64)> {
     conn.prepare(
-        "SELECT t.name, COUNT(*) FROM tag_links l JOIN tags t ON t.id = l.tag_id
-         WHERE l.target_type = 'note' GROUP BY t.name ORDER BY COUNT(*) DESC, t.name",
+        "SELECT t.path, COUNT(*) FROM tag_links l JOIN tags t ON t.id = l.tag_id
+         WHERE l.target_type = 'note' GROUP BY t.path ORDER BY COUNT(*) DESC, t.path",
     )
     .and_then(|mut stmt| {
         let rows =

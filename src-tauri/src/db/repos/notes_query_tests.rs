@@ -111,12 +111,49 @@ fn query_keyword_hits_tags_column() {
 }
 
 #[test]
+fn tags_expose_full_path_not_leaf_name() {
+    let mut c = db();
+    let n = create(&mut c, "纪要 #工作/项目A").unwrap();
+    assert_eq!(n.tags, vec!["工作/项目A"]);
+    // 读回也必须是路径:query 的 tags 列不得退化成末级名
+    let got = query(&c, &f(None, &[])).unwrap();
+    assert_eq!(got[0].tags, vec!["工作/项目A"]);
+}
+
+#[test]
+fn tag_filter_is_exact_path_match() {
+    let mut c = db();
+    create(&mut c, "开会 #工作/项目A/会议").unwrap();
+    create(&mut c, "周报 #工作/项目A").unwrap();
+    create(&mut c, "杂记 #工作").unwrap();
+    // 精确路径:只命中直接打了该路径的笔记
+    let leaf = query(&c, &f(None, &["工作/项目A"])).unwrap();
+    assert_eq!(leaf.len(), 1);
+    assert_eq!(leaf[0].content, "周报");
+    // 父级不做前缀扩展(含子级开关属 MVP-3):只命中直接打了"工作"的那条
+    let parent = query(&c, &f(None, &["工作"])).unwrap();
+    assert_eq!(parent.len(), 1);
+    assert_eq!(parent[0].content, "杂记");
+}
+
+#[test]
 fn count_tags_orders_by_usage_desc() {
     let mut c = db();
     create(&mut c, "a #电影").unwrap();
     create(&mut c, "b #电影 #日记").unwrap();
     create(&mut c, "c").unwrap();
     assert_eq!(count_tags(&c), vec![("电影".to_string(), 2), ("日记".to_string(), 1)]);
+}
+
+#[test]
+fn count_tags_returns_full_paths() {
+    let mut c = db();
+    create(&mut c, "a #工作/项目A").unwrap();
+    create(&mut c, "b #工作/项目A #工作").unwrap();
+    assert_eq!(
+        count_tags(&c),
+        vec![("工作/项目A".to_string(), 2), ("工作".to_string(), 1)]
+    );
 }
 
 #[test]

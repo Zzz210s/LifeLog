@@ -22,35 +22,32 @@ fn collapse_line(line: &str) -> String {
     }
 }
 
-/// 存库前移除 #标签 词元:单遍扫描原文(词法同 extract_tags,共用 scan_tag_token),
-/// 保留非标签段、丢弃标签 token、裸 # 保留;最后逐行归一空白并保留行结构与行首缩进
-/// (多行笔记的换行、空行、嵌套列表/代码块的缩进原样保留;
+/// 存库前移除 #标签 词元:用 `tags::tag_spans`(与 extract_tags 同一解析器)定位
+/// **确认合法**的标签区间并只剥离这些区间;结构非法的 # 写法(如 `#工作/`、`#a//b`、`##标题`、
+/// 行内/围栏代码块里的 #、`\#`)整串原样保留;空白/标点只是正常终止标签,不使其作废。
+/// 起始于行首或紧跟空白之后的标签,额外吞掉其后的连续空格/制表符(不吞换行);
+/// 最后逐行归一空白并保留行结构与行首缩进(多行笔记的换行、空行、嵌套列表缩进原样保留;
 /// 标签折叠进 tags/tag_links,原文保留会双重展示)
 pub(crate) fn strip_tags(content: &str) -> String {
     let content = content.replace("\r\n", "\n"); // 统一换行,防 Windows 端混入 \r
     let mut out = String::new();
-    let mut prev: Option<char> = None; // out 的末字符,用于判断 # 是否位于行首/空白后
-    let mut chars = content.chars().peekable();
-    while let Some(c) = chars.next() {
-        if c != '#' {
-            out.push(c);
-            prev = Some(c);
-            continue;
-        }
-        if crate::tags::scan_tag_token(&mut chars).is_none() {
-            out.push(c); // 裸 # 不属于标签,保留为内容
-            prev = Some(c);
-        } else if prev.is_none_or(char::is_whitespace) {
-            // 仅当标签起始于行首或紧跟在空白之后,才吞掉其后的连续空格/制表符:
-            // 行首标签剥离后不留残余空白被误当缩进;
-            // 行中标签(前面是词或标点)必须保留分隔空白,否则 "a-#tag b" 会粘连成 "a-b"、
-            // "版本(#v2 备注)" 会粘连成 "版本(备注)",相邻文本被并成一个词(语义被改)。
-            // 只吞空格/制表符,不吞换行,否则会把下一行并上来。
-            while matches!(chars.peek(), Some(' ' | '\t')) {
-                chars.next();
+    let mut cursor = 0usize;
+    for span in crate::tags::tag_spans(&content) {
+        out.push_str(&content[cursor..span.start]);
+        // 仅当标签起始于行首或紧跟空白之后,才吞掉其后的连续空格/制表符:
+        // 行首标签剥离后不留残余空白被误当缩进;
+        // 行中标签(前面是词或标点)必须保留分隔空白,否则 "a-#tag b" 会粘连成 "a-b"、
+        // "版本(#v2 备注)" 会粘连成 "版本(备注)",相邻文本被并成一个词(语义被改)。
+        // 只吞空格/制表符,不吞换行,否则会把下一行并上来。
+        let leading = out.chars().next_back().is_none_or(char::is_whitespace);
+        cursor = span.end;
+        if leading {
+            while matches!(content[cursor..].chars().next(), Some(' ' | '\t')) {
+                cursor += 1;
             }
         }
     }
+    out.push_str(&content[cursor..]);
     out.split('\n').map(collapse_line).collect::<Vec<_>>().join("\n")
 }
 
@@ -60,15 +57,8 @@ pub fn create(conn: &mut Connection, content: &str) -> rusqlite::Result<Note> {
     let tx = conn.transaction()?;
     tx.execute("INSERT INTO notes(content) VALUES(?1)", params![text])?;
     let id = tx.last_insert_rowid();
-    for name in &names {
-        tx.execute("INSERT OR IGNORE INTO tags(name) VALUES(?1)", params![name])?;
-        let tid: i64 = tx
-            .query_row("SELECT id FROM tags WHERE name = ?1", params![name], |r| r.get(0))?;
-        tx.execute(
-            "INSERT OR IGNORE INTO tag_links(tag_id, target_type, target_id) VALUES(?1, 'note', ?2)",
-            params![tid, id],
-        )?;
-    }
+    // 006 起 tags 为树:按路径自动建父级并做增量链接(孤儿回收已收窄为"无链接且无子")
+    crate::db::repos::tags_tree::link_paths(&tx, id, &names)?;
     let created_at: String = tx
         .query_row("SELECT created_at FROM notes WHERE id = ?1", params![id], |r| r.get(0))?;
     tx.commit()?;
@@ -104,38 +94,36 @@ pub(crate) fn fold_tag_rows(rows: impl Iterator<Item = rusqlite::Result<NoteRow>
 #[cfg(test)]
 pub fn recent(conn: &Connection, limit: u32) -> rusqlite::Result<Vec<Note>> {
     let mut stmt = conn.prepare(
-        "SELECT n.id, n.content, n.created_at, t.name
+        "SELECT n.id, n.content, n.created_at, t.path
          FROM notes n
          LEFT JOIN tag_links l ON l.target_type = 'note' AND l.target_id = n.id
          LEFT JOIN tags t ON t.id = l.tag_id
          WHERE n.id IN (SELECT id FROM notes ORDER BY id DESC LIMIT ?1)
-         ORDER BY n.id DESC, t.name",
+         ORDER BY n.id DESC, t.path",
     )?;
     let rows = stmt.query_map(params![limit], map_note_row)?;
     fold_tag_rows(rows)
 }
 
-/// 删除笔记(事务):先删 tag_links 再删 note,最后清理无任何链接的孤儿 tags
+/// 删除笔记(事务):先删 tag_links 再删 note,最后精确回收"无链接且无子节点"的孤儿标签
+/// (父节点天生没有 tag_links 行,旧实现的"无链接即孤儿"会连带删掉整棵子树)。
 pub fn delete(conn: &mut Connection, id: i64) -> rusqlite::Result<()> {
     let tx = conn.transaction()?;
     tx.execute("DELETE FROM tag_links WHERE target_type='note' AND target_id=?1", params![id])?;
     tx.execute("DELETE FROM notes WHERE id=?1", params![id])?;
-    tx.execute(
-        "DELETE FROM tags WHERE id NOT IN (SELECT DISTINCT tag_id FROM tag_links)",
-        [],
-    )?;
+    crate::db::repos::tags_tree::gc_orphans(&tx)?;
     tx.commit()
 }
 
-/// 读取单条完整笔记(含 tag_links 全量标签,按名升序);无该 id 返回 None。
-/// update/toggle_todo 事务内重读共用。
+/// 读取单条完整笔记(含 tag_links 全量标签的**完整路径**,按 path 升序);无该 id 返回 None。
+/// 路径是树语义真源(同名末级可能出现在多个父级下),update/toggle_todo 事务内重读共用。
 pub(crate) fn read_full(conn: &Connection, id: i64) -> rusqlite::Result<Option<Note>> {
     let mut stmt = conn.prepare(
-        "SELECT n.id, n.content, n.created_at, t.name
+        "SELECT n.id, n.content, n.created_at, t.path
          FROM notes n
          LEFT JOIN tag_links l ON l.target_type = 'note' AND l.target_id = n.id
          LEFT JOIN tags t ON t.id = l.tag_id
-         WHERE n.id = ?1 ORDER BY t.name",
+         WHERE n.id = ?1 ORDER BY t.path",
     )?;
     let rows = stmt.query_map(params![id], map_note_row)?;
     Ok(fold_tag_rows(rows)?.into_iter().next())

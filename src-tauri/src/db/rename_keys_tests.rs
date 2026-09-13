@@ -3,13 +3,17 @@
 use super::{run, MIGRATIONS};
 use rusqlite::Connection;
 
+/// 005 在迁移序列中的位次(1 起);旧库 = 应用到 005 之前。
+/// 不写成"len - 1"是因为后续新增迁移(006 起)会改变末尾位置。
+const V_005: usize = 5;
+
 /// 模拟升级前的旧库:应用到 005 之前为止
 fn old_db() -> Connection {
     let conn = Connection::open_in_memory().unwrap();
-    for sql in &MIGRATIONS[..MIGRATIONS.len() - 1] {
+    for sql in &MIGRATIONS[..(V_005 - 1)] {
         conn.execute_batch(sql).unwrap();
     }
-    conn.pragma_update(None, "user_version", (MIGRATIONS.len() - 1) as i64)
+    conn.pragma_update(None, "user_version", (V_005 - 1) as i64)
         .unwrap();
     conn
 }
@@ -67,7 +71,7 @@ fn migration_005_is_idempotent() {
     let conn = old_db();
     conn.execute_batch("INSERT INTO settings(key, value) VALUES ('quick_x', '5');")
         .unwrap();
-    let sql = MIGRATIONS.last().unwrap();
+    let sql = MIGRATIONS[V_005 - 1];
 
     // 直接重复执行迁移 SQL 本体:第二次必须是无副作用的空操作
     conn.execute_batch(sql).unwrap();

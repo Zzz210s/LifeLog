@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { DbInfo, Note } from './types';
+import type { DbInfo, Note, TagCount, TagImpact } from './types';
 
 export const api = {
   saveInputNote: (content: string) => invoke<Note>('save_input_note', { content }),
@@ -11,6 +11,20 @@ export const api = {
     oldestFirst: boolean;
   }) => invoke<Note[]>('query_notes', p),
   tagCounts: () => invoke<[string, number][]>('tag_counts'),
+  /** 标签树全量计数(完整路径);标签面板与树形选择器数据源 */
+  listTags: () => invoke<TagCount[]>('list_tags'),
+  /** 改标签名(单段);级联重写子树路径与全文索引 */
+  renameTag: (tagId: number, newName: string) =>
+    invoke<void>('rename_tag', { tagId, newName }),
+  /** 移动标签;newParentId=null 移到根级 */
+  moveTag: (tagId: number, newParentId: number | null) =>
+    invoke<void>('move_tag', { tagId, newParentId }),
+  /** 删除标签子树(删前先用 tagImpact 二次确认) */
+  deleteTag: (tagId: number) => invoke<void>('delete_tag', { tagId }),
+  /** 删除前影响面:将影响的子孙标签数与笔记数 */
+  tagImpact: (tagId: number) => invoke<TagImpact>('tag_impact', { tagId }),
+  /** 输入栏补全:按路径前缀列出候选 */
+  completeTags: (prefix: string) => invoke<string[]>('complete_tags', { prefix }),
   updateNote: (id: number, content: string) =>
     invoke<Note | null>('update_note', { id, content }),
   toggleTodo: (id: number) => invoke<Note | null>('toggle_todo', { id }),
