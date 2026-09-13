@@ -2,7 +2,8 @@
 //! 写操作各自整事务提交,任一步失败整体回滚(path 重写与 FTS 刷新同事务)。
 // Task 4 命令层接入前本模块暂无生产调用方,allow 只为守住 cargo check --lib 零警告
 #![allow(dead_code)]
-use super::{linked_notes, refresh_fts, subtree_ids};
+use super::path::{child_path, unique_conflict};
+use super::{gc_orphans, linked_notes, refresh_fts, subtree_ids};
 use rusqlite::{params, Connection, OptionalExtension};
 
 /// 标签行(结构操作所需的最小字段集)
@@ -29,14 +30,6 @@ fn load(conn: &Connection, tag_id: i64) -> Result<Node, String> {
     .optional()
     .map_err(|e| e.to_string())?
     .ok_or_else(|| format!("标签不存在: {tag_id}"))
-}
-
-/// 同级改名后的新路径:保留原父前缀,只替换最后一段
-fn sibling_path(old_path: &str, new_name: &str) -> String {
-    match old_path.rfind('/') {
-        Some(i) => format!("{}/{}", &old_path[..i], new_name),
-        None => new_name.to_string(),
-    }
 }
 
 /// 同级重名校验:给出可读错误(唯一索引仍是兜底),避免无谓写库
@@ -105,13 +98,15 @@ pub fn rename(conn: &mut Connection, tag_id: i64, new_name: &str) -> Result<(), 
         return Ok(()); // 无变化:回滚空事务
     }
     ensure_sibling_free(&tx, node.parent_id, &new_name, tag_id)?;
-    let new_path = sibling_path(&node.path, &new_name);
+    // 新路径从父节点派生(存量平铺根的 path 可能与 name 不一致,不能用自身旧 path 派生)
+    let new_path = child_path(&tx, node.parent_id, &new_name).map_err(|e| e.to_string())?;
     let notes = subtree_note_ids(&tx, tag_id)?;
     tx.execute("UPDATE tags SET name = ?1 WHERE id = ?2", params![new_name, tag_id])
-        .map_err(|e| e.to_string())?;
-    rewrite_subtree_paths(&tx, &node.path, &new_path).map_err(|e| e.to_string())?;
+        .map_err(|e| unique_conflict(e, "已存在同名标签"))?;
+    rewrite_subtree_paths(&tx, &node.path, &new_path)
+        .map_err(|e| unique_conflict(e, "已存在同名标签"))?;
     refresh_fts(&tx, &notes).map_err(|e| e.to_string())?;
-    tx.commit().map_err(|e| e.to_string())
+    tx.commit().map_err(|e| unique_conflict(e, "已存在同名标签"))
 }
 
 /// 移动标签到新父级(None 为根级):环检测 + 深度上限 + 同级重名,全部通过才写。
@@ -151,28 +146,23 @@ pub fn move_to(conn: &mut Connection, tag_id: i64, new_parent: Option<i64>) -> R
         return Err(format!("层级过深:最多 {} 级", crate::tags::max_depth()));
     }
     ensure_sibling_free(&tx, new_parent, &node.name, tag_id)?;
-    let new_path = match new_parent {
-        None => node.name.clone(),
-        Some(p) => {
-            let parent_path: String = tx
-                .query_row("SELECT path FROM tags WHERE id = ?1", params![p], |r| r.get(0))
-                .map_err(|e| e.to_string())?;
-            format!("{}/{}", parent_path, node.name)
-        }
-    };
+    let new_path = child_path(&tx, new_parent, &node.name).map_err(|e| e.to_string())?;
     let notes = linked_notes(&tx, &ids).map_err(|e| e.to_string())?;
     tx.execute(
         "UPDATE tags SET parent_id = ?1, path = ?2, depth = ?3 WHERE id = ?4",
         params![new_parent, new_path, new_depth, tag_id],
     )
-    .map_err(|e| e.to_string())?;
-    rewrite_subtree_paths(&tx, &node.path, &new_path).map_err(|e| e.to_string())?;
+    .map_err(|e| unique_conflict(e, "该层级下已有同名标签"))?;
+    rewrite_subtree_paths(&tx, &node.path, &new_path)
+        .map_err(|e| unique_conflict(e, "该层级下已有同名标签"))?;
     shift_subtree_depths(&tx, tag_id, delta).map_err(|e| e.to_string())?;
     refresh_fts(&tx, &notes).map_err(|e| e.to_string())?;
-    tx.commit().map_err(|e| e.to_string())
+    tx.commit().map_err(|e| unique_conflict(e, "该层级下已有同名标签"))
 }
 
 /// 删除子树:先解链再删标签,最后按剩余链接重写受影响笔记的 FTS。整事务,失败回滚。
+/// 末尾与 link_paths 一致地回收空容器:祖先可能因此变成"无链接且无子节点"的空标签,
+/// 不回收就会在标签面板里时有时无地残留。
 pub fn delete_subtree(conn: &mut Connection, tag_id: i64) -> Result<(), String> {
     let tx = conn.transaction().map_err(|e| e.to_string())?;
     let ids = subtree_ids(&tx, tag_id).map_err(|e| e.to_string())?;
@@ -190,6 +180,7 @@ pub fn delete_subtree(conn: &mut Connection, tag_id: i64) -> Result<(), String> 
     // tag_links 触发器已按"链接移除后"的聚合重写 FTS,此处再显式重写一次兜底
     tx.execute(&format!("DELETE FROM tags WHERE id IN ({marks})"), args())
         .map_err(|e| e.to_string())?;
+    gc_orphans(&tx).map_err(|e| e.to_string())?;
     refresh_fts(&tx, &notes).map_err(|e| e.to_string())?;
     tx.commit().map_err(|e| e.to_string())
 }

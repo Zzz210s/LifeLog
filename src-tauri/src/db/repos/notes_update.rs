@@ -39,8 +39,22 @@ fn tag_paths(conn: &rusqlite::Connection, id: i64) -> rusqlite::Result<Vec<Strin
     rows.collect()
 }
 
+/// 把(可能含存量不可解析 path 的)标签路径集合解析成 tag id 集合。
+/// 可解析的 path 走 ensure_path;存量名(v1.0、看电影.、a·b、含空格/含 '/')沿用既有 tag_id。
+fn resolve_ids(conn: &rusqlite::Connection, paths: &[String]) -> rusqlite::Result<Vec<i64>> {
+    let mut ids: Vec<i64> = Vec::new();
+    for p in paths {
+        let id = crate::db::repos::tags_tree::resolve_id(conn, p)?;
+        if !ids.contains(&id) {
+            ids.push(id);
+        }
+    }
+    Ok(ids)
+}
+
 /// 切换 #todo/#done:含 todo 换 done,含 done 换 todo,均无则原样返回不写库。
 /// 仅改标签集合,正文字节不动;id 不存在返回 None。
+/// 存量标签的 path 不可解析(006 原样保留),故不走带校验的 set_tags,改为按 id 替换链接。
 pub fn toggle_todo(conn: &mut Connection, id: i64) -> rusqlite::Result<Option<super::Note>> {
     let current = match read_full(conn, id)? {
         Some(n) => n,
@@ -58,7 +72,8 @@ pub fn toggle_todo(conn: &mut Connection, id: i64) -> rusqlite::Result<Option<su
     }
     tags.sort(); // 与 read_full 的 ORDER BY t.name 序一致
     let tx = conn.transaction()?;
-    set_tags(&tx, id, &tags)?;
+    let ids = resolve_ids(&tx, &tags)?;
+    crate::db::repos::tags_tree::replace_links(&tx, id, &ids)?;
     let note = read_full(&tx, id)?;
     tx.commit()?;
     Ok(note)

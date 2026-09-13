@@ -51,11 +51,14 @@ pub fn complete(conn: &Connection, prefix: &str) -> rusqlite::Result<Vec<String>
     rows.collect()
 }
 
-/// 影响面:(子孙标签数, 子树内 note 链接行数)。供删除前二次确认。
+/// 影响面:(子孙标签数, 子树内 note 链接行数)。供删除前二次确认;
+/// 与 delete_subtree 一致:tag_id 不存在时报错(不能回 (0,0),否则确认弹窗会对过期 id 显示"影响 0 条")。
 pub fn impact(conn: &Connection, tag_id: i64) -> rusqlite::Result<(i64, i64)> {
     let ids = subtree_ids(conn, tag_id)?;
     if ids.is_empty() {
-        return Ok((0, 0));
+        return Err(rusqlite::Error::InvalidParameterName(format!(
+            "标签不存在: {tag_id}"
+        )));
     }
     let marks = vec!["?"; ids.len()].join(",");
     let links: i64 = conn.query_row(

@@ -1,6 +1,7 @@
 //! 标签树仓库层(MVP-2 Task 3):建路径、链接、孤儿回收;结构变更见 ops,查询见 query。
 //! 树真源是 parent_id,path 为冗余但受唯一索引约束,结构变更必须同步维护 path/depth;
 //! 路径前缀比较一律用 substr 而非 LIKE(存量标签名可能含 % 或 _),ensure_path/link_note 收在调用方事务里。
+//! 空标签回收策略:既无 tag_links 又无子节点的容器才回收(link_paths 与 delete_subtree 一致)。
 use rusqlite::{params, Connection, OptionalExtension};
 
 /// 前缀补全返回上限:前缀过短时不一次吐全库
@@ -141,26 +142,7 @@ pub(crate) fn link_paths(conn: &Connection, note_id: i64, paths: &[String]) -> r
             desired.push(id);
         }
     }
-    let existing: Vec<i64> = {
-        let mut stmt = conn
-            .prepare("SELECT tag_id FROM tag_links WHERE target_type = 'note' AND target_id = ?1")?;
-        let rows = stmt.query_map(params![note_id], |r| r.get(0))?;
-        rows.collect::<rusqlite::Result<Vec<i64>>>()?
-    };
-    for tid in &existing {
-        if !desired.contains(tid) {
-            conn.execute(
-                "DELETE FROM tag_links WHERE tag_id = ?1 AND target_type = 'note' AND target_id = ?2",
-                params![tid, note_id],
-            )?;
-        }
-    }
-    for tid in &desired {
-        if !existing.contains(tid) {
-            link_note(conn, note_id, *tid)?;
-        }
-    }
-    gc_orphans(conn)
+    replace::replace_links(conn, note_id, &desired)
 }
 
 /// 精确回收孤儿标签:既无 tag_links 又无子节点(父节点天生没有链接,不得当孤儿删)。
@@ -182,10 +164,15 @@ pub(crate) fn gc_orphans(conn: &Connection) -> rusqlite::Result<()> {
 // Task 4 命令层接入前,结构化/查询接口暂无生产调用方;两处 allow 只为守住 cargo check --lib 零警告
 #[path = "tags_tree_ops.rs"]
 mod ops;
+#[path = "tags_tree_path.rs"]
+mod path;
 #[path = "tags_tree_query.rs"]
 mod query;
+#[path = "tags_tree_replace.rs"]
+mod replace;
 #[allow(unused_imports)]
 pub use ops::{delete_subtree, move_to, rename};
+pub(crate) use replace::{replace_links, resolve_id};
 #[allow(unused_imports)]
 pub use query::{complete, counts, impact, TagCount};
 
@@ -196,3 +183,11 @@ mod tags_tree_tests;
 #[cfg(test)]
 #[path = "tags_tree_ops_tests.rs"]
 mod tags_tree_ops_tests;
+
+#[cfg(test)]
+#[path = "tags_tree_replace_tests.rs"]
+mod tags_tree_replace_tests;
+
+#[cfg(test)]
+#[path = "tags_tree_legacy_tests.rs"]
+mod tags_tree_legacy_tests;
