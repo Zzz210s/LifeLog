@@ -2,7 +2,7 @@
 //! 失败路径必须整事务回滚(结构快照逐行比对)。
 use super::*;
 use crate::db::migrate;
-use crate::db::repos::notes::{self, query, NoteFilter};
+use crate::db::repos::notes::{self, notes_filter::*, query};
 use rusqlite::Connection;
 
 fn db() -> Connection {
@@ -47,13 +47,8 @@ fn dump(c: &Connection) -> Vec<String> {
 fn hits(c: &Connection, kw: &str) -> usize {
     query(
         c,
-        &NoteFilter {
-            keyword: Some(kw.into()),
-            tags: vec![],
-            offset: 0,
-            limit: 50,
-            oldest_first: false,
-        },
+        &FilterConditions { keyword: Some(kw.into()), ..empty() },
+        0,
     )
     .unwrap()
     .len()

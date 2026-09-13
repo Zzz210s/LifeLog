@@ -1,22 +1,17 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../shared/api';
 import type { Note } from '../shared/types';
+import { filterKey } from '../shared/filter-conditions';
+import type { FilterConditions } from '../shared/filter-conditions';
 import type { ErrorKind } from './ErrorBar';
 import { PAGE, mergeNotes } from './notes-list';
 
-/** 流查询筛选:关键词 + 标签 AND + 排序方向 */
-export interface NotesFeedFilters {
-  keyword: string;
-  tags: string[];
-  oldestFirst: boolean;
-}
-
 /**
  * 主窗流查询状态机(自 App 抽出以守 200 行上限):分页、过期响应丢弃、查询错误与失败事实。
- * fetchPage 身份随筛选变化,随后整表重查;App 侧另 watch 筛选以退出编辑态。
+ * 条件按**值**比较(filterKey):引用变化但值相同不会重查;值变化则整表重查。
  */
 export function useNotesFeed(
-  { keyword, tags, oldestFirst }: NotesFeedFilters,
+  conditions: FilterConditions,
   setError: (kind: ErrorKind, message: string) => void,
   clearError: (kind: ErrorKind) => void
 ) {
@@ -26,13 +21,17 @@ export function useNotesFeed(
   const [queryFailed, setQueryFailed] = useState(false); // 查询失败事实留存,供空态文案判定
   const seq = useRef(0); // 过期响应丢弃(快速切筛选/翻页竞态)
 
+  // 按值稳定的条件对象:key 不变则沿用同一引用,fetchPage 身份不抖,分页不会被反复重置
+  const key = filterKey(conditions);
+  const current = useMemo(() => conditions, [key]);
+
   /** 拉一页:append=true 追加(offset=当前长度),否则整表重置 */
   const fetchPage = useCallback(
     async (offset: number, append: boolean) => {
       const id = ++seq.current;
       setLoading(true);
       try {
-        const page = await api.queryNotes({ keyword, tags, offset, limit: PAGE, oldestFirst });
+        const page = await api.queryNotes(current, offset);
         if (id !== seq.current) return;
         setNotes((prev) => (append ? mergeNotes(prev, page) : page));
         setHasMore(page.length === PAGE);
@@ -49,10 +48,10 @@ export function useNotesFeed(
         if (id === seq.current) setLoading(false);
       }
     },
-    [keyword, tags, oldestFirst, setError, clearError]
+    [current, setError, clearError]
   );
 
-  // 筛选变化:整表重查(fetchPage 身份随之变化)
+  // 条件变化:整表重查(fetchPage 身份随之变化)
   useEffect(() => {
     void fetchPage(0, false);
   }, [fetchPage]);

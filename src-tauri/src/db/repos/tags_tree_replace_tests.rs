@@ -110,13 +110,11 @@ fn toggle_todo_keeps_legacy_tag_link() {
     );
     assert!(crate::db::repos::notes::query(
         &c,
-        &crate::db::repos::notes::NoteFilter {
+        &crate::db::repos::notes::FilterConditions {
             keyword: Some("v1.0".into()),
-            tags: vec![],
-            offset: 0,
-            limit: 50,
-            oldest_first: false,
-        }
+            ..crate::db::repos::notes::notes_filter::empty()
+        },
+        0,
     )
     .unwrap()
     .iter()

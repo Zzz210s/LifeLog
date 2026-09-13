@@ -139,7 +139,7 @@ mod tests {
     /// 走 FTS 分支永久搜不到;触发器只覆盖迁移之后的新增/变更,不覆盖历史数据。
     #[test]
     fn migration_backfills_fts_for_preexisting_notes() {
-        use crate::db::repos::notes::{query, NoteFilter};
+        use crate::db::repos::notes::{notes_filter::*, query};
         let conn = Connection::open_in_memory().unwrap();
         // 仅应用 001/002 并把 user_version 停在 2:模拟阶段 4 之前的库
         conn.execute_batch(MIGRATIONS[0]).unwrap();
@@ -165,13 +165,8 @@ mod tests {
         // 3 字符中文关键词走 FTS 分支,迁移前的笔记必须命中
         let hit = query(
             &conn,
-            &NoteFilter {
-                keyword: Some("买牛奶".into()),
-                tags: vec![],
-                offset: 0,
-                limit: 50,
-                oldest_first: false,
-            },
+            &FilterConditions { keyword: Some("买牛奶".into()), ..empty() },
+            0,
         )
         .unwrap();
         assert_eq!(hit.len(), 1, "迁移前的笔记应可被 FTS 分支搜到");

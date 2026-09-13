@@ -25,3 +25,7 @@ export interface DbInfo {
   path: string;
   notes: number;
 }
+
+/** 筛选条件对象与前端默认值统一从 `filter-conditions.ts` 取(避免两处定义漂移) */
+export type { FilterConditions, TagCond } from './filter-conditions';
+export { EMPTY_FILTER } from './filter-conditions';

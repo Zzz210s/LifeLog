@@ -2,7 +2,7 @@
 //! 含 C-2 回归:存量名含 '/' 的平铺标签(name == path)与新路径空间撞车时必须显式和解。
 use super::*;
 use crate::db::migrate;
-use crate::db::repos::notes::{self, query, NoteFilter};
+use crate::db::repos::notes::{self, notes_filter::*, query};
 use rusqlite::Connection;
 
 fn db() -> Connection {
@@ -42,13 +42,8 @@ fn segs(v: &[&str]) -> Vec<String> {
 fn hits(c: &Connection, kw: &str) -> usize {
     query(
         c,
-        &NoteFilter {
-            keyword: Some(kw.into()),
-            tags: vec![],
-            offset: 0,
-            limit: 50,
-            oldest_first: false,
-        },
+        &FilterConditions { keyword: Some(kw.into()), ..empty() },
+        0,
     )
     .unwrap()
     .len()

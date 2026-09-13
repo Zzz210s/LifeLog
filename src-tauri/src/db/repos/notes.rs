@@ -129,14 +129,23 @@ pub(crate) fn read_full(conn: &Connection, id: i64) -> rusqlite::Result<Option<N
     Ok(fold_tag_rows(rows)?.into_iter().next())
 }
 
+/// 条件对象(结构化筛选真源)与条件 -> SQL 片段生成 / 校验
+#[path = "notes_filter.rs"]
+pub mod notes_filter;
+pub use notes_filter::{validate as validate_conditions, FilterConditions};
+
 /// 查询/更新拆分模块(守 200 行上限);re-export 保持 repos::notes::* 路径不变
 #[path = "notes_query.rs"]
 pub mod notes_query;
-pub use notes_query::{count_tags, query, NoteFilter};
+pub use notes_query::{count_tags, query};
 
 #[path = "notes_update.rs"]
 pub mod notes_update;
 pub use notes_update::{toggle_todo, update};
+
+#[cfg(test)]
+#[path = "notes_filter_tests.rs"]
+mod notes_filter_tests;
 
 #[cfg(test)]
 #[path = "notes_tests.rs"]

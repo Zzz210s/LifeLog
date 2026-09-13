@@ -2,7 +2,7 @@
 //! C-1:父节点天生没有 tag_links 行,旧实现"无链接即孤儿"会把整棵子树级联删掉,
 //! 导致其它笔记的嵌套标签静默消失;现改为"既无链接又无子节点"才回收。
 use crate::db::migrate;
-use crate::db::repos::notes::{self, query, NoteFilter};
+use crate::db::repos::notes::{self, notes_filter::*, query};
 use rusqlite::Connection;
 
 fn db() -> Connection {
@@ -20,14 +20,8 @@ fn id_at(c: &Connection, path: &str) -> i64 {
         .unwrap()
 }
 
-fn f(kw: &str) -> NoteFilter {
-    NoteFilter {
-        keyword: Some(kw.into()),
-        tags: vec![],
-        offset: 0,
-        limit: 50,
-        oldest_first: false,
-    }
+fn f(kw: &str) -> FilterConditions {
+    FilterConditions { keyword: Some(kw.into()), ..empty() }
 }
 
 /// C-1 回归(编辑):#a/b 写入两条笔记 -> 编辑其中一条 -> 另一条仍带 a/b
@@ -48,7 +42,7 @@ fn update_keeps_nested_tag_of_other_note() {
         1,
         "另一条笔记仍应带 a/b"
     );
-    let hit = query(&c, &f("a/b")).unwrap();
+    let hit = query(&c, &f("a/b"), 0).unwrap();
     assert_eq!(hit.len(), 1);
     assert_eq!(hit[0].id, b.id);
 }
@@ -67,8 +61,8 @@ fn delete_keeps_nested_tag_of_other_note() {
         count(&c, &format!("SELECT COUNT(*) FROM tag_links WHERE tag_id={} AND target_type='note'", id_at(&c, "a/b"))),
         1
     );
-    assert_eq!(query(&c, &f("a/b")).unwrap().len(), 1);
-    assert_eq!(query(&c, &f("a/b")).unwrap()[0].id, b.id);
+    assert_eq!(query(&c, &f("a/b"), 0).unwrap().len(), 1);
+    assert_eq!(query(&c, &f("a/b"), 0).unwrap()[0].id, b.id);
 }
 
 /// 更新粒度:未变化的标签链接保持原样(节点 id 不变,不删了重建)

@@ -1,7 +1,7 @@
 //! 006 标签树迁移测试:①存量平铺标签根化 ②tag_links 不变 ③FTS 聚合路径
 //! ④幂等 ⑤非法名(含空格)保留。失败回滚见 migration_atomicity_tests。
 use super::{latest_version, run, MIGRATIONS};
-use crate::db::repos::notes::{query, NoteFilter};
+use crate::db::repos::notes::{notes_filter::*, query};
 use rusqlite::Connection;
 
 /// 升级前旧库:应用到 006 之前为止,user_version 停在 5,外键开启(与真实运行时一致)
@@ -116,13 +116,11 @@ fn migration_006_indexes_tag_paths_for_search() {
     assert_eq!(text(&conn, "SELECT tags FROM notes_fts WHERE rowid=1"), "工作/项目A");
     let hit = query(
         &conn,
-        &NoteFilter {
+        &FilterConditions {
             keyword: Some("项目A".into()),
-            tags: vec![],
-            offset: 0,
-            limit: 50,
-            oldest_first: false,
+            ..empty()
         },
+        0,
     )
     .unwrap();
     assert_eq!(hit.len(), 1, "标签路径应能被 FTS 搜到");

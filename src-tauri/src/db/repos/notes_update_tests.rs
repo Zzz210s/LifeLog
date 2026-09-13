@@ -1,7 +1,7 @@
 //! update/toggle_todo 测试(测试先行 TDD)
 use super::*;
 use crate::db::migrate;
-use crate::db::repos::notes::{create, query, NoteFilter};
+use crate::db::repos::notes::{create, notes_filter::*, query};
 use rusqlite::Connection;
 
 fn db() -> Connection {
@@ -10,15 +10,9 @@ fn db() -> Connection {
     c
 }
 
-/// 简化构造:仅关键词,最新在前、limit 50
-fn f(keyword: Option<&str>) -> NoteFilter {
-    NoteFilter {
-        keyword: keyword.map(String::from),
-        tags: Vec::new(),
-        offset: 0,
-        limit: 50,
-        oldest_first: false,
-    }
+/// 简化构造:仅关键词,最新在前
+fn f(keyword: Option<&str>) -> FilterConditions {
+    FilterConditions { keyword: keyword.map(String::from), ..empty() }
 }
 
 /// 断言用:返回标量 COUNT 查询结果
@@ -98,12 +92,12 @@ fn update_keeps_fts_in_sync() {
     let n = create(&mut c, "旧正文 #甲标签").unwrap();
     update(&mut c, n.id, "新正文 #乙标签").unwrap().unwrap();
     // 新词可检索(正文列)
-    assert_eq!(query(&c, &f(Some("新正文"))).unwrap().len(), 1);
+    assert_eq!(query(&c, &f(Some("新正文")), 0).unwrap().len(), 1);
     // 旧词不再命中
-    assert!(query(&c, &f(Some("旧正文"))).unwrap().is_empty());
+    assert!(query(&c, &f(Some("旧正文")), 0).unwrap().is_empty());
     // tags 列聚合同步:新标签可检索、旧标签不残留
-    assert_eq!(query(&c, &f(Some("乙标签"))).unwrap().len(), 1);
-    assert!(query(&c, &f(Some("甲标签"))).unwrap().is_empty());
+    assert_eq!(query(&c, &f(Some("乙标签")), 0).unwrap().len(), 1);
+    assert!(query(&c, &f(Some("甲标签")), 0).unwrap().is_empty());
 }
 
 #[test]
@@ -168,10 +162,10 @@ fn toggle_todo_keeps_fts_in_sync() {
     let n = create(&mut c, "#todo 任务一").unwrap();
     toggle_todo(&mut c, n.id).unwrap().unwrap();
     // 切到 done 后:done 可检索、todo 不再命中(tags 列聚合)
-    assert_eq!(query(&c, &f(Some("done"))).unwrap().len(), 1);
-    assert!(query(&c, &f(Some("todo"))).unwrap().is_empty());
+    assert_eq!(query(&c, &f(Some("done")), 0).unwrap().len(), 1);
+    assert!(query(&c, &f(Some("todo")), 0).unwrap().is_empty());
     // 再切回 todo,双向同步
     toggle_todo(&mut c, n.id).unwrap().unwrap();
-    assert_eq!(query(&c, &f(Some("todo"))).unwrap().len(), 1);
-    assert!(query(&c, &f(Some("done"))).unwrap().is_empty());
+    assert_eq!(query(&c, &f(Some("todo")), 0).unwrap().len(), 1);
+    assert!(query(&c, &f(Some("done")), 0).unwrap().is_empty());
 }

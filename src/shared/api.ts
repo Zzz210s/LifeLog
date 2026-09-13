@@ -1,15 +1,12 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { DbInfo, Note, TagCount, TagImpact } from './types';
+import type { FilterConditions } from './filter-conditions';
 
 export const api = {
   saveInputNote: (content: string) => invoke<Note>('save_input_note', { content }),
-  queryNotes: (p: {
-    keyword?: string;
-    tags: string[];
-    offset: number;
-    limit: number;
-    oldestFirst: boolean;
-  }) => invoke<Note[]>('query_notes', p),
+  /** 条件对象查询:offset 为行偏移,页大小由后端固定(前端 PAGE 与之一致) */
+  queryNotes: (conditions: FilterConditions, offset: number) =>
+    invoke<Note[]>('query_notes', { conditions, offset }),
   tagCounts: () => invoke<[string, number][]>('tag_counts'),
   /** 标签树全量计数(完整路径);标签面板与树形选择器数据源 */
   listTags: () => invoke<TagCount[]>('list_tags'),

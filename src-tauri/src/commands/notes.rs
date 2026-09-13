@@ -13,21 +13,17 @@ pub fn save_input_note(app: AppHandle, content: String) -> Result<repos::notes::
     Ok(note)
 }
 
-/// 流查询:关键词(FTS/LIKE 自适应)+ 标签 AND + 分页排序
+/// 流查询:结构化条件(关键词/标签/排除/日期/有无标签/排序)+ 行偏移分页
 #[tauri::command]
 pub fn query_notes(
     app: AppHandle,
-    keyword: Option<String>,
-    tags: Vec<String>,
-    offset: i64,
-    limit: i64,
-    oldest_first: bool,
+    conditions: repos::notes::FilterConditions,
+    offset: Option<i64>,
 ) -> Result<Vec<repos::notes::Note>, String> {
+    repos::notes::validate_conditions(&conditions)?;
     let db: State<Db> = app.state();
     let conn = db.0.lock().map_err(|e| e.to_string())?;
-    let filter =
-        repos::notes::NoteFilter { keyword, tags, offset, limit, oldest_first };
-    repos::notes::query(&conn, &filter).map_err(|e| e.to_string())
+    repos::notes::query(&conn, &conditions, offset.unwrap_or(0))
 }
 
 /// 标签使用计数(筛选栏 chips 数据源)

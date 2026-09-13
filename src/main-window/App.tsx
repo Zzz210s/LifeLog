@@ -10,20 +10,21 @@ import { dropError, putError } from './errors';
 import type { ErrorMap } from './errors';
 import type { MainView } from './settings/settings-model';
 import { FilterBar } from './FilterBar';
-import { matchesTagFilter, needsRefetchAfterChange, replaceNote } from './notes-list';
+import { canEvaluateLocally, matchesTagsByPath } from '../shared/filter-conditions';
+import { needsRefetchAfterChange, replaceNote } from './notes-list';
 import { NoteStream } from './NoteStream';
 import { SettingsView } from './SettingsView';
 import { TopBar } from './TopBar';
 import { useNoteCreatedRefresh } from './use-note-created';
 import { useOpenSettings } from './use-open-settings';
 import { useNotesFeed } from './use-notes-feed';
+import { useFilterConditions } from './use-filter-conditions';
 import { useNotesExport } from './use-export';
 
 /** 主窗 v2:单列流 = Composer + FilterBar + NoteStream(无左侧导航) */
 export function App(): ReactNode {
-  const [keyword, setKeyword] = useState('');
-  const [tags, setTags] = useState<string[]>([]);
-  const [oldestFirst, setOldestFirst] = useState(false);
+  // 筛选条件真源(含 filter_last 持久化):标签、排序、分页查询都从它派生
+  const { conditions, patch, toggleTag } = useFilterConditions();
   const [allTags, setAllTags] = useState<{ name: string; count: number }[]>([]);
   const [errors, setErrors] = useState<ErrorMap>({});
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -38,7 +39,7 @@ export function App(): ReactNode {
   }, []);
   const { exporting, exported, onExport } = useNotesExport(setError, clearError);
   const { notes, setNotes, hasMore, loading, queryFailed, fetchPage, loadMore, retry } =
-    useNotesFeed({ keyword, tags, oldestFirst }, setError, clearError);
+    useNotesFeed(conditions, setError, clearError);
 
   const loadTags = useCallback(() => {
     void api
@@ -53,7 +54,7 @@ export function App(): ReactNode {
   // 筛选变化:退出编辑态(列表重查由 useNotesFeed 负责)
   useEffect(() => {
     setEditingId(null);
-  }, [keyword, tags, oldestFirst]);
+  }, [conditions]);
 
   useEffect(loadTags, [loadTags]);
 
@@ -81,21 +82,23 @@ export function App(): ReactNode {
    */
   const applyNoteChange = useCallback(
     (updated: Note) => {
-      if (needsRefetchAfterChange({ keyword, tags })) {
+      // 含子级/排除/日期/有无标签这类条件本地判不了,统一重查首页,正确性优先于滚动位置
+      if (
+        !canEvaluateLocally(conditions) ||
+        needsRefetchAfterChange({ keyword: conditions.keyword ?? '', tags: [] })
+      ) {
         void fetchPage(0, false);
         return;
       }
       setNotes((prev) => {
         const next = replaceNote(prev, updated);
-        return matchesTagFilter(updated, tags) ? next : next.filter((n) => n.id !== updated.id);
+        return matchesTagsByPath(updated, conditions)
+          ? next
+          : next.filter((n) => n.id !== updated.id);
       });
     },
-    [keyword, tags, fetchPage]
+    [conditions, fetchPage]
   );
-
-  const toggleTag = useCallback((name: string) => {
-    setTags((prev) => (prev.includes(name) ? prev.filter((t) => t !== name) : [...prev, name]));
-  }, []);
 
   /**
    * 删除前必须问一次:不能用 window.confirm —— tauri-plugin-dialog 的初始化脚本把它覆写成
@@ -160,13 +163,9 @@ export function App(): ReactNode {
       <div className={view === 'stream' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}>
       <Composer onSaved={refresh} disabled={editingId !== null} />
       <FilterBar
-        keyword={keyword}
-        onKeyword={setKeyword}
-        tags={tags}
+        conditions={conditions}
+        onPatch={patch}
         allTags={allTags}
-        onToggleTag={toggleTag}
-        oldestFirst={oldestFirst}
-        onToggleSort={() => setOldestFirst((v) => !v)}
         onExport={() => void onExport()}
         exporting={exporting}
         exported={exported}
@@ -176,7 +175,7 @@ export function App(): ReactNode {
         notes={notes}
         queryFailed={queryFailed}
         onRetry={retry}
-        activeTags={tags}
+        activeTags={conditions.tags.map((t) => t.path)}
         editingId={editingId}
         hasMore={hasMore}
         loading={loading}
