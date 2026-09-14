@@ -1,4 +1,5 @@
-//! notes 流查询层(自 notes.rs 拆出以守 200 行上限):条件化 query + count_matching + count_tags
+//! notes 流查询层(自 notes.rs 拆出以守 200 行上限):条件化 query + count_matching
+//! (旧标签板的 count_tags 已随标签板移除而清理)
 use super::notes_filter::{order_clause, where_clause, FilterConditions};
 use super::{fold_tag_rows, map_note_row, Note};
 use rusqlite::{params_from_iter, types::Value, Connection};
@@ -42,21 +43,6 @@ pub fn count_matching(conn: &Connection, conditions: &FilterConditions) -> rusql
         params_from_iter(args),
         |r| r.get(0),
     )
-}
-
-/// 标签使用计数(仅统计 note 链接)返回**完整路径**:按次数降序,同数按路径升序。
-/// 查询失败静默吞为空表(unwrap_or_default):筛选栏拿不到数据不阻断主界面,代价是错误被掩盖。
-pub fn count_tags(conn: &Connection) -> Vec<(String, i64)> {
-    conn.prepare(
-        "SELECT t.path, COUNT(*) FROM tag_links l JOIN tags t ON t.id = l.tag_id
-         WHERE l.target_type = 'note' GROUP BY t.path ORDER BY COUNT(*) DESC, t.path",
-    )
-    .and_then(|mut stmt| {
-        let rows =
-            stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)))?;
-        rows.collect::<rusqlite::Result<Vec<_>>>()
-    })
-    .unwrap_or_default()
 }
 
 #[cfg(test)]

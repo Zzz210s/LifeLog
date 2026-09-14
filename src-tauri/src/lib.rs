@@ -31,7 +31,6 @@ pub fn run() {
             commands::app_info::get_db_info,
             commands::notes::save_input_note,
             commands::notes::query_notes,
-            commands::notes::tag_counts,
             commands::notes::update_note,
             commands::notes::toggle_todo,
             commands::notes::delete_note,

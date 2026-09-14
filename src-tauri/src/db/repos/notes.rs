@@ -137,7 +137,7 @@ pub use notes_filter::{validate as validate_conditions, FilterConditions};
 /// 查询/更新拆分模块(守 200 行上限);re-export 保持 repos::notes::* 路径不变
 #[path = "notes_query.rs"]
 pub mod notes_query;
-pub use notes_query::{count_tags, query};
+pub use notes_query::query;
 
 #[path = "notes_update.rs"]
 pub mod notes_update;

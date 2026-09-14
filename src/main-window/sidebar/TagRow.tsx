@@ -12,6 +12,8 @@ export interface TagRowProps {
   /** 扁平模式:不缩进、无箭头、显示完整路径 */
   flat: boolean;
   selected: boolean;
+  /** 已在排除侧:淡红底 + 「已排除」角标(点击 = 撤掉该排除,与选中态区分) */
+  excluded: boolean;
   expanded: boolean;
   /** 行点击(可选中时 = 加入/移出筛选) */
   onToggle: (node: TagNode) => void;
@@ -28,9 +30,11 @@ export function TagRow(p: TagRowProps): ReactNode {
   const rowClass =
     'group flex w-full items-center gap-1 rounded px-1.5 py-1 pr-2 text-left text-xs transition-colors ' +
     (selectable
-      ? p.selected
-        ? 'bg-blue-100 text-blue-700'
-        : 'text-gray-700 hover:bg-blue-50 hover:text-blue-700'
+      ? p.excluded
+        ? 'bg-red-50 text-red-700 hover:bg-red-100'
+        : p.selected
+          ? 'bg-blue-100 text-blue-700'
+          : 'text-gray-700 hover:bg-blue-50 hover:text-blue-700'
       : 'cursor-default text-gray-400 hover:bg-gray-100');
 
   return (
@@ -59,6 +63,9 @@ export function TagRow(p: TagRowProps): ReactNode {
       )}
       {!p.flat && !hasChildren && <span className="w-3 shrink-0" />}
       <span className="min-w-0 truncate">{label}</span>
+      {p.excluded && (
+        <span className="shrink-0 rounded bg-red-100 px-1 text-[10px] leading-4 text-red-600">已排除</span>
+      )}
       <span className={COUNT_RAIL_CLASS}>{p.node.subtreeCount}</span>
     </button>
   );

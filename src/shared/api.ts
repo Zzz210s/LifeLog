@@ -7,7 +7,6 @@ export const api = {
   /** 条件对象查询:offset 为行偏移,页大小由后端固定(前端 PAGE 与之一致) */
   queryNotes: (conditions: FilterConditions, offset: number) =>
     invoke<Note[]>('query_notes', { conditions, offset }),
-  tagCounts: () => invoke<[string, number][]>('tag_counts'),
   /** 标签树全量计数(完整路径);标签面板与树形选择器数据源 */
   listTags: () => invoke<TagCount[]>('list_tags'),
   /** 改标签名(单段);级联重写子树路径与全文索引 */

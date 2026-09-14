@@ -5,6 +5,7 @@
  */
 import type { TagCount } from '../../shared/types';
 import type { FilterConditions } from '../../shared/filter-conditions';
+import { applyTagPick } from '../filter-chips';
 
 /** 树节点:id 为 null 表示父行缺失时补出的结构节点(不可右键管理) */
 export interface TagNode {
@@ -98,6 +99,31 @@ export function filterTree(nodes: TagNode[], query: string): TagNode[] {
  */
 export function isSelectable(node: TagNode): boolean {
   return node.selfCount > 0 || node.children.length === 0;
+}
+
+/**
+ * 可右键管理(重命名/移动/删除)的节点:id 非 null 的真实标签行。
+ * 补出的结构节点(id null)不可管理,侧栏右键不出菜单。
+ */
+export type ManagedNode = TagNode & { id: number };
+
+/**
+ * 侧栏标签行点击的两侧判定(修复轮):路径在排除侧 -> 移除该排除项
+ * (用户意图是撤掉这个排除);在引入侧 -> 移除引入;两侧都不在 ->
+ * applyTagPick 加入引入侧(含子级)。与 TagPickDialog 的跨侧禁选保持同一不变量:
+ * 同一路径永不同时存在两侧(结果恒空无意义)。
+ */
+export function toggleTagPick(
+  c: FilterConditions,
+  path: string
+): Partial<FilterConditions> {
+  if (c.excludeTags.some((t) => t.path === path)) {
+    return { excludeTags: c.excludeTags.filter((t) => t.path !== path) };
+  }
+  if (c.tags.some((t) => t.path === path)) {
+    return { tags: c.tags.filter((t) => t.path !== path) };
+  }
+  return { tags: applyTagPick(c, path, { exclude: false, includeChildren: true }).tags };
 }
 
 /**

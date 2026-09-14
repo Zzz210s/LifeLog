@@ -26,14 +26,6 @@ pub fn query_notes(
     repos::notes::query(&conn, &conditions, offset.unwrap_or(0))
 }
 
-/// 标签使用计数(筛选栏 chips 数据源)
-#[tauri::command]
-pub fn tag_counts(app: AppHandle) -> Result<Vec<(String, i64)>, String> {
-    let db: State<Db> = app.state();
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    Ok(repos::notes::count_tags(&conn))
-}
-
 #[tauri::command]
 pub fn delete_note(app: AppHandle, id: i64) -> Result<(), String> {
     let db: State<Db> = app.state();

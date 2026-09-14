@@ -8,11 +8,10 @@ import { Fragment } from 'react';
 import type { ReactNode } from 'react';
 import type { FilterConditions } from '../../shared/filter-conditions';
 import type { TagCount } from '../../shared/types';
-import { applyTagPick } from '../filter-chips';
 import { TagMenu } from './TagMenu';
 import { TagRow } from './TagRow';
-import { buildTree, filterTree } from './tag-tree';
-import type { TagNode } from './tag-tree';
+import { buildTree, filterTree, toggleTagPick } from './tag-tree';
+import type { ManagedNode, TagNode } from './tag-tree';
 import type { TagViewMode } from './use-sidebar-state';
 
 export interface TagsSectionProps {
@@ -33,7 +32,7 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
   const [query, setQuery] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  const [menu, setMenu] = useState<{ node: TagNode; x: number; y: number } | null>(null);
+  const [menu, setMenu] = useState<{ node: ManagedNode; x: number; y: number } | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   const flashTimer = useRef<number | null>(null);
 
@@ -44,6 +43,10 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
     [tree, filtering, query]
   );
   const activePaths = useMemo(() => new Set(p.conditions.tags.map((t) => t.path)), [p.conditions.tags]);
+  const excludedPaths = useMemo(
+    () => new Set(p.conditions.excludeTags.map((t) => t.path)),
+    [p.conditions.excludeTags]
+  );
 
   const showFlash = (text: string) => {
     setFlash(text);
@@ -60,22 +63,18 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
     });
   }, []);
 
-  /** 行点击:已选中 -> 移除;未选中 -> applyTagPick(含子级 true,与 spec 6.1 默认一致) */
+  /** 行点击:排除侧 -> 撤掉该排除;引入侧 -> 移除;都不在 -> 加入(含子级) */
   const onToggle = useCallback(
-    (node: TagNode) => {
-      const tags = activePaths.has(node.path)
-        ? p.conditions.tags.filter((t) => t.path !== node.path)
-        : applyTagPick(p.conditions, node.path, { exclude: false, includeChildren: true }).tags;
-      p.onPatch({ tags });
-    },
-    [p, activePaths]
+    (node: TagNode) => p.onPatch(toggleTagPick(p.conditions, node.path)),
+    [p]
   );
 
   const onContextMenu = useCallback((e: React.MouseEvent, node: TagNode) => {
     e.preventDefault();
+    if (node.id === null) return; // 结构节点(补出的父级)不可管理:不出菜单
     // 菜单宽 224px(w-56)、高最多 320px,钳制不超出视口
     setMenu({
-      node,
+      node: { ...node, id: node.id },
       x: Math.max(8, Math.min(e.clientX, window.innerWidth - 232)),
       y: Math.max(8, Math.min(e.clientY, window.innerHeight - 328)),
     });
@@ -107,6 +106,7 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
           node={n}
           flat={false}
           selected={activePaths.has(n.path)}
+          excluded={excludedPaths.has(n.path)}
           expanded={isExpanded(n.path)}
           onToggle={onToggle}
           onToggleExpand={toggleExpand}
@@ -164,6 +164,7 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
               node={n}
               flat
               selected={activePaths.has(n.path)}
+              excluded={excludedPaths.has(n.path)}
               expanded={false}
               onToggle={onToggle}
               onToggleExpand={toggleExpand}

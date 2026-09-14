@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildTree, filterTree, isSelectable, rewriteTagPaths } from './tag-tree';
+import { buildTree, filterTree, isSelectable, rewriteTagPaths, toggleTagPick } from './tag-tree';
 import { EMPTY_FILTER } from '../../shared/filter-conditions';
 import type { FilterConditions } from '../../shared/filter-conditions';
 
@@ -70,6 +70,32 @@ describe('filterTree', () => {
     const filtered = filterTree(buildTree(rows as never), '工作/项目');
     expect(filtered[0].children[0].name).toBe('项目A');
     expect(filtered[0].children[0].children).toHaveLength(1);
+  });
+});
+
+describe('toggleTagPick(侧栏行点击的两侧判定)', () => {
+  const base: FilterConditions = {
+    ...EMPTY_FILTER,
+    tags: [{ path: '工作', includeChildren: true }],
+    excludeTags: [{ path: '生活', includeChildren: false }],
+  };
+  it('路径在排除侧:点击撤掉该排除项(不进 tags)', () => {
+    const next = toggleTagPick(base, '生活');
+    expect(next.excludeTags).toHaveLength(0);
+    expect(next.tags).toBeUndefined(); // 不动引入侧,避免同路径两侧并存(结果恒空)
+  });
+  it('路径在引入侧:点击移除引入项(不动排除侧)', () => {
+    const next = toggleTagPick(base, '工作');
+    expect(next.tags).toHaveLength(0);
+    expect(next.excludeTags).toBeUndefined();
+  });
+  it('两侧都不在:点击经 applyTagPick 加入引入侧(含子级,不清既有项)', () => {
+    const next = toggleTagPick(base, 'todo');
+    expect(next.tags).toEqual([
+      { path: '工作', includeChildren: true },
+      { path: 'todo', includeChildren: true },
+    ]);
+    expect(next.excludeTags).toBeUndefined();
   });
 });
 

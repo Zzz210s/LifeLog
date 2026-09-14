@@ -8,10 +8,11 @@ import type { ReactNode } from 'react';
 import { api } from '../../shared/api';
 import type { TagCount } from '../../shared/types';
 import { isValidTagPath } from '../../shared/filter-conditions';
-import type { TagNode } from './tag-tree';
+import type { ManagedNode } from './tag-tree';
 
 export interface TagMenuProps {
-  node: TagNode;
+  /** 目标标签(id 必非 null:上层 TagsSection 已拦结构节点,ManagedNode 类型固化这一约束) */
+  node: ManagedNode;
   /** 菜单出现坐标(contextmenu 事件的 clientX/clientY,已由上层钳制到视口内) */
   x: number;
   y: number;
@@ -57,7 +58,7 @@ export function TagMenu(p: TagMenuProps): ReactNode {
 
   // 进入删除面板时取影响面;失败就地显示,不静默
   useEffect(() => {
-    if (pane !== 'delete' || p.node.id === null || impact !== null) return;
+    if (pane !== 'delete' || impact !== null) return;
     void api
       .tagImpact(p.node.id)
       .then(setImpact)
@@ -79,7 +80,7 @@ export function TagMenu(p: TagMenuProps): ReactNode {
     if (t === p.node.name) return p.onClose();
     setBusy(true);
     void api
-      .renameTag(p.node.id as number, t)
+      .renameTag(p.node.id, t)
       .then(() => p.onDone('已重命名标签', { from: p.node.path, to: newPathOf(t) }))
       .catch(fail);
   };
@@ -87,7 +88,7 @@ export function TagMenu(p: TagMenuProps): ReactNode {
   const doMove = (parentId: number | null, to: string): void => {
     setBusy(true);
     void api
-      .moveTag(p.node.id as number, parentId)
+      .moveTag(p.node.id, parentId)
       .then(() => p.onDone('已移动标签', { from: p.node.path, to }))
       .catch(fail);
   };
@@ -95,7 +96,7 @@ export function TagMenu(p: TagMenuProps): ReactNode {
   const doDelete = (): void => {
     setBusy(true);
     void api
-      .deleteTag(p.node.id as number)
+      .deleteTag(p.node.id)
       .then(() => p.onDone('已删除标签'))
       .catch(fail);
   };
@@ -176,6 +177,9 @@ export function TagMenu(p: TagMenuProps): ReactNode {
             </button>
           ))}
           {error !== '' && <p className="mt-1 px-1 text-xs text-red-500">{error}</p>}
+          <div className="mt-1.5 flex justify-end gap-1.5">
+            <button type="button" onClick={p.onClose} className={BTN_GHOST}>取消</button>
+          </div>
         </div>
       )}
       {pane === 'delete' && (

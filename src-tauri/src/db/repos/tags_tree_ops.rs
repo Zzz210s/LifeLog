@@ -1,7 +1,8 @@
 //! 标签树结构变更(自 tags_tree.rs 拆出以守 200 行上限):改名 / 移动 / 删除子树。
-//! 写操作各自整事务提交,任一步失败整体回滚(path 重写与 FTS 刷新同事务)。
+//! 写操作各自整事务提交,任一步失败整体回滚(path 重写、saved_views 条件级联与 FTS 刷新同事务)。
 use super::path::{child_path, unique_conflict};
 use super::{gc_orphans, linked_notes, refresh_fts, subtree_ids};
+use crate::db::repos::saved_views_rewrite;
 use rusqlite::{params, Connection, OptionalExtension};
 
 /// 标签行(结构操作所需的最小字段集)
@@ -103,6 +104,7 @@ pub fn rename(conn: &mut Connection, tag_id: i64, new_name: &str) -> Result<(), 
         .map_err(|e| unique_conflict(e, "已存在同名标签"))?;
     rewrite_subtree_paths(&tx, &node.path, &new_path)
         .map_err(|e| unique_conflict(e, "已存在同名标签"))?;
+    saved_views_rewrite::rewrite_prefix(&tx, &node.path, &new_path).map_err(|e| e.to_string())?;
     refresh_fts(&tx, &notes).map_err(|e| e.to_string())?;
     tx.commit().map_err(|e| unique_conflict(e, "已存在同名标签"))
 }
@@ -156,6 +158,7 @@ pub fn move_to(conn: &mut Connection, tag_id: i64, new_parent: Option<i64>) -> R
     rewrite_subtree_paths(&tx, &node.path, &new_path)
         .map_err(|e| unique_conflict(e, "该层级下已有同名标签"))?;
     shift_subtree_depths(&tx, tag_id, delta).map_err(|e| e.to_string())?;
+    saved_views_rewrite::rewrite_prefix(&tx, &node.path, &new_path).map_err(|e| e.to_string())?;
     gc_orphans(&tx).map_err(|e| e.to_string())?;
     refresh_fts(&tx, &notes).map_err(|e| e.to_string())?;
     tx.commit().map_err(|e| unique_conflict(e, "该层级下已有同名标签"))
@@ -171,6 +174,7 @@ pub fn delete_subtree(conn: &mut Connection, tag_id: i64) -> Result<(), String> 
         return Err(format!("标签不存在: {tag_id}"));
     }
     let notes = linked_notes(&tx, &ids).map_err(|e| e.to_string())?;
+    let root_path = load(&tx, tag_id)?.path; // 被删子树根路径(saved_views 条件滤除用)
     let marks = vec!["?"; ids.len()].join(",");
     let args = || rusqlite::params_from_iter(ids.iter());
     tx.execute(
@@ -182,6 +186,7 @@ pub fn delete_subtree(conn: &mut Connection, tag_id: i64) -> Result<(), String> 
     tx.execute(&format!("DELETE FROM tags WHERE id IN ({marks})"), args())
         .map_err(|e| e.to_string())?;
     gc_orphans(&tx).map_err(|e| e.to_string())?;
+    saved_views_rewrite::drop_subtree(&tx, &root_path).map_err(|e| e.to_string())?;
     refresh_fts(&tx, &notes).map_err(|e| e.to_string())?;
     tx.commit().map_err(|e| e.to_string())
 }

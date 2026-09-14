@@ -1,6 +1,6 @@
-//! notes 流查询层测试(query/count_tags),测试先行(TDD)
+//! notes 流查询层测试(query),测试先行(TDD)
 use crate::db::migrate;
-use crate::db::repos::notes::{count_tags, notes_filter::*, notes_query::PAGE_SIZE, query};
+use crate::db::repos::notes::{notes_filter::*, notes_query::PAGE_SIZE, query};
 use crate::db::repos::notes::create;
 use rusqlite::Connection;
 
@@ -132,26 +132,6 @@ fn tag_filter_is_exact_path_match() {
     // "仅本级"不做前缀扩展:只命中直接打了"工作"的那条
     let parent = query(&c, &f(None, &["工作"]), 0).unwrap();
     assert_eq!(contents(&parent), vec!["杂记"]);
-}
-
-#[test]
-fn count_tags_orders_by_usage_desc() {
-    let mut c = db();
-    create(&mut c, "a #电影").unwrap();
-    create(&mut c, "b #电影 #日记").unwrap();
-    create(&mut c, "c").unwrap();
-    assert_eq!(count_tags(&c), vec![("电影".to_string(), 2), ("日记".to_string(), 1)]);
-}
-
-#[test]
-fn count_tags_returns_full_paths() {
-    let mut c = db();
-    create(&mut c, "a #工作/项目A").unwrap();
-    create(&mut c, "b #工作/项目A #工作").unwrap();
-    assert_eq!(
-        count_tags(&c),
-        vec![("工作/项目A".to_string(), 2), ("工作".to_string(), 1)]
-    );
 }
 
 #[test]
