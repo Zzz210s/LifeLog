@@ -25,6 +25,8 @@ export interface FilterBarProps {
 export function FilterBar(p: FilterBarProps): ReactNode {
   const keyword = p.conditions.keyword ?? '';
   const activePaths = p.conditions.tags.map((t) => t.path);
+  // 两侧已选路径合集:同一标签同时进 tags 与 excludeTags 结果恒空,任一侧已含即禁选
+  const pickedPaths = [...activePaths, ...p.conditions.excludeTags.map((t) => t.path)];
   const oldestFirst = p.conditions.sort === 'oldest';
   const [kw, setKw] = useState(keyword);
   const timer = useRef<number | null>(null);
@@ -53,6 +55,18 @@ export function FilterBar(p: FilterBarProps): ReactNode {
     }, 300);
   };
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+
+  /** 立即上抛仍在防抖中的关键词:保存视图前调用,否则存下的视图会缺关键词 */
+  const flushKeyword = () => {
+    if (timer.current) {
+      clearTimeout(timer.current);
+      timer.current = null;
+    }
+    if (kw !== sent.current) {
+      sent.current = kw;
+      p.onPatch({ keyword: kw });
+    }
+  };
 
   const showFlash = (text: string) => {
     setFlash(text);
@@ -88,7 +102,10 @@ export function FilterBar(p: FilterBarProps): ReactNode {
         </button>
         <AddConditionMenu conditions={p.conditions} onPatch={p.onPatch} onPickTag={(exclude) => setTagPick({ exclude })} />
         <button
-          onClick={() => setSaveOpen(true)}
+          onClick={() => {
+            flushKeyword(); // 先把输入框当前值上抛,再开对话框
+            setSaveOpen(true);
+          }}
           title="把当前条件保存为视图"
           className="h-8 shrink-0 rounded-md border border-gray-300 px-2.5 text-xs text-gray-600 hover:border-blue-500 hover:text-blue-600"
         >
@@ -142,9 +159,7 @@ export function FilterBar(p: FilterBarProps): ReactNode {
       {tagPick && (
         <TagPickDialog
           exclude={tagPick.exclude}
-          selected={tagPick.exclude
-            ? p.conditions.excludeTags.map((t) => t.path)
-            : activePaths}
+          selected={pickedPaths}
           onClose={() => setTagPick(null)}
           onPick={(path, includeChildren) => {
             p.onPatch(applyTagPick(p.conditions, path, { exclude: tagPick.exclude, includeChildren }));

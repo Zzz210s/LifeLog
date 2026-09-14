@@ -1,10 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react';
 import { api } from '../shared/api';
-import { completeMatch } from './tag-complete';
-
-/** 光标前紧邻的 # 词元:捕获组为词元本体(可空,即刚敲下的 #);不匹配表示不在词元内 */
-const TOKEN_RE = /#([^\s#]*)$/;
+import { completeMatch, tokenAt } from './tag-complete';
 
 export interface TagCompleteOptions {
   textareaRef: RefObject<HTMLTextAreaElement | null>;
@@ -43,7 +40,7 @@ export function useTagComplete(opts: TagCompleteOptions): TagCompleteState {
     const el = opts.textareaRef.current;
     if (!el) return;
     const caret = el.selectionStart ?? el.value.length;
-    if (!TOKEN_RE.test(el.value.slice(0, caret))) {
+    if (tokenAt(el.value.slice(0, caret)) === null) {
       seq.current++;
       setItems([]);
     }
@@ -54,13 +51,12 @@ export function useTagComplete(opts: TagCompleteOptions): TagCompleteState {
     if (!el) return;
     const recompute = () => {
       const caret = el.selectionStart ?? 0;
-      const m = TOKEN_RE.exec(el.value.slice(0, caret));
-      if (!m) {
+      const token = tokenAt(el.value.slice(0, caret));
+      if (token === null) {
         seq.current++;
         setItems([]);
         return;
       }
-      const token = m[1];
       const id = ++seq.current;
       api
         .completeTags(token)
@@ -90,9 +86,9 @@ export function useTagComplete(opts: TagCompleteOptions): TagCompleteState {
       const el = opts.textareaRef.current;
       if (!el) return;
       const caret = el.selectionStart ?? 0;
-      const m = TOKEN_RE.exec(el.value.slice(0, caret));
-      if (!m) return;
-      const start = caret - m[0].length;
+      const token = tokenAt(el.value.slice(0, caret));
+      if (token === null) return;
+      const start = caret - token.length - 1; // 词元整体 = '#' + 词元本体
       opts.onReplace(el.value.slice(0, start) + '#' + path + ' ' + el.value.slice(caret));
       setItems([]); // 程序化替换不触发 input 事件,手动关闭
       const newCaret = start + path.length + 2;

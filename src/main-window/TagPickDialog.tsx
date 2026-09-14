@@ -6,7 +6,7 @@ import type { TagCount } from '../shared/types';
 export interface TagPickDialogProps {
   /** 模式:false 加入标签 / true 排除标签 */
   exclude: boolean;
-  /** 目标列表里已有的路径(渲染为「已添加」不可再选) */
+  /** 两侧(tags 与 excludeTags)已含的路径:渲染为「已添加」不可再选(同一路径两侧同选结果恒空,故另一侧也禁选) */
   selected: string[];
   onClose: () => void;
   onPick: (path: string, includeChildren: boolean) => void;
