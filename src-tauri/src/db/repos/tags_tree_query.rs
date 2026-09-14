@@ -3,9 +3,11 @@ use super::{subtree_ids, COMPLETE_LIMIT};
 use rusqlite::{params, Connection};
 use serde::Serialize;
 
-/// 标签计数(供标签面板):self_count 为本级链接数,subtree_count 含全部子孙
+/// 标签计数(供标签面板):id 供侧栏右键管理(rename/move/delete/tag_impact 都按 id 寻址);
+/// self_count 为本级链接数,subtree_count 含全部子孙
 #[derive(Serialize, Debug, PartialEq)]
 pub struct TagCount {
+    pub id: i64,
     pub path: String,
     pub depth: i64,
     pub self_count: i64,
@@ -23,7 +25,7 @@ pub fn counts(conn: &Connection) -> rusqlite::Result<Vec<TagCount>> {
                  WHERE target_type = 'note' GROUP BY tag_id),
          roll AS (SELECT sub.root AS root, SUM(COALESCE(own.n, 0)) AS n
                   FROM sub LEFT JOIN own ON own.tag_id = sub.id GROUP BY sub.root)
-         SELECT t.path, t.depth, COALESCE(own.n, 0), COALESCE(roll.n, 0)
+         SELECT t.id, t.path, t.depth, COALESCE(own.n, 0), COALESCE(roll.n, 0)
          FROM tags t
          LEFT JOIN own ON own.tag_id = t.id
          LEFT JOIN roll ON roll.root = t.id
@@ -31,10 +33,11 @@ pub fn counts(conn: &Connection) -> rusqlite::Result<Vec<TagCount>> {
     )?;
     let rows = stmt.query_map([], |r| {
         Ok(TagCount {
-            path: r.get(0)?,
-            depth: r.get(1)?,
-            self_count: r.get(2)?,
-            subtree_count: r.get(3)?,
+            id: r.get(0)?,
+            path: r.get(1)?,
+            depth: r.get(2)?,
+            self_count: r.get(3)?,
+            subtree_count: r.get(4)?,
         })
     })?;
     rows.collect()

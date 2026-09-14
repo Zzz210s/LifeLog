@@ -8,8 +8,10 @@ export interface Note {
   tags: string[];
 }
 
-/** 标签树节点计数:path 为完整路径,self_count 本级链接数,subtree_count 含全部子孙 */
+/** 标签树节点计数:id 供右键管理(rename/move/delete/tag_impact 按寻址),
+ *  path 为完整路径,self_count 本级链接数,subtree_count 含全部子孙 */
 export interface TagCount {
+  id: number;
   path: string;
   depth: number;
   self_count: number;

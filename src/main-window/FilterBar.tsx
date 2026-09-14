@@ -6,22 +6,23 @@ import { FilterChips } from './FilterChips';
 import { SaveViewDialog } from './SaveViewDialog';
 import { TagPickDialog } from './TagPickDialog';
 import { applyTagPick, chipsOf, summaryOf } from './filter-chips';
-import { tagDisplayName } from './tag-display';
 
 export interface FilterBarProps {
   /** 顶层筛选条件(标签选中态与排序都从这里派生) */
   conditions: FilterConditions;
   /** 局部更新条件 */
   onPatch: (value: Partial<FilterConditions>) => void;
-  /** 标签板数据源:name 为完整路径,count 为本级链接数 */
-  allTags: { name: string; count: number }[];
   /** 导出(整库 xlsx;未传则不渲染按钮) */
   onExport?: () => void;
   exporting?: boolean;
   exported?: boolean;
 }
 
-/** 筛选栏:关键词(300ms 防抖上抛)| 条件 chips + 添加条件 + 保存为视图 | 标签板 | 导出(可选) */
+/**
+ * 筛选栏:关键词(300ms 防抖上抛)| 条件 chips + 添加条件 + 保存为视图 | 导出(可选)。
+ * 标签选点入口已收敛到侧栏(主入口)与本栏「添加条件」的标签选择器(排除/仅本级);
+ * 旧标签板(仅本级链接的平铺 chips)移除,条件 chips 的显示/单删保留。
+ */
 export function FilterBar(p: FilterBarProps): ReactNode {
   const keyword = p.conditions.keyword ?? '';
   const activePaths = p.conditions.tags.map((t) => t.path);
@@ -75,13 +76,6 @@ export function FilterBar(p: FilterBarProps): ReactNode {
   };
   useEffect(() => () => { if (flashTimer.current) clearTimeout(flashTimer.current); }, []);
 
-  const toggleTag = (name: string) => {
-    const tags = activePaths.includes(name)
-      ? p.conditions.tags.filter((t) => t.path !== name)
-      : [...p.conditions.tags, { path: name, includeChildren: true }]; // 标签板默认含子级
-    p.onPatch({ tags });
-  };
-
   const summary = summaryOf(p.conditions);
 
   return (
@@ -131,30 +125,6 @@ export function FilterBar(p: FilterBarProps): ReactNode {
         <p className="mt-1 truncate text-xs text-gray-400" title={summary}>
           {summary}
         </p>
-      )}
-      {p.allTags.length > 0 && (
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          {p.allTags.map(({ name, count }) => {
-            const active = activePaths.includes(name);
-            return (
-              <button
-                key={name}
-                onClick={() => toggleTag(name)}
-                aria-pressed={active}
-                title={name}
-                className={
-                  'rounded-full border px-2.5 py-0.5 text-xs transition-colors ' +
-                  (active
-                    ? 'border-blue-600 bg-blue-600 text-white'
-                    : 'border-gray-300 bg-white text-gray-600 hover:border-blue-400 hover:text-blue-600')
-                }
-              >
-                #{tagDisplayName(name)}
-                <span className={active ? 'ml-1 opacity-80' : 'ml-1 text-gray-400'}>{count}</span>
-              </button>
-            );
-          })}
-        </div>
       )}
       {tagPick && (
         <TagPickDialog

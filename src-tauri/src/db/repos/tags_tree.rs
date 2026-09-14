@@ -179,6 +179,10 @@ pub use query::{complete, counts, impact, TagCount};
 mod tags_tree_tests;
 
 #[cfg(test)]
+#[path = "tags_tree_id_tests.rs"]
+mod tags_tree_id_tests;
+
+#[cfg(test)]
 #[path = "tags_tree_ops_tests.rs"]
 mod tags_tree_ops_tests;
 

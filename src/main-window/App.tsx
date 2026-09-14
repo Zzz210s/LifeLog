@@ -1,31 +1,34 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { confirm } from '@tauri-apps/plugin-dialog';
 import { api } from '../shared/api';
-import type { Note } from '../shared/types';
-import { Composer } from './Composer';
+import type { TagCount } from '../shared/types';
 import { ErrorBars } from './ErrorBars';
 import type { ErrorKind } from './ErrorBar';
 import { dropError, putError } from './errors';
 import type { ErrorMap } from './errors';
 import type { MainView } from './settings/settings-model';
 import { FilterBar } from './FilterBar';
-import { canEvaluateLocally, matchesTagsByPath } from '../shared/filter-conditions';
-import { needsRefetchAfterChange, replaceNote } from './notes-list';
 import { NoteStream } from './NoteStream';
 import { SettingsView } from './SettingsView';
+import { Sidebar } from './sidebar/Sidebar';
+import { rewriteTagPaths } from './sidebar/tag-tree';
+import { useSidebarState } from './sidebar/use-sidebar-state';
 import { TopBar } from './TopBar';
+import { Composer } from './Composer';
+import { useNoteActions } from './use-note-actions';
 import { useNoteCreatedRefresh } from './use-note-created';
 import { useOpenSettings } from './use-open-settings';
 import { useNotesFeed } from './use-notes-feed';
 import { useFilterConditions } from './use-filter-conditions';
 import { useNotesExport } from './use-export';
 
-/** 主窗 v2:单列流 = Composer + FilterBar + NoteStream(无左侧导航) */
+/** 主窗 v2:侧栏(视图/标签)+ 单列流(Composer + FilterBar + NoteStream) */
 export function App(): ReactNode {
   // 筛选条件真源(含 filter_last 持久化):标签、排序、分页查询都从它派生
   const { conditions, patch, toggleTag } = useFilterConditions();
-  const [allTags, setAllTags] = useState<{ name: string; count: number }[]>([]);
+  const sidebar = useSidebarState();
+  const [tagRows, setTagRows] = useState<TagCount[]>([]);
+  const [dataVersion, setDataVersion] = useState(0); // 标签/笔记数据变更信号(侧栏徽标据此重载)
   const [errors, setErrors] = useState<ErrorMap>({});
   const [editingId, setEditingId] = useState<number | null>(null);
   const [view, setView] = useState<MainView>('stream');
@@ -43,13 +46,14 @@ export function App(): ReactNode {
 
   const loadTags = useCallback(() => {
     void api
-      .tagCounts()
+      .listTags()
       .then((rows) => {
-        setAllTags(rows.map(([name, count]) => ({ name, count })));
+        setTagRows(rows);
+        setDataVersion((v) => v + 1);
         clearError('tags');
       })
       .catch((e) => setError('tags', '标签加载失败: ' + String(e)));
-  }, [clearError]);
+  }, [clearError, setError]);
 
   // 筛选变化:退出编辑态(列表重查由 useNotesFeed 负责)
   useEffect(() => {
@@ -66,127 +70,86 @@ export function App(): ReactNode {
   }, [fetchPage, loadTags]);
 
   // 输入栏保存后主窗自动出现(W1);已翻页或正在编辑时由 shouldAutoRefresh 拦下
-  useNoteCreatedRefresh(notes.length, editingId, refresh, (m) =>
-    setError('action', m)
-  );
+  useNoteCreatedRefresh(notes.length, editingId, refresh, (m) => setError('action', m));
 
   // 托盘「设置」菜单:窗口已由 Rust 显示,这里只切视图
   const openSettings = useCallback(() => setView('settings'), []);
   const reportSettingsError = useCallback((m: string) => setError('action', m), [setError]);
   useOpenSettings(openSettings, reportSettingsError);
 
-  /**
-   * 变更后落库视图(G5 权衡):
-   * 有关键词筛选时重查首页 —— keyword 同时匹配正文与标签两列,本地判不了命中,正确性优先于滚动位置;
-   * 无关键词时就地更新,并本地移除不再满足标签筛选的条目(保住分页与滚动位置,S3)。
-   */
-  const applyNoteChange = useCallback(
-    (updated: Note) => {
-      // 含子级/排除/日期/有无标签这类条件本地判不了,统一重查首页,正确性优先于滚动位置
-      if (!canEvaluateLocally(conditions) || needsRefetchAfterChange(conditions.keyword ?? '')) {
-        void fetchPage(0, false);
-        return;
-      }
-      setNotes((prev) => {
-        const next = replaceNote(prev, updated);
-        return matchesTagsByPath(updated, conditions)
-          ? next
-          : next.filter((n) => n.id !== updated.id);
-      });
-    },
-    [conditions, fetchPage]
-  );
+  const { remove, toggleTodo, onEditSaved } = useNoteActions({
+    conditions,
+    fetchPage,
+    setNotes,
+    setEditingId,
+    reload: loadTags,
+    setError,
+    clearError,
+  });
 
-  /**
-   * 删除前必须问一次:不能用 window.confirm —— tauri-plugin-dialog 的初始化脚本把它覆写成
-   * async(invoke) 的 Promise,`!Promise` 恒为 false,确认形同虚设直接删库(2026-09-12 实测)。
-   * 插件导出的 confirm 走 plugin:dialog|message,在 dialog:default 权限内。
-   */
-  const remove = useCallback(
-    (note: Note) => {
-      void (async () => {
-        const ok = await confirm('删除这条笔记?', {
-          title: '删除笔记',
-          kind: 'warning',
-        }).catch(() => false); // 弹窗失败一律当作取消,绝不静默删除
-        if (!ok) return;
-        try {
-          await api.deleteNote(note.id);
-          setNotes((prev) => prev.filter((n) => n.id !== note.id));
-          setEditingId(null);
-          clearError('action');
-          loadTags();
-        } catch (e) {
-          setError('action', '删除失败: ' + String(e));
-        }
-      })();
-    },
-    [loadTags, clearError]
-  );
-
-  const toggleTodo = useCallback(
-    (note: Note) => {
-      void api
-        .toggleTodo(note.id)
-        .then((updated) => {
-          if (updated) applyNoteChange(updated);
-          clearError('action');
-          loadTags();
-        })
-        .catch((e) => setError('action', '切换待办状态失败: ' + String(e)));
-    },
-    [applyNoteChange, loadTags, clearError]
-  );
-
-  /** 编辑保存:用命令返回的就地更新,不重置分页(用户滚到深处编辑不会被弹回顶部) */
-  const onEditSaved = useCallback(
-    (note: Note) => {
-      applyNoteChange(note);
-      setEditingId(null);
-      clearError('action');
+  /** 标签改名/移动/删除成功:刷新标签树与徽标,并把当前筛选条件里的旧路径级联改写 */
+  const handleTagsMutated = useCallback(
+    (pathChange?: { from: string; to: string }) => {
       loadTags();
+      if (pathChange) patch(rewriteTagPaths(conditions, pathChange.from, pathChange.to));
     },
-    [applyNoteChange, loadTags, clearError]
+    [loadTags, patch, conditions]
   );
+
+  /** 应用视图条件:整体替换(视图就是一份完整条件对象) */
+  const applyView = useCallback((c: typeof conditions) => patch(c), [patch]);
 
   return (
-    <div className="mx-auto flex h-screen w-full max-w-3xl flex-col bg-white text-gray-900">
-      <TopBar
-        view={view}
-        onOpenSettings={() => setView('settings')}
-        onBack={() => setView('stream')}
-      />
-      {/* 信息流始终挂载:切到设置页只是隐藏,返回时分页与滚动位置都不丢(不重新查询) */}
-      <div className={view === 'stream' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}>
-      <Composer onSaved={refresh} disabled={editingId !== null} />
-      <FilterBar
+    <div className="flex h-screen w-full overflow-hidden bg-white text-gray-900">
+      <Sidebar
+        sidebar={sidebar}
         conditions={conditions}
         onPatch={patch}
-        allTags={allTags}
-        onExport={() => void onExport()}
-        exporting={exporting}
-        exported={exported}
+        tagRows={tagRows}
+        dataVersion={dataVersion}
+        onTagsMutated={handleTagsMutated}
+        onApplyView={applyView}
       />
-      <ErrorBars errors={errors} onRetry={retry} onDismiss={clearError} />
-      <NoteStream
-        notes={notes}
-        queryFailed={queryFailed}
-        onRetry={retry}
-        activeTags={conditions.tags.map((t) => t.path)}
-        editingId={editingId}
-        hasMore={hasMore}
-        loading={loading}
-        onLoadMore={loadMore}
-        onTagClick={toggleTag}
-        onEdit={(n) => setEditingId(n.id)}
-        onDelete={remove}
-        onToggleTodo={toggleTodo}
-        onEditSaved={onEditSaved}
-        onEditCancel={() => setEditingId(null)}
-        onLinkError={(m) => setError('action', m)}
-      />
+      {/* 内容区 min-w 保护:窄窗口下侧栏允许被压缩,内容区不被挤没 */}
+      <div className="mx-auto flex h-full w-full min-w-[420px] max-w-3xl flex-1 flex-col">
+        <TopBar
+          view={view}
+          sidebarVisible={sidebar.visible}
+          onToggleSidebar={() => sidebar.setVisible(!sidebar.visible)}
+          onOpenSettings={() => setView('settings')}
+          onBack={() => setView('stream')}
+        />
+        {/* 信息流始终挂载:切到设置页只是隐藏,返回时分页与滚动位置都不丢(不重新查询) */}
+        <div className={view === 'stream' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}>
+          <Composer onSaved={refresh} disabled={editingId !== null} />
+          <FilterBar
+            conditions={conditions}
+            onPatch={patch}
+            onExport={() => void onExport()}
+            exporting={exporting}
+            exported={exported}
+          />
+          <ErrorBars errors={errors} onRetry={retry} onDismiss={clearError} />
+          <NoteStream
+            notes={notes}
+            queryFailed={queryFailed}
+            onRetry={retry}
+            activeTags={conditions.tags.map((t) => t.path)}
+            editingId={editingId}
+            hasMore={hasMore}
+            loading={loading}
+            onLoadMore={loadMore}
+            onTagClick={toggleTag}
+            onEdit={(n) => setEditingId(n.id)}
+            onDelete={remove}
+            onToggleTodo={toggleTodo}
+            onEditSaved={onEditSaved}
+            onEditCancel={() => setEditingId(null)}
+            onLinkError={(m) => setError('action', m)}
+          />
+        </div>
+        {view === 'settings' && <SettingsView />}
       </div>
-      {view === 'settings' && <SettingsView />}
     </div>
   );
 }
