@@ -1,6 +1,6 @@
 //! 标签树查询(自 tags_tree.rs / ops 拆出以守 200 行上限):计数 / 补全 / 影响面。
 use super::{subtree_ids, COMPLETE_LIMIT};
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
 
 /// 标签计数(供标签面板):id 供侧栏右键管理(rename/move/delete/tag_impact 都按 id 寻址);
@@ -41,6 +41,17 @@ pub fn counts(conn: &Connection) -> rusqlite::Result<Vec<TagCount>> {
         })
     })?;
     rows.collect()
+}
+
+/// 时间根(`时间排序`)的真实 DB id:结构操作守卫用它定位时间子树(界面也按此 id 过滤时间分区),
+/// 库里没有时间根(尚无任何时间标签)时返回 None。
+pub fn time_root_id(conn: &Connection) -> rusqlite::Result<Option<i64>> {
+    conn.query_row(
+        "SELECT id FROM tags WHERE path = ?1",
+        params![crate::timetag::TIME_ROOT],
+        |r| r.get(0),
+    )
+    .optional()
 }
 
 /// 路径前缀补全(substr 字面比较而非 LIKE:名称可能含 % 或 _)

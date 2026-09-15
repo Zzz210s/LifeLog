@@ -5,6 +5,7 @@ mod db;
 mod exchange;
 mod startup_report;
 mod tags;
+mod timetag;
 mod windowing;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

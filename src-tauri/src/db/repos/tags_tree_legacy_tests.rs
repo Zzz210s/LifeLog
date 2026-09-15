@@ -82,7 +82,7 @@ fn seed_legacy_linked(c: &Connection, name: &str, note_id: i64) -> i64 {
 #[test]
 fn rename_into_legacy_path_reports_chinese_error() {
     let mut c = db();
-    let n = notes::create(&mut c, "x #工作/项目A").unwrap();
+    let n = notes::create_plain(&mut c, "x #工作/项目A").unwrap();
     seed_legacy_linked(&c, "事业/项目A", n.id);
     let before = dump(&c);
 
@@ -98,8 +98,8 @@ fn rename_into_legacy_path_reports_chinese_error() {
 #[test]
 fn move_into_legacy_path_reports_chinese_error() {
     let mut c = db();
-    notes::create(&mut c, "x #工作/项目A").unwrap();
-    let n = notes::create(&mut c, "y #生活").unwrap();
+    notes::create_plain(&mut c, "x #工作/项目A").unwrap();
+    let n = notes::create_plain(&mut c, "y #生活").unwrap();
     seed_legacy_linked(&c, "生活/项目A", n.id);
     let before = dump(&c);
 
@@ -116,7 +116,7 @@ fn move_into_legacy_path_reports_chinese_error() {
 #[test]
 fn delete_subtree_recycles_emptied_ancestor() {
     let mut c = db();
-    let n = notes::create(&mut c, "x #工作/项目A").unwrap();
+    let n = notes::create_plain(&mut c, "x #工作/项目A").unwrap();
     let leaf = id_at(&c, "工作/项目A");
 
     delete_subtree(&mut c, leaf).unwrap();
@@ -130,10 +130,10 @@ fn delete_subtree_recycles_emptied_ancestor() {
 #[test]
 fn delete_subtree_keeps_container_still_in_use() {
     let mut c = db();
-    notes::create(&mut c, "x #工作/项目A").unwrap();
-    notes::create(&mut c, "y #工作/项目B").unwrap();
-    notes::create(&mut c, "z #生活").unwrap();
-    notes::create(&mut c, "w #生活/子").unwrap();
+    notes::create_plain(&mut c, "x #工作/项目A").unwrap();
+    notes::create_plain(&mut c, "y #工作/项目B").unwrap();
+    notes::create_plain(&mut c, "z #生活").unwrap();
+    notes::create_plain(&mut c, "w #生活/子").unwrap();
 
     let pa = id_at(&c, "工作/项目A");
     let lz = id_at(&c, "生活/子");
@@ -151,7 +151,7 @@ fn delete_subtree_keeps_container_still_in_use() {
 #[test]
 fn impact_missing_tag_reports_error() {
     let mut c = db();
-    notes::create(&mut c, "x #工作/项目A").unwrap();
+    notes::create_plain(&mut c, "x #工作/项目A").unwrap();
 
     assert!(impact(&c, id_at(&c, "工作")).is_ok());
     let err = impact(&c, 9999).unwrap_err();

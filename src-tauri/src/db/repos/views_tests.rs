@@ -120,7 +120,7 @@ fn reorder_rejects_partial_unknown_or_duplicated_ids() {
 fn hit_counts_cover_builtins_and_saved_views() {
     let mut conn = test_conn();
     for text in ["#todo 买牛奶", "#done 收尾", "没有标签的笔记", "#todo #done 两边都占"] {
-        crate::db::repos::notes::create(&mut conn, text).unwrap();
+        crate::db::repos::notes::create_plain(&mut conn, text).unwrap();
     }
     let id = create(
         &conn,

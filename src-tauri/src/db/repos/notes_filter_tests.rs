@@ -8,7 +8,7 @@ fn tag(path: &str, include_children: bool) -> TagCond {
 #[test]
 fn empty_conditions_match_everything() {
     assert_eq!(where_clause(&empty()), ("1=1".to_string(), vec![]));
-    assert_eq!(order_clause(&empty()), "n.id DESC");
+    assert!(!oldest_first(&empty()));
 }
 
 #[test]
@@ -55,23 +55,40 @@ fn no_tags_uses_not_exists_on_tag_links() {
     assert!(sql.contains("EXISTS (SELECT 1 FROM tag_links l WHERE l.target_type = 'note' AND l.target_id = n.id)"));
 }
 
+/// 日期范围(单边/双边):谓词改为时间标签路径比较,不再出现 created_at
 #[test]
-fn date_range_supports_one_sided() {
+fn date_range_compares_time_tag_path() {
     let c = FilterConditions { from: Some("2026-08-01".into()), ..empty() };
     let (sql, args) = where_clause(&c);
-    assert!(sql.contains("n.created_at >= ?"));
-    assert_eq!(args.len(), 1);
+    assert!(sql.contains("t.path >= ?"));
+    assert!(!sql.contains("created_at"));
+    assert_eq!(texts(&args), vec!["时间排序/2026/08/01"]);
 
     let c = FilterConditions { to: Some("2026-09-13".into()), ..empty() };
     let (sql, args) = where_clause(&c);
-    assert!(sql.contains("n.created_at <= ?") || sql.contains("n.created_at < ?"));
-    assert_eq!(args.len(), 1);
+    assert!(sql.contains("t.path <= ?"), "结束日按路径等值比较(不再拼 23:59:59)");
+    assert_eq!(texts(&args), vec!["时间排序/2026/09/13"]);
+
+    // 日期非法(未经 validate)恒假,不放宽语义
+    let c = FilterConditions { from: Some("2026-13-01".into()), ..empty() };
+    assert!(where_clause(&c).0.contains("0=1"));
+}
+
+/// 参数向量的文本视图(断言生成的路径边界)
+fn texts(args: &[rusqlite::types::Value]) -> Vec<String> {
+    args.iter()
+        .map(|v| match v {
+            rusqlite::types::Value::Text(t) => t.clone(),
+            other => panic!("非文本参数:{other:?}"),
+        })
+        .collect()
 }
 
 #[test]
 fn sort_oldest_flips_order() {
     let c = FilterConditions { sort: Some("oldest".into()), ..empty() };
-    assert_eq!(order_clause(&c), "n.id ASC");
+    assert!(oldest_first(&c));
+    assert!(!oldest_first(&FilterConditions { sort: Some("newest".into()), ..empty() }));
 }
 
 #[test]

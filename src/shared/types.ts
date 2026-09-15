@@ -3,7 +3,12 @@ import type { FilterConditions } from './filter-conditions';
 export interface Note {
   id: number;
   content: string;
+  /** 物理列保留,但已不参与显示/排序/筛选/导出(时间一律看 `date`) */
   created_at: string;
+  /** 时间标签的日期(`YYYY-MM-DD`,来自 `时间排序/Y/M/D`);无时间标签为 null */
+  date: string | null;
+  /** 时间标签节点 id(改期时按 id 重新链接);无时间标签为 null */
+  date_tag_id: number | null;
   /** 标签**完整路径**(树语义真源;根级标签即其名称) */
   tags: string[];
 }

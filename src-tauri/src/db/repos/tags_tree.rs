@@ -2,7 +2,7 @@
 //! 树真源是 parent_id,path 为冗余但受唯一索引约束,结构变更必须同步维护 path/depth;
 //! 路径前缀比较一律用 substr 而非 LIKE(存量标签名可能含 % 或 _),ensure_path/link_note 收在调用方事务里。
 //! 空标签回收策略:既无 tag_links 又无子节点的容器才回收(link_paths 与 delete_subtree 一致)。
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection};
 
 /// 前缀补全返回上限:前缀过短时不一次吐全库
 const COMPLETE_LIMIT: i64 = 50;
@@ -50,75 +50,6 @@ pub(crate) fn refresh_fts(conn: &Connection, note_ids: &[i64]) -> rusqlite::Resu
     Ok(())
 }
 
-/// 按路径段建标签:父级不存在则同级创建,返回末端 id(不自行开事务,收在调用方事务里)。
-/// C-2 和解:path 唯一,若占位行的 name/parent/depth 与目标身份不符(006 原样保留的
-/// 名称含 '/' 的平铺标签即属此类),就地规整进树:复用其 id 与链接、改写身份,
-/// 子树深度按差值顺延 —— 既不静默复用错行,也不报错、不丢链接。
-pub fn ensure_path(conn: &Connection, segments: &[String]) -> rusqlite::Result<i64> {
-    if segments.is_empty() {
-        return Err(rusqlite::Error::InvalidParameterName("空标签路径".into()));
-    }
-    let mut parent: Option<i64> = None;
-    let mut prefix = String::new();
-    let mut leaf = 0i64;
-    for (i, seg) in segments.iter().enumerate() {
-        if i > 0 {
-            prefix.push('/');
-        }
-        prefix.push_str(seg);
-        let depth = (i + 1) as i64;
-        let found: Option<(i64, String, Option<i64>, i64)> = conn
-            .query_row(
-                "SELECT id, name, parent_id, depth FROM tags WHERE path = ?1",
-                params![prefix],
-                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
-            )
-            .optional()?;
-        leaf = match found {
-            Some((id, name, pid, d)) if name == *seg && pid == parent && d == depth => id,
-            Some((id, _, _, d)) => {
-                reconcile(conn, id, seg, parent, depth, d)?;
-                id
-            }
-            None => {
-                conn.execute(
-                    "INSERT INTO tags(name, parent_id, path, depth) VALUES(?1, ?2, ?3, ?4)",
-                    params![seg, parent, prefix, depth],
-                )?;
-                conn.last_insert_rowid()
-            }
-        };
-        parent = Some(leaf);
-    }
-    Ok(leaf)
-}
-
-/// 把占位行就地改写成目标身份(id / path / 链接不变),其子树深度按差值顺延。
-/// path 唯一索引保证同一 path 只有一行,故"path 命中但身份不符"的行只可能是迁移保留的
-/// 平铺根(它没有同级兄弟可冲突),就地改写是安全的。
-fn reconcile(
-    conn: &Connection,
-    id: i64,
-    name: &str,
-    parent: Option<i64>,
-    depth: i64,
-    old_depth: i64,
-) -> rusqlite::Result<()> {
-    conn.execute(
-        "UPDATE tags SET name = ?1, parent_id = ?2, depth = ?3 WHERE id = ?4",
-        params![name, parent, depth, id],
-    )?;
-    if depth != old_depth {
-        conn.execute(
-            "WITH RECURSIVE sub(id) AS (
-               SELECT id FROM tags WHERE parent_id = ?1
-               UNION ALL SELECT t.id FROM tags t JOIN sub s ON t.parent_id = s.id
-             ) UPDATE tags SET depth = depth + ?2 WHERE id IN (SELECT id FROM sub)",
-            params![id, depth - old_depth],
-        )?;
-    }
-    Ok(())
-}
 
 /// 链接笔记到标签(幂等)。tag_links 触发器负责把聚合路径同步进 FTS。
 pub fn link_note(conn: &Connection, note_id: i64, tag_id: i64) -> rusqlite::Result<()> {
@@ -162,17 +93,22 @@ pub(crate) fn gc_orphans(conn: &Connection) -> rusqlite::Result<()> {
 }
 
 // Task 4 命令层已接入:结构化/查询接口均有生产调用方,不再需要 allow(dead_code)
+#[path = "tags_tree_ensure.rs"]
+mod ensure;
 #[path = "tags_tree_ops.rs"]
 mod ops;
+#[path = "tags_tree_ops_sql.rs"]
+mod ops_sql;
 #[path = "tags_tree_path.rs"]
 mod path;
 #[path = "tags_tree_query.rs"]
 mod query;
 #[path = "tags_tree_replace.rs"]
 mod replace;
+pub use ensure::ensure_path;
 pub use ops::{delete_subtree, move_to, rename};
 pub(crate) use replace::{replace_links, resolve_id};
-pub use query::{complete, counts, impact, TagCount};
+pub use query::{complete, counts, impact, time_root_id, TagCount};
 
 #[cfg(test)]
 #[path = "tags_tree_tests.rs"]
@@ -189,6 +125,10 @@ mod tags_tree_ops_tests;
 #[cfg(test)]
 #[path = "tags_tree_ops_extra_tests.rs"]
 mod tags_tree_ops_extra_tests;
+
+#[cfg(test)]
+#[path = "tags_tree_time_guard_tests.rs"]
+mod tags_tree_time_guard_tests;
 
 #[cfg(test)]
 #[path = "tags_tree_replace_tests.rs"]

@@ -52,7 +52,7 @@ fn resolve_id_handles_legacy_and_parseable_paths() {
 #[test]
 fn replace_links_replaces_by_id_and_prunes_orphans() {
     let mut c = db();
-    let n = notes::create(&mut c, "x #甲").unwrap();
+    let n = notes::create_plain(&mut c, "x #甲").unwrap();
     let jia = id_at(&c, "甲");
     let yi = ensure_path(&c, &["乙".to_string()]).unwrap();
 
@@ -70,7 +70,7 @@ fn replace_links_replaces_by_id_and_prunes_orphans() {
 #[test]
 fn toggle_todo_keeps_legacy_tag_link() {
     let mut c = db();
-    let n = notes::create(&mut c, "买牛奶 #todo").unwrap();
+    let n = notes::create_plain(&mut c, "买牛奶 #todo").unwrap();
     let legacy = seed_legacy(&c, "v1.0");
     let legacy2 = seed_legacy(&c, "看电影."); // 句末点仍不可解析,走既有 tag_id 分支
     c.execute(

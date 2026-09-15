@@ -1,11 +1,17 @@
 use rusqlite::{params, Connection};
 use serde::Serialize;
 
+/// 笔记(流查询与单条读回的统一结构)。
+/// `created_at` 是物理列(保留不删),但已零业务用途(D2)—— 时间一律看 `date`(取自时间标签)。
 #[derive(Serialize, Debug)]
 pub struct Note {
     pub id: i64,
     pub content: String,
     pub created_at: String,
+    /// 时间标签的日期(`YYYY-MM-DD`);无时间标签为 None
+    pub date: Option<String>,
+    /// 时间标签节点 id(供界面改期时按 id 寻址)
+    pub date_tag_id: Option<i64>,
     pub tags: Vec<String>,
 }
 
@@ -51,7 +57,28 @@ pub(crate) fn strip_tags(content: &str) -> String {
     out.split('\n').map(collapse_line).collect::<Vec<_>>().join("\n")
 }
 
+/// 新建笔记(事务):剥离/提取正文标签 -> 链接 -> 追加当天时间标签 `时间排序/YYYY/MM/DD`。
+/// 输入栏与主窗 Composer 保存共用此路径;时间标签与笔记同事务落库(要么都在,要么都不在)。
+/// 用户手打的同路径标签由 link_paths 先建过,ensure_path 只会复用同一节点。
 pub fn create(conn: &mut Connection, content: &str) -> rusqlite::Result<Note> {
+    let today = crate::timetag::today_local(conn)?;
+    create_with(conn, content, Some(&today))
+}
+
+/// 仅测试用:构造不含时间标签的笔记(008 之前的形态),供既有标签行为与回填用例
+#[cfg(test)]
+pub(crate) fn create_plain(conn: &mut Connection, content: &str) -> rusqlite::Result<Note> {
+    create_with(conn, content, None)
+}
+
+/// 仅测试用:构造带指定日期时间标签的笔记(排序/筛选/导出用例需要确定的日期)
+#[cfg(test)]
+pub(crate) fn create_on(conn: &mut Connection, content: &str, date: &str) -> rusqlite::Result<Note> {
+    create_with(conn, content, Some(date))
+}
+
+/// 创建事务内核:`date` 为 `YYYY-MM-DD`(None = 不加时间标签;日期非法时同样不加)
+fn create_with(conn: &mut Connection, content: &str, date: Option<&str>) -> rusqlite::Result<Note> {
     let names = crate::tags::extract_tags(content);
     let text = strip_tags(content);
     let tx = conn.transaction()?;
@@ -59,75 +86,22 @@ pub fn create(conn: &mut Connection, content: &str) -> rusqlite::Result<Note> {
     let id = tx.last_insert_rowid();
     // 006 起 tags 为树:按路径自动建父级并做增量链接(孤儿回收已收窄为"无链接且无子")
     crate::db::repos::tags_tree::link_paths(&tx, id, &names)?;
-    let created_at: String = tx
-        .query_row("SELECT created_at FROM notes WHERE id = ?1", params![id], |r| r.get(0))?;
-    tx.commit()?;
-    Ok(Note { id, content: text, created_at, tags: names })
-}
-
-/// 行映射:note 基础列 + 可空标签名(LEFT JOIN 按标签展开成多行)
-type NoteRow = (i64, String, String, Option<String>);
-
-pub(crate) fn map_note_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<NoteRow> {
-    Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))
-}
-
-/// 相邻同 id 行折叠为一个 Note(tags 收集为列表),recent 与 query 共用
-pub(crate) fn fold_tag_rows(rows: impl Iterator<Item = rusqlite::Result<NoteRow>>) -> rusqlite::Result<Vec<Note>> {
-    let mut out: Vec<Note> = Vec::new();
-    for row in rows {
-        let (id, content, created_at, tag) = row?;
-        match out.last_mut() {
-            Some(n) if n.id == id => {
-                if let Some(t) = tag {
-                    n.tags.push(t);
-                }
-            }
-            _ => out.push(Note { id, content, created_at, tags: tag.into_iter().collect() }),
-        }
+    if let Some(segs) = date.and_then(crate::timetag::segments_for_date) {
+        let tag_id = crate::db::repos::tags_tree::ensure_path(&tx, &segs)?;
+        crate::db::repos::tags_tree::link_note(&tx, id, tag_id)?;
     }
-    Ok(out)
+    let note = read_full(&tx, id)?.ok_or(rusqlite::Error::QueryReturnedNoRows)?;
+    tx.commit()?;
+    Ok(note)
 }
 
-/// 最近 N 条(id 降序,含标签)。当前仅测试使用,生产路径走 query;
-/// 标 #[cfg(test)] 以消除非 test 构建的 dead_code 警告。
+/// 笔记读取与行映射(自 notes.rs 拆出以守 200 行上限):read_full/recent/delete + 时间标签列
+#[path = "notes_read.rs"]
+pub mod notes_read;
 #[cfg(test)]
-pub fn recent(conn: &Connection, limit: u32) -> rusqlite::Result<Vec<Note>> {
-    let mut stmt = conn.prepare(
-        "SELECT n.id, n.content, n.created_at, t.path
-         FROM notes n
-         LEFT JOIN tag_links l ON l.target_type = 'note' AND l.target_id = n.id
-         LEFT JOIN tags t ON t.id = l.tag_id
-         WHERE n.id IN (SELECT id FROM notes ORDER BY id DESC LIMIT ?1)
-         ORDER BY n.id DESC, t.path",
-    )?;
-    let rows = stmt.query_map(params![limit], map_note_row)?;
-    fold_tag_rows(rows)
-}
-
-/// 删除笔记(事务):先删 tag_links 再删 note,最后精确回收"无链接且无子节点"的孤儿标签
-/// (父节点天生没有 tag_links 行,旧实现的"无链接即孤儿"会连带删掉整棵子树)。
-pub fn delete(conn: &mut Connection, id: i64) -> rusqlite::Result<()> {
-    let tx = conn.transaction()?;
-    tx.execute("DELETE FROM tag_links WHERE target_type='note' AND target_id=?1", params![id])?;
-    tx.execute("DELETE FROM notes WHERE id=?1", params![id])?;
-    crate::db::repos::tags_tree::gc_orphans(&tx)?;
-    tx.commit()
-}
-
-/// 读取单条完整笔记(含 tag_links 全量标签的**完整路径**,按 path 升序);无该 id 返回 None。
-/// 路径是树语义真源(同名末级可能出现在多个父级下),update/toggle_todo 事务内重读共用。
-pub(crate) fn read_full(conn: &Connection, id: i64) -> rusqlite::Result<Option<Note>> {
-    let mut stmt = conn.prepare(
-        "SELECT n.id, n.content, n.created_at, t.path
-         FROM notes n
-         LEFT JOIN tag_links l ON l.target_type = 'note' AND l.target_id = n.id
-         LEFT JOIN tags t ON t.id = l.tag_id
-         WHERE n.id = ?1 ORDER BY t.path",
-    )?;
-    let rows = stmt.query_map(params![id], map_note_row)?;
-    Ok(fold_tag_rows(rows)?.into_iter().next())
-}
+pub(crate) use notes_read::recent;
+pub(crate) use notes_read::{fold_tag_rows, map_note_row, read_full};
+pub use notes_read::delete;
 
 /// 条件对象(结构化筛选真源)与条件 -> SQL 片段生成 / 校验
 #[path = "notes_filter.rs"]
@@ -150,6 +124,10 @@ mod notes_filter_tests;
 #[cfg(test)]
 #[path = "notes_tests.rs"]
 mod notes_tests;
+
+#[cfg(test)]
+#[path = "notes_time_tests.rs"]
+mod notes_time_tests;
 
 #[cfg(test)]
 #[path = "notes_strip_tests.rs"]

@@ -28,8 +28,8 @@ fn f(kw: &str) -> FilterConditions {
 #[test]
 fn update_keeps_nested_tag_of_other_note() {
     let mut c = db();
-    let a = notes::create(&mut c, "一 #a/b").unwrap();
-    let b = notes::create(&mut c, "二 #a/b").unwrap();
+    let a = notes::create_plain(&mut c, "一 #a/b").unwrap();
+    let b = notes::create_plain(&mut c, "二 #a/b").unwrap();
 
     notes::update(&mut c, a.id, "一改").unwrap();
 
@@ -51,8 +51,8 @@ fn update_keeps_nested_tag_of_other_note() {
 #[test]
 fn delete_keeps_nested_tag_of_other_note() {
     let mut c = db();
-    let a = notes::create(&mut c, "一 #a/b").unwrap();
-    let b = notes::create(&mut c, "二 #a/b").unwrap();
+    let a = notes::create_plain(&mut c, "一 #a/b").unwrap();
+    let b = notes::create_plain(&mut c, "二 #a/b").unwrap();
 
     notes::delete(&mut c, a.id).unwrap();
 
@@ -69,7 +69,7 @@ fn delete_keeps_nested_tag_of_other_note() {
 #[test]
 fn update_keeps_unchanged_tag_node_identity() {
     let mut c = db();
-    let a = notes::create(&mut c, "旧 #保持 #换掉").unwrap();
+    let a = notes::create_plain(&mut c, "旧 #保持 #换掉").unwrap();
     let keep = id_at(&c, "保持");
 
     notes::update(&mut c, a.id, "新 #保持 #新增").unwrap();
@@ -83,8 +83,8 @@ fn update_keeps_unchanged_tag_node_identity() {
 #[test]
 fn update_keeps_legacy_tag_used_by_other_note() {
     let mut c = db();
-    let a = notes::create(&mut c, "a").unwrap();
-    let b = notes::create(&mut c, "b").unwrap();
+    let a = notes::create_plain(&mut c, "a").unwrap();
+    let b = notes::create_plain(&mut c, "b").unwrap();
     // 模拟 006 原样保留的存量平铺标签(先建笔记再插标签,否则会被无引用回收扫掉)
     c.execute(
         "INSERT INTO tags(name, parent_id, path, depth) VALUES('工作 计划', NULL, '工作 计划', 1)",

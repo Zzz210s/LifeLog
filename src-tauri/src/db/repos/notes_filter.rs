@@ -39,13 +39,9 @@ pub fn empty() -> FilterConditions {
     FilterConditions::default()
 }
 
-/// 排序片段:`oldest` 升序,其余(含缺失)降序
-pub fn order_clause(c: &FilterConditions) -> &'static str {
-    if c.sort.as_deref() == Some("oldest") {
-        "n.id ASC"
-    } else {
-        "n.id DESC"
-    }
+/// 排序方向:仅显式 `oldest` 为最早在前,其余(含缺失)最新在前
+pub fn oldest_first(c: &FilterConditions) -> bool {
+    c.sort.as_deref() == Some("oldest")
 }
 
 /// 单个标签的匹配子句:含子级时"自身或 `path + "/"` 开头",否则精确等于。
@@ -106,14 +102,10 @@ pub fn where_clause(c: &FilterConditions) -> (String, Vec<Value>) {
         _ => {}
     }
     if let Some(f) = c.from.as_deref() {
-        clauses.push("n.created_at >= ?".into());
-        args.push(Value::Text(f.to_string()));
+        clauses.push(time_range(">=", f, &mut args));
     }
-    // 结束日精确到当天:created_at 形如 `YYYY-MM-DD HH:MM:SS`,拼接 ISO 的 'T23:59:59' 后
-    // 空格(0x20)小于 'T',当天全部时刻都满足 <=,字典序比较正确。
     if let Some(t) = c.to.as_deref() {
-        clauses.push("n.created_at <= ? || 'T23:59:59'".into());
-        args.push(Value::Text(t.to_string()));
+        clauses.push(time_range("<=", t, &mut args));
     }
     let mut out = String::from("1=1");
     for cl in clauses {
@@ -122,6 +114,21 @@ pub fn where_clause(c: &FilterConditions) -> (String, Vec<Value>) {
         out.push_str(&cl);
     }
     (out, args)
+}
+
+/// 日期范围条件(D2:不再触碰 created_at):比较该笔记的时间标签路径与
+/// `时间排序/<Y>/<M>/<D>` 边界(年/月/日零填充,字典序即时间序;端点当天包含在内)。
+/// 日期非法(未经 [`validate`])时给出恒假条件:宁可查不到,也不放宽语义。
+fn time_range(op: &str, date: &str, args: &mut Vec<Value>) -> String {
+    let Some(bound) = crate::timetag::path_for_date(date) else {
+        return "0=1".to_string();
+    };
+    args.push(Value::Text(bound));
+    format!(
+        "EXISTS (SELECT 1 FROM tag_links l JOIN tags t ON t.id = l.tag_id \
+         WHERE l.target_type = 'note' AND l.target_id = n.id AND {} AND t.path {op} ?)",
+        crate::timetag::sql_is_time_path("t")
+    )
 }
 
 /// 校验(后端为唯一权威;前端只做即时提示):返回中文原因或 `Ok(())`
@@ -142,12 +149,12 @@ pub fn validate(c: &FilterConditions) -> Result<(), String> {
         }
     }
     if let Some(f) = c.from.as_deref() {
-        if !is_iso_date(f) {
+        if !crate::timetag::is_iso_date(f) {
             return Err("开始日期格式不正确(应为 YYYY-MM-DD)".into());
         }
     }
     if let Some(t) = c.to.as_deref() {
-        if !is_iso_date(t) {
+        if !crate::timetag::is_iso_date(t) {
             return Err("结束日期格式不正确(应为 YYYY-MM-DD)".into());
         }
     }
@@ -167,31 +174,4 @@ pub fn validate(c: &FilterConditions) -> Result<(), String> {
         }
     }
     Ok(())
-}
-
-/// ISO 日期(`YYYY-MM-DD`)格式 + 基本日历合法性(闰年 2 月按公历判定)
-fn is_iso_date(s: &str) -> bool {
-    let b = s.as_bytes();
-    if b.len() != 10 || b[4] != b'-' || b[7] != b'-' {
-        return false;
-    }
-    if !b.iter().enumerate().all(|(i, c)| i == 4 || i == 7 || c.is_ascii_digit()) {
-        return false;
-    }
-    let num = |a: usize, z: usize| s[a..z].parse::<u32>().ok();
-    match (num(0, 4), num(5, 7), num(8, 10)) {
-        (Some(y), Some(m), Some(d)) => y >= 1 && (1..=12).contains(&m) && d >= 1 && d <= days_in_month(y, m),
-        _ => false,
-    }
-}
-
-/// 指定年月的天数
-fn days_in_month(y: u32, m: u32) -> u32 {
-    match m {
-        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
-        4 | 6 | 9 | 11 => 30,
-        2 if y % 4 == 0 && (y % 100 != 0 || y % 400 == 0) => 29,
-        2 => 28,
-        _ => 0,
-    }
 }

@@ -32,7 +32,7 @@ fn view_conds_json(c: &Connection, id: i64) -> String {
 #[test]
 fn rename_cascades_saved_view_paths() {
     let mut c = db();
-    notes::create(&mut c, "a #工作/项目A").unwrap();
+    notes::create_plain(&mut c, "a #工作/项目A").unwrap();
     let vid = views::create(
         &c,
         "视图甲",
@@ -63,8 +63,8 @@ fn rename_cascades_saved_view_paths() {
 #[test]
 fn move_cascades_saved_view_paths() {
     let mut c = db();
-    notes::create(&mut c, "a #工作/项目A").unwrap();
-    notes::create(&mut c, "b #生活").unwrap();
+    notes::create_plain(&mut c, "a #工作/项目A").unwrap();
+    notes::create_plain(&mut c, "b #生活").unwrap();
     views::create(
         &c,
         "视图乙",
@@ -86,8 +86,8 @@ fn move_cascades_saved_view_paths() {
 #[test]
 fn delete_subtree_drops_deleted_conditions() {
     let mut c = db();
-    notes::create(&mut c, "a #工作/项目A").unwrap();
-    notes::create(&mut c, "b #todo").unwrap();
+    notes::create_plain(&mut c, "a #工作/项目A").unwrap();
+    notes::create_plain(&mut c, "b #todo").unwrap();
     views::create(
         &c,
         "视图丙",
@@ -112,7 +112,7 @@ fn delete_subtree_drops_deleted_conditions() {
 #[test]
 fn bad_json_row_untouched_by_cascade() {
     let mut c = db();
-    notes::create(&mut c, "a #工作").unwrap();
+    notes::create_plain(&mut c, "a #工作").unwrap();
     c.execute(
         "INSERT INTO saved_views(title, conditions, sort_order, created_at)
          VALUES('坏行', '{bad json', 0, datetime('now','localtime'))",

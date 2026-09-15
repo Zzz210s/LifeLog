@@ -58,7 +58,7 @@ fn hits(c: &Connection, kw: &str) -> usize {
 #[test]
 fn rename_updates_whole_subtree_paths_and_fts() {
     let mut c = db();
-    notes::create(&mut c, "会议记录 #工作/项目A").unwrap();
+    notes::create_plain(&mut c, "会议记录 #工作/项目A").unwrap();
     let root = id_at(&c, "工作");
 
     rename(&mut c, root, "事业").unwrap();
@@ -78,8 +78,8 @@ fn rename_updates_whole_subtree_paths_and_fts() {
 #[test]
 fn move_to_reparents_and_rewrites_paths() {
     let mut c = db();
-    notes::create(&mut c, "a #工作/项目A").unwrap();
-    notes::create(&mut c, "b #生活").unwrap();
+    notes::create_plain(&mut c, "a #工作/项目A").unwrap();
+    notes::create_plain(&mut c, "b #生活").unwrap();
     let leaf = id_at(&c, "工作/项目A");
     let life = id_at(&c, "生活");
 
@@ -100,7 +100,7 @@ fn move_to_reparents_and_rewrites_paths() {
 #[test]
 fn move_into_own_subtree_rejected_and_db_untouched() {
     let mut c = db();
-    notes::create(&mut c, "a #工作/项目A").unwrap();
+    notes::create_plain(&mut c, "a #工作/项目A").unwrap();
     let root = id_at(&c, "工作");
     let leaf = id_at(&c, "工作/项目A");
     let before = dump(&c);
@@ -133,10 +133,10 @@ fn move_beyond_max_depth_rejected_and_db_untouched() {
 #[test]
 fn same_level_duplicate_rejected() {
     let mut c = db();
-    notes::create(&mut c, "a #工作").unwrap();
-    notes::create(&mut c, "b #生活").unwrap();
-    notes::create(&mut c, "c #工作/项目A").unwrap();
-    notes::create(&mut c, "d #项目A").unwrap();
+    notes::create_plain(&mut c, "a #工作").unwrap();
+    notes::create_plain(&mut c, "b #生活").unwrap();
+    notes::create_plain(&mut c, "c #工作/项目A").unwrap();
+    notes::create_plain(&mut c, "d #项目A").unwrap();
     let life = id_at(&c, "生活");
     let other = id_at(&c, "项目A");
 
@@ -155,7 +155,7 @@ fn same_level_duplicate_rejected() {
 #[test]
 fn delete_subtree_removes_tags_keeps_notes() {
     let mut c = db();
-    notes::create(&mut c, "纪要 #工作/项目A").unwrap();
+    notes::create_plain(&mut c, "纪要 #工作/项目A").unwrap();
     let root = id_at(&c, "工作");
 
     assert_eq!(impact(&c, root).unwrap(), (1, 1));
@@ -174,7 +174,7 @@ fn delete_subtree_removes_tags_keeps_notes() {
 #[test]
 fn delete_missing_tag_rolls_back() {
     let mut c = db();
-    notes::create(&mut c, "x #工作/项目A").unwrap();
+    notes::create_plain(&mut c, "x #工作/项目A").unwrap();
     let before = dump(&c);
     assert!(delete_subtree(&mut c, 9999).is_err());
     assert_eq!(dump(&c), before);

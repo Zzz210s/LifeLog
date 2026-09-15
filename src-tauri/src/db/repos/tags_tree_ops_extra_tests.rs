@@ -24,7 +24,7 @@ fn id_at(c: &Connection, path: &str) -> i64 {
 #[test]
 fn impact_second_is_distinct_note_count() {
     let mut c = db();
-    let n = notes::create(&mut c, "纪要 #工作 #工作/项目A").unwrap();
+    let n = notes::create_plain(&mut c, "纪要 #工作 #工作/项目A").unwrap();
     let root = id_at(&c, "工作");
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tag_links WHERE tag_id IN (SELECT id FROM tags)"), 2);
     assert_eq!(impact(&c, root).unwrap(), (1, 1), "两行链接指向同一条笔记,笔记数仍为 1");
@@ -35,7 +35,7 @@ fn impact_second_is_distinct_note_count() {
 #[test]
 fn move_out_last_child_recycles_emptied_parent() {
     let mut c = db();
-    notes::create(&mut c, "纪要 #工作/项目A").unwrap();
+    notes::create_plain(&mut c, "纪要 #工作/项目A").unwrap();
     let leaf = id_at(&c, "工作/项目A");
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags"), 2);
 

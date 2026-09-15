@@ -75,7 +75,7 @@ fn ensure_path_creates_ancestors_once() {
 #[test]
 fn link_only_on_leaf_keeps_parent_uncounted() {
     let mut c = db();
-    notes::create(&mut c, "开会记录 #工作/项目A").unwrap();
+    notes::create_plain(&mut c, "开会记录 #工作/项目A").unwrap();
     let list = counts(&c).unwrap();
     let parent = list.iter().find(|t| t.path == "工作").unwrap();
     let leaf = list.iter().find(|t| t.path == "工作/项目A").unwrap();
@@ -89,8 +89,8 @@ fn link_only_on_leaf_keeps_parent_uncounted() {
 #[test]
 fn counts_self_and_subtree() {
     let mut c = db();
-    notes::create(&mut c, "a #工作").unwrap();
-    notes::create(&mut c, "b #工作/项目A").unwrap();
+    notes::create_plain(&mut c, "a #工作").unwrap();
+    notes::create_plain(&mut c, "b #工作/项目A").unwrap();
     let list = counts(&c).unwrap();
     let parent = list.iter().find(|t| t.path == "工作").unwrap();
     let leaf = list.iter().find(|t| t.path == "工作/项目A").unwrap();
@@ -104,8 +104,8 @@ fn counts_self_and_subtree() {
 #[test]
 fn complete_returns_prefix_paths_and_treats_chars_literally() {
     let mut c = db();
-    notes::create(&mut c, "a #工作/项目A").unwrap();
-    notes::create(&mut c, "b #生活").unwrap();
+    notes::create_plain(&mut c, "a #工作/项目A").unwrap();
+    notes::create_plain(&mut c, "b #生活").unwrap();
     // 存量根名可能含 % / _(006 原样保留),故前缀比较用 substr 而非 LIKE
     c.execute_batch(
         "INSERT INTO tags(name, parent_id, path, depth) VALUES('a%b', NULL, 'a%b', 1);
@@ -156,7 +156,7 @@ fn create_with_legacy_flat_name_builds_two_level_tree() {
         [],
     )
     .unwrap();
-    let n = notes::create(&mut c, "记一笔 #待定/TBD").unwrap();
+    let n = notes::create_plain(&mut c, "记一笔 #待定/TBD").unwrap();
     assert_eq!(n.tags, vec!["待定/TBD"]);
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags"), 2);
     let leaf = id_at(&c, "待定/TBD");
@@ -174,7 +174,7 @@ fn create_with_legacy_flat_name_builds_two_level_tree() {
 fn gc_orphans_keeps_parents_with_children_and_prunes_dead_chain() {
     let mut c = db();
     ensure_path(&c, &segs(&["a", "b"])).unwrap();
-    let n = notes::create(&mut c, "x #a/b").unwrap();
+    let n = notes::create_plain(&mut c, "x #a/b").unwrap();
     assert_eq!(id_at(&c, "a/b"), ensure_path(&c, &segs(&["a", "b"])).unwrap());
 
     gc_orphans(&c).unwrap();

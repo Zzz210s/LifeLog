@@ -1,7 +1,7 @@
 //! update/toggle_todo 测试(测试先行 TDD)
 use super::*;
 use crate::db::migrate;
-use crate::db::repos::notes::{create, notes_filter::*, query};
+use crate::db::repos::notes::{create_plain, notes_filter::*, query};
 use rusqlite::Connection;
 
 fn db() -> Connection {
@@ -23,7 +23,7 @@ fn count(c: &Connection, sql: &str, params: &[&dyn rusqlite::ToSql]) -> i64 {
 #[test]
 fn update_replaces_links_and_cleans_orphans() {
     let mut c = db();
-    let n = create(&mut c, "旧文 #甲标签").unwrap();
+    let n = create_plain(&mut c, "旧文 #甲标签").unwrap();
     let upd = update(&mut c, n.id, "新文 #乙标签").unwrap().unwrap();
     // 返回全量 tags 与剥离后正文
     assert_eq!(upd.id, n.id);
@@ -50,8 +50,8 @@ fn update_replaces_links_and_cleans_orphans() {
 #[test]
 fn update_keeps_tag_shared_with_other_note() {
     let mut c = db();
-    let a = create(&mut c, "a #共用").unwrap();
-    create(&mut c, "b #共用").unwrap();
+    let a = create_plain(&mut c, "a #共用").unwrap();
+    create_plain(&mut c, "b #共用").unwrap();
     update(&mut c, a.id, "改了 #别的").unwrap();
     // 共用标签仍被 b 引用,孤儿清理不得误删
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE name='共用'", &[]), 1);
@@ -66,14 +66,14 @@ fn update_keeps_tag_shared_with_other_note() {
 #[test]
 fn update_returns_none_for_missing_id() {
     let mut c = db();
-    create(&mut c, "存在 #x").unwrap();
+    create_plain(&mut c, "存在 #x").unwrap();
     assert!(update(&mut c, 9999, "不存在 #y").unwrap().is_none());
 }
 
 #[test]
 fn update_writes_content_and_bumps_updated_at() {
     let mut c = db();
-    let n = create(&mut c, "旧正文 #甲").unwrap();
+    let n = create_plain(&mut c, "旧正文 #甲").unwrap();
     // 手工回拨 updated_at 避免同秒分辨率掩盖变化
     c.execute("UPDATE notes SET updated_at='2000-01-01 00:00:00' WHERE id=?1", [n.id])
         .unwrap();
@@ -89,7 +89,7 @@ fn update_writes_content_and_bumps_updated_at() {
 #[test]
 fn update_keeps_fts_in_sync() {
     let mut c = db();
-    let n = create(&mut c, "旧正文 #甲标签").unwrap();
+    let n = create_plain(&mut c, "旧正文 #甲标签").unwrap();
     update(&mut c, n.id, "新正文 #乙标签").unwrap().unwrap();
     // 新词可检索(正文列)
     assert_eq!(query(&c, &f(Some("新正文")), 0).unwrap().len(), 1);
@@ -103,7 +103,7 @@ fn update_keeps_fts_in_sync() {
 #[test]
 fn toggle_todo_swaps_to_done_with_content_intact() {
     let mut c = db();
-    let n = create(&mut c, "买牛奶 #todo").unwrap();
+    let n = create_plain(&mut c, "买牛奶 #todo").unwrap();
     let t = toggle_todo(&mut c, n.id).unwrap().unwrap();
     assert_eq!(t.id, n.id);
     assert_eq!(t.content, "买牛奶"); // 正文不动,仅标签集合切换
@@ -126,7 +126,7 @@ fn toggle_todo_swaps_to_done_with_content_intact() {
 #[test]
 fn toggle_todo_swaps_done_back_to_todo() {
     let mut c = db();
-    let n = create(&mut c, "已完成事项 #done").unwrap();
+    let n = create_plain(&mut c, "已完成事项 #done").unwrap();
     let t = toggle_todo(&mut c, n.id).unwrap().unwrap();
     assert_eq!(t.tags, vec!["todo"]);
     assert_eq!(t.content, "已完成事项");
@@ -135,7 +135,7 @@ fn toggle_todo_swaps_done_back_to_todo() {
 #[test]
 fn toggle_todo_untagged_note_unchanged() {
     let mut c = db();
-    let n = create(&mut c, "普通 #随笔").unwrap();
+    let n = create_plain(&mut c, "普通 #随笔").unwrap();
     c.execute("UPDATE notes SET updated_at='2000-01-01 00:00:00' WHERE id=?1", [n.id])
         .unwrap();
     let t = toggle_todo(&mut c, n.id).unwrap().unwrap();
@@ -152,14 +152,14 @@ fn toggle_todo_untagged_note_unchanged() {
 #[test]
 fn toggle_todo_missing_returns_none() {
     let mut c = db();
-    create(&mut c, "存在").unwrap();
+    create_plain(&mut c, "存在").unwrap();
     assert!(toggle_todo(&mut c, 9999).unwrap().is_none());
 }
 
 #[test]
 fn toggle_todo_keeps_fts_in_sync() {
     let mut c = db();
-    let n = create(&mut c, "#todo 任务一").unwrap();
+    let n = create_plain(&mut c, "#todo 任务一").unwrap();
     toggle_todo(&mut c, n.id).unwrap().unwrap();
     // 切到 done 后:done 可检索、todo 不再命中(tags 列聚合)
     assert_eq!(query(&c, &f(Some("done")), 0).unwrap().len(), 1);
