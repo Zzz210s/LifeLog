@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "app-lifelog",
+  "productName": "LifeLog",
   "version": "0.1.0",
-  "identifier": "app.lifelog",
+  "identifier": "com.lifelog.app",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:5173",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "生活数据库",
+        "title": "LifeLog",
         "url": "index.html",
         "width": 1100,
         "height": 720,

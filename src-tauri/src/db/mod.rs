@@ -1,5 +1,6 @@
 pub mod backup;
 pub mod backup_warning;
+pub mod data_dir_migration;
 pub mod migrate;
 pub mod repos;
 
@@ -134,3 +135,7 @@ mod tests {
 #[cfg(test)]
 #[path = "open_failure_tests.rs"]
 mod open_failure_tests;
+
+#[cfg(test)]
+#[path = "data_dir_migration_tests.rs"]
+mod data_dir_migration_tests;

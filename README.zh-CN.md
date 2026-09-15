@@ -1,8 +1,8 @@
 [English](README.md) | 简体中文
 
-# app-lifelog 生活数据库
+# LifeLog
 
-本地优先的个人生活数据库:一条信息流记录一切,#标签自动归类,可搜索、筛选、导出 Excel。
+本地优先的个人生活记录:一条信息流记录一切,#标签自动归类,可搜索、筛选、导出 Excel。
 
 日记、电影、小说、电视剧、待办、旅游笔记与计划都放在同一条信息流里。没有按领域划分的模块 ——
 每条笔记就是一条记录,正文里的 `#标签` 自动完成归类。
@@ -87,7 +87,7 @@
 ### 直接下载(Windows 11 x64)
 
 从 [Releases](https://github.com/Zzz210s/app-lifelog/releases) 下载安装包(`*-setup.exe`)并运行;
-缺少 WebView2 时安装器会自动引导安装。也可以只取其中的绿色版 `app-lifelog.exe`,双击即用。
+缺少 WebView2 时安装器会自动引导安装。也可以只取其中的绿色版 `LifeLog.exe`,双击即用。
 
 ### 从源码构建
 
@@ -100,8 +100,8 @@ pnpm tauri build
 
 产物:
 
-- `src-tauri/target/release/app-lifelog.exe` —— 绿色版可执行文件
-- `src-tauri/target/release/bundle/nsis/app-lifelog_0.1.0_x64-setup.exe` —— 安装包
+- `src-tauri/target/release/LifeLog.exe` —— 绿色版可执行文件
+- `src-tauri/target/release/bundle/nsis/LifeLog_0.1.0_x64-setup.exe` —— 安装包
 
 ## 使用
 
@@ -153,7 +153,7 @@ pnpm tauri build
 
 ## 数据与存储
 
-- 数据库:`%APPDATA%\app.lifelog\lifelog.db`(SQLite,WAL)。删除该文件即完全重置。
+- 数据库:`%APPDATA%\com.lifelog.app\lifelog.db`(SQLite,WAL)。删除该文件即完全重置。
 - 搜索索引:同一文件内的 FTS5 虚拟表,由触发器保持同步。
 - Excel 导出:写到保存对话框指定的位置,不上传任何数据。
 - 旧版中无法按当前语法解析的标签名(如含空格)会原样保留;下次编辑并保存该笔记时会按新语法重新解析。
@@ -170,7 +170,7 @@ pnpm test               # vitest
 cd src-tauri && cargo test
 ```
 
-当前验证状态:前端 121 条测试、Rust 80 条测试,typecheck 与 build 通过。
+当前验证状态:前端 214 条测试、Rust 216 条测试,typecheck 与 build 通过。
 
 通过 CDP 调试 webview:`pnpm tauri dev` 前设置
 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9222`,再访问

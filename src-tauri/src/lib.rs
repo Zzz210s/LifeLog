@@ -56,6 +56,21 @@ pub fn run() {
             commands::windowing::end_input_drag,
         ])
         .setup(|app| {
+            // identifier 由 app.lifelog 改为 com.lifelog.app 后,数据目录也随之改变:
+            // 先把旧数据目录的数据库复制到新目录,再打开新库(只复制不移动,旧目录原样保留
+            // 作回退)。失败与数据库初始化失败同等处理 —— 弹中文对话框说明原因并以退出码 1
+            // 退出,绝不静默用空库继续(那会让用户以为数据丢了)。
+            if let Err(reason) = db::data_dir_migration::migrate_for_app(app.handle()) {
+                eprintln!("数据目录迁移失败(应用将以退出码 1 退出): {reason}");
+                startup_report::show_failure(
+                    app.handle(),
+                    &db::OpenFailure {
+                        reason,
+                        backup: None,
+                    },
+                );
+                return Ok(());
+            }
             // 数据库初始化失败不能 panic(用户只会看到闪退、拿不到原因):弹中文对话框说明
             // 失败原因与已生成的备份,用户确认后以退出码 1 正常退出;迁移成功但备份失败时
             // 给一个不阻断的警告(应用照常可用)。

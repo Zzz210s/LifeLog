@@ -1,6 +1,6 @@
 English | [简体中文](README.zh-CN.md)
 
-# app-lifelog
+# LifeLog
 
 A local-first personal life database: capture with #tags, search, filter, and export to Excel.
 
@@ -103,7 +103,7 @@ The window *is* the input box: no frame, no title bar, no buttons, transparent s
 
 Download the installer (`*-setup.exe`) from the
 [releases page](https://github.com/Zzz210s/app-lifelog/releases) and run it; it bootstraps WebView2
-if that is missing. The release also carries the standalone `app-lifelog.exe`, which needs no
+if that is missing. The release also carries the standalone `LifeLog.exe`, which needs no
 installation.
 
 ### From source
@@ -117,8 +117,8 @@ pnpm tauri build
 
 Artifacts:
 
-- `src-tauri/target/release/app-lifelog.exe` — standalone executable
-- `src-tauri/target/release/bundle/nsis/app-lifelog_0.1.0_x64-setup.exe` — installer
+- `src-tauri/target/release/LifeLog.exe` — standalone executable
+- `src-tauri/target/release/bundle/nsis/LifeLog_0.1.0_x64-setup.exe` — installer
 
 ## Usage
 
@@ -186,7 +186,7 @@ the FTS index in sync on insert, update and delete.
 
 ## Data and storage
 
-- Database: `%APPDATA%\app.lifelog\lifelog.db` (SQLite, WAL). Delete this file to start over.
+- Database: `%APPDATA%\com.lifelog.app\lifelog.db` (SQLite, WAL). Delete this file to start over.
 - Search index: an FTS5 virtual table inside the same file, kept in sync by triggers.
 - Excel export: written wherever you point the save dialog; nothing is uploaded.
 - Legacy tag names that the current syntax cannot parse (for example names with spaces) are kept as-is; they are re-parsed with the new syntax the next time you edit and save that note.
@@ -203,7 +203,7 @@ pnpm test               # vitest
 cd src-tauri && cargo test
 ```
 
-Verification status at the time of writing: 121 frontend tests, 80 Rust tests, typecheck and build
+Verification status at the time of writing: 214 frontend tests, 216 Rust tests, typecheck and build
 clean.
 
 Debugging the webviews over CDP: set

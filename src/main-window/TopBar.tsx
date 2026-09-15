@@ -28,7 +28,7 @@ export function TopBar({ view, sidebarVisible, onToggleSidebar, onOpenSettings, 
             <line x1="9" y1="4" x2="9" y2="20" />
           </svg>
         </button>
-        生活数据库
+        LifeLog
       </span>
       {view === 'stream' ? (
         <button
