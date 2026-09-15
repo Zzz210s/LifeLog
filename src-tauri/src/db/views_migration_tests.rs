@@ -1,6 +1,6 @@
-//! 007 自建视图迁移测试:①user_version=7 且表与索引齐备 ②幂等(版本闸门 + SQL 本体可重放)
+//! 007 自建视图迁移测试:①user_version 推进到最新且表与索引齐备 ②幂等(版本闸门 + SQL 本体可重放)
 //! ③迁移前生成备份(走 db::open 的完整链路) ④旧库数据(笔记/标签/链接)不变。
-use super::{run, MIGRATIONS};
+use super::{apply, latest_version, run, MIGRATIONS};
 use crate::db::open;
 use rusqlite::Connection;
 use std::path::{Path, PathBuf};
@@ -52,12 +52,13 @@ fn v6_file(path: &Path) {
     .unwrap();
 }
 
-/// ① 迁移后 user_version=7,saved_views 表五列齐备,排序索引存在
+/// ① 迁移后版本推进到最新,saved_views 表五列齐备,排序索引存在
 #[test]
 fn migration_007_creates_table_and_bumps_version() {
     let conn = old_db();
     run(&conn).unwrap();
-    assert_eq!(count(&conn, "PRAGMA user_version"), 7);
+    assert!(count(&conn, "PRAGMA user_version") >= 7);
+    assert_eq!(count(&conn, "PRAGMA user_version"), latest_version());
     assert_eq!(
         count(&conn, "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='saved_views'"),
         1
@@ -122,7 +123,7 @@ fn migration_007_backs_up_before_running() {
         0,
         "备份不应已含新表"
     );
-    assert_eq!(count(&report.conn, "PRAGMA user_version"), 7, "主库应已升级");
+    assert_eq!(count(&report.conn, "PRAGMA user_version"), latest_version(), "主库应已升级");
     assert!(report.backup_warning.is_none());
 }
 
@@ -148,8 +149,11 @@ fn migration_007_keeps_existing_data_untouched() {
     };
     let before = snapshot(&conn);
 
-    run(&conn).unwrap();
+    // 只应用 007 本体:本用例关注 007 的 SQL 是否动既有数据,
+    // 后续迁移(008 时间标签回填)另有专门用例(见 time_tag_migration_tests.rs)
+    apply(&conn, MIGRATIONS[V_007 - 1], V_007 as i64).unwrap();
 
     assert_eq!(snapshot(&conn), before, "007 不得动既有笔记/标签/链接数据");
+    assert_eq!(count(&conn, "PRAGMA user_version"), 7);
     assert_eq!(count(&conn, "PRAGMA foreign_keys"), 1, "迁移后外键必须保持 ON");
 }

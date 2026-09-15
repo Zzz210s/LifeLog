@@ -8,7 +8,23 @@ const MIGRATIONS: &[&str] = &[
     include_str!("migrations/005_rename_keys.sql"),
     include_str!("migrations/006_tag_tree.sql"),
     include_str!("migrations/007_saved_views.sql"),
+    include_str!("migrations/008_time_tags.sql"),
 ];
+
+/// 008 回填时间标签:created_at 无法解析的笔记会被跳过。SQL 迁移里写不了日志,
+/// 故在应用该迁移前先把被跳过的清单打到 stderr(迁移日志的一部分,见模块下方)。
+const TIME_TAG_VERSION: i64 = 8;
+
+/// 008 之前提示:列出 created_at 解析不出日期的笔记(它们拿不到时间标签)
+fn warn_unparseable_created_at(conn: &Connection) -> rusqlite::Result<()> {
+    let mut stmt = conn.prepare("SELECT id, created_at FROM notes WHERE date(created_at) IS NULL")?;
+    let rows = stmt.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))?;
+    for row in rows {
+        let (id, created_at) = row?;
+        eprintln!("迁移 008:笔记 {id} 的 created_at 无法解析,跳过时间标签回填:{created_at}");
+    }
+    Ok(())
+}
 
 /// 需要临时关闭外键约束的迁移:重建仍被 tag_links 引用的父表时,外键 ON 会让
 /// DROP TABLE tags 沿 ON DELETE CASCADE 把 tag_links 数据级联删空。
@@ -35,6 +51,9 @@ pub fn run(conn: &Connection) -> rusqlite::Result<()> {
         let v = (i + 1) as i64;
         if v <= current {
             continue;
+        }
+        if v == TIME_TAG_VERSION {
+            warn_unparseable_created_at(conn)?;
         }
         let fk_off = FK_OFF_VERSIONS.contains(&v);
         if fk_off {
@@ -67,127 +86,9 @@ mod views_migration_tests;
 mod migration_atomicity_tests;
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use rusqlite::Connection;
+#[path = "time_tag_migration_tests.rs"]
+mod time_tag_migration_tests;
 
-    #[test]
-    fn migrations_create_tables_and_bump_version() {
-        let conn = Connection::open_in_memory().unwrap();
-        run(&conn).unwrap();
-        let v: i64 = conn
-            .query_row("PRAGMA user_version", [], |r| r.get(0))
-            .unwrap();
-        assert_eq!(v, MIGRATIONS.len() as i64);
-        for table in ["settings", "tags", "tag_links", "notes"] {
-            let n: i64 = conn
-                .query_row(
-                    "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?1",
-                    [table],
-                    |r| r.get(0),
-                )
-                .unwrap();
-            assert_eq!(n, 1, "table missing: {table}");
-        }
-    }
-
-    #[test]
-    fn migrations_are_idempotent() {
-        let conn = Connection::open_in_memory().unwrap();
-        run(&conn).unwrap();
-        run(&conn).unwrap(); // 第二次应为 no-op 不报错
-    }
-
-    #[test]
-    fn migration_003_drops_diary_and_adds_fts() {
-        let conn = Connection::open_in_memory().unwrap();
-        run(&conn).unwrap();
-        // v2 信息流:diary 表移除
-        let diary: i64 = conn
-            .query_row(
-                "SELECT COUNT(*) FROM sqlite_master WHERE name='diary_entries'",
-                [],
-                |r| r.get(0),
-            )
-            .unwrap();
-        assert_eq!(diary, 0);
-        // FTS 虚表与五个同步触发器齐备
-        for name in [
-            "notes_fts",
-            "notes_ai",
-            "notes_ad",
-            "notes_au",
-            "tag_links_ai",
-            "tag_links_ad",
-        ] {
-            let n: i64 = conn
-                .query_row(
-                    "SELECT COUNT(*) FROM sqlite_master WHERE name=?1",
-                    [name],
-                    |r| r.get(0),
-                )
-                .unwrap();
-            assert_eq!(n, 1, "missing: {name}");
-        }
-        // 三条中文笔记入索引(触发器自动同步)
-        let mut conn = conn;
-        for text in ["今天心情很好", "天气不错", "看完了 #电影 神作"] {
-            crate::db::repos::notes::create(&mut conn, text).unwrap();
-        }
-        let fts: i64 = conn
-            .query_row("SELECT COUNT(*) FROM notes_fts", [], |r| r.get(0))
-            .unwrap();
-        assert_eq!(fts, 3);
-    }
-
-    /// 升级路径:旧库(阶段 4 前)已有笔记,迁移必须回填 FTS 行,否则 >=3 字符关键词
-    /// 走 FTS 分支永久搜不到;触发器只覆盖迁移之后的新增/变更,不覆盖历史数据。
-    #[test]
-    fn migration_backfills_fts_for_preexisting_notes() {
-        use crate::db::repos::notes::{notes_filter::*, query};
-        let conn = Connection::open_in_memory().unwrap();
-        // 仅应用 001/002 并把 user_version 停在 2:模拟阶段 4 之前的库
-        conn.execute_batch(MIGRATIONS[0]).unwrap();
-        conn.execute_batch(MIGRATIONS[1]).unwrap();
-        conn.pragma_update(None, "user_version", 2i64).unwrap();
-        conn.execute_batch(
-            "INSERT INTO notes(content) VALUES('买牛奶');
-             INSERT INTO tags(name) VALUES('验收标签');
-             INSERT INTO tag_links(tag_id, target_type, target_id) VALUES(1, 'diary', 1);",
-        )
-        .unwrap();
-
-        run(&conn).unwrap();
-
-        // 回填后索引行数与笔记行数一致(触发器在场不等于历史数据已索引)
-        let notes: i64 = conn
-            .query_row("SELECT COUNT(*) FROM notes", [], |r| r.get(0))
-            .unwrap();
-        let fts: i64 = conn
-            .query_row("SELECT COUNT(*) FROM notes_fts", [], |r| r.get(0))
-            .unwrap();
-        assert_eq!(fts, notes, "notes_fts 未回填历史笔记");
-        // 3 字符中文关键词走 FTS 分支,迁移前的笔记必须命中
-        let hit = query(
-            &conn,
-            &FilterConditions { keyword: Some("买牛奶".into()), ..empty() },
-            0,
-        )
-        .unwrap();
-        assert_eq!(hit.len(), 1, "迁移前的笔记应可被 FTS 分支搜到");
-        assert_eq!(hit[0].content, "买牛奶");
-        // 004:v1 残留的 diary 链接与仅被它引用的孤儿 tag 清理掉
-        let stale: i64 = conn
-            .query_row(
-                "SELECT COUNT(*) FROM tag_links WHERE target_type <> 'note'",
-                [],
-                |r| r.get(0),
-            )
-            .unwrap();
-        assert_eq!(stale, 0, "非 note 的 v1 残留链接应清理");
-        let orphan: i64 = conn
-            .query_row("SELECT COUNT(*) FROM tags WHERE name='验收标签'", [], |r| r.get(0))
-            .unwrap();
-        assert_eq!(orphan, 0, "孤儿 tag 应清理");
-    }
-}
+#[cfg(test)]
+#[path = "migrate_tests.rs"]
+mod migrate_tests;

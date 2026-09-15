@@ -1,6 +1,6 @@
 //! 006 标签树迁移测试:①存量平铺标签根化 ②tag_links 不变 ③FTS 聚合路径
 //! ④幂等 ⑤非法名(含空格)保留。失败回滚见 migration_atomicity_tests。
-use super::{latest_version, run, MIGRATIONS};
+use super::{apply, latest_version, run, MIGRATIONS};
 use crate::db::repos::notes::{notes_filter::*, query};
 use rusqlite::Connection;
 
@@ -26,6 +26,15 @@ fn count(conn: &Connection, sql: &str) -> i64 {
 
 fn text(conn: &Connection, sql: &str) -> String {
     conn.query_row(sql, [], |r| r.get(0)).unwrap()
+}
+
+/// 只应用 006 本体(复现 run 对 006 的外键开关配对,但不带后续迁移):
+/// 本文件关注 006 的行为,008 时间标签回填另有专门用例
+/// (见 time_tag_migration_tests.rs),混在一起会让“不得动 tag_links”的断言被 008 新增的链污染。
+fn apply_006(conn: &Connection) {
+    conn.pragma_update(None, "foreign_keys", "OFF").unwrap();
+    apply(conn, MIGRATIONS[V_006 - 1], V_006 as i64).unwrap();
+    conn.pragma_update(None, "foreign_keys", "ON").unwrap();
 }
 
 /// tag_links 全量快照(排序后与顺序无关)
@@ -88,8 +97,9 @@ fn migration_006_keeps_tag_links_untouched() {
     .unwrap();
     let before = link_rows(&conn);
 
-    run(&conn).unwrap();
-
+    // 只应用 006 本体:本用例关注重建 tags 是否动 tag_links,
+    // 后续迁移(008 时间标签回填)另有专门用例(见 time_tag_migration_tests.rs)
+    apply_006(&conn);
     assert_eq!(link_rows(&conn), before, "重建 tags 不得动 tag_links 数据");
     assert_eq!(count(&conn, "SELECT COUNT(*) FROM tags"), 2);
     // 外键校验无违规,且外键开关已恢复为 ON(配对开关不能把连接留在 OFF)
@@ -106,8 +116,7 @@ fn migration_006_indexes_tag_paths_for_search() {
     )
     .unwrap();
 
-    run(&conn).unwrap();
-
+    apply_006(&conn);
     // 迁移后按新语法建二级节点 `工作/项目A`,链接落在末端
     conn.execute_batch(
         "INSERT INTO tags(name, parent_id, path, depth)
