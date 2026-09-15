@@ -7,8 +7,11 @@ use rusqlite::Connection;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-/// 迁移前历史备份的统一前缀(`lifelog.db.bak-*`)
+/// 迁移前历史备份的统一前缀(`lifelog.db.bak-`)
 pub const BACKUP_PREFIX: &str = "lifelog.db.bak-";
+
+/// 主库文件名(拼附属文件名用;与 `data_dir_migration::DB_FILE` 同值)
+const DB_NAME: &str = "lifelog.db";
 
 /// 主库之外需要一起复制的文件。
 ///
@@ -28,6 +31,30 @@ pub fn sidecars_to_copy(old_db: &Path) -> Vec<PathBuf> {
         files.push(journal);
     }
     files
+}
+
+/// 清掉新目录里本次**不会写入**的旧附属文件(`-wal` / `-journal` / `-shm`)。
+///
+/// 用于重试路径:上一次尝试可能已把 `-wal` 复制过去、随后因其它文件失败而中断;
+/// 若这次 checkpoint 成功(不再复制 `-wal`),那份过期副本会和新复制进来的主库并存,
+/// SQLite 打开时可能重放其中较早的页映像。复制主库前先清掉,避免出现这种组合。
+pub fn clear_stale_sidecars(new_dir: &Path, sources: &[PathBuf]) -> Result<(), String> {
+    let keep: Vec<String> = sources
+        .iter()
+        .filter_map(|p| p.file_name().and_then(|n| n.to_str()).map(str::to_string))
+        .collect();
+    for suffix in ["-wal", "-journal", "-shm"] {
+        let name = format!("{DB_NAME}{suffix}");
+        if keep.iter().any(|k| k == &name) {
+            continue;
+        }
+        let path = new_dir.join(&name);
+        if path.is_file() {
+            fs::remove_file(&path)
+                .map_err(|e| format!("清理过期附属文件失败({}):{e}", path.display()))?;
+        }
+    }
+    Ok(())
 }
 
 /// 把旧库待合并的 `-wal` 落进主库。返回是否「主库现已自足」。

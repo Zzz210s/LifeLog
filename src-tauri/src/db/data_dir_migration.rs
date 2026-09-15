@@ -17,7 +17,7 @@
 //! 复制采用「先写 `.part` 临时文件再改名」,任一步失败都清掉临时文件,
 //! 保证新目录里不会留下半成品(见 [`super::data_dir_copy`])。
 
-use crate::db::data_dir_copy::{backup_files, copy_atomic, sidecars_to_copy};
+use crate::db::data_dir_copy::{backup_files, clear_stale_sidecars, copy_atomic, sidecars_to_copy};
 use std::fs;
 use std::path::Path;
 use tauri::Manager;
@@ -34,7 +34,7 @@ pub enum Outcome {
     AlreadyPresent,
     /// 新旧目录都没有数据库(全新安装)
     Fresh,
-    /// 已把旧目录的文件复制到新目录,数量含主库与历史备份
+    /// 已把旧目录的文件复制到新目录,数量含主库、附属文件与历史备份
     Migrated { files: usize },
 }
 
@@ -83,6 +83,8 @@ pub fn migrate(new_dir: &Path, old_dir: &Path) -> Result<Outcome, String> {
     sources.push(old_db);
     fs::create_dir_all(new_dir)
         .map_err(|e| format!("创建新数据目录失败({}):{e}", new_dir.display()))?;
+    // 重试路径:先清掉新目录里本次不会写入的旧附属文件,避免过期 `-wal` 与新主库并存
+    clear_stale_sidecars(new_dir, &sources)?;
     for src in &sources {
         let name = src
             .file_name()

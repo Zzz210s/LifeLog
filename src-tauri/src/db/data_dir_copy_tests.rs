@@ -3,6 +3,7 @@
 //! 与 [`super::data_dir_migration_tests`] 的「流程」用例互补(WAL 合并成功、幂等、失败重试等)。
 //! 全部用临时目录,绝不触碰真实数据。
 
+use super::data_dir_copy::clear_stale_sidecars;
 use super::data_dir_migration::{migrate, Outcome, DB_FILE};
 use rusqlite::Connection;
 use std::fs;
@@ -96,4 +97,31 @@ fn stale_journal_is_copied_along_with_main_db() {
     );
     assert_eq!(bodies(&new.join(DB_FILE)), vec!["买牛奶".to_string()]);
     let _ = fs::remove_dir_all(&root);
+}
+
+#[test]
+fn stale_sidecars_are_cleared_but_kept_ones_survive() {
+    let root = temp_root("stale_sidecars");
+    let new_dir = root.join("com.lifelog.app");
+    fs::create_dir_all(&new_dir).unwrap();
+    // 新目录里留着上一次尝试的过期附属文件
+    for suffix in ["-wal", "-journal", "-shm"] {
+        fs::write(new_dir.join(format!("lifelog.db{suffix}")), b"stale").unwrap();
+    }
+    let old_db = root.join("app.lifelog").join("lifelog.db");
+    fs::create_dir_all(old_db.parent().unwrap()).unwrap();
+    fs::write(&old_db, b"main").unwrap();
+    // 本次不复制任何附属文件(只有主库):三者都应被清掉
+    clear_stale_sidecars(&new_dir, &[old_db.clone()]).unwrap();
+    for suffix in ["-wal", "-journal", "-shm"] {
+        assert!(!new_dir.join(format!("lifelog.db{suffix}")).exists());
+    }
+    // 本次要写入的附属文件保留不动(不能被误删)
+    let kept = new_dir.join("lifelog.db-wal");
+    fs::write(&kept, b"fresh").unwrap();
+    let wal_src = root.join("app.lifelog").join("lifelog.db-wal");
+    fs::write(&wal_src, b"fresh").unwrap();
+    clear_stale_sidecars(&new_dir, &[wal_src, old_db]).unwrap();
+    assert_eq!(fs::read(&kept).unwrap(), b"fresh");
+    fs::remove_dir_all(&root).ok();
 }
