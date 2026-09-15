@@ -138,3 +138,21 @@ fn hit_counts_cover_builtins_and_saved_views() {
     assert_eq!(hits[3].1, count_matching(&conn, &stored[0].conditions).unwrap());
     assert_eq!(hits[1].1, count_matching(&conn, &conditions_of_builtin("todo")).unwrap());
 }
+/// 内置「无标签」= 时间子树之外没有任何标签(时间标签是系统元数据)。
+/// 回填/新建后所有笔记都带时间标签,旧的 tag_links 空判永远命中 0 条。
+#[test]
+fn untagged_counts_notes_with_only_time_tags() {
+    let mut conn = test_conn();
+    crate::db::repos::notes::create(&mut conn, "只有时间标签").unwrap();
+    let untagged = conditions_of_builtin("untagged");
+    let any = conditions_of_builtin("any-none-placeholder");
+    assert_eq!(count_matching(&conn, &untagged).unwrap(), 1);
+    assert!(is_empty_conditions(&any), "未知 key 回退全部");
+    assert_eq!(count_matching(&conn, &FilterConditions { tag_presence: Some("any".into()), ..empty() }).unwrap(), 0);
+    // 加一个普通标签后:它不再算"无自定义标签",但进入"有标签"
+    crate::db::repos::notes::create(&mut conn, "带用户标签 #甲").unwrap();
+    assert_eq!(count_matching(&conn, &untagged).unwrap(), 1);
+    assert_eq!(count_matching(&conn, &FilterConditions { tag_presence: Some("any".into()), ..empty() }).unwrap(), 1);
+    assert_eq!(count_matching(&conn, &untagged).unwrap() + count_matching(&conn, &FilterConditions { tag_presence: Some("any".into()), ..empty() }).unwrap(), 2, "any/none 必须互补");
+}
+

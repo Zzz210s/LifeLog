@@ -3,7 +3,7 @@
 use crate::db::migrate;
 use crate::db::repos::notes::notes_filter::*;
 use crate::db::repos::notes::notes_query::query;
-use crate::db::repos::notes::{create_on, create_plain, Note};
+use crate::db::repos::notes::{create, create_on, create_plain, Note};
 use rusqlite::Connection;
 
 fn db() -> Connection {
@@ -113,5 +113,48 @@ fn time_subtree_tag_filter_covers_whole_year() {
     assert_eq!(contents(&query(&c, &year_children, 0).unwrap()), vec!["今年九月", "今年一月"]);
     let day = f(&["时间排序/2026/09/15"]);
     assert_eq!(contents(&query(&c, &day, 0).unwrap()), vec!["今年九月"]);
+}
+
+/// 必修1(路径最小 = 最早):同一笔记有多个时间标签时,date 与 date_tag_id 必须取自**同一行**
+/// (旧实现的 MAX(path)/MAX(id) 是两个独立聚合,会各取一行);排序也必须落在该日期上。
+/// 三处口径(query / read_full / 导出)完全一致。
+#[test]
+fn note_with_two_time_tags_takes_same_earliest_row() {
+    let mut c = db();
+    let today = crate::timetag::today_local(&c).unwrap();
+    assert_ne!(today, "2020-05-06", "测试前提:当天不是 2020-05-06");
+    // 正文手打旧日期 = 用户回填旧笔记:系统当天标签与手打标签并存
+    let two = create(&mut c, "回填旧日期 #时间排序/2020/05/06").unwrap();
+    let mid = create_on(&mut c, "中间日期", "2021-01-01").unwrap();
+    let old_id: i64 = c
+        .query_row("SELECT id FROM tags WHERE path='时间排序/2020/05/06'", [], |r| r.get(0))
+        .unwrap();
+    let today_id: i64 = c
+        .query_row(
+            "SELECT id FROM tags WHERE path='时间排序/' || replace(?1, '-', '/')",
+            [&today],
+            |r| r.get(0),
+        )
+        .unwrap();
+
+    let all = query(&c, &empty(), 0).unwrap();
+    let got = all.iter().find(|n| n.id == two.id).unwrap();
+    assert_eq!(got.date.as_deref(), Some("2020-05-06"), "取路径最小(最早)的一条");
+    assert_eq!(got.date_tag_id, Some(old_id), "date_tag_id 必须指向 date 所在那一行");
+    assert_ne!(got.date_tag_id, Some(today_id));
+    // 排序落在该日期上:比 2021-01-01 更早,故默认(最新在前)排在它后面
+    assert_eq!(
+        all.iter().map(|n| n.content.clone()).collect::<Vec<_>>(),
+        vec!["中间日期", "回填旧日期"],
+        "若排序误用当天路径,两条顺序会翻转"
+    );
+    // 口径一致:read_full 与导出同样取最早
+    let full = crate::db::repos::notes::notes_read::read_full(&c, two.id).unwrap().unwrap();
+    assert_eq!((full.date, full.date_tag_id), (got.date.clone(), got.date_tag_id));
+    let export = crate::exchange::notes_export::rows(&c).unwrap();
+    assert_eq!(export[1].date, "2020-05-06");
+    assert_eq!(export[0].date, "2021-01-01");
+    assert_eq!(export[1].content, "回填旧日期");
+    let _ = mid;
 }
 

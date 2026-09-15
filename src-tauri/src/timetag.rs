@@ -73,9 +73,49 @@ pub fn date_from_path(path: &str) -> Option<String> {
     is_iso_date(&date).then_some(date)
 }
 
-/// SQL 片段:`<alias>.path` 是否属于时间子树(前缀 substr 比较,参数由调用方给)
+/// SQL 片段:`<alias>.path` 是否属于时间子树的**后代**(`时间排序/...`;裸根不算,见 [`sql_in_time_subtree`])
 pub fn sql_is_time_path(alias: &str) -> String {
     format!("substr({alias}.path, 1, length('{TIME_ROOT}') + 1) = '{TIME_ROOT}/'")
+}
+
+/// SQL 片段:`<alias>.path` 是否为时间子树的节点(含裸根 `时间排序` 自身)。
+/// [`sql_is_time_path`] 只覆盖 `时间排序/...` 后代;需要把整个时间子树排除出去时用本片段
+/// (FTS 聚合、"有没有自定义标签"判定),否则裸根会被当成用户标签。
+pub fn sql_in_time_subtree(alias: &str) -> String {
+    format!("({alias}.path = '{TIME_ROOT}' OR {})", sql_is_time_path(alias))
+}
+
+/// `时间排序/`(5 字符)+ `YYYY/MM/DD`(10 字符)= 日级前缀长度;第 16 位须是路径结尾或 `/`
+const DAY_LEVEL_LEN: usize = 15;
+
+/// SQL 片段:`<alias>.path` 是否**至少到日级且日期合法**。
+/// 粗粒度标签(`时间排序/2026/09`、裸 `时间排序`)与畸形路径都不算"有时间标签";
+/// 更深的路径(`时间排序/YYYY/MM/DD/子级`)取前三级作为日期,仍算日级。
+/// 判据与 [`date_from_path`] 对齐:位置固定的年月日前缀 + 年份 >= 1 + 合法日历日期。
+/// 合法性用 `date()` 往返相等判定 —— SQLite 会把 2026/02/30 归一化成 2026/03/02,
+/// 往返不等即说明输入不是合法日期(禁 LIKE,故用 substr 定长切片)。
+pub fn sql_has_time_day(alias: &str) -> String {
+    let day = format!("replace(substr({alias}.path, 6, 10), '/', '-')");
+    format!(
+        "({time} AND length({alias}.path) >= {DAY_LEVEL_LEN} \
+         AND substr({alias}.path, 6, 4) >= '0001' \
+         AND (length({alias}.path) = {DAY_LEVEL_LEN} OR substr({alias}.path, 16, 1) = '/') \
+         AND date({day}) = {day})",
+        time = sql_is_time_path(alias)
+    )
+}
+
+/// 时间标签的单值子查询(`n` 为 notes 别名,`select` 取 `tt.path` 或 `tt.id`)。
+/// 同一笔记可能有多个时间标签(用户手打);按路径升序取第一条(最早)并**两个子查询取同一行**,
+/// 保证日期与 `date_tag_id` 不会来自不同标签(改期才不至于改错节点)。
+/// 只认至少到日级的时间标签:只有年/月级的标签视同没有时间标签(日期为空、排序压末尾)。
+pub fn sql_time_tag_sub(select: &str) -> String {
+    format!(
+        "(SELECT {select} FROM tag_links tl JOIN tags tt ON tt.id = tl.tag_id \
+         WHERE tl.target_type = 'note' AND tl.target_id = n.id AND {} \
+         ORDER BY tt.path LIMIT 1)",
+        sql_has_time_day("tt")
+    )
 }
 
 /// 本地当天日期(`YYYY-MM-DD`)。取数据库的 localtime 口径,与库内其它时间来源一致

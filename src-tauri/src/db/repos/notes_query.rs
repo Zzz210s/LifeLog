@@ -8,13 +8,13 @@ use rusqlite::{params_from_iter, types::Value, Connection};
 pub const PAGE_SIZE: i64 = 50;
 
 /// 排序片段(D2:排序不再看 created_at):
-/// - 分页内层按时间标签路径(最新在前 = DESC / 最早在前 = ASC),同日或无标签用 id 兜底,
-///   无时间标签者一律排末尾(回填后不应出现);MAX(...) 对同一笔记的多个标签行取时间标签。
+/// - 分页内层按时间标签路径(最新在前 = DESC / 最早在前 = ASC),同日或无时间标签用 id 兜底,
+///   无时间标签者一律排末尾(回填后不应出现);时间标签由同一条相关子查询给出(见 tpath)。
 /// - 外层沿用同一顺序(结果已被内层裁成单页,重排序只为稳定输出)。
 fn orders(oldest: bool) -> (String, String) {
     let dir = if oldest { "ASC" } else { "DESC" };
     (
-        format!("(MAX(tt.path) IS NULL), MAX(tt.path) {dir}, n.id {dir}"),
+        format!("(tpath IS NULL), tpath {dir}, id {dir}"),
         format!("(p.tpath IS NULL), p.tpath {dir}, p.id {dir}"),
     )
 }
@@ -23,6 +23,8 @@ fn orders(oldest: bool) -> (String, String) {
 /// - 条件 -> SQL 片段全部由 [`where_clause`] 生成(标签 substr 前缀 + 参数占位,无 LIKE 通配符)
 /// - 关键词 >=3 字符走 FTS MATCH,否则退化 LIKE(既有行为,仅关键词可用)
 /// - 分页排序在 `page` CTE 内完成(时间标签路径 + id),外层仅做标签行折叠
+/// - 时间标签路径与节点 id 取自**同一条**相关子查询(`sql_time_tag_sub`,路径最小即最早),
+///   不再用两个独立的 MAX() 聚合 —— 否则多时间标签时两者来自不同行,改期会改错节点。
 pub fn query(
     conn: &Connection,
     conditions: &FilterConditions,
@@ -30,15 +32,12 @@ pub fn query(
 ) -> Result<Vec<Note>, String> {
     let (frag, mut args) = where_clause(conditions);
     let (page_dir, out_dir) = orders(oldest_first(conditions));
-    let time_pred = crate::timetag::sql_is_time_path("tt");
     let sql = format!(
-        "WITH page AS (
-           SELECT n.id AS id, MAX(tt.path) AS tpath, MAX(tt.id) AS tid
-           FROM notes n
-           LEFT JOIN tag_links tl ON tl.target_type = 'note' AND tl.target_id = n.id
-           LEFT JOIN tags tt ON tt.id = tl.tag_id AND {time_pred}
-           WHERE {frag}
-           GROUP BY n.id
+        "WITH filtered AS (
+           SELECT n.id AS id, {tpath} AS tpath, {tid} AS tid
+           FROM notes n WHERE {frag}
+         ), page AS (
+           SELECT id, tpath, tid FROM filtered
            ORDER BY {page_dir}
            LIMIT {PAGE_SIZE} OFFSET ?
          )
@@ -47,7 +46,9 @@ pub fn query(
          JOIN notes n ON n.id = p.id
          LEFT JOIN tag_links l ON l.target_type = 'note' AND l.target_id = n.id
          LEFT JOIN tags t ON t.id = l.tag_id
-         ORDER BY {out_dir}, t.path"
+         ORDER BY {out_dir}, t.path",
+        tpath = crate::timetag::sql_time_tag_sub("tt.path"),
+        tid = crate::timetag::sql_time_tag_sub("tt.id"),
     );
     args.push(Value::Integer(offset.max(0)));
     let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
@@ -79,3 +80,7 @@ mod notes_query_conds_tests;
 #[cfg(test)]
 #[path = "notes_query_time_tests.rs"]
 mod notes_query_time_tests;
+
+#[cfg(test)]
+#[path = "notes_query_coarse_tests.rs"]
+mod notes_query_coarse_tests;

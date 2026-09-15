@@ -155,3 +155,27 @@ fn query_keyword_and_tags_combine() {
     let r = query(&c, &f(Some("神作"), &["电影"]), 0).unwrap();
     assert_eq!(contents(&r), vec!["看完 神作"]);
 }
+/// 必修5:带时间标签的分页(锁死时间标签子查询改造后的排序稳定性):
+/// 排序完全由时间标签路径驱动,跨页不重不漏
+#[test]
+fn query_pages_with_time_tags_in_path_order() {
+    let mut c = db();
+    // 52 条各带不同日期:2026-01-01 .. 2026-02-21
+    for i in 0..52i64 {
+        let date = if i < 31 {
+            format!("2026-01-{:02}", i + 1)
+        } else {
+            format!("2026-02-{:02}", i - 30)
+        };
+        create_on(&mut c, &format!("n{i:02}"), &date).unwrap();
+    }
+    let p1 = query(&c, &f(None, &[]), 0).unwrap();
+    assert_eq!(p1.len(), PAGE_SIZE as usize);
+    assert_eq!(p1[0].content, "n51", "最新在前:按时间标签路径降序");
+    assert_eq!(p1[1].content, "n50");
+    assert!(p1.iter().all(|n| n.date.is_some()), "每条都带日期");
+    let p2 = query(&c, &f(None, &[]), 50).unwrap();
+    assert_eq!(contents(&p2), vec!["n01", "n00"]);
+    assert_eq!(p2[0].date.as_deref(), Some("2026-01-02"));
+}
+

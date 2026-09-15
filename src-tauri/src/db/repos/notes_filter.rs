@@ -57,6 +57,16 @@ fn tag_match(c: &TagCond, args: &mut Vec<Value>) -> String {
     }
 }
 
+/// "时间子树之外还有标签"的谓词(时间标签是系统元数据,不算用户的归类):
+/// `any` = 存在该谓词,`none` = 不存在 —— 必须成对,否则只带时间标签的笔记两个条件都不命中。
+fn has_custom_tag() -> String {
+    format!(
+        "EXISTS (SELECT 1 FROM tag_links l JOIN tags t ON t.id = l.tag_id \
+         WHERE l.target_type = 'note' AND l.target_id = n.id AND NOT ({}))",
+        crate::timetag::sql_in_time_subtree("t")
+    )
+}
+
 /// 条件 -> `WHERE` 之后的 SQL 片段与参数(固定以 `1=1` 起手,子句用 ` AND ` 连接)
 pub fn where_clause(c: &FilterConditions) -> (String, Vec<Value>) {
     let mut args: Vec<Value> = Vec::new();
@@ -66,11 +76,12 @@ pub fn where_clause(c: &FilterConditions) -> (String, Vec<Value>) {
             clauses.push("n.id IN (SELECT rowid FROM notes_fts WHERE notes_fts MATCH ?)".into());
             args.push(Value::Text(format!("\"{}\"*", k.replace('"', "\"\""))));
         } else {
-            clauses.push(
+            // 短关键词退化 LIKE:标签侧同样排除时间子树(时间由日期筛选负责,不靠关键词)
+            clauses.push(format!(
                 "(n.content LIKE ? OR EXISTS (SELECT 1 FROM tag_links l JOIN tags t ON t.id = l.tag_id \
-                 WHERE l.target_type = 'note' AND l.target_id = n.id AND t.path LIKE ?))"
-                    .into(),
-            );
+                 WHERE l.target_type = 'note' AND l.target_id = n.id AND NOT ({}) AND t.path LIKE ?))",
+                crate::timetag::sql_in_time_subtree("t")
+            ));
             let pat = format!("%{k}%");
             args.push(Value::Text(pat.clone()));
             args.push(Value::Text(pat));
@@ -91,14 +102,8 @@ pub fn where_clause(c: &FilterConditions) -> (String, Vec<Value>) {
         ));
     }
     match c.tag_presence.as_deref() {
-        Some("any") => clauses.push(
-            "EXISTS (SELECT 1 FROM tag_links l WHERE l.target_type = 'note' AND l.target_id = n.id)"
-                .into(),
-        ),
-        Some("none") => clauses.push(
-            "NOT EXISTS (SELECT 1 FROM tag_links l WHERE l.target_type = 'note' AND l.target_id = n.id)"
-                .into(),
-        ),
+        Some("any") => clauses.push(has_custom_tag()),
+        Some("none") => clauses.push(format!("NOT ({})", has_custom_tag())),
         _ => {}
     }
     if let Some(f) = c.from.as_deref() {
@@ -118,16 +123,27 @@ pub fn where_clause(c: &FilterConditions) -> (String, Vec<Value>) {
 
 /// 日期范围条件(D2:不再触碰 created_at):比较该笔记的时间标签路径与
 /// `时间排序/<Y>/<M>/<D>` 边界(年/月/日零填充,字典序即时间序;端点当天包含在内)。
+/// 下界整串比较、上界截到日级长度再比:更深的路径(`时间排序/Y/M/D/子级`)与当天同界,
+/// 不得因尾随 `/子级` 被上界排除(与下界对称)。`length(?)` 与比较各占一个位置参数
+/// (匿名占位符按出现次序消耗),故上界压两个参数。粗粒度时间标签(年/月级)没有日期,
+/// 与 [`crate::timetag::sql_has_time_day`] 一致地不落入任何范围。
 /// 日期非法(未经 [`validate`])时给出恒假条件:宁可查不到,也不放宽语义。
 fn time_range(op: &str, date: &str, args: &mut Vec<Value>) -> String {
     let Some(bound) = crate::timetag::path_for_date(date) else {
         return "0=1".to_string();
     };
-    args.push(Value::Text(bound));
+    let lhs = if op == ">=" {
+        args.push(Value::Text(bound));
+        "t.path".to_string()
+    } else {
+        args.push(Value::Text(bound.clone()));
+        args.push(Value::Text(bound));
+        "substr(t.path, 1, length(?))".to_string()
+    };
     format!(
         "EXISTS (SELECT 1 FROM tag_links l JOIN tags t ON t.id = l.tag_id \
-         WHERE l.target_type = 'note' AND l.target_id = n.id AND {} AND t.path {op} ?)",
-        crate::timetag::sql_is_time_path("t")
+         WHERE l.target_type = 'note' AND l.target_id = n.id AND {} AND {lhs} {op} ?)",
+        crate::timetag::sql_has_time_day("t")
     )
 }
 

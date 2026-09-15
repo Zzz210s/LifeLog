@@ -58,14 +58,10 @@ fn note_tags(conn: &Connection) -> Result<HashMap<i64, String>, String> {
 /// 表头:日期(来自时间标签)/正文/标签(#a #b)/最后修改(updated_at)
 pub const HEADERS: [&str; 4] = ["日期", "正文", "标签", "最后修改"];
 
-/// 该笔记的时间标签路径(多值兜底取 path 升序首行);`n` 为 notes 别名
+/// 该笔记的时间标签路径;与 `notes_query` / `read_full` 共用同一子查询(只认日级、取最早一条),
+/// 导出日期、列表日期与保存返回值三处口径必须完全一致。
 fn time_path_sub() -> String {
-    format!(
-        "(SELECT tt.path FROM tag_links tl JOIN tags tt ON tt.id = tl.tag_id \
-         WHERE tl.target_type = 'note' AND tl.target_id = n.id AND {} \
-         ORDER BY tt.path LIMIT 1)",
-        crate::timetag::sql_is_time_path("tt")
-    )
+    crate::timetag::sql_time_tag_sub("tt.path")
 }
 
 /// 导出行数据(核心行为单点):日期列取时间标签、标签聚合、正文/标签截断。

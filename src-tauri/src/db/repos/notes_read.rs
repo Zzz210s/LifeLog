@@ -7,22 +7,14 @@ use rusqlite::{params, Connection};
 /// 行映射:note 基础列 + 可空标签路径 + 时间标签路径 + 时间标签 id
 type NoteRow = (i64, String, String, Option<String>, Option<String>, Option<i64>);
 
-/// 时间标签的单值子查询(`select` 为 `tt.path` 或 `tt.id`;`n` 是 notes 的别名)
-fn time_tag_sub(select: &str) -> String {
-    format!(
-        "(SELECT {select} FROM tag_links tl JOIN tags tt ON tt.id = tl.tag_id \
-         WHERE tl.target_type = 'note' AND tl.target_id = n.id AND {} \
-         ORDER BY tt.path LIMIT 1)",
-        crate::timetag::sql_is_time_path("tt")
-    )
-}
-
-/// 六个 SELECT 列(所有读取路径共用同一形状):id/正文/created_at/标签路径/时间路径/时间 id
+/// 六个 SELECT 列(所有读取路径共用同一形状):id/正文/created_at/标签路径/时间路径/时间 id。
+/// 时间标签的单值子查询与 `notes_query` 共用同一实现(只认日级、取最早一条),
+/// 三处口径(read_full / query / 导出)必须完全一致。
 fn columns() -> String {
     format!(
         "n.id, n.content, n.created_at, t.path, {}, {}",
-        time_tag_sub("tt.path"),
-        time_tag_sub("tt.id")
+        crate::timetag::sql_time_tag_sub("tt.path"),
+        crate::timetag::sql_time_tag_sub("tt.id")
     )
 }
 

@@ -63,3 +63,34 @@ fn today_local_is_iso_date() {
         .unwrap();
     assert_eq!(today, stamp);
 }
+/// SQL 片段是排序/筛选/导出的共同依据:必须与 Rust 判据逐例一致
+/// (禁 LIKE,故用 substr 定长切片;非法日历日期靠 date() 往返相等判定)
+#[test]
+fn sql_predicates_agree_with_rust_judgements() {
+    let conn = Connection::open_in_memory().unwrap();
+    let day_sql = format!("SELECT COALESCE({}, 0) FROM (SELECT ?1 AS path) tt", sql_has_time_day("tt"));
+    for path in [
+        "时间排序/2026/09/15",
+        "时间排序/2026/09/15/子级",
+        "时间排序/2026/09/15x",
+        "时间排序/2026/09",
+        "时间排序/2026",
+        "时间排序",
+        "时间排序/2026/13/01",
+        "时间排序/2026/02/30",
+        "时间排序/2024/02/29",
+        "时间排序/0000/01/01",
+        "时间排序/2026/09/00",
+        "工作/2026/09/15",
+        "",
+    ] {
+        let got: bool = conn.query_row(&day_sql, [path], |r| r.get(0)).unwrap();
+        assert_eq!(got, date_from_path(path).is_some(), "日级判定不一致:{path}");
+    }
+    let sub_sql = format!("SELECT COALESCE({}, 0) FROM (SELECT ?1 AS path) t", sql_in_time_subtree("t"));
+    for path in ["时间排序", "时间排序/2026", "时间排序器", "工作", "工作/时间排序", ""] {
+        let got: bool = conn.query_row(&sub_sql, [path], |r| r.get(0)).unwrap();
+        assert_eq!(got, is_time_path(path), "子树判定不一致(裸根必须算):{path}");
+    }
+}
+

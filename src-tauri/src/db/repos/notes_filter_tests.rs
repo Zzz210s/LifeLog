@@ -44,15 +44,20 @@ fn exclude_tag_uses_not_exists() {
     assert_eq!(args.len(), 3);
 }
 
+/// 有无标签:只算**时间子树之外**的标签(时间标签是系统元数据,不是用户的归类)。
+/// any/none 必须成对,否则只带时间标签的笔记两个条件都不命中。
 #[test]
-fn no_tags_uses_not_exists_on_tag_links() {
+fn tag_presence_ignores_time_subtree_tags() {
     let c = FilterConditions { tag_presence: Some("none".into()), ..empty() };
     let (sql, _) = where_clause(&c);
-    assert!(sql.contains("NOT EXISTS (SELECT 1 FROM tag_links l WHERE l.target_type = 'note' AND l.target_id = n.id)"));
+    assert!(sql.contains("NOT (EXISTS (SELECT 1 FROM tag_links l JOIN tags t ON t.id = l.tag_id"));
+    assert!(sql.contains("t.path = '时间排序'"), "裸根也算时间子树:{sql}");
+    assert!(sql.contains("substr(t.path, 1, length('时间排序') + 1) = '时间排序/'"));
 
     let c = FilterConditions { tag_presence: Some("any".into()), ..empty() };
     let (sql, _) = where_clause(&c);
-    assert!(sql.contains("EXISTS (SELECT 1 FROM tag_links l WHERE l.target_type = 'note' AND l.target_id = n.id)"));
+    assert!(sql.starts_with("1=1 AND EXISTS (SELECT 1 FROM tag_links l JOIN tags t"));
+    assert!(!sql.contains("NOT (EXISTS"), "any 不得带排除:{sql}");
 }
 
 /// 日期范围(单边/双边):谓词改为时间标签路径比较,不再出现 created_at
@@ -66,12 +71,27 @@ fn date_range_compares_time_tag_path() {
 
     let c = FilterConditions { to: Some("2026-09-13".into()), ..empty() };
     let (sql, args) = where_clause(&c);
-    assert!(sql.contains("t.path <= ?"), "结束日按路径等值比较(不再拼 23:59:59)");
-    assert_eq!(texts(&args), vec!["时间排序/2026/09/13"]);
+    assert!(
+        sql.contains("substr(t.path, 1, length(?)) <= ?"),
+        "上界截到日级长度比较(深于日级的路径不被排除):{sql}"
+    );
+    assert_eq!(texts(&args), vec!["时间排序/2026/09/13", "时间排序/2026/09/13"]);
+    // 只认至少到日级的时间标签:粗粒度(年/月/裸根)没有日期,不入任何范围
+    assert!(sql.contains("length(t.path) >= 15"));
 
     // 日期非法(未经 validate)恒假,不放宽语义
     let c = FilterConditions { from: Some("2026-13-01".into()), ..empty() };
     assert!(where_clause(&c).0.contains("0=1"));
+}
+
+/// 短关键词(<=2 字符)退化 LIKE 时标签侧同样排除时间子树:搜 `11` 不得命中整段时期
+#[test]
+fn short_keyword_like_branch_excludes_time_tags() {
+    let c = FilterConditions { keyword: Some("11".into()), ..empty() };
+    let (sql, args) = where_clause(&c);
+    assert!(sql.contains("t.path LIKE ?"));
+    assert!(sql.contains("NOT ((t.path = '时间排序'"), "时间标签不参与关键词:{sql}");
+    assert_eq!(texts(&args), vec!["%11%", "%11%"]);
 }
 
 /// 参数向量的文本视图(断言生成的路径边界)
