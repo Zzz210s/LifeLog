@@ -189,7 +189,14 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
         />
       )}
       {menu && (
-        <TagMenu node={menu.node} x={menu.x} y={menu.y} tagRows={p.tagRows} onClose={() => setMenu(null)} onDone={onMenuDone} />
+        <TagMenu
+          node={menu.node}
+          x={menu.x}
+          y={menu.y}
+          tagRows={withoutTimeTags(p.tagRows)}
+          onClose={() => setMenu(null)}
+          onDone={onMenuDone}
+        />
       )}
     </section>
   );
