@@ -103,10 +103,15 @@ fn migration_008_backfills_from_created_at() {
     assert_eq!(row("时间排序/2026"), (2, "时间排序".into()));
     assert_eq!(row("时间排序/2026/09"), (3, "时间排序/2026".into()));
     assert_eq!(row("时间排序/2026/09/15"), (4, "时间排序/2026/09".into()));
-    // FTS 的 tags 列随链接触发器同步:时间标签可被关键词检索命中
+    // FTS 的 tags 列只收时间子树之外的标签(009):时间标签不再靠关键词命中,
+    // 用户标签照旧在索引里(时间由日期筛选负责,不靠关键词)
+    let fts_tags: String = conn
+        .query_row("SELECT tags FROM notes_fts WHERE rowid=?1", [a], |r| r.get(0))
+        .unwrap();
+    assert_eq!(fts_tags, "工作", "只留用户标签:{fts_tags}");
     assert_eq!(
         count(&conn, "SELECT COUNT(*) FROM notes_fts WHERE notes_fts MATCH '\"时间排序\"*'"),
-        4
+        0
     );
 }
 

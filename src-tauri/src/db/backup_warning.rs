@@ -22,8 +22,17 @@ pub fn take() -> Option<String> {
 mod tests {
     use super::*;
 
+    /// 两个用例共享同一个进程内槽位:并行执行时一方的 take() 会吃掉另一方的值,
+    /// 导致偶发失败;用测试内互斥锁串行化(锁中毒也继续,不影响断言本身)
+    static SLOT_LOCK: Mutex<()> = Mutex::new(());
+
+    fn guard() -> std::sync::MutexGuard<'static, ()> {
+        SLOT_LOCK.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
     #[test]
     fn take_returns_once_then_none() {
+        let _g = guard();
         set("磁盘空间不足");
         assert_eq!(take().as_deref(), Some("磁盘空间不足"));
         assert_eq!(take(), None, "取值即清空,不重复提示");
@@ -31,6 +40,7 @@ mod tests {
 
     #[test]
     fn set_overwrites_previous_reason() {
+        let _g = guard();
         set("旧原因");
         set("新原因");
         assert_eq!(take().as_deref(), Some("新原因"));

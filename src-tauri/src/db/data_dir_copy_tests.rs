@@ -3,7 +3,7 @@
 //! 与 [`super::data_dir_migration_tests`] 的「流程」用例互补(WAL 合并成功、幂等、失败重试等)。
 //! 全部用临时目录,绝不触碰真实数据。
 
-use super::data_dir_copy::clear_stale_sidecars;
+use super::data_dir_copy::{clear_stale_sidecars, BACKUP_PREFIX};
 use super::data_dir_migration::{migrate, Outcome, DB_FILE};
 use rusqlite::Connection;
 use std::fs;
@@ -125,3 +125,10 @@ fn stale_sidecars_are_cleared_but_kept_ones_survive() {
     assert_eq!(fs::read(&kept).unwrap(), b"fresh");
     fs::remove_dir_all(&root).ok();
 }
+/// 必修5:BACKUP_PREFIX 必须与主库文件名同源 —— 改名只改一半会让历史备份被当成"新目录已有库"
+#[test]
+fn backup_prefix_is_derived_from_db_file() {
+    assert!(format!("{DB_FILE}.bak-1-x").starts_with(BACKUP_PREFIX));
+    assert!(BACKUP_PREFIX.starts_with(DB_FILE), "备份前缀必须由主库文件名派生");
+}
+

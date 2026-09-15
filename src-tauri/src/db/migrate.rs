@@ -9,19 +9,35 @@ const MIGRATIONS: &[&str] = &[
     include_str!("migrations/006_tag_tree.sql"),
     include_str!("migrations/007_saved_views.sql"),
     include_str!("migrations/008_time_tags.sql"),
+    include_str!("migrations/009_fts_time_tags.sql"),
 ];
 
-/// 008 回填时间标签:created_at 无法解析的笔记会被跳过。SQL 迁移里写不了日志,
+/// 008 回填时间标签:created_at 无法解析且尚无时间标签的笔记会被跳过。SQL 迁移里写不了日志,
 /// 故在应用该迁移前先把被跳过的清单打到 stderr(迁移日志的一部分,见模块下方)。
 const TIME_TAG_VERSION: i64 = 8;
 
-/// 008 之前提示:列出 created_at 解析不出日期的笔记(它们拿不到时间标签)
-fn warn_unparseable_created_at(conn: &Connection) -> rusqlite::Result<()> {
-    let mut stmt = conn.prepare("SELECT id, created_at FROM notes WHERE date(created_at) IS NULL")?;
-    let rows = stmt.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))?;
-    for row in rows {
-        let (id, created_at) = row?;
-        eprintln!("迁移 008:笔记 {id} 的 created_at 无法解析,跳过时间标签回填:{created_at}");
+/// 008 真正会跳过、且确实因此缺时间标签的笔记(id, created_at)。
+/// 已有时间标签的笔记不在此列 —— 它们本来就不需要回填,报成"created_at 无法解析"是误导排障。
+fn backfill_skips(conn: &Connection) -> rusqlite::Result<Vec<(i64, String)>> {
+    let mut stmt = conn.prepare(
+        "SELECT n.id, n.created_at FROM notes n
+         WHERE date(n.created_at) IS NULL
+           AND NOT EXISTS (SELECT 1 FROM tag_links l JOIN tags t ON t.id = l.tag_id
+                           WHERE l.target_type = 'note' AND l.target_id = n.id
+                             AND (t.path = '时间排序'
+                                  OR substr(t.path, 1, length('时间排序') + 1) = '时间排序/'))
+         ORDER BY n.id",
+    )?;
+    let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?;
+    rows.collect()
+}
+
+/// 008 之前提示:列出既解析不出日期、又没有时间标签的笔记(它们拿不到时间标签)
+fn warn_skipped_backfill(conn: &Connection) -> rusqlite::Result<()> {
+    for (id, created_at) in backfill_skips(conn)? {
+        eprintln!(
+            "迁移 008:笔记 {id} 的 created_at 无法解析且当前没有时间标签,跳过时间标签回填:{created_at}"
+        );
     }
     Ok(())
 }
@@ -53,7 +69,7 @@ pub fn run(conn: &Connection) -> rusqlite::Result<()> {
             continue;
         }
         if v == TIME_TAG_VERSION {
-            warn_unparseable_created_at(conn)?;
+            warn_skipped_backfill(conn)?;
         }
         let fk_off = FK_OFF_VERSIONS.contains(&v);
         if fk_off {
@@ -92,3 +108,7 @@ mod time_tag_migration_tests;
 #[cfg(test)]
 #[path = "migrate_tests.rs"]
 mod migrate_tests;
+
+#[cfg(test)]
+#[path = "fts_time_tag_migration_tests.rs"]
+mod fts_time_tag_migration_tests;
