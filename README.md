@@ -102,7 +102,7 @@ The window *is* the input box: no frame, no title bar, no buttons, transparent s
 ### Prebuilt (Windows 11 x64)
 
 Download the installer (`*-setup.exe`) from the
-[releases page](https://github.com/Zzz210s/app-lifelog/releases) and run it; it bootstraps WebView2
+[releases page](https://github.com/Zzz210s/LifeLog/releases) and run it; it bootstraps WebView2
 if that is missing. The release also carries the standalone `LifeLog.exe`, which needs no
 installation.
 

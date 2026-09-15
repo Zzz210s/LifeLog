@@ -86,7 +86,7 @@
 
 ### 直接下载(Windows 11 x64)
 
-从 [Releases](https://github.com/Zzz210s/app-lifelog/releases) 下载安装包(`*-setup.exe`)并运行;
+从 [Releases](https://github.com/Zzz210s/LifeLog/releases) 下载安装包(`*-setup.exe`)并运行;
 缺少 WebView2 时安装器会自动引导安装。也可以只取其中的绿色版 `LifeLog.exe`,双击即用。
 
 ### 从源码构建
