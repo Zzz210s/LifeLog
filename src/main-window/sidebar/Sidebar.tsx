@@ -1,13 +1,16 @@
 /**
- * 侧栏容器(spec 6.1):视图分区 + 标签分区,右缘 4px 热区拖宽(180-420,松手才落库),
+ * 侧栏容器(spec 6.1):视图分区 + 时间分区 + 标签分区,右缘 4px 热区拖宽(180-420,松手才落库),
  * 顶部「隐藏」按钮整栏收起(顶栏提供「显示侧栏」入口)。
  * 窄窗口保护:内容区 min-w 在 App 侧声明,本栏允许被压缩(不设 shrink-0)。
+ * 分区顺序说明:时间放在视图与标签之间——同属“浏览维度”用高度固定的分区展示,
+ * 「标签」保持最后一块可伸缩滚动区,不被时间树切断。
  */
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import type { FilterConditions } from '../../shared/filter-conditions';
 import type { TagCount } from '../../shared/types';
 import { TagsSection } from './TagsSection';
+import { TimeSection } from './TimeSection';
 import { ViewsSection } from './ViewsSection';
 import { clampSidebarWidth } from './use-sidebar-state';
 import type { SidebarStateApi } from './use-sidebar-state';
@@ -74,6 +77,7 @@ export function Sidebar(p: SidebarProps): ReactNode {
         </button>
       </div>
       <ViewsSection conditions={p.conditions} onApplyView={p.onApplyView} dataVersion={p.dataVersion} />
+      <TimeSection conditions={p.conditions} onPatch={p.onPatch} tagRows={p.tagRows} />
       <TagsSection
         conditions={p.conditions}
         onPatch={p.onPatch}

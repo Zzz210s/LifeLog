@@ -13,7 +13,7 @@ import { TagRow } from './TagRow';
 import { TagsHeader } from './TagsHeader';
 import type { TagFlash } from './TagsHeader';
 import { TagRootDropBar } from './TagRootDropBar';
-import { buildTree, filterTree, toggleTagPick } from './tag-tree';
+import { buildTree, filterTree, isManageable, toggleTagPick, withoutTimeTags } from './tag-tree';
 import type { ManagedNode, TagNode } from './tag-tree';
 import { useTagDrag } from './use-tag-drag';
 import type { TagViewMode } from './use-sidebar-state';
@@ -37,7 +37,10 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
   const [flash, setFlash] = useState<TagFlash | null>(null);
   const flashTimer = useRef<number | null>(null);
 
-  const tree = useMemo(() => buildTree(p.tagRows), [p.tagRows]);
+  // 时间子树不进标签分区(spec 4.5):在数据层过滤,计数与空态随之正确
+  const visibleRows = useMemo(() => withoutTimeTags(p.tagRows), [p.tagRows]);
+
+  const tree = useMemo(() => buildTree(visibleRows), [visibleRows]);
   const filtering = query.trim() !== '';
   const shown = useMemo(
     () => (filtering ? filterTree(tree, query) : tree),
@@ -72,10 +75,10 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
 
   const onContextMenu = useCallback((e: React.MouseEvent, node: TagNode) => {
     e.preventDefault();
-    if (node.id === null) return; // 结构节点(补出的父级)不可管理:不出菜单
+    if (!isManageable(node)) return; // 结构节点与时间子树不可管理:不出菜单
     // 菜单宽 224px(w-56)、高最多 320px,钳制不超出视口
     setMenu({
-      node: { ...node, id: node.id },
+      node,
       x: Math.max(8, Math.min(e.clientX, window.innerWidth - 232)),
       y: Math.max(8, Math.min(e.clientY, window.innerHeight - 328)),
     });
@@ -153,7 +156,7 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
         onDragOver={drag.rootEvents.onDragOverRoot}
         onDrop={drag.rootEvents.onDropRoot}
       >
-        {p.tagRows.length === 0 ? (
+        {visibleRows.length === 0 ? (
           <p className="px-2 py-3 text-xs text-gray-400">还没有标签,在输入栏写 #标签 试试</p>
         ) : p.mode === 'tree' ? (
           renderTree(shown)
@@ -173,7 +176,7 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
             />
           ))
         )}
-        {p.tagRows.length > 0 && filtering && shown.length === 0 && (
+        {visibleRows.length > 0 && filtering && shown.length === 0 && (
           <p className="px-2 py-2 text-xs text-gray-400">没有匹配的标签</p>
         )}
       </div>
