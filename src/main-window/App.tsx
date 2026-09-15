@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { api } from '../shared/api';
 import { EMPTY_FILTER, isFilterEmpty } from '../shared/filter-conditions';
+import { useThemeMode } from '../shared/use-theme-mode';
 import type { TagCount } from '../shared/types';
 import { ErrorBars } from './ErrorBars';
 import type { MainView } from './settings/settings-model';
@@ -32,6 +33,8 @@ export function App(): ReactNode {
   const { errors, setError, clearError } = useAppErrors();
   const [editingId, setEditingId] = useState<number | null>(null);
   const [view, setView] = useState<MainView>('stream');
+  // 主题三态:主窗持有并广播给输入栏(见 shared/use-theme-mode);挂载即读库应用
+  const theme = useThemeMode({ broadcast: true, onError: (m) => setError('action', m) });
 
   const { exporting, exported, onExport } = useNotesExport(setError, clearError);
   const { notes, setNotes, hasMore, loading, queryFailed, fetchPage, loadMore, retry } =
@@ -102,7 +105,7 @@ export function App(): ReactNode {
   const applyView = useCallback((c: typeof conditions) => patch(c), [patch]);
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-white text-gray-900">
+    <div className="flex h-screen w-full overflow-hidden bg-app text-text">
       <Sidebar
         sidebar={sidebar}
         conditions={conditions}
@@ -133,7 +136,7 @@ export function App(): ReactNode {
           />
           <ErrorBars errors={errors} onRetry={retry} onDismiss={clearError} />
           {dateFlash && (
-            <div role="status" className="px-4 pt-1 text-xs text-green-600">
+            <div role="status" className="px-4 pt-1 text-xs text-success">
               日期已更新
             </div>
           )}
@@ -159,7 +162,9 @@ export function App(): ReactNode {
             onLinkError={(m) => setError('action', m)}
           />
         </div>
-        {view === 'settings' && <SettingsView />}
+        {view === 'settings' && (
+          <SettingsView themeMode={theme.mode} onThemeChange={theme.setMode} />
+        )}
       </div>
     </div>
   );

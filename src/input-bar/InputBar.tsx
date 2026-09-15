@@ -4,6 +4,7 @@ import { api } from '../shared/api';
 import { prepareForSave } from '../shared/note-source';
 import { savedStamp, shouldShowStamp } from '../shared/input-feedback';
 import { canClose, canDrag, canEdit } from '../shared/input-lock';
+import { useThemeMode } from '../shared/use-theme-mode';
 import { useTagComplete } from './use-tag-complete';
 import { TagCompleteList } from './TagCompleteList';
 import { useDragBand } from './use-drag-band';
@@ -19,6 +20,8 @@ export function InputBar() {
   const saveTimer = useRef<number | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const { settings, lock, error, setError, unlock } = useInputSettings();
+  // 主题:输入栏不写库,只跟随主窗广播(见 shared/use-theme-mode);窗口保持透明
+  useThemeMode({ follow: true, onError: setError });
   const editing = canEdit(lock);
   const anyLock = lock.move || lock.close || lock.content;
   // # 标签补全:词元拉候选、↑↓/Enter/Tab/Esc 路由;Ctrl+Enter 保存不受影响
@@ -142,7 +145,7 @@ export function InputBar() {
         readOnly={!editing}
         onChange={(e) => setContent(e.target.value)}
         onKeyDown={onKeyDown}
-        className="sticker-input h-full w-full resize-none overflow-y-auto bg-white px-3 py-2 text-sm leading-relaxed text-gray-800 read-only:text-gray-500"
+        className="sticker-input h-full w-full resize-none overflow-y-auto bg-raised px-3 py-2 text-sm leading-relaxed text-text read-only:text-faint"
       />
       {complete.open && (
         <TagCompleteList
@@ -158,7 +161,7 @@ export function InputBar() {
           title="解除锁定"
           onMouseDown={(e) => e.stopPropagation()}
           onClick={onUnlock}
-          className="absolute top-4 right-4 flex h-5 w-5 items-center justify-center rounded text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+          className="absolute top-4 right-4 flex h-5 w-5 items-center justify-center rounded text-faint hover:bg-hover hover:text-muted"
         >
           <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden="true">
             <path d="M5 7V5.5a3 3 0 0 1 6 0V7" fill="none" stroke="currentColor" strokeWidth="1.5" />
@@ -168,15 +171,15 @@ export function InputBar() {
       ) : null}
       {error ? (
         // 长错误(如路径/原始异常)不再从左侧被裁掉前缀:限宽(max 窗口宽-两侧各 1rem)并省略尾部
-        <span className="pointer-events-none absolute right-4 bottom-4 max-w-[calc(100%-2rem)] truncate text-xs text-red-500">
+        <span className="pointer-events-none absolute right-4 bottom-4 max-w-[calc(100%-2rem)] truncate text-xs text-danger">
           {error}
         </span>
       ) : shouldShowStamp(savedAt, Date.now()) ? (
-        <span className="pointer-events-none absolute right-4 bottom-4 text-xs text-gray-400">
+        <span className="pointer-events-none absolute right-4 bottom-4 text-xs text-faint">
           {stamp}
         </span>
       ) : !editing ? (
-        <span className="pointer-events-none absolute right-4 bottom-4 text-xs text-gray-400">
+        <span className="pointer-events-none absolute right-4 bottom-4 text-xs text-faint">
           内容已锁定
         </span>
       ) : null}
