@@ -35,6 +35,9 @@ export const api = {
   updateNote: (id: number, content: string) =>
     invoke<Note | null>('update_note', { id, content }),
   toggleTodo: (id: number) => invoke<Note | null>('toggle_todo', { id }),
+  /** 改期:时间标签解链后链到 `时间排序/YYYY/MM/DD`(非法日期 reject 中文提示) */
+  setNoteDate: (noteId: number, date: string) =>
+    invoke<Note | null>('set_note_date', { noteId, date }),
   deleteNote: (id: number) => invoke<void>('delete_note', { id }),
   exportNotes: (path: string) => invoke<void>('export_notes', { path }),
   hideInputBar: () => invoke<void>('hide_input_bar'),
