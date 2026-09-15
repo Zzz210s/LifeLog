@@ -5,9 +5,16 @@ import { applyTagPick, chipsOf, summaryOf } from './filter-chips';
 const c = { ...EMPTY_FILTER, keyword: '电影', tags: [{ path: '工作', includeChildren: true }], tagPresence: 'none' as const, sort: 'oldest' as const };
 
 describe('chipsOf', () => {
-  it('每个收窄来源一个 chip,标签带含子级标记', () => {
-    const labels = chipsOf(c).map((x) => x.label);
-    expect(labels).toEqual(['关键词:电影', '#工作(含子级)', '无标签', '最早在前']);
+  it('每个收窄来源一个 chip,标签只显路径、含子级用标记与 title 表达', () => {
+    const chips = chipsOf(c);
+    expect(chips.map((x) => x.label)).toEqual(['关键词:电影', '⊢ #工作', '无标签', '最早在前']);
+    expect(chips.find((x) => x.kind === 'tag')!.title).toBe('含子级');
+    expect(chips.find((x) => x.kind === 'tag')!.label).not.toContain('含子级');
+  });
+  it('仅本级标签无前缀标记,title 为仅本级', () => {
+    const only = chipsOf({ ...EMPTY_FILTER, tags: [{ path: '工作', includeChildren: false }] });
+    expect(only[0].label).toBe('#工作');
+    expect(only[0].title).toBe('仅本级');
   });
   it('删除某 chip 后条件对象不含该项', () => {
     const keywordChip = chipsOf(c).find((x) => x.kind === 'keyword')!;
@@ -18,8 +25,9 @@ describe('chipsOf', () => {
 });
 
 describe('summaryOf', () => {
-  it('中文一句话', () => { expect(summaryOf(c)).toBe('关键词「电影」;标签 工作(含子级);无标签;最早在前'); });
+  it('中文一句话', () => { expect(summaryOf(c)).toBe('关键词「电影」;标签 工作;无标签;最早在前'); });
   it('空条件为空串', () => { expect(summaryOf(EMPTY_FILTER)).toBe(''); });
+  it('摘要不出现含子级注释', () => { expect(summaryOf(c)).not.toContain('含子级'); });
 });
 
 describe('chipsOf 补充', () => {
@@ -33,6 +41,7 @@ describe('chipsOf 补充', () => {
     };
     const chips = chipsOf(cc);
     expect(chips.map((x) => x.label)).toEqual(['排除 #临时', '08-01 至 09-13', '有标签']);
+    expect(chips.find((x) => x.kind === 'excludeTag')!.title).toBe('仅本级');
     expect(chips.find((x) => x.kind === 'excludeTag')!.remove.excludeTags).toEqual([]);
     const date = chips.find((x) => x.kind === 'date')!;
     expect(date.remove.from).toBeNull();
@@ -57,7 +66,7 @@ describe('summaryOf 补充', () => {
       excludeTags: [{ path: '临时', includeChildren: false }],
       from: '2026-08-01',
     };
-    expect(summaryOf(cc)).toBe('标签 工作(含子级)、生活/健身;排除 临时;日期 08-01 起');
+    expect(summaryOf(cc)).toBe('标签 工作、生活/健身;排除 临时;日期 08-01 起');
   });
   it('仅有排序也入摘要(与 isFilterEmpty 的收窄口径解耦)', () => {
     expect(summaryOf({ ...EMPTY_FILTER, sort: 'oldest' as const })).toBe('最早在前');

@@ -25,6 +25,7 @@ export function FilterChips(p: FilterChipsProps): ReactNode {
       {p.chips.map((chip) => (
         <span
           key={`${chip.kind}:${chip.label}`}
+          title={chip.title}
           className={
             'inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs transition-colors ' +
             chipClass(chip.kind)

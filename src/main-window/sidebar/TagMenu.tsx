@@ -2,12 +2,18 @@
  * 标签右键管理菜单(spec 6.1):重命名 / 移动(选新父级,含移到根级)/ 删除。
  * 删除进入面板时先取 tag_impact,显示「将影响 M 条笔记」并二次确认;
  * 重命名与移动成功后回报 pathChange(旧路径 -> 新路径),上层用它级联改写当前筛选条件。
+ * 本文件只保留状态、异步动作与容器;三个子面板各自成文件(行数上限)。
  */
 import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { api } from '../../shared/api';
-import type { TagCount } from '../../shared/types';
 import { isValidTagPath } from '../../shared/filter-conditions';
+import type { TagCount } from '../../shared/types';
+import { TagMenuDeletePane } from './TagMenuDeletePane';
+import { TagMenuMainPane } from './TagMenuMainPane';
+import { TagMenuMovePane } from './TagMenuMovePane';
+import { TagMenuRenamePane } from './TagMenuRenamePane';
+import type { Pane } from './tag-menu-ui';
 import type { ManagedNode } from './tag-tree';
 
 export interface TagMenuProps {
@@ -22,12 +28,6 @@ export interface TagMenuProps {
   /** 操作成功:提示文案 + 改名/移动时的路径变化(删除断链不产生) */
   onDone: (message: string, pathChange?: { from: string; to: string }) => void;
 }
-
-type Pane = 'main' | 'rename' | 'move' | 'delete';
-
-const ITEM_CLASS =
-  'block w-full rounded px-2.5 py-1.5 text-left text-xs text-gray-700 hover:bg-blue-50 hover:text-blue-700';
-const BTN_GHOST = 'h-7 rounded border border-gray-300 px-2 text-xs text-gray-600 hover:border-blue-500';
 
 /** 右键菜单本体:主面板 + 重命名/移动/删除三个子面板,定位由上层传入 */
 export function TagMenu(p: TagMenuProps): ReactNode {
@@ -73,6 +73,13 @@ export function TagMenu(p: TagMenuProps): ReactNode {
     setBusy(false);
   };
 
+  /** 切换面板:进入前清掉就地错误;删除面板重新取影响面 */
+  const pickPane = (next: Pane): void => {
+    setError('');
+    if (next === 'delete') setImpact(null);
+    setPane(next);
+  };
+
   const doRename = (): void => {
     const t = newName.trim();
     if (t === '') return setError('标签名不能为空');
@@ -116,84 +123,40 @@ export function TagMenu(p: TagMenuProps): ReactNode {
       className="fixed z-50 max-h-80 w-56 overflow-y-auto rounded-md border border-gray-200 bg-white p-1 shadow-lg"
       style={{ left: p.x, top: p.y }}
     >
-      {pane === 'main' && (
-        <>
-          <p className="truncate px-2.5 py-1 text-xs font-medium text-gray-500" title={p.node.path}>
-            {p.node.path}
-          </p>
-          <button type="button" role="menuitem" className={ITEM_CLASS} onClick={() => { setError(''); setPane('rename'); }}>
-            重命名
-          </button>
-          <button type="button" role="menuitem" className={ITEM_CLASS} onClick={() => { setError(''); setPane('move'); }}>
-            移动
-          </button>
-          <button type="button" role="menuitem" className={ITEM_CLASS} onClick={() => { setError(''); setImpact(null); setPane('delete'); }}>
-            删除
-          </button>
-        </>
-      )}
+      {pane === 'main' && <TagMenuMainPane path={p.node.path} onPick={pickPane} />}
       {pane === 'rename' && (
-        <div className="p-1">
-          <p className="mb-1.5 px-1 text-xs text-gray-500">重命名为</p>
-          <input
-            autoFocus
-            value={newName}
-            onChange={(e) => { setNewName(e.target.value); setError(''); }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !busy) doRename();
-            }}
-            aria-label="新标签名"
-            className="h-7 w-full rounded border border-gray-300 px-2 text-xs outline-none focus:border-blue-500"
-          />
-          {error !== '' && <p className="mt-1 px-1 text-xs text-red-500">{error}</p>}
-          <div className="mt-1.5 flex justify-end gap-1.5">
-            <button type="button" onClick={p.onClose} className={BTN_GHOST}>取消</button>
-            <button type="button" onClick={doRename} disabled={busy} className="h-7 rounded bg-blue-600 px-2 text-xs text-white hover:bg-blue-700 disabled:opacity-50">{busy ? '保存中…' : '确定'}</button>
-          </div>
-        </div>
+        <TagMenuRenamePane
+          newName={newName}
+          onNameChange={(v) => {
+            setNewName(v);
+            setError('');
+          }}
+          error={error}
+          busy={busy}
+          onCancel={p.onClose}
+          onSubmit={doRename}
+        />
       )}
       {pane === 'move' && (
-        <div className="p-1">
-          <p className="mb-1 px-1 text-xs text-gray-500">移动「{p.node.name}」到</p>
-          <button
-            type="button"
-            onClick={() => doMove(null, p.node.name)}
-            className={ITEM_CLASS + (currentParent === '' ? ' bg-blue-50 text-blue-700' : '')}
-          >
-            (根级){currentParent === '' ? ' - 当前' : ''}
-          </button>
-          {candidates.map((r) => (
-            <button
-              key={r.path}
-              type="button"
-              title={r.path}
-              disabled={busy}
-              onClick={() => doMove(r.id, r.path + '/' + p.node.name)}
-              style={{ paddingLeft: 10 + r.depth * 12 }}
-              className={ITEM_CLASS + (r.path === currentParent ? ' bg-blue-50 text-blue-700' : '')}
-            >
-              {r.path}
-              {r.path === currentParent ? ' - 当前' : ''}
-            </button>
-          ))}
-          {error !== '' && <p className="mt-1 px-1 text-xs text-red-500">{error}</p>}
-          <div className="mt-1.5 flex justify-end gap-1.5">
-            <button type="button" onClick={p.onClose} className={BTN_GHOST}>取消</button>
-          </div>
-        </div>
+        <TagMenuMovePane
+          nodeName={p.node.name}
+          candidates={candidates}
+          currentParent={currentParent}
+          busy={busy}
+          error={error}
+          onCancel={p.onClose}
+          onMove={doMove}
+        />
       )}
       {pane === 'delete' && (
-        <div className="p-1">
-          <p className="px-1 text-xs text-gray-600">删除「{p.node.path}」?</p>
-          <p className="mt-1 px-1 text-xs text-gray-500">
-            {impact === null ? '计算影响面…' : `将影响 ${impact.notes} 条笔记` + (impact.tags > 0 ? `、${impact.tags} 个子标签` : '')}
-          </p>
-          {error !== '' && <p className="mt-1 px-1 text-xs text-red-500">{error}</p>}
-          <div className="mt-1.5 flex justify-end gap-1.5">
-            <button type="button" onClick={p.onClose} className={BTN_GHOST}>取消</button>
-            <button type="button" onClick={doDelete} disabled={busy || impact === null} className="h-7 rounded bg-red-600 px-2 text-xs text-white hover:bg-red-700 disabled:opacity-50">{busy ? '删除中…' : '确认删除'}</button>
-          </div>
-        </div>
+        <TagMenuDeletePane
+          path={p.node.path}
+          impact={impact}
+          error={error}
+          busy={busy}
+          onCancel={p.onClose}
+          onConfirm={doDelete}
+        />
       )}
     </div>
   );

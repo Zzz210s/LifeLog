@@ -2,15 +2,13 @@ import { describe, expect, it } from 'vitest';
 import {
   EMPTY_FILTER,
   MAX_FILTER_TAG_ITEMS,
-  canEvaluateLocally,
   filterKey,
   isFilterEmpty,
   isValidTagPath,
-  matchesTagsByPath,
-  normalizeFilter,
-  parseFilterJson,
   validateFilter,
 } from './filter-conditions';
+import { canEvaluateLocally, matchesTagsByPath } from './filter-conditions-local';
+import { normalizeFilter, parseFilterJson } from './filter-conditions-parse';
 import type { FilterConditions, TagCond } from './filter-conditions';
 
 const tag = (path: string, includeChildren = false): TagCond => ({ path, includeChildren });

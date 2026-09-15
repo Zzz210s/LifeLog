@@ -72,6 +72,9 @@ export function GeneralSection(): ReactNode {
           </button>
         </SettingsRow>
       </div>
+      <p className="border-t border-gray-100 px-4 py-2 text-xs text-gray-500">
+        含空格等不合法的旧标签仍原样保留;在编辑该笔记保存时会按新语法重新解析。
+      </p>
       <p className="border-t border-gray-100 px-4 py-3 font-mono text-xs break-all text-gray-500 select-all">
         {info ? info.path : error ? '读取失败' : '读取中...'}
       </p>

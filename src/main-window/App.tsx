@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { api } from '../shared/api';
+import { EMPTY_FILTER, isFilterEmpty } from '../shared/filter-conditions';
 import type { TagCount } from '../shared/types';
 import { ErrorBars } from './ErrorBars';
-import type { ErrorKind } from './ErrorBar';
-import { dropError, putError } from './errors';
-import type { ErrorMap } from './errors';
 import type { MainView } from './settings/settings-model';
 import { FilterBar } from './FilterBar';
 import { NoteStream } from './NoteStream';
@@ -16,6 +14,8 @@ import { useSidebarState } from './sidebar/use-sidebar-state';
 import { TopBar } from './TopBar';
 import { Composer } from './Composer';
 import { useNoteActions } from './use-note-actions';
+import { useAppErrors } from './use-app-errors';
+import { useBackupWarning } from './use-backup-warning';
 import { useNoteCreatedRefresh } from './use-note-created';
 import { useOpenSettings } from './use-open-settings';
 import { useNotesFeed } from './use-notes-feed';
@@ -29,17 +29,10 @@ export function App(): ReactNode {
   const sidebar = useSidebarState();
   const [tagRows, setTagRows] = useState<TagCount[]>([]);
   const [dataVersion, setDataVersion] = useState(0); // 标签/笔记数据变更信号(侧栏徽标据此重载)
-  const [errors, setErrors] = useState<ErrorMap>({});
+  const { errors, setError, clearError } = useAppErrors();
   const [editingId, setEditingId] = useState<number | null>(null);
   const [view, setView] = useState<MainView>('stream');
 
-  /** 按来源留存/清除:G4 单值槽会被跨源覆盖造成错误被吞,改为每个来源一份,成功路径只清同源 */
-  const setError = useCallback((kind: ErrorKind, message: string) => {
-    setErrors((prev) => putError(prev, kind, message));
-  }, []);
-  const clearError = useCallback((kind: ErrorKind) => {
-    setErrors((prev) => dropError(prev, kind));
-  }, []);
   const { exporting, exported, onExport } = useNotesExport(setError, clearError);
   const { notes, setNotes, hasMore, loading, queryFailed, fetchPage, loadMore, retry } =
     useNotesFeed(conditions, setError, clearError);
@@ -61,6 +54,7 @@ export function App(): ReactNode {
   }, [conditions]);
 
   useEffect(loadTags, [loadTags]);
+  useBackupWarning(setError);
 
   /** 新增笔记后回第一页(新内容必在最前);就地变更走 replaceNote,不重置分页与滚动位置 */
   const refresh = useCallback(() => {
@@ -72,10 +66,18 @@ export function App(): ReactNode {
   // 输入栏保存后主窗自动出现(W1);已翻页或正在编辑时由 shouldAutoRefresh 拦下
   useNoteCreatedRefresh(notes.length, editingId, refresh, (m) => setError('action', m));
 
-  // 托盘「设置」菜单:窗口已由 Rust 显示,这里只切视图
+  /** 托盘「设置」菜单:窗口已由 Rust 显示,这里只切视图 */
   const openSettings = useCallback(() => setView('settings'), []);
   const reportSettingsError = useCallback((m: string) => setError('action', m), [setError]);
   useOpenSettings(openSettings, reportSettingsError);
+
+  /** 空库引导:显示(不切换)输入栏;失败走既有错误条 */
+  const showInput = useCallback(() => {
+    void api.showInputWindow().catch((e) => setError('action', '唤起输入栏失败: ' + String(e)));
+  }, [setError]);
+
+  /** 空库引导:清空全部筛选条件(排序也回默认) */
+  const clearFilters = useCallback(() => patch(EMPTY_FILTER), [patch]);
 
   const { remove, toggleTodo, onEditSaved } = useNoteActions({
     conditions,
@@ -133,7 +135,10 @@ export function App(): ReactNode {
           <NoteStream
             notes={notes}
             queryFailed={queryFailed}
+            filterEmpty={isFilterEmpty(conditions)}
             onRetry={retry}
+            onClearFilters={clearFilters}
+            onShowInput={showInput}
             activeTags={conditions.tags.map((t) => t.path)}
             editingId={editingId}
             hasMore={hasMore}

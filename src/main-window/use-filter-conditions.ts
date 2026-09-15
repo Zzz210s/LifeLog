@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../shared/api';
-import { EMPTY_FILTER, parseFilterJson } from '../shared/filter-conditions';
+import { EMPTY_FILTER } from '../shared/filter-conditions';
+import { parseFilterJson } from '../shared/filter-conditions-parse';
 import type { FilterConditions } from '../shared/filter-conditions';
 
 /** 上次使用的筛选条件(JSON 文本);读取失败或非法一律回退默认 */

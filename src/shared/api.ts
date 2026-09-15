@@ -38,6 +38,10 @@ export const api = {
   deleteNote: (id: number) => invoke<void>('delete_note', { id }),
   exportNotes: (path: string) => invoke<void>('export_notes', { path }),
   hideInputBar: () => invoke<void>('hide_input_bar'),
+  /** 显示(不切换)输入栏:主窗空库引导用 */
+  showInputWindow: () => invoke<void>('show_input_bar'),
+  /** 取一次「迁移前自动备份失败」提示(取值即清空;无提示时返回 null) */
+  takeBackupWarning: () => invoke<string | null>('take_backup_warning'),
   /** 缩放:窗口尺寸 = 基础尺寸 x 系数,并落到 webview zoom */
   setInputScale: (zoom: number) => invoke<void>('set_input_scale', { zoom }),
   setInputSize: (width: number, height: number) =>

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Note } from '../shared/types';
-import { EMPTY_FILTER, matchesTagsByPath } from '../shared/filter-conditions';
+import { EMPTY_FILTER } from '../shared/filter-conditions';
+import { matchesTagsByPath } from '../shared/filter-conditions-local';
 import { mergeNotes, replaceNote, needsRefetchAfterChange, shouldAutoRefresh, PAGE } from './notes-list';
 
 const note = (id: number, content = 'x'): Note => ({

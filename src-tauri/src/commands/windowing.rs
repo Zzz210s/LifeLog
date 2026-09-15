@@ -7,6 +7,12 @@ pub fn hide_input_bar(app: AppHandle) -> Result<(), String> {
     windowing::input::hide(&app).map_err(|e| e.to_string())
 }
 
+/// 显示(不切换)输入栏:主窗空库引导用,语义与二次启动一致(show,不把眼前的窗口隐藏)
+#[tauri::command]
+pub fn show_input_bar(app: AppHandle) -> Result<(), String> {
+    windowing::input::show(&app).map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub fn set_input_size(app: AppHandle, width: u32, height: u32) -> Result<(), String> {
     input_scale::apply_size(&app, input_scale::clamp_width(width), height)

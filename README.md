@@ -189,6 +189,7 @@ the FTS index in sync on insert, update and delete.
 - Database: `%APPDATA%\app.lifelog\lifelog.db` (SQLite, WAL). Delete this file to start over.
 - Search index: an FTS5 virtual table inside the same file, kept in sync by triggers.
 - Excel export: written wherever you point the save dialog; nothing is uploaded.
+- Legacy tag names that the current syntax cannot parse (for example names with spaces) are kept as-is; they are re-parsed with the new syntax the next time you edit and save that note.
 
 ## Development
 

@@ -1,4 +1,5 @@
 pub mod backup;
+pub mod backup_warning;
 pub mod migrate;
 pub mod repos;
 
@@ -100,6 +101,11 @@ pub fn init(app: &tauri::AppHandle) -> Result<InitReport, OpenFailure> {
         .map_err(|e| OpenFailure::new(format!("创建应用数据目录失败: {e}")))?;
     let report = open(&dir.join("lifelog.db"))?;
     app.manage(Db(std::sync::Mutex::new(report.conn)));
+    // 备份失败原因同时存入进程内提示槽:主窗加载后由 take_backup_warning 取一次,
+    // 走错误条显示(不阻断;启动对话框覆盖主窗从未打开的情形)
+    if let Some(warning) = &report.backup_warning {
+        backup_warning::set(warning);
+    }
     Ok(InitReport {
         backup_warning: report.backup_warning,
     })

@@ -1,15 +1,22 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { Note } from '../shared/types';
+import { EMPTY_STATE_ACTION, EMPTY_STATE_TEXT, streamEmptyState } from './empty-stream';
 import { EditPanel } from './EditPanel';
 import { NoteItem } from './NoteItem';
 
 export interface NoteStreamProps {
   notes: Note[];
-  /** 查询是否处于失败态:空列表据此显示失败文案而非"暂无记录"(即使错误行已被关闭) */
+  /** 查询是否处于失败态:空列表据此显示失败文案而非“暂无记录”(即使错误行已被关闭) */
   queryFailed: boolean;
+  /** 当前是否没有任何收窄条件(排序不算):用于区分“库为空”与“条件无匹配” */
+  filterEmpty: boolean;
   /** 查询失败时的重试入口(重发首页) */
   onRetry: () => void;
+  /** “无匹配”空态的入口:清空全部筛选条件 */
+  onClearFilters: () => void;
+  /** “库为空”空态的入口:唤起输入栏 */
+  onShowInput: () => void;
   activeTags: string[];
   editingId: number | null;
   hasMore: boolean;
@@ -44,23 +51,24 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
     // 依赖变化时重建观察器:翻页/筛选/加载态翻转后需重新评估哨兵可见性
   }, [sentinel, scroller, p.hasMore, p.loading, p.onLoadMore, p.notes.length]);
 
+  const empty =
+    p.notes.length === 0 && !p.loading
+      ? streamEmptyState({ noteCount: 0, queryFailed: p.queryFailed, filterEmpty: p.filterEmpty })
+      : null;
+  const onEmptyAction =
+    empty === 'failed' ? p.onRetry : empty === 'no-match' ? p.onClearFilters : p.onShowInput;
+
   return (
     <div ref={setScroller} className="flex-1 overflow-y-auto">
-      {p.notes.length === 0 && !p.loading && (
+      {empty !== null && (
         <div className="flex h-full flex-col items-center justify-center gap-2 text-sm text-gray-400">
-          {p.queryFailed ? (
-            <>
-              <span>加载失败,请检查后重试</span>
-              <button
-                onClick={p.onRetry}
-                className="rounded border border-gray-300 px-2 py-0.5 text-xs text-gray-600 hover:bg-gray-50"
-              >
-                重试
-              </button>
-            </>
-          ) : (
-            '暂无记录,用输入栏记点什么吧'
-          )}
+          <span>{EMPTY_STATE_TEXT[empty]}</span>
+          <button
+            onClick={onEmptyAction}
+            className="rounded border border-gray-300 px-2 py-0.5 text-xs text-gray-600 hover:bg-gray-50"
+          >
+            {EMPTY_STATE_ACTION[empty]}
+          </button>
         </div>
       )}
       <ul>

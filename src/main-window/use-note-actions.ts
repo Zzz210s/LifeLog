@@ -8,7 +8,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import { confirm } from '@tauri-apps/plugin-dialog';
 import { api } from '../shared/api';
 import type { Note } from '../shared/types';
-import { canEvaluateLocally, matchesTagsByPath } from '../shared/filter-conditions';
+import { canEvaluateLocally, matchesTagsByPath } from '../shared/filter-conditions-local';
 import type { FilterConditions } from '../shared/filter-conditions';
 import type { ErrorKind } from './ErrorBar';
 import { needsRefetchAfterChange, replaceNote } from './notes-list';

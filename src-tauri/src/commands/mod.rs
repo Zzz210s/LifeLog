@@ -1,4 +1,5 @@
 pub mod app_info;
+pub mod backup_notice;
 pub mod exchange;
 pub mod notes;
 pub mod settings;

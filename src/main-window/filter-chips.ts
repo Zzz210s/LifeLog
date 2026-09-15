@@ -9,14 +9,19 @@ import type { FilterConditions, TagCond } from '../shared/filter-conditions';
 export type Chip = {
   kind: 'keyword' | 'tag' | 'excludeTag' | 'date' | 'presence' | 'sort';
   label: string;
+  /** 悬浮提示(标签 chip 用它区分含子级/仅本级;其余种类无) */
+  title?: string;
   remove: FilterConditions;
 };
 
-/** chip 上的标签文案:'#工作(含子级)' / '#工作' */
-const chipTag = (t: TagCond): string => `#${t.path}${t.includeChildren ? '(含子级)' : ''}`;
+/** 含子级 chip 的前缀标记(仅本级不加标记,靠 title 说明) */
+const CHILD_MARK = '⊢ ';
 
-/** 摘要里的标签文案(不带 #):'工作(含子级)' / '工作' */
-const plainTag = (t: TagCond): string => `${t.path}${t.includeChildren ? '(含子级)' : ''}`;
+/** chip 上的标签文案:'⊢ #工作'(含子级)/ '#工作'(仅本级) */
+const chipTag = (t: TagCond): string => `${t.includeChildren ? CHILD_MARK : ''}#${t.path}`;
+
+/** 标签 chip 的悬浮提示:含子级 / 仅本级 */
+const tagTitle = (t: TagCond): string => (t.includeChildren ? '含子级' : '仅本级');
 
 /** 日期短格式:'2026-08-01' -> '08-01'(ISO 保证定宽,直接切片) */
 const shortDate = (iso: string): string => iso.slice(5);
@@ -37,12 +42,18 @@ export function chipsOf(c: FilterConditions): Chip[] {
   const kw = (c.keyword ?? '').trim();
   if (kw !== '') chips.push({ kind: 'keyword', label: `关键词:${kw}`, remove: { ...c, keyword: null } });
   c.tags.forEach((t) =>
-    chips.push({ kind: 'tag', label: chipTag(t), remove: { ...c, tags: c.tags.filter((x) => x !== t) } })
+    chips.push({
+      kind: 'tag',
+      label: chipTag(t),
+      title: tagTitle(t),
+      remove: { ...c, tags: c.tags.filter((x) => x !== t) },
+    })
   );
   c.excludeTags.forEach((t) =>
     chips.push({
       kind: 'excludeTag',
       label: `排除 ${chipTag(t)}`,
+      title: tagTitle(t),
       remove: { ...c, excludeTags: c.excludeTags.filter((x) => x !== t) },
     })
   );
@@ -62,13 +73,13 @@ export function chipsOf(c: FilterConditions): Chip[] {
   return chips;
 }
 
-/** 中文一句话摘要:'关键词「电影」;标签 工作(含子级);无标签;最早在前';空条件为空串 */
+/** 中文一句话摘要:'关键词「电影」;标签 工作;无标签;最早在前';空条件为空串(含子级不进摘要) */
 export function summaryOf(c: FilterConditions): string {
   const parts: string[] = [];
   const kw = (c.keyword ?? '').trim();
   if (kw !== '') parts.push(`关键词「${kw}」`);
-  if (c.tags.length > 0) parts.push(`标签 ${c.tags.map(plainTag).join('、')}`);
-  if (c.excludeTags.length > 0) parts.push(`排除 ${c.excludeTags.map(plainTag).join('、')}`);
+  if (c.tags.length > 0) parts.push(`标签 ${c.tags.map((t) => t.path).join('、')}`);
+  if (c.excludeTags.length > 0) parts.push(`排除 ${c.excludeTags.map((t) => t.path).join('、')}`);
   if (c.from !== null || c.to !== null) parts.push(`日期 ${dateChipLabel(c.from, c.to)}`);
   if (c.tagPresence !== null) parts.push(c.tagPresence === 'none' ? '无标签' : '有标签');
   if (c.sort === 'oldest') parts.push(SORT_CHIP_LABEL);
