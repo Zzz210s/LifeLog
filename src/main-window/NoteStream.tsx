@@ -63,11 +63,11 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
   return (
     <div ref={setScroller} className="flex-1 overflow-y-auto">
       {empty !== null && (
-        <div className="flex h-full flex-col items-center justify-center gap-2 text-sm text-gray-400">
+        <div className="flex h-full flex-col items-center justify-center gap-2 text-sm text-faint">
           <span>{EMPTY_STATE_TEXT[empty]}</span>
           <button
             onClick={onEmptyAction}
-            className="rounded border border-gray-300 px-2 py-0.5 text-xs text-gray-600 hover:bg-gray-50"
+            className="rounded border border-border px-2 py-0.5 text-xs text-muted hover:bg-hover"
           >
             {EMPTY_STATE_ACTION[empty]}
           </button>
@@ -99,7 +99,7 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
         )}
       </ul>
       {p.loading && (
-        <div className="py-3 text-center text-xs text-gray-400">加载中...</div>
+        <div className="py-3 text-center text-xs text-faint">加载中...</div>
       )}
       <div ref={setSentinel} className="h-px" />
     </div>

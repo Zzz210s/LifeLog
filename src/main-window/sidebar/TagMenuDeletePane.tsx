@@ -18,14 +18,14 @@ export interface TagMenuDeletePaneProps {
 export function TagMenuDeletePane(p: TagMenuDeletePaneProps): ReactNode {
   return (
     <div className="p-1">
-      <p className="px-1 text-xs text-gray-600">删除「{p.path}」?</p>
-      <p className="mt-1 px-1 text-xs text-gray-500">
+      <p className="px-1 text-xs text-muted">删除「{p.path}」?</p>
+      <p className="mt-1 px-1 text-xs text-faint">
         {p.impact === null
           ? '计算影响面…'
           : `将影响 ${p.impact.notes} 条笔记` +
             (p.impact.tags > 0 ? `、${p.impact.tags} 个子标签` : '')}
       </p>
-      {p.error !== '' && <p className="mt-1 px-1 text-xs text-red-500">{p.error}</p>}
+      {p.error !== '' && <p className="mt-1 px-1 text-xs text-danger">{p.error}</p>}
       <div className="mt-1.5 flex justify-end gap-1.5">
         <button type="button" onClick={p.onCancel} className={BTN_GHOST}>
           取消
@@ -34,7 +34,7 @@ export function TagMenuDeletePane(p: TagMenuDeletePaneProps): ReactNode {
           type="button"
           onClick={p.onConfirm}
           disabled={p.busy || p.impact === null}
-          className="h-7 rounded bg-red-600 px-2 text-xs text-white hover:bg-red-700 disabled:opacity-50"
+          className="h-7 rounded bg-danger px-2 text-xs text-on-danger hover:bg-danger-hover disabled:opacity-50"
         >
           {p.busy ? '删除中…' : '确认删除'}
         </button>

@@ -55,7 +55,7 @@ export function TagPickDialog(p: TagPickDialogProps): ReactNode {
 
   return (
     <div
-      className="fixed inset-0 z-40 flex items-center justify-center bg-black/30"
+      className="fixed inset-0 z-40 flex items-center justify-center bg-overlay"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) p.onClose();
       }}
@@ -63,20 +63,20 @@ export function TagPickDialog(p: TagPickDialogProps): ReactNode {
       <div
         role="dialog"
         aria-label={title}
-        className="w-80 rounded-lg border border-gray-200 bg-white p-4 shadow-xl"
+        className="w-80 rounded-lg border border-border bg-raised p-4 shadow-xl"
       >
         <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-sm font-medium text-gray-900">{title}</h2>
+          <h2 className="text-sm font-medium text-text">{title}</h2>
           <button
             type="button"
             onClick={p.onClose}
             aria-label="关闭"
-            className="rounded px-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            className="rounded px-1 text-faint hover:bg-hover hover:text-muted"
           >
             ×
           </button>
         </div>
-        <label className="mb-2 flex items-center gap-1.5 text-xs text-gray-600">
+        <label className="mb-2 flex items-center gap-1.5 text-xs text-muted">
           <input
             type="checkbox"
             checked={includeChildren}
@@ -85,13 +85,13 @@ export function TagPickDialog(p: TagPickDialogProps): ReactNode {
           含子级(按路径前缀匹配子孙标签)
         </label>
         {error !== '' ? (
-          <p className="py-6 text-center text-xs text-red-500">{error}</p>
+          <p className="py-6 text-center text-xs text-danger">{error}</p>
         ) : rows === null ? (
-          <p className="py-6 text-center text-xs text-gray-400">加载中…</p>
+          <p className="py-6 text-center text-xs text-faint">加载中…</p>
         ) : rows.length === 0 ? (
-          <p className="py-6 text-center text-xs text-gray-400">还没有标签,在输入栏写 #标签 试试</p>
+          <p className="py-6 text-center text-xs text-faint">还没有标签,在输入栏写 #标签 试试</p>
         ) : (
-          <ul className="max-h-64 overflow-y-auto rounded border border-gray-100">
+          <ul className="max-h-64 overflow-y-auto rounded border border-border">
             {rows.map((row) => {
               const picked = p.selected.includes(row.path);
               const count = includeChildren ? row.subtree_count : row.self_count;
@@ -102,14 +102,14 @@ export function TagPickDialog(p: TagPickDialogProps): ReactNode {
                     disabled={picked}
                     onClick={() => p.onPick(row.path, includeChildren)}
                     title={row.path}
-                    className="flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left text-xs text-gray-700 hover:bg-blue-50 hover:text-blue-700 disabled:cursor-default disabled:text-gray-300 disabled:hover:bg-transparent disabled:hover:text-gray-300"
+                    className="flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left text-xs text-muted hover:bg-accent-soft hover:text-accent disabled:cursor-default disabled:text-faint disabled:hover:bg-transparent disabled:hover:text-faint"
                     style={{ paddingLeft: 10 + row.depth * 12 }}
                   >
                     <span className="truncate">{row.path}</span>
                     {picked ? (
-                      <span className="shrink-0 text-gray-300">已添加</span>
+                      <span className="shrink-0 text-faint">已添加</span>
                     ) : (
-                      <span className="shrink-0 text-gray-400">{count}</span>
+                      <span className="shrink-0 text-faint">{count}</span>
                     )}
                   </button>
                 </li>

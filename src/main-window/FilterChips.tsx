@@ -11,10 +11,10 @@ export interface FilterChipsProps {
 
 /** chip 底色按种类区分:排除偏红、排序/有无标签偏灰、其余(关键词/标签/日期)偏蓝 */
 function chipClass(kind: Chip['kind']): string {
-  if (kind === 'excludeTag') return 'border-red-200 bg-red-50 text-red-600 hover:border-red-400';
+  if (kind === 'excludeTag') return 'border-danger/40 bg-danger-soft text-danger hover:border-danger';
   if (kind === 'sort' || kind === 'presence')
-    return 'border-gray-300 bg-gray-50 text-gray-600 hover:border-blue-400';
-  return 'border-blue-200 bg-blue-50 text-blue-700 hover:border-blue-400';
+    return 'border-border bg-panel text-muted hover:border-accent';
+  return 'border-accent/40 bg-accent-soft text-accent hover:border-accent';
 }
 
 /** 统一条件 chips(可单删):空数组时不渲染(空条件时芯片区隐藏,spec 6.2) */

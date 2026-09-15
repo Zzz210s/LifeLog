@@ -23,7 +23,7 @@ export function NoteDateCell({ date, onChange }: NoteDateCellProps): ReactNode {
         onClick={() => setPicking(true)}
         aria-label="修改日期"
         title="点击修改日期"
-        className="rounded text-xs text-gray-400 hover:bg-gray-50 hover:text-blue-600"
+        className="rounded text-xs text-faint hover:bg-hover hover:text-accent"
       >
         {date}
       </button>
@@ -36,7 +36,7 @@ export function NoteDateCell({ date, onChange }: NoteDateCellProps): ReactNode {
       autoFocus
       defaultValue={date}
       aria-label="选择日期"
-      className="rounded border border-gray-300 bg-white px-1 text-xs text-gray-600"
+      className="rounded border border-border bg-raised px-1 text-xs text-muted"
       onKeyDown={(e) => {
         if (e.key === 'Escape') setPicking(false);
       }}

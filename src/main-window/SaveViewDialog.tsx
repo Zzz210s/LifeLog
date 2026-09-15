@@ -57,25 +57,25 @@ export function SaveViewDialog(p: SaveViewDialogProps): ReactNode {
 
   return (
     <div
-      className="fixed inset-0 z-40 flex items-center justify-center bg-black/30"
+      className="fixed inset-0 z-40 flex items-center justify-center bg-overlay"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) p.onClose();
       }}
     >
-      <div role="dialog" aria-label="保存为视图" className="w-80 rounded-lg border border-gray-200 bg-white p-4 shadow-xl">
+      <div role="dialog" aria-label="保存为视图" className="w-80 rounded-lg border border-border bg-raised p-4 shadow-xl">
         <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-sm font-medium text-gray-900">保存为视图</h2>
+          <h2 className="text-sm font-medium text-text">保存为视图</h2>
           <button
             type="button"
             onClick={p.onClose}
             aria-label="关闭"
-            className="rounded px-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            className="rounded px-1 text-faint hover:bg-hover hover:text-muted"
           >
             ×
           </button>
         </div>
         {summary !== '' && (
-          <p className="mb-2 text-xs text-gray-500" title={summary}>
+          <p className="mb-2 text-xs text-faint" title={summary}>
             将保存当前条件:{summary}
           </p>
         )}
@@ -91,14 +91,14 @@ export function SaveViewDialog(p: SaveViewDialogProps): ReactNode {
           }}
           placeholder="视图标题(必填)"
           aria-label="视图标题"
-          className="h-8 w-full rounded-md border border-gray-300 px-2.5 text-sm outline-none focus:border-blue-500"
+          className="h-8 w-full rounded-md border border-border px-2.5 text-sm outline-none focus:border-accent"
         />
-        {error !== '' && <p className="mt-1.5 text-xs text-red-500">{error}</p>}
+        {error !== '' && <p className="mt-1.5 text-xs text-danger">{error}</p>}
         <div className="mt-3 flex justify-end gap-2">
           <button
             type="button"
             onClick={p.onClose}
-            className="h-8 rounded-md border border-gray-300 px-3 text-xs text-gray-600 hover:border-blue-500 hover:text-blue-600"
+            className="h-8 rounded-md border border-border px-3 text-xs text-muted hover:border-accent hover:text-accent"
           >
             取消
           </button>
@@ -106,7 +106,7 @@ export function SaveViewDialog(p: SaveViewDialogProps): ReactNode {
             type="button"
             onClick={save}
             disabled={busy}
-            className="h-8 rounded-md bg-blue-600 px-3 text-xs text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="h-8 rounded-md bg-accent px-3 text-xs text-on-accent hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
           >
             {busy ? '保存中…' : '保存'}
           </button>

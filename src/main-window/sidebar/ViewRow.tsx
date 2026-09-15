@@ -47,7 +47,7 @@ export function ViewRow(p: ViewRowProps): ReactNode {
           }
         }}
         aria-label="视图标题"
-        className="my-0.5 h-7 w-full rounded border border-blue-400 px-2 text-xs outline-none"
+        className="my-0.5 h-7 w-full rounded border border-accent px-2 text-xs outline-none"
       />
     );
   }
@@ -61,11 +61,11 @@ export function ViewRow(p: ViewRowProps): ReactNode {
       onDrop={p.onDrop}
       onClick={p.onApply}
       title={`视图:${p.view.title}(拖拽调整顺序)`}
-      className={ROW_CLASS + (p.active ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-blue-50 hover:text-blue-700')}
+      className={ROW_CLASS + (p.active ? 'bg-accent-soft text-accent' : 'text-muted hover:bg-accent-soft hover:text-accent')}
     >
       <span className="min-w-0 truncate">{p.view.title}</span>
       <span className="ml-auto flex shrink-0 items-center">
-        <span className="pl-2 text-xs tabular-nums text-gray-400">{p.badge}</span>
+        <span className="pl-2 text-xs tabular-nums text-faint">{p.badge}</span>
         <span className="hidden items-center gap-0.5 pl-1 group-hover/view:flex">
           <button
             type="button"
@@ -75,7 +75,7 @@ export function ViewRow(p: ViewRowProps): ReactNode {
               e.stopPropagation();
               setEditing(true);
             }}
-            className="rounded px-1 text-gray-400 hover:bg-gray-200 hover:text-gray-600"
+            className="rounded px-1 text-faint hover:bg-text/10 hover:text-muted"
           >
             改
           </button>
@@ -87,7 +87,7 @@ export function ViewRow(p: ViewRowProps): ReactNode {
               e.stopPropagation();
               p.onDelete();
             }}
-            className="rounded px-1 text-gray-400 hover:bg-red-100 hover:text-red-600"
+            className="rounded px-1 text-faint hover:bg-danger-soft hover:text-danger"
           >
             删
           </button>

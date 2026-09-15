@@ -22,17 +22,17 @@ export interface TagsHeaderProps {
 }
 
 const HEADER_BTN =
-  'rounded p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-600';
+  'rounded p-1 text-faint hover:bg-text/10 hover:text-muted';
 
 export function TagsHeader(p: TagsHeaderProps): ReactNode {
   return (
     <>
       <div className="group flex h-8 shrink-0 items-center gap-1 px-2">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500">标签</h2>
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-faint">标签</h2>
         {p.flash && (
           <span
             data-testid="tag-flash"
-            className={'truncate text-xs ' + (p.flash.tone === 'error' ? 'text-red-600' : 'text-green-600')}
+            className={'truncate text-xs ' + (p.flash.tone === 'error' ? 'text-danger' : 'text-success')}
           >
             {p.flash.text}
           </span>
@@ -52,7 +52,7 @@ export function TagsHeader(p: TagsHeaderProps): ReactNode {
             title="过滤标签"
             aria-label="过滤标签"
             onClick={p.onToggleFilter}
-            className={HEADER_BTN + (p.filterOpen ? ' bg-gray-200 text-gray-600' : '')}
+            className={HEADER_BTN + (p.filterOpen ? ' bg-text/10 text-muted' : '')}
           >
             过滤
           </button>
@@ -65,7 +65,7 @@ export function TagsHeader(p: TagsHeaderProps): ReactNode {
           onChange={(e) => p.onQueryChange(e.target.value)}
           placeholder="输入关键词过滤标签"
           aria-label="过滤标签"
-          className="mx-2 mb-1 h-7 shrink-0 rounded border border-gray-300 px-2 text-xs outline-none focus:border-blue-500"
+          className="mx-2 mb-1 h-7 shrink-0 rounded border border-border px-2 text-xs outline-none focus:border-accent"
         />
       )}
     </>

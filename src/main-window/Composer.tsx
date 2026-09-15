@@ -37,7 +37,7 @@ export function Composer({ onSaved, disabled = false }: { onSaved: () => void; d
   };
 
   return (
-    <div className="border-b border-gray-200 px-4 py-3">
+    <div className="border-b border-border px-4 py-3">
       <textarea
         ref={ref}
         rows={1}
@@ -60,10 +60,10 @@ export function Composer({ onSaved, disabled = false }: { onSaved: () => void; d
           }
         }}
         style={{ maxHeight: 280, overflowY: 'auto' }}
-        className="w-full resize-none rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm leading-relaxed text-gray-900 outline-none focus:border-blue-500"
+        className="w-full resize-none rounded-lg border border-border bg-raised px-3 py-2 text-sm leading-relaxed text-text outline-none focus:border-accent"
       />
       <div className="mt-2 flex items-center justify-between">
-        <span className="text-xs text-red-500">
+        <span className="text-xs text-danger">
           {error
             ? '保存失败: ' + error
             : disabled
@@ -73,7 +73,7 @@ export function Composer({ onSaved, disabled = false }: { onSaved: () => void; d
         <button
           onClick={() => void save()}
           disabled={disabled || !content.trim() || saving}
-          className="rounded-md bg-blue-600 px-4 py-1.5 text-sm text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-md bg-accent px-4 py-1.5 text-sm text-on-accent hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
         >
           保存
         </button>

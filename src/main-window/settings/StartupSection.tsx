@@ -85,20 +85,20 @@ export function StartupSection(): ReactNode {
     settings && actual !== null ? resolveAutostartStatus(settings.autostart, actual) : null;
 
   return (
-    <section className="rounded-lg border border-gray-200 bg-white">
-      <div className="border-b border-gray-200 px-4 py-2.5">
-        <h2 className="text-sm font-medium text-gray-900">启动</h2>
-        <p className="mt-0.5 text-xs text-gray-500">开机启动会在系统注册表中登记;改动立即保存</p>
+    <section className="rounded-lg border border-border bg-raised">
+      <div className="border-b border-border px-4 py-2.5">
+        <h2 className="text-sm font-medium text-text">启动</h2>
+        <p className="mt-0.5 text-xs text-faint">开机启动会在系统注册表中登记;改动立即保存</p>
       </div>
-      {error && <p className="px-4 pt-3 text-xs text-red-500">{error}</p>}
+      {error && <p className="px-4 pt-3 text-xs text-danger">{error}</p>}
       {settings === null ? (
         <div className="flex flex-col items-center gap-2 px-4 py-6">
-          <span className="text-xs text-gray-400">加载中...</span>
+          <span className="text-xs text-faint">加载中...</span>
           {error && (
             <button
               type="button"
               onClick={() => reload()}
-              className="rounded border border-gray-300 px-2 py-0.5 text-xs text-gray-600 hover:bg-gray-50"
+              className="rounded border border-border px-2 py-0.5 text-xs text-muted hover:bg-hover"
             >
               重试
             </button>
@@ -114,14 +114,14 @@ export function StartupSection(): ReactNode {
                     type="button"
                     disabled={busy}
                     onClick={() => void applyAutostart(settings.autostart)}
-                    className="rounded border border-amber-400 px-2 py-0.5 text-xs text-amber-700 hover:bg-amber-50 disabled:opacity-50"
+                    className="rounded border border-warn px-2 py-0.5 text-xs text-warn hover:bg-warn-soft disabled:opacity-50"
                   >
                     修复
                   </button>
                 )}
                 <span
                   className={
-                    'text-xs ' + (status === 'needs-repair' ? 'text-amber-600' : 'text-gray-500')
+                    'text-xs ' + (status === 'needs-repair' ? 'text-warn' : 'text-faint')
                   }
                 >
                   {status ? STATUS_TEXT[status] : '读取中...'}
@@ -142,7 +142,7 @@ export function StartupSection(): ReactNode {
               />
             </SettingsRow>
           </div>
-          <p className="border-t border-gray-100 px-4 py-3 text-xs text-gray-500">
+          <p className="border-t border-border px-4 py-3 text-xs text-faint">
             托盘图标左键唤起输入栏,右键打开菜单
           </p>
         </>

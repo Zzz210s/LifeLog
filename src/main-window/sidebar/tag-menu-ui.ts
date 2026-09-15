@@ -5,8 +5,8 @@ export type Pane = 'main' | 'rename' | 'move' | 'delete';
 
 /** 菜单项按钮样式 */
 export const ITEM_CLASS =
-  'block w-full rounded px-2.5 py-1.5 text-left text-xs text-gray-700 hover:bg-blue-50 hover:text-blue-700';
+  'block w-full rounded px-2.5 py-1.5 text-left text-xs text-muted hover:bg-accent-soft hover:text-accent';
 
 /** 子面板里的次要按钮(取消)样式 */
 export const BTN_GHOST =
-  'h-7 rounded border border-gray-300 px-2 text-xs text-gray-600 hover:border-blue-500';
+  'h-7 rounded border border-border px-2 text-xs text-muted hover:border-accent';

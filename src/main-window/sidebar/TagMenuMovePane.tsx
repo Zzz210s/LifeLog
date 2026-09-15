@@ -22,11 +22,11 @@ export interface TagMenuMovePaneProps {
 export function TagMenuMovePane(p: TagMenuMovePaneProps): ReactNode {
   return (
     <div className="p-1">
-      <p className="mb-1 px-1 text-xs text-gray-500">移动「{p.nodeName}」到</p>
+      <p className="mb-1 px-1 text-xs text-faint">移动「{p.nodeName}」到</p>
       <button
         type="button"
         onClick={() => p.onMove(null, p.nodeName)}
-        className={ITEM_CLASS + (p.currentParent === '' ? ' bg-blue-50 text-blue-700' : '')}
+        className={ITEM_CLASS + (p.currentParent === '' ? ' bg-accent-soft text-accent' : '')}
       >
         (根级){p.currentParent === '' ? ' - 当前' : ''}
       </button>
@@ -38,13 +38,13 @@ export function TagMenuMovePane(p: TagMenuMovePaneProps): ReactNode {
           disabled={p.busy}
           onClick={() => p.onMove(r.id, r.path + '/' + p.nodeName)}
           style={{ paddingLeft: 10 + r.depth * 12 }}
-          className={ITEM_CLASS + (r.path === p.currentParent ? ' bg-blue-50 text-blue-700' : '')}
+          className={ITEM_CLASS + (r.path === p.currentParent ? ' bg-accent-soft text-accent' : '')}
         >
           {r.path}
           {r.path === p.currentParent ? ' - 当前' : ''}
         </button>
       ))}
-      {p.error !== '' && <p className="mt-1 px-1 text-xs text-red-500">{p.error}</p>}
+      {p.error !== '' && <p className="mt-1 px-1 text-xs text-danger">{p.error}</p>}
       <div className="mt-1.5 flex justify-end gap-1.5">
         <button type="button" onClick={p.onCancel} className={BTN_GHOST}>
           取消

@@ -23,10 +23,10 @@ export function TimeRow(p: TimeRowProps): ReactNode {
   const rowClass =
     'group flex w-full items-center gap-1 rounded px-1.5 py-1 pr-2 text-left text-xs transition-colors ' +
     (p.excluded
-      ? 'bg-red-50 text-red-700 hover:bg-red-100'
+      ? 'bg-danger-soft text-danger hover:bg-danger-soft'
       : p.selected
-        ? 'bg-blue-100 text-blue-700'
-        : 'text-gray-700 hover:bg-blue-50 hover:text-blue-700');
+        ? 'bg-accent-soft text-accent'
+        : 'text-muted hover:bg-accent-soft hover:text-accent');
 
   return (
     <button
@@ -46,7 +46,7 @@ export function TimeRow(p: TimeRowProps): ReactNode {
         <svg
           viewBox="0 0 16 16"
           aria-hidden="true"
-          className={'w-3 h-3 shrink-0 text-gray-400 transition-transform ' + (p.expanded ? 'rotate-90' : '')}
+          className={'w-3 h-3 shrink-0 text-faint transition-transform ' + (p.expanded ? 'rotate-90' : '')}
           onClick={(e) => {
             e.stopPropagation();
             p.onToggleExpand(p.node.path);
@@ -59,9 +59,9 @@ export function TimeRow(p: TimeRowProps): ReactNode {
       )}
       <span className="min-w-0 truncate">{p.node.name}</span>
       {p.excluded && (
-        <span className="shrink-0 rounded bg-red-100 px-1 text-[10px] leading-4 text-red-600">已排除</span>
+        <span className="shrink-0 rounded bg-danger-soft px-1 text-[10px] leading-4 text-danger">已排除</span>
       )}
-      <span className="ml-auto shrink-0 pl-2 text-xs tabular-nums text-gray-400">{p.node.subtreeCount}</span>
+      <span className="ml-auto shrink-0 pl-2 text-xs tabular-nums text-faint">{p.node.subtreeCount}</span>
     </button>
   );
 }

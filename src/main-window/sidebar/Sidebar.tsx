@@ -60,7 +60,7 @@ export function Sidebar(p: SidebarProps): ReactNode {
     <aside
       data-testid="sidebar"
       aria-label="侧栏"
-      className="relative flex h-full flex-col border-r border-gray-200 bg-gray-50"
+      className="relative flex h-full flex-col border-r border-border bg-panel"
       style={{ width }}
     >
       <div className="flex h-8 shrink-0 items-center justify-end px-1">
@@ -69,7 +69,7 @@ export function Sidebar(p: SidebarProps): ReactNode {
           title="隐藏侧栏(顶栏可重新显示)"
           aria-label="隐藏侧栏"
           onClick={() => p.sidebar.setVisible(false)}
-          className="rounded p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-600"
+          className="rounded p-1 text-faint hover:bg-text/10 hover:text-muted"
         >
           <svg viewBox="0 0 16 16" aria-hidden="true" className="h-3.5 w-3.5">
             <path d="M10 4l-4 4 4 4" fill="none" stroke="currentColor" strokeWidth="1.5" />
@@ -91,7 +91,7 @@ export function Sidebar(p: SidebarProps): ReactNode {
         onMouseDown={startDrag}
         title="拖动调整侧栏宽度"
         aria-label="调整侧栏宽度"
-        className="absolute inset-y-0 right-0 z-10 w-1 cursor-col-resize hover:bg-blue-400/60"
+        className="absolute inset-y-0 right-0 z-10 w-1 cursor-col-resize hover:bg-accent/60"
       />
     </aside>
   );

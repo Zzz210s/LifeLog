@@ -49,7 +49,7 @@ export function EditPanel(p: EditPanelProps): ReactNode {
   };
 
   return (
-    <li className="border-b border-blue-200 bg-blue-50/40 px-4 py-3">
+    <li className="border-b border-accent bg-accent-soft/40 px-4 py-3">
       <div className="grid grid-cols-2 gap-2">
         <textarea
           autoFocus
@@ -62,27 +62,27 @@ export function EditPanel(p: EditPanelProps): ReactNode {
               void save();
             }
           }}
-          className="h-64 resize-none rounded-md border border-gray-300 bg-white p-2 font-mono text-sm leading-relaxed outline-none focus:border-blue-500"
+          className="h-64 resize-none rounded-md border border-border bg-raised p-2 font-mono text-sm leading-relaxed outline-none focus:border-accent"
         />
         <MarkdownBody
           html={preview}
-          className="md-body h-64 overflow-y-auto rounded-md border border-gray-200 bg-white p-2 text-sm text-gray-800"
+          className="md-body h-64 overflow-y-auto rounded-md border border-border bg-raised p-2 text-sm text-text"
           onLinkError={p.onLinkError}
         />
       </div>
       <div className="mt-2 flex items-center justify-between">
-        <span className="text-xs text-red-500">{error ? '保存失败: ' + error : 'Ctrl+Enter 保存'}</span>
+        <span className="text-xs text-danger">{error ? '保存失败: ' + error : 'Ctrl+Enter 保存'}</span>
         <div className="flex gap-2">
           <button
             onClick={p.onCancel}
-            className="rounded-md border border-gray-300 px-3 py-1 text-sm text-gray-600 hover:bg-gray-100"
+            className="rounded-md border border-border px-3 py-1 text-sm text-muted hover:bg-hover"
           >
             取消
           </button>
           <button
             onClick={() => void save()}
             disabled={!source.trim() || saving}
-            className="rounded-md bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700 disabled:opacity-50"
+            className="rounded-md bg-accent px-3 py-1 text-sm text-on-accent hover:bg-accent-hover disabled:opacity-50"
           >
             保存
           </button>

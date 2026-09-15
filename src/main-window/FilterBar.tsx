@@ -79,18 +79,18 @@ export function FilterBar(p: FilterBarProps): ReactNode {
   const summary = summaryOf(p.conditions);
 
   return (
-    <div className="border-b border-gray-200 px-4 py-2">
+    <div className="border-b border-border px-4 py-2">
       <div className="flex flex-wrap items-center gap-2">
         <input
           value={kw}
           onChange={(e) => onInput(e.target.value)}
           placeholder="搜索笔记与标签"
           aria-label="搜索笔记与标签"
-          className="h-8 min-w-40 flex-1 rounded-md border border-gray-300 px-2.5 text-sm outline-none focus:border-blue-500"
+          className="h-8 min-w-40 flex-1 rounded-md border border-border px-2.5 text-sm outline-none focus:border-accent"
         />
         <button
           onClick={() => p.onPatch({ sort: oldestFirst ? 'newest' : 'oldest' })}
-          className="h-8 shrink-0 rounded-md border border-gray-300 px-2.5 text-xs text-gray-600 hover:border-blue-500 hover:text-blue-600"
+          className="h-8 shrink-0 rounded-md border border-border px-2.5 text-xs text-muted hover:border-accent hover:text-accent"
         >
           排序: {oldestFirst ? '最早' : '最新'}
         </button>
@@ -101,19 +101,19 @@ export function FilterBar(p: FilterBarProps): ReactNode {
             setSaveOpen(true);
           }}
           title="把当前条件保存为视图"
-          className="h-8 shrink-0 rounded-md border border-gray-300 px-2.5 text-xs text-gray-600 hover:border-blue-500 hover:text-blue-600"
+          className="h-8 shrink-0 rounded-md border border-border px-2.5 text-xs text-muted hover:border-accent hover:text-accent"
         >
           保存为视图
         </button>
-        {flash && <span className="shrink-0 text-xs text-green-600">{flash}</span>}
+        {flash && <span className="shrink-0 text-xs text-success">{flash}</span>}
         {p.onExport && (
           <>
-            {p.exported && <span className="shrink-0 text-xs text-green-600">已导出</span>}
+            {p.exported && <span className="shrink-0 text-xs text-success">已导出</span>}
             <button
               onClick={p.onExport}
               disabled={p.exporting}
               title="导出全部笔记(不受筛选影响)"
-              className="h-8 shrink-0 rounded-md border border-gray-300 px-2.5 text-xs text-gray-600 hover:border-blue-500 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
+              className="h-8 shrink-0 rounded-md border border-border px-2.5 text-xs text-muted hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
             >
               {p.exporting ? '导出中' : '导出全部'}
             </button>
@@ -122,7 +122,7 @@ export function FilterBar(p: FilterBarProps): ReactNode {
       </div>
       <FilterChips chips={chipsOf(p.conditions)} onRemove={(next) => p.onPatch(next)} />
       {summary !== '' && (
-        <p className="mt-1 truncate text-xs text-gray-400" title={summary}>
+        <p className="mt-1 truncate text-xs text-faint" title={summary}>
           {summary}
         </p>
       )}

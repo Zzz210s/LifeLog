@@ -15,10 +15,10 @@ export interface SettingsRowProps {
 /** 一行设置:左侧标签与中文说明,右侧控件 */
 export function SettingsRow({ label, hint, children }: SettingsRowProps): ReactNode {
   return (
-    <div className="flex items-center justify-between gap-4 border-b border-gray-100 py-3 last:border-b-0">
+    <div className="flex items-center justify-between gap-4 border-b border-border py-3 last:border-b-0">
       <div className="min-w-0">
-        <div className="text-sm text-gray-900">{label}</div>
-        <div className="mt-0.5 text-xs leading-relaxed text-gray-500">{hint}</div>
+        <div className="text-sm text-text">{label}</div>
+        <div className="mt-0.5 text-xs leading-relaxed text-faint">{hint}</div>
       </div>
       <div className="shrink-0">{children}</div>
     </div>
@@ -41,12 +41,12 @@ export function Toggle({ checked, label, onChange }: ToggleProps): ReactNode {
       onClick={() => onChange(!checked)}
       className={
         'relative h-6 w-11 rounded-full transition-colors ' +
-        (checked ? 'bg-blue-600' : 'bg-gray-300')
+        (checked ? 'bg-accent' : 'bg-text/20')
       }
     >
       <span
         className={
-          'absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ' +
+          'absolute top-0.5 h-5 w-5 rounded-full bg-knob shadow transition-all ' +
           (checked ? 'left-[22px]' : 'left-0.5')
         }
       />
@@ -94,9 +94,9 @@ export function PercentInput({ value, label, min, max, onCommit }: PercentInputP
         onKeyDown={(e) => {
           if (e.key === 'Enter') e.currentTarget.blur();
         }}
-        className="h-8 w-16 rounded-md border border-gray-300 px-2 text-right text-sm outline-none focus:border-blue-500"
+        className="h-8 w-16 rounded-md border border-border px-2 text-right text-sm outline-none focus:border-accent"
       />
-      <span className="text-xs text-gray-500">%</span>
+      <span className="text-xs text-faint">%</span>
     </div>
   );
 }
@@ -123,7 +123,7 @@ export function SelectInput<T extends string>({
         const hit = options.find((o) => o.value === e.target.value);
         if (hit) onChange(hit.value);
       }}
-      className="h-8 rounded-md border border-gray-300 bg-white px-2 text-sm text-gray-700 outline-none focus:border-blue-500"
+      className="h-8 rounded-md border border-border bg-raised px-2 text-sm text-muted outline-none focus:border-accent"
     >
       {options.map((o) => (
         <option key={o.value} value={o.value}>

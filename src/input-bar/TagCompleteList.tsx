@@ -17,7 +17,7 @@ export function TagCompleteList(p: TagCompleteListProps): ReactNode {
     <div
       role="listbox"
       aria-label="标签补全候选"
-      className="absolute bottom-[14px] left-[14px] z-10 max-h-[168px] w-64 overflow-y-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg"
+      className="absolute bottom-[14px] left-[14px] z-10 max-h-[168px] w-64 overflow-y-auto rounded-md border border-border bg-raised py-1 shadow-lg"
     >
       {p.items.map((path, i) => {
         const slash = path.lastIndexOf('/');
@@ -37,10 +37,10 @@ export function TagCompleteList(p: TagCompleteListProps): ReactNode {
             }}
             className={
               'block w-full truncate px-3 py-1 text-left text-xs ' +
-              (active ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50')
+              (active ? 'bg-accent-soft text-accent' : 'text-muted hover:bg-hover')
             }
           >
-            <span className="text-gray-400">{parent}</span>
+            <span className="text-faint">{parent}</span>
             <span className="font-semibold">{leaf}</span>
           </button>
         );

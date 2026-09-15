@@ -13,15 +13,15 @@ export interface TopBarProps {
 
 export function TopBar({ view, sidebarVisible, onToggleSidebar, onOpenSettings, onBack }: TopBarProps): ReactNode {
   return (
-    <header className="flex h-12 shrink-0 items-center justify-between border-b border-gray-200 px-4">
-      <span className="flex items-center gap-1 text-sm font-semibold text-gray-900">
+    <header className="flex h-12 shrink-0 items-center justify-between border-b border-border px-4">
+      <span className="flex items-center gap-1 text-sm font-semibold text-text">
         <button
           type="button"
           onClick={onToggleSidebar}
           title={sidebarVisible ? '隐藏侧栏' : '显示侧栏'}
           aria-label={sidebarVisible ? '隐藏侧栏' : '显示侧栏'}
           aria-pressed={sidebarVisible}
-          className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+          className="rounded-md p-1.5 text-faint hover:bg-hover hover:text-muted"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="h-4 w-4">
             <rect x="3" y="4" width="18" height="16" rx="2" />
@@ -36,7 +36,7 @@ export function TopBar({ view, sidebarVisible, onToggleSidebar, onOpenSettings, 
           onClick={onOpenSettings}
           title="设置"
           aria-label="设置"
-          className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+          className="rounded-md p-1.5 text-faint hover:bg-hover hover:text-muted"
         >
           <svg
             viewBox="0 0 24 24"
@@ -56,7 +56,7 @@ export function TopBar({ view, sidebarVisible, onToggleSidebar, onOpenSettings, 
         <button
           type="button"
           onClick={onBack}
-          className="rounded-md border border-gray-300 px-2.5 py-1 text-xs text-gray-600 hover:border-blue-500 hover:text-blue-600"
+          className="rounded-md border border-border px-2.5 py-1 text-xs text-muted hover:border-accent hover:text-accent"
         >
           返回信息流
         </button>

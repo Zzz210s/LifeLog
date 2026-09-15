@@ -31,7 +31,7 @@ export interface TagRowProps {
   onDrop: (e: React.DragEvent) => void;
 }
 
-const COUNT_RAIL_CLASS = 'ml-auto shrink-0 pl-2 text-xs tabular-nums text-gray-400';
+const COUNT_RAIL_CLASS = 'ml-auto shrink-0 pl-2 text-xs tabular-nums text-faint';
 
 export function TagRow(p: TagRowProps): ReactNode {
   const selectable = isSelectable(p.node);
@@ -41,12 +41,12 @@ export function TagRow(p: TagRowProps): ReactNode {
     'group flex w-full items-center gap-1 rounded px-1.5 py-1 pr-2 text-left text-xs transition-colors ' +
     (selectable
       ? p.excluded
-        ? 'bg-red-50 text-red-700 hover:bg-red-100'
+        ? 'bg-danger-soft text-danger hover:bg-danger/20'
         : p.selected
-          ? 'bg-blue-100 text-blue-700'
-          : 'text-gray-700 hover:bg-blue-50 hover:text-blue-700'
-      : 'cursor-default text-gray-400 hover:bg-gray-100') +
-    (p.dropTarget ? ' shadow-[inset_0_-3px_0_#2563eb]' : '') +
+          ? 'bg-accent-soft text-accent'
+          : 'text-muted hover:bg-accent-soft hover:text-accent'
+      : 'cursor-default text-faint hover:bg-hover') +
+    (p.dropTarget ? ' shadow-[inset_0_-3px_0_var(--color-accent)]' : '') +
     (p.dragSource ? ' opacity-40' : '');
 
   return (
@@ -71,7 +71,7 @@ export function TagRow(p: TagRowProps): ReactNode {
         <svg
           viewBox="0 0 16 16"
           aria-hidden="true"
-          className={'w-3 h-3 shrink-0 text-gray-400 transition-transform ' + (p.expanded ? 'rotate-90' : '')}
+          className={'w-3 h-3 shrink-0 text-faint transition-transform ' + (p.expanded ? 'rotate-90' : '')}
           onClick={(e) => {
             e.stopPropagation();
             p.onToggleExpand(p.node.path);
@@ -83,7 +83,7 @@ export function TagRow(p: TagRowProps): ReactNode {
       {!p.flat && !hasChildren && <span className="w-3 shrink-0" />}
       <span className="min-w-0 truncate">{label}</span>
       {p.excluded && (
-        <span className="shrink-0 rounded bg-red-100 px-1 text-[10px] leading-4 text-red-600">已排除</span>
+        <span className="shrink-0 rounded bg-danger-soft px-1 text-[10px] leading-4 text-danger">已排除</span>
       )}
       <span className={COUNT_RAIL_CLASS}>{p.node.subtreeCount}</span>
     </button>

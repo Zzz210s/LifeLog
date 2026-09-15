@@ -18,7 +18,7 @@ export interface TagMenuRenamePaneProps {
 export function TagMenuRenamePane(p: TagMenuRenamePaneProps): ReactNode {
   return (
     <div className="p-1">
-      <p className="mb-1.5 px-1 text-xs text-gray-500">重命名为</p>
+      <p className="mb-1.5 px-1 text-xs text-faint">重命名为</p>
       <input
         autoFocus
         value={p.newName}
@@ -27,9 +27,9 @@ export function TagMenuRenamePane(p: TagMenuRenamePaneProps): ReactNode {
           if (e.key === 'Enter' && !p.busy) p.onSubmit();
         }}
         aria-label="新标签名"
-        className="h-7 w-full rounded border border-gray-300 px-2 text-xs outline-none focus:border-blue-500"
+        className="h-7 w-full rounded border border-border px-2 text-xs outline-none focus:border-accent"
       />
-      {p.error !== '' && <p className="mt-1 px-1 text-xs text-red-500">{p.error}</p>}
+      {p.error !== '' && <p className="mt-1 px-1 text-xs text-danger">{p.error}</p>}
       <div className="mt-1.5 flex justify-end gap-1.5">
         <button type="button" onClick={p.onCancel} className={BTN_GHOST}>
           取消
@@ -38,7 +38,7 @@ export function TagMenuRenamePane(p: TagMenuRenamePaneProps): ReactNode {
           type="button"
           onClick={p.onSubmit}
           disabled={p.busy}
-          className="h-7 rounded bg-blue-600 px-2 text-xs text-white hover:bg-blue-700 disabled:opacity-50"
+          className="h-7 rounded bg-accent px-2 text-xs text-on-accent hover:bg-accent-hover disabled:opacity-50"
         >
           {p.busy ? '保存中…' : '确定'}
         </button>

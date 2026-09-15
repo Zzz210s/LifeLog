@@ -21,8 +21,8 @@ export function TagRootDropBar(p: TagRootDropBarProps): ReactNode {
       className={
         'mx-1 mb-1 shrink-0 rounded border px-2 py-1 text-xs ' +
         (p.overRoot
-          ? 'border-blue-400 bg-blue-100 text-blue-700'
-          : 'border-dashed border-gray-300 text-gray-400')
+          ? 'border-accent bg-accent-soft text-accent'
+          : 'border-dashed border-border text-faint')
       }
     >
       移到根级

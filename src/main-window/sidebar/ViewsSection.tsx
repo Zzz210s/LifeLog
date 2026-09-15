@@ -109,22 +109,22 @@ export function ViewsSection(p: ViewsSectionProps): ReactNode {
   };
 
   return (
-    <section className="shrink-0 border-b border-gray-200 pb-2" aria-label="视图分区">
+    <section className="shrink-0 border-b border-border pb-2" aria-label="视图分区">
       <div className="group flex h-8 items-center gap-1 px-2">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500">视图</h2>
-        {flash && <span className="truncate text-xs text-green-600">{flash}</span>}
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-faint">视图</h2>
+        {flash && <span className="truncate text-xs text-success">{flash}</span>}
         <button
           type="button"
           title="新建视图(保存当前条件)"
           aria-label="新建视图"
           onClick={() => setSaveOpen(true)}
-          className="ml-auto rounded p-1 text-gray-400 opacity-0 hover:bg-gray-200 hover:text-gray-600 group-hover:opacity-100"
+          className="ml-auto rounded p-1 text-faint opacity-0 hover:bg-text/10 hover:text-muted group-hover:opacity-100"
         >
           +
         </button>
       </div>
       {error !== '' && (
-        <p className="px-2 pb-1 text-xs text-red-500">
+        <p className="px-2 pb-1 text-xs text-danger">
           {error}
           <button type="button" onClick={() => setError('')} className="ml-1 underline">
             关闭
@@ -142,12 +142,12 @@ export function ViewsSection(p: ViewsSectionProps): ReactNode {
             className={
               BUILTIN_ROW +
               (filterKey(v.conditions) === currentKey
-                ? 'bg-blue-100 text-blue-700'
-                : 'text-gray-700 hover:bg-blue-50 hover:text-blue-700')
+                ? 'bg-accent-soft text-accent'
+                : 'text-muted hover:bg-accent-soft hover:text-accent')
             }
           >
             <span className="min-w-0 truncate">{v.title}</span>
-            <span className="ml-auto shrink-0 pl-2 text-xs tabular-nums text-gray-400">
+            <span className="ml-auto shrink-0 pl-2 text-xs tabular-nums text-faint">
               {badge(v.key)}
             </span>
           </button>
@@ -166,7 +166,7 @@ export function ViewsSection(p: ViewsSectionProps): ReactNode {
           />
         ))}
         {views.length === 0 && (
-          <p className="px-2 py-1.5 text-xs text-gray-400" title="点击上方 + 把当前筛选条件保存为视图">
+          <p className="px-2 py-1.5 text-xs text-faint" title="点击上方 + 把当前筛选条件保存为视图">
             还没有自建视图;点上方 + 把当前条件存为视图
           </p>
         )}

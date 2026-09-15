@@ -63,7 +63,7 @@ export function TimeSection(p: TimeSectionProps): ReactNode {
   if (tree.length === 0) return null;
 
   return (
-    <section className="shrink-0 border-b border-gray-200 pb-2" aria-label="时间分区">
+    <section className="shrink-0 border-b border-border pb-2" aria-label="时间分区">
       <div className="flex h-8 items-center px-2">
         <button
           type="button"
@@ -71,7 +71,7 @@ export function TimeSection(p: TimeSectionProps): ReactNode {
           aria-expanded={open}
           title={open ? '折叠时间' : '展开时间'}
           onClick={() => setOpen(!open)}
-          className="flex min-w-0 items-center gap-1 rounded px-1 py-0.5 text-gray-500 hover:bg-gray-200 hover:text-gray-600"
+          className="flex min-w-0 items-center gap-1 rounded px-1 py-0.5 text-faint hover:bg-text/10 hover:text-muted"
         >
           <svg
             viewBox="0 0 16 16"
@@ -80,7 +80,7 @@ export function TimeSection(p: TimeSectionProps): ReactNode {
           >
             <path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" strokeWidth="1.5" />
           </svg>
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500">时间</h2>
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-faint">时间</h2>
         </button>
       </div>
       {open && (

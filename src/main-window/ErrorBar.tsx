@@ -19,19 +19,19 @@ export interface ErrorBarProps {
 /** 可关闭的错误行:查询失败额外给"重试",瞬时故障无需改筛选即可恢复 */
 export function ErrorBar(p: ErrorBarProps): ReactNode {
   return (
-    <div className="flex items-center gap-2 border-b border-red-200 bg-red-50 px-4 py-1.5 text-xs text-red-600">
+    <div className="flex items-center gap-2 border-b border-danger bg-danger-soft px-4 py-1.5 text-xs text-danger">
       <span role="alert" className="min-w-0 flex-1 truncate">
         {p.error.message}
       </span>
       {p.error.kind === 'query' && (
-        <button onClick={p.onRetry} className="shrink-0 text-red-500 hover:text-red-700">
+        <button onClick={p.onRetry} className="shrink-0 text-danger hover:text-danger-hover">
           重试
         </button>
       )}
       <button
         onClick={p.onDismiss}
         aria-label={dismissLabel(p.error.kind)}
-        className="shrink-0 text-red-500 hover:text-red-700"
+        className="shrink-0 text-danger hover:text-danger-hover"
       >
         关闭
       </button>

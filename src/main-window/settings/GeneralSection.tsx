@@ -40,18 +40,18 @@ export function GeneralSection(): ReactNode {
   const hint = info ? `共 ${info.notes} 条笔记` : error ? '读取失败' : '正在读取...';
 
   return (
-    <section className="rounded-lg border border-gray-200 bg-white">
-      <div className="border-b border-gray-200 px-4 py-2.5">
-        <h2 className="text-sm font-medium text-gray-900">通用</h2>
-        <p className="mt-0.5 text-xs text-gray-500">应用与数据文件信息,均只读</p>
+    <section className="rounded-lg border border-border bg-raised">
+      <div className="border-b border-border px-4 py-2.5">
+        <h2 className="text-sm font-medium text-text">通用</h2>
+        <p className="mt-0.5 text-xs text-faint">应用与数据文件信息,均只读</p>
       </div>
       {error && (
         <div className="flex items-center gap-2 px-4 pt-3">
-          <p className="text-xs text-red-500">{error}</p>
+          <p className="text-xs text-danger">{error}</p>
           <button
             type="button"
             onClick={load}
-            className="shrink-0 rounded border border-gray-300 px-2 py-0.5 text-xs text-gray-600 hover:border-blue-500 hover:text-blue-600"
+            className="shrink-0 rounded border border-border px-2 py-0.5 text-xs text-muted hover:border-accent hover:text-accent"
           >
             重试
           </button>
@@ -59,23 +59,23 @@ export function GeneralSection(): ReactNode {
       )}
       <div className="px-4">
         <SettingsRow label="版本号" hint="当前应用版本,构建时写入">
-          <span className="text-sm text-gray-700">{appVersion()}</span>
+          <span className="text-sm text-muted">{appVersion()}</span>
         </SettingsRow>
         <SettingsRow label="数据库文件" hint={hint}>
           <button
             type="button"
             onClick={reveal}
             disabled={!info}
-            className="rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-600 hover:border-blue-500 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-md border border-border px-3 py-1.5 text-xs text-muted hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
           >
             打开所在文件夹
           </button>
         </SettingsRow>
       </div>
-      <p className="border-t border-gray-100 px-4 py-2 text-xs text-gray-500">
+      <p className="border-t border-border px-4 py-2 text-xs text-faint">
         含空格等不合法的旧标签仍原样保留;在编辑该笔记保存时会按新语法重新解析。
       </p>
-      <p className="border-t border-gray-100 px-4 py-3 font-mono text-xs break-all text-gray-500 select-all">
+      <p className="border-t border-border px-4 py-3 font-mono text-xs break-all text-faint select-all">
         {info ? info.path : error ? '读取失败' : '读取中...'}
       </p>
     </section>

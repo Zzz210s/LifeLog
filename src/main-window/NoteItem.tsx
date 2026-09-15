@@ -31,15 +31,15 @@ export function NoteItem(p: NoteItemProps): ReactNode {
   const html = useMemo(() => renderMarkdown(note.content), [note.content]);
 
   return (
-    <li className="group border-b border-gray-100 px-4 py-3">
+    <li className="group border-b border-border px-4 py-3">
       <div className="flex items-center gap-2">
         <NoteDateCell date={note.date} onChange={(d) => p.onDateChange(note, d)} />
         {/* 键盘用户聚焦时也显示操作按钮(不只 group-hover) */}
         <div className="ml-auto flex gap-2 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-          <button onClick={p.onEdit} className="text-xs text-gray-400 hover:text-blue-600">
+          <button onClick={p.onEdit} className="text-xs text-faint hover:text-accent">
             编辑
           </button>
-          <button onClick={p.onDelete} className="text-xs text-gray-400 hover:text-red-500">
+          <button onClick={p.onDelete} className="text-xs text-faint hover:text-danger">
             删除
           </button>
         </div>
@@ -51,12 +51,12 @@ export function NoteItem(p: NoteItemProps): ReactNode {
             checked={isDone}
             onChange={p.onToggleTodo}
             aria-label="todo 状态切换"
-            className="mt-1 h-4 w-4 shrink-0 accent-blue-600"
+            className="mt-1 h-4 w-4 shrink-0 accent-accent"
           />
         )}
         <MarkdownBody
           html={html}
-          className="md-body min-w-0 flex-1 text-sm text-gray-800"
+          className="md-body min-w-0 flex-1 text-sm text-text"
           onLinkError={p.onLinkError}
         />
       </div>
@@ -72,7 +72,7 @@ export function NoteItem(p: NoteItemProps): ReactNode {
                 title={t}
                 className={
                   'rounded px-1.5 py-0.5 text-xs transition-colors ' +
-                  (active ? 'bg-blue-100 text-blue-700' : 'text-blue-500 hover:bg-blue-50')
+                  (active ? 'bg-accent-soft text-accent' : 'bg-tag text-accent hover:bg-accent-soft')
                 }
               >
                 #{tagDisplayName(t)}

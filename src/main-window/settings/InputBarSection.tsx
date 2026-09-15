@@ -65,20 +65,20 @@ export function InputBarSection(): ReactNode {
   }, [reload]);
 
   return (
-    <section className="rounded-lg border border-gray-200 bg-white">
-      <div className="border-b border-gray-200 px-4 py-2.5">
-        <h2 className="text-sm font-medium text-gray-900">输入栏</h2>
-        <p className="mt-0.5 text-xs text-gray-500">改动立即生效并保存,不需要点保存按钮</p>
+    <section className="rounded-lg border border-border bg-raised">
+      <div className="border-b border-border px-4 py-2.5">
+        <h2 className="text-sm font-medium text-text">输入栏</h2>
+        <p className="mt-0.5 text-xs text-faint">改动立即生效并保存,不需要点保存按钮</p>
       </div>
-      {error && <p className="px-4 pt-3 text-xs text-red-500">{error}</p>}
+      {error && <p className="px-4 pt-3 text-xs text-danger">{error}</p>}
       {settings === null ? (
         <div className="flex flex-col items-center gap-2 px-4 py-6">
-          <span className="text-xs text-gray-400">加载中...</span>
+          <span className="text-xs text-faint">加载中...</span>
           {error && (
             <button
               type="button"
               onClick={reload}
-              className="rounded border border-gray-300 px-2 py-0.5 text-xs text-gray-600 hover:bg-gray-50"
+              className="rounded border border-border px-2 py-0.5 text-xs text-muted hover:bg-hover"
             >
               重试
             </button>
@@ -93,11 +93,11 @@ export function InputBarSection(): ReactNode {
               </SettingsRow>
             ))}
           </div>
-          <div className="border-t border-gray-200 px-4 py-3">
+          <div className="border-t border-border px-4 py-3">
             <button
               type="button"
               onClick={onReset}
-              className="rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-600 hover:border-blue-500 hover:text-blue-600"
+              className="rounded-md border border-border px-3 py-1.5 text-xs text-muted hover:border-accent hover:text-accent"
             >
               恢复输入栏分区默认
             </button>

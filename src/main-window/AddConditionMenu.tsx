@@ -13,7 +13,7 @@ export interface AddConditionMenuProps {
 type Pane = 'main' | 'date' | 'presence' | 'sort';
 
 const ITEM_CLASS =
-  'block w-full rounded px-2.5 py-1.5 text-left text-xs text-gray-700 hover:bg-blue-50 hover:text-blue-700';
+  'block w-full rounded px-2.5 py-1.5 text-left text-xs text-muted hover:bg-accent-soft hover:text-accent';
 
 /** 「添加条件」下拉:主面板五项;日期/有无标签/排序切换到子面板直接生效 */
 export function AddConditionMenu(p: AddConditionMenuProps): ReactNode {
@@ -57,7 +57,7 @@ export function AddConditionMenu(p: AddConditionMenuProps): ReactNode {
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="h-8 rounded-md border border-gray-300 px-2.5 text-xs text-gray-600 hover:border-blue-500 hover:text-blue-600"
+        className="h-8 rounded-md border border-border px-2.5 text-xs text-muted hover:border-accent hover:text-accent"
       >
         添加条件
         <svg viewBox="0 0 16 16" className="ml-1 inline h-3 w-3 align-[-1px]" aria-hidden="true">
@@ -67,7 +67,7 @@ export function AddConditionMenu(p: AddConditionMenuProps): ReactNode {
       {open && (
         <div
           role="menu"
-          className="absolute left-0 top-full z-20 mt-1 rounded-md border border-gray-200 bg-white p-1 shadow-lg"
+          className="absolute left-0 top-full z-20 mt-1 rounded-md border border-border bg-raised p-1 shadow-lg"
         >
           {pane === 'main' && (
             <>
@@ -89,14 +89,14 @@ export function AddConditionMenu(p: AddConditionMenuProps): ReactNode {
             </>
           )}
           {pane === 'date' && (
-            <div className="flex items-center gap-1.5 p-1 text-xs text-gray-600">
+            <div className="flex items-center gap-1.5 p-1 text-xs text-muted">
               <span>从</span>
               <input
                 type="date"
                 aria-label="开始日期"
                 value={p.conditions.from ?? ''}
                 onChange={(e) => p.onPatch({ from: e.target.value === '' ? null : e.target.value })}
-                className="h-7 rounded border border-gray-300 px-1.5 text-xs"
+                className="h-7 rounded border border-border px-1.5 text-xs"
               />
               <span>至</span>
               <input
@@ -104,9 +104,9 @@ export function AddConditionMenu(p: AddConditionMenuProps): ReactNode {
                 aria-label="结束日期"
                 value={p.conditions.to ?? ''}
                 onChange={(e) => p.onPatch({ to: e.target.value === '' ? null : e.target.value })}
-                className="h-7 rounded border border-gray-300 px-1.5 text-xs"
+                className="h-7 rounded border border-border px-1.5 text-xs"
               />
-              <button type="button" onClick={close} className="rounded border border-gray-300 px-2 py-0.5 hover:border-blue-500 hover:text-blue-600">
+              <button type="button" onClick={close} className="rounded border border-border px-2 py-0.5 hover:border-accent hover:text-accent">
                 完成
               </button>
             </div>
@@ -122,7 +122,7 @@ export function AddConditionMenu(p: AddConditionMenuProps): ReactNode {
                   key={label}
                   type="button"
                   role="menuitem"
-                  className={ITEM_CLASS + (p.conditions.tagPresence === v ? ' bg-blue-50 text-blue-700' : '')}
+                  className={ITEM_CLASS + (p.conditions.tagPresence === v ? ' bg-accent-soft text-accent' : '')}
                   onClick={() => act(() => p.onPatch({ tagPresence: v }))}
                 >
                   {label}
@@ -137,7 +137,7 @@ export function AddConditionMenu(p: AddConditionMenuProps): ReactNode {
                   key={v}
                   type="button"
                   role="menuitem"
-                  className={ITEM_CLASS + (p.conditions.sort === v ? ' bg-blue-50 text-blue-700' : '')}
+                  className={ITEM_CLASS + (p.conditions.sort === v ? ' bg-accent-soft text-accent' : '')}
                   onClick={() => act(() => p.onPatch({ sort: v }))}
                 >
                   {v === 'newest' ? '最新在前' : '最早在前'}
