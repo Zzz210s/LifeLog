@@ -1,79 +1,11 @@
 // MVP-3 Task 5 端到端验收(CDP 驱动真实 dev 应用)
 // 用法: node scripts/dev-cdp-accept.mjs  (需先以 9222 调试端口启动 pnpm tauri dev)
-import { spawn } from 'node:child_process';
+import { open, recorder, sleep, F } from './cdp-lib.mjs';
 
-const BASE = 'http://127.0.0.1:9222';
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-async function pages() {
-  const list = await (await fetch(`${BASE}/json/list`)).json();
-  return list.filter((p) => p.type === 'page');
-}
-
-// 极简 CDP 客户端
-class Cdp {
-  static id = 0;
-  constructor(ws) {
-    this.ws = ws;
-    this.pending = new Map();
-    this.events = [];
-    const onMsg = (raw) => {
-      const m = JSON.parse(typeof raw === 'string' ? raw : raw.toString());
-      if (m.id && this.pending.has(m.id)) {
-        const { resolve, reject } = this.pending.get(m.id);
-        this.pending.delete(m.id);
-        m.error ? reject(new Error(JSON.stringify(m.error))) : resolve(m.result);
-      } else if (m.method) {
-        this.events.push(m);
-      }
-    };
-    if (ws.on) ws.on('message', onMsg);
-    else ws.addEventListener('message', (e) => onMsg(e.data));
-  }
-  send(method, params = {}) {
-    const id = ++Cdp.id;
-    this.ws.send(JSON.stringify({ id, method, params }));
-    return new Promise((resolve, reject) => this.pending.set(id, { resolve, reject }));
-  }
-  async eval(expr) {
-    const r = await this.send('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: true });
-    if (r.exceptionDetails) throw new Error('eval failed: ' + JSON.stringify(r.exceptionDetails).slice(0, 300));
-    return r.result.value;
-  }
-}
-
-const results = [];
-function record(item, ok, detail) {
-  results.push({ item, ok, detail });
-  console.log(`${ok ? 'PASS' : 'FAIL'}  ${item}  ${detail ?? ''}`);
-}
+const { record, finish } = recorder();
 
 // ---- 启动 ----
-const { default: WebSocket } = await import('ws').catch(() => ({ default: null }));
-let wsImpl = WebSocket;
-if (!wsImpl) {
-  // 尝试全局 WebSocket(Node 22+ 自带)
-  wsImpl = globalThis.WebSocket;
-}
-
-const list = await pages();
-const main = list.find((p) => p.url.includes('localhost:5173') && p.title.includes('生活')) || list.find((p) => p.url.includes('5173'));
-const input = list.find((p) => p.url.includes('input.html'));
-
-if (!main || !input) {
-  console.log('页面清单:', list.map((p) => `${p.title} | ${p.url}`));
-  throw new Error('未找到主窗/输入栏页面');
-}
-
-const mainWs = new wsImpl(main.webSocketDebuggerUrl);
-if (mainWs.on) {
-  await new Promise((r) => mainWs.on('open', r));
-} else {
-  await new Promise((r) => { mainWs.addEventListener('open', r); });
-}
-const mainCdp = new Cdp(mainWs);
-await mainCdp.send('Runtime.enable');
-
+const { cdp: mainCdp, target: main } = await open('main');
 console.log('主窗就绪:', main.title, main.url);
 
 // 库存快照(验收前后对照)
@@ -81,13 +13,14 @@ const inventory = await mainCdp.eval(`(async () => {
   const notes = await window.__TAURI_INTERNALS__.invoke('query_notes', { conditions: { keyword: null, tags: [], excludeTags: [], from: null, to: null, tagPresence: null, sort: 'newest' }, offset: 0 });
   const tags = await window.__TAURI_INTERNALS__.invoke('list_tags');
   const views = await window.__TAURI_INTERNALS__.invoke('list_views');
-  return { notes: notes.length, tagPaths: tags.map(t => t.path).sort(), views: views.length };
+  return { notes: notes.length, tagPaths: tags.map(t => t.path).sort(), views: views.length,
+    ids: notes.map(n => n.id + '|' + n.content.split(String.fromCharCode(10))[0]) };
 })()`);
-console.log('验收前库存:', JSON.stringify(inventory));
+const inventoryIds = inventory.ids;
+console.log('验收前库存:', JSON.stringify({ notes: inventory.notes, views: inventory.views, tagPaths: inventory.tagPaths.length }));
+console.log('验收前 ID 清单:', JSON.stringify(inventoryIds));
 
 console.log('\n=== 按条验收(核心项) ===');
-
-const F = (over) => JSON.stringify({ keyword: null, tags: [], excludeTags: [], from: null, to: null, tagPresence: null, sort: 'newest', ...over });
 const q = async (over) => mainCdp.eval(`(async () => { const r = await window.__TAURI_INTERNALS__.invoke('query_notes', { conditions: ${F(over)}, offset: 0 }); return r.length; })()`);
 
 // 0 基线测量(必须在 seed 之前!)
@@ -165,7 +98,7 @@ await mainCdp.eval(`(async () => {
 await sleep(600);
 const emptyUi = await mainCdp.eval(`(() => {
   const t = document.body.innerText;
-  return { noMatch: t.includes('没有符合当前条件的笔记'), clearBtn: !!Array.from(document.querySelectorAll('button')).find(b => b.textContent.trim() === '清空条件') };
+  return { noMatch: t.includes('没有匹配的记录') && t.includes('清空条件'), library: t.includes('还没有记录'), clearBtn: !!Array.from(document.querySelectorAll('button')).find(b => b.textContent.trim() === '清空条件') };
 })()`);
 record('10 无匹配空态+清空条件按钮', emptyUi.noMatch && emptyUi.clearBtn, JSON.stringify(emptyUi));
 // 清空条件恢复
@@ -189,17 +122,16 @@ const finalInv = await mainCdp.eval(`(async () => {
   const views = await window.__TAURI_INTERNALS__.invoke('list_views');
   return { notes: notes.length, tagPaths: tags.map(t => t.path).sort(), views: views.length };
 })()`);
-const extra = await mainCdp.eval(`(async () => {
-  const F0 = { keyword: null, tags: [], excludeTags: [], from: null, to: null, tagPresence: null, sort: 'newest' };
+const finalIds = await mainCdp.eval(`(async () => {
+  const F0 = { keyword: null, tags: [], excludeTags: [], from: null, to: null, tagPresence: null, sort: 'oldest' };
   const r = await window.__TAURI_INTERNALS__.invoke('query_notes', { conditions: F0, offset: 0 });
-  return r.map(n => n.content.slice(0, 16)).filter(c => !['买牛奶','第一行缩进','完全摆烂','CDP补全回归一','CDP回归二','CDP回归三'].some(k => c.startsWith(k)));
+  return r.map(n => n.id + '|' + n.content.split(String.fromCharCode(10))[0]);
 })()`);
-const sameNotes = finalInv.notes === inventory.notes;
+const extra = finalIds.filter((x) => !inventoryIds.includes(x));
+const sameNotes = finalInv.notes === inventory.notes && extra.length === 0;
 const sameTags = JSON.stringify(finalInv.tagPaths) === JSON.stringify(inventory.tagPaths);
-record('11 库存还原', sameNotes && sameTags, `notes ${finalInv.notes}/${inventory.notes} 残留=${JSON.stringify(extra)} tags ${sameTags ? '同' : '异'}`);
+const sameViews = finalInv.views === inventory.views;
+record('11 库存还原', sameNotes && sameTags && sameViews, `notes ${finalInv.notes}/${inventory.notes} 残留=${JSON.stringify(extra)} tags ${sameTags ? '同' : '异'} views ${finalInv.views}/${inventory.views}`);
 
-console.log('\n=== 汇总 ===');
-const fails = results.filter((r) => !r.ok);
-console.log(`通过 ${results.length - fails.length}/${results.length}`);
-if (fails.length) { fails.forEach((f) => console.log('FAIL 明细:', f.item, f.detail)); process.exitCode = 1; }
-try { mainWs.close(); } catch {}
+finish();
+mainCdp.close();
