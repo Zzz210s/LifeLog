@@ -5,7 +5,18 @@
  */
 import type { TagCount } from '../../shared/types';
 import type { FilterConditions } from '../../shared/filter-conditions';
+import { isTimeTagPath } from '../../shared/time-tag';
 import { applyTagPick } from '../filter-chips';
+
+/**
+ * 标签分区专用:把时间子树(`时间排序` 根与其后代)从**数据层**滤掉(spec 4.5),
+ * 时间子树由「时间」分区单独展示;过滤在建树之前完成,故计数导轨、类型过滤、
+ * 空态都自然正确。无时间标签时原数组返回(引用相等,避免无谓重算)。
+ */
+export function withoutTimeTags(rows: TagCount[]): TagCount[] {
+  const out = rows.filter((r) => !isTimeTagPath(r.path));
+  return out.length === rows.length ? rows : out;
+}
 
 /** 树节点:id 为 null 表示父行缺失时补出的结构节点(不可右键管理) */
 export interface TagNode {
@@ -106,6 +117,14 @@ export function isSelectable(node: TagNode): boolean {
  * 补出的结构节点(id null)不可管理,侧栏右键不出菜单。
  */
 export type ManagedNode = TagNode & { id: number };
+
+/**
+ * 可右键管理(重命名/移动/删除):id 非 null 的真实标签行,且不属于系统维护的时间子树。
+ * TagMenu 入口用它把关;后端 rename/move/delete 另有守卫兜底。
+ */
+export function isManageable(node: TagNode): node is ManagedNode {
+  return node.id !== null && !isTimeTagPath(node.path);
+}
 
 /**
  * 侧栏标签行点击的两侧判定(修复轮):路径在排除侧 -> 移除该排除项
