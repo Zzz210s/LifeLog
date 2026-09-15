@@ -4,12 +4,11 @@
  * 点击 = applyTagPick(含子级 true),再点 = 移除;右键打开 TagMenu 管理标签。
  */
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { Fragment } from 'react';
 import type { ReactNode } from 'react';
 import type { FilterConditions } from '../../shared/filter-conditions';
 import type { TagCount } from '../../shared/types';
 import { TagMenu } from './TagMenu';
-import { TagRow } from './TagRow';
+import { TagRowList } from './TagRowList';
 import { TagsHeader } from './TagsHeader';
 import type { TagFlash } from './TagsHeader';
 import { TagRootDropBar } from './TagRootDropBar';
@@ -101,16 +100,6 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
     },
     onError: (message) => showFlash(message, 'error'),
   });
-  /** TagRow 的拖拽 props:源行半透明、悬停目标色带、四个拖放事件 */
-  const dragRow = (n: TagNode) => ({
-    dragSource: drag.sourcePath === n.path,
-    dropTarget: drag.overPath === n.path,
-    onDragStart: (e: React.DragEvent) => drag.rowEvents.onDragStartRow(e, n),
-    onDragEnd: drag.rowEvents.onDragEnd,
-    onDragOver: (e: React.DragEvent) => drag.rowEvents.onDragOverRow(e, n),
-    onDrop: (e: React.DragEvent) => drag.rowEvents.onDropRow(e, n),
-  });
-
   const isExpanded = (path: string): boolean => filtering || !collapsed.has(path);
 
   // 扁平模式:树拉平为深度优先序列(保留过滤后的可见集合)
@@ -120,24 +109,6 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
     walk(shown);
     return out;
   }, [shown]);
-
-  const renderTree = (nodes: TagNode[]): ReactNode =>
-    nodes.map((n) => (
-      <Fragment key={n.path}>
-        <TagRow
-          node={n}
-          flat={false}
-          selected={activePaths.has(n.path)}
-          excluded={excludedPaths.has(n.path)}
-          expanded={isExpanded(n.path)}
-          onToggle={onToggle}
-          onToggleExpand={toggleExpand}
-          onContextMenu={onContextMenu}
-          {...dragRow(n)}
-        />
-        {n.children.length > 0 && isExpanded(n.path) && renderTree(n.children)}
-      </Fragment>
-    ));
 
   return (
     <section className="flex min-h-0 flex-1 flex-col" aria-label="标签分区">
@@ -158,23 +129,18 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
       >
         {visibleRows.length === 0 ? (
           <p className="px-2 py-3 text-xs text-faint">还没有标签,在输入栏写 #标签 试试</p>
-        ) : p.mode === 'tree' ? (
-          renderTree(shown)
         ) : (
-          flatNodes.map((n) => (
-            <TagRow
-              key={n.path}
-              node={n}
-              flat
-              selected={activePaths.has(n.path)}
-              excluded={excludedPaths.has(n.path)}
-              expanded={false}
-              onToggle={onToggle}
-              onToggleExpand={toggleExpand}
-              onContextMenu={onContextMenu}
-              {...dragRow(n)}
-            />
-          ))
+          <TagRowList
+            nodes={p.mode === 'tree' ? shown : flatNodes}
+            flat={p.mode !== 'tree'}
+            selected={activePaths}
+            excluded={excludedPaths}
+            expanded={isExpanded}
+            onToggle={onToggle}
+            onToggleExpand={toggleExpand}
+            onContextMenu={onContextMenu}
+            drag={drag}
+          />
         )}
         {visibleRows.length > 0 && filtering && shown.length === 0 && (
           <p className="px-2 py-2 text-xs text-faint">没有匹配的标签</p>
