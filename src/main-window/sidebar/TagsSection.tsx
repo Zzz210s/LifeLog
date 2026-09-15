@@ -10,8 +10,12 @@ import type { FilterConditions } from '../../shared/filter-conditions';
 import type { TagCount } from '../../shared/types';
 import { TagMenu } from './TagMenu';
 import { TagRow } from './TagRow';
+import { TagsHeader } from './TagsHeader';
+import type { TagFlash } from './TagsHeader';
+import { TagRootDropBar } from './TagRootDropBar';
 import { buildTree, filterTree, toggleTagPick } from './tag-tree';
 import type { ManagedNode, TagNode } from './tag-tree';
+import { useTagDrag } from './use-tag-drag';
 import type { TagViewMode } from './use-sidebar-state';
 
 export interface TagsSectionProps {
@@ -25,15 +29,12 @@ export interface TagsSectionProps {
   onTagsMutated: (pathChange?: { from: string; to: string }) => void;
 }
 
-const HEADER_BTN =
-  'rounded p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-600';
-
 export function TagsSection(p: TagsSectionProps): ReactNode {
   const [query, setQuery] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [menu, setMenu] = useState<{ node: ManagedNode; x: number; y: number } | null>(null);
-  const [flash, setFlash] = useState<string | null>(null);
+  const [flash, setFlash] = useState<TagFlash | null>(null);
   const flashTimer = useRef<number | null>(null);
 
   const tree = useMemo(() => buildTree(p.tagRows), [p.tagRows]);
@@ -48,10 +49,10 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
     [p.conditions.excludeTags]
   );
 
-  const showFlash = (text: string) => {
-    setFlash(text);
+  const showFlash = (text: string, tone: 'ok' | 'error' = 'ok') => {
+    setFlash({ text, tone });
     if (flashTimer.current !== null) clearTimeout(flashTimer.current);
-    flashTimer.current = window.setTimeout(() => setFlash(null), 1500);
+    flashTimer.current = window.setTimeout(() => setFlash(null), tone === 'error' ? 3000 : 1500);
   };
 
   const toggleExpand = useCallback((path: string) => {
@@ -89,6 +90,24 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
     [p]
   );
 
+  // 拖拽移动(spec 6):成功走与右键移动同一级联链,失败(预校验/后端)红色提示
+  const drag = useTagDrag({
+    onMoved: (pathChange) => {
+      showFlash('已移动标签');
+      p.onTagsMutated(pathChange);
+    },
+    onError: (message) => showFlash(message, 'error'),
+  });
+  /** TagRow 的拖拽 props:源行半透明、悬停目标色带、四个拖放事件 */
+  const dragRow = (n: TagNode) => ({
+    dragSource: drag.sourcePath === n.path,
+    dropTarget: drag.overPath === n.path,
+    onDragStart: (e: React.DragEvent) => drag.rowEvents.onDragStartRow(e, n),
+    onDragEnd: drag.rowEvents.onDragEnd,
+    onDragOver: (e: React.DragEvent) => drag.rowEvents.onDragOverRow(e, n),
+    onDrop: (e: React.DragEvent) => drag.rowEvents.onDropRow(e, n),
+  });
+
   const isExpanded = (path: string): boolean => filtering || !collapsed.has(path);
 
   // 扁平模式:树拉平为深度优先序列(保留过滤后的可见集合)
@@ -111,6 +130,7 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
           onToggle={onToggle}
           onToggleExpand={toggleExpand}
           onContextMenu={onContextMenu}
+          {...dragRow(n)}
         />
         {n.children.length > 0 && isExpanded(n.path) && renderTree(n.children)}
       </Fragment>
@@ -118,41 +138,21 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
 
   return (
     <section className="flex min-h-0 flex-1 flex-col" aria-label="标签分区">
-      <div className="group flex h-8 shrink-0 items-center gap-1 px-2">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500">标签</h2>
-        {flash && <span className="truncate text-xs text-green-600">{flash}</span>}
-        <span className="ml-auto flex items-center gap-0.5">
-          <button
-            type="button"
-            title={p.mode === 'tree' ? '切换为扁平列表' : '切换为树形'}
-            aria-label={p.mode === 'tree' ? '切换为扁平列表' : '切换为树形'}
-            onClick={() => p.onModeChange(p.mode === 'tree' ? 'flat' : 'tree')}
-            className={HEADER_BTN}
-          >
-            {p.mode === 'tree' ? '树' : '扁平'}
-          </button>
-          <button
-            type="button"
-            title="过滤标签"
-            aria-label="过滤标签"
-            onClick={() => setFilterOpen((v) => !v)}
-            className={HEADER_BTN + (filterOpen ? ' bg-gray-200 text-gray-600' : '')}
-          >
-            过滤
-          </button>
-        </span>
-      </div>
-      {filterOpen && (
-        <input
-          autoFocus
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="输入关键词过滤标签"
-          aria-label="过滤标签"
-          className="mx-2 mb-1 h-7 shrink-0 rounded border border-gray-300 px-2 text-xs outline-none focus:border-blue-500"
-        />
-      )}
-      <div className="min-h-0 flex-1 overflow-y-auto px-1 pb-2" data-testid="tag-list">
+      <TagsHeader
+        flash={flash}
+        mode={p.mode}
+        onModeChange={p.onModeChange}
+        filterOpen={filterOpen}
+        onToggleFilter={() => setFilterOpen((v) => !v)}
+        query={query}
+        onQueryChange={setQuery}
+      />
+      <div
+        className="min-h-0 flex-1 overflow-y-auto px-1 pb-2"
+        data-testid="tag-list"
+        onDragOver={drag.rootEvents.onDragOverRoot}
+        onDrop={drag.rootEvents.onDropRoot}
+      >
         {p.tagRows.length === 0 ? (
           <p className="px-2 py-3 text-xs text-gray-400">还没有标签,在输入栏写 #标签 试试</p>
         ) : p.mode === 'tree' ? (
@@ -169,6 +169,7 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
               onToggle={onToggle}
               onToggleExpand={toggleExpand}
               onContextMenu={onContextMenu}
+              {...dragRow(n)}
             />
           ))
         )}
@@ -176,6 +177,14 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
           <p className="px-2 py-2 text-xs text-gray-400">没有匹配的标签</p>
         )}
       </div>
+      {/* 拖拽期间常驻的「移到根级」指示条:悬停分区空白时高亮,松手移到根级 */}
+      {drag.dragging && (
+        <TagRootDropBar
+          overRoot={drag.overRoot}
+          onDragOver={drag.rootEvents.onDragOverRoot}
+          onDrop={drag.rootEvents.onDropRoot}
+        />
+      )}
       {menu && (
         <TagMenu node={menu.node} x={menu.x} y={menu.y} tagRows={p.tagRows} onClose={() => setMenu(null)} onDone={onMenuDone} />
       )}

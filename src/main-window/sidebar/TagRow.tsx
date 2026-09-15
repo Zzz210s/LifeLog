@@ -2,6 +2,8 @@
  * 标签树单行(spec 6.1 标签分区):树模式按层级缩进 12px/级、带展开箭头与计数导轨;
  * 扁平模式不缩进、显示完整路径。选中态与条件对象同源(由上层派生传入)。
  * 结构节点(本级 0 且有子级)只可展开不可选,行点击交给 onToggleExpand。
+ * 拖拽(spec 6):真实标签行(id 非 null)draggable;拖动源半透明,
+ * 悬停目标加底部色带(将成为其子级)。
  */
 import type { ReactNode } from 'react';
 import type { TagNode } from './tag-tree';
@@ -19,6 +21,14 @@ export interface TagRowProps {
   onToggle: (node: TagNode) => void;
   onToggleExpand: (path: string) => void;
   onContextMenu: (e: React.MouseEvent, node: TagNode) => void;
+  /** 拖拽:本行是拖动源(半透明) */
+  dragSource: boolean;
+  /** 拖拽:本行是当前悬停目标(底部色带 = 将成为其子级) */
+  dropTarget: boolean;
+  onDragStart: (e: React.DragEvent) => void;
+  onDragEnd: () => void;
+  onDragOver: (e: React.DragEvent) => void;
+  onDrop: (e: React.DragEvent) => void;
 }
 
 const COUNT_RAIL_CLASS = 'ml-auto shrink-0 pl-2 text-xs tabular-nums text-gray-400';
@@ -35,18 +45,27 @@ export function TagRow(p: TagRowProps): ReactNode {
         : p.selected
           ? 'bg-blue-100 text-blue-700'
           : 'text-gray-700 hover:bg-blue-50 hover:text-blue-700'
-      : 'cursor-default text-gray-400 hover:bg-gray-100');
+      : 'cursor-default text-gray-400 hover:bg-gray-100') +
+    (p.dropTarget ? ' bg-blue-50 shadow-[inset_0_-2px_0_#2563eb]' : '') +
+    (p.dragSource ? ' opacity-40' : '');
 
   return (
     <button
       type="button"
       data-tag-path={p.node.path}
+      data-drag-source={p.dragSource ? 'true' : undefined}
+      data-drop-target={p.dropTarget ? 'true' : undefined}
+      draggable={p.node.id !== null}
       aria-pressed={selectable ? p.selected : undefined}
       title={`${p.node.path}(本级 ${p.node.selfCount} / 含子级 ${p.node.subtreeCount})`}
       className={rowClass}
       style={{ paddingLeft: p.flat ? 6 : 6 + (p.node.depth - 1) * 12 }}
       onClick={() => (selectable ? p.onToggle(p.node) : hasChildren && p.onToggleExpand(p.node.path))}
       onContextMenu={(e) => p.onContextMenu(e, p.node)}
+      onDragStart={p.onDragStart}
+      onDragEnd={p.onDragEnd}
+      onDragOver={p.onDragOver}
+      onDrop={p.onDrop}
     >
       {!p.flat && hasChildren && (
         <svg
