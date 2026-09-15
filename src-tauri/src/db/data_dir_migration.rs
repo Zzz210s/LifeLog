@@ -22,8 +22,9 @@ use std::fs;
 use std::path::Path;
 use tauri::Manager;
 
-/// 数据库文件名(与 db::init / 备份命名保持一致)
-pub const DB_FILE: &str = "lifelog.db";
+/// 数据库文件名:真源在 [`crate::db::data_dir_copy::DB_FILE`],此处 re-export
+/// 保持既有引用路径(`db::mod` 与测试都用 `data_dir_migration::DB_FILE`)。
+pub use crate::db::data_dir_copy::DB_FILE;
 /// 旧 identifier 决定的目录名(与新目录同级)
 pub const OLD_DIR_NAME: &str = "app.lifelog";
 

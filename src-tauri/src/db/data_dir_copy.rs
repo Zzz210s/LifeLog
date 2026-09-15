@@ -10,8 +10,8 @@ use std::path::{Path, PathBuf};
 /// 迁移前历史备份的统一前缀(`lifelog.db.bak-`)
 pub const BACKUP_PREFIX: &str = "lifelog.db.bak-";
 
-/// 主库文件名(拼附属文件名用;与 `data_dir_migration::DB_FILE` 同值)
-const DB_NAME: &str = "lifelog.db";
+/// 主库文件名:迁移与备份设施的唯一真源(拼附属文件名、判定“新目录已有库”都用它)。
+pub const DB_FILE: &str = "lifelog.db";
 
 /// 主库之外需要一起复制的文件。
 ///
@@ -44,7 +44,7 @@ pub fn clear_stale_sidecars(new_dir: &Path, sources: &[PathBuf]) -> Result<(), S
         .filter_map(|p| p.file_name().and_then(|n| n.to_str()).map(str::to_string))
         .collect();
     for suffix in ["-wal", "-journal", "-shm"] {
-        let name = format!("{DB_NAME}{suffix}");
+        let name = format!("{DB_FILE}{suffix}");
         if keep.iter().any(|k| k == &name) {
             continue;
         }

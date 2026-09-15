@@ -142,5 +142,9 @@ mod open_failure_tests;
 mod data_dir_migration_tests;
 
 #[cfg(test)]
+#[path = "data_dir_retry_tests.rs"]
+mod data_dir_retry_tests;
+
+#[cfg(test)]
 #[path = "data_dir_copy_tests.rs"]
 mod data_dir_copy_tests;
