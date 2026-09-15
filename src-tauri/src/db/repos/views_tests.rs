@@ -138,7 +138,7 @@ fn hit_counts_cover_builtins_and_saved_views() {
     assert_eq!(hits[3].1, count_matching(&conn, &stored[0].conditions).unwrap());
     assert_eq!(hits[1].1, count_matching(&conn, &conditions_of_builtin("todo")).unwrap());
 }
-/// 内置「无标签」= 时间子树之外没有任何标签(时间标签是系统元数据)。
+/// 内置「无自定义标签」= 时间子树之外没有任何标签(时间标签是系统元数据)。
 /// 回填/新建后所有笔记都带时间标签,旧的 tag_links 空判永远命中 0 条。
 #[test]
 fn untagged_counts_notes_with_only_time_tags() {

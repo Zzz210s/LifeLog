@@ -85,7 +85,7 @@ export function useThemeMode(options: UseThemeModeOptions = {}): ThemeModeContro
     []
   );
 
-  // 输入栏:主窗广播后即时应用(载荷异常时忽略,不回退到别的主题)
+  // 输入栏:主窗广播后即时应用(非字符串载荷忽略;非法字符串按 parseThemeMode 回退 system)
   useEffect(() => {
     if (!follow) return;
     let dispose: (() => void) | undefined;

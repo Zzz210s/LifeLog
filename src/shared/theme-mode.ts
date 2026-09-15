@@ -30,7 +30,8 @@ export function resolveDark(mode: ThemeMode, systemPrefersDark: boolean): boolea
   return systemPrefersDark;
 }
 
-/** 广播载荷 -> 三态:只接受字符串,载荷异常时回退默认值(输入栏不该被坏载荷带偏) */
+/** 广播载荷 -> 三态:非字符串载荷返回 null(调用方忽略该事件);
+    字符串载荷按 parseThemeMode 解析,非法字符串同样回退 system(与设置读取同一条规则)。 */
 export function parseThemePayload(payload: unknown): ThemeMode | null {
   return typeof payload === 'string' ? parseThemeMode(payload) : null;
 }

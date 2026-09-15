@@ -19,7 +19,7 @@ export interface ErrorBarProps {
 /** 可关闭的错误行:查询失败额外给"重试",瞬时故障无需改筛选即可恢复 */
 export function ErrorBar(p: ErrorBarProps): ReactNode {
   return (
-    <div className="flex items-center gap-2 border-b border-danger bg-danger-soft px-4 py-1.5 text-xs text-danger">
+    <div className="flex items-center gap-2 border-b border-danger/40 bg-danger-soft px-4 py-1.5 text-xs text-danger">
       <span role="alert" className="min-w-0 flex-1 truncate">
         {p.error.message}
       </span>
