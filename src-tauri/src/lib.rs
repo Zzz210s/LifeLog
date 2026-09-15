@@ -34,6 +34,7 @@ pub fn run() {
             commands::notes::save_input_note,
             commands::notes::query_notes,
             commands::notes::update_note,
+            commands::notes::set_note_date,
             commands::notes::toggle_todo,
             commands::notes::delete_note,
             commands::exchange::export_notes,

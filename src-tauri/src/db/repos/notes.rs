@@ -117,6 +117,10 @@ pub use notes_query::query;
 pub mod notes_update;
 pub use notes_update::{toggle_todo, update};
 
+#[path = "notes_date.rs"]
+pub mod notes_date;
+pub use notes_date::set_date;
+
 #[cfg(test)]
 #[path = "notes_filter_tests.rs"]
 mod notes_filter_tests;
@@ -128,6 +132,10 @@ mod notes_tests;
 #[cfg(test)]
 #[path = "notes_time_tests.rs"]
 mod notes_time_tests;
+
+#[cfg(test)]
+#[path = "notes_date_tests.rs"]
+mod notes_date_tests;
 
 #[cfg(test)]
 #[path = "notes_strip_tests.rs"]

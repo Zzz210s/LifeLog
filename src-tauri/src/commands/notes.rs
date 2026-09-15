@@ -45,6 +45,22 @@ pub fn update_note(
     repos::notes::update(&mut conn, id, &content).map_err(|e| e.to_string())
 }
 
+/// 改期:解链该笔记的全部时间标签,再链到 `时间排序/YYYY/MM/DD`(自愈,冲突收敛为一个)。
+/// date 非法给中文错误;id 不存在返回 null;正文与普通标签不动。
+#[tauri::command]
+pub fn set_note_date(
+    app: AppHandle,
+    note_id: i64,
+    date: String,
+) -> Result<Option<repos::notes::Note>, String> {
+    if !crate::timetag::is_iso_date(&date) {
+        return Err("日期格式不正确".to_string());
+    }
+    let db: State<Db> = app.state();
+    let mut conn = db.0.lock().map_err(|e| e.to_string())?;
+    repos::notes::set_date(&mut conn, note_id, &date).map_err(|e| e.to_string())
+}
+
 /// 切换 #todo/#done 标签;均无则原样返回
 #[tauri::command]
 pub fn toggle_todo(app: AppHandle, id: i64) -> Result<Option<repos::notes::Note>, String> {
