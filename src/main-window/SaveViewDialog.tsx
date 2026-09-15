@@ -98,7 +98,7 @@ export function SaveViewDialog(p: SaveViewDialogProps): ReactNode {
           <button
             type="button"
             onClick={p.onClose}
-            className="h-8 rounded-md border border-border px-3 text-xs text-muted hover:border-accent hover:text-accent"
+            className="h-8 rounded-md border border-border px-3 text-xs text-muted hover:border-accent hover:text-accent-text"
           >
             取消
           </button>

@@ -36,7 +36,7 @@ export function NoteItem(p: NoteItemProps): ReactNode {
         <NoteDateCell date={note.date} onChange={(d) => p.onDateChange(note, d)} />
         {/* 键盘用户聚焦时也显示操作按钮(不只 group-hover) */}
         <div className="ml-auto flex gap-2 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-          <button onClick={p.onEdit} className="text-xs text-faint hover:text-accent">
+          <button onClick={p.onEdit} className="text-xs text-faint hover:text-accent-text">
             编辑
           </button>
           <button onClick={p.onDelete} className="text-xs text-faint hover:text-danger">
@@ -72,7 +72,7 @@ export function NoteItem(p: NoteItemProps): ReactNode {
                 title={t}
                 className={
                   'rounded px-1.5 py-0.5 text-xs transition-colors ' +
-                  (active ? 'bg-accent-soft text-accent' : 'bg-tag text-accent hover:bg-accent-soft')
+                  (active ? 'bg-accent-soft text-accent-text' : 'bg-tag text-accent-text hover:bg-accent-soft')
                 }
               >
                 #{tagDisplayName(t)}

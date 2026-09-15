@@ -14,7 +14,7 @@ function chipClass(kind: Chip['kind']): string {
   if (kind === 'excludeTag') return 'border-danger/40 bg-danger-soft text-danger hover:border-danger';
   if (kind === 'sort' || kind === 'presence')
     return 'border-border bg-panel text-muted hover:border-accent';
-  return 'border-accent/40 bg-accent-soft text-accent hover:border-accent';
+  return 'border-accent/40 bg-accent-soft text-accent-text hover:border-accent';
 }
 
 /** 统一条件 chips(可单删):空数组时不渲染(空条件时芯片区隐藏,spec 6.2) */

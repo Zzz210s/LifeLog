@@ -51,7 +51,7 @@ export function GeneralSection(): ReactNode {
           <button
             type="button"
             onClick={load}
-            className="shrink-0 rounded border border-border px-2 py-0.5 text-xs text-muted hover:border-accent hover:text-accent"
+            className="shrink-0 rounded border border-border px-2 py-0.5 text-xs text-muted hover:border-accent hover:text-accent-text"
           >
             重试
           </button>
@@ -66,7 +66,7 @@ export function GeneralSection(): ReactNode {
             type="button"
             onClick={reveal}
             disabled={!info}
-            className="rounded-md border border-border px-3 py-1.5 text-xs text-muted hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-md border border-border px-3 py-1.5 text-xs text-muted hover:border-accent hover:text-accent-text disabled:cursor-not-allowed disabled:opacity-50"
           >
             打开所在文件夹
           </button>

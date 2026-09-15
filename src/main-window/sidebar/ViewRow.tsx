@@ -61,7 +61,7 @@ export function ViewRow(p: ViewRowProps): ReactNode {
       onDrop={p.onDrop}
       onClick={p.onApply}
       title={`视图:${p.view.title}(拖拽调整顺序)`}
-      className={ROW_CLASS + (p.active ? 'bg-accent-soft text-accent' : 'text-muted hover:bg-accent-soft hover:text-accent')}
+      className={ROW_CLASS + (p.active ? 'bg-accent-soft text-accent-text' : 'text-muted hover:bg-accent-soft hover:text-accent-text')}
     >
       <span className="min-w-0 truncate">{p.view.title}</span>
       <span className="ml-auto flex shrink-0 items-center">

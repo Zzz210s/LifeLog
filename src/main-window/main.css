@@ -21,7 +21,7 @@
 .md-body h4, .md-body h5, .md-body h6 { font-size: 1em; }
 
 .md-body p { margin: 0.5rem 0; }
-.md-body a { color: var(--color-accent); }
+.md-body a { color: var(--color-accent-text); }
 .md-body a:hover { text-decoration: underline; }
 .md-body del { color: var(--color-faint); }
 .md-body hr { margin: 1rem 0; border: none; border-top: 1px solid var(--color-border); }

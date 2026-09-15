@@ -142,8 +142,8 @@ export function ViewsSection(p: ViewsSectionProps): ReactNode {
             className={
               BUILTIN_ROW +
               (filterKey(v.conditions) === currentKey
-                ? 'bg-accent-soft text-accent'
-                : 'text-muted hover:bg-accent-soft hover:text-accent')
+                ? 'bg-accent-soft text-accent-text'
+                : 'text-muted hover:bg-accent-soft hover:text-accent-text')
             }
           >
             <span className="min-w-0 truncate">{v.title}</span>

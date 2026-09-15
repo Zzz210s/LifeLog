@@ -97,7 +97,7 @@ export function InputBarSection(): ReactNode {
             <button
               type="button"
               onClick={onReset}
-              className="rounded-md border border-border px-3 py-1.5 text-xs text-muted hover:border-accent hover:text-accent"
+              className="rounded-md border border-border px-3 py-1.5 text-xs text-muted hover:border-accent hover:text-accent-text"
             >
               恢复输入栏分区默认
             </button>

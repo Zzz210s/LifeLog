@@ -13,7 +13,7 @@ export interface AddConditionMenuProps {
 type Pane = 'main' | 'date' | 'presence' | 'sort';
 
 const ITEM_CLASS =
-  'block w-full rounded px-2.5 py-1.5 text-left text-xs text-muted hover:bg-accent-soft hover:text-accent';
+  'block w-full rounded px-2.5 py-1.5 text-left text-xs text-muted hover:bg-accent-soft hover:text-accent-text';
 
 /** 「添加条件」下拉:主面板五项;日期/有无标签/排序切换到子面板直接生效 */
 export function AddConditionMenu(p: AddConditionMenuProps): ReactNode {
@@ -57,7 +57,7 @@ export function AddConditionMenu(p: AddConditionMenuProps): ReactNode {
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="h-8 rounded-md border border-border px-2.5 text-xs text-muted hover:border-accent hover:text-accent"
+        className="h-8 rounded-md border border-border px-2.5 text-xs text-muted hover:border-accent hover:text-accent-text"
       >
         添加条件
         <svg viewBox="0 0 16 16" className="ml-1 inline h-3 w-3 align-[-1px]" aria-hidden="true">
@@ -106,7 +106,7 @@ export function AddConditionMenu(p: AddConditionMenuProps): ReactNode {
                 onChange={(e) => p.onPatch({ to: e.target.value === '' ? null : e.target.value })}
                 className="h-7 rounded border border-border px-1.5 text-xs"
               />
-              <button type="button" onClick={close} className="rounded border border-border px-2 py-0.5 hover:border-accent hover:text-accent">
+              <button type="button" onClick={close} className="rounded border border-border px-2 py-0.5 hover:border-accent hover:text-accent-text">
                 完成
               </button>
             </div>
@@ -122,7 +122,7 @@ export function AddConditionMenu(p: AddConditionMenuProps): ReactNode {
                   key={label}
                   type="button"
                   role="menuitem"
-                  className={ITEM_CLASS + (p.conditions.tagPresence === v ? ' bg-accent-soft text-accent' : '')}
+                  className={ITEM_CLASS + (p.conditions.tagPresence === v ? ' bg-accent-soft text-accent-text' : '')}
                   onClick={() => act(() => p.onPatch({ tagPresence: v }))}
                 >
                   {label}
@@ -137,7 +137,7 @@ export function AddConditionMenu(p: AddConditionMenuProps): ReactNode {
                   key={v}
                   type="button"
                   role="menuitem"
-                  className={ITEM_CLASS + (p.conditions.sort === v ? ' bg-accent-soft text-accent' : '')}
+                  className={ITEM_CLASS + (p.conditions.sort === v ? ' bg-accent-soft text-accent-text' : '')}
                   onClick={() => act(() => p.onPatch({ sort: v }))}
                 >
                   {v === 'newest' ? '最新在前' : '最早在前'}

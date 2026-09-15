@@ -23,7 +23,7 @@ export function NoteDateCell({ date, onChange }: NoteDateCellProps): ReactNode {
         onClick={() => setPicking(true)}
         aria-label="修改日期"
         title="点击修改日期"
-        className="rounded text-xs text-faint hover:bg-hover hover:text-accent"
+        className="rounded text-xs text-faint hover:bg-hover hover:text-accent-text"
       >
         {date}
       </button>

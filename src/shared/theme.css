@@ -19,6 +19,7 @@
   --color-border: #e5e7eb;
   --color-accent: #2563eb;
   --color-accent-soft: #eff6ff;
+  --color-accent-text: #2563eb;
   --color-danger: #dc2626;
   --color-danger-soft: #fef2f2;
   --color-tag: #f3f4f6;
@@ -53,6 +54,10 @@
   --color-border: #3c3c3c;
   --color-accent: #007acc;
   --color-accent-soft: #264f78;
+  /* 前景专用 accent:暗色下 #007acc 作前景时对比度不足(accent-soft 上仅 1.88:1)。
+     取 VSCode 深色链接色 #4fc1ff 的一档提亮值:实测 #4fc1ff 在 accent-soft 上只有
+     4.21:1(仍低于 AA 4.5:1),#60caff 为 4.61:1,其余底色 >=6.41:1。 */
+  --color-accent-text: #60caff;
   --color-danger: #f48771;
   --color-danger-soft: #4b2a2a;
   --color-tag: #37373d;

@@ -102,7 +102,7 @@ export function TagPickDialog(p: TagPickDialogProps): ReactNode {
                     disabled={picked}
                     onClick={() => p.onPick(row.path, includeChildren)}
                     title={row.path}
-                    className="flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left text-xs text-muted hover:bg-accent-soft hover:text-accent disabled:cursor-default disabled:text-faint disabled:hover:bg-transparent disabled:hover:text-faint"
+                    className="flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left text-xs text-muted hover:bg-accent-soft hover:text-accent-text disabled:cursor-default disabled:text-faint disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-faint"
                     style={{ paddingLeft: 10 + row.depth * 12 }}
                   >
                     <span className="truncate">{row.path}</span>

@@ -5,7 +5,7 @@ export type Pane = 'main' | 'rename' | 'move' | 'delete';
 
 /** 菜单项按钮样式 */
 export const ITEM_CLASS =
-  'block w-full rounded px-2.5 py-1.5 text-left text-xs text-muted hover:bg-accent-soft hover:text-accent';
+  'block w-full rounded px-2.5 py-1.5 text-left text-xs text-muted hover:bg-accent-soft hover:text-accent-text';
 
 /** 子面板里的次要按钮(取消)样式 */
 export const BTN_GHOST =

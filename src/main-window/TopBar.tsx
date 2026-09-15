@@ -56,7 +56,7 @@ export function TopBar({ view, sidebarVisible, onToggleSidebar, onOpenSettings, 
         <button
           type="button"
           onClick={onBack}
-          className="rounded-md border border-border px-2.5 py-1 text-xs text-muted hover:border-accent hover:text-accent"
+          className="rounded-md border border-border px-2.5 py-1 text-xs text-muted hover:border-accent hover:text-accent-text"
         >
           返回信息流
         </button>

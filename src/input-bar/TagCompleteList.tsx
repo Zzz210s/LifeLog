@@ -37,7 +37,7 @@ export function TagCompleteList(p: TagCompleteListProps): ReactNode {
             }}
             className={
               'block w-full truncate px-3 py-1 text-left text-xs ' +
-              (active ? 'bg-accent-soft text-accent' : 'text-muted hover:bg-hover')
+              (active ? 'bg-accent-soft text-accent-text' : 'text-muted hover:bg-hover')
             }
           >
             <span className="text-faint">{parent}</span>

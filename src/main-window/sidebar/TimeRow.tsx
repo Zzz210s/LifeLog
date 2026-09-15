@@ -25,8 +25,8 @@ export function TimeRow(p: TimeRowProps): ReactNode {
     (p.excluded
       ? 'bg-danger-soft text-danger hover:bg-danger-soft'
       : p.selected
-        ? 'bg-accent-soft text-accent'
-        : 'text-muted hover:bg-accent-soft hover:text-accent');
+        ? 'bg-accent-soft text-accent-text'
+        : 'text-muted hover:bg-accent-soft hover:text-accent-text');
 
   return (
     <button

@@ -26,7 +26,7 @@ export function TagMenuMovePane(p: TagMenuMovePaneProps): ReactNode {
       <button
         type="button"
         onClick={() => p.onMove(null, p.nodeName)}
-        className={ITEM_CLASS + (p.currentParent === '' ? ' bg-accent-soft text-accent' : '')}
+        className={ITEM_CLASS + (p.currentParent === '' ? ' bg-accent-soft text-accent-text' : '')}
       >
         (根级){p.currentParent === '' ? ' - 当前' : ''}
       </button>
@@ -38,7 +38,7 @@ export function TagMenuMovePane(p: TagMenuMovePaneProps): ReactNode {
           disabled={p.busy}
           onClick={() => p.onMove(r.id, r.path + '/' + p.nodeName)}
           style={{ paddingLeft: 10 + r.depth * 12 }}
-          className={ITEM_CLASS + (r.path === p.currentParent ? ' bg-accent-soft text-accent' : '')}
+          className={ITEM_CLASS + (r.path === p.currentParent ? ' bg-accent-soft text-accent-text' : '')}
         >
           {r.path}
           {r.path === p.currentParent ? ' - 当前' : ''}

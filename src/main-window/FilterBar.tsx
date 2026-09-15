@@ -90,7 +90,7 @@ export function FilterBar(p: FilterBarProps): ReactNode {
         />
         <button
           onClick={() => p.onPatch({ sort: oldestFirst ? 'newest' : 'oldest' })}
-          className="h-8 shrink-0 rounded-md border border-border px-2.5 text-xs text-muted hover:border-accent hover:text-accent"
+          className="h-8 shrink-0 rounded-md border border-border px-2.5 text-xs text-muted hover:border-accent hover:text-accent-text"
         >
           排序: {oldestFirst ? '最早' : '最新'}
         </button>
@@ -101,7 +101,7 @@ export function FilterBar(p: FilterBarProps): ReactNode {
             setSaveOpen(true);
           }}
           title="把当前条件保存为视图"
-          className="h-8 shrink-0 rounded-md border border-border px-2.5 text-xs text-muted hover:border-accent hover:text-accent"
+          className="h-8 shrink-0 rounded-md border border-border px-2.5 text-xs text-muted hover:border-accent hover:text-accent-text"
         >
           保存为视图
         </button>
@@ -113,7 +113,7 @@ export function FilterBar(p: FilterBarProps): ReactNode {
               onClick={p.onExport}
               disabled={p.exporting}
               title="导出全部笔记(不受筛选影响)"
-              className="h-8 shrink-0 rounded-md border border-border px-2.5 text-xs text-muted hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
+              className="h-8 shrink-0 rounded-md border border-border px-2.5 text-xs text-muted hover:border-accent hover:text-accent-text disabled:cursor-not-allowed disabled:opacity-50"
             >
               {p.exporting ? '导出中' : '导出全部'}
             </button>

@@ -43,8 +43,8 @@ export function TagRow(p: TagRowProps): ReactNode {
       ? p.excluded
         ? 'bg-danger-soft text-danger hover:bg-danger/20'
         : p.selected
-          ? 'bg-accent-soft text-accent'
-          : 'text-muted hover:bg-accent-soft hover:text-accent'
+          ? 'bg-accent-soft text-accent-text'
+          : 'text-muted hover:bg-accent-soft hover:text-accent-text'
       : 'cursor-default text-faint hover:bg-hover') +
     (p.dropTarget ? ' shadow-[inset_0_-3px_0_var(--color-accent)]' : '') +
     (p.dragSource ? ' opacity-40' : '');
