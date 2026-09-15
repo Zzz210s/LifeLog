@@ -64,6 +64,7 @@ pub fn run() {
                 eprintln!("数据目录迁移失败(应用将以退出码 1 退出): {reason}");
                 startup_report::show_failure(
                     app.handle(),
+                    "数据目录迁移失败",
                     &db::OpenFailure {
                         reason,
                         backup: None,
@@ -85,7 +86,7 @@ pub fn run() {
                     if let Some(backup) = &failure.backup {
                         eprintln!("迁移前已生成的备份: {}", backup.display());
                     }
-                    startup_report::show_failure(app.handle(), &failure);
+                    startup_report::show_failure(app.handle(), "数据库初始化失败", &failure);
                     return Ok(());
                 }
             }

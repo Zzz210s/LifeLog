@@ -1,5 +1,6 @@
 pub mod backup;
 pub mod backup_warning;
+pub mod data_dir_copy;
 pub mod data_dir_migration;
 pub mod migrate;
 pub mod repos;
@@ -100,7 +101,7 @@ pub fn init(app: &tauri::AppHandle) -> Result<InitReport, OpenFailure> {
         .map_err(|e| OpenFailure::new(format!("定位应用数据目录失败: {e}")))?;
     std::fs::create_dir_all(&dir)
         .map_err(|e| OpenFailure::new(format!("创建应用数据目录失败: {e}")))?;
-    let report = open(&dir.join("lifelog.db"))?;
+    let report = open(&dir.join(data_dir_migration::DB_FILE))?;
     app.manage(Db(std::sync::Mutex::new(report.conn)));
     // 备份失败原因同时存入进程内提示槽:主窗加载后由 take_backup_warning 取一次,
     // 走错误条显示(不阻断;启动对话框覆盖主窗从未打开的情形)
@@ -139,3 +140,7 @@ mod open_failure_tests;
 #[cfg(test)]
 #[path = "data_dir_migration_tests.rs"]
 mod data_dir_migration_tests;
+
+#[cfg(test)]
+#[path = "data_dir_copy_tests.rs"]
+mod data_dir_copy_tests;

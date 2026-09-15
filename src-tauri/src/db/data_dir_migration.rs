@@ -8,22 +8,24 @@
 //! 1. 新目录已有 `lifelog.db` -> 幂等,什么都不做;
 //! 2. 旧目录没有 `lifelog.db` -> 全新安装,什么都不做(让后续建库);
 //! 3. 旧库存在 -> 先把待合并的 `-wal` 用 `wal_checkpoint(TRUNCATE)` 落进主库,
-//!    再把 `lifelog.db` 与全部 `lifelog.db.bak-*` 复制到新目录。
+//!    再把附属文件(`-wal` / `-journal` / `lifelog.db.bak-*`)复制到新目录,**最后**复制主库。
+//!
+//! 主库放在最后复制是**完成标记**:新目录里出现 `lifelog.db` 就代表整套文件都已复制完。
+//! 若附属文件途中复制失败,新目录里没有主库,下次启动会重新尝试一次,而不是因为看见主库
+//! 就误判「迁移已完成」、把 `-wal` 里未 checkpoint 的数据与备份永久丢下。
 //!
 //! 复制采用「先写 `.part` 临时文件再改名」,任一步失败都清掉临时文件,
-//! 保证新目录里不会留下半成品。
+//! 保证新目录里不会留下半成品(见 [`super::data_dir_copy`])。
 
-use rusqlite::Connection;
+use crate::db::data_dir_copy::{backup_files, copy_atomic, sidecars_to_copy};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use tauri::Manager;
 
 /// 数据库文件名(与 db::init / 备份命名保持一致)
 pub const DB_FILE: &str = "lifelog.db";
 /// 旧 identifier 决定的目录名(与新目录同级)
 pub const OLD_DIR_NAME: &str = "app.lifelog";
-/// 迁移前历史备份的统一前缀(`lifelog.db.bak-*`)
-const BACKUP_PREFIX: &str = "lifelog.db.bak-";
 
 /// 迁移结果(供 stderr 日志与测试断言)
 #[derive(Debug, PartialEq, Eq)]
@@ -40,7 +42,7 @@ impl Outcome {
     pub fn describe(&self) -> String {
         match self {
             Outcome::AlreadyPresent => "新数据目录已有数据库,无需迁移".to_string(),
-            Outcome::Fresh => "未发现旧数据目录,按全新安装处理".to_string(),
+            Outcome::Fresh => "旧数据目录没有数据库,按全新安装处理".to_string(),
             Outcome::Migrated { files } => format!("已复制 {files} 个文件到新数据目录"),
         }
     }
@@ -75,15 +77,10 @@ pub fn migrate(new_dir: &Path, old_dir: &Path) -> Result<Outcome, String> {
     if !old_db.is_file() {
         return Ok(Outcome::Fresh);
     }
-    let mut sources = vec![old_db.clone()];
-    if !checkpoint_wal(&old_db) {
-        // 旧库被占用等导致无法合并 -wal:连 -wal 一起复制,避免丢已提交但未落盘的数据
-        let wal = sidecar(&old_db, "-wal");
-        if wal.is_file() {
-            sources.push(wal);
-        }
-    }
+    // 顺序即语义:附属文件在前、主库在最后(主库存在 = 整套复制完成,见模块头注释)
+    let mut sources = sidecars_to_copy(&old_db);
     sources.extend(backup_files(old_dir));
+    sources.push(old_db);
     fs::create_dir_all(new_dir)
         .map_err(|e| format!("创建新数据目录失败({}):{e}", new_dir.display()))?;
     for src in &sources {
@@ -93,77 +90,4 @@ pub fn migrate(new_dir: &Path, old_dir: &Path) -> Result<Outcome, String> {
         copy_atomic(src, &new_dir.join(name))?;
     }
     Ok(Outcome::Migrated { files: sources.len() })
-}
-
-/// 把旧库待合并的 `-wal` 落进主库。返回是否「主库现已自足」。
-///
-/// 没有非空 `-wal` 时直接返回 true —— 既没东西可合并,也避免为一次空操作去碰旧目录。
-/// 旧库打不开(被占用等)时不做任何修改,返回 false 交给上层按只读方式连 -wal 一起复制。
-fn checkpoint_wal(old_db: &Path) -> bool {
-    let wal = sidecar(old_db, "-wal");
-    let has_pending = wal.is_file() && fs::metadata(&wal).map(|m| m.len()).unwrap_or(0) > 0;
-    if !has_pending {
-        return true;
-    }
-    let conn = match Connection::open(old_db) {
-        Ok(c) => c,
-        Err(e) => {
-            eprintln!("警告: 旧数据库被占用,无法合并 WAL,将连 -wal 一起复制: {e}");
-            return false;
-        }
-    };
-    match conn.query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |r| r.get::<_, i64>(0)) {
-        Ok(0) => true,
-        Ok(busy) => {
-            eprintln!("警告: 旧数据库 WAL 未能完全合并(busy={busy}),将连 -wal 一起复制");
-            false
-        }
-        Err(e) => {
-            eprintln!("警告: 旧数据库 WAL 合并失败,将连 -wal 一起复制: {e}");
-            false
-        }
-    }
-}
-
-/// 由文件名拼出同名附属文件路径(如 `lifelog.db` + `-wal`)
-fn sidecar(db: &Path, suffix: &str) -> PathBuf {
-    let mut name = db.as_os_str().to_owned();
-    name.push(suffix);
-    PathBuf::from(name)
-}
-
-/// 旧目录里全部 `lifelog.db.bak-*` 文件(排序保证复制顺序稳定)
-fn backup_files(old_dir: &Path) -> Vec<PathBuf> {
-    let Ok(entries) = fs::read_dir(old_dir) else {
-        return Vec::new();
-    };
-    let mut files: Vec<PathBuf> = entries
-        .filter_map(|e| e.ok())
-        .map(|e| e.path())
-        .filter(|p| {
-            p.is_file()
-                && p.file_name()
-                    .and_then(|n| n.to_str())
-                    .is_some_and(|n| n.starts_with(BACKUP_PREFIX))
-        })
-        .collect();
-    files.sort();
-    files
-}
-
-/// 复制到同目录下的 `.part` 临时文件再改名:任一步失败都清理临时文件,
-/// 保证新目录里不会留下半成品。
-fn copy_atomic(src: &Path, dest: &Path) -> Result<(), String> {
-    let mut tmp_name = dest.as_os_str().to_owned();
-    tmp_name.push(".part");
-    let tmp = PathBuf::from(tmp_name);
-    if let Err(e) = fs::copy(src, &tmp).and_then(|_| fs::rename(&tmp, dest)) {
-        let _ = fs::remove_file(&tmp);
-        return Err(format!(
-            "复制失败 {} -> {}:{e}",
-            src.display(),
-            dest.display()
-        ));
-    }
-    Ok(())
 }

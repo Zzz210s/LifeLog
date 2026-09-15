@@ -52,16 +52,17 @@ fn db_file(app: &AppHandle) -> Option<PathBuf> {
     app.path()
         .app_data_dir()
         .ok()
-        .map(|dir| dir.join("lifelog.db"))
+        .map(|dir| dir.join(crate::db::data_dir_migration::DB_FILE))
 }
 
-/// 弹「数据库初始化失败」:写明原因与备份位置,用户确认后以退出码 1 退出(不 panic)。
-pub fn show_failure(app: &AppHandle, failure: &OpenFailure) {
+/// 弹失败对话框:写明原因与备份位置,用户确认后以退出码 1 退出(不 panic)。
+/// `title` 由调用方给出(数据目录迁移失败 / 数据库初始化失败),正文原因一致。
+pub fn show_failure(app: &AppHandle, title: &str, failure: &OpenFailure) {
     let path = db_file(app);
     let message = failure_message(failure, path.as_deref());
     app.dialog()
         .message(message)
-        .title("数据库初始化失败")
+        .title(title)
         .kind(MessageDialogKind::Error)
         .buttons(MessageDialogButtons::OkCustom("确定".to_string()))
         .show(move |_| {

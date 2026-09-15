@@ -1,9 +1,10 @@
-//! 数据目录迁移的五条用例(spec 2026-09-15 第 3.1 节 + task brief):
+//! 数据目录迁移的六条用例(spec 2026-09-15 第 3.1 节 + task brief):
 //! ① 新库存在 -> 什么都不做(含旧库也在,验证旧库未被覆盖)
 //! ② 旧库存在 -> 复制成功且内容一致(含只存在于 -wal 里、未 checkpoint 的数据)
 //! ③ 两边都没有 -> 什么都不做
 //! ④ 目标目录不可用 -> 返回 Err 且不创建半成品
 //! ⑤ 历史备份 `lifelog.db.bak-*` 一并复制(不匹配的文件不复制)
+//! ⑥ 途中某个附属文件复制失败 -> 新目录里没有主库(完成标记),再次调用重新尝试
 //!
 //! 全部用临时目录,绝不触碰真实数据。
 
@@ -151,5 +152,39 @@ fn backups_are_copied_and_other_files_are_not() {
     assert_eq!(fs::read(new.join("lifelog.db.bak-p1-20260915")).unwrap(), b"backup-p1");
     assert_eq!(bodies(&new.join(DB_FILE)), vec!["旧库内容".to_string()]);
     assert!(!new.join("notes.txt").exists(), "不匹配前缀的文件不该复制");
+    let _ = fs::remove_dir_all(&root);
+}
+
+/// 完成标记语义:附属文件先复制、主库最后复制。中途失败时新目录里**没有**主库,
+/// 下次调用会重新尝试,而不是因为看见主库就误判 AlreadyPresent 而放弃。
+#[test]
+fn failed_later_copy_leaves_no_main_db_and_migration_retries() {
+    let root = temp_root("partial");
+    let old = root.join("app.lifelog");
+    let new = root.join("com.lifelog.app");
+    fs::create_dir_all(&old).unwrap();
+    seed_db(&old.join(DB_FILE), "旧库内容");
+    let bak = "lifelog.db.bak-6-20260913T120334";
+    fs::write(old.join(bak), b"backup-6").unwrap();
+    fs::create_dir_all(&new).unwrap();
+    // 用同名目录占住备份的 .part 路径:复制必然失败,且失败发生在主库之前
+    fs::create_dir_all(new.join(format!("{bak}.part"))).unwrap();
+
+    let err = migrate(&new, &old).unwrap_err();
+    assert!(err.contains("复制失败"), "错误应说明复制失败:{err}");
+    assert!(
+        !new.join(DB_FILE).exists(),
+        "主库最后复制:途中失败时新目录不该有 lifelog.db"
+    );
+
+    // 关键:再调一次必须重新尝试复制,而不是误判 AlreadyPresent 后放过
+    let err2 = migrate(&new, &old).unwrap_err();
+    assert!(err2.contains("复制失败"), "再次调用应重新尝试:{err2}");
+
+    // 清掉挡路的目录后,迁移终于能完成(主库此时才出现)
+    fs::remove_dir_all(new.join(format!("{bak}.part"))).unwrap();
+    assert_eq!(migrate(&new, &old).unwrap(), Outcome::Migrated { files: 2 });
+    assert!(new.join(DB_FILE).is_file(), "重试成功后才出现主库");
+    assert_eq!(bodies(&new.join(DB_FILE)), vec!["旧库内容".to_string()]);
     let _ = fs::remove_dir_all(&root);
 }
