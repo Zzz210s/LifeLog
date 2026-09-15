@@ -1,0 +1,69 @@
+/* 主题 token 层(设计文档 5.1/5.2):组件只用 token 类,不再写具体色值。
+   亮色 = :root 默认值;暗色由根节点 .dark 覆盖(class 由 shared/use-theme-mode.ts 切换)。
+   两个窗口的入口 CSS 都 @import 本文件,保证主窗与输入栏配色同源。 */
+@import "tailwindcss";
+
+/* 暗色变体按类匹配(而非媒体查询):三态里的 system 也统一走 .dark 类,
+   这样「跟随系统」与显式暗色在组件层是同一条路径 */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme static {
+  --color-app: #ffffff;
+  --color-panel: #f9fafb;
+  --color-raised: #ffffff;
+  --color-hover: #f3f4f6;
+  --color-active: #eef2ff;
+  --color-text: #111827;
+  --color-muted: #6b7280;
+  --color-faint: #9ca3af;
+  --color-border: #e5e7eb;
+  --color-accent: #2563eb;
+  --color-accent-soft: #eff6ff;
+  --color-danger: #dc2626;
+  --color-danger-soft: #fef2f2;
+  --color-tag: #f3f4f6;
+  /* 扩展 token:spec 5.2 表之外的语义色,避免组件里留硬编码
+     (实心按钮的悬停/文字、开关滑块、遮罩、成功与警告状态) */
+  --color-accent-hover: #1d4ed8;
+  --color-danger-hover: #b91c1c;
+  --color-on-accent: #ffffff;
+  --color-on-danger: #ffffff;
+  --color-knob: #ffffff;
+  --color-overlay: rgb(0 0 0 / 30%);
+  --color-success: #16a34a;
+  --color-warn: #b45309;
+  --color-warn-soft: #fffbeb;
+}
+
+/* 原生滚动条与日期选择器跟随主题 */
+:root {
+  color-scheme: light;
+}
+
+/* 暗色(VSCode Dark+):同一批变量换值,inheritance 覆盖整棵子树 */
+.dark {
+  --color-app: #1e1e1e;
+  --color-panel: #252526;
+  --color-raised: #2d2d30;
+  --color-hover: #2a2d2e;
+  --color-active: #37373d;
+  --color-text: #cccccc;
+  --color-muted: #9d9d9d;
+  --color-faint: #6e7681;
+  --color-border: #3c3c3c;
+  --color-accent: #007acc;
+  --color-accent-soft: #264f78;
+  --color-danger: #f48771;
+  --color-danger-soft: #4b2a2a;
+  --color-tag: #37373d;
+  --color-accent-hover: #0e639c;
+  --color-danger-hover: #c74e39;
+  --color-on-accent: #ffffff;
+  --color-on-danger: #2b1a1a;
+  --color-knob: #e6e6e6;
+  --color-overlay: rgb(0 0 0 / 55%);
+  --color-success: #89d185;
+  --color-warn: #cca700;
+  --color-warn-soft: #3a3520;
+  color-scheme: dark;
+}
