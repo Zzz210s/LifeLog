@@ -7,7 +7,7 @@ const c = { ...EMPTY_FILTER, keyword: '电影', tags: [{ path: '工作', include
 describe('chipsOf', () => {
   it('每个收窄来源一个 chip,标签只显路径、含子级用标记与 title 表达', () => {
     const chips = chipsOf(c);
-    expect(chips.map((x) => x.label)).toEqual(['关键词:电影', '⊢ #工作', '无标签', '最早在前']);
+    expect(chips.map((x) => x.label)).toEqual(['关键词:电影', '⊢ #工作', '无自定义标签', '最早在前']);
     expect(chips.find((x) => x.kind === 'tag')!.title).toBe('含子级');
     expect(chips.find((x) => x.kind === 'tag')!.label).not.toContain('含子级');
   });
@@ -25,7 +25,7 @@ describe('chipsOf', () => {
 });
 
 describe('summaryOf', () => {
-  it('中文一句话', () => { expect(summaryOf(c)).toBe('关键词「电影」;标签 工作;无标签;最早在前'); });
+  it('中文一句话', () => { expect(summaryOf(c)).toBe('关键词「电影」;标签 工作;无自定义标签;最早在前'); });
   it('空条件为空串', () => { expect(summaryOf(EMPTY_FILTER)).toBe(''); });
   it('摘要不出现含子级注释', () => { expect(summaryOf(c)).not.toContain('含子级'); });
 });

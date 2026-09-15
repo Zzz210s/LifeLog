@@ -116,7 +116,7 @@ export function AddConditionMenu(p: AddConditionMenuProps): ReactNode {
               {([
                 [null, '不限'],
                 ['any', '有标签'],
-                ['none', '无标签'],
+                ['none', '无自定义标签'],
               ] as const).map(([v, label]) => (
                 <button
                   key={label}

@@ -1,7 +1,7 @@
 /**
  * 内置视图前端常量(spec 4:内置视图是代码常量,不入 saved_views 表)。
  * 条件对象与 Rust `db/repos/views.rs` 的 conditions_of_builtin 保持镜像:
- * 全部 = 空条件;待办 = 引入 `todo` 精确 + 排除 `done` 精确;无标签 = tagPresence none。
+ * 全部 = 空条件;待办 = 引入 `todo` 精确 + 排除 `done` 精确;无自定义标签 = tagPresence none。
  */
 import { EMPTY_FILTER } from '../../shared/filter-conditions';
 import type { FilterConditions, TagCond } from '../../shared/filter-conditions';
@@ -26,5 +26,6 @@ export const BUILTIN_VIEWS: BuiltinView[] = [
       excludeTags: [exact('done')],
     },
   },
-  { key: 'untagged', title: '无标签', conditions: { ...EMPTY_FILTER, tagPresence: 'none' } },
+  // 语义是“除时间标签外无标签”(时间标签是系统元数据),故标题用「无自定义标签」
+  { key: 'untagged', title: '无自定义标签', conditions: { ...EMPTY_FILTER, tagPresence: 'none' } },
 ];
