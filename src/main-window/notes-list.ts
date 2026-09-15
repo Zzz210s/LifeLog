@@ -18,7 +18,7 @@ export function replaceNote(prev: Note[], next: Note): Note[] {
  * 就地变更(编辑保存/勾选待办)后是否需要重查首页。
  * 决策(G5):keyword 非空时必须重查 —— 后端 keyword 同时匹配正文与标签两列,且 FTS 短语/前缀
  * 语义与本地子串判定不一致,本地无法判定命中,正确性优先于滚动位置;
- * keyword 为空时只重判标签,标签命中可本地判定(matchesTagsByPath,../shared/filter-conditions.ts),
+ * keyword 为空时只重判标签,标签命中可本地判定(matchesTagsByPath,../shared/filter-conditions-local.ts),
  * 保持就地更新不丢分页与滚动(S3)。
  */
 export function needsRefetchAfterChange(keyword: string): boolean {
