@@ -46,7 +46,7 @@ export function TagRow(p: TagRowProps): ReactNode {
           ? 'bg-blue-100 text-blue-700'
           : 'text-gray-700 hover:bg-blue-50 hover:text-blue-700'
       : 'cursor-default text-gray-400 hover:bg-gray-100') +
-    (p.dropTarget ? ' bg-blue-50 shadow-[inset_0_-2px_0_#2563eb]' : '') +
+    (p.dropTarget ? ' shadow-[inset_0_-3px_0_#2563eb]' : '') +
     (p.dragSource ? ' opacity-40' : '');
 
   return (
