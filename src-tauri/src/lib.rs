@@ -56,6 +56,7 @@ pub fn run() {
             commands::views::count_view_hits,
             commands::windowing::hide_input_bar,
             commands::windowing::show_input_bar,
+            commands::windowing::take_pending_open_settings,
             commands::windowing::set_input_size,
             commands::windowing::set_input_scale,
             commands::windowing::begin_input_drag,

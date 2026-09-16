@@ -48,6 +48,8 @@ export const api = {
   showInputWindow: () => invoke<void>('show_input_bar'),
   /** 取一次「迁移前自动备份失败」提示(取值即清空;无提示时返回 null) */
   takeBackupWarning: () => invoke<string | null>('take_backup_warning'),
+  /** 主窗 mount 时取用「打开后切到设置页」意图(取走即清空;窗口是本次新建时事件会丢) */
+  takePendingOpenSettings: () => invoke<boolean>('take_pending_open_settings'),
   /** 缩放:窗口尺寸 = 基础尺寸 x 系数,并落到 webview zoom */
   setInputScale: (zoom: number) => invoke<void>('set_input_scale', { zoom }),
   setInputSize: (width: number, height: number) =>

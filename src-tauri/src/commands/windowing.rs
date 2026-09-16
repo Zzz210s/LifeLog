@@ -30,6 +30,12 @@ pub fn begin_input_drag() {
     windowing::input::begin_drag_session();
 }
 
+/// 取走主窗的「打开后切到设置页」意图(mount 时调用;取走即清空,第二次打开不被切走)
+#[tauri::command]
+pub fn take_pending_open_settings() -> bool {
+    windowing::main_window::take_pending()
+}
+
 /// 结束拖动会话(页面 mouseup 调用;Rust 侧还会用「最后一次 Moved + 空闲期」自动退出兜底)
 #[tauri::command]
 pub fn end_input_drag() {

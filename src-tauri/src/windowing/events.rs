@@ -19,15 +19,8 @@ pub fn quit(app: &AppHandle) {
 }
 
 pub fn register(app: &tauri::App) -> tauri::Result<()> {
-    if let Some(main) = app.get_webview_window("main") {
-        let w = main.clone();
-        main.on_window_event(move |event| {
-            if let WindowEvent::CloseRequested { api, .. } = event {
-                api.prevent_close();
-                let _ = w.hide(); // 关闭 = 退到托盘
-            }
-        });
-    }
+    // 主窗的「关闭 = 退到托盘」随窗口创建挂在 windowing::main_window::open 里
+    // (冷启动不再声明主窗,此处已无窗口可挂)
     let handle: AppHandle = app.handle().clone();
     if let Some(input) = app.get_webview_window("input") {
         input.on_window_event(move |event| {

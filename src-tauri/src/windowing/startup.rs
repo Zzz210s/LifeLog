@@ -3,7 +3,7 @@
 //! 动作只由设置「启动时显示」input_startup_show 决定,手动启动与开机自启一致(spec 3.1);
 //! 主窗口在任何情况下都不自动显示(关闭 = 退到托盘)。
 use crate::windowing;
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::AppHandle;
 
 /// 启动后做什么:唤起输入栏 / 只驻留托盘(不显示任何窗口)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -44,21 +44,16 @@ pub fn apply(app: &AppHandle, autostart_launch: bool) {
     }
 }
 
-/// 显示主窗口(托盘「打开主窗口」/「设置」共用)。找不到窗口时不报错,只当无事发生。
+/// 显示主窗口(托盘「打开主窗口」/「设置」共用):窗口存在则只显示,不存在才按需构建
+/// (见 windowing::main_window;冷启动时主窗 webview 不创建)
 pub fn open_main_window(app: &AppHandle) -> tauri::Result<()> {
-    if let Some(w) = app.get_webview_window("main") {
-        w.show()?;
-        w.set_focus()?;
-    }
-    Ok(())
+    windowing::main_window::open(app)
 }
 
-/// 显示主窗口并切到设置页:先 show+focus,再发事件让主窗把视图切到设置
-/// (事件名与前端 use-open-settings.ts 的 OPEN_SETTINGS_EVENT 一致)
+/// 显示主窗口并切到设置页。事件名与前端 use-open-settings.ts 的 OPEN_SETTINGS_EVENT 一致;
+/// 窗口是本次新建时改用 pending 标志(前端 mount 时取用),避免事件发给还不存在的监听者。
 pub fn open_settings_window(app: &AppHandle) -> tauri::Result<()> {
-    open_main_window(app)?;
-    let _ = app.emit("open-settings", ());
-    Ok(())
+    windowing::main_window::open_settings(app)
 }
 
 #[cfg(test)]

@@ -13,15 +13,6 @@
   "app": {
     "windows": [
       {
-        "label": "main",
-        "title": "LifeLog",
-        "url": "index.html",
-        "width": 1100,
-        "height": 720,
-        "visible": false,
-        "dragDropEnabled": false
-      },
-      {
         "label": "input",
         "title": "输入栏",
         "url": "input.html",
