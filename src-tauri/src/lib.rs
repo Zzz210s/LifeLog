@@ -3,6 +3,9 @@ use tauri_plugin_global_shortcut::GlobalShortcutExt;
 mod commands;
 mod db;
 mod exchange;
+// 表达式纯逻辑层:调用方(IPC 校验与 SQL 编译)在后续任务接入,故本任务内尚无引用
+#[allow(dead_code)]
+mod expr;
 mod startup_report;
 mod tags;
 mod timetag;
