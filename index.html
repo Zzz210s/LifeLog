@@ -2,6 +2,17 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      // 主题镜像:首帧前同步落地,避免暗色下闪一帧亮色(spec 2026-09-16 第 5.2 节)。
+      // 真源仍是设置表,这里只是首帧优化;异常一律忽略。
+      (function () {
+        try {
+          var m = localStorage.getItem('lifelog.theme');
+          var dark = m === 'dark' || (m !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          if (dark) document.documentElement.classList.add('dark');
+        } catch (e) {}
+      })();
+    </script>
     <title>LifeLog</title>
   </head>
   <body>

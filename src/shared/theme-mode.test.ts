@@ -5,6 +5,7 @@ import {
   resolveDark,
   THEME_DEFAULT,
   THEME_KEY,
+  THEME_MIRROR_KEY,
   THEME_MODES,
 } from './theme-mode';
 
@@ -59,6 +60,10 @@ describe('常量', () => {
   it('设置键与默认值锁定', () => {
     expect(THEME_KEY).toBe('theme');
     expect(THEME_DEFAULT).toBe('system');
+  });
+
+  it('镜像键与两个 HTML 内联脚本同键', () => {
+    expect(THEME_MIRROR_KEY).toBe('lifelog.theme');
   });
 
   it('外观分区三态顺序:跟随系统、亮色、暗色', () => {

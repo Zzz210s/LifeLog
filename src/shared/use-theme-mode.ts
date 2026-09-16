@@ -8,7 +8,9 @@ import { api } from './api';
 import {
   parseThemeMode,
   parseThemePayload,
+  readThemeMirror,
   resolveDark,
+  writeThemeMirror,
   THEME_DEFAULT,
   THEME_EVENT,
   THEME_KEY,
@@ -26,6 +28,12 @@ export function systemPrefersDark(): boolean {
 export function applyThemeMode(mode: ThemeMode): void {
   if (typeof document === 'undefined') return;
   document.documentElement.classList.toggle('dark', resolveDark(mode, systemPrefersDark()));
+}
+
+/** 每次应用主题都要回写镜像:下次启动的 <head> 内联脚本据此在首帧前落 .dark */
+export function applyAndMirror(mode: ThemeMode): void {
+  applyThemeMode(mode);
+  writeThemeMirror(mode);
 }
 
 /** 监听系统深浅色变化(仅 system 态需要);返回取消订阅函数 */
@@ -53,14 +61,15 @@ export interface ThemeModeController {
 
 export function useThemeMode(options: UseThemeModeOptions = {}): ThemeModeController {
   const { broadcast = false, follow = false, onError } = options;
-  const [mode, setModeState] = useState<ThemeMode>(THEME_DEFAULT);
+  const [mode, setModeState] = useState<ThemeMode>(() => parseThemeMode(readThemeMirror()));
   // 回调与当前态放在 ref 里:订阅只建一次,避免每次切换都重订阅
   const latest = useRef({ mode: THEME_DEFAULT, onError });
   latest.current = { mode, onError };
 
-  // 挂载:先按默认(跟随系统)应用,再读库纠正;读取失败保持默认并由调用方提示
+  // 挂载:先按镜像应用(与 index.html/input.html 的 <head> 内联脚本同一判定,不动首帧已落地的
+  // class),再读库纠正;读取失败保持默认并由调用方提示
   useEffect(() => {
-    applyThemeMode(THEME_DEFAULT);
+    applyAndMirror(parseThemeMode(readThemeMirror()));
     let alive = true;
     void api
       .getSetting(THEME_KEY)
@@ -68,7 +77,7 @@ export function useThemeMode(options: UseThemeModeOptions = {}): ThemeModeContro
         if (!alive) return;
         const next = parseThemeMode(raw);
         setModeState(next);
-        applyThemeMode(next);
+        applyAndMirror(next);
       })
       .catch((e) => latest.current.onError?.('读取主题设置失败: ' + String(e)));
     return () => {
@@ -80,7 +89,7 @@ export function useThemeMode(options: UseThemeModeOptions = {}): ThemeModeContro
   useEffect(
     () =>
       watchSystemTheme(() => {
-        if (latest.current.mode === 'system') applyThemeMode('system');
+        if (latest.current.mode === 'system') applyAndMirror('system');
       }),
     []
   );
@@ -94,7 +103,7 @@ export function useThemeMode(options: UseThemeModeOptions = {}): ThemeModeContro
       const next = parseThemePayload(event.payload);
       if (next === null) return;
       setModeState(next);
-      applyThemeMode(next);
+      applyAndMirror(next);
     })
       .then((un) => {
         if (cancelled) un();
@@ -111,7 +120,7 @@ export function useThemeMode(options: UseThemeModeOptions = {}): ThemeModeContro
   const setMode = useCallback(
     (next: ThemeMode) => {
       setModeState(next);
-      applyThemeMode(next);
+      applyAndMirror(next);
       void api
         .setSetting(THEME_KEY, next)
         .then(() => {

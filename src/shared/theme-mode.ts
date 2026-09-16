@@ -11,6 +11,10 @@ export const THEME_DEFAULT: ThemeMode = 'system';
 /** 主窗 -> 输入栏的主题广播事件名(输入栏只换内部配色,窗口本身保持透明) */
 export const THEME_EVENT = 'lifelog://theme';
 
+/** 首帧主题镜像的 localStorage 键:index.html / input.html 的 <head> 内联脚本读它。
+    真源仍是设置表的 THEME_KEY,镜像只是首帧优化(缺失/非法时退化为跟随系统)。 */
+export const THEME_MIRROR_KEY = 'lifelog.theme';
+
 /** 设置页「外观」分区的三个单选(数组顺序即界面顺序) */
 export const THEME_MODES: { value: ThemeMode; label: string }[] = [
   { value: 'system', label: '跟随系统' },
@@ -28,6 +32,31 @@ export function resolveDark(mode: ThemeMode, systemPrefersDark: boolean): boolea
   if (mode === 'dark') return true;
   if (mode === 'light') return false;
   return systemPrefersDark;
+}
+
+/** 镜像值 + 系统偏好 -> 是否先落暗色(镜像缺失/非法时退化为跟随系统) */
+export function mirrorDark(mirror: string | null | undefined, systemPrefersDark: boolean): boolean {
+  if (mirror === 'dark') return true;
+  if (mirror === 'light') return false;
+  return systemPrefersDark;
+}
+
+/** 读回镜像值(键不存在或 storage 不可用一律 null;异常静默) */
+export function readThemeMirror(): string | null {
+  try {
+    return localStorage.getItem(THEME_MIRROR_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/** 把三态写入镜像(供 use-theme-mode 在每次应用主题后调用;异常静默,不阻断主题落地) */
+export function writeThemeMirror(mode: ThemeMode): void {
+  try {
+    localStorage.setItem(THEME_MIRROR_KEY, mode);
+  } catch {
+    // 镜像写失败只是失去首帧优化,退化为修复前的行为
+  }
 }
 
 /** 广播载荷 -> 三态:非字符串载荷返回 null(调用方忽略该事件);
