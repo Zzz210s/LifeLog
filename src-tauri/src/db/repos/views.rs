@@ -1,18 +1,29 @@
 //! 自建视图仓库层(MVP-3 Task 2):CRUD、拖拽排序与批量命中计数。
 //! 内置视图(全部/待办/无自定义标签)是代码常量不入表,永久置顶且不可改名/删除/排序;
 //! 自建视图存「标题 + 条件 JSON + 排序」,写库前先校验条件,坏条件不落库。
+//! 读取时附带 `broken_paths`(表达式引用的失效标签路径,Task 4);命中计数拆在 views_hits.rs,
+//! 失效路径计算拆在 views_expr_broken.rs,本文件守 200 行上限。
 use rusqlite::{params, Connection};
 use serde::Serialize;
 
 use super::notes::notes_filter::TagCond;
-use super::notes::notes_query::count_matching;
 use super::notes::{validate_conditions, FilterConditions};
+
+/// 批量命中计数(实现见 views_hits.rs;此处 re-export 保持 `views::hit_counts` 调用路径)
+#[path = "views_hits.rs"]
+mod views_hits;
+pub use views_hits::hit_counts;
+
+/// 表达式失效路径检测(实现见 views_expr_broken.rs)
+#[path = "views_expr_broken.rs"]
+mod views_expr_broken;
 
 /// 标题上限(字符数,含两侧去空白后)与视图总数上限
 const MAX_TITLE_CHARS: usize = 40;
 const MAX_VIEWS: i64 = 50;
 
-/// 自建视图(表 saved_views 的一行);conditions 为共享条件对象
+/// 自建视图(表 saved_views 的一行);conditions 为共享条件对象,
+/// `broken_paths` 是表达式引用但当前库中已不存在的标签路径(无表达式/无失效时为空数组)
 #[derive(Debug, Serialize)]
 pub struct SavedView {
     pub id: i64,
@@ -20,6 +31,7 @@ pub struct SavedView {
     pub conditions: FilterConditions,
     pub sort_order: i64,
     pub created_at: String,
+    pub broken_paths: Vec<String>,
 }
 
 /// 内置视图描述(key 与中文标题)。命令层暂不透出(前端按约定自带常量),
@@ -81,8 +93,10 @@ fn check_title(conn: &Connection, title: &str, exclude_id: Option<i64>) -> Resul
     Ok(t.to_string())
 }
 
-/// 全部自建视图,按 sort_order(并列按 created_at、id)升序
+/// 全部自建视图,按 sort_order(并列按 created_at、id)升序;
+/// 先一次取全量标签路径,再逐视图标出表达式里的失效引用
 pub fn list(conn: &Connection) -> Result<Vec<SavedView>, String> {
+    let known = views_expr_broken::known_paths(conn)?;
     let mut stmt = conn
         .prepare(
             "SELECT id, title, conditions, sort_order, created_at FROM saved_views
@@ -97,9 +111,10 @@ pub fn list(conn: &Connection) -> Result<Vec<SavedView>, String> {
     let mut out = Vec::new();
     for row in rows {
         let (id, title, json, sort_order, created_at) = row.map_err(|e| e.to_string())?;
-        let conditions = serde_json::from_str(&json)
+        let conditions: FilterConditions = serde_json::from_str(&json)
             .map_err(|e| format!("视图「{title}」的条件数据无法解析: {e}"))?;
-        out.push(SavedView { id, title, conditions, sort_order, created_at });
+        let broken_paths = views_expr_broken::of(conditions.expr.as_deref(), &known);
+        out.push(SavedView { id, title, conditions, sort_order, created_at, broken_paths });
     }
     Ok(out)
 }
@@ -174,21 +189,6 @@ pub fn reorder(conn: &mut Connection, ids: &[i64]) -> Result<(), String> {
             .map_err(|e| e.to_string())?;
     }
     tx.commit().map_err(|e| e.to_string())
-}
-
-/// 批量命中计数:内置三视图(键 all/todo/untagged)+ 自建视图按 sort_order(键 view:<id>),
-/// 数值口径与 notes_query::count_matching 完全一致(供侧栏徽标)
-pub fn hit_counts(conn: &Connection) -> Result<Vec<(String, i64)>, String> {
-    let mut out: Vec<(String, i64)> = Vec::new();
-    for (key, _) in builtins() {
-        let n = count_matching(conn, &conditions_of_builtin(key)).map_err(|e| e.to_string())?;
-        out.push((key.to_string(), n));
-    }
-    for v in list(conn)? {
-        let n = count_matching(conn, &v.conditions).map_err(|e| e.to_string())?;
-        out.push((format!("view:{}", v.id), n));
-    }
-    Ok(out)
 }
 
 #[cfg(test)]

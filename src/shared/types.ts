@@ -36,6 +36,8 @@ export interface SavedView {
   conditions: FilterConditions;
   sort_order: number;
   created_at: string;
+  /** 表达式引用但当前库中已不存在的标签路径(无表达式/无失效时为空数组;Task 6 才展示) */
+  broken_paths: string[];
 }
 
 /** 设置页「通用」分区展示的数据库信息(只读) */
