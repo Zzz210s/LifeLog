@@ -1,9 +1,18 @@
 //! 结构化筛选条件(前端 `filter-conditions.ts` 的等价定义)与"条件 -> SQL 片段"生成。
 //! 真源是结构化条件对象(D6),而非表达式字符串;标签匹配一律参数占位 + `substr` 前缀,
 //! 禁止 LIKE 通配符(标签名可能含 `%`/`_`)。LIKE 只用于既有行为中的短关键词子串匹配。
+//! 谓词模板(标签/关键词/日期)抽到 [`filter_predicates`],与表达式编译器
+//! [`crate::expr::compile`] 共用同一批实现 —— 两套输入,一套语义。
 //! Serialize 派生供自建视图把条件落库为 JSON(views.rs),查询语义不变。
 use rusqlite::types::Value;
 use serde::{Deserialize, Serialize};
+
+use crate::expr::ast::DateOp;
+
+/// 共用谓词真源(与表达式编译器共享,杜绝第二套标签/日期/关键词语义)
+#[path = "filter_predicates.rs"]
+pub(crate) mod filter_predicates;
+pub(crate) use filter_predicates::{date_predicate, keyword_predicate, tag_exists, tag_predicate};
 
 /// 单个标签条件:完整路径 + 是否含子级(前端默认含子级)
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -14,6 +23,8 @@ pub struct TagCond {
 }
 
 /// 流查询条件对象;字段名与前端 `FilterConditions` 完全一致(JSON camelCase)。
+/// `expr` 是附加的高级表达式条件(spec 3.3,默认 null):与结构化条件 AND 组合;
+/// 文本非法时该条恒假(宁可查不到,也不放宽其余条件的语义)。
 /// Serialize 供自建视图把条件对象落库为 JSON(views.rs),反序列化路径与语义不变。
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(default, rename_all = "camelCase")]
@@ -25,6 +36,7 @@ pub struct FilterConditions {
     pub to: Option<String>,
     pub tag_presence: Option<String>,
     pub sort: Option<String>,
+    pub expr: Option<String>,
 }
 
 /// 引入与排除标签各自的条数上限
@@ -44,19 +56,6 @@ pub fn oldest_first(c: &FilterConditions) -> bool {
     c.sort.as_deref() == Some("oldest")
 }
 
-/// 单个标签的匹配子句:含子级时"自身或 `path + "/"` 开头",否则精确等于。
-/// 值只进参数向量;前缀用 `substr(path, 1, length(?) + 1) = ? || '/'`(无通配符)。
-fn tag_match(c: &TagCond, args: &mut Vec<Value>) -> String {
-    args.push(Value::Text(c.path.clone()));
-    if c.include_children {
-        args.push(Value::Text(c.path.clone()));
-        args.push(Value::Text(c.path.clone()));
-        "t.path = ? OR substr(t.path, 1, length(?) + 1) = ? || '/'".to_string()
-    } else {
-        "t.path = ?".to_string()
-    }
-}
-
 /// "时间子树之外还有标签"的谓词(时间标签是系统元数据,不算用户的归类):
 /// `any` = 存在该谓词,`none` = 不存在 —— 必须成对,否则只带时间标签的笔记两个条件都不命中。
 fn has_custom_tag() -> String {
@@ -72,34 +71,14 @@ pub fn where_clause(c: &FilterConditions) -> (String, Vec<Value>) {
     let mut args: Vec<Value> = Vec::new();
     let mut clauses: Vec<String> = Vec::new();
     if let Some(k) = c.keyword.as_deref().map(str::trim).filter(|k| !k.is_empty()) {
-        if k.chars().count() >= 3 {
-            clauses.push("n.id IN (SELECT rowid FROM notes_fts WHERE notes_fts MATCH ?)".into());
-            args.push(Value::Text(format!("\"{}\"*", k.replace('"', "\"\""))));
-        } else {
-            // 短关键词退化 LIKE:标签侧同样排除时间子树(时间由日期筛选负责,不靠关键词)
-            clauses.push(format!(
-                "(n.content LIKE ? OR EXISTS (SELECT 1 FROM tag_links l JOIN tags t ON t.id = l.tag_id \
-                 WHERE l.target_type = 'note' AND l.target_id = n.id AND NOT ({}) AND t.path LIKE ?))",
-                crate::timetag::sql_in_time_subtree("t")
-            ));
-            let pat = format!("%{k}%");
-            args.push(Value::Text(pat.clone()));
-            args.push(Value::Text(pat));
-        }
+        clauses.push(keyword_predicate(k, &mut args));
     }
     for t in &c.tags {
-        let m = tag_match(t, &mut args);
-        clauses.push(format!(
-            "EXISTS (SELECT 1 FROM tag_links l JOIN tags t ON t.id = l.tag_id \
-             WHERE l.target_type = 'note' AND l.target_id = n.id AND ({m}))"
-        ));
+        clauses.push(tag_exists(&tag_predicate(&t.path, !t.include_children, &mut args)));
     }
     for t in &c.exclude_tags {
-        let m = tag_match(t, &mut args);
-        clauses.push(format!(
-            "NOT EXISTS (SELECT 1 FROM tag_links l JOIN tags t ON t.id = l.tag_id \
-             WHERE l.target_type = 'note' AND l.target_id = n.id AND ({m}))"
-        ));
+        let m = tag_predicate(&t.path, !t.include_children, &mut args);
+        clauses.push(format!("NOT {}", tag_exists(&m)));
     }
     match c.tag_presence.as_deref() {
         Some("any") => clauses.push(has_custom_tag()),
@@ -107,10 +86,17 @@ pub fn where_clause(c: &FilterConditions) -> (String, Vec<Value>) {
         _ => {}
     }
     if let Some(f) = c.from.as_deref() {
-        clauses.push(time_range(">=", f, &mut args));
+        clauses.push(date_predicate(&DateOp::Ge, f, &mut args));
     }
     if let Some(t) = c.to.as_deref() {
-        clauses.push(time_range("<=", t, &mut args));
+        clauses.push(date_predicate(&DateOp::Le, t, &mut args));
+    }
+    // 表达式是最后一条附加条件:与前面所有结构化条件 AND 组合;文本非法则整条恒假
+    if let Some(src) = c.expr.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+        match crate::expr::validate(src) {
+            Ok(ast) => clauses.push(crate::expr::compile(&ast, &mut args)),
+            Err(_) => clauses.push("0=1".into()),
+        }
     }
     let mut out = String::from("1=1");
     for cl in clauses {
@@ -119,32 +105,6 @@ pub fn where_clause(c: &FilterConditions) -> (String, Vec<Value>) {
         out.push_str(&cl);
     }
     (out, args)
-}
-
-/// 日期范围条件(D2:不再触碰 created_at):比较该笔记的时间标签路径与
-/// `时间排序/<Y>/<M>/<D>` 边界(年/月/日零填充,字典序即时间序;端点当天包含在内)。
-/// 下界整串比较、上界截到日级长度再比:更深的路径(`时间排序/Y/M/D/子级`)与当天同界,
-/// 不得因尾随 `/子级` 被上界排除(与下界对称)。`length(?)` 与比较各占一个位置参数
-/// (匿名占位符按出现次序消耗),故上界压两个参数。粗粒度时间标签(年/月级)没有日期,
-/// 与 [`crate::timetag::sql_has_time_day`] 一致地不落入任何范围。
-/// 日期非法(未经 [`validate`])时给出恒假条件:宁可查不到,也不放宽语义。
-fn time_range(op: &str, date: &str, args: &mut Vec<Value>) -> String {
-    let Some(bound) = crate::timetag::path_for_date(date) else {
-        return "0=1".to_string();
-    };
-    let lhs = if op == ">=" {
-        args.push(Value::Text(bound));
-        "t.path".to_string()
-    } else {
-        args.push(Value::Text(bound.clone()));
-        args.push(Value::Text(bound));
-        "substr(t.path, 1, length(?))".to_string()
-    };
-    format!(
-        "EXISTS (SELECT 1 FROM tag_links l JOIN tags t ON t.id = l.tag_id \
-         WHERE l.target_type = 'note' AND l.target_id = n.id AND {} AND {lhs} {op} ?)",
-        crate::timetag::sql_has_time_day("t")
-    )
 }
 
 /// 校验(后端为唯一权威;前端只做即时提示):返回中文原因或 `Ok(())`
@@ -187,6 +147,12 @@ pub fn validate(c: &FilterConditions) -> Result<(), String> {
     if let Some(p) = c.tag_presence.as_deref() {
         if p != "any" && p != "none" {
             return Err("标签有无取值非法".into());
+        }
+    }
+    // 附加表达式:空白视为未设置;非法时带原因与**字符位置**(1 起,便于界面提示)
+    if let Some(src) = c.expr.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+        if let Err(e) = crate::expr::validate(src) {
+            return Err(format!("表达式:{}(第 {} 个字符)", e.message, e.pos + 1));
         }
     }
     Ok(())

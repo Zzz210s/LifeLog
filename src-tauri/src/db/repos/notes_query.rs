@@ -78,6 +78,10 @@ mod notes_query_tests;
 mod notes_query_conds_tests;
 
 #[cfg(test)]
+#[path = "notes_query_expr_tests.rs"]
+mod notes_query_expr_tests;
+
+#[cfg(test)]
 #[path = "notes_query_time_tests.rs"]
 mod notes_query_time_tests;
 

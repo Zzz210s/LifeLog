@@ -1,11 +1,23 @@
-//! 表达式逃生舱的纯逻辑层(spec 3.1-3.3):词法 -> 语法 -> AST。
+//! 表达式逃生舱的纯逻辑层(spec 3.1-3.3):词法 -> 语法 -> AST -> 校验 -> 中文预览 -> SQL 片段。
 //! 不触数据库、不碰前端;所有错误位置 `pos` 均为**字符下标**(Unicode 字符数,非字节数)。
+//! 校验/编译同时以模块与同名函数两种路径暴露:`crate::expr::validate::validate` 与
+//! `crate::expr::validate`(模块在类型命名空间、函数在值命名空间,不冲突),调用点按
+//! 计划文档的写法取后者;`describe` 只走 `crate::expr::describe::describe`(现在尚无
+//! 调用点,重复导出会触发 unused_imports 警告)。
 
 pub mod ast;
+pub mod compile;
 pub mod describe;
 pub mod lexer;
 pub mod parser;
 pub mod validate;
+
+pub use compile::compile;
+pub use validate::validate;
+
+#[cfg(test)]
+#[path = "compile_tests.rs"]
+mod compile_tests;
 
 #[cfg(test)]
 #[path = "describe_tests.rs"]
