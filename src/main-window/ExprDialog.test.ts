@@ -77,10 +77,16 @@ describe('错误行文案与光标落点', () => {
     expect(caretOf(c, text)).toBe(8);
   });
 
-  it('末尾错误显示最后一个字符的序号(与 brief 的「第 7 个字符」一致)', () => {
+  it('末尾错误显示为「表达式末尾:原因」,不编造输入串里不存在的字符序号', () => {
     const c = check({ message: '缺少操作数', position: 7 });
-    expect(errorLabelOf(c, '#工作 AND')).toBe('第 7 个字符:缺少操作数');
+    expect(errorLabelOf(c, '#工作 AND')).toBe('表达式末尾:缺少操作数');
     expect(caretOf(c, '#工作 AND')).toBe(7); // 光标落在末尾,不越界
+  });
+
+  it('末尾错误在 position 超出字符数时也不越界(同样是末尾文案)', () => {
+    const c = check({ message: '缺少右括号', position: 9 });
+    expect(errorLabelOf(c, '#工作 AND')).toBe('表达式末尾:缺少右括号');
+    expect(caretOf(c, '#工作 AND')).toBe(7);
   });
 
   it('空文本只给原因,不显示第 0 个字符', () => {

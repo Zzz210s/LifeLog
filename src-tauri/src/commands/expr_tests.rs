@@ -27,10 +27,10 @@ fn validate_expr_treats_blank_as_empty_error() {
     assert_eq!(r.preview, "");
 }
 
-/// 位置口径:0 起字符下标(emoji 按 1 个字符计),前端 +1 后是「第 N 个字符」
+/// 位置口径:0 起字符下标(BMP 外字符按 1 个字符计),前端串内错误 +1 后是「第 N 个字符」
 #[test]
 fn validate_expr_position_counts_chars_not_bytes() {
-    let r = validate_expr("😀 AND".into());
+    let r = validate_expr("\u{1F600} AND".into());
     assert!(!r.ok);
-    assert_eq!(r.position, 5, "emoji 按 1 个字符计,位置不是字节偏移(字节会是 8)");
+    assert_eq!(r.position, 5, "代理对按 1 个字符计,位置不是字节偏移(字节会是 8)");
 }

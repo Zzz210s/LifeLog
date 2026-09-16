@@ -35,7 +35,7 @@ describe('表达式 chip 与摘要', () => {
   });
 
   it('截断按码点计数,不把代理对劈开', () => {
-    const text = '😀'.repeat(EXPR_TEXT_MAX + 5);
+    const text = '\u{1F600}'.repeat(EXPR_TEXT_MAX + 5);
     expect([...truncateExpr(text)].length).toBe(EXPR_TEXT_MAX + 1); // 含省略号
     expect(truncateExpr(text)).not.toContain('\uFFFD');
   });
