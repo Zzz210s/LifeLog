@@ -7,6 +7,8 @@
 用法:
   python scripts/win-probe.py list <pid>            顶层窗口 JSON:标题/类名/可见性/物理矩形
   python scripts/win-probe.py close-dialog <pid>    给该进程第一个 #32770 对话框发 WM_CLOSE
+  python scripts/win-probe.py close-window <pid> <标题>  给顶层窗口(按标题)发 WM_CLOSE
+                                                   (= 点窗口关闭按钮,走应用自己的 CloseRequested 路径)
   python scripts/win-probe.py click-ok <pid>        点该进程 #32770 对话框里文本为「确定/OK」的按钮
   python scripts/win-probe.py hotkey ctrl+shift+q   真实按键(keybd_event,走系统热键链路)
 """
@@ -92,6 +94,11 @@ def main():
     elif cmd == 'close-dialog':
         dlg = find_dialog(pid, title)
         print(json.dumps({'found': bool(dlg), 'title': dlg['title'] if dlg else None, 'closed': bool(dlg) and bool(u32.PostMessageW(dlg['hwnd'], WM_CLOSE, 0, 0))}, ensure_ascii=False))
+    elif cmd == 'close-window':
+        win = next((w for w in top_level(pid) if w['title'] == title), None)
+        print(json.dumps({'found': bool(win), 'title': win['title'] if win else None,
+                          'closed': bool(win) and bool(u32.PostMessageW(win['hwnd'], WM_CLOSE, 0, 0))},
+                         ensure_ascii=False))
     elif cmd == 'click-ok':
         dlg = find_dialog(pid, title)
         if not dlg:
