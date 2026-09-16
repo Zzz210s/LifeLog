@@ -14,29 +14,31 @@ pub fn list_views(app: AppHandle) -> Result<Vec<SavedView>, String> {
     views::list(&conn)
 }
 
-/// 新建视图(标题 + 条件);返回新视图 id
+/// 新建视图(标题 + 条件 + 图标名);返回新视图 id。图标名非法/超长时中文报错且不落库。
 #[tauri::command]
 pub fn create_view(
     app: AppHandle,
     title: String,
     conditions: FilterConditions,
+    icon: Option<String>,
 ) -> Result<i64, String> {
     let db: State<Db> = app.state();
     let conn = db.0.lock().map_err(|e| e.to_string())?;
-    views::create(&conn, &title, &conditions)
+    views::create(&conn, &title, &conditions, icon.as_deref())
 }
 
-/// 改名并整体替换条件;条件或标题非法时拒绝且不落库
+/// 改名、替换条件并重写图标(icon=null 即清空);条件/标题/图标非法时拒绝且不落库
 #[tauri::command]
 pub fn update_view(
     app: AppHandle,
     id: i64,
     title: String,
     conditions: FilterConditions,
+    icon: Option<String>,
 ) -> Result<(), String> {
     let db: State<Db> = app.state();
     let conn = db.0.lock().map_err(|e| e.to_string())?;
-    views::update(&conn, id, &title, &conditions)
+    views::update(&conn, id, &title, &conditions, icon.as_deref())
 }
 
 /// 删除自建视图(内置视图不入表,不经此命令)

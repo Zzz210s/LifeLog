@@ -10,6 +10,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("migrations/007_saved_views.sql"),
     include_str!("migrations/008_time_tags.sql"),
     include_str!("migrations/009_fts_time_tags.sql"),
+    include_str!("migrations/010_view_icon.sql"),
 ];
 
 /// 008 回填时间标签:created_at 无法解析且尚无时间标签的笔记会被跳过。SQL 迁移里写不了日志,

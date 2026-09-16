@@ -41,6 +41,7 @@ fn rename_cascades_saved_view_paths() {
             exclude_tags: vec![cond("工作", false)],
             ..Default::default()
         },
+        None,
     )
     .unwrap();
 
@@ -69,6 +70,7 @@ fn move_cascades_saved_view_paths() {
         &c,
         "视图乙",
         &FilterConditions { tags: vec![cond("工作/项目A", false)], ..Default::default() },
+        None,
     )
     .unwrap();
 
@@ -96,6 +98,7 @@ fn delete_subtree_drops_deleted_conditions() {
             exclude_tags: vec![cond("工作", true)],
             ..Default::default()
         },
+        None,
     )
     .unwrap();
 

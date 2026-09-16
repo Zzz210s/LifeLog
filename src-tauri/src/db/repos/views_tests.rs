@@ -28,12 +28,12 @@ fn is_empty_conditions(c: &FilterConditions) -> bool {
 #[test]
 fn create_list_update_delete_roundtrip() {
     let conn = test_conn();
-    let id = create(&conn, "待办里的工作", &FilterConditions { keyword: Some("会议".into()), ..empty() }).unwrap();
+    let id = create(&conn, "待办里的工作", &FilterConditions { keyword: Some("会议".into()), ..empty() }, None).unwrap();
     let all = list(&conn).unwrap();
     assert_eq!(all.len(), 1);
     assert_eq!(all[0].title, "待办里的工作");
     assert_eq!(all[0].conditions.keyword.as_deref(), Some("会议"));
-    update(&conn, id, "改名后", &empty()).unwrap();
+    update(&conn, id, "改名后", &empty(), None).unwrap();
     assert_eq!(list(&conn).unwrap()[0].title, "改名后");
     remove(&conn, id).unwrap();
     assert!(list(&conn).unwrap().is_empty());
@@ -42,24 +42,24 @@ fn create_list_update_delete_roundtrip() {
 #[test]
 fn duplicate_title_rejected() {
     let conn = test_conn();
-    create(&conn, "同名", &empty()).unwrap();
-    assert!(create(&conn, "同名", &empty()).is_err());
+    create(&conn, "同名", &empty(), None).unwrap();
+    assert!(create(&conn, "同名", &empty(), None).is_err());
 }
 
 #[test]
 fn title_bounds_and_view_limit() {
     let conn = test_conn();
-    assert!(create(&conn, "", &empty()).is_err());
-    assert!(create(&conn, &"长".repeat(41), &empty()).is_err());
-    for i in 0..50 { create(&conn, &format!("视图{i}"), &empty()).unwrap(); }
-    assert!(create(&conn, "第51个", &empty()).is_err());
+    assert!(create(&conn, "", &empty(), None).is_err());
+    assert!(create(&conn, &"长".repeat(41), &empty(), None).is_err());
+    for i in 0..50 { create(&conn, &format!("视图{i}"), &empty(), None).unwrap(); }
+    assert!(create(&conn, "第51个", &empty(), None).is_err());
 }
 
 #[test]
 fn reorder_rewrites_sort_order() {
     let mut conn = test_conn();
-    let a = create(&conn, "A", &empty()).unwrap();
-    let b = create(&conn, "B", &empty()).unwrap();
+    let a = create(&conn, "A", &empty(), None).unwrap();
+    let b = create(&conn, "B", &empty(), None).unwrap();
     reorder(&mut conn, &[b, a]).unwrap();
     let all = list(&conn).unwrap();
     assert_eq!(all.iter().map(|v| v.title.as_str()).collect::<Vec<_>>(), vec!["B", "A"]);
@@ -69,7 +69,7 @@ fn reorder_rewrites_sort_order() {
 fn invalid_conditions_rejected_on_write() {
     let conn = test_conn();
     let bad = FilterConditions { from: Some("2026-09-13".into()), to: Some("2026-08-01".into()), ..empty() };
-    assert!(create(&conn, "坏条件", &bad).is_err());
+    assert!(create(&conn, "坏条件", &bad, None).is_err());
 }
 
 #[test]
@@ -90,9 +90,9 @@ fn builtin_conditions() {
 #[test]
 fn update_to_duplicate_title_rejected() {
     let conn = test_conn();
-    create(&conn, "A", &empty()).unwrap();
-    let b = create(&conn, "B", &empty()).unwrap();
-    assert!(update(&conn, b, "A", &empty()).is_err());
+    create(&conn, "A", &empty(), None).unwrap();
+    let b = create(&conn, "B", &empty(), None).unwrap();
+    assert!(update(&conn, b, "A", &empty(), None).is_err());
     assert_eq!(list(&conn).unwrap().len(), 2, "失败的改名不得丢数据");
 }
 
@@ -100,8 +100,8 @@ fn update_to_duplicate_title_rejected() {
 #[test]
 fn reorder_rejects_partial_unknown_or_duplicated_ids() {
     let mut conn = test_conn();
-    let a = create(&conn, "A", &empty()).unwrap();
-    let b = create(&conn, "B", &empty()).unwrap();
+    let a = create(&conn, "A", &empty(), None).unwrap();
+    let b = create(&conn, "B", &empty(), None).unwrap();
     assert!(reorder(&mut conn, &[a]).is_err());
     assert!(reorder(&mut conn, &[a, 999]).is_err());
     assert!(reorder(&mut conn, &[a, a]).is_err());
@@ -126,6 +126,7 @@ fn hit_counts_cover_builtins_and_saved_views() {
         &conn,
         "有标签的",
         &FilterConditions { tag_presence: Some("any".into()), ..empty() },
+        None,
     )
     .unwrap();
     let hits = hit_counts(&conn).unwrap();

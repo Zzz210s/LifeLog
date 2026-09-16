@@ -78,6 +78,7 @@ fn cascade_rewrites_expression_in_saved_views() {
             expr: Some("#工作/项目A AND 复盘".into()),
             ..Default::default()
         },
+        None,
     )
     .unwrap();
 
@@ -99,6 +100,7 @@ fn cascade_rewrites_root_level_expression_path() {
         &c,
         "视图己",
         &FilterConditions { expr: Some("#临时 AND 复盘".into()), ..Default::default() },
+        None,
     )
     .unwrap();
 
@@ -118,6 +120,7 @@ fn delete_tag_keeps_expression_text_but_flags_broken_path() {
         &c,
         "视图庚",
         &FilterConditions { expr: Some("#临时 AND #工作".into()), ..Default::default() },
+        None,
     )
     .unwrap();
     assert!(views::list(&c).unwrap()[0].broken_paths.is_empty(), "删除前都在库中");
@@ -139,6 +142,7 @@ fn broken_paths_flag_missing_deeper_path() {
         &c,
         "视图辛",
         &FilterConditions { expr: Some("#工作/幽灵 AND #工作".into()), ..Default::default() },
+        None,
     )
     .unwrap();
 
@@ -150,11 +154,12 @@ fn broken_paths_flag_missing_deeper_path() {
 fn broken_paths_empty_for_valid_or_absent_expression() {
     let mut c = db();
     notes::create_plain(&mut c, "a #工作").unwrap();
-    views::create(&c, "无表达式", &FilterConditions::default()).unwrap();
+    views::create(&c, "无表达式", &FilterConditions::default(), None).unwrap();
     views::create(
         &c,
         "有表达式",
         &FilterConditions { expr: Some("#工作 AND 复盘".into()), ..Default::default() },
+        None,
     )
     .unwrap();
 
