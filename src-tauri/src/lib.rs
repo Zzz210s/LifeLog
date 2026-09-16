@@ -3,8 +3,8 @@ use tauri_plugin_global_shortcut::GlobalShortcutExt;
 mod commands;
 mod db;
 mod exchange;
-// 表达式纯逻辑层:调用方(IPC 校验与 SQL 编译)在后续任务接入,故本任务内尚无引用
-#[allow(dead_code)]
+// 表达式纯逻辑层:validate 与 compile 已被 db::repos::notes_filter 引用(IPC 命令在 Task 5 接入);
+// describe 目前只有测试调用,其 dead_code 在 expr/mod.rs 就地标注,不做整模块 allow
 mod expr;
 mod startup_report;
 mod tags;

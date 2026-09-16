@@ -155,7 +155,9 @@ fn invalid_expression_yields_no_rows_and_validate_rejects() {
     let bad = FilterConditions { expr: Some("#工作 AND".into()), ..empty() };
     assert!(query(&c, &bad, 0).unwrap().is_empty(), "非法表达式查不到任何行");
     assert_eq!(super::count_matching(&c, &bad).unwrap(), 0);
-    assert_eq!(validate(&bad).unwrap_err(), "表达式:缺少操作数(第 8 个字符)");
+    // 位置是 **0 起字符下标**(与 expr::ExprError.pos、前端 setSelectionRange 同口径):
+    // `#工作 AND` 共 7 个字符,错误指向末尾
+    assert_eq!(validate(&bad).unwrap_err(), "表达式:缺少操作数(第 7 个字符)");
     // 非法表达式不得被忽略:结构化的其它条件照样被 AND 成恒假
     let ok = FilterConditions { tags: vec![tag("甲", true)], ..empty() };
     assert_eq!(hits(&c, &ok), vec![n.id]);

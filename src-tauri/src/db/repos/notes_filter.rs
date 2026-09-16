@@ -149,10 +149,11 @@ pub fn validate(c: &FilterConditions) -> Result<(), String> {
             return Err("标签有无取值非法".into());
         }
     }
-    // 附加表达式:空白视为未设置;非法时带原因与**字符位置**(1 起,便于界面提示)
+    // 附加表达式:空白视为未设置;非法时带原因与**字符位置**(0 起字符下标,
+    // 与 expr::ExprError.pos / 前端 setSelectionRange 同一口径,切勿再 +1)
     if let Some(src) = c.expr.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
         if let Err(e) = crate::expr::validate(src) {
-            return Err(format!("表达式:{}(第 {} 个字符)", e.message, e.pos + 1));
+            return Err(format!("表达式:{}(第 {} 个字符)", e.message, e.pos));
         }
     }
     Ok(())

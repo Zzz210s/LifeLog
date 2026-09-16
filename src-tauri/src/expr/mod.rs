@@ -1,12 +1,16 @@
 //! 表达式逃生舱的纯逻辑层(spec 3.1-3.3):词法 -> 语法 -> AST -> 校验 -> 中文预览 -> SQL 片段。
-//! 不触数据库、不碰前端;所有错误位置 `pos` 均为**字符下标**(Unicode 字符数,非字节数)。
+//! 不触数据库、不碰前端;所有错误位置 `pos` 均为**字符下标**(Unicode 字符数,非字节数),
+//! 0 起 —— 与前端 `setSelectionRange(position)` 同一口径,后端消息不得再自行 +1。
 //! 校验/编译同时以模块与同名函数两种路径暴露:`crate::expr::validate::validate` 与
 //! `crate::expr::validate`(模块在类型命名空间、函数在值命名空间,不冲突),调用点按
-//! 计划文档的写法取后者;`describe` 只走 `crate::expr::describe::describe`(现在尚无
-//! 调用点,重复导出会触发 unused_imports 警告)。
+//! 计划文档的写法取后者。
 
 pub mod ast;
 pub mod compile;
+// describe 的接线在 Task 5(实时预览),在此之前只有测试调用,故就地单独允许其 dead_code;
+// 本模块其余部分(validate/compile 被 db::repos::notes_filter 引用,lex 供 validate 使用,
+// parse 供 validate 使用)均有生产调用,不做整模块 allow。
+#[allow(dead_code)]
 pub mod describe;
 pub mod lexer;
 pub mod parser;
@@ -41,10 +45,14 @@ pub const MAX_LEN: usize = 500;
 pub const MAX_TOKENS: usize = 100;
 /// 词法错误文案(界面直接展示;引号短语未闭合)
 pub const QUOTE_UNCLOSED: &str = "引号没有闭合";
+/// 校验错误文案:引号内没有内容(`""` / `"   "`)
+pub const QUOTE_EMPTY: &str = "引号内不能为空";
 /// 词法错误文案:日期字面量非法
 pub const DATE_INVALID: &str = "日期格式不正确(应为 YYYY-MM-DD)";
-/// 词法错误文案:标签路径非法(合法性由 tags::parse_tag_path 判定,此处只补原因文案)
-pub const TAG_PATH_INVALID: &str = "标签路径不合法(只允许中文/字母/数字/下划线/连字符,用 / 分层)";
+/// 词法错误文案:标签路径非法(合法性由 tags::parse_tag_path 判定,此处只补原因文案,
+/// 字符集与内嵌标点规则的真源是 tags.rs)
+pub const TAG_PATH_INVALID: &str =
+    "标签路径不合法(名称可用中文/字母/数字/下划线/连字符,`.`/`·` 需夹在名称之间,用 / 分层)";
 
 /// 括号嵌套层数上限
 pub const MAX_DEPTH: usize = 10;
