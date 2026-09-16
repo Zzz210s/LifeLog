@@ -13,6 +13,8 @@ export interface FilterBarProps {
   conditions: FilterConditions;
   /** 局部更新条件 */
   onPatch: (value: Partial<FilterConditions>) => void;
+  /** 本栏「保存为视图」成功后通知上层:侧栏视图列表据此即时重载 */
+  onViewsChanged?: () => void;
   /** 导出(整库 xlsx;未传则不渲染按钮) */
   onExport?: () => void;
   exporting?: boolean;
@@ -160,7 +162,10 @@ export function FilterBar(p: FilterBarProps): ReactNode {
         <SaveViewDialog
           conditions={p.conditions}
           onClose={() => setSaveOpen(false)}
-          onSaved={() => showFlash('已保存视图')}
+          onSaved={() => {
+            showFlash('已保存视图');
+            p.onViewsChanged?.();
+          }}
         />
       )}
     </div>

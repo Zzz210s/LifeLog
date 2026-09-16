@@ -22,6 +22,8 @@ export interface ViewsSectionProps {
   onApplyView: (c: FilterConditions) => void;
   /** 数据变更信号(标签/笔记增删改):变化时重载视图列表与徽标 */
   dataVersion: number;
+  /** 视图变更信号:顶栏「保存为视图」成功后重载列表(本分区内的增删改已各自 load) */
+  viewsVersion: number;
 }
 
 const BUILTIN_ROW =
@@ -52,7 +54,7 @@ export function ViewsSection(p: ViewsSectionProps): ReactNode {
 
   useEffect(() => {
     load();
-  }, [load, p.dataVersion]);
+  }, [load, p.dataVersion, p.viewsVersion]);
 
   const currentKey = filterKey(p.conditions);
 

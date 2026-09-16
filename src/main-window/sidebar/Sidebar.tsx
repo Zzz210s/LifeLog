@@ -23,6 +23,8 @@ export interface SidebarProps {
   tagRows: TagCount[];
   /** 数据变更信号:侧栏据此重载视图列表与徽标 */
   dataVersion: number;
+  /** 视图变更信号:顶栏保存视图后递增,视图分区据此即时重载(不改动标签/时间分区) */
+  viewsVersion: number;
   /** 标签改名/移动/删除成功后:刷新标签树 + 级联改写当前筛选条件 */
   onTagsMutated: (pathChange?: { from: string; to: string }) => void;
   /** 应用视图条件(整体替换当前条件对象) */
@@ -76,7 +78,12 @@ export function Sidebar(p: SidebarProps): ReactNode {
           </svg>
         </button>
       </div>
-      <ViewsSection conditions={p.conditions} onApplyView={p.onApplyView} dataVersion={p.dataVersion} />
+      <ViewsSection
+        conditions={p.conditions}
+        onApplyView={p.onApplyView}
+        dataVersion={p.dataVersion}
+        viewsVersion={p.viewsVersion}
+      />
       <TimeSection conditions={p.conditions} onPatch={p.onPatch} tagRows={p.tagRows} />
       <TagsSection
         conditions={p.conditions}

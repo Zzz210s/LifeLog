@@ -30,6 +30,9 @@ export function App(): ReactNode {
   const sidebar = useSidebarState();
   const [tagRows, setTagRows] = useState<TagCount[]>([]);
   const [dataVersion, setDataVersion] = useState(0); // 标签/笔记数据变更信号(侧栏徽标据此重载)
+  // 视图列表变更信号:顶栏「保存为视图」成功后递增,侧栏据此即时重载(与侧栏内入口行为一致)
+  const [viewsVersion, setViewsVersion] = useState(0);
+  const bumpViews = useCallback(() => setViewsVersion((v) => v + 1), []);
   const { errors, setError, clearError } = useAppErrors();
   const [editingId, setEditingId] = useState<number | null>(null);
   const [view, setView] = useState<MainView>('stream');
@@ -112,6 +115,7 @@ export function App(): ReactNode {
         onPatch={patch}
         tagRows={tagRows}
         dataVersion={dataVersion}
+        viewsVersion={viewsVersion}
         onTagsMutated={handleTagsMutated}
         onApplyView={applyView}
       />
@@ -130,6 +134,7 @@ export function App(): ReactNode {
           <FilterBar
             conditions={conditions}
             onPatch={patch}
+            onViewsChanged={bumpViews}
             onExport={() => void onExport()}
             exporting={exporting}
             exported={exported}
