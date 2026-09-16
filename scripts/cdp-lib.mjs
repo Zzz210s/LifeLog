@@ -115,12 +115,14 @@ export const conditions = (over = {}) => ({
   to: null,
   tagPresence: null,
   sort: 'newest',
+  expr: null,
   ...over,
 });
 
 /**
  * 绑定主窗页面的常用动作:验收脚本都只用主窗做 IPC 断言/库存对照。
- * call 走真实 IPC;inventory 是「笔记 id 清单 + 全部标签路径 + 视图数」的库存快照;
+ * call 走真实 IPC;inventory 是库存快照:笔记数 + `id|首行` 清单 + 全部标签路径 +
+ * 视图数/视图 id/视图标题 + `filter_last` 原文(基线洁净断言与运行清单断言都基于它)。
  * liCount 数信息流里渲染出的笔记条数(条目根为 li 且内含 .md-body)。
  */
 export function bindMain(cdp) {
@@ -137,7 +139,16 @@ export function bindMain(cdp) {
         const notes = await T('query_notes', { conditions: ${JSON.stringify(conditions({}))}, offset: 0 });
         const tags = await T('list_tags');
         const views = await T('list_views');
-        return { notes: notes.length, ids: notes.map((n) => n.id + '|' + n.content.split(String.fromCharCode(10))[0]).sort(), paths: tags.map((t) => t.path).sort(), views: views.length };
+        const filterLast = await T('get_setting', { key: 'filter_last' });
+        return {
+          notes: notes.length,
+          ids: notes.map((n) => n.id + '|' + n.content.split(String.fromCharCode(10))[0]).sort(),
+          paths: tags.map((t) => t.path).sort(),
+          views: views.length,
+          viewIds: views.map((v) => v.id).sort((a, b) => a - b),
+          viewTitles: views.map((v) => v.title),
+          filterLast: filterLast === undefined ? null : filterLast,
+        };
       })()`),
   };
 }

@@ -14,8 +14,11 @@ export const HELPERS = `(() => {
   const byText = (t, s) => all(s || 'button').find((e) => e.textContent.trim() === t);
   const dlg = (name) => q('[role=dialog][aria-label="' + name + '"]');
   const X = {
-    click: (t, s) => { const e = byText(t, s || 'button'); if (!e) return false; e.click(); return true; },
-    clickIn: (name, t) => { const d = dlg(name); const e = d && byText(t, '[role=dialog][aria-label="' + name + '"] button'); if (!e) return false; e.click(); return true; },
+    // click / clickIn 对 disabled 按钮返回 false(click() 本身不会派发事件),便于断言“被拒”
+    click: (t, s) => { const e = byText(t, s || 'button'); if (!e || e.disabled) return false; e.click(); return true; },
+    clickIn: (name, t) => { const d = dlg(name); const e = d && byText(t, '[role=dialog][aria-label="' + name + '"] button'); if (!e || e.disabled) return false; e.click(); return true; },
+    // 表达式对话框「确定」当前是否禁用(非法表达式/校验中应为 true)
+    confirmDisabled: () => { const d = dlg('表达式'); const b = d && byText('确定', '[role=dialog][aria-label="表达式"] button'); return b ? !!b.disabled : null; },
     // 打开表达式编辑对话框(菜单是开/关切换,失手时重试)
     openExpr: async () => {
       for (let k = 0; k < 3 && !dlg('表达式'); k++) {
@@ -58,12 +61,27 @@ export const HELPERS = `(() => {
       return p ? { text: p.textContent.trim(), title: p.getAttribute('title') } : null;
     },
     texts: () => all('li .md-body').map((e) => e.textContent.trim()),
+    // 顶栏「保存为视图」:只落库 + 顶栏提示,不通知侧栏重载(侧栏需等下一次数据变更)
     saveView: async (title) => {
       for (let k = 0; k < 3 && !dlg('保存为视图'); k++) {
         X.click('保存为视图');
         await pause(150);
       }
-      const i = dlg('保存为视图') && dlg('保存为视图').querySelector('input');
+      return X.fillSaveView(title);
+    },
+    // 侧栏「+」入口(aria-label=新建视图):onSaved 会立刻重载视图列表,行会即时出现
+    saveViewFromSidebar: async (title) => {
+      for (let k = 0; k < 3 && !dlg('保存为视图'); k++) {
+        const b = q('button[aria-label="新建视图"]');
+        if (!b || b.disabled) return false;
+        b.click();
+        await pause(150);
+      }
+      return X.fillSaveView(title);
+    },
+    fillSaveView: async (title) => {
+      const d = dlg('保存为视图');
+      const i = d && d.querySelector('input');
       if (!i) return false;
       set(i, title);
       await pause(60);
