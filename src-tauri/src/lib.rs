@@ -3,8 +3,8 @@ use tauri_plugin_global_shortcut::GlobalShortcutExt;
 mod commands;
 mod db;
 mod exchange;
-// 表达式纯逻辑层:validate 与 compile 已被 db::repos::notes_filter 引用(IPC 命令在 Task 5 接入);
-// describe 目前只有测试调用,其 dead_code 在 expr/mod.rs 就地标注,不做整模块 allow
+// 表达式纯逻辑层:validate 与 compile 被 db::repos::notes_filter 引用,
+// describe 供 commands::expr::validate_expr 的实时预览;IPC 入口在 commands/expr.rs
 mod expr;
 mod startup_report;
 mod tags;
@@ -40,6 +40,7 @@ pub fn run() {
             commands::notes::set_note_date,
             commands::notes::toggle_todo,
             commands::notes::delete_note,
+            commands::expr::validate_expr,
             commands::exchange::export_notes,
             commands::tags::list_tags,
             commands::tags::rename_tag,

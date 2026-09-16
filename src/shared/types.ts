@@ -29,6 +29,17 @@ export interface TagImpact {
   notes: number;
 }
 
+/** 表达式实时校验结果(IPC `validate_expr`);position 是 0 起字符下标,展示时 +1 */
+export interface ExprCheck {
+  ok: boolean;
+  /** 非法时的中文原因(合法为空串) */
+  message: string;
+  /** 出错字符下标(0 起;与 setSelectionRange 同口径) */
+  position: number;
+  /** 合法时的中文预览(非法为空串) */
+  preview: string;
+}
+
 /** 自建保存视图(内置视图是代码常量不入表;字段 snake_case 直传,同 Note 惯例) */
 export interface SavedView {
   id: number;
@@ -36,7 +47,7 @@ export interface SavedView {
   conditions: FilterConditions;
   sort_order: number;
   created_at: string;
-  /** 表达式引用但当前库中已不存在的标签路径(无表达式/无失效时为空数组;Task 6 才展示) */
+  /** 表达式引用但当前库中已不存在的标签路径(无表达式/无失效时为空数组;侧栏用行内提示标记) */
   broken_paths: string[];
 }
 

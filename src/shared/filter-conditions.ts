@@ -22,6 +22,8 @@ export interface FilterConditions {
   to: string | null;
   tagPresence: 'any' | 'none' | null;
   sort: 'newest' | 'oldest';
+  /** 高级表达式原文(spec 3.3;null=无表达式);语义校验走 IPC `validate_expr`,前端不解析 */
+  expr: string | null;
 }
 
 /** 引入/排除标签条数上限(与后端 validate 一致) */
@@ -30,6 +32,8 @@ export const MAX_FILTER_TAG_ITEMS = 20;
 export const MAX_FILTER_KEYWORD_CHARS = 200;
 /** 标签层级深度上限(与 tags.rs 的 MAX_DEPTH 一致) */
 const MAX_TAG_DEPTH = 5;
+/** 表达式长度上限(字符数,与 Rust expr::MAX_LEN 一致) */
+export const MAX_EXPR_CHARS = 500;
 
 /** 默认条件:全部笔记,最新在前 */
 export const EMPTY_FILTER: FilterConditions = {
@@ -40,7 +44,13 @@ export const EMPTY_FILTER: FilterConditions = {
   to: null,
   tagPresence: null,
   sort: 'newest',
+  expr: null,
 };
+
+/** 表达式是否为空(全空白视为没有表达式,与后端 trim 口径一致) */
+export function hasExpr(c: FilterConditions): boolean {
+  return (c.expr ?? '').trim() !== '';
+}
 
 /** 是否"没有收窄条件"(排序不算收窄):空条件时筛选栏隐藏芯片区 */
 export function isFilterEmpty(c: FilterConditions): boolean {
@@ -50,7 +60,8 @@ export function isFilterEmpty(c: FilterConditions): boolean {
     c.excludeTags.length === 0 &&
     c.from === null &&
     c.to === null &&
-    c.tagPresence === null
+    c.tagPresence === null &&
+    !hasExpr(c)
   );
 }
 
@@ -64,6 +75,8 @@ export function filterKey(c: FilterConditions): string {
     c.to ?? '',
     c.tags.map((t) => [t.path, t.includeChildren]),
     c.excludeTags.map((t) => [t.path, t.includeChildren]),
+    // 表达式按 trim 后的值参与比较:后端解析前也 trim,尾随空白不产生新查询
+    (c.expr ?? '').trim(),
   ]);
 }
 
@@ -104,5 +117,7 @@ export function validateFilter(c: FilterConditions): string | null {
   if (c.tagPresence !== null && c.tagPresence !== 'any' && c.tagPresence !== 'none') {
     return '标签有无取值非法';
   }
+  // 与 Rust expr::MAX_LEN 同口径的本地长度检查;其余语义校验一律走 IPC(不做第二套解析器)
+  if ([...(c.expr ?? '')].length > MAX_EXPR_CHARS) return `表达式最多 ${MAX_EXPR_CHARS} 字符`;
   return null;
 }

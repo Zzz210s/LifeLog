@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { DbInfo, Note, SavedView, TagCount, TagImpact } from './types';
+import type { DbInfo, ExprCheck, Note, SavedView, TagCount, TagImpact } from './types';
 import type { FilterConditions } from './filter-conditions';
 
 export const api = {
@@ -7,6 +7,8 @@ export const api = {
   /** 条件对象查询:offset 为行偏移,页大小由后端固定(前端 PAGE 与之一致) */
   queryNotes: (conditions: FilterConditions, offset: number) =>
     invoke<Note[]>('query_notes', { conditions, offset }),
+  /** 实时校验表达式:合法给中文预览,非法给中文原因与 0 起出错字符下标 */
+  validateExpr: (text: string) => invoke<ExprCheck>('validate_expr', { text }),
   /** 标签树全量计数(完整路径);标签面板与树形选择器数据源 */
   listTags: () => invoke<TagCount[]>('list_tags'),
   /** 改标签名(单段);级联重写子树路径与全文索引 */

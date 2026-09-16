@@ -35,6 +35,7 @@ describe('parseFilterJson', () => {
       to: '2026-09-13',
       tagPresence: 'any',
       sort: 'oldest',
+      expr: '#工作 AND NOT #临时',
       unknownField: 42,
     });
     expect(parseFilterJson(raw)).toEqual({
@@ -45,7 +46,14 @@ describe('parseFilterJson', () => {
       to: '2026-09-13',
       tagPresence: 'any',
       sort: 'oldest',
+      expr: '#工作 AND NOT #临时',
     });
+  });
+
+  it('表达式:缺字段/空白回退 null,非字符串或超长回退默认条件', () => {
+    expect(parseFilterJson(JSON.stringify({ expr: '  ' }))).toEqual(EMPTY_FILTER);
+    expect(parseFilterJson(JSON.stringify({ expr: 42 }))).toBe(EMPTY_FILTER);
+    expect(parseFilterJson(JSON.stringify({ expr: 'x'.repeat(501) }))).toBe(EMPTY_FILTER);
   });
 
   it('缺字段走各自默认,空白关键词归一为 null', () => {
@@ -65,6 +73,7 @@ describe('本地重判(就地更新用)', () => {
     expect(canEvaluateLocally(cond({ excludeTags: [tag('x')] }))).toBe(false);
     expect(canEvaluateLocally(cond({ from: '2026-08-01' }))).toBe(false);
     expect(canEvaluateLocally(cond({ tagPresence: 'none' }))).toBe(false);
+    expect(canEvaluateLocally(cond({ expr: '#工作' }))).toBe(false);
   });
 
   it('同路径集合重判(AND)', () => {

@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   EMPTY_FILTER,
+  MAX_EXPR_CHARS,
   MAX_FILTER_TAG_ITEMS,
   filterKey,
+  hasExpr,
   isFilterEmpty,
   isValidTagPath,
   validateFilter,
@@ -24,13 +26,16 @@ describe('EMPTY_FILTER 与 isFilterEmpty', () => {
       to: null,
       tagPresence: null,
       sort: 'newest',
+      expr: null,
     });
     expect(isFilterEmpty(EMPTY_FILTER)).toBe(true);
   });
 
-  it('空白关键词与排序不算收窄', () => {
+  it('空白关键词与排序不算收窄,表达式也参与收窄判定', () => {
     expect(isFilterEmpty(cond({ keyword: '   ' }))).toBe(true);
     expect(isFilterEmpty(cond({ sort: 'oldest' }))).toBe(true);
+    expect(isFilterEmpty(cond({ expr: '   ' }))).toBe(true);
+    expect(isFilterEmpty(cond({ expr: '#工作' }))).toBe(false);
   });
 
   it('任一收窄字段即非空', () => {
@@ -50,6 +55,30 @@ describe('filterKey', () => {
     );
     expect(filterKey(cond({ tags: [tag('x', true)] }))).not.toBe(filterKey(cond({ tags: [tag('x')] })));
     expect(filterKey(cond({ keyword: 'a' }))).not.toBe(filterKey(cond({ keyword: 'b' })));
+  });
+
+  it('表达式参与值比较:同原文同键、不同原文不同键、尾随空白不产生新键', () => {
+    expect(filterKey(cond({ expr: '#工作 AND NOT #临时' }))).toBe(
+      filterKey(cond({ expr: '#工作 AND NOT #临时' }))
+    );
+    expect(filterKey(cond({ expr: '#工作' }))).not.toBe(filterKey(cond({ expr: '#生活' })));
+    expect(filterKey(cond({ expr: '#工作' }))).not.toBe(filterKey(EMPTY_FILTER));
+    expect(filterKey(cond({ expr: '#工作 ' }))).toBe(filterKey(cond({ expr: '#工作' })));
+  });
+});
+
+describe('表达式字段', () => {
+  it('表达式字段进入空条件与归一化', () => {
+    expect(EMPTY_FILTER.expr).toBeNull();
+    expect(normalizeFilter({ ...EMPTY_FILTER, expr: '   ' }).expr).toBeNull();
+    expect(normalizeFilter({ ...EMPTY_FILTER, expr: ' #工作 ' }).expr).toBe(' #工作 ');
+    expect(normalizeFilter({}).expr).toBeNull();
+  });
+
+  it('hasExpr:全空白视为无表达式', () => {
+    expect(hasExpr(EMPTY_FILTER)).toBe(false);
+    expect(hasExpr(cond({ expr: '  ' }))).toBe(false);
+    expect(hasExpr(cond({ expr: '#工作' }))).toBe(true);
   });
 });
 
@@ -89,6 +118,12 @@ describe('validateFilter', () => {
     expect(validateFilter(cond({ to: '2026-02-30' }))).toContain('结束日期');
     expect(validateFilter(cond({ sort: 'sideways' as FilterConditions['sort'] }))).toContain('排序');
     expect(validateFilter(cond({ tagPresence: 'some' as FilterConditions['tagPresence'] }))).toContain('标签有无');
+  });
+
+  it('表达式长度上限与 Rust expr::MAX_LEN 同口径(500 字)', () => {
+    expect(validateFilter(cond({ expr: '#工作'.repeat(100) }))).toBeNull();
+    expect(validateFilter(cond({ expr: 'x'.repeat(MAX_EXPR_CHARS + 1) }))).toContain('表达式最多 500 字符');
+    expect(validateFilter(cond({ expr: '   ' }))).toBeNull();
   });
 
   it('合法条件返回 null(含端点与上限边界)', () => {

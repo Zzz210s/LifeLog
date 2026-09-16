@@ -36,11 +36,15 @@ export function normalizeFilter(c: Partial<FilterConditions> | null | undefined)
     to: c?.to ?? null,
     tagPresence: c?.tagPresence === 'any' || c?.tagPresence === 'none' ? c.tagPresence : null,
     sort: c?.sort === 'oldest' ? 'oldest' : 'newest',
+    expr: keepExpr(c?.expr ?? null),
   };
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
+
+/** 空白表达式一律归一为 null(与后端解析前 trim 的口径一致);非空文本原样保留 */
+const keepExpr = (v: string | null): string | null => (v === null || v.trim() === '' ? null : v);
 
 /** 缺失/ null -> null;字符串原样;其它类型 -> undefined(非法) */
 const readNullableString = (v: unknown): string | null | undefined =>
@@ -68,7 +72,8 @@ function normalize(data: unknown): FilterConditions | null {
   const excludeTags = readTagList(data.excludeTags);
   const presence = readNullableString(data.tagPresence);
   const sort = readNullableString(data.sort);
-  if (keyword === undefined || from === undefined || to === undefined) return null;
+  const expr = readNullableString(data.expr);
+  if (keyword === undefined || from === undefined || to === undefined || expr === undefined) return null;
   if (tags === null || excludeTags === null || presence === undefined || sort === undefined) return null;
   if (presence !== null && presence !== 'any' && presence !== 'none') return null;
   if (sort !== null && sort !== 'newest' && sort !== 'oldest') return null;
@@ -80,5 +85,6 @@ function normalize(data: unknown): FilterConditions | null {
     to,
     tagPresence: presence,
     sort: sort === 'oldest' ? 'oldest' : 'newest',
+    expr: keepExpr(expr),
   };
 }

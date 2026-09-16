@@ -7,16 +7,16 @@
 
 pub mod ast;
 pub mod compile;
-// describe 的接线在 Task 5(实时预览),在此之前只有测试调用,故就地单独允许其 dead_code;
+// describe 的接线在 Task 5 完成(commands::expr::validate_expr 的实时预览),已有生产调用;
 // 本模块其余部分(validate/compile 被 db::repos::notes_filter 引用,lex 供 validate 使用,
 // parse 供 validate 使用)均有生产调用,不做整模块 allow。
-#[allow(dead_code)]
 pub mod describe;
 pub mod lexer;
 pub mod parser;
 pub mod validate;
 
 pub use compile::compile;
+pub use describe::describe;
 pub use validate::validate;
 
 #[cfg(test)]

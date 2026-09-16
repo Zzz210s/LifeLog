@@ -1,6 +1,45 @@
 import { describe, expect, it } from 'vitest';
 import { EMPTY_FILTER } from '../shared/filter-conditions';
-import { applyTagPick, chipsOf, summaryOf } from './filter-chips';
+import { EXPR_TEXT_MAX, applyTagPick, chipsOf, summaryOf, summaryTitleOf, truncateExpr } from './filter-chips';
+
+const EXPR = '#工作 AND NOT #临时';
+
+describe('表达式 chip 与摘要', () => {
+  it('表达式作为一项 chip,可单独删除', () => {
+    const chips = chipsOf({ ...EMPTY_FILTER, expr: EXPR });
+    const chip = chips.find((c) => c.kind === 'expr')!;
+    expect(chip.label).toContain('表达式');
+    expect(chip.label).toBe(`表达式:${EXPR}`);
+    expect(chip.remove.expr).toBeNull();
+    expect(chip.remove.keyword).toBeNull();
+  });
+
+  it('摘要里带截断的表达式原文', () => {
+    expect(summaryOf({ ...EMPTY_FILTER, expr: '#工作' })).toContain('表达式:#工作');
+  });
+
+  it('表达式过长时 chip 与摘要截断,chip title 与摘要 title 保留全文', () => {
+    const long = '#工作' + ' 或 '.repeat(20) + '#生活';
+    const chips = chipsOf({ ...EMPTY_FILTER, expr: long });
+    const chip = chips.find((c) => c.kind === 'expr')!;
+    expect(chip.label).toBe(`表达式:${truncateExpr(long)}`);
+    expect(chip.label).toContain('…');
+    expect(chip.title).toBe(`表达式:${long}`);
+    expect(summaryTitleOf({ ...EMPTY_FILTER, expr: long })).toContain(long);
+    expect(summaryOf({ ...EMPTY_FILTER, expr: long })).toContain('…');
+  });
+
+  it('全空白表达式不出 chip 也不进摘要', () => {
+    expect(chipsOf({ ...EMPTY_FILTER, expr: '   ' })).toEqual([]);
+    expect(summaryOf({ ...EMPTY_FILTER, expr: '  ' })).toBe('');
+  });
+
+  it('截断按码点计数,不把代理对劈开', () => {
+    const text = '😀'.repeat(EXPR_TEXT_MAX + 5);
+    expect([...truncateExpr(text)].length).toBe(EXPR_TEXT_MAX + 1); // 含省略号
+    expect(truncateExpr(text)).not.toContain('\uFFFD');
+  });
+});
 
 const c = { ...EMPTY_FILTER, keyword: '电影', tags: [{ path: '工作', includeChildren: true }], tagPresence: 'none' as const, sort: 'oldest' as const };
 
