@@ -25,10 +25,11 @@ export const api = {
   completeTags: (prefix: string) => invoke<string[]>('complete_tags', { prefix }),
   /** 视图命令(MVP-3):自建视图 CRUD 与排序;内置视图是前端常量不经命令 */
   listViews: () => invoke<SavedView[]>('list_views'),
-  createView: (title: string, conditions: FilterConditions) =>
-    invoke<number>('create_view', { title, conditions }),
-  updateView: (id: number, title: string, conditions: FilterConditions) =>
-    invoke<void>('update_view', { id, title, conditions }),
+  /** icon = null 表示无图标(空串由后端归一为 null) */
+  createView: (title: string, conditions: FilterConditions, icon: string | null) =>
+    invoke<number>('create_view', { title, conditions, icon }),
+  updateView: (id: number, title: string, conditions: FilterConditions, icon: string | null) =>
+    invoke<void>('update_view', { id, title, conditions, icon }),
   deleteView: (id: number) => invoke<void>('delete_view', { id }),
   /** ids 须为全部自建视图的新顺序(整批重写排序) */
   reorderViews: (ids: number[]) => invoke<void>('reorder_views', { ids }),

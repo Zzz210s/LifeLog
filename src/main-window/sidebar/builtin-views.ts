@@ -9,6 +9,8 @@ import type { FilterConditions, TagCond } from '../../shared/filter-conditions';
 export interface BuiltinView {
   key: 'all' | 'todo' | 'untagged';
   title: string;
+  /** 固定图标名(前端常量,不入库、不可编辑;spec 4:内置三视图图标固定) */
+  icon: string;
   conditions: FilterConditions;
 }
 
@@ -16,10 +18,11 @@ export interface BuiltinView {
 const exact = (path: string): TagCond => ({ path, includeChildren: false });
 
 export const BUILTIN_VIEWS: BuiltinView[] = [
-  { key: 'all', title: '全部', conditions: EMPTY_FILTER },
+  { key: 'all', title: '全部', icon: 'inbox', conditions: EMPTY_FILTER },
   {
     key: 'todo',
     title: '待办',
+    icon: 'list-checks',
     conditions: {
       ...EMPTY_FILTER,
       tags: [exact('todo')],
@@ -27,5 +30,5 @@ export const BUILTIN_VIEWS: BuiltinView[] = [
     },
   },
   // 语义是“除时间标签外无标签”(时间标签是系统元数据),故标题用「无自定义标签」
-  { key: 'untagged', title: '无自定义标签', conditions: { ...EMPTY_FILTER, tagPresence: 'none' } },
+  { key: 'untagged', title: '无自定义标签', icon: 'tags', conditions: { ...EMPTY_FILTER, tagPresence: 'none' } },
 ];

@@ -5,6 +5,7 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import type { SavedView } from '../../shared/types';
+import { ViewIcon } from '../view-icons';
 
 export interface ViewRowProps {
   view: SavedView;
@@ -14,6 +15,8 @@ export interface ViewRowProps {
   badge: string;
   onApply: () => void;
   onRename: (title: string) => void;
+  /** 打开编辑对话框(标题与图标;内置视图没有此入口) */
+  onEdit: () => void;
   onDelete: () => void;
   onDragStart: () => void;
   onDrop: () => void;
@@ -63,6 +66,13 @@ export function ViewRow(p: ViewRowProps): ReactNode {
       title={`视图:${p.view.title}(拖拽调整顺序)`}
       className={ROW_CLASS + (p.active ? 'bg-accent-soft text-accent-text' : 'text-muted hover:bg-accent-soft hover:text-accent-text')}
     >
+      {/* 固定 w-4 容器:无图标也占位,标题不因有无图标而左右跳动 */}
+      <span
+        data-view-icon={p.view.icon ?? ''}
+        className="flex w-4 shrink-0 items-center justify-center"
+      >
+        <ViewIcon name={p.view.icon} className="h-3.5 w-3.5" />
+      </span>
       <span className="min-w-0 truncate">{p.view.title}</span>
       {p.view.broken_paths.length > 0 && (
         // 失效提示:表达式引用的标签已不存在。只是个标记,不阻断点击(点行仍应用该视图)
@@ -87,6 +97,18 @@ export function ViewRow(p: ViewRowProps): ReactNode {
             className="rounded px-1 text-faint hover:bg-text/10 hover:text-muted"
           >
             改
+          </button>
+          <button
+            type="button"
+            title="设置图标"
+            aria-label={`设置图标 ${p.view.title}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              p.onEdit();
+            }}
+            className="rounded px-1 text-faint hover:bg-text/10 hover:text-muted"
+          >
+            图
           </button>
           <button
             type="button"

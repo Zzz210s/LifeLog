@@ -14,7 +14,7 @@ import type { SavedView } from '../../shared/types';
 import { SaveViewDialog } from '../SaveViewDialog';
 import { fetchViewHits } from '../view-hits';
 import type { ViewHits } from '../view-hits';
-import { BUILTIN_VIEWS } from './builtin-views';
+import { BuiltinViewRows } from './BuiltinViewRows';
 import { ViewRow } from './ViewRow';
 
 export interface ViewsSectionProps {
@@ -26,13 +26,12 @@ export interface ViewsSectionProps {
   viewsVersion: number;
 }
 
-const BUILTIN_ROW =
-  'flex w-full items-center gap-1.5 rounded px-1.5 py-1 pr-2 text-left text-xs transition-colors ';
-
 export function ViewsSection(p: ViewsSectionProps): ReactNode {
   const [views, setViews] = useState<SavedView[]>([]);
   const [hits, setHits] = useState<ViewHits>({});
   const [saveOpen, setSaveOpen] = useState(false);
+  /** 正在编辑标题与图标的自建视图(null = 未打开编辑对话框) */
+  const [editView, setEditView] = useState<SavedView | null>(null);
   const [error, setError] = useState('');
   const [flash, setFlash] = useState<string | null>(null);
   const [dragId, setDragId] = useState<number | null>(null);
@@ -60,7 +59,7 @@ export function ViewsSection(p: ViewsSectionProps): ReactNode {
 
   const renameView = (v: SavedView, t: string) => {
     void api
-      .updateView(v.id, t, v.conditions)
+      .updateView(v.id, t, v.conditions, v.icon) // 图标原样带上,改名不丢图标
       .then(() => {
         load();
         showFlash('已重命名视图');
@@ -134,26 +133,7 @@ export function ViewsSection(p: ViewsSectionProps): ReactNode {
         </p>
       )}
       <div className="px-1">
-        {BUILTIN_VIEWS.map((v) => (
-          <button
-            type="button"
-            key={v.key}
-            data-view-key={v.key}
-            onClick={() => p.onApplyView(v.conditions)}
-            title={`视图:${v.title}`}
-            className={
-              BUILTIN_ROW +
-              (filterKey(v.conditions) === currentKey
-                ? 'bg-accent-soft text-accent-text'
-                : 'text-muted hover:bg-accent-soft hover:text-accent-text')
-            }
-          >
-            <span className="min-w-0 truncate">{v.title}</span>
-            <span className="ml-auto shrink-0 pl-2 text-xs tabular-nums text-faint">
-              {badge(v.key)}
-            </span>
-          </button>
-        ))}
+        <BuiltinViewRows currentKey={currentKey} badge={badge} onApply={p.onApplyView} />
         {views.map((v) => (
           <ViewRow
             key={v.id}
@@ -162,6 +142,7 @@ export function ViewsSection(p: ViewsSectionProps): ReactNode {
             badge={badge(`view:${v.id}`)}
             onApply={() => p.onApplyView(normalizeFilter(v.conditions))}
             onRename={(t) => renameView(v, t)}
+            onEdit={() => setEditView(v)}
             onDelete={() => removeView(v)}
             onDragStart={() => setDragId(v.id)}
             onDrop={() => dragId !== null && reorder(dragId, v.id)}
@@ -180,6 +161,17 @@ export function ViewsSection(p: ViewsSectionProps): ReactNode {
           onSaved={() => {
             load();
             showFlash('已保存视图');
+          }}
+        />
+      )}
+      {editView && (
+        <SaveViewDialog
+          conditions={editView.conditions}
+          editing={{ id: editView.id, title: editView.title, icon: editView.icon }}
+          onClose={() => setEditView(null)}
+          onSaved={() => {
+            load();
+            showFlash('已更新视图');
           }}
         />
       )}

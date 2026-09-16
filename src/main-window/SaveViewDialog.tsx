@@ -3,22 +3,27 @@ import type { ReactNode } from 'react';
 import { api } from '../shared/api';
 import type { FilterConditions } from '../shared/filter-conditions';
 import { summaryOf } from './filter-chips';
+import { IconPicker } from './IconPicker';
 
 export interface SaveViewDialogProps {
   conditions: FilterConditions;
   onClose: () => void;
   /** 保存成功(成功提示由上层闪现「已保存视图」) */
   onSaved: () => void;
+  /** 传入即「编辑既有自建视图」:标题与图标回填,保存走 update_view(条件仍用 conditions) */
+  editing?: { id: number; title: string; icon: string | null };
 }
 
 /** 标题字数上限(与 Rust MAX_TITLE_CHARS 一致,按码点计) */
 const MAX_TITLE_CHARS = 40;
 
-/** 保存为视图对话框:标题必填;失败(重名/超限等)在框内显示中文原因,不动本地状态 */
+/** 保存/编辑视图对话框:标题必填、可选图标(新建默认无图标);失败在框内显示中文原因,不动本地状态 */
 export function SaveViewDialog(p: SaveViewDialogProps): ReactNode {
-  const [title, setTitle] = useState('');
+  const [title, setTitle] = useState(p.editing?.title ?? '');
+  const [icon, setIcon] = useState<string | null>(p.editing?.icon ?? null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const label = p.editing ? '编辑视图' : '保存为视图';
 
   // Esc 关闭(捕获阶段)
   useEffect(() => {
@@ -45,8 +50,10 @@ export function SaveViewDialog(p: SaveViewDialogProps): ReactNode {
       return;
     }
     setBusy(true);
-    void api
-      .createView(t, p.conditions)
+    const req: Promise<unknown> = p.editing
+      ? api.updateView(p.editing.id, t, p.conditions, icon)
+      : api.createView(t, p.conditions, icon);
+    void req
       .then(() => {
         p.onSaved();
         p.onClose();
@@ -62,9 +69,9 @@ export function SaveViewDialog(p: SaveViewDialogProps): ReactNode {
         if (e.target === e.currentTarget) p.onClose();
       }}
     >
-      <div role="dialog" aria-label="保存为视图" className="w-80 rounded-lg border border-border bg-raised p-4 shadow-xl">
+      <div role="dialog" aria-label={label} className="w-80 rounded-lg border border-border bg-raised p-4 shadow-xl">
         <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-sm font-medium text-text">保存为视图</h2>
+          <h2 className="text-sm font-medium text-text">{label}</h2>
           <button
             type="button"
             onClick={p.onClose}
@@ -94,6 +101,8 @@ export function SaveViewDialog(p: SaveViewDialogProps): ReactNode {
           className="h-8 w-full rounded-md border border-border px-2.5 text-sm outline-none focus:border-accent"
         />
         {error !== '' && <p className="mt-1.5 text-xs text-danger">{error}</p>}
+        <p className="mt-3 mb-1 text-xs text-faint">图标(可选):</p>
+        <IconPicker value={icon} onChange={setIcon} />
         <div className="mt-3 flex justify-end gap-2">
           <button
             type="button"
