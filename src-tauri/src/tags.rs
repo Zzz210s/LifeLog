@@ -56,6 +56,26 @@ pub fn parse_tag_path(raw: &str) -> Option<Vec<String>> {
     Some(parts.into_iter().map(str::to_string).collect())
 }
 
+/// 扫描 `#` 之后的标签路径候选(`input` 是字符流,`start` 指向 `#` 之后的首字符):
+/// 返回 `(路径, 结束下标)`。名称字符与内嵌标点规则是本文件的:`/` 只作分层,
+/// `.`/`·` 只有后随名称字符时才并入名称(`v1.0` 的句点是名称,`工作.` 的句点终止);
+/// 整串不合法(空段/首尾标点/深度超限)返回 None。表达式词法(#/`#=`)与正文抽标签
+/// 共用这一个扫描器,不各自维护第二套字符集。
+pub(crate) fn scan_tag_path(input: &[char], start: usize) -> Option<(String, usize)> {
+    let mut i = start;
+    let mut raw = String::new();
+    while let Some(&c) = input.get(i) {
+        let punct_ok = is_inner_punct(c) && matches!(input.get(i + 1), Some(&n) if is_tag_char(n));
+        if is_tag_char(c) || c == '/' || punct_ok {
+            raw.push(c);
+            i += 1;
+        } else {
+            break;
+        }
+    }
+    parse_tag_path(&raw).map(|_| (raw, i))
+}
+
 /// 确认合法的标签命中区间:start/end 为原文里的字节范围(含起始 '#'),path 为完整路径
 pub(crate) struct TagSpan {
     pub start: usize,
@@ -137,29 +157,15 @@ fn try_tag(
         Some((_, n)) if n.is_whitespace() => return, // Markdown 标题标记,跳过该 '#'
         _ => {}
     }
-    let mut raw = String::new();
-    let mut end = base + hash + 1;
-    while let Some(&(j, n)) = chars.peek() {
-        if is_tag_char(n) || n == '/' {
-            raw.push(n);
-            end = base + j + n.len_utf8();
-            chars.next();
-        } else if is_inner_punct(n) {
-            // `.`/`·` 只有后一个字符仍是名称字符时才并入名称,否则当终止符(保留在正文)
-            let mut probe = chars.clone();
-            probe.next();
-            if !matches!(probe.peek(), Some(&(_, c)) if is_tag_char(c)) {
-                break;
-            }
-            raw.push(n);
-            end = base + j + n.len_utf8();
-            chars.next();
-        } else {
-            break;
-        }
-    }
-    if parse_tag_path(&raw).is_none() {
+    let rest: Vec<char> = chars.clone().map(|(_, c)| c).collect();
+    let Some((raw, consumed)) = scan_tag_path(&rest, 0) else {
         return; // 整串不合法:整串丢弃,不做部分提取,也不剥离字符
+    };
+    // 同步推进共享的字符迭代器,并按字节算出区间终点
+    let mut end = base + hash + 1;
+    for _ in 0..consumed {
+        let Some((j, n)) = chars.next() else { break };
+        end = base + j + n.len_utf8();
     }
     out.push(TagSpan { start: base + hash, end, path: raw });
 }

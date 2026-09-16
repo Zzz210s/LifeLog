@@ -55,6 +55,35 @@ fn lexes_date_comparisons() {
     );
 }
 
+/// 运算符**两侧**都允许空白(容忍度对称)
+#[test]
+fn date_operator_may_be_followed_by_space() {
+    let toks = lex("date >= 2026-09-01").unwrap();
+    assert_eq!(toks, vec![Token::Date { op: DateOp::Ge, date: "2026-09-01".into() }]);
+}
+
+/// 只跳过运算符后的空白、不跳运算符前的,同样能过
+#[test]
+fn date_operator_tolerates_space_before_literal() {
+    let toks = lex("date>= 2026-09-01").unwrap();
+    assert_eq!(toks, vec![Token::Date { op: DateOp::Ge, date: "2026-09-01".into() }]);
+}
+
+/// 标签名内嵌标点的规则与 body 抽标签同一套(见 tags.rs):`#v1.0` 是**单个**标签 token
+#[test]
+fn lexes_tag_with_inner_punct_as_single_token() {
+    assert_eq!(lex("#v1.0").unwrap(), vec![tag("v1.0", false)]);
+    assert_eq!(lex("#=v1.0.1").unwrap(), vec![tag("v1.0.1", true)]);
+}
+
+/// 首尾标点非法:不静默切成「标签 + 关键词」,而是报标签路径不合法(位置指向 `#`)
+#[test]
+fn rejects_tag_with_dangling_punct() {
+    let err = lex("#工作. 记录").unwrap_err();
+    assert!(err.message.contains("路径"), "实际:{}", err.message);
+    assert_eq!(err.pos, 0);
+}
+
 #[test]
 fn date_word_alone_is_a_keyword() {
     let toks = lex("date 记录").unwrap();

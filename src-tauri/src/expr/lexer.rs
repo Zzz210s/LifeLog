@@ -1,6 +1,8 @@
 //! 表达式词法(spec 3.1):字符流 -> token 流;纯函数,错误带字符下标定位。
 //! 位置约定:`pos` 是**字符下标**(Unicode 字符数,不是字节数),指向出错 token 的
 //! **第一个字符**(标签指向 `#`、短语指向开引号、日期指向日期字面量首字符)。
+//! 裸 `&`/`|`/`!` 会终止关键词(要当字面量请用引号包起来);日期比较目前只认小写 `date`
+//! (`date >= X` 与 `date>= X` 等价,运算符两侧都允许空白)。
 use super::ast::DateOp;
 use super::{DATE_INVALID, QUOTE_UNCLOSED, TAG_PATH_INVALID};
 
@@ -31,11 +33,6 @@ impl ExprError {
     pub(crate) fn new(message: impl Into<String>, pos: usize) -> Self {
         Self { message: message.into(), pos }
     }
-}
-
-/// 名称字符:标签路径允许的字符(中文/字母/数字/下划线/连字符/斜杠)
-fn is_name_char(c: char) -> bool {
-    c.is_alphanumeric() || matches!(c, '_' | '-' | '/')
 }
 
 /// 关键词终止字符:空白、括号、引号或符号运算符的起始字符
@@ -131,22 +128,23 @@ fn read_quoted(chars: &[char], start: usize) -> Result<(String, usize), ExprErro
     Err(ExprError::new(QUOTE_UNCLOSED, start))
 }
 
-/// 标签:`#=` 为仅本级,`#` 为含子级;路径合法性复用 tags::parse_tag_path,失败报 `#` 位置
+/// 标签:`#=` 为仅本级,`#` 为含子级;路径字符集、内嵌标点与合法性与正文抽标签共用
+/// [`crate::tags::scan_tag_path`](标签语法的唯一真源),失败报 `#` 位置。
+/// 与正文的差异:正文里句末的 `#工作.` 只取 `工作`(句点留给正文),表达式里则整串判非法
+/// —— 否则 `#工作.` 会被静默切成「标签 工作 + 关键词 .」,用户看不出自己打错了。
 fn read_tag(chars: &[char], start: usize) -> Result<(Token, usize), ExprError> {
     let mut i = start + 1;
     let self_only = chars.get(i) == Some(&'=');
     if self_only {
         i += 1;
     }
-    let path_start = i;
-    while i < chars.len() && is_name_char(chars[i]) {
-        i += 1;
-    }
-    let path: String = chars[path_start..i].iter().collect();
-    if crate::tags::parse_tag_path(&path).is_none() {
+    let Some((path, next)) = crate::tags::scan_tag_path(chars, i) else {
+        return Err(ExprError::new(TAG_PATH_INVALID, start));
+    };
+    if matches!(chars.get(next), Some(&c) if crate::tags::is_inner_punct(c)) {
         return Err(ExprError::new(TAG_PATH_INVALID, start));
     }
-    Ok((Token::Tag { path, self_only }, i))
+    Ok((Token::Tag { path, self_only }, next))
 }
 
 /// 裸词:连续非 break 字符;与 AND/OR/NOT 整词(大小写不敏感)相等则为运算符,否则关键词
@@ -177,7 +175,7 @@ fn try_read_date(chars: &[char], start: usize) -> Result<Option<(Token, usize)>,
     while i < chars.len() && chars[i].is_whitespace() {
         i += 1;
     }
-    let (op, lit_start) = match chars.get(i) {
+    let (op, mut lit_start) = match chars.get(i) {
         Some('>') if chars.get(i + 1) == Some(&'=') => (DateOp::Ge, i + 2),
         Some('<') if chars.get(i + 1) == Some(&'=') => (DateOp::Le, i + 2),
         Some('>') => (DateOp::Gt, i + 1),
@@ -185,6 +183,10 @@ fn try_read_date(chars: &[char], start: usize) -> Result<Option<(Token, usize)>,
         Some('=') => (DateOp::Eq, i + 1),
         _ => return Ok(None),
     };
+    // 运算符之后的空白同样跳过(`date >= 2026-09-01`),否则容忍度不对称
+    while lit_start < chars.len() && chars[lit_start].is_whitespace() {
+        lit_start += 1;
+    }
     let mut j = lit_start;
     while j < chars.len() && !is_kw_break(chars[j]) {
         j += 1;
