@@ -7,6 +7,8 @@ export interface FilterChipsProps {
   chips: Chip[];
   /** 单删:传回「删掉该 chip 后的完整条件对象」 */
   onRemove: (next: FilterConditions) => void;
+  /** 点击「表达式」chip 的标签再次编辑(未传时表达式 chip 不可点) */
+  onEditExpr?: () => void;
 }
 
 /** chip 底色按种类区分:排除偏红、排序/有无标签偏灰、其余(关键词/标签/日期)偏蓝 */
@@ -31,7 +33,18 @@ export function FilterChips(p: FilterChipsProps): ReactNode {
             chipClass(chip.kind)
           }
         >
-          {chip.label}
+          {p.onEditExpr !== undefined && chip.kind === 'expr' ? (
+            <button
+              type="button"
+              onClick={p.onEditExpr}
+              aria-label={`编辑条件 ${chip.label}`}
+              className="max-w-64 truncate underline decoration-dotted"
+            >
+              {chip.label}
+            </button>
+          ) : (
+            chip.label
+          )}
           <button
             type="button"
             onClick={() => p.onRemove(chip.remove)}

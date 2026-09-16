@@ -8,6 +8,8 @@ export interface AddConditionMenuProps {
   onPatch: (value: Partial<FilterConditions>) => void;
   /** 标签/排除标签:交给上层打开标签选择器 */
   onPickTag: (exclude: boolean) => void;
+  /** 表达式(高级):交给上层打开表达式对话框(D4:只在筛选栏编辑) */
+  onOpenExpr: () => void;
 }
 
 type Pane = 'main' | 'date' | 'presence' | 'sort';
@@ -15,7 +17,7 @@ type Pane = 'main' | 'date' | 'presence' | 'sort';
 const ITEM_CLASS =
   'block w-full rounded px-2.5 py-1.5 text-left text-xs text-muted hover:bg-accent-soft hover:text-accent-text';
 
-/** 「添加条件」下拉:主面板五项;日期/有无标签/排序切换到子面板直接生效 */
+/** 「添加条件」下拉:主面板六项;日期/有无标签/排序切换到子面板直接生效 */
 export function AddConditionMenu(p: AddConditionMenuProps): ReactNode {
   const [open, setOpen] = useState(false);
   const [pane, setPane] = useState<Pane>('main');
@@ -85,6 +87,14 @@ export function AddConditionMenu(p: AddConditionMenuProps): ReactNode {
               </button>
               <button type="button" role="menuitem" className={ITEM_CLASS} onClick={() => setPane('sort')}>
                 排序
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className={ITEM_CLASS}
+                onClick={() => act(() => p.onOpenExpr())}
+              >
+                表达式(高级)
               </button>
             </>
           )}

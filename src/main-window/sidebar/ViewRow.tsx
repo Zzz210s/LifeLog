@@ -64,6 +64,15 @@ export function ViewRow(p: ViewRowProps): ReactNode {
       className={ROW_CLASS + (p.active ? 'bg-accent-soft text-accent-text' : 'text-muted hover:bg-accent-soft hover:text-accent-text')}
     >
       <span className="min-w-0 truncate">{p.view.title}</span>
+      {p.view.broken_paths.length > 0 && (
+        // 失效提示:表达式引用的标签已不存在。只是个标记,不阻断点击(点行仍应用该视图)
+        <span
+          data-broken-paths={p.view.broken_paths.join('、')}
+          title={`引用了已不存在的标签: ${p.view.broken_paths.join('、')}`}
+          aria-label={`引用了已不存在的标签: ${p.view.broken_paths.join('、')}`}
+          className="h-1.5 w-1.5 shrink-0 rounded-full bg-danger"
+        />
+      )}
       <span className="ml-auto flex shrink-0 items-center">
         <span className="pl-2 text-xs tabular-nums text-faint">{p.badge}</span>
         <span className="hidden items-center gap-0.5 pl-1 group-hover/view:flex">

@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { FilterConditions } from '../shared/filter-conditions';
 import { AddConditionMenu } from './AddConditionMenu';
+import { ExprDialog } from './ExprDialog';
 import { FilterChips } from './FilterChips';
 import { SaveViewDialog } from './SaveViewDialog';
 import { TagPickDialog } from './TagPickDialog';
-import { applyTagPick, chipsOf, summaryOf } from './filter-chips';
+import { applyTagPick, chipsOf, summaryOf, summaryTitleOf } from './filter-chips';
 
 export interface FilterBarProps {
   /** 顶层筛选条件(标签选中态与排序都从这里派生) */
@@ -34,6 +35,7 @@ export function FilterBar(p: FilterBarProps): ReactNode {
   const sent = useRef(keyword); // 本组件最后一次上抛的关键词
 
   const [tagPick, setTagPick] = useState<{ exclude: boolean } | null>(null);
+  const [exprOpen, setExprOpen] = useState(false);
   const [saveOpen, setSaveOpen] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
   const flashTimer = useRef<number | null>(null);
@@ -77,6 +79,7 @@ export function FilterBar(p: FilterBarProps): ReactNode {
   useEffect(() => () => { if (flashTimer.current) clearTimeout(flashTimer.current); }, []);
 
   const summary = summaryOf(p.conditions);
+  const summaryTitle = summaryTitleOf(p.conditions);
 
   return (
     <div className="border-b border-border px-4 py-2">
@@ -94,7 +97,12 @@ export function FilterBar(p: FilterBarProps): ReactNode {
         >
           排序: {oldestFirst ? '最早' : '最新'}
         </button>
-        <AddConditionMenu conditions={p.conditions} onPatch={p.onPatch} onPickTag={(exclude) => setTagPick({ exclude })} />
+        <AddConditionMenu
+          conditions={p.conditions}
+          onPatch={p.onPatch}
+          onPickTag={(exclude) => setTagPick({ exclude })}
+          onOpenExpr={() => setExprOpen(true)}
+        />
         <button
           onClick={() => {
             flushKeyword(); // 先把输入框当前值上抛,再开对话框
@@ -120,9 +128,13 @@ export function FilterBar(p: FilterBarProps): ReactNode {
           </>
         )}
       </div>
-      <FilterChips chips={chipsOf(p.conditions)} onRemove={(next) => p.onPatch(next)} />
+      <FilterChips
+        chips={chipsOf(p.conditions)}
+        onRemove={(next) => p.onPatch(next)}
+        onEditExpr={() => setExprOpen(true)}
+      />
       {summary !== '' && (
-        <p className="mt-1 truncate text-xs text-faint" title={summary}>
+        <p className="mt-1 truncate text-xs text-faint" title={summaryTitle}>
           {summary}
         </p>
       )}
@@ -135,6 +147,13 @@ export function FilterBar(p: FilterBarProps): ReactNode {
             p.onPatch(applyTagPick(p.conditions, path, { exclude: tagPick.exclude, includeChildren }));
             setTagPick(null);
           }}
+        />
+      )}
+      {exprOpen && (
+        <ExprDialog
+          value={p.conditions.expr}
+          onClose={() => setExprOpen(false)}
+          onSave={(e) => p.onPatch({ expr: e.trim() === '' ? null : e })}
         />
       )}
       {saveOpen && (
