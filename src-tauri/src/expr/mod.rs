@@ -2,8 +2,14 @@
 //! 不触数据库、不碰前端;所有错误位置 `pos` 均为**字符下标**(Unicode 字符数,非字节数)。
 
 pub mod ast;
+pub mod describe;
 pub mod lexer;
 pub mod parser;
+pub mod validate;
+
+#[cfg(test)]
+#[path = "describe_tests.rs"]
+mod describe_tests;
 
 #[cfg(test)]
 #[path = "lexer_tests.rs"]
@@ -12,6 +18,10 @@ mod lexer_tests;
 #[cfg(test)]
 #[path = "parser_tests.rs"]
 mod parser_tests;
+
+#[cfg(test)]
+#[path = "validate_tests.rs"]
+mod validate_tests;
 
 /// 表达式原文长度上限(字符数)
 pub const MAX_LEN: usize = 500;
