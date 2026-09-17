@@ -25,6 +25,9 @@ export function TagMenuDeletePane(p: TagMenuDeletePaneProps): ReactNode {
           : `将影响 ${p.impact.notes} 条笔记` +
             (p.impact.tags > 0 ? `、${p.impact.tags} 个子标签` : '')}
       </p>
+      <p className="mt-1 px-1 text-xs text-faint">
+        只解除这些笔记上的该标签,笔记本身不会被删除;已存在的笔记也不会因删除而重新生成标签。
+      </p>
       {p.error !== '' && <p className="mt-1 px-1 text-xs text-danger">{p.error}</p>}
       <div className="mt-1.5 flex justify-end gap-1.5">
         <button type="button" onClick={p.onCancel} className={BTN_GHOST}>

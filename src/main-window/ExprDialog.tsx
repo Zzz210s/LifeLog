@@ -124,7 +124,7 @@ export function ExprDialog(p: ExprDialogProps): ReactNode {
           rows={4}
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder='如:#工作 NOT #临时 或 "买牛奶" OR #生活'
+          placeholder='如:#工作 AND NOT #临时,或 "买牛奶" OR #生活'
           className={
             'w-full resize-y rounded-md border px-2 py-1 font-mono text-sm outline-none ' +
             (check.ok || pending

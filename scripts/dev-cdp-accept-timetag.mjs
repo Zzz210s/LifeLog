@@ -16,6 +16,8 @@ const a = actions(main, input);
 // —— B0/B1 基线读数与内置视图口径 ——
 const baseTags = await a.tagList();
 const baseHits = Object.fromEntries(await a.call('count_view_hits'));
+// 筛选条件原值:清理脚本要按它还原,而不是写死一个固定 JSON(否则会把用户当时的选择抹掉)
+const filterLastBefore = await a.getSetting('filter_last');
 const tRoot = subtree(baseTags, '时间排序');
 const d = new Date();
 const today = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
@@ -169,6 +171,11 @@ const evidence = {
   baseHits,
   baseTags: { total: baseTags.length, timeSubtree: tRoot.length, dayLevel },
   baselinePaths: baseTags.map((t) => t.path),
+  // 安全闸用:基线全部标签 id(清理脚本只允许删"不在这个集合里"的节点)
+  baselineIds: baseTags.map((t) => t.id),
+  // A10 新建的 时间排序 根及其子节点 id(清理脚本只能按这些 id 删)
+  newRootIds: fresh.map((t) => t.id),
+  filterLastBefore,
   testNotes: { 自动标签关: n1?.id, 自动标签开: n2?.id, 自定义模板: n3?.id, 模板旧根: n4?.id },
   exportPath: EXPORT_PATH,
   exportBytes,

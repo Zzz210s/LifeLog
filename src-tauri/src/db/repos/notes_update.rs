@@ -24,6 +24,18 @@ pub fn update(conn: &mut Connection, id: i64, content: &str) -> rusqlite::Result
     if rows == 0 {
         return Ok(None); // 无该行:回滚空事务
     }
+    // 审计:替换语义会把"正文里没出现的标签"一并移除 —— UI 编辑路径会回显全部标签所以正常不触发,
+    // 但脚本/裸命令按正文重建内容时会静默抹掉标签(本库曾因此丢过 10 条笔记的标签,靠快照才发现)。
+    // 这里只记一条日志,不改语义。
+    let before = tag_paths(&tx, id)?;
+    if names.len() < before.len() {
+        eprintln!(
+            "更新笔记 {id}: 标签 {} 条 -> {} 条,被移除的标签:{}",
+            before.len(),
+            names.len(),
+            before.iter().filter(|p| !names.contains(p)).cloned().collect::<Vec<_>>().join(" ")
+        );
+    }
     set_tags(&tx, id, &names)?;
     let note = read_full(&tx, id)?;
     tx.commit()?;

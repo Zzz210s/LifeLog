@@ -35,6 +35,7 @@ export const api = {
   reorderViews: (ids: number[]) => invoke<void>('reorder_views', { ids }),
   /** 命中计数:内置键 all/todo/untagged,自建键 view:<id>;供侧栏徽标 */
   countViewHits: () => invoke<[string, number][]>('count_view_hits'),
+/** 更新笔记:**标签集合整集合替换**为正文里的 #标签 —— 调用方必须自带该笔记的全部标签(UI 编辑框会回显),否则会丢标签 */
   updateNote: (id: number, content: string) =>
     invoke<Note | null>('update_note', { id, content }),
   toggleTodo: (id: number) => invoke<Note | null>('toggle_todo', { id }),
