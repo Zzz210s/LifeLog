@@ -17,15 +17,15 @@ const check = (patch: Partial<ExprCheck>): ExprCheck => ({
 });
 
 describe('语法速查表', () => {
-  it('语法提示覆盖六类形式', () => {
+  it('语法提示覆盖五类形式(日期比较已取消,不再列出)', () => {
     expect(SYNTAX_HINTS.map((h) => h.form)).toEqual([
       '#路径',
       '#=路径',
       '裸词 / "短语"',
-      'date>=2026-09-01',
       'AND / OR / NOT',
       '( ) 分组',
     ]);
+    expect(SYNTAX_HINTS.some((h) => h.form.includes('date'))).toBe(false);
   });
 
   it('每类形式都给出非空含义,并写明含子级/仅本级与引号约束', () => {
@@ -37,15 +37,17 @@ describe('语法速查表', () => {
     expect(all).toContain('&&');
   });
 
-  it('补充说明写明裸 & | ! 会终止关键词、内嵌标点与 500 字上限', () => {
+  it('补充说明写明日期比较已取消、裸 & | ! 会终止关键词、内嵌标点与 500 字上限', () => {
     const notes = SYNTAX_NOTES.join('|');
     expect(notes).toContain('终止关键词');
     expect(notes).toContain('引号');
     expect(notes).toContain('·');
     expect(notes).toContain(String(MAX_EXPR_CHARS));
+    expect(notes).toContain('日期比较已取消');
   });
 
-  it('示例可直接解析(由后端校验,前端只保证非空)', () => {
+  it('示例里不再有日期算子(date>= 现已由后端报中文错)', () => {
+    EXAMPLES.forEach((e) => expect(e).not.toContain('date'));
     expect(EXAMPLES.length).toBeGreaterThanOrEqual(3);
     EXAMPLES.forEach((e) => expect(e.trim().length).toBeGreaterThan(0));
   });

@@ -8,7 +8,7 @@ import type { FilterConditions, TagCond } from '../shared/filter-conditions';
 
 /** chip 种类与文案一一对应;remove 是删掉该 chip 后的条件对象(完整替换用) */
 export type Chip = {
-  kind: 'keyword' | 'tag' | 'excludeTag' | 'date' | 'presence' | 'sort' | 'expr';
+  kind: 'keyword' | 'tag' | 'excludeTag' | 'presence' | 'sort' | 'expr';
   label: string;
   /** 悬浮提示(标签 chip 用它区分含子级/仅本级;表达式 chip 放未截断原文) */
   title?: string;
@@ -23,16 +23,6 @@ const chipTag = (t: TagCond): string => `${t.includeChildren ? CHILD_MARK : ''}#
 
 /** 标签 chip 的悬浮提示:含子级 / 仅本级 */
 const tagTitle = (t: TagCond): string => (t.includeChildren ? '含子级' : '仅本级');
-
-/** 日期短格式:'2026-08-01' -> '08-01'(ISO 保证定宽,直接切片) */
-const shortDate = (iso: string): string => iso.slice(5);
-
-/** 日期 chip 文案:'08-01 起' / '截至 09-13' / '08-01 至 09-13' */
-export function dateChipLabel(from: string | null, to: string | null): string {
-  if (from !== null && to !== null) return `${shortDate(from)} 至 ${shortDate(to)}`;
-  if (from !== null) return `${shortDate(from)} 起`;
-  return `截至 ${shortDate(to ?? '')}`;
-}
 
 /** 表达式 chip / 摘要里原文的截断长度(超出补省略号;全文放 title) */
 export const EXPR_TEXT_MAX = 40;
@@ -71,9 +61,6 @@ export function chipsOf(c: FilterConditions): Chip[] {
       remove: { ...c, excludeTags: c.excludeTags.filter((x) => x !== t) },
     })
   );
-  if (c.from !== null || c.to !== null) {
-    chips.push({ kind: 'date', label: dateChipLabel(c.from, c.to), remove: { ...c, from: null, to: null } });
-  }
   if (c.tagPresence !== null) {
     chips.push({
       kind: 'presence',
@@ -114,7 +101,6 @@ function summaryParts(c: FilterConditions, truncate: boolean): string[] {
   if (c.tags.length > 0) parts.push(`标签 ${c.tags.map((t) => t.path).join('、')}`);
   if (c.excludeTags.length > 0) parts.push(`排除 ${c.excludeTags.map((t) => t.path).join('、')}`);
   if (hasExpr(c)) parts.push(exprLabel(c.expr ?? '', truncate));
-  if (c.from !== null || c.to !== null) parts.push(`日期 ${dateChipLabel(c.from, c.to)}`);
   if (c.tagPresence !== null) parts.push(c.tagPresence === 'none' ? '无自定义标签' : '有标签');
   if (c.sort === 'oldest') parts.push(SORT_CHIP_LABEL);
   return parts;

@@ -70,26 +70,22 @@ describe('summaryOf', () => {
 });
 
 describe('chipsOf 补充', () => {
-  it('排除/日期/有标签各一个 chip,删除后对应字段清空', () => {
+  it('排除/有标签各一个 chip,删除后对应字段清空', () => {
     const cc = {
       ...EMPTY_FILTER,
       excludeTags: [{ path: '临时', includeChildren: false }],
-      from: '2026-08-01',
-      to: '2026-09-13',
       tagPresence: 'any' as const,
     };
     const chips = chipsOf(cc);
-    expect(chips.map((x) => x.label)).toEqual(['排除 #临时', '08-01 至 09-13', '有标签']);
+    expect(chips.map((x) => x.label)).toEqual(['排除 #临时', '有标签']);
     expect(chips.find((x) => x.kind === 'excludeTag')!.title).toBe('仅本级');
     expect(chips.find((x) => x.kind === 'excludeTag')!.remove.excludeTags).toEqual([]);
-    const date = chips.find((x) => x.kind === 'date')!;
-    expect(date.remove.from).toBeNull();
-    expect(date.remove.to).toBeNull();
     expect(chips.find((x) => x.kind === 'presence')!.remove.tagPresence).toBeNull();
   });
-  it('日期只填一端的两种文案', () => {
-    expect(chipsOf({ ...EMPTY_FILTER, from: '2026-08-01' }).map((x) => x.label)).toEqual(['08-01 起']);
-    expect(chipsOf({ ...EMPTY_FILTER, to: '2026-09-13' }).map((x) => x.label)).toEqual(['截至 09-13']);
+  it('日期已取消:条件对象无日期字段,自然无日期 chip', () => {
+    expect(chipsOf(EMPTY_FILTER).some((x) => (x.kind as string) === 'date')).toBe(false);
+    expect(Object.keys(EMPTY_FILTER)).not.toContain('from');
+    expect(Object.keys(EMPTY_FILTER)).not.toContain('to');
   });
   it('排序非默认才出 chip;关键词空白不出 chip', () => {
     expect(chipsOf({ ...EMPTY_FILTER, keyword: '   ' })).toEqual([]);
@@ -98,14 +94,13 @@ describe('chipsOf 补充', () => {
 });
 
 describe('summaryOf 补充', () => {
-  it('排除/日期/多标签都进摘要', () => {
+  it('排除/多标签都进摘要', () => {
     const cc = {
       ...EMPTY_FILTER,
       tags: [{ path: '工作', includeChildren: true }, { path: '生活/健身', includeChildren: false }],
       excludeTags: [{ path: '临时', includeChildren: false }],
-      from: '2026-08-01',
     };
-    expect(summaryOf(cc)).toBe('标签 工作、生活/健身;排除 临时;日期 08-01 起');
+    expect(summaryOf(cc)).toBe('标签 工作、生活/健身;排除 临时');
   });
   it('仅有排序也入摘要(与 isFilterEmpty 的收窄口径解耦)', () => {
     expect(summaryOf({ ...EMPTY_FILTER, sort: 'oldest' as const })).toBe('最早在前');

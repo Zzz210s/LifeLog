@@ -17,10 +17,8 @@ export interface FilterConditions {
   keyword: string | null;
   tags: TagCond[];
   excludeTags: TagCond[];
-  /** ISO 日期(YYYY-MM-DD),可只填一端 */
-  from: string | null;
-  to: string | null;
   tagPresence: 'any' | 'none' | null;
+  /** 创建顺序(实现为按 `notes.id`,与 created_at 同序);旧 JSON 的同名字段语义不变 */
   sort: 'newest' | 'oldest';
   /** 高级表达式原文(spec 3.3;null=无表达式);语义校验走 IPC `validate_expr`,前端不解析 */
   expr: string | null;
@@ -40,8 +38,6 @@ export const EMPTY_FILTER: FilterConditions = {
   keyword: null,
   tags: [],
   excludeTags: [],
-  from: null,
-  to: null,
   tagPresence: null,
   sort: 'newest',
   expr: null,
@@ -58,8 +54,6 @@ export function isFilterEmpty(c: FilterConditions): boolean {
     (c.keyword ?? '').trim() === '' &&
     c.tags.length === 0 &&
     c.excludeTags.length === 0 &&
-    c.from === null &&
-    c.to === null &&
     c.tagPresence === null &&
     !hasExpr(c)
   );
@@ -71,8 +65,6 @@ export function filterKey(c: FilterConditions): string {
     c.keyword ?? '',
     c.sort,
     c.tagPresence ?? '',
-    c.from ?? '',
-    c.to ?? '',
     c.tags.map((t) => [t.path, t.includeChildren]),
     c.excludeTags.map((t) => [t.path, t.includeChildren]),
     // 表达式按 trim 后的值参与比较:后端解析前也 trim,尾随空白不产生新查询
@@ -89,16 +81,6 @@ export function isValidTagPath(path: string): boolean {
   return parts.length <= MAX_TAG_DEPTH && parts.every((p) => TAG_SEGMENT.test(p));
 }
 
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-
-/** ISO 日期格式 + 基本日历合法性(闰年 2 月按公历;年份下限 1 与 Rust y>=1 对齐) */
-function isIsoDate(s: string): boolean {
-  if (!ISO_DATE.test(s)) return false;
-  const [y, m, d] = s.split('-').map(Number) as [number, number, number];
-  if (y < 1 || m < 1 || m > 12 || d < 1) return false;
-  return d <= new Date(y, m, 0).getDate();
-}
-
 /** 校验条件:返回中文提示,合法返回 null(后端仍是唯一权威) */
 export function validateFilter(c: FilterConditions): string | null {
   // 码点计数与 Rust chars().count() 对齐:代理对字符按 1 个字计
@@ -110,9 +92,6 @@ export function validateFilter(c: FilterConditions): string | null {
   for (const t of [...c.tags, ...c.excludeTags]) {
     if (!isValidTagPath(t.path)) return `标签路径不合法:${t.path}`;
   }
-  if (c.from !== null && !isIsoDate(c.from)) return '开始日期格式不正确(应为 YYYY-MM-DD)';
-  if (c.to !== null && !isIsoDate(c.to)) return '结束日期格式不正确(应为 YYYY-MM-DD)';
-  if (c.from !== null && c.to !== null && c.from > c.to) return '开始日期不能晚于结束日期';
   if (c.sort !== 'newest' && c.sort !== 'oldest') return '排序取值非法';
   if (c.tagPresence !== null && c.tagPresence !== 'any' && c.tagPresence !== 'none') {
     return '标签有无取值非法';

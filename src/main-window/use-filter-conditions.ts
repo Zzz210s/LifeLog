@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../shared/api';
 import { EMPTY_FILTER } from '../shared/filter-conditions';
-import { parseFilterJson } from '../shared/filter-conditions-parse';
+import { hasLegacyDateKeys, parseFilterJson } from '../shared/filter-conditions-parse';
 import type { FilterConditions } from '../shared/filter-conditions';
 
 /** 上次使用的筛选条件(JSON 文本);读取失败或非法一律回退默认 */
@@ -12,7 +12,7 @@ const WRITE_DELAY_MS = 500;
 /** 主窗筛选条件状态与两个原子操作(状态由主窗顶层单一对象承载,D7) */
 export interface FilterConditionsApi {
   conditions: FilterConditions;
-  /** 局部更新(浅合并):关键词、排序、日期、有无标签等单字段变更 */
+  /** 局部更新(浅合并):关键词、排序、有无标签等单字段变更 */
   patch: (value: Partial<FilterConditions>) => void;
   /** 标签选中开关:未选中则加入(默认"含子级"),已选中则移除 */
   toggleTag: (path: string) => void;
@@ -20,7 +20,8 @@ export interface FilterConditionsApi {
 
 /**
  * 主窗筛选条件状态 + `filter_last` 持久化:
- * - 启动读回上次条件(非法 JSON 回退 EMPTY_FILTER)
+ * - 启动读回上次条件(非法 JSON 回退 EMPTY_FILTER);带已取消日期字段(from/to)的旧值
+ *   归一后回写一次,免得旧键长期留在库里
  * - 条件变化节流 500ms 写回;卸载时补写未落盘的改动
  * - 恢复完成前不写回,避免用默认值覆盖已存条件
  */
@@ -34,7 +35,14 @@ export function useFilterConditions(): FilterConditionsApi {
   useEffect(() => {
     void api
       .getSetting(SETTING_KEY)
-      .then((raw) => setConditions(parseFilterJson(raw)))
+      .then((raw) => {
+        const parsed = parseFilterJson(raw);
+        setConditions(parsed);
+        // 旧值里残留 from/to(迁移 011 只清了 saved_views):归一后回写一次
+        if (hasLegacyDateKeys(raw)) {
+          void api.setSetting(SETTING_KEY, JSON.stringify(parsed)).catch(() => {});
+        }
+      })
       .catch(() => {
         /* 读取失败回落默认条件,不阻断主界面 */
       })

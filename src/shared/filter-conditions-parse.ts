@@ -26,18 +26,34 @@ export function parseFilterJson(raw: string | null): FilterConditions {
 /**
  * 应用保存视图/其它外部来源的条件时归一:与 EMPTY_FILTER 合并补齐缺字段,
  * 非法或缺失的 sort/tagPresence 回退默认 —— 防半成品对象(如 null sort)进状态机。
+ * 日期范围已取消(D2):旧 JSON 里的 `from`/`to` 静默丢弃(这里只读已知字段)。
  */
 export function normalizeFilter(c: Partial<FilterConditions> | null | undefined): FilterConditions {
   return {
     keyword: c?.keyword ?? null,
     tags: Array.isArray(c?.tags) ? c.tags : [],
     excludeTags: Array.isArray(c?.excludeTags) ? c.excludeTags : [],
-    from: c?.from ?? null,
-    to: c?.to ?? null,
     tagPresence: c?.tagPresence === 'any' || c?.tagPresence === 'none' ? c.tagPresence : null,
     sort: c?.sort === 'oldest' ? 'oldest' : 'newest',
     expr: keepExpr(c?.expr ?? null),
   };
+}
+
+/**
+ * 持久化文本里是否残留已取消的日期字段(`from`/`to`)。
+ * 迁移 011 只清了 saved_views,`settings.filter_last` 仍可能带着旧键;
+ * 调用方据此把归一后的条件回写一次(幂等,坏 JSON 不算残留)。
+ */
+export function hasLegacyDateKeys(raw: string | null): boolean {
+  if (raw === null || raw.trim() === '') return false;
+  let data: unknown;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    return false;
+  }
+  if (!isRecord(data)) return false;
+  return 'from' in data || 'to' in data;
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
@@ -62,18 +78,16 @@ function readTagList(v: unknown): TagCond[] | null {
   return out;
 }
 
-/** 把任意 JSON 值规整为条件对象;结构非法返回 null */
+/** 把任意 JSON 值规整为条件对象;结构非法返回 null(未知字段含 from/to 一律忽略) */
 function normalize(data: unknown): FilterConditions | null {
   if (!isRecord(data)) return null;
   const keyword = readNullableString(data.keyword);
-  const from = readNullableString(data.from);
-  const to = readNullableString(data.to);
   const tags = readTagList(data.tags);
   const excludeTags = readTagList(data.excludeTags);
   const presence = readNullableString(data.tagPresence);
   const sort = readNullableString(data.sort);
   const expr = readNullableString(data.expr);
-  if (keyword === undefined || from === undefined || to === undefined || expr === undefined) return null;
+  if (keyword === undefined || expr === undefined) return null;
   if (tags === null || excludeTags === null || presence === undefined || sort === undefined) return null;
   if (presence !== null && presence !== 'any' && presence !== 'none') return null;
   if (sort !== null && sort !== 'newest' && sort !== 'oldest') return null;
@@ -81,8 +95,6 @@ function normalize(data: unknown): FilterConditions | null {
     keyword: (keyword ?? '').trim() === '' ? null : keyword,
     tags,
     excludeTags,
-    from,
-    to,
     tagPresence: presence,
     sort: sort === 'oldest' ? 'oldest' : 'newest',
     expr: keepExpr(expr),

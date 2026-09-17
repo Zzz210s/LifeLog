@@ -11,7 +11,7 @@ export interface FilterChipsProps {
   onEditExpr?: () => void;
 }
 
-/** chip 底色按种类区分:排除偏红、排序/有无标签偏灰、其余(关键词/标签/日期)偏蓝 */
+/** chip 底色按种类区分:排除偏红、排序/有无标签偏灰、其余(关键词/标签/表达式)偏蓝 */
 function chipClass(kind: Chip['kind']): string {
   if (kind === 'excludeTag') return 'border-danger/40 bg-danger-soft text-danger hover:border-danger';
   if (kind === 'sort' || kind === 'presence')

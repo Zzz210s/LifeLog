@@ -22,8 +22,6 @@ describe('EMPTY_FILTER 与 isFilterEmpty', () => {
       keyword: null,
       tags: [],
       excludeTags: [],
-      from: null,
-      to: null,
       tagPresence: null,
       sort: 'newest',
       expr: null,
@@ -42,8 +40,6 @@ describe('EMPTY_FILTER 与 isFilterEmpty', () => {
     expect(isFilterEmpty(cond({ keyword: '电影' }))).toBe(false);
     expect(isFilterEmpty(cond({ tags: [tag('工作', true)] }))).toBe(false);
     expect(isFilterEmpty(cond({ excludeTags: [tag('临时')] }))).toBe(false);
-    expect(isFilterEmpty(cond({ from: '2026-08-01' }))).toBe(false);
-    expect(isFilterEmpty(cond({ to: '2026-09-13' }))).toBe(false);
     expect(isFilterEmpty(cond({ tagPresence: 'none' }))).toBe(false);
   });
 });
@@ -103,7 +99,7 @@ describe('isValidTagPath', () => {
 });
 
 describe('validateFilter', () => {
-  it('六类非法输入各自拒绝', () => {
+  it('五类非法输入各自拒绝', () => {
     expect(validateFilter(cond({ keyword: 'x'.repeat(201) }))).toContain('关键词');
     expect(
       validateFilter(cond({ tags: Array.from({ length: 21 }, (_, i) => tag(`t${i}`)) }))
@@ -113,9 +109,6 @@ describe('validateFilter', () => {
     ).toContain('排除标签');
     expect(validateFilter(cond({ tags: [tag('')] }))).toContain('标签路径不合法');
     expect(validateFilter(cond({ tags: [tag('a//b')] }))).toContain('标签路径不合法');
-    expect(validateFilter(cond({ from: '2026-09-13', to: '2026-08-01' }))).toContain('不能晚于');
-    expect(validateFilter(cond({ from: '2026-13-01' }))).toContain('开始日期');
-    expect(validateFilter(cond({ to: '2026-02-30' }))).toContain('结束日期');
     expect(validateFilter(cond({ sort: 'sideways' as FilterConditions['sort'] }))).toContain('排序');
     expect(validateFilter(cond({ tagPresence: 'some' as FilterConditions['tagPresence'] }))).toContain('标签有无');
   });
@@ -126,24 +119,18 @@ describe('validateFilter', () => {
     expect(validateFilter(cond({ expr: '   ' }))).toBeNull();
   });
 
-  it('合法条件返回 null(含端点与上限边界)', () => {
+  it('合法条件返回 null(含上限边界)', () => {
     expect(validateFilter(EMPTY_FILTER)).toBeNull();
     expect(validateFilter(cond({ keyword: 'x'.repeat(200) }))).toBeNull();
     expect(
       validateFilter(cond({ tags: Array.from({ length: MAX_FILTER_TAG_ITEMS }, (_, i) => tag(`t${i}`)) }))
     ).toBeNull();
-    expect(validateFilter(cond({ from: '2026-02-28', to: '2026-03-01' }))).toBeNull();
   });
 
   it('关键词按字符数(码点)计,与 Rust chars().count() 对齐', () => {
     // 101 个表情符号 = 101 码点 = 202 个 UTF-16 码元:按码元数会误判超限
     expect(validateFilter(cond({ keyword: '😀'.repeat(101) }))).toBeNull();
     expect(validateFilter(cond({ keyword: '😀'.repeat(201) }))).toContain('关键词');
-  });
-
-  it('年份下限 1:0000 年非法(与 Rust y>=1 对齐)', () => {
-    expect(validateFilter(cond({ from: '0000-01-01' }))).toContain('开始日期');
-    expect(validateFilter(cond({ to: '0001-01-01' }))).toBeNull();
   });
 });
 

@@ -4,7 +4,7 @@ import type { FilterConditions } from '../shared/filter-conditions';
 
 export interface AddConditionMenuProps {
   conditions: FilterConditions;
-  /** 局部更新(日期/有无标签/排序在菜单内直接生效) */
+  /** 局部更新(有无标签/排序在菜单内直接生效) */
   onPatch: (value: Partial<FilterConditions>) => void;
   /** 标签/排除标签:交给上层打开标签选择器 */
   onPickTag: (exclude: boolean) => void;
@@ -12,12 +12,12 @@ export interface AddConditionMenuProps {
   onOpenExpr: () => void;
 }
 
-type Pane = 'main' | 'date' | 'presence' | 'sort';
+type Pane = 'main' | 'presence' | 'sort';
 
 const ITEM_CLASS =
   'block w-full rounded px-2.5 py-1.5 text-left text-xs text-muted hover:bg-accent-soft hover:text-accent-text';
 
-/** 「添加条件」下拉:主面板六项;日期/有无标签/排序切换到子面板直接生效 */
+/** 「添加条件」下拉:主面板五项(无日期入口,spec D2);有无标签/排序切换到子面板直接生效 */
 export function AddConditionMenu(p: AddConditionMenuProps): ReactNode {
   const [open, setOpen] = useState(false);
   const [pane, setPane] = useState<Pane>('main');
@@ -79,9 +79,6 @@ export function AddConditionMenu(p: AddConditionMenuProps): ReactNode {
               <button type="button" role="menuitem" className={ITEM_CLASS} onClick={() => act(() => p.onPickTag(true))}>
                 排除标签
               </button>
-              <button type="button" role="menuitem" className={ITEM_CLASS} onClick={() => setPane('date')}>
-                日期范围
-              </button>
               <button type="button" role="menuitem" className={ITEM_CLASS} onClick={() => setPane('presence')}>
                 有无标签
               </button>
@@ -97,29 +94,6 @@ export function AddConditionMenu(p: AddConditionMenuProps): ReactNode {
                 表达式(高级)
               </button>
             </>
-          )}
-          {pane === 'date' && (
-            <div className="flex items-center gap-1.5 p-1 text-xs text-muted">
-              <span>从</span>
-              <input
-                type="date"
-                aria-label="开始日期"
-                value={p.conditions.from ?? ''}
-                onChange={(e) => p.onPatch({ from: e.target.value === '' ? null : e.target.value })}
-                className="h-7 rounded border border-border px-1.5 text-xs"
-              />
-              <span>至</span>
-              <input
-                type="date"
-                aria-label="结束日期"
-                value={p.conditions.to ?? ''}
-                onChange={(e) => p.onPatch({ to: e.target.value === '' ? null : e.target.value })}
-                className="h-7 rounded border border-border px-1.5 text-xs"
-              />
-              <button type="button" onClick={close} className="rounded border border-border px-2 py-0.5 hover:border-accent hover:text-accent-text">
-                完成
-              </button>
-            </div>
           )}
           {pane === 'presence' && (
             <>

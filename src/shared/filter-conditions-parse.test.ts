@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { EMPTY_FILTER } from './filter-conditions';
 import { canEvaluateLocally, matchesTagsByPath } from './filter-conditions-local';
-import { normalizeFilter, parseFilterJson } from './filter-conditions-parse';
+import { hasLegacyDateKeys, normalizeFilter, parseFilterJson } from './filter-conditions-parse';
 import type { FilterConditions, TagCond } from './filter-conditions';
 
 const tag = (path: string, includeChildren = false): TagCond => ({ path, includeChildren });
@@ -22,11 +22,10 @@ describe('parseFilterJson', () => {
     expect(parseFilterJson(JSON.stringify({ tags: [{ path: 1 }] }))).toBe(EMPTY_FILTER);
     expect(parseFilterJson(JSON.stringify({ tagPresence: 'some' }))).toBe(EMPTY_FILTER);
     expect(parseFilterJson(JSON.stringify({ sort: 'sideways' }))).toBe(EMPTY_FILTER);
-    expect(parseFilterJson(JSON.stringify({ from: '2026-09-13', to: '2026-08-01' }))).toBe(EMPTY_FILTER);
     expect(parseFilterJson(JSON.stringify({ keyword: 'x'.repeat(201) }))).toBe(EMPTY_FILTER);
   });
 
-  it('合法条件完整读回,多余字段忽略', () => {
+  it('已取消的日期字段(from/to)静默丢弃,其余字段照常读回', () => {
     const raw = JSON.stringify({
       keyword: '电影',
       tags: [{ path: '工作', includeChildren: true }],
@@ -42,12 +41,12 @@ describe('parseFilterJson', () => {
       keyword: '电影',
       tags: [{ path: '工作', includeChildren: true }],
       excludeTags: [{ path: '临时', includeChildren: false }],
-      from: '2026-08-01',
-      to: '2026-09-13',
       tagPresence: 'any',
       sort: 'oldest',
       expr: '#工作 AND NOT #临时',
     });
+    // 只有旧日期键也不回退默认:归一后就是空条件(合法)
+    expect(parseFilterJson(JSON.stringify({ from: '2026-08-01', to: '2026-09-13' }))).toEqual(EMPTY_FILTER);
   });
 
   it('表达式:缺字段/空白回退 null,非字符串或超长回退默认条件', () => {
@@ -65,13 +64,29 @@ describe('parseFilterJson', () => {
   });
 });
 
+describe('hasLegacyDateKeys(旧 filter_last 归一信号)', () => {
+  it('带 from/to 的合法 JSON 才算残留', () => {
+    expect(hasLegacyDateKeys(JSON.stringify({ from: '2026-08-01' }))).toBe(true);
+    expect(hasLegacyDateKeys(JSON.stringify({ to: null }))).toBe(true);
+    expect(hasLegacyDateKeys(JSON.stringify({ from: null, to: null, keyword: '电影' }))).toBe(true);
+  });
+
+  it('无旧键、空串、坏 JSON、非对象一律不算', () => {
+    expect(hasLegacyDateKeys(JSON.stringify({ keyword: '电影' }))).toBe(false);
+    expect(hasLegacyDateKeys(null)).toBe(false);
+    expect(hasLegacyDateKeys('   ')).toBe(false);
+    expect(hasLegacyDateKeys('{不是 json')).toBe(false);
+    expect(hasLegacyDateKeys('[1,2]')).toBe(false);
+  });
+});
+
 describe('本地重判(就地更新用)', () => {
-  it('仅本级且无排除/日期/有无标签时可本地判定', () => {
+  it('仅本级且无排除/有无标签/表达式时可本地判定', () => {
     expect(canEvaluateLocally(EMPTY_FILTER)).toBe(true);
     expect(canEvaluateLocally(cond({ tags: [tag('a')], keyword: 'x' }))).toBe(true);
     expect(canEvaluateLocally(cond({ tags: [tag('a', true)] }))).toBe(false);
     expect(canEvaluateLocally(cond({ excludeTags: [tag('x')] }))).toBe(false);
-    expect(canEvaluateLocally(cond({ from: '2026-08-01' }))).toBe(false);
+    expect(canEvaluateLocally(cond({ tagPresence: 'any' }))).toBe(false);
     expect(canEvaluateLocally(cond({ tagPresence: 'none' }))).toBe(false);
     expect(canEvaluateLocally(cond({ expr: '#工作' }))).toBe(false);
   });
@@ -95,13 +110,18 @@ describe('normalizeFilter(应用保存视图时归一)', () => {
   });
 
   it('合法字段原样保留,非法 sort/tagPresence 按默认处理', () => {
-    const c = cond({ tags: [tag('工作', true)], from: '2026-08-01', sort: 'oldest' });
+    const c = cond({ tags: [tag('工作', true)], tagPresence: 'any', sort: 'oldest' });
     expect(normalizeFilter(c)).toEqual(c);
     expect(
       normalizeFilter({ ...c, sort: 'sideways' as unknown as FilterConditions['sort'] })
-    ).toEqual(cond({ tags: [tag('工作', true)], from: '2026-08-01' }));
+    ).toEqual(cond({ tags: [tag('工作', true)], tagPresence: 'any' }));
     expect(
       normalizeFilter({ tagPresence: 'some' as unknown as FilterConditions['tagPresence'] })
     ).toEqual(EMPTY_FILTER);
+  });
+
+  it('旧日期字段不进入归一结果(保存视图里的残留不会被带回状态机)', () => {
+    const legacy = { ...EMPTY_FILTER, from: '2026-08-01', to: '2026-09-13' } as unknown as FilterConditions;
+    expect(normalizeFilter(legacy)).toEqual(EMPTY_FILTER);
   });
 });
