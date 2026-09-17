@@ -19,7 +19,7 @@ pub fn run() {
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
             // 二次启动:唤起已运行实例的输入栏。用 show 而非 toggle —— 输入栏在启动时默认
             // 就是可见的,再次双击 exe 若走 toggle 会把用户眼前的输入栏隐藏掉(与 README 相反)。
-            // 热键与托盘左键仍是切换语义。
+            // 热键仍是切换语义(托盘左键自 2026-09-17 S1 起改为打开主窗口)。
             let _ = windowing::input::show(app);
         }))
         .plugin(tauri_plugin_autostart::init(

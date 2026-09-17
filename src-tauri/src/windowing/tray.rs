@@ -33,9 +33,10 @@ pub fn create(app: &tauri::App) -> tauri::Result<()> {
             _ => {}
         })
         .on_tray_icon_event(|tray, event| {
-            // 左键唤起/隐藏输入栏(切换显隐,spec 3.1 与设置页说明一致)
+            // 左键打开主窗口(与菜单项「打开主窗口」同一实现,spec 2026-09-17 S1);
+            // 输入栏不再由托盘左键唤起,仍由热键/菜单项/二次启动唤起。
             if let TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, .. } = event {
-                let _ = windowing::input::toggle(tray.app_handle());
+                let _ = windowing::startup::open_main_window(tray.app_handle());
             }
         })
         .build(app)?;

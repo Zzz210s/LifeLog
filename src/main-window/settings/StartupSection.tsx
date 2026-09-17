@@ -143,7 +143,7 @@ export function StartupSection(): ReactNode {
             </SettingsRow>
           </div>
           <p className="border-t border-border px-4 py-3 text-xs text-faint">
-            托盘图标左键唤起输入栏,右键打开菜单
+            托盘图标左键打开主窗口,右键打开菜单
           </p>
         </>
       )}
