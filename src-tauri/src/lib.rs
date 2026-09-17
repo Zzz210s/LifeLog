@@ -29,6 +29,7 @@ pub fn run() {
             commands::settings::get_setting,
             commands::settings::set_setting,
             commands::settings::set_input_locks,
+            commands::hotkey::set_input_hotkey,
             commands::startup::get_autostart_status,
             commands::startup::set_autostart,
             commands::app_info::get_db_info,
