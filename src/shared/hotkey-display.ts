@@ -94,8 +94,14 @@ const KEY_LABELS: Record<string, string> = {
 
 /** 加速键字符串 -> 界面文案(非法值按默认键显示) */
 export function formatAccelerator(raw: string): string {
-  return (normalizeAccelerator(raw) ?? DEFAULT_HOTKEY)
+  return formatKeys(normalizeAccelerator(raw) ?? DEFAULT_HOTKEY);
+}
+
+/** 按键片段 -> 界面文案(不校验、不回退:录制态原样展示用户刚按下的组合) */
+export function formatKeys(raw: string): string {
+  return raw
     .split('+')
+    .filter((part) => part !== '')
     .map((part) => MOD_LABELS[part] ?? KEY_LABELS[part] ?? part.toUpperCase())
     .join(' + ');
 }

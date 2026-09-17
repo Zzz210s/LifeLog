@@ -9,6 +9,7 @@ import {
   HOTKEY_KEY,
   effectiveAccelerator,
   formatAccelerator,
+  formatKeys,
   hotkeyHint,
   normalizeParts,
   partsFromEvent,
@@ -79,7 +80,7 @@ export function HotkeyRecorder(): ReactNode {
     if (next) void submit(next);
   };
 
-  const shown = capturing && preview !== '' ? formatAccelerator(preview) : formatAccelerator(accelerator ?? '');
+  const shown = capturing && preview !== '' ? formatKeys(preview) : formatAccelerator(accelerator ?? '');
 
   return (
     <>

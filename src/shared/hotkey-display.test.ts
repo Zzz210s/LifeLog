@@ -3,6 +3,7 @@ import {
   DEFAULT_HOTKEY,
   effectiveAccelerator,
   formatAccelerator,
+  formatKeys,
   hotkeyHint,
   normalizeAccelerator,
   normalizeParts,
@@ -27,6 +28,15 @@ describe('formatAccelerator', () => {
     expect(formatAccelerator('control+KeyQ')).toBe('Ctrl + Q');
     expect(formatAccelerator('q')).toBe('Ctrl + Shift + Q');
     expect(formatAccelerator('')).toBe('Ctrl + Shift + Q');
+  });
+});
+
+describe('formatKeys', () => {
+  it('录制态原样展示刚按下的组合,不回退默认', () => {
+    expect(formatKeys('q')).toBe('Q');
+    expect(formatKeys('ctrl+alt+f9')).toBe('Ctrl + Alt + F9');
+    expect(formatKeys('ctrl+shift')).toBe('Ctrl + Shift');
+    expect(formatKeys('')).toBe('');
   });
 });
 
