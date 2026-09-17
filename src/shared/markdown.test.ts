@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 // jsdom:DOMPurify 净化需要真实 DOM;此处 node 默认环境跑不了
 import { describe, expect, it } from 'vitest';
-import { renderMarkdown, sanitize } from './markdown';
+import { renderMarkdown, renderMarkdownInteractive, sanitize } from './markdown';
+import { toggleTaskAt } from './md-task';
 
 describe('renderMarkdown 基础渲染', () => {
   it('h1/h2 标题层级', () => {
@@ -107,5 +108,63 @@ describe('XSS 净化', () => {
     // DOMPurify 层独立验证:raw html 注入的 javascript: href 被剥离
     const neutralized = sanitize('<a href="javascript:alert(1)">点我</a>');
     expect(neutralized).not.toContain('javascript:');
+  });
+});
+
+/** 多形态文档:普通项/续行/围栏代码/有序/引用块 混排 */
+const TASK_DOC = [
+  '# 标题',
+  '',
+  '- 普通项',
+  '- [ ] 一',
+  '  续行 `- [ ] 伪`',
+  '',
+  '```',
+  '- [ ] 代码里的',
+  '```',
+  '',
+  '1) [x] 二',
+  '',
+  '> - [X] 三',
+].join('\n');
+
+/** 按文档顺序取出 HTML 里复选框的勾选态 */
+function boxStates(html: string): boolean[] {
+  return [...html.matchAll(/<input\b[^>]*>/g)].map((m) => m[0].includes('checked'));
+}
+
+describe('交互态渲染与源码索引对齐', () => {
+  it('读视图:复选框解开 disabled 并按文档顺序带 data-task-index', () => {
+    const html = renderMarkdownInteractive(TASK_DOC);
+    expect(html).not.toContain('disabled');
+    expect(html).toContain('data-task-index="0"');
+    expect(html).toContain('data-task-index="1"');
+    expect(html).toContain('data-task-index="2"');
+    expect(html).not.toContain('data-task-index="3"');
+    // 编辑预览仍用只读渲染:无序号可点
+    const readonly = renderMarkdown(TASK_DOC);
+    expect(readonly).toContain('disabled');
+    expect(readonly).not.toContain('data-task-index');
+  });
+
+  it('勾选第 i 项只翻第 i 个复选框,再点一次回到原文(索引与渲染同序)', () => {
+    const before = boxStates(renderMarkdownInteractive(TASK_DOC));
+    expect(before).toEqual([false, true, true]);
+    before.forEach((state, i) => {
+      const next = toggleTaskAt(TASK_DOC, i);
+      expect(next).not.toBeNull();
+      const after = boxStates(renderMarkdownInteractive(next!));
+      expect(after[i]).toBe(!state);
+      after.forEach((s, j) => {
+        if (j !== i) expect(s).toBe(before[j]);
+      });
+      // 再点一次回到原语义态([X] 会归一为 [x],故比对渲染结果而非原文)
+      expect(boxStates(renderMarkdownInteractive(toggleTaskAt(next!, i)!))).toEqual(before);
+    });
+  });
+
+  it('小写形态下双击回到原文字节一致', () => {
+    const src = '- [ ] a\n- [x] b';
+    expect(toggleTaskAt(toggleTaskAt(src, 0)!, 0)).toBe(src);
   });
 });

@@ -34,6 +34,8 @@
 .md-body ul.contains-task-list { list-style: none; padding-left: 0.35rem; }
 .md-body li.task-list-item { list-style: none; }
 .md-body li.task-list-item input[type="checkbox"] { margin-right: 0.4rem; }
+/* 读视图交互态复选框:标了 data-task-index 即可点击切换(编辑预览无此标记,保持只读) */
+.md-body li.task-list-item input[type="checkbox"][data-task-index] { cursor: pointer; }
 
 .md-body blockquote {
   margin: 0.5rem 0;

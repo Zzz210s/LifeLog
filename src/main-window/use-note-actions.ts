@@ -7,6 +7,8 @@ import { useCallback } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { confirm } from '@tauri-apps/plugin-dialog';
 import { api } from '../shared/api';
+import { toggleTaskAt } from '../shared/md-task';
+import { composeSource } from '../shared/note-source';
 import type { Note } from '../shared/types';
 import { canEvaluateLocally, matchesTagsByPath } from '../shared/filter-conditions-local';
 import type { FilterConditions } from '../shared/filter-conditions';
@@ -84,5 +86,29 @@ export function useNoteActions(d: NoteActionsDeps) {
     [applyNoteChange, setEditingId, reload, clearError]
   );
 
-  return { remove, onEditSaved };
+  /**
+   * 勾选/取消读视图里第 index 个任务列表项:改写正文后用 composeSource 连同全部标签写回。
+   * update_note 是标签整集合替换语义,只发新正文会把标签清空,故必须带回该笔记的全部标签。
+   * 成功后就地刷新该条(有关键词筛选时 applyNoteChange 会重查首页);失败进既有错误条。
+   */
+  const toggleTask = useCallback(
+    (note: Note, index: number) => {
+      const next = toggleTaskAt(note.content, index);
+      if (next === null) return; // 索引与当前正文对不上(如并发编辑):静默 no-op
+      void (async () => {
+        try {
+          const updated = await api.updateNote(note.id, composeSource(next, note.tags));
+          if (updated) applyNoteChange(updated);
+          else setNotes((prev) => prev.filter((n) => n.id !== note.id)); // 已被并发删除:本行消失
+          clearError('action');
+          reload();
+        } catch (e) {
+          setError('action', '勾选失败: ' + String(e));
+        }
+      })();
+    },
+    [applyNoteChange, setNotes, reload, setError, clearError]
+  );
+
+  return { remove, onEditSaved, toggleTask };
 }

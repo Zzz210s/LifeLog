@@ -2,6 +2,7 @@ import DOMPurify from 'dompurify';
 import hljs from 'highlight.js/lib/common';
 import MarkdownIt from 'markdown-it';
 import taskLists from 'markdown-it-task-lists';
+import { enableTaskCheckboxes } from './md-task';
 
 /**
  * 代码高亮:识别语言则返回自带 hljs 类名的 pre/code 包装
@@ -28,7 +29,7 @@ const md = new MarkdownIt({
   typographer: false,
   highlight,
 })
-  .use(taskLists, { enabled: false }) // 只读复选框
+  .use(taskLists, { enabled: false }) // 默认禁用复选框;读视图解禁+标序号见 enableTaskCheckboxes(md-task.ts)
   // markdown-it 删除线 token 为 s_open/s_close(默认输出 <s>);对齐 VSCode 预览改用 <del>
   .use((m) => {
     m.renderer.rules.s_open = () => '<del>';
@@ -71,4 +72,13 @@ export function sanitize(html: string): string {
 /** Markdown 文本 -> 安全 HTML;300ms 防抖不在本层,由组件自行节流 */
 export function renderMarkdown(text: string): string {
   return sanitize(md.render(text));
+}
+
+/**
+ * 交互态渲染(笔记流读视图):与 renderMarkdown 同一管线,
+ * 额外给任务列表复选框按文档顺序标上 data-task-index 并解开 disabled;
+ * 编辑预览仍走 renderMarkdown,保持只读。
+ */
+export function renderMarkdownInteractive(text: string): string {
+  return enableTaskCheckboxes(renderMarkdown(text));
 }

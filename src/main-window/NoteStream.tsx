@@ -27,6 +27,8 @@ export interface NoteStreamProps {
   onDelete: (note: Note) => void;
   onEditSaved: (note: Note) => void;
   onEditCancel: () => void;
+  /** 点击正文任务复选框:勾选/取消该笔记第 index 个任务项 */
+  onToggleTask: (note: Note, index: number) => void;
   /** 流内/预览区链接打开失败上报(交主窗错误机制) */
   onLinkError: (message: string) => void;
 }
@@ -88,6 +90,7 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
               onTagClick={p.onTagClick}
               onEdit={() => p.onEdit(n)}
               onDelete={() => p.onDelete(n)}
+              onToggleTask={(index) => p.onToggleTask(n, index)}
               onLinkError={p.onLinkError}
             />
           )
