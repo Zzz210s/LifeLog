@@ -1,4 +1,5 @@
-//! 条件对象在真实库上的语义验收(含子级 / 仅本级 / 排除 / 有无标签 / 日期 / 排序 / 计数)
+//! 条件对象在真实库上的语义验收(含子级 / 仅本级 / 排除 / 有无标签 / 排序 / 计数)
+//! 日期范围条件已整体取消(spec 2026-09-17 D2)。
 use crate::db::migrate;
 use crate::db::repos::notes::{create_on, create_plain, notes_filter::*, query};
 use rusqlite::{params, Connection};
@@ -62,34 +63,27 @@ fn tag_presence_any_and_none() {
     assert_eq!(contents(&query(&c, &any, 0).unwrap()), vec!["有标签"]);
 }
 
-/// 日期范围改按**时间标签路径**比较(spec 4.3,D2:不再触碰 created_at):
-/// from -> `时间排序/Y/M/D` 下界,to -> 上界路径等值比较(端点当天包含)。
+/// 想查某天/某段:点时间标签(含子级),而不是日期范围条件(D2 的替代路径)
 #[test]
-fn date_range_compares_time_tag_paths() {
+fn day_and_year_are_reached_through_time_tags() {
     let mut c = db();
     let a = create_on(&mut c, "八月", "2026-08-15").unwrap();
     let b = create_on(&mut c, "九月", "2026-09-13").unwrap();
-    // 物理列 created_at 故意设成同一值:筛选必须完全不依赖它
+    // 物理列 created_at 故意换成同一值:标签筛选完全不依赖它
     at(&c, a.id, "2030-01-01 10:00:00");
     at(&c, b.id, "2030-01-01 10:00:00");
-    let from = FilterConditions { from: Some("2026-09-01".into()), ..empty() };
-    assert_eq!(contents(&query(&c, &from, 0).unwrap()), vec!["九月"]);
-    let to = FilterConditions { to: Some("2026-08-31".into()), ..empty() };
-    assert_eq!(contents(&query(&c, &to, 0).unwrap()), vec!["八月"]);
-    let both = FilterConditions {
-        from: Some("2026-08-01".into()),
-        to: Some("2026-08-31".into()),
-        ..empty()
-    };
-    assert_eq!(contents(&query(&c, &both, 0).unwrap()), vec!["八月"]);
-    // 端点当天必须包含(to 不截断到 00:00)
-    let same_day = FilterConditions { to: Some("2026-08-15".into()), ..empty() };
-    assert_eq!(contents(&query(&c, &same_day, 0).unwrap()), vec!["八月"]);
-    let from_same_day = FilterConditions { from: Some("2026-08-15".into()), ..empty() };
-    assert_eq!(contents(&query(&c, &from_same_day, 0).unwrap()), vec!["九月", "八月"], "默认最新在前");
-    // 无时间标签的笔记不落入任何日期范围(它没有日期可比)
-    create_plain(&mut c, "无时间标签").unwrap();
-    assert_eq!(query(&c, &from_same_day, 0).unwrap().len(), 2);
+
+    let day = FilterConditions { tags: vec![tag("时间排序/2026/09/13", false)], ..empty() };
+    assert_eq!(contents(&query(&c, &day, 0).unwrap()), vec!["九月"]);
+    let month = FilterConditions { tags: vec![tag("时间排序/2026/09", true)], ..empty() };
+    assert_eq!(contents(&query(&c, &month, 0).unwrap()), vec!["九月"]);
+    let year = FilterConditions { tags: vec![tag("时间排序/2026", true)], ..empty() };
+    assert_eq!(contents(&query(&c, &year, 0).unwrap()), vec!["九月", "八月"], "默认最新在前");
+    // 无时间标签的笔记只能靠“无标签”类条件找到,不落入任何时间标签筛选
+    let plain = create_plain(&mut c, "无时间标签").unwrap();
+    assert_eq!(query(&c, &FilterConditions { tag_presence: Some("none".into()), ..empty() }, 0)
+        .unwrap().len(), 1);
+    assert!(query(&c, &year, 0).unwrap().iter().all(|n| n.id != plain.id));
 }
 
 #[test]

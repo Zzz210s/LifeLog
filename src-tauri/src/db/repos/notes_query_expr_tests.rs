@@ -86,37 +86,33 @@ fn or_and_parens_combine_as_expected() {
     assert_eq!(expr_hits(&c, "#c"), only_c, "表达式 #c 与结构化 tags=[c] 一致");
 }
 
+/// 表达式里的日期比较已整体取消(D2):校验给中文报错,查询恒不命中(绝不静默放宽)
 #[test]
-fn date_range_in_expression_matches_structured_from_to() {
+fn date_comparison_in_expression_is_rejected() {
     let mut c = db();
     let aug = create_on(&mut c, "八月", "2026-08-15").unwrap();
-    let sep = create_on(&mut c, "九月", "2026-09-13").unwrap();
-    let oct = create_on(&mut c, "十月", "2026-10-02").unwrap();
-    create_plain(&mut c, "无时间标签").unwrap();
-    let from = hits(&c, &FilterConditions { from: Some("2026-09-01".into()), ..empty() });
-    assert_eq!(from, vec![sep.id, oct.id]);
-    assert_eq!(expr_hits(&c, "date>=2026-09-01"), from, "date>= 与 from 一致");
-    let to = hits(&c, &FilterConditions { to: Some("2026-09-13".into()), ..empty() });
-    assert_eq!(to, vec![aug.id, sep.id], "to 含端点当天");
-    assert_eq!(expr_hits(&c, "date<=2026-09-13"), to, "date<= 与 to 一致");
-    let both = FilterConditions {
-        from: Some("2026-08-01".into()),
-        to: Some("2026-08-31".into()),
+    create_on(&mut c, "九月", "2026-09-13").unwrap();
+
+    let cond = FilterConditions { expr: Some("date>=2026-01-01".into()), ..empty() };
+    assert_eq!(
+        validate(&cond),
+        Err("表达式:日期比较已取消,请用时间标签筛选(第 0 个字符)".to_string()),
+        "报错要带原因与 0 起字符位置"
+    );
+    assert!(query(&c, &cond, 0).unwrap().is_empty(), "非法表达式查不到任何行");
+    assert_eq!(super::count_matching(&c, &cond).unwrap(), 0);
+    // 旧写法在组合条件下同样不给任何行
+    let mixed = FilterConditions {
+        tags: vec![tag("时间排序/2026/08", true)],
+        expr: Some("date<2026-09-01".into()),
         ..empty()
     };
-    assert_eq!(hits(&c, &both), vec![aug.id]);
-    assert_eq!(expr_hits(&c, "date>=2026-08-01 AND date<=2026-08-31"), hits(&c, &both));
-    // 严格比较按日级判定:当天本身不算"晚于/早于"
-    assert_eq!(expr_hits(&c, "date>2026-09-13"), vec![oct.id]);
-    assert_eq!(expr_hits(&c, "date<2026-09-01"), vec![aug.id]);
-    assert_eq!(expr_hits(&c, "date=2026-08-15"), vec![aug.id]);
-    // 更深的时间子标签(时间排序/Y/M/D/子级)与当天同界,不得因此被判到范围外
-    let deep = create_on(&mut c, "九月子级", "2026-09-13").unwrap();
-    let deep_path = vec!["时间排序/2026/09/13/子级".to_string()];
-    crate::db::repos::tags_tree::link_paths(&c, deep.id, &deep_path).unwrap();
-    assert_eq!(expr_hits(&c, "date=2026-09-13"), vec![sep.id, deep.id]);
-    assert_eq!(expr_hits(&c, "date<2026-09-13"), vec![aug.id], "当天含子级也不落入 < 范围");
-    assert_eq!(expr_hits(&c, "date>2026-09-13"), vec![oct.id], "当天含子级也不落入 > 范围");
+    assert!(query(&c, &mixed, 0).unwrap().is_empty());
+
+    // 替代路径:想看某段时间就点时间标签(含子级)
+    let by_tag = FilterConditions { tags: vec![tag("时间排序/2026/08", true)], ..empty() };
+    assert_eq!(hits(&c, &by_tag), vec![aug.id]);
+    assert_eq!(expr_hits(&c, "#时间排序/2026/08"), vec![aug.id], "表达式里的时间标签照常可用");
 }
 
 #[test]

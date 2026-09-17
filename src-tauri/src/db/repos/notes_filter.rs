@@ -1,18 +1,17 @@
 //! 结构化筛选条件(前端 `filter-conditions.ts` 的等价定义)与"条件 -> SQL 片段"生成。
 //! 真源是结构化条件对象(D6),而非表达式字符串;标签匹配一律参数占位 + `substr` 前缀,
 //! 禁止 LIKE 通配符(标签名可能含 `%`/`_`)。LIKE 只用于既有行为中的短关键词子串匹配。
-//! 谓词模板(标签/关键词/日期)抽到 [`filter_predicates`],与表达式编译器
+//! 谓词模板(标签/关键词)抽到 [`filter_predicates`],与表达式编译器
 //! [`crate::expr::compile`] 共用同一批实现 —— 两套输入,一套语义。
+//! 日期范围筛选已整体取消(spec 2026-09-17 D2):条件对象里不再有 from/to。
 //! Serialize 派生供自建视图把条件落库为 JSON(views.rs),查询语义不变。
 use rusqlite::types::Value;
 use serde::{Deserialize, Serialize};
 
-use crate::expr::ast::DateOp;
-
-/// 共用谓词真源(与表达式编译器共享,杜绝第二套标签/日期/关键词语义)
+/// 共用谓词真源(与表达式编译器共享,杜绝第二套标签/关键词语义)
 #[path = "filter_predicates.rs"]
 pub(crate) mod filter_predicates;
-pub(crate) use filter_predicates::{date_predicate, keyword_predicate, tag_exists, tag_predicate};
+pub(crate) use filter_predicates::{keyword_predicate, tag_exists, tag_predicate};
 
 /// 单个标签条件:完整路径 + 是否含子级(前端默认含子级)
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -32,8 +31,6 @@ pub struct FilterConditions {
     pub keyword: Option<String>,
     pub tags: Vec<TagCond>,
     pub exclude_tags: Vec<TagCond>,
-    pub from: Option<String>,
-    pub to: Option<String>,
     pub tag_presence: Option<String>,
     pub sort: Option<String>,
     pub expr: Option<String>,
@@ -52,18 +49,16 @@ pub fn empty() -> FilterConditions {
 }
 
 /// 排序方向:仅显式 `oldest` 为最早在前,其余(含缺失)最新在前
+/// (排序真源是 `notes.id`,与 created_at 同序;见 D1)
 pub fn oldest_first(c: &FilterConditions) -> bool {
     c.sort.as_deref() == Some("oldest")
 }
 
-/// "时间子树之外还有标签"的谓词(时间标签是系统元数据,不算用户的归类):
-/// `any` = 存在该谓词,`none` = 不存在 —— 必须成对,否则只带时间标签的笔记两个条件都不命中。
-fn has_custom_tag() -> String {
-    format!(
-        "EXISTS (SELECT 1 FROM tag_links l JOIN tags t ON t.id = l.tag_id \
-         WHERE l.target_type = 'note' AND l.target_id = n.id AND NOT ({}))",
-        crate::timetag::sql_in_time_subtree("t")
-    )
+/// "挂了任意一个标签"的谓词(时间标签已是普通标签,D3:它也计数):
+/// `any` = 存在该谓词,`none` = 不存在 —— 必须成对,否则两边都不命中。
+fn any_tag() -> String {
+    "EXISTS (SELECT 1 FROM tag_links l WHERE l.target_type = 'note' AND l.target_id = n.id)"
+        .to_string()
 }
 
 /// 条件 -> `WHERE` 之后的 SQL 片段与参数(固定以 `1=1` 起手,子句用 ` AND ` 连接)
@@ -81,15 +76,9 @@ pub fn where_clause(c: &FilterConditions) -> (String, Vec<Value>) {
         clauses.push(format!("NOT {}", tag_exists(&m)));
     }
     match c.tag_presence.as_deref() {
-        Some("any") => clauses.push(has_custom_tag()),
-        Some("none") => clauses.push(format!("NOT ({})", has_custom_tag())),
+        Some("any") => clauses.push(any_tag()),
+        Some("none") => clauses.push(format!("NOT ({})", any_tag())),
         _ => {}
-    }
-    if let Some(f) = c.from.as_deref() {
-        clauses.push(date_predicate(&DateOp::Ge, f, &mut args));
-    }
-    if let Some(t) = c.to.as_deref() {
-        clauses.push(date_predicate(&DateOp::Le, t, &mut args));
     }
     // 表达式是最后一条附加条件:与前面所有结构化条件 AND 组合;文本非法则整条恒假
     if let Some(src) = c.expr.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
@@ -122,21 +111,6 @@ pub fn validate(c: &FilterConditions) -> Result<(), String> {
     for t in c.tags.iter().chain(c.exclude_tags.iter()) {
         if crate::tags::parse_tag_path(&t.path).is_none() {
             return Err(format!("标签路径不合法: {}", t.path));
-        }
-    }
-    if let Some(f) = c.from.as_deref() {
-        if !crate::timetag::is_iso_date(f) {
-            return Err("开始日期格式不正确(应为 YYYY-MM-DD)".into());
-        }
-    }
-    if let Some(t) = c.to.as_deref() {
-        if !crate::timetag::is_iso_date(t) {
-            return Err("结束日期格式不正确(应为 YYYY-MM-DD)".into());
-        }
-    }
-    if let (Some(f), Some(t)) = (c.from.as_deref(), c.to.as_deref()) {
-        if f > t {
-            return Err("开始日期不能晚于结束日期".into());
         }
     }
     if let Some(s) = c.sort.as_deref() {

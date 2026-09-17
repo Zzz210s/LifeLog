@@ -1,56 +1,41 @@
 //! 笔记读取层(自 notes.rs 拆出以守 200 行上限):行映射与折叠、单条读回、最近 N 条、删除。
-//! 每条笔记除了标签路径(LEFT JOIN 展开成多行),还要带上它的**时间标签**路径与节点 id
-//! (date/date_tag_id 由此而来);时间标签由系统维护,一条笔记最多一个,取 path 升序首行兜底。
+//! 每条笔记除了标签路径(LEFT JOIN 展开成多行),没有其它派生列 —— 时间标签已是普通标签,与其它标签同列。
 use super::Note;
 use rusqlite::{params, Connection};
 
-/// 行映射:note 基础列 + 可空标签路径 + 时间标签路径 + 时间标签 id
-type NoteRow = (i64, String, String, Option<String>, Option<String>, Option<i64>);
+/// 行映射:note 基础列 + 可空标签路径
+type NoteRow = (i64, String, String, Option<String>);
 
-/// 六个 SELECT 列(所有读取路径共用同一形状):id/正文/created_at/标签路径/时间路径/时间 id。
-/// 时间标签的单值子查询与 `notes_query` 共用同一实现(只认日级、取最早一条),
-/// 三处口径(read_full / query / 导出)必须完全一致。
-fn columns() -> String {
-    format!(
-        "n.id, n.content, n.created_at, t.path, {}, {}",
-        crate::timetag::sql_time_tag_sub("tt.path"),
-        crate::timetag::sql_time_tag_sub("tt.id")
-    )
+/// 四个 SELECT 列(所有读取路径共用同一形状):id/正文/created_at/标签路径。
+fn columns() -> &'static str {
+    "n.id, n.content, n.created_at, t.path"
 }
 
 /// 行映射(列顺序见 [`columns`])
 pub(crate) fn map_note_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<NoteRow> {
-    Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?))
+    Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))
 }
 
 /// 相邻同 id 行折叠为一个 Note(tags 收集为列表),recent 与 query 共用。
-/// date 由时间标签路径派生(空即无时间标签),date_tag_id 直取子查询列。
 pub(crate) fn fold_tag_rows(
     rows: impl Iterator<Item = rusqlite::Result<NoteRow>>,
 ) -> rusqlite::Result<Vec<Note>> {
     let mut out: Vec<Note> = Vec::new();
     for row in rows {
-        let (id, content, created_at, tag, time_path, time_id) = row?;
+        let (id, content, created_at, tag) = row?;
         match out.last_mut() {
             Some(n) if n.id == id => {
                 if let Some(t) = tag {
                     n.tags.push(t);
                 }
             }
-            _ => out.push(Note {
-                id,
-                content,
-                created_at,
-                date: time_path.as_deref().and_then(crate::timetag::date_from_path),
-                date_tag_id: time_id,
-                tags: tag.into_iter().collect(),
-            }),
+            _ => out.push(Note { id, content, created_at, tags: tag.into_iter().collect() }),
         }
     }
     Ok(out)
 }
 
-/// 最近 N 条(id 降序,含标签与时间标签)。当前仅测试使用,生产路径走 query;
+/// 最近 N 条(id 降序,含全部标签)。当前仅测试使用,生产路径走 query;
 /// 标 #[cfg(test)] 以消除非 test 构建的 dead_code 警告。
 #[cfg(test)]
 pub fn recent(conn: &Connection, limit: u32) -> rusqlite::Result<Vec<Note>> {

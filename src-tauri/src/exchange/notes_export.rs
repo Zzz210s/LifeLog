@@ -7,8 +7,7 @@ pub const MAX_CELL_CHARS: usize = 32767;
 const TRUNCATE_MARK: &str = "…(导出已截断)";
 
 /// 导出行(不含表头):日期/正文/标签/最后修改四列。
-/// 日期取自**时间标签**路径(`YYYY-MM-DD`),无时间标签则留空(D2:不再导出 created_at);
-/// 最后修改取 updated_at 物理列。
+/// 日期取自 **created_at 物理列**的日期部分(`YYYY-MM-DD`,D8);最后修改取 updated_at。
 #[derive(Debug, PartialEq)]
 pub struct Row {
     pub date: String,
@@ -55,25 +54,15 @@ fn note_tags(conn: &Connection) -> Result<HashMap<i64, String>, String> {
     Ok(map)
 }
 
-/// 表头:日期(来自时间标签)/正文/标签(#a #b)/最后修改(updated_at)
+/// 表头:日期(取自 created_at)/正文/标签(#a #b)/最后修改(updated_at)
 pub const HEADERS: [&str; 4] = ["日期", "正文", "标签", "最后修改"];
 
-/// 该笔记的时间标签路径;与 `notes_query` / `read_full` 共用同一子查询(只认日级、取最早一条),
-/// 导出日期、列表日期与保存返回值三处口径必须完全一致。
-fn time_path_sub() -> String {
-    crate::timetag::sql_time_tag_sub("tt.path")
-}
-
-/// 导出行数据(核心行为单点):日期列取时间标签、标签聚合、正文/标签截断。
-/// 排序与信息流一致:时间标签路径降序(最新在前),同日或无标签用 id 兜底。
+/// 导出行数据(核心行为单点):日期列取 created_at、标签聚合、正文/标签截断。
+/// 排序与信息流一致(D1):按 notes.id 降序(最新在前)。
 pub fn rows(conn: &Connection) -> Result<Vec<Row>, String> {
     let tags = note_tags(conn)?;
-    let time_path = time_path_sub();
     let mut stmt = conn
-        .prepare(&format!(
-            "SELECT n.id, n.content, n.updated_at, {time_path} FROM notes n \
-             ORDER BY ({time_path} IS NULL), {time_path} DESC, n.id DESC"
-        ))
+        .prepare("SELECT n.id, n.content, n.updated_at, date(n.created_at) FROM notes n ORDER BY n.id DESC")
         .map_err(|e| e.to_string())?;
     let mapped = stmt
         .query_map([], |r| {
@@ -87,10 +76,10 @@ pub fn rows(conn: &Connection) -> Result<Vec<Row>, String> {
         .map_err(|e| e.to_string())?;
     let mut out = Vec::new();
     for row in mapped {
-        let (id, content, updated, time_path) = row.map_err(|e| e.to_string())?;
+        let (id, content, updated, created_date) = row.map_err(|e| e.to_string())?;
         out.push(Row {
-            // 无时间标签(回填后不应出现)留空,而不是借用物理列
-            date: time_path.as_deref().and_then(crate::timetag::date_from_path).unwrap_or_default(),
+            // date() 对非法 created_at 返回 NULL:留空而不是写脏值
+            date: created_date.unwrap_or_default(),
             content: fit_cell(&content),
             // 标签同样过 fit_cell:单条笔记标签聚合超上限会让整库导出失败(与正文同一失效模式)
             tags: fit_cell(&tags.get(&id).cloned().unwrap_or_default()),

@@ -57,22 +57,20 @@ pub struct BuiltinView {
 }
 
 /// 内置三视图(key, 中文标题):全部 / 待办 / 无自定义标签。
-/// 「无自定义标签」= **时间子树之外没有任何标签**(时间标签是系统元数据,不算用户的归类),
-/// 回填/新建后所有笔记都带时间标签,故不能再用"有没有 tag_links"来判。
 /// 标题真源在前端 `builtin-views.ts`(此处标题仅作占位/排障用途,不透出给界面)。
 pub fn builtins() -> Vec<(&'static str, &'static str)> {
     vec![("all", "全部"), ("todo", "待办"), ("untagged", "无自定义标签")]
 }
 
-/// 内置视图的条件:待办 = 引入 `todo`(精确)+ 排除 `done`(精确);
-/// 无自定义标签 = tagPresence none(谓词已排除时间子树,见 `notes_filter::has_custom_tag`);
+/// 内置视图的条件(D7):待办 = 引入 `待办`(含子级)+ 排除 `done`(含子级);
+/// 无自定义标签 = 无**任何**标签(时间标签已是普通标签,不再例外);
 /// 全部与未知 key 一律回退空条件(全部)。
 pub fn conditions_of_builtin(key: &str) -> FilterConditions {
-    let exact = |p: &str| TagCond { path: p.into(), include_children: false };
+    let with_children = |p: &str| TagCond { path: p.into(), include_children: true };
     match key {
         "todo" => FilterConditions {
-            tags: vec![exact("todo")],
-            exclude_tags: vec![exact("done")],
+            tags: vec![with_children("待办")],
+            exclude_tags: vec![with_children("done")],
             ..FilterConditions::default()
         },
         "untagged" => FilterConditions {

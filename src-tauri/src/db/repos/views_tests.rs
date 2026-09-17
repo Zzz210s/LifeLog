@@ -3,7 +3,7 @@
 use super::*;
 use crate::db::migrate;
 use crate::db::repos::notes::FilterConditions;
-use crate::db::repos::notes::notes_filter::empty;
+use crate::db::repos::notes::notes_filter::{empty, TagCond};
 use crate::db::repos::notes::notes_query::count_matching;
 use rusqlite::Connection;
 
@@ -19,8 +19,6 @@ fn is_empty_conditions(c: &FilterConditions) -> bool {
     c.keyword.is_none()
         && c.tags.is_empty()
         && c.exclude_tags.is_empty()
-        && c.from.is_none()
-        && c.to.is_none()
         && c.tag_presence.is_none()
         && c.sort.is_none()
 }
@@ -68,17 +66,20 @@ fn reorder_rewrites_sort_order() {
 #[test]
 fn invalid_conditions_rejected_on_write() {
     let conn = test_conn();
-    let bad = FilterConditions { from: Some("2026-09-13".into()), to: Some("2026-08-01".into()), ..empty() };
+    let bad = FilterConditions { tags: vec![TagCond { path: "a//b".into(), include_children: true }], ..empty() };
     assert!(create(&conn, "坏条件", &bad, None).is_err());
 }
 
+/// 内置三视图的条件(D7):待办 = `待办`(含子级)+ 排除 `done`(含子级);
+/// 无自定义标签 = 无任何标签(时间标签也是标签);全部/未知 = 空条件
 #[test]
 fn builtin_conditions() {
     let todo = conditions_of_builtin("todo");
     assert_eq!(todo.tags.len(), 1);
-    assert_eq!(todo.tags[0].path, "todo");
-    assert!(!todo.tags[0].include_children);
+    assert_eq!(todo.tags[0].path, "待办");
+    assert!(todo.tags[0].include_children, "含子级:待办/事项 也算待办");
     assert_eq!(todo.exclude_tags[0].path, "done");
+    assert!(todo.exclude_tags[0].include_children, "排除 done 含子级");
     assert_eq!(conditions_of_builtin("untagged").tag_presence.as_deref(), Some("none"));
     assert!(is_empty_conditions(&conditions_of_builtin("all")));
     assert!(is_empty_conditions(&conditions_of_builtin("nonsense")));
@@ -119,39 +120,49 @@ fn reorder_rejects_partial_unknown_or_duplicated_ids() {
 #[test]
 fn hit_counts_cover_builtins_and_saved_views() {
     let mut conn = test_conn();
-    for text in ["#todo 买牛奶", "#done 收尾", "没有标签的笔记", "#todo #done 两边都占"] {
+    for text in [
+        "#待办 买牛奶",
+        "#待办/事项 收拾房间",
+        "#done 收尾",
+        "没有标签的笔记",
+        "#待办/支付 缴电费 #done 已完成",
+    ] {
         crate::db::repos::notes::create_plain(&mut conn, text).unwrap();
     }
     let id = create(
         &conn,
-        "有标签的",
-        &FilterConditions { tag_presence: Some("any".into()), ..empty() },
+        "与待办同条件",
+        &FilterConditions {
+            tags: vec![TagCond { path: "待办".into(), include_children: true }],
+            exclude_tags: vec![TagCond { path: "done".into(), include_children: true }],
+            ..empty()
+        },
         None,
     )
     .unwrap();
     let hits = hit_counts(&conn).unwrap();
-    assert_eq!(hits[0], ("all".to_string(), 4));
-    assert_eq!(hits[1], ("todo".to_string(), 1), "仅 #todo 且未 #done 的笔记");
-    assert_eq!(hits[2], ("untagged".to_string(), 1));
-    assert_eq!(hits[3], (format!("view:{id}"), 3));
+    assert_eq!(hits[0], ("all".to_string(), 5));
+    assert_eq!(hits[1], ("todo".to_string(), 2), "#待办 含子级且排除 done(D7)");
+    assert_eq!(hits[2], ("untagged".to_string(), 1), "无任何标签");
+    assert_eq!(hits[3], (format!("view:{id}"), 2), "自建视图与内置待办同条件");
     // 口径一致性:与 count_matching 直接对读
     let stored = list(&conn).unwrap();
     assert_eq!(hits[3].1, count_matching(&conn, &stored[0].conditions).unwrap());
     assert_eq!(hits[1].1, count_matching(&conn, &conditions_of_builtin("todo")).unwrap());
 }
-/// 内置「无自定义标签」= 时间子树之外没有任何标签(时间标签是系统元数据)。
-/// 回填/新建后所有笔记都带时间标签,旧的 tag_links 空判永远命中 0 条。
+
+/// 内置「无自定义标签」= **无任何标签**(D7:时间标签已是普通标签,不再例外)
 #[test]
-fn untagged_counts_notes_with_only_time_tags() {
+fn untagged_means_no_tags_at_all() {
     let mut conn = test_conn();
     crate::db::repos::notes::create(&mut conn, "只有时间标签").unwrap();
     let untagged = conditions_of_builtin("untagged");
     let any = conditions_of_builtin("any-none-placeholder");
-    assert_eq!(count_matching(&conn, &untagged).unwrap(), 1);
     assert!(is_empty_conditions(&any), "未知 key 回退全部");
-    assert_eq!(count_matching(&conn, &FilterConditions { tag_presence: Some("any".into()), ..empty() }).unwrap(), 0);
-    // 加一个普通标签后:它不再算"无自定义标签",但进入"有标签"
-    crate::db::repos::notes::create(&mut conn, "带用户标签 #甲").unwrap();
+    assert_eq!(count_matching(&conn, &untagged).unwrap(), 0, "时间标签也算标签");
+    assert_eq!(count_matching(&conn, &FilterConditions { tag_presence: Some("any".into()), ..empty() }).unwrap(), 1);
+    // 真的是空白笔记才命中「无自定义标签」
+    crate::db::repos::notes::create_plain(&mut conn, "真的没有标签").unwrap();
     assert_eq!(count_matching(&conn, &untagged).unwrap(), 1);
     assert_eq!(count_matching(&conn, &FilterConditions { tag_presence: Some("any".into()), ..empty() }).unwrap(), 1);
     assert_eq!(count_matching(&conn, &untagged).unwrap() + count_matching(&conn, &FilterConditions { tag_presence: Some("any".into()), ..empty() }).unwrap(), 2, "any/none 必须互补");

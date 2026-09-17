@@ -1,6 +1,7 @@
 //! notes 更新层(自 notes.rs 拆出以守 200 行上限):update/toggle_todo。
-/// 链接为增量替换(未变化的标签链不动),收尾由 tags_tree 精确回收孤儿。
-/// 时间标签由系统添加、不在正文里,替换语义下必须显式保留(否则编辑正文会丢时间标签)。
+//! 链接为增量替换(未变化的标签链不动),收尾由 tags_tree 精确回收孤儿。
+//! 时间标签已是普通标签(D3):不再有"系统添加必须保留"的特例 —— 编辑界面把标签
+//! 回显为 `#tag` 文本,正文里带回来的标签就是最终集合(想去/改时间就改那段文本)。
 use super::{read_full, strip_tags};
 use rusqlite::{params, Connection};
 
@@ -10,26 +11,12 @@ fn set_tags(tx: &rusqlite::Transaction<'_>, id: i64, paths: &[String]) -> rusqli
     crate::db::repos::tags_tree::link_paths(tx, id, paths)
 }
 
-/// 该笔记现存的时间标签路径(系统添加,不在正文里)。改期是在标签链接上做的,
-/// 不经正文;正文编辑/勾选待办走替换语义时靠它把时间标签补回目标集合。
-fn time_tag_paths(conn: &rusqlite::Connection, id: i64) -> rusqlite::Result<Vec<String>> {
-    let mut stmt = conn.prepare(&format!(
-        "SELECT t.path FROM tag_links l JOIN tags t ON t.id = l.tag_id
-         WHERE l.target_type = 'note' AND l.target_id = ?1 AND {} ORDER BY t.path",
-        crate::timetag::sql_is_time_path("t")
-    ))?;
-    let rows = stmt.query_map(params![id], |r| r.get(0))?;
-    rows.collect()
-}
-
 /// 更新笔记正文(事务):剥离/提取标签后整条重存,链接为替换语义。
 /// id 不存在返回 None;成功返回含全量标签的最新笔记。
 pub fn update(conn: &mut Connection, id: i64, content: &str) -> rusqlite::Result<Option<super::Note>> {
-    let mut names = crate::tags::extract_tags(content);
+    let names = crate::tags::extract_tags(content);
     let text = strip_tags(content);
     let tx = conn.transaction()?;
-    // 时间标签不在正文里:先把库里现存的补进目标集合(正文里手写的按普通标签规则叠加)
-    names.extend(time_tag_paths(&tx, id)?);
     let rows = tx.execute(
         "UPDATE notes SET content=?1, updated_at=datetime('now','localtime') WHERE id=?2",
         params![text, id],
