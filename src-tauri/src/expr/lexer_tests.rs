@@ -1,5 +1,4 @@
 //! 词法测试(brief Step 1);位置断言为**字符下标**(Unicode 字符数)
-use super::ast::DateOp;
 use super::lexer::{lex, Token};
 
 fn tag(path: &str, self_only: bool) -> Token {
@@ -42,31 +41,30 @@ fn lexes_symbolic_operators_and_quoted_phrase() {
     );
 }
 
+/// 日期比较已整体取消(spec 2026-09-17 D2):任何 `date` + 比较运算符都给中文报错,
+/// 位置指向 `date` 首字符(而不是静默当关键词,让用户看不出所以然)
 #[test]
-fn lexes_date_comparisons() {
-    let toks = lex("date>=2026-09-01 AND date<2026-10-01").unwrap();
-    assert_eq!(
-        toks,
-        vec![
-            Token::Date { op: DateOp::Ge, date: "2026-09-01".into() },
-            Token::And,
-            Token::Date { op: DateOp::Lt, date: "2026-10-01".into() },
-        ]
-    );
+fn date_comparisons_are_rejected_with_chinese_hint() {
+    for src in [
+        "date>=2026-09-01",
+        "date >= 2026-09-01",
+        "date<=2026-10-01",
+        "date>2026-09-01",
+        "date<2026-09-01",
+        "date=2026-09-01",
+    ] {
+        let err = lex(src).unwrap_err();
+        assert_eq!(err.message, "日期比较已取消,请用时间标签筛选", "{src}");
+        assert_eq!(err.pos, 0, "{src}");
+    }
 }
 
-/// 运算符**两侧**都允许空白(容忍度对称)
+/// 位置口径:`date` 之前的中文标签与空格各算一个字符,报错指向 `date` 首字符
 #[test]
-fn date_operator_may_be_followed_by_space() {
-    let toks = lex("date >= 2026-09-01").unwrap();
-    assert_eq!(toks, vec![Token::Date { op: DateOp::Ge, date: "2026-09-01".into() }]);
-}
-
-/// 只跳过运算符后的空白、不跳运算符前的,同样能过
-#[test]
-fn date_operator_tolerates_space_before_literal() {
-    let toks = lex("date>= 2026-09-01").unwrap();
-    assert_eq!(toks, vec![Token::Date { op: DateOp::Ge, date: "2026-09-01".into() }]);
+fn date_comparison_error_points_at_date_word() {
+    let err = lex("#工作 AND date>=2026-09-01").unwrap_err();
+    assert_eq!(err.message, "日期比较已取消,请用时间标签筛选");
+    assert_eq!(err.pos, 8, "`#工作 AND ` 共 8 个字符:{err:?}");
 }
 
 /// 标签名内嵌标点的规则与 body 抽标签同一套(见 tags.rs):`#v1.0` 是**单个**标签 token
@@ -84,10 +82,18 @@ fn rejects_tag_with_dangling_punct() {
     assert_eq!(err.pos, 0);
 }
 
+/// 单独出现的 `date` 仍是普通关键词(只有跟比较运算符时才报错)
 #[test]
 fn date_word_alone_is_a_keyword() {
     let toks = lex("date 记录").unwrap();
     assert_eq!(toks, vec![Token::Keyword("date".into()), Token::Keyword("记录".into())]);
+}
+
+/// `datex`/`database` 这类前缀词不是日期比较
+#[test]
+fn date_prefixed_words_are_keywords() {
+    assert_eq!(lex("datex").unwrap(), vec![Token::Keyword("datex".into())]);
+    assert_eq!(lex("database").unwrap(), vec![Token::Keyword("database".into())]);
 }
 
 #[test]
@@ -110,12 +116,4 @@ fn reports_bad_tag_path_with_position() {
     let err = lex("#工作//项目").unwrap_err();
     assert!(err.message.contains("路径"), "实际:{}", err.message);
     assert_eq!(err.pos, 0);
-}
-
-#[test]
-fn reports_bad_date_with_position() {
-    let err = lex("date>=2026-13-45").unwrap_err();
-    assert_eq!(err.message, "日期格式不正确(应为 YYYY-MM-DD)");
-    // 修正:brief 手写期望 5 忽略了 `>=` 占两个字符;日期字面量自字符下标 6 开始。
-    assert_eq!(err.pos, 6);
 }

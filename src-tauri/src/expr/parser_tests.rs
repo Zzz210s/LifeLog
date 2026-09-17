@@ -1,5 +1,6 @@
 //! 语法测试(brief Step 5);位置断言为**字符下标**(Unicode 字符数)
-use super::ast::{DateOp, Expr};
+//! 日期比较已取消(D2),叶子只有标签 / 关键词 / 引号短语。
+use super::ast::Expr;
 use super::parser::parse;
 
 fn tag(path: &str) -> Expr {
@@ -35,18 +36,23 @@ fn not_is_right_associative_and_strongest() {
 }
 
 #[test]
-fn parses_self_only_date_and_keyword() {
-    let e = parse(r#"#=工作 AND date>=2026-09-01 AND "两个 词""#).unwrap();
+fn parses_self_only_and_keyword() {
+    let e = parse(r#"#=工作 AND "两个 词""#).unwrap();
     assert_eq!(
         e,
         Expr::And(
-            Box::new(Expr::And(
-                Box::new(Expr::Tag { path: "工作".into(), self_only: true }),
-                Box::new(Expr::Date { op: DateOp::Ge, date: "2026-09-01".into() }),
-            )),
+            Box::new(Expr::Tag { path: "工作".into(), self_only: true }),
             Box::new(Expr::Keyword("两个 词".into())),
         )
     );
+}
+
+/// 日期比较在语法入口同样被拦(词法阶段给中文报错,不会进 AST)
+#[test]
+fn rejects_date_comparison_with_chinese_hint() {
+    let err = parse("date>=2026-09-01").unwrap_err();
+    assert_eq!(err.message, "日期比较已取消,请用时间标签筛选");
+    assert_eq!(err.pos, 0);
 }
 
 #[test]

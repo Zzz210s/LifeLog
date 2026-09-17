@@ -2,7 +2,8 @@
 //! 括号规则:表达式的默认优先级是 `NOT` > `AND` > `OR`,所以只有当子表达式的连接词
 //! 比父级优先级更低时才必须补全角括号,否则预览会被读成另一个表达式
 //! (brief 要求「左操作数为 Or 时补括号」;右操作数与 `非` 的子项同理补齐,见下方注释)。
-use super::ast::{DateOp, Expr};
+//! 日期比较已整体取消(D2):这里不再有日期说法。
+use super::ast::Expr;
 
 /// 中文描述入口
 pub fn describe(e: &Expr) -> String {
@@ -12,7 +13,6 @@ pub fn describe(e: &Expr) -> String {
             format!("标签({scope}){path}")
         }
         Expr::Keyword(k) => format!("关键词「{k}」"),
-        Expr::Date { op, date } => format!("日期{} {date}", date_word(op)),
         Expr::Not(inner) => match &**inner {
             Expr::And(..) | Expr::Or(..) => format!("非 （{}）", describe(inner)),
             _ => format!("非 {}", describe(inner)),
@@ -35,16 +35,5 @@ fn and_side(e: &Expr) -> String {
     match e {
         Expr::Or(..) => format!("（{}）", describe(e)),
         _ => describe(e),
-    }
-}
-
-/// 日期算子的中文说法(Lt/Le/Eq/Ge/Gt)
-fn date_word(op: &DateOp) -> &'static str {
-    match op {
-        DateOp::Lt => "早于",
-        DateOp::Le => "不晚于",
-        DateOp::Eq => "等于",
-        DateOp::Ge => "不早于",
-        DateOp::Gt => "晚于",
     }
 }

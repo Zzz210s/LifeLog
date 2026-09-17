@@ -2,8 +2,7 @@
 //! 尾后字符下标, token)`,纯函数。公共 API(Token/ExprError/lex/lex_spans)在 lexer.rs,
 //! 位置口径(`pos` 与下标均为 Unicode 字符数、0 起)见那边的模块说明。
 use super::{ExprError, Token};
-use crate::expr::ast::DateOp;
-use crate::expr::{DATE_INVALID, QUOTE_UNCLOSED, TAG_PATH_INVALID};
+use crate::expr::{DATE_REMOVED, QUOTE_UNCLOSED, TAG_PATH_INVALID};
 
 /// 关键词终止字符:空白、括号、引号或符号运算符的起始字符
 fn is_kw_break(c: char) -> bool {
@@ -55,15 +54,14 @@ pub(super) fn scan(input: &str) -> Result<Vec<(usize, usize, Token)>, ExprError>
                 tok
             }
             _ => {
-                // `date` 只有紧跟比较运算符时才是日期;否则按裸词处理
-                if let Some((tok, next)) = try_read_date(&chars, i)? {
-                    i = next;
-                    tok
-                } else {
-                    let (tok, next) = read_word(&chars, i);
-                    i = next;
-                    tok
+                // 日期比较已取消:识别到 `date` + 比较运算符就给明确中文报错(位置指向 `date`),
+                // 而不是当成两个关键词让用户看不出所以然
+                if is_date_comparison(&chars, i) {
+                    return Err(ExprError::new(DATE_REMOVED, i));
                 }
+                let (tok, next) = read_word(&chars, i);
+                i = next;
+                tok
             }
         };
         out.push((start, i, token));
@@ -128,35 +126,15 @@ fn read_word(chars: &[char], start: usize) -> (Token, usize) {
     (token, end)
 }
 
-/// 日期比较:`date` + (`>=` `<=` `>` `<` `=`)+ `YYYY-MM-DD`;
-/// 不是日期写法则返回 None 交由裸词处理;字面量非法报字面量首字符位置
-fn try_read_date(chars: &[char], start: usize) -> Result<Option<(Token, usize)>, ExprError> {
-    if chars.len() < start + 4 || chars[start..start + 4] != ['d', 'a', 't', 'e'] {
-        return Ok(None);
+/// 是否是已取消的日期比较写法:`date` + 可选空白 + (`>=` `<=` `>` `<` `=`)。
+/// 只认小写 `date`(`date >= X` 与 `date>= X` 等价);命中即由调用方报中文错误。
+fn is_date_comparison(chars: &[char], start: usize) -> bool {
+    if chars.len() < start + 5 || chars[start..start + 4] != ['d', 'a', 't', 'e'] {
+        return false;
     }
     let mut i = start + 4;
     while i < chars.len() && chars[i].is_whitespace() {
         i += 1;
     }
-    let (op, mut lit_start) = match chars.get(i) {
-        Some('>') if chars.get(i + 1) == Some(&'=') => (DateOp::Ge, i + 2),
-        Some('<') if chars.get(i + 1) == Some(&'=') => (DateOp::Le, i + 2),
-        Some('>') => (DateOp::Gt, i + 1),
-        Some('<') => (DateOp::Lt, i + 1),
-        Some('=') => (DateOp::Eq, i + 1),
-        _ => return Ok(None),
-    };
-    // 运算符之后的空白同样跳过(`date >= 2026-09-01`),否则容忍度不对称
-    while lit_start < chars.len() && chars[lit_start].is_whitespace() {
-        lit_start += 1;
-    }
-    let mut j = lit_start;
-    while j < chars.len() && !is_kw_break(chars[j]) {
-        j += 1;
-    }
-    let date: String = chars[lit_start..j].iter().collect();
-    if !crate::timetag::is_iso_date(&date) {
-        return Err(ExprError::new(DATE_INVALID, lit_start));
-    }
-    Ok(Some((Token::Date { op, date }, j)))
+    matches!(chars.get(i), Some('>' | '<' | '='))
 }

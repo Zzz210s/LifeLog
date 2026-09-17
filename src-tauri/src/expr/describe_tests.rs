@@ -15,9 +15,15 @@ fn describes_nested_expression() {
 }
 
 #[test]
-fn describes_keyword_date_and_phrase() {
+fn describes_keyword_and_phrase() {
     assert_eq!(
-        d(r#"#a AND date>=2026-09-01 AND "两个 词""#),
-        "标签(含子级)a 且 日期不早于 2026-09-01 且 关键词「两个 词」"
+        d(r#"#a AND #b AND "两个 词""#),
+        "标签(含子级)a 且 标签(含子级)b 且 关键词「两个 词」"
     );
+}
+
+/// 日期比较已取消(D2):预览层不再有日期说法(解析阶段即报错,进不了 describe)
+#[test]
+fn date_comparison_is_rejected_before_describe() {
+    assert!(parse("date>=2026-09-01").is_err());
 }

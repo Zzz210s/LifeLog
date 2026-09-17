@@ -1,6 +1,5 @@
 //! 编译测试(brief Step 1):只断言片段形态与参数个数,SQL 语义由库级测试交叉比对。
-//! 关键词短词分支的「时间子树排除」按共用谓词的实际形态断言(与
-//! `notes_filter_tests::short_keyword_like_branch_excludes_time_tags` 同一串)。
+//! 关键词短词分支与 FTS 分支都收全部标签(D3:时间标签已是普通标签,不再有例外)。
 use super::compile::compile;
 use super::parser::parse;
 use rusqlite::types::Value;
@@ -50,16 +49,11 @@ fn or_and_parens_map_to_boolean_sql() {
 }
 
 #[test]
-fn short_keyword_uses_like_and_excludes_time_tags_from_tag_side() {
+fn short_keyword_uses_like_on_content_and_tags() {
     let (sql, args) = frag("复盘");
     assert!(sql.contains("n.content LIKE ?"), "{sql}");
-    // 时间子树排除:与结构化短关键词共用同一串谓词(裸根也算时间子树)
-    assert!(
-        sql.contains(
-            "AND NOT ((t.path = '时间排序' OR substr(t.path, 1, length('时间排序') + 1) = '时间排序/')) AND t.path LIKE ?"
-        ),
-        "{sql}"
-    );
+    assert!(sql.contains("AND t.path LIKE ?"), "标签侧同样参与匹配:{sql}");
+    assert!(!sql.contains("时间排序"), "不再有时间子树例外:{sql}");
     assert!(!sql.contains("复盘"), "关键词值不得进 SQL:{sql}");
     assert_eq!(args.len(), 2);
 }
@@ -71,29 +65,11 @@ fn long_keyword_uses_fts() {
     assert_eq!(args.len(), 1);
 }
 
+/// 日期比较已取消(D2):编译层不再有日期项,解析阶段即被拦(中文报错)
 #[test]
-fn date_ge_compares_time_tag_path() {
-    let (sql, args) = frag("date>=2026-09-01");
-    assert!(sql.contains("t.path >= ?"), "{sql}");
-    assert!(sql.contains("length(t.path) >= 15"), "须带日级时间标签判定:{sql}");
-    assert_eq!(args[0], Value::Text("时间排序/2026/09/01".into()));
-    assert_eq!(args.len(), 1);
-}
-
-/// `>`/`<`/`<=`/`=` 一律先截到日级长度再比:更深的路径(`时间排序/Y/M/D/子级`)与当天同界
-#[test]
-fn date_operators_use_day_level_lhs_except_ge() {
-    for (src, want, n) in [
-        ("date>2026-09-01", "substr(t.path, 1, length(?)) > ?", 2),
-        ("date<2026-09-01", "substr(t.path, 1, length(?)) < ?", 2),
-        ("date<=2026-09-01", "substr(t.path, 1, length(?)) <= ?", 2),
-        ("date=2026-09-01", "substr(t.path, 1, length(?)) = ?", 2),
-    ] {
-        let (sql, args) = frag(src);
-        assert!(sql.contains(want), "{src} -> {sql}");
-        assert_eq!(args.len(), n, "{src}");
-        assert!(args.iter().all(|v| *v == Value::Text("时间排序/2026/09/01".into())), "{src}");
-    }
+fn date_comparison_no_longer_parses() {
+    let err = parse("date>=2026-09-01").unwrap_err();
+    assert_eq!(err.message, "日期比较已取消,请用时间标签筛选");
 }
 
 /// 空短语不是关键词:恒假(不能退化成 LIKE '%%' 那样"匹配一切")

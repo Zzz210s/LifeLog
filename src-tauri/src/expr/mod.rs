@@ -47,8 +47,8 @@ pub const MAX_TOKENS: usize = 100;
 pub const QUOTE_UNCLOSED: &str = "引号没有闭合";
 /// 校验错误文案:引号内没有内容(`""` / `"   "`)
 pub const QUOTE_EMPTY: &str = "引号内不能为空";
-/// 词法错误文案:日期字面量非法
-pub const DATE_INVALID: &str = "日期格式不正确(应为 YYYY-MM-DD)";
+/// 词法错误文案:日期比较已整体取消(D2),给出明确的迁移指引
+pub const DATE_REMOVED: &str = "日期比较已取消,请用时间标签筛选";
 /// 词法错误文案:标签路径非法(合法性由 tags::parse_tag_path 判定,此处只补原因文案,
 /// 字符集与内嵌标点规则的真源是 tags.rs)
 pub const TAG_PATH_INVALID: &str =

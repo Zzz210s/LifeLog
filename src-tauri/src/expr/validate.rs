@@ -37,7 +37,7 @@ pub fn validate(input: &str) -> Result<Expr, ExprError> {
 fn has_blank_phrase(e: &Expr) -> bool {
     match e {
         Expr::Keyword(k) => k.trim().is_empty(),
-        Expr::Tag { .. } | Expr::Date { .. } => false,
+        Expr::Tag { .. } => false,
         Expr::Not(inner) => has_blank_phrase(inner),
         Expr::And(a, b) | Expr::Or(a, b) => has_blank_phrase(a) || has_blank_phrase(b),
     }

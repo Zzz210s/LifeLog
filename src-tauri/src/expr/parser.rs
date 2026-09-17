@@ -1,5 +1,6 @@
 //! 表达式语法(spec 3.1):递归下降,优先级 NOT > AND > OR,括号覆盖优先级。
 //! 位置同样用**字符下标**;token 耗尽时报原文长度(错误指向表达式末尾)。
+//! 日期比较已取消(D2),叶子只有标签与关键词两种。
 use super::ast::Expr;
 use super::lexer::{lex_with_pos, ExprError, PositionedToken, Token};
 use super::MAX_DEPTH;
@@ -67,7 +68,7 @@ impl Parser {
         self.primary()
     }
 
-    /// primary := LPAREN or_expr RParen | Tag | Keyword | Date
+    /// primary := LPAREN or_expr RParen | Tag | Keyword
     fn primary(&mut self) -> Result<Expr, ExprError> {
         let pos = self.pos();
         let Some(token) = self.toks.get(self.i).map(|(_, t)| t.clone()) else {
@@ -95,10 +96,6 @@ impl Parser {
             Token::Keyword(kw) => {
                 self.i += 1;
                 Ok(Expr::Keyword(kw))
-            }
-            Token::Date { op, date } => {
-                self.i += 1;
-                Ok(Expr::Date { op, date })
             }
             Token::RParen | Token::And | Token::Or | Token::Not => {
                 Err(ExprError::new("缺少操作数", pos))
