@@ -10,8 +10,9 @@ import { FilterBar } from './FilterBar';
 import { NoteStream } from './NoteStream';
 import { SettingsView } from './SettingsView';
 import { Sidebar } from './sidebar/Sidebar';
-import { rewriteTagPaths } from './sidebar/tag-tree';
 import { useSidebarState } from './sidebar/use-sidebar-state';
+import { TabsBar } from './tabs/TabsBar';
+import { useTabs } from './tabs/use-tabs';
 import { TopBar } from './TopBar';
 import { Composer } from './Composer';
 import { useNoteActions } from './use-note-actions';
@@ -20,19 +21,15 @@ import { useBackupWarning } from './use-backup-warning';
 import { useNoteCreatedRefresh } from './use-note-created';
 import { useOpenSettings } from './use-open-settings';
 import { useNotesFeed } from './use-notes-feed';
-import { useFilterConditions } from './use-filter-conditions';
 import { useNotesExport } from './use-export';
 
-/** 主窗 v2:侧栏(视图/标签)+ 单列流(Composer + FilterBar + NoteStream) */
+/** 主窗 v2:侧栏(标签)+ 标签页栏 + 单列流(Composer + FilterBar + NoteStream) */
 export function App(): ReactNode {
-  // 筛选条件真源(含 filter_last 持久化):标签、排序、分页查询都从它派生
-  const { conditions, patch, toggleTag } = useFilterConditions();
+  // 标签页真源(S7):当前活动页的条件就是唯一条件对象,查询/筛选栏/侧栏选中态都从它派生
+  const tabs = useTabs();
+  const { conditions, patch, toggleTag, reload: reloadTabs } = tabs;
   const sidebar = useSidebarState();
   const [tagRows, setTagRows] = useState<TagCount[]>([]);
-  const [dataVersion, setDataVersion] = useState(0); // 标签/笔记数据变更信号(侧栏徽标据此重载)
-  // 视图列表变更信号:顶栏「保存为视图」成功后递增,侧栏据此即时重载(与侧栏内入口行为一致)
-  const [viewsVersion, setViewsVersion] = useState(0);
-  const bumpViews = useCallback(() => setViewsVersion((v) => v + 1), []);
   const { errors, setError, clearError } = useAppErrors();
   const [editingId, setEditingId] = useState<number | null>(null);
   const [view, setView] = useState<MainView>('stream');
@@ -48,13 +45,12 @@ export function App(): ReactNode {
       .listTags()
       .then((rows) => {
         setTagRows(rows);
-        setDataVersion((v) => v + 1);
         clearError('tags');
       })
       .catch((e) => setError('tags', '标签加载失败: ' + String(e)));
   }, [clearError, setError]);
 
-  // 筛选变化:退出编辑态(列表重查由 useNotesFeed 负责)
+  // 条件变化(含切换标签页):退出编辑态(列表重查由 useNotesFeed 负责)
   useEffect(() => {
     setEditingId(null);
   }, [conditions]);
@@ -82,7 +78,7 @@ export function App(): ReactNode {
     void api.showInputWindow().catch((e) => setError('action', '唤起输入栏失败: ' + String(e)));
   }, [setError]);
 
-  /** 空库引导:清空全部筛选条件(排序也回默认) */
+  /** 空库引导:清空当前标签页的全部筛选条件(排序也回默认) */
   const clearFilters = useCallback(() => patch(EMPTY_FILTER), [patch]);
 
   const { remove, onEditSaved, toggleTask } = useNoteActions({
@@ -95,17 +91,17 @@ export function App(): ReactNode {
     clearError,
   });
 
-  /** 标签改名/移动/删除成功:刷新标签树与徽标,并把当前筛选条件里的旧路径级联改写 */
+  /**
+   * 标签改名/移动/删除成功:刷新标签树;改名/移动时各标签页条件里的路径已由 Rust
+   * 在同一事务里重写(tabs_rewrite),这里重读 settings 即同步 —— 前端不重复实现一套重写。
+   */
   const handleTagsMutated = useCallback(
     (pathChange?: { from: string; to: string }) => {
       loadTags();
-      if (pathChange) patch(rewriteTagPaths(conditions, pathChange.from, pathChange.to));
+      if (pathChange) reloadTabs();
     },
-    [loadTags, patch, conditions]
+    [loadTags, reloadTabs]
   );
-
-  /** 应用视图条件:整体替换(视图就是一份完整条件对象) */
-  const applyView = useCallback((c: typeof conditions) => patch(c), [patch]);
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-app text-text">
@@ -114,10 +110,7 @@ export function App(): ReactNode {
         conditions={conditions}
         onPatch={patch}
         tagRows={tagRows}
-        dataVersion={dataVersion}
-        viewsVersion={viewsVersion}
         onTagsMutated={handleTagsMutated}
-        onApplyView={applyView}
       />
       {/* 内容区 min-w 保护:窄窗口下侧栏允许被压缩,内容区不被挤没 */}
       <div className="mx-auto flex h-full w-full min-w-[420px] max-w-3xl flex-1 flex-col">
@@ -130,11 +123,20 @@ export function App(): ReactNode {
         />
         {/* 信息流始终挂载:切到设置页只是隐藏,返回时分页与滚动位置都不丢(不重新查询) */}
         <div className={view === 'stream' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}>
+          <TabsBar
+            tabs={tabs.tabs}
+            activeIndex={tabs.activeIndex}
+            onActivate={tabs.activate}
+            onClose={tabs.close}
+            onMove={tabs.move}
+            onRename={tabs.rename}
+            onPreset={tabs.addPreset}
+            onAddCurrent={tabs.addFromCurrent}
+          />
           <Composer onSaved={refresh} disabled={editingId !== null} />
           <FilterBar
             conditions={conditions}
             onPatch={patch}
-            onViewsChanged={bumpViews}
             onExport={() => void onExport()}
             exporting={exporting}
             exported={exported}

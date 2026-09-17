@@ -1,6 +1,5 @@
 /**
- * 条件对象的解析与归一(从 filter-conditions.ts 拆出,纯搬移):
- * 设置里持久化的 JSON、保存视图等外部来源都要先过这里;
+ * 持久化文本解析:标签页的 tabs_state 等外部来源都要先过这里;
  * 结构非法一律回退 EMPTY_FILTER,绝不把半成品对象放进状态机。
  */
 import { EMPTY_FILTER, validateFilter } from './filter-conditions';
@@ -37,23 +36,6 @@ export function normalizeFilter(c: Partial<FilterConditions> | null | undefined)
     sort: c?.sort === 'oldest' ? 'oldest' : 'newest',
     expr: keepExpr(c?.expr ?? null),
   };
-}
-
-/**
- * 持久化文本里是否残留已取消的日期字段(`from`/`to`)。
- * 迁移 011 只清了 saved_views,`settings.filter_last` 仍可能带着旧键;
- * 调用方据此把归一后的条件回写一次(幂等,坏 JSON 不算残留)。
- */
-export function hasLegacyDateKeys(raw: string | null): boolean {
-  if (raw === null || raw.trim() === '') return false;
-  let data: unknown;
-  try {
-    data = JSON.parse(raw);
-  } catch {
-    return false;
-  }
-  if (!isRecord(data)) return false;
-  return 'from' in data || 'to' in data;
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>

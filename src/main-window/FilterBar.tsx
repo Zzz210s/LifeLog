@@ -4,7 +4,6 @@ import type { FilterConditions } from '../shared/filter-conditions';
 import { AddConditionMenu } from './AddConditionMenu';
 import { ExprDialog } from './ExprDialog';
 import { FilterChips } from './FilterChips';
-import { SaveViewDialog } from './SaveViewDialog';
 import { TagPickDialog } from './TagPickDialog';
 import { applyTagPick, chipsOf, summaryOf, summaryTitleOf } from './filter-chips';
 
@@ -13,8 +12,6 @@ export interface FilterBarProps {
   conditions: FilterConditions;
   /** 局部更新条件 */
   onPatch: (value: Partial<FilterConditions>) => void;
-  /** 本栏「保存为视图」成功后通知上层:侧栏视图列表据此即时重载 */
-  onViewsChanged?: () => void;
   /** 导出(整库 xlsx;未传则不渲染按钮) */
   onExport?: () => void;
   exporting?: boolean;
@@ -22,7 +19,7 @@ export interface FilterBarProps {
 }
 
 /**
- * 筛选栏:关键词(300ms 防抖上抛)| 条件 chips + 添加条件 + 保存为视图 | 导出(可选)。
+ * 筛选栏:关键词(300ms 防抖上抛)| 条件 chips + 添加条件 | 导出(可选)。
  * 标签选点入口已收敛到侧栏(主入口)与本栏「添加条件」的标签选择器(排除/仅本级);
  * 旧标签板(仅本级链接的平铺 chips)移除,条件 chips 的显示/单删保留。
  */
@@ -38,9 +35,6 @@ export function FilterBar(p: FilterBarProps): ReactNode {
 
   const [tagPick, setTagPick] = useState<{ exclude: boolean } | null>(null);
   const [exprOpen, setExprOpen] = useState(false);
-  const [saveOpen, setSaveOpen] = useState(false);
-  const [flash, setFlash] = useState<string | null>(null);
-  const flashTimer = useRef<number | null>(null);
 
   // 仅在外部 keyword 不是本组件上抛的值时才回写:否则会覆盖正在输入的内容
   useEffect(() => {
@@ -60,25 +54,6 @@ export function FilterBar(p: FilterBarProps): ReactNode {
     }, 300);
   };
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
-
-  /** 立即上抛仍在防抖中的关键词:保存视图前调用,否则存下的视图会缺关键词 */
-  const flushKeyword = () => {
-    if (timer.current) {
-      clearTimeout(timer.current);
-      timer.current = null;
-    }
-    if (kw !== sent.current) {
-      sent.current = kw;
-      p.onPatch({ keyword: kw });
-    }
-  };
-
-  const showFlash = (text: string) => {
-    setFlash(text);
-    if (flashTimer.current) clearTimeout(flashTimer.current);
-    flashTimer.current = window.setTimeout(() => setFlash(null), 1500);
-  };
-  useEffect(() => () => { if (flashTimer.current) clearTimeout(flashTimer.current); }, []);
 
   const summary = summaryOf(p.conditions);
   const summaryTitle = summaryTitleOf(p.conditions);
@@ -105,17 +80,6 @@ export function FilterBar(p: FilterBarProps): ReactNode {
           onPickTag={(exclude) => setTagPick({ exclude })}
           onOpenExpr={() => setExprOpen(true)}
         />
-        <button
-          onClick={() => {
-            flushKeyword(); // 先把输入框当前值上抛,再开对话框
-            setSaveOpen(true);
-          }}
-          title="把当前条件保存为视图"
-          className="h-8 shrink-0 rounded-md border border-border px-2.5 text-xs text-muted hover:border-accent hover:text-accent-text"
-        >
-          保存为视图
-        </button>
-        {flash && <span className="shrink-0 text-xs text-success">{flash}</span>}
         {p.onExport && (
           <>
             {p.exported && <span className="shrink-0 text-xs text-success">已导出</span>}
@@ -156,16 +120,6 @@ export function FilterBar(p: FilterBarProps): ReactNode {
           value={p.conditions.expr}
           onClose={() => setExprOpen(false)}
           onSave={(e) => p.onPatch({ expr: e.trim() === '' ? null : e })}
-        />
-      )}
-      {saveOpen && (
-        <SaveViewDialog
-          conditions={p.conditions}
-          onClose={() => setSaveOpen(false)}
-          onSaved={() => {
-            showFlash('已保存视图');
-            p.onViewsChanged?.();
-          }}
         />
       )}
     </div>

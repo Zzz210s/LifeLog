@@ -1,6 +1,6 @@
 /**
- * 侧栏容器(spec 6.1):视图分区 + 标签分区,右缘 4px 热区拖宽(180-420,松手才落库),
- * 顶部「隐藏」按钮整栏收起(顶栏提供「显示侧栏」入口)。
+ * 侧栏容器(spec 6.1):标签分区(视图分区已随视图模块删除,S6——标签页在顶栏下方),
+ * 右缘 4px 热区拖宽(180-420,松手才落库),顶部「隐藏」按钮整栏收起(顶栏提供「显示侧栏」入口)。
  * 时间分区已删除(spec 2026-09-17 D3):时间标签降级为普通标签,就在标签分区里。
  * 窄窗口保护:内容区 min-w 在 App 侧声明,本栏允许被压缩(不设 shrink-0)。
  */
@@ -9,7 +9,6 @@ import type { ReactNode } from 'react';
 import type { FilterConditions } from '../../shared/filter-conditions';
 import type { TagCount } from '../../shared/types';
 import { TagsSection } from './TagsSection';
-import { ViewsSection } from './ViewsSection';
 import { clampSidebarWidth } from './use-sidebar-state';
 import type { SidebarStateApi } from './use-sidebar-state';
 
@@ -19,14 +18,8 @@ export interface SidebarProps {
   onPatch: (value: Partial<FilterConditions>) => void;
   /** 全量标签行(list_tags,含 id) */
   tagRows: TagCount[];
-  /** 数据变更信号:侧栏据此重载视图列表与徽标 */
-  dataVersion: number;
-  /** 视图变更信号:顶栏保存视图后递增,视图分区据此即时重载 */
-  viewsVersion: number;
-  /** 标签改名/移动/删除成功后:刷新标签树 + 级联改写当前筛选条件 */
+  /** 标签改名/移动/删除成功后:刷新标签树 + 级联改写当前标签页条件 */
   onTagsMutated: (pathChange?: { from: string; to: string }) => void;
-  /** 应用视图条件(整体替换当前条件对象) */
-  onApplyView: (c: FilterConditions) => void;
 }
 
 /** 拖宽热区:右缘 4px(w-1),光标与悬停高亮提示可拖 */
@@ -76,12 +69,6 @@ export function Sidebar(p: SidebarProps): ReactNode {
           </svg>
         </button>
       </div>
-      <ViewsSection
-        conditions={p.conditions}
-        onApplyView={p.onApplyView}
-        dataVersion={p.dataVersion}
-        viewsVersion={p.viewsVersion}
-      />
       <TagsSection
         conditions={p.conditions}
         onPatch={p.onPatch}

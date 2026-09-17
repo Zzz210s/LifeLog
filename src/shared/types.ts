@@ -38,19 +38,6 @@ export interface ExprCheck {
   preview: string;
 }
 
-/** 自建保存视图(内置视图是代码常量不入表;字段 snake_case 直传,同 Note 惯例) */
-export interface SavedView {
-  id: number;
-  title: string;
-  conditions: FilterConditions;
-  sort_order: number;
-  created_at: string;
-  /** 图标名(lucide 组件名,如 inbox);null = 无图标(见 main-window/view-icons.tsx 白名单) */
-  icon: string | null;
-  /** 表达式引用但当前库中已不存在的标签路径(无表达式/无失效时为空数组;侧栏用行内提示标记) */
-  broken_paths: string[];
-}
-
 /** 设置页「通用」分区展示的数据库信息(只读) */
 export interface DbInfo {
   path: string;

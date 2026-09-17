@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { EMPTY_FILTER } from './filter-conditions';
 import { canEvaluateLocally, matchesTagsByPath } from './filter-conditions-local';
-import { hasLegacyDateKeys, normalizeFilter, parseFilterJson } from './filter-conditions-parse';
+import { normalizeFilter, parseFilterJson } from './filter-conditions-parse';
 import type { FilterConditions, TagCond } from './filter-conditions';
 
 const tag = (path: string, includeChildren = false): TagCond => ({ path, includeChildren });
@@ -45,7 +45,7 @@ describe('parseFilterJson', () => {
       sort: 'oldest',
       expr: '#工作 AND NOT #临时',
     });
-    // 只有旧日期键也不回退默认:归一后就是空条件(合法)
+    // 只有旧日期键也不回退默认:归一后就是空条件(合法;迁移 014 起 filter_last 键也已删除)
     expect(parseFilterJson(JSON.stringify({ from: '2026-08-01', to: '2026-09-13' }))).toEqual(EMPTY_FILTER);
   });
 
@@ -61,22 +61,6 @@ describe('parseFilterJson', () => {
     expect(parseFilterJson(JSON.stringify({ tags: [{ path: '工作' }] }))).toEqual(
       cond({ tags: [tag('工作')] })
     );
-  });
-});
-
-describe('hasLegacyDateKeys(旧 filter_last 归一信号)', () => {
-  it('带 from/to 的合法 JSON 才算残留', () => {
-    expect(hasLegacyDateKeys(JSON.stringify({ from: '2026-08-01' }))).toBe(true);
-    expect(hasLegacyDateKeys(JSON.stringify({ to: null }))).toBe(true);
-    expect(hasLegacyDateKeys(JSON.stringify({ from: null, to: null, keyword: '电影' }))).toBe(true);
-  });
-
-  it('无旧键、空串、坏 JSON、非对象一律不算', () => {
-    expect(hasLegacyDateKeys(JSON.stringify({ keyword: '电影' }))).toBe(false);
-    expect(hasLegacyDateKeys(null)).toBe(false);
-    expect(hasLegacyDateKeys('   ')).toBe(false);
-    expect(hasLegacyDateKeys('{不是 json')).toBe(false);
-    expect(hasLegacyDateKeys('[1,2]')).toBe(false);
   });
 });
 
