@@ -8,6 +8,7 @@ import {
   type InputSettings,
 } from '../../shared/input-settings';
 import { RowControl, SettingsRow } from './controls';
+import { HotkeyRecorder } from './HotkeyRecorder';
 import { notifyInputSettingsChanged } from './input-settings-events';
 import { inputResetKeys, inputRows, resetInputSettings, withInputSetting } from './settings-model';
 
@@ -92,6 +93,7 @@ export function InputBarSection(): ReactNode {
                 <RowControl row={row} value={settings[row.key]} onChange={update} />
               </SettingsRow>
             ))}
+            <HotkeyRecorder />
           </div>
           <div className="border-t border-border px-4 py-3">
             <button

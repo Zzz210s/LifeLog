@@ -44,6 +44,8 @@ export const api = {
   deleteNote: (id: number) => invoke<void>('delete_note', { id }),
   exportNotes: (path: string) => invoke<void>('export_notes', { path }),
   hideInputBar: () => invoke<void>('hide_input_bar'),
+  /** 设置输入栏唤起快捷键:成功返回规范化后的生效值;失败返回中文原因且旧键仍可用 */
+  setInputHotkey: (accelerator: string) => invoke<string>('set_input_hotkey', { accelerator }),
   /** 显示(不切换)输入栏:主窗空库引导用 */
   showInputWindow: () => invoke<void>('show_input_bar'),
   /** 取一次「迁移前自动备份失败」提示(取值即清空;无提示时返回 null) */
