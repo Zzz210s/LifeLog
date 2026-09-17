@@ -1,11 +1,10 @@
-use tauri_plugin_global_shortcut::GlobalShortcutExt;
-
 mod commands;
 mod db;
 mod exchange;
 // 表达式纯逻辑层:validate 与 compile 被 db::repos::notes_filter 引用,
 // describe 供 commands::expr::validate_expr 的实时预览;IPC 入口在 commands/expr.rs
 mod expr;
+mod hotkey;
 mod startup_report;
 mod tags;
 mod timetag;
@@ -110,8 +109,10 @@ pub fn run() {
                     })
                     .build(),
             )?;
-            // 热键注册失败(如被其他应用占用)不阻断启动,输入栏仍可从托盘唤起
-            if let Err(e) = app.global_shortcut().register("ctrl+shift+q") {
+            // 快捷键来自设置(input_hotkey):缺失/非法回退默认键,注册失败再回退默认键,
+            // 两者都失败只写日志、不阻断启动(输入栏仍可从托盘唤起)
+            let stored = windowing::input_geom::get_str(app.handle(), hotkey::HOTKEY_KEY);
+            if let Err(e) = hotkey::apply(app.handle(), stored.as_deref()) {
                 eprintln!("全局热键注册失败,输入栏仍可从托盘唤起:{e}");
             }
             // 启动动作只由设置决定(spec 3.1:手动启动与开机自启一致):
