@@ -93,10 +93,11 @@ The window *is* the input box: no frame, no title bar, no buttons, transparent s
   link rows, so a tag rename or an edit updates the associations
 - Markdown rendering (tables, task lists, fenced code with syntax highlighting) through a single
   sanitising entry point
-- `#todo` notes render a checkbox; ticking it swaps the tag to `#done`, unticking swaps it back
+- Completion is expressed in the note body as a Markdown task list (`- [ ]` / `- [x]`), rendered as
+  read-only checkboxes; there are no `done`/`doing` tags and no per-note inline checkbox
 - The note stream shows no time at all: the only time-like information is the ordinary
   `时间排序/YYYY/MM/DD` tag tree
-- The built-in "待办" view means the `待办` tag (children included) minus anything under `done`;
+- The built-in "待办" view means the `待办` tag (children included);
   "无自定义标签" means no tags at all
 
 **Export**
@@ -145,7 +146,7 @@ Artifacts:
 4. Press `Ctrl+Enter`. The note is stored, the input clears, `已保存 HH:MM` flashes and the main
    window refreshes.
 5. In the main window, search by keyword, click a tag chip to filter, switch the ordering, edit a
-   note in the split pane, tick `#todo` items, or export everything to Excel.
+   note in the split pane, or export everything to Excel.
 
 Tray menu (right click): open the input bar, open the main window, settings, quit. A left click on
 the tray icon opens the main window (same as the menu item); the input bar is still surfaced by the
