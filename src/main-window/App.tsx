@@ -85,7 +85,7 @@ export function App(): ReactNode {
   /** 空库引导:清空全部筛选条件(排序也回默认) */
   const clearFilters = useCallback(() => patch(EMPTY_FILTER), [patch]);
 
-  const { remove, toggleTodo, onEditSaved, setDate, dateFlash } = useNoteActions({
+  const { remove, toggleTodo, onEditSaved } = useNoteActions({
     conditions,
     fetchPage,
     setNotes,
@@ -140,11 +140,6 @@ export function App(): ReactNode {
             exported={exported}
           />
           <ErrorBars errors={errors} onRetry={retry} onDismiss={clearError} />
-          {dateFlash && (
-            <div role="status" className="px-4 pt-1 text-xs text-success">
-              日期已更新
-            </div>
-          )}
           <NoteStream
             notes={notes}
             queryFailed={queryFailed}
@@ -161,7 +156,6 @@ export function App(): ReactNode {
             onEdit={(n) => setEditingId(n.id)}
             onDelete={remove}
             onToggleTodo={toggleTodo}
-            onDateChange={setDate}
             onEditSaved={onEditSaved}
             onEditCancel={() => setEditingId(null)}
             onLinkError={(m) => setError('action', m)}

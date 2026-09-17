@@ -1,10 +1,9 @@
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { renderMarkdown } from '../shared/markdown';
-import { normalTags } from '../shared/time-tag';
+import { formatNoteTime } from '../shared/note-time';
 import type { Note } from '../shared/types';
 import { MarkdownBody } from './MarkdownBody';
-import { NoteDateCell } from './NoteDateCell';
 import { tagDisplayName } from './tag-display';
 
 export interface NoteItemProps {
@@ -14,26 +13,33 @@ export interface NoteItemProps {
   onEdit: () => void;
   onDelete: () => void;
   onToggleTodo: () => void;
-  /** 日期改期(点日期 -> 选择器 -> 选定即提交) */
-  onDateChange: (note: Note, date: string) => void;
   /** 正文内链接打开失败上报(交主窗错误机制) */
   onLinkError?: (message: string) => void;
 }
 
-/** 单条笔记:时间 + #todo 复选框 + markdown 正文 + 标签 chips + 悬停编辑/删除 */
+/** 单条笔记:创建时间(只显示)+ #todo 复选框 + markdown 正文 + 标签 chips + 悬停编辑/删除 */
 export function NoteItem(p: NoteItemProps): ReactNode {
   const { note } = p;
   const isTodo = note.tags.includes('todo');
   const isDone = note.tags.includes('done');
-  // chip 行只展示普通标签:时间标签是系统元数据,日期已在头部单独显示(不堆 `#15` 这类噪音)
-  const chips = normalTags(note.tags);
+  // chip 行展示全部标签:时间标签已降级为普通标签(D3),不再是需要滤掉的系统元数据
+  const chips = note.tags;
+  const time = formatNoteTime(note.created_at);
   // 正文渲染按内容缓存:流内任一条目变化会重渲整列,避免重复解析 markdown
   const html = useMemo(() => renderMarkdown(note.content), [note.content]);
 
   return (
     <li className="group border-b border-border px-4 py-3">
       <div className="flex items-center gap-2">
-        <NoteDateCell date={note.date} onChange={(d) => p.onDateChange(note, d)} />
+        {time !== '' && (
+          <time
+            dateTime={note.created_at}
+            title={note.created_at}
+            className="text-xs text-faint tabular-nums"
+          >
+            {time}
+          </time>
+        )}
         {/* 键盘用户聚焦时也显示操作按钮(不只 group-hover) */}
         <div className="ml-auto flex gap-2 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
           <button onClick={p.onEdit} className="text-xs text-faint hover:text-accent-text">

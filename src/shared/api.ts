@@ -38,9 +38,6 @@ export const api = {
   updateNote: (id: number, content: string) =>
     invoke<Note | null>('update_note', { id, content }),
   toggleTodo: (id: number) => invoke<Note | null>('toggle_todo', { id }),
-  /** 改期:时间标签解链后链到 `时间排序/YYYY/MM/DD`(非法日期 reject 中文提示) */
-  setNoteDate: (noteId: number, date: string) =>
-    invoke<Note | null>('set_note_date', { noteId, date }),
   deleteNote: (id: number) => invoke<void>('delete_note', { id }),
   exportNotes: (path: string) => invoke<void>('export_notes', { path }),
   hideInputBar: () => invoke<void>('hide_input_bar'),
@@ -63,6 +60,9 @@ export const api = {
     invoke<void>('set_input_locks', { lockMove, lockClose, lockContent }),
   getSetting: (key: string) => invoke<string | null>('get_setting', { key }),
   setSetting: (key: string, value: string) => invoke<void>('set_setting', { key, value }),
+  /** 设置页「笔记」分区:时间标签模板即时校验(合法 resolve,非法 reject 中文原因) */
+  validateTimeTagTemplate: (template: string) =>
+    invoke<void>('validate_time_tag_template', { template }),
   /** 设置页「通用」分区:数据库文件路径与笔记条数(只读) */
   getDbInfo: () => invoke<DbInfo>('get_db_info'),
   /** 设置页「启动」分区:注册表里的真实开机启动状态(只读;path_ok=false 表示路径已失效)。

@@ -1,9 +1,9 @@
 /**
  * 笔记就地变更动作(自 App 抽出以守 200 行上限):编辑保存、勾选待办、删除。
- * 决策 G5 一并在此:含关键词或本地判不了的条件(含子级/排除/日期/有无标签)时重查首页,
+ * 决策 G5 一并在此:含关键词或本地判不了的条件(含子级/排除/有无标签/表达式)时重查首页,
  * 否则就地替换并本地移除不再满足标签筛选的条目(保住分页与滚动位置,S3)。
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { confirm } from '@tauri-apps/plugin-dialog';
 import { api } from '../shared/api';
@@ -26,13 +26,6 @@ export interface NoteActionsDeps {
 
 export function useNoteActions(d: NoteActionsDeps) {
   const { conditions, fetchPage, setNotes, setEditingId, reload, setError, clearError } = d;
-  const [dateFlash, setDateFlash] = useState(false); // 改期成功提示(2 秒后消失,同导出提示)
-
-  useEffect(() => {
-    if (!dateFlash) return;
-    const id = window.setTimeout(() => setDateFlash(false), 2000);
-    return () => window.clearTimeout(id);
-  }, [dateFlash]);
   /**
    * 变更后落库视图:有关键词筛选时重查首页 —— keyword 同时匹配正文与标签两列,
    * 本地判不了命中,正确性优先于滚动位置;无条件收窄时就地更新。
@@ -105,25 +98,5 @@ export function useNoteActions(d: NoteActionsDeps) {
     [applyNoteChange, setEditingId, reload, clearError]
   );
 
-  /**
-   * 改期:时间标签变化会同时影响排序(4.3 按时间标签路径)与筛选(日期范围/时间标签条件),
-   * 本地判不了命中与次序,故成功后重查首页并刷新标签徽标(reload),不做就地替换。
-   * 失败只报错,不动本地状态(列表保持后端事实)。
-   */
-  const setDate = useCallback(
-    (note: Note, date: string) => {
-      void api
-        .setNoteDate(note.id, date)
-        .then(() => {
-          clearError('action');
-          reload();
-          void fetchPage(0, false);
-          setDateFlash(true);
-        })
-        .catch((e) => setError('action', '修改日期失败: ' + String(e)));
-    },
-    [clearError, fetchPage, reload, setError]
-  );
-
-  return { remove, toggleTodo, onEditSaved, setDate, dateFlash };
+  return { remove, toggleTodo, onEditSaved };
 }

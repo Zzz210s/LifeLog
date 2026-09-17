@@ -26,8 +26,6 @@ export interface NoteStreamProps {
   onEdit: (note: Note) => void;
   onDelete: (note: Note) => void;
   onToggleTodo: (note: Note) => void;
-  /** 改期:选定新日期后提交(成功后重查首页) */
-  onDateChange: (note: Note, date: string) => void;
   onEditSaved: (note: Note) => void;
   onEditCancel: () => void;
   /** 流内/预览区链接打开失败上报(交主窗错误机制) */
@@ -92,7 +90,6 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
               onEdit={() => p.onEdit(n)}
               onDelete={() => p.onDelete(n)}
               onToggleTodo={() => p.onToggleTodo(n)}
-              onDateChange={p.onDateChange}
               onLinkError={p.onLinkError}
             />
           )
