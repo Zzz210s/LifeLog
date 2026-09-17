@@ -1,4 +1,4 @@
-//! update/toggle_todo 测试(测试先行 TDD)
+//! update 测试(测试先行 TDD)
 use super::*;
 use crate::db::migrate;
 use crate::db::repos::notes::{create_plain, notes_filter::*, query};
@@ -101,68 +101,3 @@ fn update_keeps_fts_in_sync() {
     assert!(query(&c, &f(Some("甲标签")), 0).unwrap().is_empty());
 }
 
-#[test]
-fn toggle_todo_swaps_to_done_with_content_intact() {
-    let mut c = db();
-    let n = create_plain(&mut c, "买牛奶 #todo").unwrap();
-    let t = toggle_todo(&mut c, n.id).unwrap().unwrap();
-    assert_eq!(t.id, n.id);
-    assert_eq!(t.content, "买牛奶"); // 正文不动,仅标签集合切换
-    assert_eq!(t.tags, vec!["done"]);
-    // 库内链接同样切换
-    let done_link = count(
-        &c,
-        "SELECT COUNT(*) FROM tag_links l JOIN tags t ON t.id = l.tag_id WHERE t.name='done' AND l.target_id=?1",
-        &[&n.id],
-    );
-    assert_eq!(done_link, 1);
-    let todo_link = count(
-        &c,
-        "SELECT COUNT(*) FROM tag_links l JOIN tags t ON t.id = l.tag_id WHERE t.name='todo' AND l.target_id=?1",
-        &[&n.id],
-    );
-    assert_eq!(todo_link, 0);
-}
-
-#[test]
-fn toggle_todo_swaps_done_back_to_todo() {
-    let mut c = db();
-    let n = create_plain(&mut c, "已完成事项 #done").unwrap();
-    let t = toggle_todo(&mut c, n.id).unwrap().unwrap();
-    assert_eq!(t.tags, vec!["todo"]);
-    assert_eq!(t.content, "已完成事项");
-}
-
-#[test]
-fn toggle_todo_untagged_note_unchanged() {
-    let mut c = db();
-    let n = create_plain(&mut c, "普通 #随笔").unwrap();
-    let changes_before = c.total_changes();
-    let t = toggle_todo(&mut c, n.id).unwrap().unwrap();
-    assert_eq!(t.id, n.id);
-    assert_eq!(t.content, "普通");
-    assert_eq!(t.tags, vec!["随笔"]); // 其余标签原样保留
-    // 无 todo/done 时不做任何写操作:连接累计改动行数不变(S3 删列后不能再靠 updated_at 观察)
-    assert_eq!(c.total_changes(), changes_before);
-}
-
-#[test]
-fn toggle_todo_missing_returns_none() {
-    let mut c = db();
-    create_plain(&mut c, "存在").unwrap();
-    assert!(toggle_todo(&mut c, 9999).unwrap().is_none());
-}
-
-#[test]
-fn toggle_todo_keeps_fts_in_sync() {
-    let mut c = db();
-    let n = create_plain(&mut c, "#todo 任务一").unwrap();
-    toggle_todo(&mut c, n.id).unwrap().unwrap();
-    // 切到 done 后:done 可检索、todo 不再命中(tags 列聚合)
-    assert_eq!(query(&c, &f(Some("done")), 0).unwrap().len(), 1);
-    assert!(query(&c, &f(Some("todo")), 0).unwrap().is_empty());
-    // 再切回 todo,双向同步
-    toggle_todo(&mut c, n.id).unwrap().unwrap();
-    assert_eq!(query(&c, &f(Some("todo")), 0).unwrap().len(), 1);
-    assert!(query(&c, &f(Some("done")), 0).unwrap().is_empty());
-}

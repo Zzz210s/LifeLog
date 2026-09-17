@@ -1,4 +1,4 @@
-//! notes 更新层(自 notes.rs 拆出以守 200 行上限):update/toggle_todo。
+//! notes 更新层(自 notes.rs 拆出以守 200 行上限):update。
 //! 链接为增量替换(未变化的标签链不动),收尾由 tags_tree 精确回收孤儿。
 //! 时间标签已是普通标签(D3):不再有"系统添加必须保留"的特例 —— 编辑界面把标签
 //! 回显为 `#tag` 文本,正文里带回来的标签就是最终集合(想去/改时间就改那段文本)。
@@ -42,9 +42,7 @@ pub fn update(conn: &mut Connection, id: i64, content: &str) -> rusqlite::Result
     Ok(note)
 }
 
-/// 读取笔记当前标签的完整路径(树语义真源)。toggle 必须按路径往返:
-/// read_full 已改按 t.path 返回完整路径,此处同取路径,同名末级(不同父级)
-/// 不会串到别的节点上。
+/// 读取笔记当前标签的完整路径(树语义真源,供 update 的「标签被移除」审计日志对读)。
 fn tag_paths(conn: &rusqlite::Connection, id: i64) -> rusqlite::Result<Vec<String>> {
     let mut stmt = conn.prepare(
         "SELECT t.path FROM tag_links l JOIN tags t ON t.id = l.tag_id
@@ -52,46 +50,6 @@ fn tag_paths(conn: &rusqlite::Connection, id: i64) -> rusqlite::Result<Vec<Strin
     )?;
     let rows = stmt.query_map(params![id], |r| r.get(0))?;
     rows.collect()
-}
-
-/// 把(可能含存量不可解析 path 的)标签路径集合解析成 tag id 集合。
-/// 可解析的 path 走 ensure_path;存量名(v1.0、看电影.、a·b、含空格/含 '/')沿用既有 tag_id。
-fn resolve_ids(conn: &rusqlite::Connection, paths: &[String]) -> rusqlite::Result<Vec<i64>> {
-    let mut ids: Vec<i64> = Vec::new();
-    for p in paths {
-        let id = crate::db::repos::tags_tree::resolve_id(conn, p)?;
-        if !ids.contains(&id) {
-            ids.push(id);
-        }
-    }
-    Ok(ids)
-}
-
-/// 切换 #todo/#done:含 todo 换 done,含 done 换 todo,均无则原样返回不写库。
-/// 仅改标签集合,正文字节不动;id 不存在返回 None。
-/// 存量标签的 path 不可解析(006 原样保留),故不走带校验的 set_tags,改为按 id 替换链接。
-pub fn toggle_todo(conn: &mut Connection, id: i64) -> rusqlite::Result<Option<super::Note>> {
-    let current = match read_full(conn, id)? {
-        Some(n) => n,
-        None => return Ok(None),
-    };
-    let mut tags = tag_paths(conn, id)?;
-    if tags.iter().any(|t| t == "todo") {
-        tags.retain(|t| t != "todo");
-        tags.push("done".to_string());
-    } else if tags.iter().any(|t| t == "done") {
-        tags.retain(|t| t != "done");
-        tags.push("todo".to_string());
-    } else {
-        return Ok(Some(current));
-    }
-    tags.sort(); // 与 read_full 的 ORDER BY t.path 序一致
-    let tx = conn.transaction()?;
-    let ids = resolve_ids(&tx, &tags)?;
-    crate::db::repos::tags_tree::replace_links(&tx, id, &ids)?;
-    let note = read_full(&tx, id)?;
-    tx.commit()?;
-    Ok(note)
 }
 
 #[cfg(test)]

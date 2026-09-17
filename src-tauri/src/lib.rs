@@ -42,7 +42,6 @@ pub fn run() {
             commands::notes::save_input_note,
             commands::notes::query_notes,
             commands::notes::update_note,
-            commands::notes::toggle_todo,
             commands::notes::delete_note,
             commands::expr::validate_expr,
             commands::exchange::export_notes,

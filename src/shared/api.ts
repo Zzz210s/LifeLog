@@ -41,7 +41,6 @@ export const api = {
 /** 更新笔记:**标签集合整集合替换**为正文里的 #标签 —— 调用方必须自带该笔记的全部标签(UI 编辑框会回显),否则会丢标签 */
   updateNote: (id: number, content: string) =>
     invoke<Note | null>('update_note', { id, content }),
-  toggleTodo: (id: number) => invoke<Note | null>('toggle_todo', { id }),
   deleteNote: (id: number) => invoke<void>('delete_note', { id }),
   exportNotes: (path: string) => invoke<void>('export_notes', { path }),
   hideInputBar: () => invoke<void>('hide_input_bar'),

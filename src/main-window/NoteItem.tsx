@@ -11,16 +11,15 @@ export interface NoteItemProps {
   onTagClick: (name: string) => void;
   onEdit: () => void;
   onDelete: () => void;
-  onToggleTodo: () => void;
   /** 正文内链接打开失败上报(交主窗错误机制) */
   onLinkError?: (message: string) => void;
 }
 
-/** 单条笔记:#todo 复选框 + markdown 正文 + 标签 chips + 悬停编辑/删除(不再显示时间,S2) */
+/** 单条笔记:markdown 正文 + 标签 chips + 悬停编辑/删除(不再显示时间,S2;
+ *  行内「完成复选框」已随 done/doing 一并删除(S5),完成状态由正文里的 Markdown
+ *  任务列表(- [ ] / - [x])表达) */
 export function NoteItem(p: NoteItemProps): ReactNode {
   const { note } = p;
-  const isTodo = note.tags.includes('todo');
-  const isDone = note.tags.includes('done');
   // chip 行展示全部标签:时间标签已降级为普通标签(D3),不再是需要滤掉的系统元数据
   const chips = note.tags;
   // 正文渲染按内容缓存:流内任一条目变化会重渲整列,避免重复解析 markdown
@@ -39,22 +38,11 @@ export function NoteItem(p: NoteItemProps): ReactNode {
           </button>
         </div>
       </div>
-      <div className="mt-1 flex items-start gap-2">
-        {(isTodo || isDone) && (
-          <input
-            type="checkbox"
-            checked={isDone}
-            onChange={p.onToggleTodo}
-            aria-label="todo 状态切换"
-            className="mt-1 h-4 w-4 shrink-0 accent-accent"
-          />
-        )}
-        <MarkdownBody
-          html={html}
-          className="md-body min-w-0 flex-1 text-sm text-text"
-          onLinkError={p.onLinkError}
-        />
-      </div>
+      <MarkdownBody
+        html={html}
+        className="md-body mt-1 min-w-0 text-sm text-text"
+        onLinkError={p.onLinkError}
+      />
       {chips.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1.5">
           {chips.map((t) => {

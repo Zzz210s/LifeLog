@@ -45,10 +45,3 @@ pub fn update_note(
     repos::notes::update(&mut conn, id, &content).map_err(|e| e.to_string())
 }
 
-/// 切换 #todo/#done 标签;均无则原样返回
-#[tauri::command]
-pub fn toggle_todo(app: AppHandle, id: i64) -> Result<Option<repos::notes::Note>, String> {
-    let db: State<Db> = app.state();
-    let mut conn = db.0.lock().map_err(|e| e.to_string())?;
-    repos::notes::toggle_todo(&mut conn, id).map_err(|e| e.to_string())
-}

@@ -161,17 +161,3 @@ fn update_uses_exactly_the_tags_written_in_the_body() {
     assert!(bare.tags.is_empty());
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE name='甲标签'"), 0, "旧标签按语义回收");
 }
-
-/// #todo 勾选切换走替换语义:自动标签已是普通标签,按当前链接集合原样保留
-#[test]
-fn toggle_todo_keeps_auto_time_tag() {
-    let mut c = db();
-    let auto = today_path("时间排序");
-    let n = create(&mut c, "买牛奶 #todo").unwrap();
-
-    let t = toggle_todo(&mut c, n.id).unwrap().unwrap();
-
-    assert_eq!(t.tags, vec!["done".to_string(), auto.clone()], "含 todo 换 done,自动标签保留");
-    let back = toggle_todo(&mut c, n.id).unwrap().unwrap();
-    assert_eq!(back.tags, vec!["todo".to_string(), auto]);
-}

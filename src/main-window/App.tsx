@@ -85,7 +85,7 @@ export function App(): ReactNode {
   /** 空库引导:清空全部筛选条件(排序也回默认) */
   const clearFilters = useCallback(() => patch(EMPTY_FILTER), [patch]);
 
-  const { remove, toggleTodo, onEditSaved } = useNoteActions({
+  const { remove, onEditSaved } = useNoteActions({
     conditions,
     fetchPage,
     setNotes,
@@ -155,7 +155,6 @@ export function App(): ReactNode {
             onTagClick={toggleTag}
             onEdit={(n) => setEditingId(n.id)}
             onDelete={remove}
-            onToggleTodo={toggleTodo}
             onEditSaved={onEditSaved}
             onEditCancel={() => setEditingId(null)}
             onLinkError={(m) => setError('action', m)}

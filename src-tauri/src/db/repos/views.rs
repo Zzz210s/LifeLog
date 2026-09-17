@@ -62,7 +62,7 @@ pub fn builtins() -> Vec<(&'static str, &'static str)> {
     vec![("all", "全部"), ("todo", "待办"), ("untagged", "无自定义标签")]
 }
 
-/// 内置视图的条件(D7):待办 = 引入 `待办`(含子级)+ 排除 `done`(含子级);
+/// 内置视图的条件(D7/S5):待办 = 引入 `待办`(含子级),不再排除已删除的 `done`;
 /// 无自定义标签 = 无**任何**标签(时间标签已是普通标签,不再例外);
 /// 全部与未知 key 一律回退空条件(全部)。
 pub fn conditions_of_builtin(key: &str) -> FilterConditions {
@@ -70,7 +70,6 @@ pub fn conditions_of_builtin(key: &str) -> FilterConditions {
     match key {
         "todo" => FilterConditions {
             tags: vec![with_children("待办")],
-            exclude_tags: vec![with_children("done")],
             ..FilterConditions::default()
         },
         "untagged" => FilterConditions {

@@ -1,5 +1,5 @@
 /**
- * 笔记就地变更动作(自 App 抽出以守 200 行上限):编辑保存、勾选待办、删除。
+ * 笔记就地变更动作(自 App 抽出以守 200 行上限):编辑保存、删除。
  * 决策 G5 一并在此:含关键词或本地判不了的条件(含子级/排除/有无标签/表达式)时重查首页,
  * 否则就地替换并本地移除不再满足标签筛选的条目(保住分页与滚动位置,S3)。
  */
@@ -73,20 +73,6 @@ export function useNoteActions(d: NoteActionsDeps) {
     [setNotes, setEditingId, reload, setError, clearError]
   );
 
-  const toggleTodo = useCallback(
-    (note: Note) => {
-      void api
-        .toggleTodo(note.id)
-        .then((updated) => {
-          if (updated) applyNoteChange(updated);
-          clearError('action');
-          reload();
-        })
-        .catch((e) => setError('action', '切换待办状态失败: ' + String(e)));
-    },
-    [applyNoteChange, reload, setError, clearError]
-  );
-
   /** 编辑保存:用命令返回的就地更新,不重置分页(用户滚到深处编辑不会被弹回顶部) */
   const onEditSaved = useCallback(
     (note: Note) => {
@@ -98,5 +84,5 @@ export function useNoteActions(d: NoteActionsDeps) {
     [applyNoteChange, setEditingId, reload, clearError]
   );
 
-  return { remove, toggleTodo, onEditSaved };
+  return { remove, onEditSaved };
 }

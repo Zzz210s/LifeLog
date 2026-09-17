@@ -70,7 +70,7 @@ fn invalid_conditions_rejected_on_write() {
     assert!(create(&conn, "坏条件", &bad, None).is_err());
 }
 
-/// 内置三视图的条件(D7):待办 = `待办`(含子级)+ 排除 `done`(含子级);
+/// 内置三视图的条件(D7/S5):待办 = `待办`(含子级),不再排除已删除的 `done`;
 /// 无自定义标签 = 无任何标签(时间标签也是标签);全部/未知 = 空条件
 #[test]
 fn builtin_conditions() {
@@ -78,8 +78,7 @@ fn builtin_conditions() {
     assert_eq!(todo.tags.len(), 1);
     assert_eq!(todo.tags[0].path, "待办");
     assert!(todo.tags[0].include_children, "含子级:待办/事项 也算待办");
-    assert_eq!(todo.exclude_tags[0].path, "done");
-    assert!(todo.exclude_tags[0].include_children, "排除 done 含子级");
+    assert!(todo.exclude_tags.is_empty(), "S5:done 标签已删,待办不再有排除条件");
     assert_eq!(conditions_of_builtin("untagged").tag_presence.as_deref(), Some("none"));
     assert!(is_empty_conditions(&conditions_of_builtin("all")));
     assert!(is_empty_conditions(&conditions_of_builtin("nonsense")));
@@ -134,7 +133,6 @@ fn hit_counts_cover_builtins_and_saved_views() {
         "与待办同条件",
         &FilterConditions {
             tags: vec![TagCond { path: "待办".into(), include_children: true }],
-            exclude_tags: vec![TagCond { path: "done".into(), include_children: true }],
             ..empty()
         },
         None,
@@ -142,9 +140,13 @@ fn hit_counts_cover_builtins_and_saved_views() {
     .unwrap();
     let hits = hit_counts(&conn).unwrap();
     assert_eq!(hits[0], ("all".to_string(), 5));
-    assert_eq!(hits[1], ("todo".to_string(), 2), "#待办 含子级且排除 done(D7)");
+    assert_eq!(
+        hits[1],
+        ("todo".to_string(), 3),
+        "S5:待办含子级、不再排除 done(#done 收尾 现在也只是普通标签)"
+    );
     assert_eq!(hits[2], ("untagged".to_string(), 1), "无任何标签");
-    assert_eq!(hits[3], (format!("view:{id}"), 2), "自建视图与内置待办同条件");
+    assert_eq!(hits[3], (format!("view:{id}"), 3), "自建视图与内置待办同条件");
     // 口径一致性:与 count_matching 直接对读
     let stored = list(&conn).unwrap();
     assert_eq!(hits[3].1, count_matching(&conn, &stored[0].conditions).unwrap());

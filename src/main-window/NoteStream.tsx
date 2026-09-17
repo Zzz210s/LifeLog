@@ -25,7 +25,6 @@ export interface NoteStreamProps {
   onTagClick: (name: string) => void;
   onEdit: (note: Note) => void;
   onDelete: (note: Note) => void;
-  onToggleTodo: (note: Note) => void;
   onEditSaved: (note: Note) => void;
   onEditCancel: () => void;
   /** 流内/预览区链接打开失败上报(交主窗错误机制) */
@@ -89,7 +88,6 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
               onTagClick={p.onTagClick}
               onEdit={() => p.onEdit(n)}
               onDelete={() => p.onDelete(n)}
-              onToggleTodo={() => p.onToggleTodo(n)}
               onLinkError={p.onLinkError}
             />
           )

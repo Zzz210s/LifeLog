@@ -117,7 +117,7 @@ pub use notes_query::query;
 
 #[path = "notes_update.rs"]
 pub mod notes_update;
-pub use notes_update::{toggle_todo, update};
+pub use notes_update::update;
 
 #[cfg(test)]
 #[path = "notes_filter_tests.rs"]

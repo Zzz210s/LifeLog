@@ -25,6 +25,13 @@ describe('renderMarkdown 基础渲染', () => {
     expect(html).toContain('disabled');
   });
 
+  it('Markdown 完成态 - [x] 同样渲染为禁用的已勾选复选框(S5 唯一的完成表达)', () => {
+    const html = renderMarkdown('- [x] 已完成的买牛奶');
+    expect(html).toContain('task-list-item');
+    expect(html).toContain('checked');
+    expect(html).toContain('disabled');
+  });
+
   it('删除线 ~~x~~ 渲染 del', () => {
     expect(renderMarkdown('~~过时~~内容')).toContain('<del>过时</del>');
   });

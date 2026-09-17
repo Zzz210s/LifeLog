@@ -62,7 +62,7 @@ pub fn delete(conn: &mut Connection, id: i64) -> rusqlite::Result<()> {
 }
 
 /// 读取单条完整笔记(含 tag_links 全量标签的**完整路径**,按 path 升序);无该 id 返回 None。
-/// 路径是树语义真源(同名末级可能出现在多个父级下),update/toggle_todo/create 事务内共用。
+/// 路径是树语义真源(同名末级可能出现在多个父级下),update/create 事务内共用。
 pub(crate) fn read_full(conn: &Connection, id: i64) -> rusqlite::Result<Option<Note>> {
     let mut stmt = conn.prepare(&format!(
         "SELECT {} FROM notes n

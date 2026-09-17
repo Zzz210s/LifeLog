@@ -109,7 +109,6 @@ mod query;
 mod replace;
 pub use ensure::ensure_path;
 pub use ops::{delete_subtree, move_beside, move_to, rename};
-pub(crate) use replace::{replace_links, resolve_id};
 pub use query::{complete, counts, impact, TagCount};
 
 #[cfg(test)]

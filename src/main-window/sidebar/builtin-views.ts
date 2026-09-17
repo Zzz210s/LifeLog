@@ -1,7 +1,7 @@
 /**
  * 内置视图前端常量(spec 4:内置视图是代码常量,不入 saved_views 表)。
  * 条件对象与 Rust `db/repos/views.rs` 的 conditions_of_builtin 保持镜像(D7):
- * 全部 = 空条件;待办 = 引入 `待办`(含子级)+ 排除 `done`(含子级);
+ * 全部 = 空条件;待办 = 引入 `待办`(含子级,S5 起不再排除已删除的 `done`);
  * 无自定义标签 = 无任何标签(tagPresence none;时间标签已不再是例外)。
  */
 import { EMPTY_FILTER } from '../../shared/filter-conditions';
@@ -27,7 +27,6 @@ export const BUILTIN_VIEWS: BuiltinView[] = [
     conditions: {
       ...EMPTY_FILTER,
       tags: [withChildren('待办')],
-      excludeTags: [withChildren('done')],
     },
   },
   // 语义是“没有任何标签”(时间标签也计入),标题仍是历史名「无自定义标签」

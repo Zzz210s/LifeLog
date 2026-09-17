@@ -10,10 +10,10 @@ describe('内置视图条件(D7 前端常量与 Rust 侧镜像)', () => {
     expect(isFilterEmpty(view('all').conditions)).toBe(true);
   });
 
-  it('待办 = `待办` 含子级 且排除 `done` 含子级', () => {
+  it('待办 = `待办` 含子级(不再有排除条件)', () => {
     const c = view('todo').conditions;
     expect(c.tags).toEqual([{ path: '待办', includeChildren: true }]);
-    expect(c.excludeTags).toEqual([{ path: 'done', includeChildren: true }]);
+    expect(c.excludeTags).toEqual([]);
     expect(c.keyword).toBeNull();
     expect(c.tagPresence).toBeNull();
     expect(c.expr).toBeNull();
@@ -23,7 +23,7 @@ describe('内置视图条件(D7 前端常量与 Rust 侧镜像)', () => {
   it('待办不再是 `todo`/`done` 精确匹配(旧口径已废弃)', () => {
     const c = view('todo').conditions;
     expect(c.tags.some((t) => t.path === 'todo')).toBe(false);
-    expect(c.excludeTags.some((t) => t.path === 'done' && !t.includeChildren)).toBe(false);
+    expect(c.excludeTags.some((t) => t.path === 'done')).toBe(false);
   });
 
   it('无自定义标签 = 无任何标签(tagPresence none,不含引入/排除标签)', () => {
