@@ -13,6 +13,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("migrations/010_view_icon.sql"),
     include_str!("migrations/011_time_tag_demotion.sql"),
     include_str!("migrations/012_drop_note_updated_at.sql"),
+    include_str!("migrations/013_drop_done_doing_tags.sql"),
 ];
 
 /// 012 的位次(1 起)与它删除的列名:SQLite 没有 `DROP COLUMN IF EXISTS`,
@@ -60,6 +61,32 @@ fn warn_skipped_backfill(conn: &Connection) -> rusqlite::Result<()> {
     Ok(())
 }
 
+/// 013 删除 done/doing 标签子树(S5):SQL 迁移里写不了日志,故在应用前把影响面打到 stderr
+/// (与 008 的 warn_skipped_backfill 同一做法),给真实库升级留下可排障的读数。
+const DROP_DONE_DOING_VERSION: i64 = 13;
+
+/// done/doing 子树判定(与 013_drop_done_doing_tags.sql 逐字一致):根节点本身 + 其子孙
+const DONE_DOING_PREDICATE: &str = "path = 'done' OR substr(path, 1, 5) = 'done/' \
+     OR path = 'doing' OR substr(path, 1, 6) = 'doing/'";
+
+/// 013 之前提示:将要删除的标签节点数、链接数与受影响笔记数(无命中则不打印)
+fn warn_drop_done_doing(conn: &Connection) -> rusqlite::Result<()> {
+    let sql = format!(
+        "SELECT (SELECT COUNT(*) FROM tags WHERE {p}),
+                (SELECT COUNT(*) FROM tag_links WHERE tag_id IN (SELECT id FROM tags WHERE {p})),
+                (SELECT COUNT(DISTINCT target_id) FROM tag_links WHERE tag_id IN (SELECT id FROM tags WHERE {p}))",
+        p = DONE_DOING_PREDICATE
+    );
+    let (tags, links, notes): (i64, i64, i64) =
+        conn.query_row(&sql, [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
+    if tags > 0 || links > 0 {
+        eprintln!(
+            "迁移 013:删除 done/doing 标签子树 —— 标签 {tags} 个节点、链接 {links} 条,涉及 {notes} 条笔记(正文不动)"
+        );
+    }
+    Ok(())
+}
+
 /// 需要临时关闭外键约束的迁移:重建仍被 tag_links 引用的父表时,外键 ON 会让
 /// DROP TABLE tags 沿 ON DELETE CASCADE 把 tag_links 数据级联删空。
 /// PRAGMA foreign_keys 在事务内是 no-op,故必须在事务外关闭、提交后再打开。
@@ -88,6 +115,9 @@ pub fn run(conn: &Connection) -> rusqlite::Result<()> {
         }
         if v == TIME_TAG_VERSION {
             warn_skipped_backfill(conn)?;
+        }
+        if v == DROP_DONE_DOING_VERSION {
+            warn_drop_done_doing(conn)?;
         }
         let fk_off = FK_OFF_VERSIONS.contains(&v);
         if fk_off {
@@ -137,3 +167,7 @@ mod migrate_tests;
 #[cfg(test)]
 #[path = "time_tag_demotion_tests.rs"]
 mod time_tag_demotion_tests;
+
+#[cfg(test)]
+#[path = "done_doing_migration_tests.rs"]
+mod done_doing_migration_tests;
