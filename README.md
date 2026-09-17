@@ -93,8 +93,10 @@ The window *is* the input box: no frame, no title bar, no buttons, transparent s
   link rows, so a tag rename or an edit updates the associations
 - Markdown rendering (tables, task lists, fenced code with syntax highlighting) through a single
   sanitising entry point
-- Completion is expressed in the note body as a Markdown task list (`- [ ]` / `- [x]`), rendered as
-  read-only checkboxes; there are no `done`/`doing` tags and no per-note inline checkbox
+- Completion is expressed in the note body as a Markdown task list (`- [ ]` / `- [x]`): the
+  checkboxes are rendered in the note stream and can be ticked right there - a tick rewrites the
+  body (`- [ ]` <-> `- [x]`) and writes every tag of the note back with it; there are no
+  `done`/`doing` tags and no per-note inline checkbox
 - The note stream shows no time at all: the only time-like information is the ordinary
   `时间排序/YYYY/MM/DD` tag tree
 - The built-in "待办" view means the `待办` tag (children included);
