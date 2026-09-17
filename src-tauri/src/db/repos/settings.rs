@@ -1,4 +1,43 @@
+use crate::timetag;
 use rusqlite::{params, Connection};
+
+/// 自动时间标签开关(D4):缺失或非法值一律按开处理,只有显式 `false` 才是关
+pub const AUTO_TIME_TAG_KEY: &str = "auto_time_tag";
+/// 时间标签模板(D5):缺失或空串回退默认模板
+pub const TIME_TAG_TEMPLATE_KEY: &str = "time_tag_template";
+
+/// 自动时间标签配置(设置页与创建路径共用一份读法)
+#[derive(Debug, PartialEq)]
+pub struct AutoTimeTag {
+    pub enabled: bool,
+    pub template: String,
+}
+
+/// 读取配置:开关缺失按开(与迁移 011 写入的默认值一致),模板缺失/空串回退默认
+pub fn auto_time_tag(conn: &Connection) -> rusqlite::Result<AutoTimeTag> {
+    let enabled = !matches!(get(conn, AUTO_TIME_TAG_KEY)?.as_deref(), Some("false"));
+    let template = get(conn, TIME_TAG_TEMPLATE_KEY)?
+        .filter(|s| !s.trim().is_empty())
+        .unwrap_or_else(|| timetag::DEFAULT_TEMPLATE.to_string());
+    Ok(AutoTimeTag { enabled, template })
+}
+
+/// 新建笔记要写入的自动时间标签路径:开关关 -> None;模板非法 -> None 并记日志
+/// (降级为不加标签,而不是拒绝保存笔记)
+pub fn auto_time_path(conn: &Connection) -> rusqlite::Result<Option<String>> {
+    let cfg = auto_time_tag(conn)?;
+    if !cfg.enabled {
+        return Ok(None);
+    }
+    let today = timetag::today_local(conn)?;
+    match timetag::auto_time_path(&cfg.template, &today) {
+        Some(path) => Ok(Some(path)),
+        None => {
+            eprintln!("自动时间标签已跳过:模板不是合法的标签路径({})", cfg.template);
+            Ok(None)
+        }
+    }
+}
 
 pub fn get(conn: &Connection, key: &str) -> rusqlite::Result<Option<String>> {
     let mut stmt = conn.prepare("SELECT value FROM settings WHERE key = ?1")?;

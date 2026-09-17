@@ -21,6 +21,13 @@ pub fn set_setting(app: AppHandle, key: String, value: String) -> Result<(), Str
     repos::settings::set(&conn, &key, &value).map_err(|e| e.to_string())
 }
 
+/// 时间标签模板校验(设置页即时提示用):返回中文原因,合法时 Ok。
+/// 与创建路径共用同一实现(见 timetag::validate_template),不存在第二套规则。
+#[tauri::command]
+pub fn validate_time_tag_template(template: String) -> Result<(), String> {
+    crate::timetag::validate_template(&template)
+}
+
 /// 三档锁定一次性写库:单个事务,要么三键全部生效、要么全不生效
 /// (避免解锁只写了一半,界面与库反向偏离)
 #[tauri::command]
