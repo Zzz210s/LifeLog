@@ -1,5 +1,5 @@
 //! 标签树结构变更(自 tags_tree.rs 拆出以守 200 行上限):改名 / 移动 / 删除子树。
-//! 写操作各自整事务提交,任一步失败整体回滚(path 重写、saved_views 条件级联与 FTS 刷新同事务)。
+//! 写操作各自整事务提交,任一步失败整体回滚(path 重写、标签页条件级联与 FTS 刷新同事务)。
 //! 时间标签已是普通标签(D3):不再有"时间子树不可改名/移动/删除"的守卫。
 //! 底层 SQL 动作见 tags_tree_ops_sql。
 use super::ops_sql::{
@@ -7,7 +7,7 @@ use super::ops_sql::{
     subtree_note_ids, Anchor,
 };
 use super::{gc_orphans, linked_notes, refresh_fts, subtree_ids};
-use crate::db::repos::saved_views_rewrite;
+use crate::db::repos::tabs_rewrite;
 use rusqlite::{params, Connection, OptionalExtension};
 
 /// 改标签名:校验 -> 同级重名 -> 子树 path 前缀重写 -> 受影响笔记 FTS 重写。整事务。
@@ -29,7 +29,7 @@ pub fn rename(conn: &mut Connection, tag_id: i64, new_name: &str) -> Result<(), 
         .map_err(|e| super::path::unique_conflict(e, "已存在同名标签"))?;
     rewrite_subtree_paths(&tx, &node.path, &new_path)
         .map_err(|e| super::path::unique_conflict(e, "已存在同名标签"))?;
-    saved_views_rewrite::rewrite_prefix(&tx, &node.path, &new_path).map_err(|e| e.to_string())?;
+    tabs_rewrite::rewrite_prefix(&tx, &node.path, &new_path).map_err(|e| e.to_string())?;
     refresh_fts(&tx, &notes).map_err(|e| e.to_string())?;
     tx.commit().map_err(|e| super::path::unique_conflict(e, "已存在同名标签"))
 }
@@ -97,7 +97,7 @@ pub fn move_to_ordered(
     shift_subtree_depths(&tx, tag_id, delta).map_err(|e| e.to_string())?;
     // 同层次序(S8):插到锚点位置后整层重写 sort_order;锚点 None = 追加到末尾
     apply_sibling_order(&tx, new_parent, tag_id, anchor)?;
-    saved_views_rewrite::rewrite_prefix(&tx, &node.path, &new_path).map_err(|e| e.to_string())?;
+    tabs_rewrite::rewrite_prefix(&tx, &node.path, &new_path).map_err(|e| e.to_string())?;
     gc_orphans(&tx).map_err(|e| e.to_string())?;
     refresh_fts(&tx, &notes).map_err(|e| e.to_string())?;
     tx.commit().map_err(|e| super::path::unique_conflict(e, "该层级下已有同名标签"))
@@ -128,7 +128,6 @@ pub fn delete_subtree(conn: &mut Connection, tag_id: i64) -> Result<(), String> 
         return Err(format!("标签不存在: {tag_id}"));
     }
     let notes = linked_notes(&tx, &ids).map_err(|e| e.to_string())?;
-    let root_path = load(&tx, tag_id)?.path; // 被删子树根路径(saved_views 条件滤除用)
     let marks = vec!["?"; ids.len()].join(",");
     let args = || rusqlite::params_from_iter(ids.iter());
     tx.execute(
@@ -140,7 +139,7 @@ pub fn delete_subtree(conn: &mut Connection, tag_id: i64) -> Result<(), String> 
     tx.execute(&format!("DELETE FROM tags WHERE id IN ({marks})"), args())
         .map_err(|e| e.to_string())?;
     gc_orphans(&tx).map_err(|e| e.to_string())?;
-    saved_views_rewrite::drop_subtree(&tx, &root_path).map_err(|e| e.to_string())?;
+    // 删除标签**不**重写 tabs_state 条件(S7):已删路径的标签页自然筛不出笔记,由用户自行调整。
     refresh_fts(&tx, &notes).map_err(|e| e.to_string())?;
     tx.commit().map_err(|e| e.to_string())
 }

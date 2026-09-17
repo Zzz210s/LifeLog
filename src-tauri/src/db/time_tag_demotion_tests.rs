@@ -1,6 +1,7 @@
 //! 迁移 011(spec 2026-09-17 D2/D3/D5):时间标签降级为普通标签。
 //! ① FTS 标签聚合重新纳入时间标签(取消 009 的"排除时间子树"例外),回填后行数 = 笔记数
-//! ② saved_views.conditions 里的 from/to 被清掉(幂等;不含这两个键的行原样不动)
+//! ② saved_views.conditions 里的 from/to 被清掉(表已在 014 被删,这组历史断言见
+//!    saved_views_removal_tests.rs,本文件只保留与表无关的读数)
 //! ③ 设置键 auto_time_tag / time_tag_template 登记(用户已改过的值不被覆盖)
 //! ④ 幂等:重放 011 的 SQL 与再次 run 都不改库
 //! ⑤ 触发器与 tags_tree::refresh_fts 口径一致
@@ -24,6 +25,11 @@ fn db_at_010() -> Connection {
 
 fn count(conn: &Connection, sql: &str) -> i64 {
     conn.query_row(sql, [], |r| r.get(0)).unwrap()
+}
+
+/// 只应用 011 本体并推进版本号(011 的 SQL 里有 saved_views UPDATE,重放前必须先停在 011)
+fn apply_011(conn: &Connection) {
+    super::apply(conn, MIGRATIONS[V_011 - 1], V_011 as i64).unwrap();
 }
 
 fn fts_tags(conn: &Connection, id: i64) -> String {
@@ -82,47 +88,6 @@ fn migration_011_puts_time_tags_back_into_fts() {
     assert_eq!(count(&conn, "SELECT COUNT(*) FROM notes_fts"), count(&conn, "SELECT COUNT(*) FROM notes"));
 }
 
-/// ② saved_views 条件清理:含 from/to 的行被清掉且其余键保留;不含的行按字节不动
-#[test]
-fn migration_011_cleans_saved_views_dates_only() {
-    let conn = db_at_010();
-    conn.execute_batch(
-        "INSERT INTO saved_views(title, conditions, sort_order)
-           VALUES('带日期', '{\"keyword\":\"甲\",\"tags\":[],\"excludeTags\":[],\"from\":\"2026-08-01\",\"to\":\"2026-08-31\",\"tagPresence\":null,\"sort\":\"newest\",\"expr\":null}', 0);
-         INSERT INTO saved_views(title, conditions, sort_order)
-           VALUES('不带日期', '{\"keyword\":null,\"tags\":[{\"path\":\"甲\",\"includeChildren\":false}],\"excludeTags\":[],\"tagPresence\":null,\"sort\":\"oldest\",\"expr\":\"#甲\"}', 1);
-         INSERT INTO saved_views(title, conditions, sort_order)
-           VALUES('坏行', '{bad json', 2);",
-    )
-    .unwrap();
-    let before: String = conn
-        .query_row("SELECT conditions FROM saved_views WHERE title='不带日期'", [], |r| r.get(0))
-        .unwrap();
-
-    run(&conn).unwrap();
-
-    let cleaned: String = conn
-        .query_row("SELECT conditions FROM saved_views WHERE title='带日期'", [], |r| r.get(0))
-        .unwrap();
-    assert!(!cleaned.contains("\"from\""), "{cleaned}");
-    assert!(!cleaned.contains("\"to\""), "{cleaned}");
-    assert!(cleaned.contains("\"keyword\":\"甲\""), "其余键必须保留:{cleaned}");
-    assert!(cleaned.contains("\"sort\":\"newest\""), "{cleaned}");
-    // 条件对象清理后仍可被仓库层反序列化(清键后语义不变);坏 JSON 行原样不动
-    let cleaned_view: FilterConditions = serde_json::from_str(&cleaned).unwrap();
-    assert_eq!(cleaned_view.keyword.as_deref(), Some("甲"));
-    assert_eq!(cleaned_view.sort.as_deref(), Some("newest"));
-    assert_eq!(count(&conn, "SELECT COUNT(*) FROM saved_views"), 3, "坏 JSON 行不得被删");
-    let broken: String = conn
-        .query_row("SELECT conditions FROM saved_views WHERE title='坏行'", [], |r| r.get(0))
-        .unwrap();
-    assert_eq!(broken, "{bad json", "坏 JSON 行不得被改写");
-    let plain: String = conn
-        .query_row("SELECT conditions FROM saved_views WHERE title='不带日期'", [], |r| r.get(0))
-        .unwrap();
-    assert_eq!(plain, before, "不含 from/to 的行不得被改写");
-}
-
 /// ③ 设置键登记:缺失则写默认;已存在(用户改过)则保留
 #[test]
 fn migration_011_registers_settings_keys() {
@@ -144,32 +109,26 @@ fn migration_011_registers_settings_keys() {
     assert_eq!(get("time_tag_template").as_deref(), Some(crate::timetag::DEFAULT_TEMPLATE));
 }
 
-/// ④ 幂等:重放 011 的 SQL 与再次 run 都不改库(FTS 索引串/视图条件/设置全等)
+/// ④ 幂等:重放 011 的 SQL 与再次跑迁移序列都不改库(FTS 索引串/设置全等)
 #[test]
 fn migration_011_is_idempotent() {
     let conn = db_at_010();
     let id = seed_old_db(&conn);
-    conn.execute_batch(
-        "INSERT INTO saved_views(title, conditions, sort_order)
-           VALUES('带日期', '{\"keyword\":null,\"tags\":[],\"excludeTags\":[],\"from\":\"2026-08-01\",\"to\":null,\"tagPresence\":null,\"sort\":null,\"expr\":null}', 0);",
-    )
-    .unwrap();
-    run(&conn).unwrap();
+    // 014 会删掉 saved_views,而 011 的 SQL 里有针对该表的 UPDATE,
+    // 故重放前先停在 011(saved_views_removal_tests 里另有同表的幂等读数)
+    apply_011(&conn);
     let snapshot = || {
         format!(
-            "{}|{}|{}|{}|{}",
+            "{}|{}|{}|{}",
             fts_tags(&conn, id),
             count(&conn, "SELECT COUNT(*) FROM notes_fts"),
-            conn.query_row("SELECT conditions FROM saved_views WHERE title='带日期'", [], |r| r
-                .get::<_, String>(0))
-                .unwrap(),
             crate::db::repos::settings::get(&conn, "auto_time_tag").unwrap().unwrap(),
             crate::db::repos::settings::get(&conn, "time_tag_template").unwrap().unwrap(),
         )
     };
     let once = snapshot();
 
-    // 直接重放 011 的 SQL(版本闸门之外的兜底幂等),再跑一次迁移序列
+    // 直接重放 011 的 SQL(版本闸门之外的兜底幂等),再跑完剩余迁移序列
     conn.execute_batch(MIGRATIONS[V_011 - 1]).unwrap();
     assert_eq!(snapshot(), once, "重放 011 必须不改库");
     run(&conn).unwrap();

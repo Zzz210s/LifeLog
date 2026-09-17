@@ -16,13 +16,19 @@ fn count(conn: &Connection, sql: &str) -> i64 {
 fn migrations_create_tables_and_bump_version() {
     let conn = db();
     assert_eq!(count(&conn, "PRAGMA user_version"), latest_version());
-    for table in ["settings", "tags", "tag_links", "notes", "saved_views"] {
+    for table in ["settings", "tags", "tag_links", "notes"] {
         let n = count(
             &conn,
             &format!("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='{table}'"),
         );
         assert_eq!(n, 1, "table missing: {table}");
     }
+    // 视图模块已在 014 删除(S6):saved_views 表不存在
+    assert_eq!(
+        count(&conn, "SELECT COUNT(*) FROM sqlite_master WHERE name='saved_views'"),
+        0,
+        "saved_views 应已被迁移 014 删除"
+    );
 }
 
 #[test]

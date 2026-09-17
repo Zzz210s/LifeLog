@@ -49,8 +49,9 @@ pub fn query(
     fold_tag_rows(rows).map_err(|e| e.to_string())
 }
 
-/// 当前条件命中的总条数(供侧栏视图徽标使用;MVP-3 3b 起接入命令层)
-#[allow(dead_code)]
+/// 当前条件命中的总条数:**仅供测试使用**。视图模块已删(S6),标签页本轮不做每页计数
+/// 徽标(N 页 N 次 COUNT 的代价不合理,当前页的计数由流头部照旧显示),故生产路径不再有调用方。
+#[cfg(test)]
 pub fn count_matching(conn: &Connection, conditions: &FilterConditions) -> rusqlite::Result<i64> {
     let (frag, args) = where_clause(conditions);
     conn.query_row(

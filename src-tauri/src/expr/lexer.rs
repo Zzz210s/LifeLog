@@ -47,7 +47,7 @@ pub fn lex(input: &str) -> Result<Vec<Token>, ExprError> {
 }
 
 /// 词法(带起止下标):`(token, 首字符下标, 尾后字符下标)`,与 [`lex`] 同一遍扫描。
-/// 尾后下标即替换区间的右开端点,供 saved_views 的表达式文本级改写使用。
+/// 尾后下标即替换区间的右开端点,供 tabs_state 里表达式的文本级改写使用。
 pub fn lex_spans(input: &str) -> Result<Vec<(Token, usize, usize)>, ExprError> {
     Ok(lexer_scan::scan(input)?
         .into_iter()

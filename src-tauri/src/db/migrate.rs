@@ -14,6 +14,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("migrations/011_time_tag_demotion.sql"),
     include_str!("migrations/012_drop_note_updated_at.sql"),
     include_str!("migrations/013_drop_done_doing_tags.sql"),
+    include_str!("migrations/014_drop_saved_views.sql"),
 ];
 
 /// 012 的位次(1 起)与它删除的列名:SQLite 没有 `DROP COLUMN IF EXISTS`,
@@ -87,6 +88,24 @@ fn warn_drop_done_doing(conn: &Connection) -> rusqlite::Result<()> {
     Ok(())
 }
 
+/// 014 删除视图模块(S6):SQL 迁移里写不了日志,故在应用前把影响面打到 stderr
+/// (与 008/013 的 warn 钩子同一做法),给真实库升级留下可排障的读数。
+const DROP_SAVED_VIEWS_VERSION: i64 = 14;
+
+/// 014 之前提示:存量自建视图数与被清掉的设置键(两者都没有则不打印)
+fn warn_drop_saved_views(conn: &Connection) -> rusqlite::Result<()> {
+    let views: i64 = conn
+        .query_row("SELECT COUNT(*) FROM saved_views", [], |r| r.get(0))
+        .unwrap_or(0);
+    let legacy = crate::db::repos::settings::get(conn, "filter_last")?.is_some();
+    if views > 0 || legacy {
+        eprintln!(
+            "迁移 014:删除视图模块 —— 自建视图 {views} 个,清理已被标签页取代的设置键 filter_last(状态改存 tabs_state)"
+        );
+    }
+    Ok(())
+}
+
 /// 需要临时关闭外键约束的迁移:重建仍被 tag_links 引用的父表时,外键 ON 会让
 /// DROP TABLE tags 沿 ON DELETE CASCADE 把 tag_links 数据级联删空。
 /// PRAGMA foreign_keys 在事务内是 no-op,故必须在事务外关闭、提交后再打开。
@@ -119,6 +138,9 @@ pub fn run(conn: &Connection) -> rusqlite::Result<()> {
         if v == DROP_DONE_DOING_VERSION {
             warn_drop_done_doing(conn)?;
         }
+        if v == DROP_SAVED_VIEWS_VERSION {
+            warn_drop_saved_views(conn)?;
+        }
         let fk_off = FK_OFF_VERSIONS.contains(&v);
         if fk_off {
             conn.pragma_update(None, "foreign_keys", "OFF")?;
@@ -147,6 +169,10 @@ mod tag_tree_migration_tests;
 #[cfg(test)]
 #[path = "views_migration_tests.rs"]
 mod views_migration_tests;
+
+#[cfg(test)]
+#[path = "saved_views_removal_tests.rs"]
+mod saved_views_removal_tests;
 
 #[cfg(test)]
 #[path = "migration_atomicity_tests.rs"]

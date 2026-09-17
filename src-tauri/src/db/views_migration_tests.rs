@@ -1,6 +1,8 @@
-//! 007 自建视图迁移测试:①user_version 推进到最新且表与索引齐备 ②幂等(版本闸门 + SQL 本体可重放)
+//! 007 自建视图迁移的历史回归:①007 本体建表与索引齐备 ②幂等(版本闸门 + SQL 本体可重放)
 //! ③迁移前生成备份(走 db::open 的完整链路) ④旧库数据(笔记/标签/链接)不变。
-use super::{apply, latest_version, run, MIGRATIONS};
+//! 注:saved_views 表已在 014 被删(S6),故本文件只应用 007 本体/停在 007 的版本上,
+//! "最新库里该表不存在"与 011 的日期清理断言见 saved_views_removal_tests.rs。
+use super::{apply, latest_version, MIGRATIONS};
 use crate::db::open;
 use rusqlite::Connection;
 use std::path::{Path, PathBuf};
@@ -52,13 +54,12 @@ fn v6_file(path: &Path) {
     .unwrap();
 }
 
-/// ① 迁移后版本推进到最新,saved_views 表五列齐备,排序索引存在
+/// ① 007 本体:表五列齐备、排序索引存在、版本推进到 7
 #[test]
 fn migration_007_creates_table_and_bumps_version() {
     let conn = old_db();
-    run(&conn).unwrap();
-    assert!(count(&conn, "PRAGMA user_version") >= 7);
-    assert_eq!(count(&conn, "PRAGMA user_version"), latest_version());
+    apply(&conn, MIGRATIONS[V_007 - 1], V_007 as i64).unwrap();
+    assert_eq!(count(&conn, "PRAGMA user_version"), 7);
     assert_eq!(
         count(&conn, "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='saved_views'"),
         1
@@ -76,11 +77,11 @@ fn migration_007_creates_table_and_bumps_version() {
     );
 }
 
-/// ② 幂等:run 第二次经版本闸门 no-op;SQL 本体直接重放也是空操作(IF NOT EXISTS)
+/// ② 幂等:007 的 SQL 本体可重放(IF NOT EXISTS);版本闸门由 migrate::run 负责
 #[test]
 fn migration_007_is_idempotent() {
     let conn = old_db();
-    run(&conn).unwrap();
+    apply(&conn, MIGRATIONS[V_007 - 1], V_007 as i64).unwrap();
     conn.execute_batch(
         "INSERT INTO saved_views(title, conditions, sort_order, created_at)
          VALUES('存量视图', '{}', 3, '2026-09-13 08:00:00');",
@@ -94,9 +95,6 @@ fn migration_007_is_idempotent() {
         )
     };
     let first = snapshot(&conn);
-
-    run(&conn).unwrap(); // 版本闸门:已是 7,第二次应为 no-op
-    assert_eq!(snapshot(&conn), first);
 
     let sql = MIGRATIONS[V_007 - 1];
     conn.execute_batch(sql).unwrap(); // SQL 本体重放

@@ -7,5 +7,4 @@ pub mod notes;
 pub mod settings;
 pub mod startup;
 pub mod tags;
-pub mod views;
 pub mod windowing;
