@@ -62,6 +62,11 @@ export function normalizeParts(parts: string[]): string | null {
   return [...MOD_ORDER.filter((m) => mods.includes(m)), keys[0]].join('+');
 }
 
+/** 只按下了修饰键(录制过程中的正常中途态:不该报错,只提示还差主键) */
+export function isModifierOnly(parts: string[]): boolean {
+  return parts.length > 0 && parts.every((p) => (MOD_ORDER as readonly string[]).includes(p));
+}
+
 /** 加速键字符串 -> 规范化;非法返回 null */
 export function normalizeAccelerator(raw: string): string | null {
   return normalizeParts(raw.split('+'));

@@ -14,6 +14,7 @@
 """
 import ctypes
 import json
+import re
 import sys
 from ctypes import wintypes
 
@@ -116,7 +117,9 @@ def main():
         mods, key = combo[:-1], combo[-1]
         for m in mods:
             u32.keybd_event(VK[m], 0, 0, 0)
-        code = ord(key.upper())
+        # 功能键(F1-F24)的虚拟码是 0x70 起;其它单字符键用 ASCII
+        fn = re.fullmatch(r'f([1-9]|1[0-9]|2[0-4])', key)
+        code = 0x70 + int(fn.group(1)) - 1 if fn else ord(key.upper())
         u32.keybd_event(code, 0, 0, 0)
         u32.keybd_event(code, 0, KEYEVENTF_KEYUP, 0)
         for m in reversed(mods):

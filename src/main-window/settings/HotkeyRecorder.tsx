@@ -11,6 +11,7 @@ import {
   formatAccelerator,
   formatKeys,
   hotkeyHint,
+  isModifierOnly,
   normalizeParts,
   partsFromEvent,
 } from '../../shared/hotkey-display';
@@ -26,14 +27,20 @@ export function HotkeyRecorder(): ReactNode {
   const [busy, setBusy] = useState(false);
   const boxRef = useRef<HTMLButtonElement>(null);
 
+  // 显示运行时**生效值**(与真实注册状态一致),取不到才回退库值
   useEffect(() => {
-    void api
-      .getSetting(HOTKEY_KEY)
-      .then((raw) => setAccelerator(effectiveAccelerator(raw)))
-      .catch((e) => {
+    void (async () => {
+      try {
+        const [live, raw] = await Promise.all([
+          api.getInputHotkey(),
+          api.getSetting(HOTKEY_KEY),
+        ]);
+        setAccelerator(live ?? effectiveAccelerator(raw));
+      } catch (e) {
         setError('读取快捷键设置失败: ' + String(e));
         setAccelerator(DEFAULT_HOTKEY);
-      });
+      }
+    })();
   }, []);
 
   // 捕获态必须让按钮拿到焦点,否则 keydown 落在别处;提交失败后焦点丢了也要补回来
@@ -63,6 +70,7 @@ export function HotkeyRecorder(): ReactNode {
     e.preventDefault();
     e.stopPropagation();
     if (busy) return;
+    if (e.repeat) return; // 长按会按系统重复率连发:忽略重复事件,只认第一次按下
     if (e.key === 'Escape') {
       setCapturing(false);
       setPreview('');
@@ -70,8 +78,11 @@ export function HotkeyRecorder(): ReactNode {
       return;
     }
     const parts = partsFromEvent(e.nativeEvent);
-    const hint = hotkeyHint(parts);
     setPreview(parts.join('+'));
+    setError(''); // 每次求值先清上一条提示,避免中途态的旧提示残留
+    // 只按下修饰键是录制的正常中途态:给中性提示,不亮红灯(红字只留给真正的非法组合)
+    if (isModifierOnly(parts)) return;
+    const hint = hotkeyHint(parts);
     if (hint) {
       setError(hint); // 非法组合就地提示,不发命令(旧快捷键不受影响)
       return;
@@ -98,7 +109,11 @@ export function HotkeyRecorder(): ReactNode {
               setPreview('');
               setError('');
             }}
-            onBlur={() => setCapturing(false)}
+            onBlur={() => {
+              setCapturing(false);
+              setPreview('');
+              setError(''); // 中途态的即时提示不该在失焦后留在界面上
+            }}
             onKeyDown={onKeyDown}
             className={
               'h-8 min-w-[9rem] rounded-md border px-3 text-xs tabular-nums ' +

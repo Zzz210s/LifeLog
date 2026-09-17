@@ -5,6 +5,7 @@ import {
   formatAccelerator,
   formatKeys,
   hotkeyHint,
+  isModifierOnly,
   normalizeAccelerator,
   normalizeParts,
   partsFromEvent,
@@ -104,5 +105,18 @@ describe('normalizeParts', () => {
   it('忽略空片段并收敛重复修饰键', () => {
     expect(normalizeParts(['', 'ctrl', 'f5'])).toBe('ctrl+f5');
     expect(normalizeParts(['ctrl', 'ctrl', 'q'])).toBe('ctrl+q');
+  });
+});
+
+describe('isModifierOnly', () => {
+  it('只按下修饰键时判为中途态(不亮红灯)', () => {
+    expect(isModifierOnly(['ctrl'])).toBe(true);
+    expect(isModifierOnly(['ctrl', 'shift'])).toBe(true);
+    expect(isModifierOnly(['super'])).toBe(true);
+  });
+  it('含主键或为空时不是中途态', () => {
+    expect(isModifierOnly(['ctrl', 'q'])).toBe(false);
+    expect(isModifierOnly(['f5'])).toBe(false);
+    expect(isModifierOnly([])).toBe(false);
   });
 });

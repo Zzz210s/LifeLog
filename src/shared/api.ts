@@ -46,6 +46,8 @@ export const api = {
   hideInputBar: () => invoke<void>('hide_input_bar'),
   /** 设置输入栏唤起快捷键:成功返回规范化后的生效值;失败返回中文原因且旧键仍可用 */
   setInputHotkey: (accelerator: string) => invoke<string>('set_input_hotkey', { accelerator }),
+  /** 运行时实际生效的快捷键(null = 当前没有热键在生效);界面显示用它而非库值 */
+  getInputHotkey: () => invoke<string | null>('get_input_hotkey'),
   /** 显示(不切换)输入栏:主窗空库引导用 */
   showInputWindow: () => invoke<void>('show_input_bar'),
   /** 取一次「迁移前自动备份失败」提示(取值即清空;无提示时返回 null) */
