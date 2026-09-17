@@ -18,7 +18,7 @@ pub fn update(conn: &mut Connection, id: i64, content: &str) -> rusqlite::Result
     let text = strip_tags(content);
     let tx = conn.transaction()?;
     let rows = tx.execute(
-        "UPDATE notes SET content=?1, updated_at=datetime('now','localtime') WHERE id=?2",
+        "UPDATE notes SET content=?1 WHERE id=?2",
         params![text, id],
     )?;
     if rows == 0 {

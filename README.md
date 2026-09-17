@@ -94,15 +94,15 @@ The window *is* the input box: no frame, no title bar, no buttons, transparent s
 - Markdown rendering (tables, task lists, fenced code with syntax highlighting) through a single
   sanitising entry point
 - `#todo` notes render a checkbox; ticking it swaps the tag to `#done`, unticking swaps it back
-- Time is shown from the note's `created_at` as `MM-DD HH:MM`, inside a `<time>` element with a
-  machine-readable `datetime` attribute; it is display-only (no date editing — edit the tags instead)
+- The note stream shows no time at all: the only time-like information is the ordinary
+  `时间排序/YYYY/MM/DD` tag tree
 - The built-in "待办" view means the `待办` tag (children included) minus anything under `done`;
   "无自定义标签" means no tags at all
 
 **Export**
 
-- "Export all" writes the entire database to one `.xlsx` sheet (body, tags, created time; the date
-  column is the `created_at` date)
+- "Export all" writes the entire database to one `.xlsx` sheet with exactly two columns: body and
+  tags
 
 ## Install
 
@@ -147,7 +147,9 @@ Artifacts:
 5. In the main window, search by keyword, click a tag chip to filter, switch the ordering, edit a
    note in the split pane, tick `#todo` items, or export everything to Excel.
 
-Tray menu (right click): open the input bar, open the main window, settings, quit. A second launch
+Tray menu (right click): open the input bar, open the main window, settings, quit. A left click on
+the tray icon opens the main window (same as the menu item); the input bar is still surfaced by the
+global hotkey, the menu item, or a second launch. A second launch
 of the app does not start another instance — it surfaces the input bar of the running one.
 
 Autostart is supported through the Tauri autostart plugin; the settings page shows the real registry

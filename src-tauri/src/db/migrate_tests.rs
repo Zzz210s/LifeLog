@@ -100,7 +100,7 @@ fn migration_backfills_fts_for_preexisting_notes() {
 /// 造一条原始笔记(不经过标签解析,直接给 created_at)
 fn insert_note(conn: &Connection, content: &str, created_at: &str) -> i64 {
     conn.execute(
-        "INSERT INTO notes(content, created_at, updated_at) VALUES(?1, ?2, ?2)",
+        "INSERT INTO notes(content, created_at) VALUES(?1, ?2)",
         rusqlite::params![content, created_at],
     )
     .unwrap();

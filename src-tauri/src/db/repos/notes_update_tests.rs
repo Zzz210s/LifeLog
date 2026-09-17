@@ -71,19 +71,20 @@ fn update_returns_none_for_missing_id() {
 }
 
 #[test]
-fn update_writes_content_and_bumps_updated_at() {
+fn update_writes_content_without_updating_time_columns() {
     let mut c = db();
     let n = create_plain(&mut c, "旧正文 #甲").unwrap();
-    // 手工回拨 updated_at 避免同秒分辨率掩盖变化
-    c.execute("UPDATE notes SET updated_at='2000-01-01 00:00:00' WHERE id=?1", [n.id])
+    let created: String = c
+        .query_row("SELECT created_at FROM notes WHERE id=?1", [n.id], |r| r.get(0))
         .unwrap();
     let upd = update(&mut c, n.id, "新正文 #乙").unwrap().unwrap();
     assert_eq!(upd.content, "新正文");
-    let updated_at: String = c
-        .query_row("SELECT updated_at FROM notes WHERE id=?1", [n.id], |r| r.get(0))
+    assert_eq!(upd.tags, vec!["乙"]);
+    // S3:updated_at 列已删除;created_at 是创建时间、不是“最后修改”的替身,必须原样
+    let after: String = c
+        .query_row("SELECT created_at FROM notes WHERE id=?1", [n.id], |r| r.get(0))
         .unwrap();
-    assert_ne!(updated_at, "2000-01-01 00:00:00");
-    assert!(!updated_at.is_empty());
+    assert_eq!(after, created);
 }
 
 #[test]
@@ -136,17 +137,13 @@ fn toggle_todo_swaps_done_back_to_todo() {
 fn toggle_todo_untagged_note_unchanged() {
     let mut c = db();
     let n = create_plain(&mut c, "普通 #随笔").unwrap();
-    c.execute("UPDATE notes SET updated_at='2000-01-01 00:00:00' WHERE id=?1", [n.id])
-        .unwrap();
+    let changes_before = c.total_changes();
     let t = toggle_todo(&mut c, n.id).unwrap().unwrap();
     assert_eq!(t.id, n.id);
     assert_eq!(t.content, "普通");
     assert_eq!(t.tags, vec!["随笔"]); // 其余标签原样保留
-    // 无 todo/done 时不做任何写操作:updated_at 不被刷新
-    let updated_at: String = c
-        .query_row("SELECT updated_at FROM notes WHERE id=?1", [n.id], |r| r.get(0))
-        .unwrap();
-    assert_eq!(updated_at, "2000-01-01 00:00:00");
+    // 无 todo/done 时不做任何写操作:连接累计改动行数不变(S3 删列后不能再靠 updated_at 观察)
+    assert_eq!(c.total_changes(), changes_before);
 }
 
 #[test]

@@ -12,7 +12,23 @@ const MIGRATIONS: &[&str] = &[
     include_str!("migrations/009_fts_time_tags.sql"),
     include_str!("migrations/010_view_icon.sql"),
     include_str!("migrations/011_time_tag_demotion.sql"),
+    include_str!("migrations/012_drop_note_updated_at.sql"),
 ];
+
+/// 012 的位次(1 起)与它删除的列名:SQLite 没有 `DROP COLUMN IF EXISTS`,
+/// 重跑会报 no such column,故执行前按列存在性判定(见 notes_has_column)。
+const DROP_UPDATED_AT_VERSION: i64 = 12;
+const UPDATED_AT_COLUMN: &str = "updated_at";
+
+/// notes 表当前是否还有该列(pragma_table_info 在表不存在时返回空)
+fn notes_has_column(conn: &Connection, column: &str) -> rusqlite::Result<bool> {
+    let n: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info('notes') WHERE name = ?1",
+        [column],
+        |r| r.get(0),
+    )?;
+    Ok(n > 0)
+}
 
 /// 008 回填时间标签:created_at 无法解析且尚无时间标签的笔记会被跳过。SQL 迁移里写不了日志,
 /// 故在应用该迁移前先把被跳过的清单打到 stderr(迁移日志的一部分,见模块下方)。
@@ -77,7 +93,10 @@ pub fn run(conn: &Connection) -> rusqlite::Result<()> {
         if fk_off {
             conn.pragma_update(None, "foreign_keys", "OFF")?;
         }
-        let applied = apply(conn, sql, v);
+        // 012 幂等:列已不存在(重跑或已升级)时跳过 DROP COLUMN 语句,仍推进版本号
+        let skip = v == DROP_UPDATED_AT_VERSION
+            && !notes_has_column(conn, UPDATED_AT_COLUMN)?;
+        let applied = apply(conn, if skip { "" } else { sql }, v);
         // 无论成败都恢复外键开关:连接随后会被业务复用,不能留在 OFF
         if fk_off {
             conn.pragma_update(None, "foreign_keys", "ON")?;
@@ -106,6 +125,10 @@ mod migration_atomicity_tests;
 #[cfg(test)]
 #[path = "time_tag_migration_tests.rs"]
 mod time_tag_migration_tests;
+
+#[cfg(test)]
+#[path = "drop_updated_at_tests.rs"]
+mod drop_updated_at_tests;
 
 #[cfg(test)]
 #[path = "migrate_tests.rs"]

@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { renderMarkdown } from '../shared/markdown';
-import { formatNoteTime } from '../shared/note-time';
 import type { Note } from '../shared/types';
 import { MarkdownBody } from './MarkdownBody';
 import { tagDisplayName } from './tag-display';
@@ -17,29 +16,19 @@ export interface NoteItemProps {
   onLinkError?: (message: string) => void;
 }
 
-/** 单条笔记:创建时间(只显示)+ #todo 复选框 + markdown 正文 + 标签 chips + 悬停编辑/删除 */
+/** 单条笔记:#todo 复选框 + markdown 正文 + 标签 chips + 悬停编辑/删除(不再显示时间,S2) */
 export function NoteItem(p: NoteItemProps): ReactNode {
   const { note } = p;
   const isTodo = note.tags.includes('todo');
   const isDone = note.tags.includes('done');
   // chip 行展示全部标签:时间标签已降级为普通标签(D3),不再是需要滤掉的系统元数据
   const chips = note.tags;
-  const time = formatNoteTime(note.created_at);
   // 正文渲染按内容缓存:流内任一条目变化会重渲整列,避免重复解析 markdown
   const html = useMemo(() => renderMarkdown(note.content), [note.content]);
 
   return (
     <li className="group border-b border-border px-4 py-3">
       <div className="flex items-center gap-2">
-        {time !== '' && (
-          <time
-            dateTime={note.created_at}
-            title={note.created_at}
-            className="text-xs text-faint tabular-nums"
-          >
-            {time}
-          </time>
-        )}
         {/* 键盘用户聚焦时也显示操作按钮(不只 group-hover) */}
         <div className="ml-auto flex gap-2 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
           <button onClick={p.onEdit} className="text-xs text-faint hover:text-accent-text">
