@@ -5,13 +5,13 @@ import { isInDragBand, pressKind } from '../shared/input-gestures';
 import { dragBandCss } from '../shared/input-geometry';
 import { currentRatio } from './logical-size';
 
-// 可拖动移动窗口的区域 = 上下最外 8 **逻辑像素**带 + 输入框外的 14 CSS 像素光晕内边距环,
-// 取两者较大者:低缩放(ratio 0.5)时 8 逻辑像素 = 16 CSS px,比环还宽,热区随缩放一起放大;
-// 高缩放时环已盖住 8 逻辑像素,取环即可(不把既有可拖动环缩窄)。
-// **控制端已裁决保留**:纯逻辑像素换算会在 2.0 缩放下把「整圈 14 CSS px 可拖」缩成 4 px,
-// 属能力回归,故不做纯换算(详见 input-geometry.dragBandCss)。
+// 可拖动移动窗口的区域 = 光晕内边距环 14 CSS px + 可见卡片内侧 6 CSS px(CARD_DRAG_INSET_CSS),
+// 取两者之和与 8 逻辑像素热区的较大者(见 input-geometry.dragBandCss)。
+// 关键:可见卡片的边缘恰好落在 GLOW_PAD 处,不带内侧那 6 px 时“抓看得见的浏览器框边缘”会
+// 差 1 像素判不进热区,手感就是拖不动(实测 110% 缩放下卡片边缘在 14 CSS px)。
+// 内侧 6 px 不会碰到文字:输入框自带内边距 px-3/px-2(12/8 CSS px),文字从 GLOW_PAD+8 处开始。
 // 左右最外 8 逻辑像素另由 use-width-drag 优先接管改宽度(见 InputBar 的 onRootMouseDown);
-// 输入框内的中部区域不拖动,保留文本选择。
+// 输入框内的文字区域不拖动,保留文本选择。
 // **「阻止移动」只拦这里的窗口移动,不拦左右边缘的宽度拉伸**(用户 2026-09-11 决定:
 // 锁定移动不等于锁死宽度;宽度改动见 use-width-drag)
 // 双击在 mousedown 阶段判定(e.detail >= 2),因为原生拖动会吞掉后续 dblclick;

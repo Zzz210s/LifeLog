@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   clampLines,
   clampWidth,
+  CARD_DRAG_INSET_CSS,
   dragBandCss,
   edgeBandCss,
   edgeSide,
@@ -96,9 +97,13 @@ describe('edgeSide', () => {
 });
 
 describe('dragBandCss', () => {
-  it('移动窗口的拖动带不小于光晕内边距环(高缩放不把既有环缩窄)', () => {
-    expect(dragBandCss(2)).toBe(GLOW_PAD);
-    expect(dragBandCss(1.3)).toBe(GLOW_PAD);
-    expect(dragBandCss(0.5)).toBe(16); // 8 逻辑像素 > 14 CSS 环:热区随缩放放大
+  it('拖动带覆盖光晕环与可见卡片内侧一小段(抓card边缘能拖)', () => {
+    const band = GLOW_PAD + CARD_DRAG_INSET_CSS;
+    expect(dragBandCss(2)).toBe(band);
+    expect(dragBandCss(1.3)).toBe(band);
+    expect(dragBandCss(0.5)).toBe(band); // 8 逻辑像素=16 < 20:新带在 0.5-2.0 全区间都够宽
+    // 关键回归:卡片可见边缘恰好落在 GLOW_PAD 处,必须落在拖动带内(否则“拖不动”)
+    expect(GLOW_PAD).toBeLessThan(band);
+    expect(GLOW_PAD + CARD_DRAG_INSET_CSS).toBeLessThanOrEqual(band);
   });
 });

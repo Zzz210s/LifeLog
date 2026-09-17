@@ -15,6 +15,12 @@ export const MAX_LINES = 5;
 export const EDGE_BAND_LOGICAL = 8;
 
 /**
+ * 拖动带向可见卡片内延伸的宽度(**CSS 像素**):输入框自带内边距环是 px-3/px-2(12/8 CSS px),
+ * 取 6 保证整圈都不碰到文字(文字从 GLOW_PAD+8 处开始),同时让"抓看得见的边缘"能拖。
+ */
+export const CARD_DRAG_INSET_CSS = 6;
+
+/**
  * 逻辑像素热区 -> CSS 像素:ratio = 逻辑像素 / CSS 像素(见 input-bar/logical-size.ts)。
  * 缩放 0.5 时热区 16 CSS px、缩放 2.0 时 4 CSS px;ratio 非法(0/NaN/负数)按 1 处理。
  */
@@ -23,14 +29,14 @@ export function edgeBandCss(ratio: number): number {
 }
 
 /**
- * 移动窗口的拖动带 CSS 宽度 = 光晕内边距环 GLOW_PAD 与「8 逻辑像素热区」取较大者:
- * 低缩放(ratio 0.5)时 8 逻辑像素 = 16 CSS px,比环还宽,取大者才保住逻辑热区;
- * 高缩放时环本身已覆盖 8 逻辑像素,取环即可(不把既有可拖动环缩窄)。
- * 取 max 而非纯换算:纯换算会在高缩放下把「整圈 14 CSS px 可拖」缩到 4 px,属能力回归;
- * **控制端已裁决保留**(详见 use-drag-band 头注释)。
+ * 移动窗口的拖动带 CSS 宽度 = 光晕内边距环 GLOW_PAD + 可见卡片内侧的一小段(见 CARD_DRAG_INSET_CSS)。
+ * 只取光晕环会留下一个坑:可见卡片的边缘恰好落在 GLOW_PAD 上,用户去抓看得见的输入框边缘时
+ * 会差 1 像素判不进热区(实测 110% 缩放下卡片边缘在 14 CSS px 处),手感就是"拖不动"。
+ * 与「8 逻辑像素热区」取较大者:0.5-2.0 缩放下 20 CSS px = 10-40 逻辑像素,已覆盖该下限,
+ * max 只作为缩放超出区间时的兜底(纯换算会在高缩放下把手感缩没)。
  */
 export function dragBandCss(ratio: number): number {
-  return Math.max(GLOW_PAD, edgeBandCss(ratio));
+  return Math.max(GLOW_PAD + CARD_DRAG_INSET_CSS, edgeBandCss(ratio));
 }
 
 export function clampWidth(w: number): number {

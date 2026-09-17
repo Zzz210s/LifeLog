@@ -132,7 +132,7 @@ export function InputBar() {
 
   return (
     <div
-      className="relative box-border h-screen w-full p-[14px]"
+      className="relative box-border h-screen w-full cursor-move p-[14px]"
       style={{ opacity: opacity / 100 }}
       onMouseDown={onRootMouseDown}
     >
