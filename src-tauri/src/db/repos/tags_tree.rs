@@ -35,21 +35,17 @@ pub(crate) fn linked_notes(conn: &Connection, tag_ids: &[i64]) -> rusqlite::Resu
 }
 
 /// 结构变更(改名/移动/删除树)不经过 tag_links 触发器,需按当前链接聚合显式重写 FTS 行。
-/// 聚合口径必须与迁移 009 重建的触发器一致:只收**时间子树之外**的完整路径
-/// (时间标签是系统元数据,进了 tags 列会让搜 `11`/`2026` 命中整段时期的全部笔记)。
+/// 聚合口径必须与迁移 011 重建的触发器一致:收**全部**标签的完整路径
+/// (时间标签已是普通标签,与其它标签同权,见 D3)。
 pub(crate) fn refresh_fts(conn: &Connection, note_ids: &[i64]) -> rusqlite::Result<()> {
     for id in note_ids {
         conn.execute("DELETE FROM notes_fts WHERE rowid = ?1", params![id])?;
         conn.execute(
-            &format!(
-                "INSERT INTO notes_fts(rowid, content, tags)
-                 SELECT n.id, n.content, COALESCE((SELECT group_concat(t.path, ' ' ORDER BY t.path)
-                   FROM tags t JOIN tag_links l ON l.tag_id = t.id
-                   WHERE l.target_type = 'note' AND l.target_id = n.id AND NOT ({})
-                   ), '')
-                 FROM notes n WHERE n.id = ?1",
-                crate::timetag::sql_in_time_subtree("t")
-            ),
+            "INSERT INTO notes_fts(rowid, content, tags)
+             SELECT n.id, n.content, COALESCE((SELECT group_concat(t.path, ' ' ORDER BY t.path)
+               FROM tags t JOIN tag_links l ON l.tag_id = t.id
+               WHERE l.target_type = 'note' AND l.target_id = n.id), '')
+             FROM notes n WHERE n.id = ?1",
             params![id],
         )?;
     }
@@ -114,7 +110,7 @@ mod replace;
 pub use ensure::ensure_path;
 pub use ops::{delete_subtree, move_to, rename};
 pub(crate) use replace::{replace_links, resolve_id};
-pub use query::{complete, counts, impact, time_root_id, TagCount};
+pub use query::{complete, counts, impact, TagCount};
 
 #[cfg(test)]
 #[path = "tags_tree_tests.rs"]
@@ -133,8 +129,8 @@ mod tags_tree_ops_tests;
 mod tags_tree_ops_extra_tests;
 
 #[cfg(test)]
-#[path = "tags_tree_time_guard_tests.rs"]
-mod tags_tree_time_guard_tests;
+#[path = "tags_tree_time_ops_tests.rs"]
+mod tags_tree_time_ops_tests;
 
 #[cfg(test)]
 #[path = "tags_tree_replace_tests.rs"]

@@ -11,6 +11,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("migrations/008_time_tags.sql"),
     include_str!("migrations/009_fts_time_tags.sql"),
     include_str!("migrations/010_view_icon.sql"),
+    include_str!("migrations/011_time_tag_demotion.sql"),
 ];
 
 /// 008 回填时间标签:created_at 无法解析且尚无时间标签的笔记会被跳过。SQL 迁移里写不了日志,
@@ -111,5 +112,5 @@ mod time_tag_migration_tests;
 mod migrate_tests;
 
 #[cfg(test)]
-#[path = "fts_time_tag_migration_tests.rs"]
-mod fts_time_tag_migration_tests;
+#[path = "time_tag_demotion_tests.rs"]
+mod time_tag_demotion_tests;

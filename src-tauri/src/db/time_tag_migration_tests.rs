@@ -1,6 +1,7 @@
 //! 008 时间标签回填迁移测试(spec 2026-09-15 第 4.4 节):
 //! ①按 created_at 建 `时间排序/YYYY/MM/DD` 三级树并建链 ②同日复用同一批节点
 //! ③created_at 解析失败的笔记跳过 ④幂等(重复执行不改库)⑤已有时间标签的笔记不动。
+//! FTS 的 tags 列口径由后续迁移决定:009 排除时间标签,011(spec 2026-09-17)又纳入。
 use super::{latest_version, run, MIGRATIONS};
 use rusqlite::Connection;
 
@@ -103,15 +104,17 @@ fn migration_008_backfills_from_created_at() {
     assert_eq!(row("时间排序/2026"), (2, "时间排序".into()));
     assert_eq!(row("时间排序/2026/09"), (3, "时间排序/2026".into()));
     assert_eq!(row("时间排序/2026/09/15"), (4, "时间排序/2026/09".into()));
-    // FTS 的 tags 列只收时间子树之外的标签(009):时间标签不再靠关键词命中,
-    // 用户标签照旧在索引里(时间由日期筛选负责,不靠关键词)
+    // 迁移 011(时间标签降级为普通标签)把时间标签重新纳入 FTS 的 tags 列:
+    // 时间标签与自建标签完全同权,搜年份/月份会命中该时段的全部笔记(明示代价)
     let fts_tags: String = conn
         .query_row("SELECT tags FROM notes_fts WHERE rowid=?1", [a], |r| r.get(0))
         .unwrap();
-    assert_eq!(fts_tags, "工作", "只留用户标签:{fts_tags}");
+    assert!(fts_tags.contains("工作"), "用户标签仍在:{fts_tags}");
+    assert!(fts_tags.contains("时间排序/2026/09/15"), "011 起时间标签也进索引:{fts_tags}");
     assert_eq!(
-        count(&conn, "SELECT COUNT(*) FROM notes_fts WHERE notes_fts MATCH '\"时间排序\"*'"),
-        0
+        count(&conn, "SELECT COUNT(*) FROM notes_fts WHERE notes_fts MATCH '\"时间排序/2026/09/15\"*'"),
+        2,
+        "a 与 b 同日(2026-09-15),两条都因时间标签命中"
     );
 }
 

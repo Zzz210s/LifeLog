@@ -41,8 +41,8 @@ fn migration_010_is_idempotent_and_adds_nullable_icon() {
     migrate::run(&c).unwrap(); // 幂等:第二次是空操作,不报错
 
     let version: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
-    assert_eq!(version, 10, "010 之后 user_version 必须是 10");
-    assert_eq!(version, migrate::latest_version());
+    assert_eq!(version, migrate::latest_version(), "迁移必须跑到最新版本");
+    assert!(version >= 10, "010 起 icon 列必须存在(当前版本 {version})");
     assert_eq!(column(&c, "icon"), Some(0), "icon 列必须存在且可空(notnull=0)");
     let all = list(&c).unwrap();
     assert_eq!(all.len(), 1, "迁移不得丢既有视图");

@@ -1,5 +1,7 @@
 //! 005 设置键更名迁移测试:quick_* -> input_*。
 //! 关注三件事:值随键一起搬走且旧键删除、重复执行无副作用、没有旧键时不动任何数据。
+//! 注:期望值里含迁移 011(spec 2026-09-17)登记的 `auto_time_tag` / `time_tag_template`,
+//! 它们与 005 无关但会出现在 `run()` 后的 settings 表里,故显式列出以保持断言完整。
 use super::{run, MIGRATIONS};
 use rusqlite::Connection;
 
@@ -43,10 +45,12 @@ fn migration_005_renames_old_keys_and_drops_them() {
     assert_eq!(
         rows(&conn),
         vec![
+            ("auto_time_tag".into(), "true".into()),
             ("input_geom_ver".into(), "1".into()),
             ("input_x".into(), "1077".into()),
             ("input_zoom".into(), "1.30".into()),
             ("quickfool".into(), "untouched".into()),
+            ("time_tag_template".into(), "时间排序/{y}/{m}/{d}".into()),
             ("unrelated".into(), "keep".into()),
             ("xquick_y".into(), "untouched".into()),
         ]
@@ -63,7 +67,14 @@ fn migration_005_prefers_existing_new_key_on_conflict() {
 
     run(&conn).unwrap();
 
-    assert_eq!(rows(&conn), vec![("input_x".into(), "2".into())]);
+    assert_eq!(
+        rows(&conn),
+        vec![
+            ("auto_time_tag".into(), "true".into()),
+            ("input_x".into(), "2".into()),
+            ("time_tag_template".into(), "时间排序/{y}/{m}/{d}".into()),
+        ]
+    );
 }
 
 #[test]
@@ -90,5 +101,12 @@ fn migration_005_without_old_keys_changes_nothing() {
 
     run(&conn).unwrap();
 
-    assert_eq!(rows(&conn), vec![("unrelated".into(), "keep".into())]);
+    assert_eq!(
+        rows(&conn),
+        vec![
+            ("auto_time_tag".into(), "true".into()),
+            ("time_tag_template".into(), "时间排序/{y}/{m}/{d}".into()),
+            ("unrelated".into(), "keep".into()),
+        ]
+    );
 }
