@@ -60,15 +60,15 @@ export class Cdp {
 
 /**
  * 连接页面:kind = 'main'(LifeLog 主窗) | 'input'(输入栏)。
- * 主窗判定:5173 站点根且 title 为 LifeLog(改名后的页面标题),退化时取任意非 input.html 的站点页。
+ * 主窗判定:非 input.html 且来源为 dev(5173) 或 release(tauri.localhost),优先 title 为 LifeLog。
  */
 export async function open(kind) {
   const list = await pages();
+  const isMain = (p) => !p.url.includes('input.html') && (p.url.includes('5173') || p.url.includes('tauri.localhost'));
   const target =
     kind === 'input'
       ? list.find((p) => p.url.includes('input.html'))
-      : list.find((p) => p.url.includes('5173') && !p.url.includes('input.html') && p.title === 'LifeLog') ||
-        list.find((p) => p.url.includes('5173') && !p.url.includes('input.html'));
+      : list.find((p) => isMain(p) && p.title === 'LifeLog') || list.find(isMain);
   if (!target) {
     throw new Error(`未找到 ${kind} 页面;当前页面:` + list.map((p) => `${p.title}|${p.url}`).join(', '));
   }
@@ -106,13 +106,11 @@ export async function open(kind) {
 /** 全空条件的 JSON 字面量,over 覆盖个别字段(与 Rust FilterConditions 同构) */
 export const F = (over) => JSON.stringify(conditions(over));
 
-/** 条件对象(Rust FilterConditions 同构);排序不算收窄条件 */
+/** 条件对象(Rust FilterConditions 同构;日期键 from/to 已随 D2 删除,故不再带);排序不算收窄条件 */
 export const conditions = (over = {}) => ({
   keyword: null,
   tags: [],
   excludeTags: [],
-  from: null,
-  to: null,
   tagPresence: null,
   sort: 'newest',
   expr: null,

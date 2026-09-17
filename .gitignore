@@ -24,3 +24,7 @@ Thumbs.db
 .DS_Store
 # superpowers SDD 工作区
 .superpowers/
+
+# Python 缓存
+__pycache__/
+*.pyc
