@@ -74,15 +74,18 @@ The window *is* the input box: no frame, no title bar, no buttons, transparent s
 
 - A single column: composer, filter bar, note stream
 - Filtering by keyword, by tag (click a `#tag` chip or a tag in a note), and ordering
-  newest-first or oldest-first, paged 50 notes at a time
+  newest-first or oldest-first, paged 50 notes at a time; there is no date-range filter
+- Time tags are ordinary tags: `时间排序/YYYY/MM/DD` lives in the tag tree like any other tag, so
+  browsing a day means clicking that day's tag (rename, move or delete it freely)
 - Inline editing in a VSCode-style split pane: Markdown source on the left, live preview on the
   right, `Ctrl+Enter` to save
 - Deleting asks for confirmation
 - A gear in the top bar opens an inline settings page (the stream stays mounted behind it, so
-  returning neither re-queries nor loses the scroll position): the nine input-bar options, a startup
-  section (autostart with the real registry state and a repair button, plus what to show on launch),
-  and a general section with the version, the database path, an "open containing folder" button and a
-  reset for the input-bar section
+  returning neither re-queries nor loses the scroll position): the nine input-bar options, the
+  notes section (whether new notes get a time tag automatically, and the template that decides the
+  tag path), a startup section (autostart with the real registry state and a repair button, plus
+  what to show on launch), and a general section with the version, the database path, an "open
+  containing folder" button and a reset for the input-bar section
 
 **Notes**
 
@@ -91,11 +94,15 @@ The window *is* the input box: no frame, no title bar, no buttons, transparent s
 - Markdown rendering (tables, task lists, fenced code with syntax highlighting) through a single
   sanitising entry point
 - `#todo` notes render a checkbox; ticking it swaps the tag to `#done`, unticking swaps it back
-- Timestamps shown to the minute, with a machine-readable `datetime` attribute
+- Time is shown from the note's `created_at` as `MM-DD HH:MM`, inside a `<time>` element with a
+  machine-readable `datetime` attribute; it is display-only (no date editing — edit the tags instead)
+- The built-in "待办" view means the `待办` tag (children included) minus anything under `done`;
+  "无自定义标签" means no tags at all
 
 **Export**
 
-- "Export all" writes the entire database to one `.xlsx` sheet (time, body, tags, created time)
+- "Export all" writes the entire database to one `.xlsx` sheet (body, tags, created time; the date
+  column is the `created_at` date)
 
 ## Install
 

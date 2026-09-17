@@ -5,6 +5,7 @@ import type { ThemeMode } from '../shared/theme-mode';
 import { AppearanceSection } from './settings/AppearanceSection';
 import { GeneralSection } from './settings/GeneralSection';
 import { InputBarSection } from './settings/InputBarSection';
+import { NotesSection } from './settings/NotesSection';
 import { StartupSection } from './settings/StartupSection';
 
 export interface SettingsViewProps {
@@ -19,6 +20,7 @@ export function SettingsView({ themeMode, onThemeChange }: SettingsViewProps): R
         <h1 className="text-base font-semibold text-text">设置</h1>
         <AppearanceSection mode={themeMode} onChange={onThemeChange} />
         <InputBarSection />
+        <NotesSection />
         <StartupSection />
         <GeneralSection />
       </div>
