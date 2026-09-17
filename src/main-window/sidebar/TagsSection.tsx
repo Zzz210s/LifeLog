@@ -1,5 +1,7 @@
 /**
  * 侧栏「标签」分区(spec 6.1):树/扁平双模式 + 类型过滤 + 计数导轨 + 选中态。
+ * 时间标签已降级为普通标签(D3):本分区就是全部标签(含 `时间排序` 根),
+ * 可展开、可右键管理;不再有单独的时间分区,也不再有数据层过滤。
  * 选中态与筛选栏 tags[] 是同一份条件对象(上层传入 conditions 派生);
  * 点击 = applyTagPick(含子级 true),再点 = 移除;右键打开 TagMenu 管理标签。
  */
@@ -12,7 +14,7 @@ import { TagRowList } from './TagRowList';
 import { TagsHeader } from './TagsHeader';
 import type { TagFlash } from './TagsHeader';
 import { TagRootDropBar } from './TagRootDropBar';
-import { buildTree, filterTree, isManageable, toggleTagPick, withoutTimeTags } from './tag-tree';
+import { buildTree, filterTree, isManageable, toggleTagPick } from './tag-tree';
 import type { ManagedNode, TagNode } from './tag-tree';
 import { useTagDrag } from './use-tag-drag';
 import type { TagViewMode } from './use-sidebar-state';
@@ -36,8 +38,8 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
   const [flash, setFlash] = useState<TagFlash | null>(null);
   const flashTimer = useRef<number | null>(null);
 
-  // 时间子树不进标签分区(spec 4.5):在数据层过滤,计数与空态随之正确
-  const visibleRows = useMemo(() => withoutTimeTags(p.tagRows), [p.tagRows]);
+  // 全量标签行(含时间标签)就是本分区的数据源(D3)
+  const visibleRows = p.tagRows;
 
   const tree = useMemo(() => buildTree(visibleRows), [visibleRows]);
   const filtering = query.trim() !== '';
@@ -74,7 +76,7 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
 
   const onContextMenu = useCallback((e: React.MouseEvent, node: TagNode) => {
     e.preventDefault();
-    if (!isManageable(node)) return; // 结构节点与时间子树不可管理:不出菜单
+    if (!isManageable(node)) return; // 补出的结构节点(无 DB id)不可管理:不出菜单
     // 菜单宽 224px(w-56)、高最多 320px,钳制不超出视口
     setMenu({
       node,
@@ -159,7 +161,7 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
           node={menu.node}
           x={menu.x}
           y={menu.y}
-          tagRows={withoutTimeTags(p.tagRows)}
+          tagRows={p.tagRows}
           onClose={() => setMenu(null)}
           onDone={onMenuDone}
         />

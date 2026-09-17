@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildTree, filterTree, isManageable, isSelectable, rewriteTagPaths, toggleTagPick, withoutTimeTags } from './tag-tree';
+import { buildTree, filterTree, isManageable, isSelectable, rewriteTagPaths, toggleTagPick } from './tag-tree';
 import { EMPTY_FILTER } from '../../shared/filter-conditions';
 import type { FilterConditions } from '../../shared/filter-conditions';
 
@@ -73,30 +73,6 @@ describe('filterTree', () => {
   });
 });
 
-describe('withoutTimeTags(标签分区数据层过滤)', () => {
-  const mixed = [
-    { id: 1, path: 'todo', depth: 1, self_count: 1, subtree_count: 1 },
-    { id: 2, path: '时间排序', depth: 1, self_count: 0, subtree_count: 6 },
-    { id: 3, path: '时间排序/2026/09', depth: 3, self_count: 0, subtree_count: 6 },
-    { id: 4, path: '时间排序/2026/09/13', depth: 4, self_count: 3, subtree_count: 3 },
-    { id: 5, path: '工作', depth: 1, self_count: 1, subtree_count: 1 },
-  ];
-  it('滤掉时间根与全部后代,其余保持原顺序', () => {
-    expect(withoutTimeTags(mixed as never).map((r) => r.path)).toEqual(['todo', '工作']);
-  });
-  it('只有时间标签时返回空(标签分区据此显示空态)', () => {
-    expect(withoutTimeTags(mixed.filter((r) => r.path.startsWith('时间排序')) as never)).toEqual([]);
-  });
-  it('无时间标签时原数组返回(引用相等)', () => {
-    const rows = mixed.filter((r) => !r.path.startsWith('时间排序'));
-    expect(withoutTimeTags(rows as never)).toBe(rows);
-  });
-  it('前缀相近的兄弟标签不被误伤', () => {
-    const rows = [{ id: 9, path: '时间排序器', depth: 1, self_count: 1, subtree_count: 1 }];
-    expect(withoutTimeTags(rows as never)).toEqual(rows);
-  });
-});
-
 describe('isManageable(右键管理入口把关)', () => {
   it('真实标签行可管理', () => {
     const tree = buildTree([{ id: 7, path: '工作', depth: 1, self_count: 1, subtree_count: 1 }] as never);
@@ -106,15 +82,15 @@ describe('isManageable(右键管理入口把关)', () => {
     const tree = buildTree([{ id: 7, path: 'a/b', depth: 2, self_count: 1, subtree_count: 1 }] as never);
     expect(isManageable(tree[0])).toBe(false);
   });
-  it('时间子树的真实行(有 DB id)也不可管理', () => {
+  it('时间标签已是普通标签(D3):有真实 DB id 同样可管理', () => {
     const tree = buildTree([
       { id: 2, path: '时间排序/2026/09/13', depth: 4, self_count: 3, subtree_count: 3 },
     ] as never);
     const day = tree[0].children[0].children[0].children[0];
     expect(day.path).toBe('时间排序/2026/09/13');
     expect(day.id).toBe(2);
-    expect(isManageable(day)).toBe(false);
-    expect(isManageable(tree[0])).toBe(false); // 补出的时间根
+    expect(isManageable(day)).toBe(true);
+    expect(isManageable(tree[0])).toBe(false); // 补出的时间根(没有真实行)
   });
 });
 

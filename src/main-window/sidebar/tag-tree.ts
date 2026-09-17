@@ -1,22 +1,12 @@
 /**
  * 标签树纯函数(spec 6.1 标签分区):扁平行(list_tags,路径序)转嵌套树、
  * 类型过滤(命中保留祖先链)、可选性判定、改名/移动后的条件路径改写。
+ * 时间标签已降级为普通标签(D3):本模块不再有任何时间子树的特殊处理。
  * 全部无副作用,可单测;UI 在 TagsSection 里消费。
  */
 import type { TagCount } from '../../shared/types';
 import type { FilterConditions } from '../../shared/filter-conditions';
-import { isTimeTagPath } from '../../shared/time-tag';
 import { applyTagPick } from '../filter-chips';
-
-/**
- * 标签分区专用:把时间子树(`时间排序` 根与其后代)从**数据层**滤掉(spec 4.5),
- * 时间子树由「时间」分区单独展示;过滤在建树之前完成,故计数导轨、类型过滤、
- * 空态都自然正确。无时间标签时原数组返回(引用相等,避免无谓重算)。
- */
-export function withoutTimeTags(rows: TagCount[]): TagCount[] {
-  const out = rows.filter((r) => !isTimeTagPath(r.path));
-  return out.length === rows.length ? rows : out;
-}
 
 /** 树节点:id 为 null 表示父行缺失时补出的结构节点(不可右键管理) */
 export interface TagNode {
@@ -115,15 +105,13 @@ export function isSelectable(node: TagNode): boolean {
 /**
  * 可右键管理(重命名/移动/删除)的节点:id 非 null 的真实标签行。
  * 补出的结构节点(id null)不可管理,侧栏右键不出菜单。
+ * 时间标签也是普通标签(D3),同样可管理,后端不再有守卫。
  */
 export type ManagedNode = TagNode & { id: number };
 
-/**
- * 可右键管理(重命名/移动/删除):id 非 null 的真实标签行,且不属于系统维护的时间子树。
- * TagMenu 入口用它把关;后端 rename/move/delete 另有守卫兜底。
- */
+/** 可右键管理(重命名/移动/删除):id 非 null 的真实标签行 */
 export function isManageable(node: TagNode): node is ManagedNode {
-  return node.id !== null && !isTimeTagPath(node.path);
+  return node.id !== null;
 }
 
 /**
