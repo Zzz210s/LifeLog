@@ -3,6 +3,7 @@
 use super::order_support::{dump, id_at, orders, seed, siblings, db};
 use super::ops::move_to_ordered;
 use super::*;
+use crate::db::migrate;
 
 #[test]
 fn repeated_move_beside_is_stable() {
@@ -41,6 +42,26 @@ fn move_to_ordered_appends_when_anchor_missing() {
 
     assert_eq!(siblings(&c, None), vec!["b", "a"]);
     assert_eq!(orders(&c, None), vec![0, 1]);
+}
+
+#[test]
+fn sibling_order_survives_reopen() {
+    // 落盘库 + 关连接再开:同级序靠 tags.sort_order 持久化,重启(新连接)读数不变
+    let path = std::env::temp_dir().join(format!("lifelog-order-{}.db", std::process::id()));
+    let _ = std::fs::remove_file(&path);
+    {
+        let mut c = Connection::open(&path).unwrap();
+        migrate::run(&c).unwrap();
+        seed(&mut c, "x #a #b #c");
+        let (a, ctag) = (id_at(&c, "a"), id_at(&c, "c"));
+        move_beside(&mut c, ctag, a, false).unwrap();
+        assert_eq!(siblings(&c, None), vec!["c", "a", "b"]);
+    }
+    let c2 = Connection::open(&path).unwrap();
+    assert_eq!(siblings(&c2, None), vec!["c", "a", "b"]);
+    assert_eq!(orders(&c2, None), vec![0, 1, 2]);
+    drop(c2);
+    let _ = std::fs::remove_file(&path);
 }
 
 #[test]
