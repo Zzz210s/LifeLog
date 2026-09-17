@@ -14,8 +14,8 @@ pub const DEFAULT_HOTKEY: &str = "ctrl+shift+q";
 fn modifier_of(token: &str) -> Option<&'static str> {
     match token.to_ascii_lowercase().as_str() {
         "ctrl" | "control" => Some("ctrl"),
-        // 插件在非 mac 平台把 cmdorctrl 系列映射为 Ctrl,这里同样归一
-        "cmdorctrl" | "commandorctrl" | "cmdorl" => Some("ctrl"),
+        // 插件在非 mac 平台把 cmdorctrl/cmdorcontrol 系列映射为 Ctrl,这里同样归一
+        "cmdorctrl" | "cmdorcontrol" | "commandorctrl" | "commandorcontrol" => Some("ctrl"),
         "alt" | "option" => Some("alt"),
         "shift" => Some("shift"),
         "super" | "cmd" | "command" | "meta" | "win" => Some("super"),

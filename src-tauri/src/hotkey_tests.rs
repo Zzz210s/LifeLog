@@ -170,5 +170,7 @@ fn live_hotkey_state_round_trip() {
 fn modifier_aliases_from_plugin_are_accepted() {
     assert_eq!(check("cmdorctrl+q").as_deref(), Ok("ctrl+q"));
     assert_eq!(check("commandorctrl+q").as_deref(), Ok("ctrl+q"));
+    assert_eq!(check("cmdorcontrol+q").as_deref(), Ok("ctrl+q"));
+    assert_eq!(check("commandorcontrol+q").as_deref(), Ok("ctrl+q"));
     assert_eq!(check("win+shift+q").as_deref(), Ok("shift+super+q"));
 }

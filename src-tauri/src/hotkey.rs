@@ -55,7 +55,7 @@ pub fn register(app: &AppHandle, accelerator: &str) -> Result<(), String> {
             // 插件的英文 Debug 对用户无意义,这里换成可行动的中文
             format!("快捷键 {accelerator} 已被占用(可能被本程序或其他程序注册),请换一个组合")
         } else {
-            format!("快捷键 {accelerator} 注册失败:{text}")
+            format!("快捷键 {accelerator} 注册失败(可能被其他程序占用):{text}")
         }
     })
 }

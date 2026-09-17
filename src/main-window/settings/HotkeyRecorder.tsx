@@ -111,8 +111,7 @@ export function HotkeyRecorder(): ReactNode {
             }}
             onBlur={() => {
               setCapturing(false);
-              setPreview('');
-              setError(''); // 中途态的即时提示不该在失焦后留在界面上
+              setPreview(''); // 只清预览:注册失败的中文原因要留到用户看见,不清错误
             }}
             onKeyDown={onKeyDown}
             className={

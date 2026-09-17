@@ -30,7 +30,13 @@ pub fn set_input_hotkey(app: AppHandle, accelerator: String) -> Result<String, S
         hotkey::set_live(&app, Some(&new));
     }
     if let Err(e) = persist(&app, &new) {
-        // 已生效但未保存:重启后会回到库里的值(可能又是默认键),不做无依据的回退断言
+        // 新键已生效但没存下来:旧键必须**就地注销** —— 它此刻才是真正的孤儿候选
+        // (live 已改指新键,同进程内再没有路径能认出它,不清掉就会两个键同时唤醒
+        //  且界面只显示一个、无任何提示)
+        if let Some(prev) = &drop_old {
+            hotkey::unregister(&app, prev);
+        }
+        // 重启后会回到库里的值(可能又是默认键),不做无依据的回退断言
         let restart = hotkey::effective(hotkey::stored(&app).as_deref());
         return Err(format!("快捷键 {new} 已生效,但保存失败(重启后将回到 {restart}):{e}"));
     }
