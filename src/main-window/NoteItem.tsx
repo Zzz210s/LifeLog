@@ -66,7 +66,8 @@ export function NoteItem(p: NoteItemProps): ReactNode {
                 aria-pressed={active}
                 title={t}
                 className={
-                  'rounded px-1.5 py-0.5 text-xs transition-colors ' +
+                  // S4:chip 文案是完整路径,长路径靠 max-w + truncate 收窄,title 兜底全量
+                  'max-w-[16rem] truncate rounded px-1.5 py-0.5 text-xs transition-colors ' +
                   (active ? 'bg-accent-soft text-accent-text' : 'bg-tag text-accent-text hover:bg-accent-soft')
                 }
               >

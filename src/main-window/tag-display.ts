@@ -1,8 +1,13 @@
-/** 标签 chips 的显示名:默认只显示末级名称,悬浮 title 另给完整路径。
- *  maxDepth 保留末 n 级(n<=1 等价于只显示末级);层级未超过 maxDepth 时原样返回。
- *  例:tagDisplayName('工作/项目A/会议') === '会议';maxDepth=2 时为 '项目A/会议'。 */
-export function tagDisplayName(path: string, maxDepth = 1): string {
-  const parts = path.split('/');
-  const keep = Math.max(1, Math.floor(maxDepth) || 1);
-  return parts.length <= keep ? path : parts.slice(parts.length - keep).join('/');
+/**
+ * 标签 chip 的显示名:一律**完整路径**(spec 2026-09-17 S4)。
+ *
+ * 旧口径默认只显示末级(`工作/项目A/会议` -> `会议`),导致不同父级下的同名末级
+ * (`工作/会议` 与 `生活/会议`)在笔记 chips 上完全无法区分;标签是树,末级不是身份。
+ * 长路径不再靠"截断层级"收缩,而由 CSS `truncate` + `title` 兜底 ——
+ * 任何情况下都不得退化成末级。
+ *
+ * 保留这个单点函数:显示名的唯一入口(调用方不各自拼路径)。
+ */
+export function tagDisplayName(path: string): string {
+  return path;
 }
