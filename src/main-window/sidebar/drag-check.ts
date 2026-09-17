@@ -11,6 +11,26 @@ export interface DragNodeRef {
   path: string;
 }
 
+/** 行内落点分区(S8):上 25% 插到该行之前、下 25% 插到该行之后(均为同级),中 50% 成为其子级 */
+export type DropZone = 'before' | 'after' | 'child';
+
+/**
+ * 按行内相对位置(0..1)判定落点分区(S8)。边界归属:上半区 [0,0.25) 前插、
+ * 中部 [0.25,0.75) 成为子级、下半区 [0.75,1] 后插。越界值钳到 [0,1]。
+ */
+export function dropZoneFor(ratio: number): DropZone {
+  const r = Number.isFinite(ratio) ? Math.min(1, Math.max(0, ratio)) : 0.5;
+  if (r < 0.25) return 'before';
+  if (r >= 0.75) return 'after';
+  return 'child';
+}
+
+/** 行内相对位置(0..1):clientY 相对行矩形顶边;高度非法时取中部 */
+export function rowRatio(clientY: number, top: number, height: number): number {
+  if (!Number.isFinite(height) || height <= 0) return 0.5;
+  return Math.min(1, Math.max(0, (clientY - top) / height));
+}
+
 /** 判定结果:ok 为假时 reason 是面向用户的中文提示 */
 export type DropVerdict = { ok: true } | { ok: false; reason: string };
 

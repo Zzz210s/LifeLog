@@ -14,6 +14,8 @@ export interface TagNode {
   path: string;
   name: string;
   depth: number;
+  /** 同层次序键(S8):兄弟按 (sortOrder, path) 排,与后端 tags.sort_order 口径一致 */
+  sortOrder: number;
   selfCount: number;
   subtreeCount: number;
   children: TagNode[];
@@ -29,6 +31,7 @@ const makeNode = (id: number | null, path: string, depth: number, structural: bo
   path,
   name: path.slice(path.lastIndexOf('/') + 1),
   depth,
+  sortOrder: 0,
   selfCount: 0,
   subtreeCount: 0,
   children: [],
@@ -36,8 +39,19 @@ const makeNode = (id: number | null, path: string, depth: number, structural: bo
 });
 
 /**
+ * 兄弟序(S8):先 sortOrder 再 path,与后端 apply_sibling_order 的
+ * `ORDER BY sort_order, path` 完全一致 —— 拖成同级后刷新的顺序必须同向后端。
+ * 字符串比较用码元序(不用 localeCompare):与 SQLite 的 BINARY 排序一致。
+ */
+export function compareSiblings(a: TagNode, b: TagNode): number {
+  if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+  return a.path < b.path ? -1 : a.path > b.path ? 1 : 0;
+}
+
+/**
  * 扁平行转树:依赖 list_tags 的路径序返回,但实现不依赖顺序(按路径逐级寻址)。
  * 父行缺失时按路径补结构节点(selfCount 0、id null),其 subtreeCount 由子树求和补齐。
+ * 兄弟在 finalize 里按 (sort_order, path) 重排(S8)——扁平返回是路径序,树里是同级序。
  */
 export function buildTree(rows: TagCount[]): TagNode[] {
   const roots: MutableNode[] = [];
@@ -58,6 +72,7 @@ export function buildTree(rows: TagCount[]): TagNode[] {
     const node = makeNode(row.id ?? null, row.path, row.depth, false);
     node.selfCount = row.self_count;
     node.subtreeCount = row.subtree_count;
+    node.sortOrder = row.sort_order ?? 0;
     byPath.set(row.path, node);
     (parent ? parent.children : roots).push(node);
   }
@@ -65,10 +80,12 @@ export function buildTree(rows: TagCount[]): TagNode[] {
   const finalize = (node: MutableNode): void => {
     const kids = node.children as MutableNode[];
     kids.forEach(finalize);
+    kids.sort(compareSiblings); // 同级按 (sortOrder, path) 排,扁平返回仍是路径序
     if (node.structural) {
       node.subtreeCount = kids.reduce((sum, c) => sum + c.subtreeCount, 0);
     }
   };
+  roots.sort(compareSiblings); // 根级兄弟同样按 (sortOrder, path) 排
   roots.forEach(finalize);
   return roots;
 }

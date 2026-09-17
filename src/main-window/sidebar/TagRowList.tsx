@@ -40,7 +40,7 @@ export function TagRowList(p: TagRowListProps): ReactNode {
       onToggleExpand={p.onToggleExpand}
       onContextMenu={p.onContextMenu}
       dragSource={p.drag.sourcePath === node.path}
-      dropTarget={p.drag.overPath === node.path}
+      dropZone={p.drag.overPath === node.path ? p.drag.overZone : null}
       onDragStart={(e) => p.drag.rowEvents.onDragStartRow(e, node)}
       onDragEnd={p.drag.rowEvents.onDragEnd}
       onDragOver={(e) => p.drag.rowEvents.onDragOverRow(e, node)}

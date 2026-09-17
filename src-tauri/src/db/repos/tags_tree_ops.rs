@@ -3,7 +3,8 @@
 //! 时间标签已是普通标签(D3):不再有"时间子树不可改名/移动/删除"的守卫。
 //! 底层 SQL 动作见 tags_tree_ops_sql。
 use super::ops_sql::{
-    ensure_sibling_free, load, rewrite_subtree_paths, shift_subtree_depths, subtree_note_ids,
+    apply_sibling_order, ensure_sibling_free, load, rewrite_subtree_paths, shift_subtree_depths,
+    subtree_note_ids, Anchor,
 };
 use super::{gc_orphans, linked_notes, refresh_fts, subtree_ids};
 use crate::db::repos::saved_views_rewrite;
@@ -33,14 +34,26 @@ pub fn rename(conn: &mut Connection, tag_id: i64, new_name: &str) -> Result<(), 
     tx.commit().map_err(|e| super::path::unique_conflict(e, "已存在同名标签"))
 }
 
+/// 移动标签到新父级(None 为根级):追加到新父级最后一个兄弟之后(右键菜单的口径)
+pub fn move_to(conn: &mut Connection, tag_id: i64, new_parent: Option<i64>) -> Result<(), String> {
+    move_to_ordered(conn, tag_id, new_parent, None)
+}
+
 /// 移动标签到新父级(None 为根级):环检测 + 深度上限 + 同级重名,全部通过才写。
 /// 末尾与 delete_subtree/link_paths 一致地回收空容器:移走最后的子节点后,旧父级会
 /// 变成"无链接且无子节点"的空标签,不回收就会在标签面板里残留。
-pub fn move_to(conn: &mut Connection, tag_id: i64, new_parent: Option<i64>) -> Result<(), String> {
+/// anchor 为同理插入位置(S8):Some 时插到指定兄弟的前/后,None 时追加到末层末尾。
+pub fn move_to_ordered(
+    conn: &mut Connection,
+    tag_id: i64,
+    new_parent: Option<i64>,
+    anchor: Option<Anchor>,
+) -> Result<(), String> {
     let tx = conn.transaction().map_err(|e| e.to_string())?;
     let node = load(&tx, tag_id)?;
-    if node.parent_id == new_parent {
-        return Ok(()); // 无变化:回滚空事务
+    if node.parent_id == new_parent && anchor.is_none() {
+        // 无变化:回滚空事务。带锚点时即使父级不变也要继续 —— 同级重排就是这种输入。
+        return Ok(());
     }
     let ids = subtree_ids(&tx, tag_id).map_err(|e| e.to_string())?;
     let new_depth = match new_parent {
@@ -82,10 +95,27 @@ pub fn move_to(conn: &mut Connection, tag_id: i64, new_parent: Option<i64>) -> R
     rewrite_subtree_paths(&tx, &node.path, &new_path)
         .map_err(|e| super::path::unique_conflict(e, "该层级下已有同名标签"))?;
     shift_subtree_depths(&tx, tag_id, delta).map_err(|e| e.to_string())?;
+    // 同层次序(S8):插到锚点位置后整层重写 sort_order;锚点 None = 追加到末尾
+    apply_sibling_order(&tx, new_parent, tag_id, anchor)?;
     saved_views_rewrite::rewrite_prefix(&tx, &node.path, &new_path).map_err(|e| e.to_string())?;
     gc_orphans(&tx).map_err(|e| e.to_string())?;
     refresh_fts(&tx, &notes).map_err(|e| e.to_string())?;
     tx.commit().map_err(|e| super::path::unique_conflict(e, "该层级下已有同名标签"))
+}
+
+/// 同级插入(S8):把 tag_id 移到锚点所在的父级下,插到锚点之前(after=false)/之后(after=true)。
+/// 锚点 = 自身时无操作(拖到自己前面/后面);新的父级从锚点派生,而锚点的存在性由 load 校验。
+pub fn move_beside(
+    conn: &mut Connection,
+    tag_id: i64,
+    anchor_id: i64,
+    after: bool,
+) -> Result<(), String> {
+    if tag_id == anchor_id {
+        return Ok(());
+    }
+    let parent = load(conn, anchor_id)?.parent_id;
+    move_to_ordered(conn, tag_id, parent, Some(Anchor { id: anchor_id, after }))
 }
 
 /// 删除子树:先解链再删标签,最后按剩余链接重写受影响笔记的 FTS。整事务,失败回滚。

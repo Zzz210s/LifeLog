@@ -3,18 +3,21 @@ use super::{subtree_ids, COMPLETE_LIMIT};
 use rusqlite::{params, Connection};
 use serde::Serialize;
 
-/// 标签计数(供标签面板):id 供侧栏右键管理(rename/move/delete/tag_impact 都按 id 寻址);
-/// self_count 为本级链接数,subtree_count 含全部子孙
+/// 标签树节点计数(供标签面板):id 供侧栏右键管理(rename/move/delete/tag_impact 都按 id 寻址);
+/// self_count 为本级链接数,subtree_count 含全部子孙;
+/// sort_order 供前端同层次序(S8):兄弟展示序 = (sort_order, path),与后端写入口径一致
 #[derive(Serialize, Debug, PartialEq)]
 pub struct TagCount {
     pub id: i64,
     pub path: String,
     pub depth: i64,
+    pub sort_order: i64,
     pub self_count: i64,
     pub subtree_count: i64,
 }
 
 /// 全部标签及其本级 / 含子级链接数,按 path 升序
+/// (全局仍是路径序:扁平模式与补全依赖它;树模式的兄弟序由前端按 sort_order 重排)
 pub fn counts(conn: &Connection) -> rusqlite::Result<Vec<TagCount>> {
     let mut stmt = conn.prepare(
         "WITH RECURSIVE sub(root, id) AS (
@@ -25,7 +28,7 @@ pub fn counts(conn: &Connection) -> rusqlite::Result<Vec<TagCount>> {
                  WHERE target_type = 'note' GROUP BY tag_id),
          roll AS (SELECT sub.root AS root, SUM(COALESCE(own.n, 0)) AS n
                   FROM sub LEFT JOIN own ON own.tag_id = sub.id GROUP BY sub.root)
-         SELECT t.id, t.path, t.depth, COALESCE(own.n, 0), COALESCE(roll.n, 0)
+         SELECT t.id, t.path, t.depth, t.sort_order, COALESCE(own.n, 0), COALESCE(roll.n, 0)
          FROM tags t
          LEFT JOIN own ON own.tag_id = t.id
          LEFT JOIN roll ON roll.root = t.id
@@ -36,8 +39,9 @@ pub fn counts(conn: &Connection) -> rusqlite::Result<Vec<TagCount>> {
             id: r.get(0)?,
             path: r.get(1)?,
             depth: r.get(2)?,
-            self_count: r.get(3)?,
-            subtree_count: r.get(4)?,
+            sort_order: r.get(3)?,
+            self_count: r.get(4)?,
+            subtree_count: r.get(5)?,
         })
     })?;
     rows.collect()

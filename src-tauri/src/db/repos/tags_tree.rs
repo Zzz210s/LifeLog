@@ -108,7 +108,7 @@ mod query;
 #[path = "tags_tree_replace.rs"]
 mod replace;
 pub use ensure::ensure_path;
-pub use ops::{delete_subtree, move_to, rename};
+pub use ops::{delete_subtree, move_beside, move_to, rename};
 pub(crate) use replace::{replace_links, resolve_id};
 pub use query::{complete, counts, impact, TagCount};
 
@@ -123,6 +123,18 @@ mod tags_tree_id_tests;
 #[cfg(test)]
 #[path = "tags_tree_ops_tests.rs"]
 mod tags_tree_ops_tests;
+
+#[cfg(test)]
+#[path = "tags_tree_order_support.rs"]
+mod order_support;
+
+#[cfg(test)]
+#[path = "tags_tree_order_tests.rs"]
+mod tags_tree_order_tests;
+
+#[cfg(test)]
+#[path = "tags_tree_order_sql_tests.rs"]
+mod tags_tree_order_sql_tests;
 
 #[cfg(test)]
 #[path = "tags_tree_ops_extra_tests.rs"]

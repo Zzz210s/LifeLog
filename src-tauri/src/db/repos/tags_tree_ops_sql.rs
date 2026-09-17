@@ -83,3 +83,56 @@ pub(crate) fn subtree_note_ids(conn: &Connection, tag_id: i64) -> Result<Vec<i64
     let ids = super::subtree_ids(conn, tag_id).map_err(|e| e.to_string())?;
     super::linked_notes(conn, &ids).map_err(|e| e.to_string())
 }
+
+/// 同级落点锚点(S8):插到 siblings 里 `id` 这个兄弟的之前/之后
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Anchor {
+    pub id: i64,
+    pub after: bool,
+}
+
+/// 同层次序(S8):兄弟序 = (sort_order, path)。把 tag_id 插到锚点位置后整层重写
+/// sort_order = 0..n-1 —— 其它兄弟的相对次序不变(按原序重新编号)。
+/// 锚点 None(右键移动/成为子级)追加到末尾;锚点不在列表里(自身/已被排除)也按追加。
+pub(crate) fn apply_sibling_order(
+    conn: &Connection,
+    parent: Option<i64>,
+    tag_id: i64,
+    anchor: Option<Anchor>,
+) -> Result<(), String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT id FROM tags WHERE COALESCE(parent_id, 0) = COALESCE(?1, 0) AND id <> ?2
+             ORDER BY sort_order, path",
+        )
+        .map_err(|e| e.to_string())?;
+    let siblings: Vec<i64> = stmt
+        .query_map(params![parent, tag_id], |r| r.get(0))
+        .map_err(|e| e.to_string())?
+        .collect::<rusqlite::Result<_>>()
+        .map_err(|e| e.to_string())?;
+    drop(stmt);
+    let idx = match anchor {
+        None => siblings.len(),
+        Some(a) => match siblings.iter().position(|&x| x == a.id) {
+            Some(p) => {
+                if a.after {
+                    p + 1
+                } else {
+                    p
+                }
+            }
+            None => siblings.len(),
+        },
+    };
+    let mut ordered = siblings;
+    ordered.insert(idx.min(ordered.len()), tag_id);
+    for (i, id) in ordered.iter().enumerate() {
+        conn.execute(
+            "UPDATE tags SET sort_order = ?2 WHERE id = ?1",
+            params![id, i as i64],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}

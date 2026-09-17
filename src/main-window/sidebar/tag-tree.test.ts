@@ -37,6 +37,33 @@ describe('buildTree', () => {
   });
 });
 
+describe('buildTree 同层次序(S8)', () => {
+  it('兄弟按 (sort_order, path) 排,而非扁平返回的路径序', () => {
+    const tree = buildTree([
+      { id: 1, path: 'a', depth: 1, sort_order: 2, self_count: 1, subtree_count: 1 },
+      { id: 2, path: 'b', depth: 1, sort_order: 0, self_count: 1, subtree_count: 1 },
+      { id: 3, path: 'c', depth: 1, sort_order: 1, self_count: 1, subtree_count: 1 },
+    ] as never);
+    expect(tree.map((n) => n.path)).toEqual(['b', 'c', 'a']);
+    expect(tree.map((n) => n.sortOrder)).toEqual([0, 1, 2]);
+  });
+  it('sort_order 相同时按 path(码元序,与 SQLite BINARY 一致)', () => {
+    const tree = buildTree([
+      { id: 1, path: 'b', depth: 1, sort_order: 0, self_count: 1, subtree_count: 1 },
+      { id: 2, path: 'a', depth: 1, sort_order: 0, self_count: 1, subtree_count: 1 },
+    ] as never);
+    expect(tree.map((n) => n.path)).toEqual(['a', 'b']);
+  });
+  it('只排同一层的兄弟,不跨层比较', () => {
+    const tree = buildTree([
+      { id: 1, path: 'p', depth: 1, sort_order: 0, self_count: 0, subtree_count: 2 },
+      { id: 2, path: 'p/x', depth: 2, sort_order: 5, self_count: 1, subtree_count: 1 },
+      { id: 3, path: 'p/y', depth: 2, sort_order: 1, self_count: 1, subtree_count: 1 },
+    ] as never);
+    expect(tree[0].children.map((n) => n.path)).toEqual(['p/y', 'p/x']);
+  });
+});
+
 describe('isSelectable', () => {
   it('本级为 0 但仍有子级的结构节点不可选', () => {
     const tree = buildTree(rows as never);

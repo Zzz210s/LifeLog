@@ -43,6 +43,18 @@ pub fn move_tag(app: AppHandle, tag_id: i64, new_parent_id: Option<i64>) -> Resu
     with_conn(&app, |c| tags_tree::move_to(c, tag_id, new_parent_id))
 }
 
+/// 同级插入(S8):把标签移到锚点所在层,插到锚点之前(after=false)/之后(after=true)。
+/// 新的父级由后端从锚点派生;同级重排与跨层拖拽走同一套校验与事务。
+#[tauri::command]
+pub fn move_tag_beside(
+    app: AppHandle,
+    tag_id: i64,
+    anchor_id: i64,
+    after: bool,
+) -> Result<(), String> {
+    with_conn(&app, |c| tags_tree::move_beside(c, tag_id, anchor_id, after))
+}
+
 /// 删除子树(解除链接、回收空容器、重写全文索引);笔记永不因删标签而消失
 #[tauri::command]
 pub fn delete_tag(app: AppHandle, tag_id: i64) -> Result<(), String> {

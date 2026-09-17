@@ -49,6 +49,7 @@ pub fn run() {
             commands::tags::list_tags,
             commands::tags::rename_tag,
             commands::tags::move_tag,
+            commands::tags::move_tag_beside,
             commands::tags::delete_tag,
             commands::tags::tag_impact,
             commands::tags::complete_tags,

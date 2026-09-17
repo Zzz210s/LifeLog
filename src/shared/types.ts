@@ -10,11 +10,13 @@ export interface Note {
 }
 
 /** 标签树节点计数:id 供右键管理(rename/move/delete/tag_impact 按寻址),
- *  path 为完整路径,self_count 本级链接数,subtree_count 含全部子孙 */
+ *  path 为完整路径,self_count 本级链接数,subtree_count 含全部子孙;
+ *  sort_order 供同层次序(S8):树里兄弟按 (sort_order, path) 展示 */
 export interface TagCount {
   id: number;
   path: string;
   depth: number;
+  sort_order: number;
   self_count: number;
   subtree_count: number;
 }

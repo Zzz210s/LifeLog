@@ -17,6 +17,9 @@ export const api = {
   /** 移动标签;newParentId=null 移到根级 */
   moveTag: (tagId: number, newParentId: number | null) =>
     invoke<void>('move_tag', { tagId, newParentId }),
+  /** 同级插入(S8):移到 anchorId 所在层,插到其之前(after=false)/之后(after=true) */
+  moveTagBeside: (tagId: number, anchorId: number, after: boolean) =>
+    invoke<void>('move_tag_beside', { tagId, anchorId, after }),
   /** 删除标签子树(删前先用 tagImpact 二次确认) */
   deleteTag: (tagId: number) => invoke<void>('delete_tag', { tagId }),
   /** 删除前影响面:将影响的子孙标签数与笔记数 */

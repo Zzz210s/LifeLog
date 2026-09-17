@@ -2,12 +2,14 @@
  * 标签树单行(spec 6.1 标签分区):树模式按层级缩进 12px/级、带展开箭头与计数导轨;
  * 扁平模式不缩进、显示完整路径。选中态与条件对象同源(由上层派生传入)。
  * 结构节点(本级 0 且有子级)只可展开不可选,行点击交给 onToggleExpand。
- * 拖拽(spec 6):真实标签行(id 非 null)draggable;拖动源半透明,
- * 悬停目标加底部色带(将成为其子级)。
+ * 拖拽(spec 6 + S8):真实标签行(id 非 null)draggable;拖动源半透明;
+ * 悬停目标按落点分区给提示 —— 中 50% = 底部色带(将成为其子级),
+ * 上 25% / 下 25% = 上/下插入指示线(将成为其同级,插在它前/后)。
  */
 import type { ReactNode } from 'react';
 import type { TagNode } from './tag-tree';
 import { isSelectable } from './tag-tree';
+import type { DropZone } from './drag-check';
 
 export interface TagRowProps {
   node: TagNode;
@@ -23,8 +25,8 @@ export interface TagRowProps {
   onContextMenu: (e: React.MouseEvent, node: TagNode) => void;
   /** 拖拽:本行是拖动源(半透明) */
   dragSource: boolean;
-  /** 拖拽:本行是当前悬停目标(底部色带 = 将成为其子级) */
-  dropTarget: boolean;
+  /** 拖拽:本行的落点分区(before/after = 同级插入指示线,child = 成为子级色带) */
+  dropZone: DropZone | null;
   onDragStart: (e: React.DragEvent) => void;
   onDragEnd: () => void;
   onDragOver: (e: React.DragEvent) => void;
@@ -38,7 +40,7 @@ export function TagRow(p: TagRowProps): ReactNode {
   const hasChildren = p.node.children.length > 0;
   const label = p.flat ? p.node.path : p.node.name;
   const rowClass =
-    'group flex w-full items-center gap-1 rounded px-1.5 py-1 pr-2 text-left text-xs transition-colors ' +
+    'group relative flex w-full items-center gap-1 rounded px-1.5 py-1 pr-2 text-left text-xs transition-colors ' +
     (selectable
       ? p.excluded
         ? 'bg-danger-soft text-danger hover:bg-danger/20'
@@ -46,7 +48,7 @@ export function TagRow(p: TagRowProps): ReactNode {
           ? 'bg-accent-soft text-accent-text'
           : 'text-muted hover:bg-accent-soft hover:text-accent-text'
       : 'cursor-default text-faint hover:bg-hover') +
-    (p.dropTarget ? ' shadow-[inset_0_-3px_0_var(--color-accent)]' : '') +
+    (p.dropZone === 'child' ? ' shadow-[inset_0_-3px_0_var(--color-accent)]' : '') +
     (p.dragSource ? ' opacity-40' : '');
 
   return (
@@ -54,7 +56,7 @@ export function TagRow(p: TagRowProps): ReactNode {
       type="button"
       data-tag-path={p.node.path}
       data-drag-source={p.dragSource ? 'true' : undefined}
-      data-drop-target={p.dropTarget ? 'true' : undefined}
+      data-drop-target={p.dropZone ?? undefined}
       draggable={p.node.id !== null}
       aria-pressed={selectable ? p.selected : undefined}
       title={`${p.node.path}(本级 ${p.node.selfCount} / 含子级 ${p.node.subtreeCount})`}
@@ -67,6 +69,12 @@ export function TagRow(p: TagRowProps): ReactNode {
       onDragOver={p.onDragOver}
       onDrop={p.onDrop}
     >
+      {p.dropZone === 'before' && (
+        <span aria-hidden="true" className="absolute left-0 right-0 top-0 h-[2px] bg-accent" />
+      )}
+      {p.dropZone === 'after' && (
+        <span aria-hidden="true" className="absolute bottom-0 left-0 right-0 h-[2px] bg-accent" />
+      )}
       {!p.flat && hasChildren && (
         <svg
           viewBox="0 0 16 16"
