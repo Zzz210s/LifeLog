@@ -11,6 +11,11 @@ pub fn get_setting(app: AppHandle, key: String) -> Result<Option<String>, String
 
 #[tauri::command]
 pub fn set_setting(app: AppHandle, key: String, value: String) -> Result<(), String> {
+    // 快捷键有唯一写路径 set_input_hotkey(先注册后落库),通用写口必须挡住它:
+    // 否则绕过注册直接改库,会出现"库里说 ctrl+shift+q、实际生效的是别的键"
+    if key == crate::hotkey::HOTKEY_KEY {
+        return Err("快捷键请用 set_input_hotkey 设置(需要先注册成功再保存)".to_string());
+    }
     let db: State<Db> = app.state();
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     repos::settings::set(&conn, &key, &value).map_err(|e| e.to_string())

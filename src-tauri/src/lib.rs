@@ -1,3 +1,5 @@
+use tauri::Manager;
+
 mod commands;
 mod db;
 mod exchange;
@@ -5,6 +7,7 @@ mod exchange;
 // describe 供 commands::expr::validate_expr 的实时预览;IPC 入口在 commands/expr.rs
 mod expr;
 mod hotkey;
+mod hotkey_spec;
 mod startup_report;
 mod tags;
 mod timetag;
@@ -29,6 +32,7 @@ pub fn run() {
             commands::settings::get_setting,
             commands::settings::set_setting,
             commands::settings::set_input_locks,
+            commands::hotkey::get_input_hotkey,
             commands::hotkey::set_input_hotkey,
             commands::startup::get_autostart_status,
             commands::startup::set_autostart,
@@ -111,8 +115,10 @@ pub fn run() {
                     .build(),
             )?;
             // 快捷键来自设置(input_hotkey):缺失/非法回退默认键,注册失败再回退默认键,
-            // 两者都失败只写日志、不阻断启动(输入栏仍可从托盘唤起)
-            let stored = windowing::input_geom::get_str(app.handle(), hotkey::HOTKEY_KEY);
+            // 两者都失败只写日志、不阻断启动(输入栏仍可从托盘唤起);
+            // 生效值存进 LiveHotkey,供界面显示与后续改键决策读取
+            app.manage(hotkey::LiveHotkey::default());
+            let stored = hotkey::stored(app.handle());
             if let Err(e) = hotkey::apply(app.handle(), stored.as_deref()) {
                 eprintln!("全局热键注册失败,输入栏仍可从托盘唤起:{e}");
             }

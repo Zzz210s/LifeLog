@@ -1,5 +1,6 @@
 //! 快捷键纯逻辑测试(不需要 AppHandle,注册/注销留待实机验收)
 use super::*;
+use crate::hotkey_spec::{normalize, validate};
 
 fn parts(raw: &str) -> Vec<String> {
     raw.split('+').map(str::to_string).collect()
@@ -134,4 +135,40 @@ fn normalize_takes_part_lists() {
         normalize(&["".to_string(), "ctrl".to_string(), "f5".to_string()]),
         Some("ctrl+f5".to_string())
     );
+}
+
+/// 改键决策:核心是"已确认注册中的同名键不重复注册"(Windows 下重复注册必然报占用)
+#[test]
+fn plan_skips_reregistering_the_same_live_key() {
+    // 启动回退后保存回默认键:库值与生效值不同,但该键正是当前生效键 -> 只落库
+    assert_eq!(plan(Some("ctrl+shift+q"), "ctrl+shift+q", true), (false, None));
+    // 落库失败后重试同一键:同上,不再注册(否则会误报"已被占用")
+    assert_eq!(plan(Some("alt+shift+l"), "alt+shift+l", true), (false, None));
+    // 生效值说已生效但实际未注册:注册以自愈
+    assert_eq!(plan(Some("ctrl+shift+q"), "ctrl+shift+q", false), (true, None));
+    // 换键:注册新键,成功后注销旧键
+    assert_eq!(
+        plan(Some("alt+shift+l"), "ctrl+shift+q", false),
+        (true, Some("alt+shift+l".to_string()))
+    );
+    // 启动两次尝试都失败(无生效值):直接注册
+    assert_eq!(plan(None, "ctrl+shift+q", false), (true, None));
+}
+
+#[test]
+fn live_hotkey_state_round_trip() {
+    let live = LiveHotkey::default();
+    assert_eq!(live.get(), None);
+    live.set(Some("ctrl+shift+q"));
+    assert_eq!(live.get().as_deref(), Some("ctrl+shift+q"));
+    live.set(None);
+    assert_eq!(live.get(), None);
+}
+
+/// 插件认识的别名(库里若有历史写法不至于被判非法)
+#[test]
+fn modifier_aliases_from_plugin_are_accepted() {
+    assert_eq!(check("cmdorctrl+q").as_deref(), Ok("ctrl+q"));
+    assert_eq!(check("commandorctrl+q").as_deref(), Ok("ctrl+q"));
+    assert_eq!(check("win+shift+q").as_deref(), Ok("shift+super+q"));
 }
