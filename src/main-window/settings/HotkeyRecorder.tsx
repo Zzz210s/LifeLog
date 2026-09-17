@@ -59,6 +59,13 @@ export function HotkeyRecorder(): ReactNode {
       setCapturing(false);
     } catch (e) {
       setError(String(e)); // Rust 侧已是完整中文文案,不再叠加前缀
+      // 落库失败时新键已生效、旧键已注销:显示必须跟着生效值走,否则按钮显示的是个死键
+      void api
+        .getInputHotkey()
+        .then((live) => {
+          if (live) setAccelerator(live);
+        })
+        .catch(() => {});
     } finally {
       setBusy(false);
     }

@@ -1,6 +1,6 @@
-//! 快捷键设置命令:校验 -> (必要时)注册新键 -> 落库 -> 才注销旧键(H4)。
-//! 任一步失败都保证「当前可用的键不被弄丢」:非法组合连键都不碰;
-//! 注册失败(被占用)保留旧键;落库失败则新键已生效并明确告知重启后的回退结果。
+//! 快捷键设置命令:校验 -> (必要时)注册新键 -> 落库 -> 注销旧键(H4)。
+//! 失败时保证「当前可用的键不被弄丢」:非法组合连键都不碰;注册失败(被占用)保留旧键;
+//! 落库失败时新键已生效、旧键**就地注销**(不留孤儿),并明确告知重启后的回退结果。
 //! 改键决策读**运行时生效值**(hotkey::live)而不是库值:启动回退后库值与生效值可能不同。
 use crate::db::{repos, Db};
 use crate::hotkey;
@@ -29,20 +29,17 @@ pub fn set_input_hotkey(app: AppHandle, accelerator: String) -> Result<String, S
         hotkey::register(&app, &new)?;
         hotkey::set_live(&app, Some(&new));
     }
-    if let Err(e) = persist(&app, &new) {
-        // 新键已生效但没存下来:旧键必须**就地注销** —— 它此刻才是真正的孤儿候选
-        // (live 已改指新键,同进程内再没有路径能认出它,不清掉就会两个键同时唤醒
-        //  且界面只显示一个、无任何提示)
-        if let Some(prev) = &drop_old {
-            hotkey::unregister(&app, prev);
-        }
+    // 旧键的注销只写一次:不论落库成败都必须做 —— 失败时它已不在生效值真源里,
+    // 留着就会成为“仍注册、却谁也认不出”的孤儿(两个键同时唤醒且界面只显示一个)
+    let saved = persist(&app, &new);
+    if let Some(prev) = drop_old.as_deref() {
+        hotkey::unregister(&app, prev);
+    }
+    saved.map_err(|e| {
         // 重启后会回到库里的值(可能又是默认键),不做无依据的回退断言
         let restart = hotkey::effective(hotkey::stored(&app).as_deref());
-        return Err(format!("快捷键 {new} 已生效,但保存失败(重启后将回到 {restart}):{e}"));
-    }
-    if let Some(prev) = drop_old {
-        hotkey::unregister(&app, &prev);
-    }
+        format!("快捷键 {new} 已生效,但保存失败(重启后将回到 {restart}):{e}")
+    })?;
     Ok(new)
 }
 
