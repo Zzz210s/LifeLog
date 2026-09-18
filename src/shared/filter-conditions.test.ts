@@ -128,9 +128,9 @@ describe('validateFilter', () => {
   });
 
   it('关键词按字符数(码点)计,与 Rust chars().count() 对齐', () => {
-    // 101 个表情符号 = 101 码点 = 202 个 UTF-16 码元:按码元数会误判超限
-    expect(validateFilter(cond({ keyword: '😀'.repeat(101) }))).toBeNull();
-    expect(validateFilter(cond({ keyword: '😀'.repeat(201) }))).toContain('关键词');
+    // 101 个非 BMP 字符(U+1D11E)= 101 码点 = 202 个 UTF-16 码元:按码元数会误判超限
+    expect(validateFilter(cond({ keyword: '\u{1D11E}'.repeat(101) }))).toBeNull();
+    expect(validateFilter(cond({ keyword: '\u{1D11E}'.repeat(201) }))).toContain('关键词');
   });
 });
 

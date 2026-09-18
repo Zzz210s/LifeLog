@@ -99,8 +99,11 @@ The window *is* the input box: no frame, no title bar, no buttons, transparent s
   `done`/`doing` tags and no per-note inline checkbox
 - The note stream shows no time at all: the only time-like information is the ordinary
   `时间排序/YYYY/MM/DD` tag tree
-- The built-in "待办" view means the `待办` tag (children included);
-  "无自定义标签" means no tags at all
+- Tabs replace the old saved views: the `+` menu at the end of the tab bar offers three presets —
+  全部 (everything), 待办 (the `待办` tag, children included) and 无标签 (notes with no tags at all) —
+  plus one entry that turns the current filter into a new tab. Every tab keeps its own filter
+  snapshot; tabs are renamed by double-click, reordered by dragging, closed with `x` (closing the
+  last one leaves a fresh 全部 tab), and restored on the next launch
 
 **Export**
 
@@ -148,7 +151,9 @@ Artifacts:
 4. Press `Ctrl+Enter`. The note is stored, the input clears, `已保存 HH:MM` flashes and the main
    window refreshes.
 5. In the main window, search by keyword, click a tag chip to filter, switch the ordering, edit a
-   note in the split pane, or export everything to Excel.
+   note in the split pane, or export everything to Excel. The tab bar above the composer holds one
+   filter snapshot per tab: use `+` for the presets, double-click a tab to rename it and drag it to
+   reorder.
 
 Tray menu (right click): open the input bar, open the main window, settings, quit. A left click on
 the tray icon opens the main window (same as the menu item); the input bar is still surfaced by the
@@ -174,6 +179,10 @@ All state lives in SQLite; the frontend never talks to the database directly.
     backend event that refreshes the list after a save from the input bar;
     `NoteStream`/`NoteItem`/`EditPanel`
     render, filter and edit notes.
+  - `src/main-window/tabs/` — the tab pages that replaced saved views: `tabs-model.ts` (pure tab
+    state, at least one 全部 page), `auto-title.ts` (title generated from the filter conditions),
+    `tab-presets.ts` (the three `+` menu presets and "current filter"), `use-tabs.ts` (the
+    `settings.tabs_state` round trip, throttled writes).
   - `src/input-bar/` — `InputBar.tsx` (a single textarea filling the window) and its
     behaviour hooks: `use-drag-band` (move / double-click), `use-width-drag` (edge resize),
     `use-auto-height` (1–5 line growth), `use-input-wheel` + `use-input-view-store` (zoom, opacity
