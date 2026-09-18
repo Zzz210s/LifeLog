@@ -85,6 +85,24 @@ fn link_only_on_leaf_keeps_parent_uncounted() {
     assert_eq!(leaf.depth, 2);
 }
 
+/// 计数口径:一条笔记同时链了子树里的父与子时,subtree_count 仍只算 **1 条笔记**
+/// (曾按链接数求和,导致侧栏 809 与标签筛选 318 对不上)
+#[test]
+fn subtree_count_dedupes_notes_linked_to_several_nodes() {
+    let mut c = db();
+    notes::create_plain(&mut c, "一条笔记 #工作 #工作/项目A").unwrap();
+    let list = counts(&c).unwrap();
+    let parent = list.iter().find(|t| t.path == "工作").unwrap();
+    let leaf = list.iter().find(|t| t.path == "工作/项目A").unwrap();
+    assert_eq!((parent.self_count, parent.subtree_count), (1, 1));
+    assert_eq!((leaf.self_count, leaf.subtree_count), (1, 1));
+    // 两条笔记分别链父与子时才是 2
+    notes::create_plain(&mut c, "另一条 #工作/项目A").unwrap();
+    let list = counts(&c).unwrap();
+    let parent = list.iter().find(|t| t.path == "工作").unwrap();
+    assert_eq!((parent.self_count, parent.subtree_count), (1, 2));
+}
+
 /// ⑧ counts:父子各一条链接时,父的 self_count=1、subtree_count=2
 #[test]
 fn counts_self_and_subtree() {
