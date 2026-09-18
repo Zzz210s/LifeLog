@@ -76,7 +76,11 @@ export function buildTree(rows: TagCount[]): TagNode[] {
     byPath.set(row.path, node);
     (parent ? parent.children : roots).push(node);
   }
-  // 结构节点(无真实行)的含子级计数 = 子树求和(子树互斥,直接相加)
+  // 结构节点(无真实行)的含子级计数 = 子树求和。
+  // **注意**:真实行的计数由后端给出(去重笔记数,见 tags_tree_query::counts),
+  // 而这里只能求和 —— 当同一条笔记链了该子树内多个节点时会偏大。
+  // 该分支只在"数据里缺少父行"(异常兜底,正常数据不会发生:后端返回全量标签)时走到,
+  // 侧栏显示的数字以真实行为准。
   const finalize = (node: MutableNode): void => {
     const kids = node.children as MutableNode[];
     kids.forEach(finalize);
