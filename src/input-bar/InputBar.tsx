@@ -19,13 +19,24 @@ export function InputBar() {
   const [savedAt, setSavedAt] = useState(0);
   const saveTimer = useRef<number | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  // 输入框是**非受控**的(不用 value prop):
+  // 受控 + 元素级 input 监听(标签补全要读光标前的 # 词元)会互相揭短 —— 元素监听里的 setState
+  // 会同步触发重渲染,把刚敲进去的字用陈旧的 state 写回 DOM,并让 React 的变化检测误判
+  // “值未变”而根本不派发 onChange,结果就是“光标在、打不进字”(实测 2026-09-19:真实编辑管线
+  // 打字时 React 的 _valueTracker 一次都没被调用,而 JS 设值 + 派发 input 却正常)。
+  // 程序化写入(保存后清空、采纳补全)必须同时改 DOM 与 state,统一走 applyValue
+  const applyValue = useCallback((next: string) => {
+    const el = inputRef.current;
+    if (el) el.value = next;
+    setContent(next);
+  }, []);
   const { settings, lock, error, setError, unlock } = useInputSettings();
   // 主题:输入栏不写库,只跟随主窗广播(见 shared/use-theme-mode);窗口保持透明
   useThemeMode({ follow: true, onError: setError });
   const editing = canEdit(lock);
   const anyLock = lock.move || lock.close || lock.content;
   // # 标签补全:词元拉候选、↑↓/Enter/Tab/Esc 路由;Ctrl+Enter 保存不受影响
-  const complete = useTagComplete({ textareaRef: inputRef, value: content, onReplace: setContent });
+  const complete = useTagComplete({ textareaRef: inputRef, value: content, onReplace: applyValue });
   // 内容变化后按真实换行行数(1-5 行)自动长高;滚轮缩放后手动再同步一次
   const syncHeight = useAutoHeight({ textareaRef: inputRef, value: content });
   const { opacity, onMiddleDown, flushView } = useInputWheel({
@@ -82,18 +93,19 @@ export function InputBar() {
   }, []);
 
   const save = useCallback(async () => {
-    const text = prepareForSave(content); // 只裁行尾空白:整条缩进代码块的首行缩进必须保留
+    // 非受控:正文以 DOM 为准(状态只是镜像),读取点必须取 DOM 值
+    const text = prepareForSave(inputRef.current?.value ?? content);
     if (!text) return;
     try {
       await api.saveInputNote(text);
-      setContent('');
+      applyValue('');
       setError('');
       flash(savedStamp(new Date()));
       inputRef.current?.focus(); // 保存后光标留在输入框,可继续记下一条
     } catch (e) {
       setError(`保存失败: ${String(e)}`); // 保存失败保留输入
     }
-  }, [content, flash, setError]);
+  }, [content, applyValue, flash, setError]);
 
   const onUnlock = useCallback(async () => {
     try {
@@ -139,9 +151,9 @@ export function InputBar() {
       <textarea
         ref={inputRef}
         autoFocus
+        defaultValue=""
         aria-label="输入栏内容"
         name="content"
-        value={content}
         readOnly={!editing}
         onChange={(e) => setContent(e.target.value)}
         onKeyDown={onKeyDown}

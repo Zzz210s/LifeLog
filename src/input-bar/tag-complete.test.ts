@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { completeMatch, tokenAt } from './tag-complete';
+import { completeMatch, sameList, tokenAt } from './tag-complete';
 
 describe('tokenAt(前导字符规则与 Rust tags.rs 逐字对齐)', () => {
   it('字母数字后不匹配:abc# / C#', () => {
@@ -35,5 +35,16 @@ describe('completeMatch', () => {
   it('默认限 8 条并按路径排序', () => {
     const many = Array.from({ length: 12 }, (_, i) => `标签${String(i).padStart(2, '0')}`);
     expect(completeMatch([...many].reverse(), '')).toEqual(many.slice(0, 8));
+  });
+});
+
+describe('sameList(输入事件里的 bail out 判据)', () => {
+  it('长度或元素不同 -> false,顺序不同也算不同', () => {
+    expect(sameList([], [])).toBe(true);
+    expect(sameList(['a'], ['a'])).toBe(true);
+    expect(sameList([], ['a'])).toBe(false);
+    expect(sameList(['a'], [])).toBe(false);
+    expect(sameList(['a', 'b'], ['b', 'a'])).toBe(false);
+    expect(sameList(['a'], ['ab'])).toBe(false);
   });
 });

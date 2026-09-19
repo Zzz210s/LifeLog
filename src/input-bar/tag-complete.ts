@@ -22,6 +22,16 @@ export function tokenAt(text: string): string | null {
 }
 
 /**
+ * 两份候选列表是否等价(元素与顺序都相同)。
+ * 用途:输入事件里的重算必须**在结果未变时 bail out** —— 元素级 input 监听里的 setState
+ * 会同步触发重渲染,而重渲染会把受控表单件的 value 写回陈旧状态(实测会把刚敲进去的字抹掉,
+ * 并让 React 的变化检测误判“值未变”而不派发 onChange),详见 InputBar 的文件头注释。
+ */
+export function sameList(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((x, i) => x === b[i]);
+}
+
+/**
  * 前缀匹配候选:按路径排序、去重(保留首个)、默认限 8 条。
  * 空词元匹配全部;Rust 端已排好序,这里重排是为了对任意来源的候选都稳定。
  */
