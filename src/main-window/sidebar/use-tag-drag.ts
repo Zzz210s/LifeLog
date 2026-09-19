@@ -4,6 +4,8 @@
  * 行上悬停一律抢占(不冒泡到分区空白),有效目标才高亮;无效目标 dropEffect=none。
  * 落点分区(S8):上 25% = 插到该行之前、下 25% = 插到该行之后(同级)、
  * 中 50% = 成为其子级;同级插入走 move_tag_beside(后端由锚点派生父级并重写 sort_order)。
+ * 真实鼠标下 25% ≈ 5.5px 命中不了(用户反馈 2026-09-19),故相邻行之间另叠一条 12px 热区
+ * (TagGapDrop,拖拽时才渲染、不改变布局):悬停即同级插入,与行内上下带同语义。
  * 拖到拖动源自己身上/前后 = 无操作(不提示、不写库)。
  * 松手先过 drag-check 预校验,失败就地中文提示;通过才调后端,
  * 成功走 onMoved(带 from/to 路径变化,上层级联刷新树与筛选条件),
@@ -63,19 +65,32 @@ export function useTagDrag(args: UseTagDragArgs) {
 
   const onDragOverRow = (e: React.DragEvent, node: TagNode) => {
     if (!source) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    hoverAt(e, node, dropZoneFor(rowRatio(e.clientY, rect.top, rect.height)));
+  };
+
+  /**
+   * 边界热区(TagGapDrop)悬停:分区由热区自己给定(不能拿 12px 热区的矩形去算比例),
+   * 其余判定与行上悬停完全一致。
+   */
+  const onDragOverGap = (e: React.DragEvent, node: TagNode, zone: 'before' | 'after') => {
+    if (!source) return;
+    hoverAt(e, node, zone);
+  };
+
+  /** 行/热区共用的悬停判定:无效目标不画提示,dropEffect=none */
+  const hoverAt = (e: React.DragEvent, node: TagNode, zone: DropZone) => {
     e.preventDefault();
     e.stopPropagation();
     // 拖到自己身上/前后:不画指示线,松手也不做事
-    if (node.path === source.path) {
+    if (!source || node.path === (source as DragSource).path) {
       setOverPath(null);
       setOverZone(null);
       setOverRoot(false);
       e.dataTransfer.dropEffect = 'none';
       return;
     }
-    const rect = e.currentTarget.getBoundingClientRect();
-    const zone = dropZoneFor(rowRatio(e.clientY, rect.top, rect.height));
-    const ok = checkDrop(source, node).ok;
+    const ok = checkDrop(source as DragSource, node).ok;
     e.dataTransfer.dropEffect = ok ? 'move' : 'none';
     setOverRoot(false);
     setOverPath(ok ? node.path : null);
@@ -84,11 +99,20 @@ export function useTagDrag(args: UseTagDragArgs) {
 
   /** 行上松手:预校验 -> 按落点分区走 move_tag(成为子级)/ move_tag_beside(同级插入) */
   const onDropRow = (e: React.DragEvent, node: TagNode) => {
+    dropAt(e, node);
+  };
+
+  /** 边界热区松手:分区由热区给定(与行内上下带同语义) */
+  const onDropGap = (e: React.DragEvent, node: TagNode, zone: 'before' | 'after') => {
+    dropAt(e, node, zone);
+  };
+
+  const dropAt = (e: React.DragEvent, node: TagNode, zone?: DropZone) => {
     if (!source) return;
     e.preventDefault();
     e.stopPropagation();
     const src = source;
-    const zone = overZone ?? 'child';
+    const finalZone = zone ?? overZone ?? 'child';
     const verdict = checkDrop(src, node);
     clear();
     if (src.path === node.path) return; // 拖到自己前后 = 无操作
@@ -96,10 +120,10 @@ export function useTagDrag(args: UseTagDragArgs) {
     if (node.id === null) return; // checkDrop 已拒结构节点,这里只为收窄类型
     if (busy) return;
     setBusy(true);
-    const done = zone === 'child'
+    const done = finalZone === 'child'
       ? api.moveTag(src.id, node.id)
-      : api.moveTagBeside(src.id, node.id, zone === 'after');
-    const to = zone === 'child' ? node.path + '/' + src.name : parentPrefix(node.path) + src.name;
+      : api.moveTagBeside(src.id, node.id, finalZone === 'after');
+    const to = finalZone === 'child' ? node.path + '/' + src.name : parentPrefix(node.path) + src.name;
     void done
       .then(() => args.onMoved({ from: src.path, to }))
       .catch((err) => args.onError(String(err)))
@@ -142,6 +166,7 @@ export function useTagDrag(args: UseTagDragArgs) {
     /** 悬停在分区空白/根级指示条(高亮「移到根级」) */
     overRoot,
     rowEvents: { onDragStartRow, onDragEnd, onDragOverRow, onDropRow },
+    gapEvents: { onDragOverGap, onDropGap },
     rootEvents: { onDragOverRoot, onDropRoot },
   };
 }

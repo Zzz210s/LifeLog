@@ -77,6 +77,11 @@ The window *is* the input box: no frame, no title bar, no buttons, transparent s
   newest-first or oldest-first, paged 50 notes at a time; there is no date-range filter
 - Time tags are ordinary tags: `时间排序/YYYY/MM/DD` lives in the tag tree like any other tag, so
   browsing a day means clicking that day's tag (rename, move or delete it freely)
+- The tag tree can be reorganised by dragging (tree and flat mode alike): dropping on the
+  **middle** of a row nests the tag under it; dropping on the **boundary between two rows** makes
+  it a **sibling** — an insertion line appears at the boundary and its indent shows the level you
+  are about to land on; dropping on empty space moves it back to the root. The context menu offers
+  rename / move / delete, and sibling order is remembered
 - Inline editing in a VSCode-style split pane: Markdown source on the left, live preview on the
   right, `Ctrl+Enter` to save
 - Deleting asks for confirmation
