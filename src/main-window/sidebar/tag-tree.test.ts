@@ -64,18 +64,22 @@ describe('buildTree 同层次序(S8)', () => {
   });
 });
 
-describe('isSelectable', () => {
-  it('本级为 0 但仍有子级的结构节点不可选', () => {
+describe('isSelectable(子蕴含父:2026-09-20 D9 的有意行为变更)', () => {
+  it('本级为 0 但链接都在子级的父标签可选(点击 = 加入筛选,默认含子级)', () => {
     const tree = buildTree(rows as never);
-    expect(isSelectable(tree[0])).toBe(false);
-    expect(isSelectable(tree[0].children[0])).toBe(true);
+    expect(isSelectable(tree[0])).toBe(true); // 工作:self 0、subtree 3
+    expect(isSelectable(tree[0].children[0])).toBe(true); // 项目A:self 1、subtree 2
   });
   it('无子节点但本级有链接的叶子可选', () => {
     const tree = buildTree(rows as never);
     expect(isSelectable(tree[1])).toBe(true); // 生活:self 1、无子级
   });
-  it('无子节点且本级为 0 的叶子也可选(语义固化:结构节点=本级 0 且有子级)', () => {
+  it('含子级计数为 0 的空容器不可选(没有可筛内容,只能展开/右键管理)', () => {
     const tree = buildTree([{ path: '空', depth: 1, self_count: 0, subtree_count: 0 }] as never);
+    expect(isSelectable(tree[0])).toBe(false);
+  });
+  it('父行缺失补出的结构节点:含子级计数由子树求和,有链接即同样可选', () => {
+    const tree = buildTree([{ path: 'a/b', depth: 2, self_count: 1, subtree_count: 1 }] as never);
     expect(isSelectable(tree[0])).toBe(true);
   });
 });

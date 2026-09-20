@@ -115,12 +115,13 @@ export function filterTree(nodes: TagNode[], query: string): TagNode[] {
 }
 
 /**
- * 可选性(spec 6.1 口径,任务裁定固化):结构节点 = 本级计数为 0 **且有子级** -> 只可展开不可选;
- * 本级 > 0 或没有任何子节点(叶子) -> 可选(无链接的叶子选了结果为空,属预期)。
- * 注:brief 产出的字面公式与此相反且与其自身用例矛盾,以 spec 6.1 为准。
+ * 可选性(2026-09-20 spec §5.2 / D9,有意变更):含子级计数 > 0 即可选 —— "子蕴含父",
+ * 父标签行点击 = 加入筛选(applyTagPick 默认含子级),展开仍靠箭头(stopPropagation 单独处理)。
+ * 含子级计数为 0 的空容器不可选:筛它只会得到空结果,只能展开/右键管理。
+ * 旧口径(本级 > 0 或叶子可选)已废:它让"本级 0、链接全在子级"的父标签点了没反应。
  */
 export function isSelectable(node: TagNode): boolean {
-  return node.selfCount > 0 || node.children.length === 0;
+  return node.subtreeCount > 0;
 }
 
 /**
