@@ -1,12 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  ATTR_MAX,
-  ATTR_ROOTS,
-  TOPIC_MAX,
-  chipRoot,
-  collapseChips,
-  groupChips,
-} from './note-chips';
+import { ATTR_MAX, ATTR_ROOTS, TOPIC_MAX, chipRoot, collapseAncestors, collapseChips, groupChips } from './note-chips';
 
 describe('chipRoot', () => {
   it('取路径首段;无分隔符时整串即根', () => {
@@ -55,5 +48,19 @@ describe('collapseChips', () => {
   it('返回值是新数组(调用方展开整排时不会改到入参)', () => {
     const list = ['a'];
     expect(collapseChips(list, 4).shown).not.toBe(list);
+  });
+});
+
+describe('collapseAncestors(子蕴含父的显示层去重)', () => {
+  it('祖先与后代同时在集合里时,只留后代', () => {
+    expect(collapseAncestors(['信息', '信息/本科'])).toEqual(['信息/本科']);
+    expect(collapseAncestors(['电影', '电影/真人'])).toEqual(['电影/真人']);
+    // 三层:只留最深的一支
+    expect(collapseAncestors(['a', 'a/b', 'a/b/c'])).toEqual(['a/b/c']);
+    // 无祖先关系时原样保留,且保持输入顺序
+    expect(collapseAncestors(['日记', '日期/2026/09/20'])).toEqual(['日记', '日期/2026/09/20']);
+    expect(collapseAncestors(['电影/真人', '信息/本科'])).toEqual(['电影/真人', '信息/本科']);
+    // 前缀相似但不是层级(电影 vs 电影院)不能误删
+    expect(collapseAncestors(['电影', '电影院'])).toEqual(['电影', '电影院']);
   });
 });

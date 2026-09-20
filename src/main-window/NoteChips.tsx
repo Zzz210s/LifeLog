@@ -7,7 +7,7 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { tagDisplayName } from './tag-display';
-import { ATTR_MAX, TOPIC_MAX, collapseChips, groupChips } from './note-chips';
+import { ATTR_MAX, TOPIC_MAX, collapseAncestors, collapseChips, groupChips } from './note-chips';
 
 export interface NoteChipsProps {
   tags: readonly string[];
@@ -28,20 +28,12 @@ interface ChipRowProps {
 const CHIP_BASE = 'max-w-[16rem] truncate rounded transition-colors ';
 const ACTIVE = 'bg-accent-soft text-accent-text';
 
-/** chip 样式:主题排是现有样式,属性排更小更淡;选中态两排一致 */
-function chipClass(active: boolean, attr: boolean): string {
-  if (attr) {
-    return (
-      CHIP_BASE +
-      'px-1.5 py-0.5 text-[10px] ' +
-      (active ? ACTIVE : 'bg-tag/60 text-faint hover:bg-accent-soft hover:text-accent-text')
-    );
-  }
-  return (
-    CHIP_BASE + 'px-1.5 py-0.5 text-xs ' + (active ? ACTIVE : 'bg-tag text-accent-text hover:bg-accent-soft')
-  );
+/** chip 样式:两排**完全一致**(统一字号与文字色,只有分行不同)。
+ * 曾把属性排做成 text-[10px] + text-faint,结果同一张卡片上蓝字与灰字并排(用户报为 bug);
+ * 现在只有"选中(在筛选里)= 蓝底蓝字 / 未选中 = 灰底蓝字"这一种状态区分。 */
+function chipClass(active: boolean): string {
+  return CHIP_BASE + 'px-1.5 py-0.5 text-xs ' + (active ? ACTIVE : 'bg-tag text-accent-text hover:bg-accent-soft');
 }
-
 function ChipRow(p: ChipRowProps): ReactNode {
   const [expanded, setExpanded] = useState(false);
   if (p.tags.length === 0) return null;
@@ -59,7 +51,7 @@ function ChipRow(p: ChipRowProps): ReactNode {
             onClick={() => p.onTagClick(t)}
             aria-pressed={active}
             title={t}
-            className={chipClass(active, p.attr)}
+            className={chipClass(active)}
           >
             #{tagDisplayName(t)}
           </button>
@@ -70,10 +62,7 @@ function ChipRow(p: ChipRowProps): ReactNode {
           type="button"
           onClick={() => setExpanded(true)}
           title={`展开其余 ${hidden} 个标签`}
-          className={
-            'shrink-0 rounded text-faint hover:text-accent-text ' +
-            (p.attr ? 'px-1 py-0.5 text-[10px]' : 'px-1.5 py-0.5 text-xs')
-          }
+          className="shrink-0 rounded px-1.5 py-0.5 text-xs text-faint hover:text-accent-text"
         >
           +{hidden}
         </button>
@@ -84,7 +73,8 @@ function ChipRow(p: ChipRowProps): ReactNode {
 
 export function NoteChips(p: NoteChipsProps): ReactNode {
   if (p.tags.length === 0) return null;
-  const groups = groupChips(p.tags);
+  // 子蕴含父:祖先 chip 若其后代也在本卡片上就不再单独显示(只影响显示,不动数据)
+  const groups = groupChips(collapseAncestors(p.tags));
   // key 随该排标签集合变化:笔记保存后标签变了,展开态跟着重置(不会停在旧集合上)
   return (
     <>

@@ -44,3 +44,14 @@ export function collapseChips(
   if (list.length <= max) return { shown: [...list], hidden: 0 };
   return { shown: list.slice(0, max), hidden: list.length - max };
 }
+
+/**
+ * 祖先折叠(子蕴含父,spec D9 的显示层配套):若某标签的**后代**也在同一张卡片的标签集合里,
+ * 就把祖先从 chip 行里去掉 —— `#信息/本科` 已经蕴含 `#信息`,两个都显示只是噪声。
+ * 只影响显示:库里标签数据一个字节不动,点父标签筛全部后代的能力(可选性)也不受影响。
+ * 判定按路径前缀(与筛选的"含子级"同一口径),保持输入顺序,无副作用可单测。
+ */
+export function collapseAncestors(tags: readonly string[]): string[] {
+  // 标签数量级很小(单条笔记几个到十几个),直接两两比对,不引入额外结构
+  return tags.filter((t) => !tags.some((o) => o !== t && o.startsWith(t + '/')));
+}
