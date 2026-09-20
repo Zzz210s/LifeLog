@@ -4,6 +4,8 @@ English | [简体中文](README.zh-CN.md)
 
 # LifeLog
 
+Chinese name: 拾枝.
+
 A local-first personal life database: capture with #tags, search, filter, and export to Excel.
 
 Everything lives in one stream of notes — diary entries, films, novels, TV shows, todos, travel
@@ -152,7 +154,7 @@ pnpm tauri build
 Artifacts:
 
 - `src-tauri/target/release/LifeLog.exe` — standalone executable
-- `src-tauri/target/release/bundle/nsis/LifeLog_0.1.0_x64-setup.exe` — installer
+- `src-tauri/target/release/bundle/nsis/拾枝_0.1.0_x64-setup.exe` — installer
 
 ## Usage
 

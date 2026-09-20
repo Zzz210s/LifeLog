@@ -1,8 +1,8 @@
 [English](README.md) | 简体中文
 
-<img src="docs/icon.svg" width="88" alt="LifeLog">
+<img src="docs/icon.svg" width="88" alt="拾枝(LifeLog)">
 
-# LifeLog
+# 拾枝(LifeLog)
 
 本地优先的个人生活记录:一条信息流记录一切,#标签自动归类,可搜索、筛选、导出 Excel。
 
@@ -123,7 +123,7 @@ pnpm tauri build
 产物:
 
 - `src-tauri/target/release/LifeLog.exe` —— 绿色版可执行文件
-- `src-tauri/target/release/bundle/nsis/LifeLog_0.1.0_x64-setup.exe` —— 安装包
+- `src-tauri/target/release/bundle/nsis/拾枝_0.1.0_x64-setup.exe` —— 安装包
 
 ## 使用
 
