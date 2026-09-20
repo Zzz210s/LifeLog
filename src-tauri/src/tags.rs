@@ -173,3 +173,8 @@ fn try_tag(
 #[cfg(test)]
 #[path = "tags_tests.rs"]
 mod tags_tests;
+
+// 共享测试向量(仓库根 fixtures/tag-grammar.json)的 Rust 侧断言
+#[cfg(test)]
+#[path = "tags_fixtures_tests.rs"]
+mod tags_fixtures_tests;

@@ -1,0 +1,518 @@
+[
+  {
+    "kind": "tagPath",
+    "why": "根级标签",
+    "path": "工作",
+    "valid": true
+  },
+  {
+    "kind": "tagPath",
+    "why": "三层路径",
+    "path": "工作/项目A/会议",
+    "valid": true
+  },
+  {
+    "kind": "tagPath",
+    "why": "正好 5 层(上限内)",
+    "path": "a/b/c/d/e",
+    "valid": true
+  },
+  {
+    "kind": "tagPath",
+    "why": "6 层超过深度上限 5",
+    "path": "a/b/c/d/e/f",
+    "valid": false
+  },
+  {
+    "kind": "tagPath",
+    "why": "空路径",
+    "path": "",
+    "valid": false
+  },
+  {
+    "kind": "tagPath",
+    "why": "含空格",
+    "path": "工作 项目",
+    "valid": false
+  },
+  {
+    "kind": "tagPath",
+    "why": "含 #",
+    "path": "工作#项目",
+    "valid": false
+  },
+  {
+    "kind": "tagPath",
+    "why": "首斜杠(空段)",
+    "path": "/工作",
+    "valid": false
+  },
+  {
+    "kind": "tagPath",
+    "why": "尾斜杠(空段)",
+    "path": "工作/",
+    "valid": false
+  },
+  {
+    "kind": "tagPath",
+    "why": "连续斜杠(空段)",
+    "path": "a//b",
+    "valid": false
+  },
+  {
+    "kind": "tagPath",
+    "why": "名称内部的点合法",
+    "path": "工作.记录",
+    "valid": true
+  },
+  {
+    "kind": "tagPath",
+    "why": "点结尾非法",
+    "path": "工作.",
+    "valid": false
+  },
+  {
+    "kind": "tagPath",
+    "why": "点开头非法",
+    "path": ".工作",
+    "valid": false
+  },
+  {
+    "kind": "tagPath",
+    "why": "版本号",
+    "path": "v1.0",
+    "valid": true
+  },
+  {
+    "kind": "tagPath",
+    "why": "间隔号夹在名称字符之间合法",
+    "path": "观影·记录",
+    "valid": true
+  },
+  {
+    "kind": "tagPath",
+    "why": "连字符/下划线/分层",
+    "path": "a-b_c/d",
+    "valid": true
+  },
+  {
+    "kind": "tagPath",
+    "why": "emoji 不是名称字符",
+    "path": "🎬",
+    "valid": false
+  },
+  {
+    "kind": "tagPath",
+    "why": "中文标点不是名称字符,也不终止路径 → 整串非法",
+    "path": "工作，项目",
+    "valid": false
+  },
+  {
+    "kind": "condition",
+    "why": "缺失字段补默认:空对象得到 EMPTY_FILTER",
+    "raw": {},
+    "valid": true,
+    "normalized": {
+      "keyword": null,
+      "tags": [],
+      "excludeTags": [],
+      "tagPresence": null,
+      "sort": "newest",
+      "expr": null
+    },
+    "empty": true
+  },
+  {
+    "kind": "condition",
+    "why": "全空白关键词归一为 null",
+    "raw": { "keyword": "  " },
+    "valid": true,
+    "normalized": {
+      "keyword": null,
+      "tags": [],
+      "excludeTags": [],
+      "tagPresence": null,
+      "sort": "newest",
+      "expr": null
+    },
+    "empty": true
+  },
+  {
+    "kind": "condition",
+    "why": "关键词 + 最早在前",
+    "raw": { "keyword": "电影", "sort": "oldest" },
+    "valid": true,
+    "normalized": {
+      "keyword": "电影",
+      "tags": [],
+      "excludeTags": [],
+      "tagPresence": null,
+      "sort": "oldest",
+      "expr": null
+    },
+    "empty": false
+  },
+  {
+    "kind": "condition",
+    "why": "未知字段(含已取消的日期范围 from/to)一律丢弃",
+    "raw": {
+      "keyword": "电影",
+      "unknownField": 123,
+      "from": "2026-01-01",
+      "to": "2026-02-01"
+    },
+    "valid": true,
+    "normalized": {
+      "keyword": "电影",
+      "tags": [],
+      "excludeTags": [],
+      "tagPresence": null,
+      "sort": "newest",
+      "expr": null
+    },
+    "empty": false
+  },
+  {
+    "kind": "condition",
+    "why": "includeChildren 缺失补 false;排除标签与有无标签",
+    "raw": {
+      "tags": [{ "path": "工作" }],
+      "excludeTags": [{ "path": "临时", "includeChildren": false }],
+      "tagPresence": "none"
+    },
+    "valid": true,
+    "normalized": {
+      "keyword": null,
+      "tags": [{ "path": "工作", "includeChildren": false }],
+      "excludeTags": [{ "path": "临时", "includeChildren": false }],
+      "tagPresence": "none",
+      "sort": "newest",
+      "expr": null
+    },
+    "empty": false
+  },
+  {
+    "kind": "condition",
+    "why": "includeChildren 显式 true 保留,缺失的补 false",
+    "raw": {
+      "tags": [
+        { "path": "工作", "includeChildren": true },
+        { "path": "生活/健身" }
+      ]
+    },
+    "valid": true,
+    "normalized": {
+      "keyword": null,
+      "tags": [
+        { "path": "工作", "includeChildren": true },
+        { "path": "生活/健身", "includeChildren": false }
+      ],
+      "excludeTags": [],
+      "tagPresence": null,
+      "sort": "newest",
+      "expr": null
+    },
+    "empty": false
+  },
+  {
+    "kind": "condition",
+    "why": "全空白表达式归一为 null",
+    "raw": { "expr": "   " },
+    "valid": true,
+    "normalized": {
+      "keyword": null,
+      "tags": [],
+      "excludeTags": [],
+      "tagPresence": null,
+      "sort": "newest",
+      "expr": null
+    },
+    "empty": true
+  },
+  {
+    "kind": "condition",
+    "why": "表达式原文保留(语义交后端)",
+    "raw": { "expr": "#工作 AND NOT #临时" },
+    "valid": true,
+    "normalized": {
+      "keyword": null,
+      "tags": [],
+      "excludeTags": [],
+      "tagPresence": null,
+      "sort": "newest",
+      "expr": "#工作 AND NOT #临时"
+    },
+    "empty": false
+  },
+  {
+    "kind": "condition",
+    "why": "有标签(any)不算空条件",
+    "raw": { "tagPresence": "any" },
+    "valid": true,
+    "normalized": {
+      "keyword": null,
+      "tags": [],
+      "excludeTags": [],
+      "tagPresence": "any",
+      "sort": "newest",
+      "expr": null
+    },
+    "empty": false
+  },
+  {
+    "kind": "condition",
+    "why": "引入标签重复选择(applyPick 两次)只留一条",
+    "raw": { "tags": [{ "path": "工作", "includeChildren": true }] },
+    "valid": true,
+    "normalized": {
+      "keyword": null,
+      "tags": [{ "path": "工作", "includeChildren": true }],
+      "excludeTags": [],
+      "tagPresence": null,
+      "sort": "newest",
+      "expr": null
+    },
+    "empty": false,
+    "applyPick": {
+      "path": "工作",
+      "exclude": false,
+      "includeChildren": true,
+      "times": 2
+    },
+    "afterPick": {
+      "keyword": null,
+      "tags": [{ "path": "工作", "includeChildren": true }],
+      "excludeTags": [],
+      "tagPresence": null,
+      "sort": "newest",
+      "expr": null
+    }
+  },
+  {
+    "kind": "condition",
+    "why": "排除标签重复选择只留一条",
+    "raw": {},
+    "valid": true,
+    "normalized": {
+      "keyword": null,
+      "tags": [],
+      "excludeTags": [],
+      "tagPresence": null,
+      "sort": "newest",
+      "expr": null
+    },
+    "empty": true,
+    "applyPick": {
+      "path": "临时",
+      "exclude": true,
+      "includeChildren": true,
+      "times": 2
+    },
+    "afterPick": {
+      "keyword": null,
+      "tags": [],
+      "excludeTags": [{ "path": "临时", "includeChildren": true }],
+      "tagPresence": null,
+      "sort": "newest",
+      "expr": null
+    }
+  },
+  {
+    "kind": "condition",
+    "why": "引入标签超过 20 项上限:整体非法,前端回退 EMPTY_FILTER,后端 validate 报错",
+    "raw": {
+      "tags": [
+        { "path": "t0" },
+        { "path": "t1" },
+        { "path": "t2" },
+        { "path": "t3" },
+        { "path": "t4" },
+        { "path": "t5" },
+        { "path": "t6" },
+        { "path": "t7" },
+        { "path": "t8" },
+        { "path": "t9" },
+        { "path": "t10" },
+        { "path": "t11" },
+        { "path": "t12" },
+        { "path": "t13" },
+        { "path": "t14" },
+        { "path": "t15" },
+        { "path": "t16" },
+        { "path": "t17" },
+        { "path": "t18" },
+        { "path": "t19" },
+        { "path": "t20" }
+      ]
+    },
+    "valid": false
+  },
+  {
+    "kind": "expr",
+    "why": "单标签(含子级)",
+    "src": "#工作",
+    "valid": true
+  },
+  {
+    "kind": "expr",
+    "why": "#= 仅本级",
+    "src": "#=工作",
+    "valid": true
+  },
+  {
+    "kind": "expr",
+    "why": "AND 组合",
+    "src": "#工作 AND #生活",
+    "valid": true
+  },
+  {
+    "kind": "expr",
+    "why": "括号 + OR + NOT",
+    "src": "(#工作 OR #生活) AND NOT #临时",
+    "valid": true
+  },
+  {
+    "kind": "expr",
+    "why": "裸 NOT",
+    "src": "NOT #临时",
+    "valid": true
+  },
+  {
+    "kind": "expr",
+    "why": "引号短语",
+    "src": "\"关键词 短语\"",
+    "valid": true
+  },
+  {
+    "kind": "expr",
+    "why": "多层路径",
+    "src": "#工作/项目A/会议",
+    "valid": true
+  },
+  {
+    "kind": "expr",
+    "why": "版本号标签 + 裸关键词",
+    "src": "#v1.0 AND todo",
+    "valid": true
+  },
+  {
+    "kind": "expr",
+    "why": "括号与裸关键词混合",
+    "src": "#a AND (b OR c)",
+    "valid": true
+  },
+  {
+    "kind": "expr",
+    "why": "表达式里标签后紧跟内部标点整串非法(与正文抽标签的差异)",
+    "src": "#工作.",
+    "valid": false
+  },
+  {
+    "kind": "expr",
+    "why": "尾斜杠",
+    "src": "#工作/",
+    "valid": false
+  },
+  {
+    "kind": "expr",
+    "why": "首斜杠",
+    "src": "#/工作",
+    "valid": false
+  },
+  {
+    "kind": "expr",
+    "why": "连续斜杠",
+    "src": "#a//b",
+    "valid": false
+  },
+  {
+    "kind": "expr",
+    "why": "超深",
+    "src": "#a/b/c/d/e/f",
+    "valid": false
+  },
+  {
+    "kind": "expr",
+    "why": "# 后没有名称字符",
+    "src": "#=",
+    "valid": false
+  },
+  {
+    "kind": "expr",
+    "why": "名称字符集外的字符(@)",
+    "src": "#@tag",
+    "valid": false
+  },
+  {
+    "kind": "expr",
+    "why": "缺操作数",
+    "src": "#工作 AND",
+    "valid": false
+  },
+  {
+    "kind": "expr",
+    "why": "缺右括号",
+    "src": "(#工作",
+    "valid": false
+  },
+  {
+    "kind": "expr",
+    "why": "多余右括号",
+    "src": "#工作)",
+    "valid": false
+  },
+  {
+    "kind": "expr",
+    "why": "空括号",
+    "src": "()",
+    "valid": false
+  },
+  {
+    "kind": "expr",
+    "why": "连续运算符",
+    "src": "#a OR OR #b",
+    "valid": false
+  },
+  {
+    "kind": "expr",
+    "why": "运算符落单",
+    "src": "AND",
+    "valid": false
+  },
+  {
+    "kind": "expr",
+    "why": "运算符落单(NOT)",
+    "src": "NOT",
+    "valid": false
+  },
+  {
+    "kind": "expr",
+    "why": "引号未闭合",
+    "src": "\"未闭合",
+    "valid": false
+  },
+  {
+    "kind": "expr",
+    "why": "引号内为空",
+    "src": "\"\"",
+    "valid": false
+  },
+  {
+    "kind": "expr",
+    "why": "空表达式",
+    "src": "",
+    "valid": false
+  },
+  {
+    "kind": "expr",
+    "why": "全空白也是空表达式",
+    "src": "   ",
+    "valid": false
+  },
+  {
+    "kind": "expr",
+    "why": "日期比较已取消,给明确的迁移报错",
+    "src": "date >= 2026-01-01",
+    "valid": false
+  }
+]

@@ -9,6 +9,13 @@ mod expr;
 mod hotkey;
 mod hotkey_spec;
 mod startup_report;
+
+// 共享测试向量(仓库根 fixtures/filter-conditions.json)的 Rust 侧断言:
+// 与 src/shared/fixtures.test.ts 读同一份文件,探测两侧筛选取值漂移
+#[cfg(test)]
+#[path = "filter_fixtures_tests.rs"]
+mod filter_fixtures_tests;
+
 mod tags;
 mod timetag;
 mod windowing;
