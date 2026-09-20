@@ -41,7 +41,8 @@ export function normalizeFilter(c: Partial<FilterConditions> | null | undefined)
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
 
-/** 空白表达式一律归一为 null(与后端解析前 trim 的口径一致);非空文本原样保留 */
+/** 空白表达式一律归一为 null(仅空判断用 trim;非空文本原样保留 —— 后端也按原文解析,
+ *  这样错误位置下的字符下标与用户看到的串一致) */
 const keepExpr = (v: string | null): string | null => (v === null || v.trim() === '' ? null : v);
 
 /** 缺失/ null -> null;字符串原样;其它类型 -> undefined(非法) */

@@ -83,13 +83,20 @@ fn intent_channels(existed: bool) -> (bool, bool) {
     (true, existed)
 }
 
-/// 带「打开后切到设置页」的意图。pending 在窗口建/显**成功之后**才置:创建失败即返回,
-/// 不留残留意图把下一次普通「打开主窗口」误切到设置页(2026-09-21 回看 I4 / M1)。
+/// 带「打开后切到设置页」的意图。**先置 pending 再建窗**:新建通道只有 pending 一条路,
+/// 若先 open()(内部 build->show->set_focus)再置位,页面可能在置位前就 mount 完并取用,
+/// 取到 false 就静默停在信息流(2026-09-21 复审 Important 1);open 失败时把 pending 收回,
+/// 免得残留意图把下一次普通「打开主窗口」误切到设置页(回看 I4 / M1)。
 pub fn open_settings(app: &AppHandle) -> tauri::Result<()> {
     let (pending, emit) = intent_channels(app.get_webview_window(MAIN_LABEL).is_some());
-    open(app)?;
     if pending {
         set_pending();
+    }
+    if let Err(e) = open(app) {
+        if pending {
+            take_pending();
+        }
+        return Err(e);
     }
     if emit {
         let _ = app.emit(OPEN_SETTINGS_EVENT, ());
