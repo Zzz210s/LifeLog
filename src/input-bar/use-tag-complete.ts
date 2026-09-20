@@ -26,7 +26,8 @@ export interface TagCompleteState {
 /**
  * 输入栏 # 标签补全(spec 6.3):
  * - 监听 textarea 的 input/keyup/click,取光标前 # 词元调 completeTags,completeMatch 去重限长
- * - 候选带来源标记(G3):别名命中项的 kind=alias,采纳时写入的是目标标签路径(归一)
+ * - 候选带来源标记(G3/G4):别名命中项 kind=alias、近义提示项 kind=similar,
+ *   采纳时写入的都是目标标签的规范路径(近义项只是提示,绝不自动改写输入)
  * - ↑↓ 移动高亮、Enter/Tab 采纳(替换词元并把光标移到末尾)、Esc 关闭(不冒泡,不触发窗口隐藏)
  * - Ctrl/Alt/Win 组合键一律不消费:Ctrl+Enter 保存不受影响;IME 组合中不抢键
  * - 补全请求失败静默关闭下拉,不影响输入与保存
