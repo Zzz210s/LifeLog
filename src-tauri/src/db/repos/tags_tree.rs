@@ -135,7 +135,9 @@ mod query;
 mod replace;
 pub use ensure::ensure_path;
 pub use ops::{delete_subtree, move_beside, move_to, rename};
-pub use query::{complete, counts, impact, TagCount};
+// `complete`(纯标签路径)只服务于 complete_with_aliases 与仓库层测试:把两个都收在 query 里,
+// 命令层只认 complete_with_aliases,不再重复导出避免 unused_imports
+pub use query::{complete_with_aliases, counts, impact, CompleteItem, TagCount};
 
 #[cfg(test)]
 #[path = "tags_tree_alias_tests.rs"]
@@ -180,3 +182,7 @@ mod tags_tree_replace_tests;
 #[cfg(test)]
 #[path = "tags_tree_legacy_tests.rs"]
 mod tags_tree_legacy_tests;
+
+#[cfg(test)]
+#[path = "tags_tree_complete_alias_tests.rs"]
+mod tags_tree_complete_alias_tests;

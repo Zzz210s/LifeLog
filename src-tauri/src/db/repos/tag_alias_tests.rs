@@ -134,3 +134,13 @@ fn rename_skips_leaf_on_conflict() {
     assert_eq!(rename(&mut c2, id2, "动画").unwrap(), vec!["追番/日漫".to_string()]);
     assert_eq!(resolve(&c2, "日漫").unwrap().as_deref(), Some("甲"));
 }
+
+/// ⑦ 目标标签存在性(命令层 add_tag_alias 的中文错前置校验)
+#[test]
+fn tag_exists_reports_missing_target() {
+    let mut c = db();
+    notes::create_plain(&mut c, "a #甲").unwrap();
+    let id = id_at(&c, "甲");
+    assert!(tag_exists(&c, id).unwrap());
+    assert!(!tag_exists(&c, id + 999).unwrap());
+}

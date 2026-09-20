@@ -15,8 +15,7 @@ pub fn resolve(conn: &Connection, path: &str) -> rusqlite::Result<Option<String>
     .optional()
 }
 
-/// 该标签的全部别名(按 alias 升序),供标签菜单展示;G3 命令层接入后去掉 allow
-#[allow(dead_code)]
+/// 该标签的全部别名(按 alias 升序),供标签菜单展示
 pub fn list_for_tag(conn: &Connection, tag_id: i64) -> rusqlite::Result<Vec<String>> {
     let mut stmt = conn.prepare("SELECT alias FROM tag_aliases WHERE tag_id = ?1 ORDER BY alias")?;
     let rows = stmt.query_map(params![tag_id], |r| r.get(0))?;
@@ -26,8 +25,7 @@ pub fn list_for_tag(conn: &Connection, tag_id: i64) -> rusqlite::Result<Vec<Stri
 /// 登记别名:同一别名重复登记视为**更新指向**(INSERT OR REPLACE)。
 /// 别名必须是非空、不含空白、不含 `#` 的原样字符串;与**现有标签路径**同名则拒绝 ——
 /// 否则真实标签会被别名劫持,与 D4"冲突时以现有标签为准"是同一条原则。
-/// G3 命令层(add_tag_alias)与 G2 合并接入前无生产调用方
-#[allow(dead_code)]
+/// G3 命令层(add_tag_alias)的生产调用方
 pub fn add(conn: &Connection, alias: &str, tag_id: i64) -> rusqlite::Result<()> {
     check_alias(alias)?;
     if tag_path_exists(conn, alias)? {
@@ -36,8 +34,7 @@ pub fn add(conn: &Connection, alias: &str, tag_id: i64) -> rusqlite::Result<()> 
     put(conn, alias, tag_id)
 }
 
-/// 删除别名:不存在也不报错(重复删除幂等);G3 命令层接入后去掉 allow
-#[allow(dead_code)]
+/// 删除别名:不存在也不报错(重复删除幂等)
 pub fn remove(conn: &Connection, alias: &str) -> rusqlite::Result<()> {
     conn.execute(
         "DELETE FROM tag_aliases WHERE alias = ?1",
@@ -70,6 +67,17 @@ pub fn register_rename(
         }
     }
     Ok(registered)
+}
+
+/// 目标标签是否存在。命令层 add_tag_alias 用它先给中文错:直接写库只会漏出
+/// sqlite 的 `FOREIGN KEY constraint failed`(英文),对界面无意义
+pub fn tag_exists(conn: &Connection, tag_id: i64) -> rusqlite::Result<bool> {
+    let n: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM tags WHERE id = ?1",
+        params![tag_id],
+        |r| r.get(0),
+    )?;
+    Ok(n > 0)
 }
 
 /// 别名合法性:非空、不含任何空白、不含 `#`(完整路径的层级分隔 `/` 允许)

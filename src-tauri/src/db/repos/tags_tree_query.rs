@@ -2,6 +2,7 @@
 use super::{subtree_ids, COMPLETE_LIMIT};
 use rusqlite::{params, Connection};
 use serde::Serialize;
+use std::collections::HashSet;
 
 /// 标签树节点计数(供标签面板):id 供侧栏右键管理(rename/move/delete/tag_impact 都按 id 寻址);
 /// self_count 为本级**去重笔记数**,subtree_count 含全部子孙的**去重笔记数**(两者同一口径,
@@ -55,6 +56,49 @@ pub fn counts(conn: &Connection) -> rusqlite::Result<Vec<TagCount>> {
 pub fn complete(conn: &Connection, prefix: &str) -> rusqlite::Result<Vec<String>> {
     let mut stmt = conn.prepare(
         "SELECT path FROM tags WHERE substr(path, 1, length(?1)) = ?1 ORDER BY path LIMIT ?2",
+    )?;
+    let rows = stmt.query_map(params![prefix, COMPLETE_LIMIT], |r| r.get(0))?;
+    rows.collect()
+}
+
+/// 补全候选项(G3 spec §4):`kind` 为 `"tag"`(标签路径前缀命中)或
+/// `"alias"`(别名前缀命中,`path` 是别名目标标签的**当前路径** —— 别名存的是指向,
+/// 目标改名/移动后这里给的是新路径)
+#[derive(Serialize, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CompleteItem {
+    pub path: String,
+    pub kind: String,
+}
+
+/// 带别名的补全(命令层 `complete_tags` 的唯一数据源):标签项在前(语义与顺序同 `complete`,
+/// 路径升序),别名项按目标路径升序追加;按 path 去重且**标签优先**(别名不得遮蔽真实标签);
+/// 整体上限仍是 COMPLETE_LIMIT。别名项不做二次前缀过滤:后端已按**别名字符串**前缀筛过,
+/// 目标路径通常与别名字符串不同形(如别名 `日漫` -> 路径 `追番/日漫`)。
+pub fn complete_with_aliases(
+    conn: &Connection,
+    prefix: &str,
+) -> rusqlite::Result<Vec<CompleteItem>> {
+    let mut out: Vec<CompleteItem> = complete(conn, prefix)?
+        .into_iter()
+        .map(|path| CompleteItem { path, kind: "tag".into() })
+        .collect();
+    let mut seen: HashSet<String> = out.iter().map(|i| i.path.clone()).collect();
+    for path in alias_targets(conn, prefix)? {
+        if seen.insert(path.clone()) {
+            out.push(CompleteItem { path, kind: "alias".into() });
+        }
+    }
+    out.truncate(COMPLETE_LIMIT as usize);
+    Ok(out)
+}
+
+/// 别名字符串前缀命中 -> 目标标签当前路径(按目标路径升序;多个别名可指向同一标签,
+/// 重复项由调用方按 path 去重)。前缀比较与标签一致用 substr,存量别名可能含 % 或 _
+fn alias_targets(conn: &Connection, prefix: &str) -> rusqlite::Result<Vec<String>> {
+    let mut stmt = conn.prepare(
+        "SELECT t.path FROM tag_aliases a JOIN tags t ON t.id = a.tag_id
+         WHERE substr(a.alias, 1, length(?1)) = ?1 ORDER BY t.path LIMIT ?2",
     )?;
     let rows = stmt.query_map(params![prefix, COMPLETE_LIMIT], |r| r.get(0))?;
     rows.collect()

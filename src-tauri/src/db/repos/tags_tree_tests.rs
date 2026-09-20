@@ -130,10 +130,17 @@ fn complete_returns_prefix_paths_and_treats_chars_literally() {
          INSERT INTO tags(name, parent_id, path, depth) VALUES('abc', NULL, 'abc', 1);",
     )
     .unwrap();
-    assert_eq!(complete(&c, "工").unwrap(), vec!["工作", "工作/项目A"]);
-    assert_eq!(complete(&c, "工作/").unwrap(), vec!["工作/项目A"]);
-    assert_eq!(complete(&c, "a%").unwrap(), vec!["a%b"]);
-    assert!(complete(&c, "无此").unwrap().is_empty());
+    assert_eq!(query::complete(&c, "工").unwrap(), vec!["工作", "工作/项目A"]);
+    assert_eq!(query::complete(&c, "工作/").unwrap(), vec!["工作/项目A"]);
+    assert_eq!(query::complete(&c, "a%").unwrap(), vec!["a%b"]);
+    assert!(query::complete(&c, "无此").unwrap().is_empty());
+    // 带别名的补全(G3)在同一库上只多出 kind 字段:无别名时与纯路径版本逐项同序
+    let items: Vec<String> = complete_with_aliases(&c, "工")
+        .unwrap()
+        .into_iter()
+        .map(|i| i.path)
+        .collect();
+    assert_eq!(items, vec!["工作", "工作/项目A"]);
 }
 
 /// C-2(直调):库里已有 待定/TBD 根标签时,ensure_path 必须就地和解成两级树

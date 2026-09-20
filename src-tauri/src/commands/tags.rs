@@ -1,6 +1,7 @@
 //! 标签树命令层(MVP-2 Task 4):只做参数校验与转调仓库层,不写 SQL。
 //! 删除前的影响面由独立的 `tag_impact` 提供(前端二次确认后再调 `delete_tag`)。
-use crate::db::repos::tags_tree::{self, TagCount};
+use crate::db::repos::tag_alias;
+use crate::db::repos::tags_tree::{self, CompleteItem, TagCount};
 use crate::db::repos::tags_tree_merge::{self, MergeReport};
 use crate::db::Db;
 use serde::Serialize;
@@ -97,11 +98,36 @@ pub fn merge_tags(
     })
 }
 
-/// 路径前缀补全(输入 `#工作/` 时列出下一级候选)
+/// 该标签的全部别名(G3 spec §4):别名列表按 alias 升序,标签菜单展示与删除用
 #[tauri::command]
-pub fn complete_tags(app: AppHandle, prefix: Option<String>) -> Result<Vec<String>, String> {
+pub fn list_tag_aliases(app: AppHandle, tag_id: i64) -> Result<Vec<String>, String> {
+    with_conn(&app, |c| tag_alias::list_for_tag(c, tag_id).map_err(|e| e.to_string()))
+}
+
+/// 手动登记别名:先校验目标标签存在(否则只会漏出 sqlite 的英文外键错),
+/// 别名本身的合法性(非空/无空白/无 `#`/不与现有标签重名)由仓库层把关并给中文错
+#[tauri::command]
+pub fn add_tag_alias(app: AppHandle, alias: String, tag_id: i64) -> Result<(), String> {
+    with_conn(&app, |c| {
+        if !tag_alias::tag_exists(c, tag_id).map_err(|e| e.to_string())? {
+            return Err(format!("标签不存在: {tag_id}"));
+        }
+        tag_alias::add(c, &alias, tag_id).map_err(|e| e.to_string())
+    })
+}
+
+/// 删除别名(幂等:别名不存在也算成功)
+#[tauri::command]
+pub fn remove_tag_alias(app: AppHandle, alias: String) -> Result<(), String> {
+    with_conn(&app, |c| tag_alias::remove(c, &alias).map_err(|e| e.to_string()))
+}
+
+/// 路径前缀补全(输入 `#工作/` 时列出下一级候选)。
+/// 每项带 `kind`:"tag" 为标签路径命中,"alias" 为别名命中(前端在行尾标一个「别名」弱标记)。
+#[tauri::command]
+pub fn complete_tags(app: AppHandle, prefix: Option<String>) -> Result<Vec<CompleteItem>, String> {
     let prefix = prefix.unwrap_or_default();
     with_conn(&app, |c| {
-        tags_tree::complete(c, &prefix).map_err(|e| e.to_string())
+        tags_tree::complete_with_aliases(c, &prefix).map_err(|e| e.to_string())
     })
 }
