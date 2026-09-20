@@ -18,6 +18,15 @@ const LOCKED_FALLBACK: InputSettings = {
   lockContent: true,
 };
 
+/** 取证打点:性能测量脚本读「设置已应用」时刻(measure only,失败不影响行为,见 dev-perf-inputbar.mjs) */
+function mark(name: string): void {
+  try {
+    performance.mark(name);
+  } catch {
+    /* 不支持 performance.mark 时忽略 */
+  }
+}
+
 /**
  * 输入栏统一设置入口(替代原 use-input-lock):
  * 挂载时读一次;窗口每次获得焦点时重载;主窗设置页写库成功后会广播
@@ -40,15 +49,18 @@ export function useInputSettings() {
     } catch (e) {
       setSettings(LOCKED_FALLBACK);
       setError(`读取设置失败,已按锁定处理: ${String(e)}`);
+      mark('lifelog-input-settings-failed');
       return;
     }
     setSettings(next);
     setError('');
+    mark('lifelog-input-settings-applied');
     try {
       await getCurrentWindow().setAlwaysOnTop(next.alwaysOnTop);
     } catch (e) {
       setError(`应用置顶失败: ${String(e)}`);
     }
+    mark('lifelog-input-always-on-top-applied');
   }, []);
 
   useEffect(() => {
