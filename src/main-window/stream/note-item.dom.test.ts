@@ -105,11 +105,12 @@ describe('shouldEnterEdit 纯判定', () => {
 });
 
 describe('NoteItem 点正文进编辑', () => {
-  it('点普通正文段落 -> onEdit 一次;正文容器带 cursor-text 与 title', async () => {
+  it('点普通正文段落 -> onEdit 一次;正文容器带 cursor-text,不挂常驻 title', async () => {
     await mount(note('普通正文段落'));
     const body = pick('.md-body');
     expect(body.parentElement?.className).toContain('cursor-text');
-    expect(body.parentElement?.getAttribute('title')).toBe('点击编辑');
+    // 常驻悬浮提示会盖住正文自己的提示,改由光标形状表达可点编辑
+    expect(body.parentElement?.getAttribute('title')).toBeNull();
     await click(pick('.md-body p'));
     expect(calls.edit).toBe(1);
   });

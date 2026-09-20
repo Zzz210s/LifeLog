@@ -50,7 +50,7 @@ describe('MarkdownBody 交互态任务复选框', () => {
     expect((boxes[1] as HTMLInputElement).checked).toBe(true);
   });
 
-  it('默认(只读)态点击不回调:编辑预览路径不受影响', async () => {
+  it('默认(只读)态点击不回调:不干预宿主容器', async () => {
     const calls: number[] = [];
     const container = await mount(
       createElement(MarkdownBody, {

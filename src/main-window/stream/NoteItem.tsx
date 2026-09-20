@@ -28,6 +28,11 @@ export function NoteItem(p: NoteItemProps): ReactNode {
   // 主题/属性分两排与折叠阈值都在 NoteChips 里(纯函数在 note-chips.ts)
   // 正文渲染按内容缓存:流内任一条目变化会重渲整列,避免重复解析 markdown
   const html = useMemo(() => renderMarkdownInteractive(note.content), [note.content]);
+  // 键盘通道的无障碍名带上正文摘要:否则每条的按钮都叫「编辑」,读屏用户无法分辨目标
+  const editLabel = useMemo(() => {
+    const brief = note.content.replace(/\s+/g, ' ').trim().slice(0, 24);
+    return brief ? `编辑:${brief}` : '编辑这条笔记';
+  }, [note.content]);
 
   // 点正文任意非交互处进编辑:链接/复选框/按钮由 shouldEnterEdit 守卫,
   // chip 行不在本容器内,天然不触发
@@ -41,6 +46,7 @@ export function NoteItem(p: NoteItemProps): ReactNode {
         {/* 键盘通道:可见的「编辑」按钮已删,键盘用户 Tab 到它即显形;鼠标用户看不到 */}
         <button
           onClick={p.onEdit}
+          aria-label={editLabel}
           className="sr-only focus:not-sr-only focus:text-xs focus:text-accent-text focus:underline"
         >
           编辑
@@ -51,7 +57,8 @@ export function NoteItem(p: NoteItemProps): ReactNode {
           </button>
         </div>
       </div>
-      <div onClick={onBodyClick} className="cursor-text" title="点击编辑">
+      {/* 不挂常驻 title:光标形状已表达可点编辑,悬浮提示会盖住正文自己的提示 */}
+      <div onClick={onBodyClick} className="cursor-text">
         <MarkdownBody
           html={html}
           className="md-body mt-1 min-w-0 text-sm text-text"
