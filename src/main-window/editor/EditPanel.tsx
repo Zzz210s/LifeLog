@@ -1,43 +1,30 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { api } from '../../shared/api';
-import { renderMarkdown } from '../../shared/markdown';
 import { composeSource, prepareForSave } from '../../shared/note-source';
 import type { Note } from '../../shared/types';
 import { tagCountHint, tagCountLabel } from './edit-tag-count';
+import { editRows } from './textarea-rows';
 import { useSourceTagCount } from './use-source-tags';
-import { MarkdownBody } from '../stream/MarkdownBody';
 
 export interface EditPanelProps {
   note: Note;
   onSaved: (note: Note) => void;
   onCancel: () => void;
-  /** 预览区链接打开失败上报(交主窗错误机制) */
-  onLinkError?: (message: string) => void;
 }
 
-/** 编辑态分屏(左源码右预览):源 = 正文 + 标签回显为 #tag */
+/** 编辑态:点正文即就地变源码框(形态 A,2026-09-21;分屏实时预览已退场) */
 export function EditPanel(p: EditPanelProps): ReactNode {
   // 决策:note.content 是已剥离标签的正文;编辑源码补回 '#标签' 尾缀,
   // 与输入栏捕获语法一致(用户可看/改标签),保存时后端重新剥离归类。
   const [source, setSource] = useState(() => composeSource(p.note.content, p.note.tags));
-  const [preview, setPreview] = useState(() => renderMarkdown(source));
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
-  const timer = useRef<number | null>(null);
   // 标签数实时化:输入变化后 250ms 防抖调后端命令 parse_note_source(与保存路径同源),
   // 尚未返回/失败时回退已保存标签数(不闪烁成 0);顺序守卫与去抖细节见 use-source-tags.ts。
   // 纯建议层:保存行为与校验完全不受影响。
   const tagCount = useSourceTagCount(source, p.note.tags.length);
   const hint = tagCountHint(tagCount);
-
-  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
-
-  const onChange = (v: string) => {
-    setSource(v);
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = window.setTimeout(() => setPreview(renderMarkdown(v)), 300);
-  };
 
   const save = async () => {
     const text = prepareForSave(source); // 与创建路径共用保存前入口:只裁行尾空白,空内容拒绝
@@ -57,26 +44,20 @@ export function EditPanel(p: EditPanelProps): ReactNode {
 
   return (
     <li className="border-b border-accent/40 bg-accent-soft/40 px-4 py-3">
-      <div className="grid grid-cols-2 gap-2">
-        <textarea
-          autoFocus
-          aria-label="编辑源码"
-          value={source}
-          onChange={(e) => onChange(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.ctrlKey && e.key === 'Enter') {
-              e.preventDefault();
-              void save();
-            }
-          }}
-          className="h-64 resize-none rounded-md border border-border bg-raised p-2 font-mono text-sm leading-relaxed outline-none focus:border-accent"
-        />
-        <MarkdownBody
-          html={preview}
-          className="md-body h-64 overflow-y-auto rounded-md border border-border bg-raised p-2 text-sm text-text"
-          onLinkError={p.onLinkError}
-        />
-      </div>
+      <textarea
+        autoFocus
+        aria-label="编辑源码"
+        rows={editRows(source)}
+        value={source}
+        onChange={(e) => setSource(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.ctrlKey && e.key === 'Enter') {
+            e.preventDefault();
+            void save();
+          }
+        }}
+        className="w-full resize-y rounded-md border border-border bg-raised p-2 font-mono text-sm leading-relaxed outline-none focus:border-accent"
+      />
       <div className="mt-2 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <span className="text-xs text-muted" data-testid="edit-tag-count">

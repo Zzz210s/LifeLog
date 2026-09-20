@@ -77,7 +77,7 @@ export function renderMarkdown(text: string): string {
 /**
  * 交互态渲染(笔记流读视图):与 renderMarkdown 同一管线,
  * 额外给任务列表复选框按文档顺序标上 data-task-index 并解开 disabled;
- * 编辑预览仍走 renderMarkdown,保持只读。
+ * renderMarkdown 自身仍是只读产物(sanitize 后无序号),供需要纯预览的调用方使用。
  */
 export function renderMarkdownInteractive(text: string): string {
   return enableTaskCheckboxes(renderMarkdown(text));

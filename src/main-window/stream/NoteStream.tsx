@@ -29,11 +29,11 @@ export interface NoteStreamProps {
   onEditCancel: () => void;
   /** 点击正文任务复选框:勾选/取消该笔记第 index 个任务项 */
   onToggleTask: (note: Note, index: number) => void;
-  /** 流内/预览区链接打开失败上报(交主窗错误机制) */
+  /** 流内链接打开失败上报(交主窗错误机制) */
   onLinkError: (message: string) => void;
 }
 
-/** 时间流:滚动到底自动加载;被编辑条目原位展开为分屏 */
+/** 时间流:滚动到底自动加载;被编辑条目原位展开为就地源码编辑框 */
 export function NoteStream(p: NoteStreamProps): ReactNode {
   const [sentinel, setSentinel] = useState<HTMLDivElement | null>(null);
   const [scroller, setScroller] = useState<HTMLDivElement | null>(null);
@@ -75,13 +75,7 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
       <ul>
         {p.notes.map((n) =>
           n.id === p.editingId ? (
-            <EditPanel
-              key={n.id}
-              note={n}
-              onSaved={p.onEditSaved}
-              onCancel={p.onEditCancel}
-              onLinkError={p.onLinkError}
-            />
+            <EditPanel key={n.id} note={n} onSaved={p.onEditSaved} onCancel={p.onEditCancel} />
           ) : (
             <NoteItem
               key={n.id}

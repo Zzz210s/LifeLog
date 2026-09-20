@@ -7,7 +7,7 @@ export interface MarkdownBodyProps {
   className: string;
   /** 链接打开失败上报(可选):由调用方接入既有错误机制,此处不弹窗、不引入全局状态 */
   onLinkError?: (message: string) => void;
-  /** 可交互开关(默认关闭):开启后任务列表复选框可点击,编辑预览保持默认只读 */
+  /** 可交互开关(默认关闭):开启后任务列表复选框可点击并回调 onToggleTask;只读调用方保持默认 */
   interactive?: boolean;
   /** 交互态下点击第 index 个任务复选框(0 起,文档顺序,取自 data-task-index) */
   onToggleTask?: (index: number) => void;
@@ -24,7 +24,7 @@ function taskIndexFrom(target: EventTarget | null): number | null {
 
 /**
  * markdown 渲染区统一出口:任何链接点击都 preventDefault 后交系统浏览器,
- * 避免 Tauri webview 同窗导航到外站导致应用被锁死(流内与编辑预览共用)。
+ * 避免 Tauri webview 同窗导航到外站导致应用被锁死(笔记流渲染区统一出口)。
  * 交互态下任务复选框优先处理:它嵌在链接里时也不能顺带打开外链。
  */
 export function MarkdownBody({
