@@ -14,6 +14,14 @@ export const os = {
     return !!this.wins(pid).find((w) => w.cls === 'Tauri Window' && w.title === title)?.visible;
   },
   pickTray: (pid, index) => py('scripts/win-tray.py', 'pick', String(pid), String(index)),
+  /** 托盘图标是否已注册(冷启动初期可能还没就绪,此时点菜单会报 tray icon not found) */
+  trayReady: (pid) => {
+    try {
+      return JSON.parse(py('scripts/win-tray.py', 'rect', String(pid)).stdout.trim() || '{}').ok === true;
+    } catch {
+      return false;
+    }
+  },
   trayClick: (pid, cmd) => py('scripts/win-tray.py', cmd, String(pid)),
   hotkey: () => py('scripts/win-probe.py', 'hotkey', 'ctrl+shift+q'),
   closeWindow: (pid, title) => JSON.parse(py('scripts/win-probe.py', 'close-window', String(pid), title).stdout || '{}'),

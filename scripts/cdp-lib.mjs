@@ -94,9 +94,9 @@ export async function open(kind) {
 
 /**
  * 冷启动前置:主窗(标签 main)改为运行时按需创建后,启动后 CDP 里只有输入栏,
- * 「第一件事就 open('main')」的脚本会直接抛错。这里统一兜底:先直接连;连不到就用托盘
- * 第 2 项「打开主窗口」创建再轮询重试;最后等主窗外壳挂载(刚建的 webview 还在加载,
- * 此时就发点击会落空)。幂等 —— 已有 main 目标时就是一次普通 open。
+ * 「第一件事就 open('main')」的脚本会直接抛错。这里统一兜底:先直接连;连不到就等托盘图标
+ * 就绪、点「打开主窗口」再轮询重试(托盘交互偶发落空,故最多试 3 次);最后等主窗外壳挂载
+ * (刚建的 webview 还在加载,此时就发点击会落空)。幂等 —— 已有 main 目标时就是一次普通 open。
  */
 export async function ensureMain(opts = {}) {
   const existing = await open('main').catch(() => null);
@@ -105,8 +105,12 @@ export async function ensureMain(opts = {}) {
     const pid = opts.pid ?? os.pidOf();
     if (!pid) throw new Error('冷启动下没有 main 页面,且取不到 LifeLog 进程 pid(先以 9222 调试端口启动 pnpm tauri dev)');
     console.log(`INFO 冷启动没有 main 页面:经托盘「打开主窗口」创建(pid=${pid})`);
-    os.pickTray(pid, 2);
-    conn = await waitFor(() => open('main').catch(() => null), opts.tries ?? 40, opts.gap ?? 250);
+    await waitFor(() => os.trayReady(pid), 20, 250); // 启动初期托盘图标可能尚未注册
+    for (let i = 0; i < (opts.pickTries ?? 3) && !conn; i++) {
+      const pick = os.pickTray(pid, 2);
+      conn = await waitFor(() => open('main').catch(() => null), opts.tries ?? 30, opts.gap ?? 250);
+      if (!conn) console.log(`WARN 第 ${i + 1} 次托盘「打开主窗口」未生效,重试:` + String(pick.stdout || '').trim().slice(0, 160));
+    }
     if (!conn) throw new Error('托盘「打开主窗口」后仍未出现 main 页面:检查 dev 是否在 9222 上运行、托盘菜单第 2 项是否仍为「打开主窗口」');
   }
   const shell = await waitFor(() => conn.cdp.eval(SHELL_READY).catch(() => false), opts.readyTries ?? 40, opts.readyGap ?? 250);
