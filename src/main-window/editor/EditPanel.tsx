@@ -5,6 +5,7 @@ import { renderMarkdown } from '../../shared/markdown';
 import { composeSource, prepareForSave } from '../../shared/note-source';
 import type { Note } from '../../shared/types';
 import { tagCountHint, tagCountLabel } from './edit-tag-count';
+import { useSourceTagCount } from './use-source-tags';
 import { MarkdownBody } from '../stream/MarkdownBody';
 
 export interface EditPanelProps {
@@ -24,10 +25,10 @@ export function EditPanel(p: EditPanelProps): ReactNode {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const timer = useRef<number | null>(null);
-  // 标签数取笔记已保存的标签集合(与 chip 行、保存路径同一份数据):
-  // 前端没有与 Rust tags.rs 逐字对齐的解析器,现算源码里的 #标签 会与保存结果不一致,
-  // 宁可滞后也不误报;提示只是建议层,不影响保存。
-  const tagCount = p.note.tags.length;
+  // 标签数实时化:输入变化后 250ms 防抖调后端命令 parse_note_source(与保存路径同源),
+  // 尚未返回/失败时回退已保存标签数(不闪烁成 0);顺序守卫与去抖细节见 use-source-tags.ts。
+  // 纯建议层:保存行为与校验完全不受影响。
+  const tagCount = useSourceTagCount(source, p.note.tags.length);
   const hint = tagCountHint(tagCount);
 
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);

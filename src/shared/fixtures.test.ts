@@ -83,8 +83,9 @@ describe('fixtures/tag-grammar.json(前端契约:语法由后端实现)', () => 
     expect(readSource('./api.ts')).toMatch(/parse_note_source/);
     expect(readSource('./api.ts')).toMatch(/ParseResult/);
     expect(readSource('./types.ts')).toMatch(/interface ParseResult/);
-    // 编辑面板经 use-source-tags 调该命令(面板自己不拼命令名、更不实现语法),
-    // 该接线随实时标签数一并落地,见后续提交的 EditPanel/use-source-tags。
+    // 编辑面板经 use-source-tags 调该命令(面板自己不拼命令名、更不实现语法)
+    expect(readSource('../main-window/editor/use-source-tags.ts')).toMatch(/parseNoteSource/);
+    expect(readSource('../main-window/editor/EditPanel.tsx')).toMatch(/useSourceTagCount/);
   });
 });
 
