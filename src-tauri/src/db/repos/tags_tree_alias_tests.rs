@@ -79,26 +79,38 @@ fn link_paths_creates_nodes_for_unregistered_strings() {
     );
 }
 
-/// 真实标签优先于别名:同名别名不该挡住"确实存在的那个标签"
+/// 别名与现有标签重名时被拒(数据层不变量:别名永不遮蔽真实标签)
 #[test]
-fn real_tag_wins_over_alias() {
+fn add_rejects_alias_shadowing_real_tag() {
     let mut c = db();
-    // 先造两个真实标签:日漫 与 追番/日漫
-    let n1 = notes::create_plain(&mut c, "旧写法 #日漫").unwrap();
+    let n = notes::create_plain(&mut c, "旧写法 #日漫").unwrap();
     let real = id_at(&c, "日漫");
-    let n2 = notes::create_plain(&mut c, "新写法 #追番/日漫").unwrap();
+    let err = tag_alias::add(&c, "日漫", real).unwrap_err();
+    assert!(err.to_string().contains("重名"), "应给出中文重名提示: {err}");
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM tag_aliases"), 0);
+    let _ = n;
+}
+
+/// 真实标签优先于别名:别名先登记、之后才出现同名真实标签(改名可造出这种局面)时,
+/// 解析必须落在真实标签上,而不是被别名悄悄改道。
+#[test]
+fn real_tag_wins_over_alias_after_rename() {
+    let mut c = db();
+    // ① 先有 追番/日漫,并把它登记为别名 日漫 的目标
+    let n1 = notes::create_plain(&mut c, "看番 #追番/日漫").unwrap();
     let target = id_at(&c, "追番/日漫");
-    // 把 日漫 登记为 追番/日漫 的别名(模拟"旧名残留"):真实标签仍在
     tag_alias::add(&c, "日漫", target).unwrap();
-    // 再写 #日漫:必须落在真实标签 日漫 上,而不是被别名吃掉
+    // ② 之后通过改名造出一个真实标签 日漫(根级)
+    let n2 = notes::create_plain(&mut c, "临时 #临时标签").unwrap();
+    let tmp = id_at(&c, "临时标签");
+    crate::db::repos::tags_tree::rename(&mut c, tmp, "日漫").expect("改名应成功");
+    let real = id_at(&c, "日漫");
+    // ③ 再写 #日漫:必须落在真实标签上
     link_paths(&c, n1.id, &["日漫".to_string()]).unwrap();
-    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tag_links WHERE tag_id={real} AND target_type='note' AND target_id={}", n1.id)), 1);
+    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tag_links WHERE tag_id={real} AND target_type='note' AND target_id={}", n1.id)), 1, "真实标签胜出");
     assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tag_links WHERE tag_id={target} AND target_type='note' AND target_id={}", n1.id)), 0);
-    // 目标自身不受影响
-    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tag_links WHERE tag_id={target} AND target_type='note' AND target_id={}", n2.id)), 1);
-    // 真实标签不存在的字符串仍走别名归一
-    tag_alias::add(&c, "日漫番剧", target).unwrap();
-    let n3 = notes::create_plain(&mut c, "第三处 #日漫番剧").unwrap();
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='日漫番剧'"), 0, "别名不建节点");
-    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tag_links WHERE tag_id={target} AND target_type='note' AND target_id={}", n3.id)), 1);
+    let _ = n2;
+    // ④ 未登记的字符串原样建节点(不做模糊猜测)
+    link_paths(&c, n1.id, &["日漫漫画".to_string()]).unwrap();
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='日漫漫画'"), 1);
 }

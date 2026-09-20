@@ -65,11 +65,18 @@ pub fn link_note(conn: &Connection, note_id: i64, tag_id: i64) -> rusqlite::Resu
 
 /// 笔记维度的链接替换(增量):只删不再需要的、只补缺失的,未变化的链接保持原样
 /// (节点 id 与触发器行为稳定)。路径经 parse_tag_path 校验后走 ensure_path 自动建父级。
-/// 按路径精确取标签 id(不存在返回 None);用于"真实标签优先于别名"的判定
+/// 按路径精确取标签 id(不存在返回 None);用于"真实标签优先于别名"的判定。
+/// **只认结构自洽的节点**:path 里含 `/` 时必须有父节点 —— 006 之前的存量平铺标签
+/// 可能是"name=path=a/b 但 parent_id 为空"的幻影层级(见 tags_tree_path::child_path 的说明),
+/// 那种节点不该抢走 `#a/b` 的解析,否则永远修不成两层结构。
 fn existing_id(conn: &Connection, path: &str) -> rusqlite::Result<Option<i64>> {
     use rusqlite::OptionalExtension;
-    conn.query_row("SELECT id FROM tags WHERE path = ?1", params![path], |r| r.get(0))
-        .optional()
+    conn.query_row(
+        "SELECT id FROM tags WHERE path = ?1 AND (parent_id IS NOT NULL OR instr(path, '/') = 0)",
+        params![path],
+        |r| r.get(0),
+    )
+    .optional()
 }
 /// 解析顺序(spec D2/D3,保存漏斗唯一解析点):**真实标签优先,其次别名,最后新建**。
 /// ① 该路径已是存在的标签 -> 用它(用户确实能创建/保留同名标签,别名不该把它挡住)
