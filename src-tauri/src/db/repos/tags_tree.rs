@@ -135,8 +135,10 @@ mod query;
 mod replace;
 pub use ensure::ensure_path;
 pub use ops::{delete_subtree, move_beside, move_to, rename};
-// `complete`(纯标签路径)只服务于 complete_with_aliases 与仓库层测试:把两个都收在 query 里,
-// 命令层只认 complete_with_aliases,不再重复导出避免 unused_imports
+// `complete`(纯标签路径补全)现在只被 complete_with_aliases 与仓库层测试使用,不再向命令层导出;
+// 测试用的导出放进 cfg(test),避免非测试构建报 unused_imports
+#[cfg(test)]
+pub use query::complete;
 pub use query::{complete_with_aliases, counts, impact, CompleteItem, TagCount};
 
 #[cfg(test)]

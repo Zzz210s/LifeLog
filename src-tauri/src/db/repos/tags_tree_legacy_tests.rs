@@ -63,8 +63,8 @@ fn rename_legacy_flat_root_does_not_create_phantom_prefix() {
         "根行 path 必须等于 name"
     );
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='a/c'"), 0, "不得留下幻影前缀");
-    assert_eq!(query::complete(&c, "a/").unwrap(), Vec::<String>::new());
-    assert_eq!(query::complete(&c, "c").unwrap(), vec!["c"]);
+    assert_eq!(complete(&c, "a/").unwrap(), Vec::<String>::new());
+    assert_eq!(complete(&c, "c").unwrap(), vec!["c"]);
 }
 
 /// 存量行必须带链接或子节点,否则会被 gc_orphans(create/link_paths 收尾)回收掉
