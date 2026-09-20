@@ -141,7 +141,7 @@ describe('交互态渲染与源码索引对齐', () => {
     expect(html).toContain('data-task-index="1"');
     expect(html).toContain('data-task-index="2"');
     expect(html).not.toContain('data-task-index="3"');
-    // 编辑预览仍用只读渲染:无序号可点
+    // 只读渲染产物无序号可点(任务态以正文为准,不靠原生复选框控件)
     const readonly = renderMarkdown(TASK_DOC);
     expect(readonly).toContain('disabled');
     expect(readonly).not.toContain('data-task-index');
