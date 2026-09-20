@@ -64,6 +64,10 @@ The window *is* the input box: no frame, no title bar, no buttons, transparent s
 - `Esc`, or a double-click on a drag band, hides it
 - `Ctrl+Enter` saves: the input clears, `已保存 HH:MM` flashes in grey for 1.5 s at the bottom right,
   and the caret stays in the input for the next entry
+- Typing `#` shows tag suggestions the way a browser search box shows its recommendations: the list
+  appears **directly under the input** (the window grows to fit it and shrinks back when it closes);
+  `Up`/`Down` to choose, `Enter`/`Tab` to accept, `Esc` to close just the list. The list height is
+  never remembered
 - Mouse-wheel zoom from 50% to 200% with no modifier key; `Ctrl` + wheel changes the opacity from
   30% to 100%; middle-click restores 100% zoom and the configured default opacity
 - Three locks — block moving, block closing, lock content — each switchable in the settings page;
