@@ -18,17 +18,24 @@ pub fn create(app: &tauri::App) -> tauri::Result<()> {
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id.as_ref() {
             // 只显示/置前,不做切换:启动后输入栏默认就是可见的,若用 toggle 则点「打开输入栏」
-            // 反而会把它藏起来(与菜单文案相反),也与左键行为完全重复
+            // 反而会把它藏起来(与菜单文案相反),也与左键行为完全重复(见 events::quit)
+            // 建窗/显窗是真实 I/O,失败不能吞:至少 eprintln 留痕(2026-09-21 回看 I4/M2)
             "open-input" => {
-                let _ = windowing::input::show(app);
+                if let Err(e) = windowing::input::show(app) {
+                    eprintln!("托盘「打开输入栏」失败: {e}");
+                }
             }
             "open-main" => {
-                let _ = windowing::startup::open_main_window(app);
+                if let Err(e) = windowing::startup::open_main_window(app) {
+                    eprintln!("托盘「打开主窗口」失败: {e}");
+                }
             }
             "open-settings" => {
-                let _ = windowing::startup::open_settings_window(app);
+                if let Err(e) = windowing::startup::open_settings_window(app) {
+                    eprintln!("托盘「设置」失败: {e}");
+                }
             }
-            // 退出前把输入栏位置与视图状态落库(见 events::quit)
+            // 退出前把输入栏位置落库(见 events::quit)
             "quit" => windowing::events::quit(app),
             _ => {}
         })
@@ -36,7 +43,9 @@ pub fn create(app: &tauri::App) -> tauri::Result<()> {
             // 左键打开主窗口(与菜单项「打开主窗口」同一实现,spec 2026-09-17 S1);
             // 输入栏不再由托盘左键唤起,仍由热键/菜单项/二次启动唤起。
             if let TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, .. } = event {
-                let _ = windowing::startup::open_main_window(tray.app_handle());
+                if let Err(e) = windowing::startup::open_main_window(tray.app_handle()) {
+                    eprintln!("托盘左键打开主窗口失败: {e}");
+                }
             }
         })
         .build(app)?;

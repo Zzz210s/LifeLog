@@ -16,6 +16,14 @@ fn pending_flag_starts_clear() {
     assert!(!take_pending());
 }
 
+/// 两条投递通道:新建窗口只留 pending(页面还没订阅,事件必丢);
+/// 窗口已存在则 pending + 事件都发 —— 「已存在」不等于「已订阅」(刚建窗/正在重载)
+#[test]
+fn intent_channels_cover_both_window_states() {
+    assert_eq!(intent_channels(false), (true, false), "新建:事件发给不存在的监听者,只留 pending");
+    assert_eq!(intent_channels(true), (true, true), "已存在:事件即时切页 + pending 兜底");
+}
+
 /// 构建参数必须与迁移前 tauri.conf.json 的 main 声明等价
 #[test]
 fn build_config_matches_legacy_window_declaration() {

@@ -33,7 +33,7 @@ pub fn build_config() -> BuildConfig {
     }
 }
 
-/// 记下「打开后切到设置页」的意图(窗口不存在时才调用)
+/// 记下「打开后切到设置页」的意图(取走即清空;前端 mount 与事件处理各消费一次)
 pub fn set_pending() {
     PENDING_OPEN_SETTINGS.store(true, Ordering::SeqCst);
 }
@@ -74,15 +74,24 @@ pub fn open(app: &AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
-/// 带「打开后切到设置页」的意图:窗口新建时置 pending(前端 mount 时取用,事件会丢),
-/// 窗口已存在时直接发事件即时生效。
+/// 「切到设置页」意图的两条投递通道(纯决策,便于单测):返回 (置 pending, 发事件)。
+/// - 窗口本次新建:页面还没订阅,事件必然丢 -> 只留 pending(前端 mount 时取用);
+/// - 窗口已存在:「存在」不等于「已订阅」(刚建窗/正在重载的页面),emit 可能落在监听注册
+///   之前 -> 两条都发:事件即时切页,pending 兜底,由**事件处理时**也消费一次
+///   (见前端 use-open-settings.ts)。既补上丢事件,又不会把残留留给下一次普通「打开主窗口」。
+fn intent_channels(existed: bool) -> (bool, bool) {
+    (true, existed)
+}
+
+/// 带「打开后切到设置页」的意图。pending 在窗口建/显**成功之后**才置:创建失败即返回,
+/// 不留残留意图把下一次普通「打开主窗口」误切到设置页(2026-09-21 回看 I4 / M1)。
 pub fn open_settings(app: &AppHandle) -> tauri::Result<()> {
-    let existed = app.get_webview_window(MAIN_LABEL).is_some();
-    if !existed {
+    let (pending, emit) = intent_channels(app.get_webview_window(MAIN_LABEL).is_some());
+    open(app)?;
+    if pending {
         set_pending();
     }
-    open(app)?;
-    if existed {
+    if emit {
         let _ = app.emit(OPEN_SETTINGS_EVENT, ());
     }
     Ok(())

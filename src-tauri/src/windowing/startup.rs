@@ -51,7 +51,7 @@ pub fn open_main_window(app: &AppHandle) -> tauri::Result<()> {
 }
 
 /// 显示主窗口并切到设置页。事件名与前端 use-open-settings.ts 的 OPEN_SETTINGS_EVENT 一致;
-/// 窗口是本次新建时改用 pending 标志(前端 mount 时取用),避免事件发给还不存在的监听者。
+/// 新建窗口与已存在窗口两条通道都留 pending(事件可能落在订阅之前),见 main_window::open_settings。
 pub fn open_settings_window(app: &AppHandle) -> tauri::Result<()> {
     windowing::main_window::open_settings(app)
 }
