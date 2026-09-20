@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { renderMarkdownInteractive } from '../shared/markdown';
 import type { Note } from '../shared/types';
 import { MarkdownBody } from './MarkdownBody';
-import { tagDisplayName } from './tag-display';
+import { NoteChips } from './NoteChips';
 
 export interface NoteItemProps {
   note: Note;
@@ -22,8 +22,8 @@ export interface NoteItemProps {
  *  任务列表(- [ ] / - [x])表达,读视图里可直接点击勾选) */
 export function NoteItem(p: NoteItemProps): ReactNode {
   const { note } = p;
-  // chip 行展示全部标签:时间标签已降级为普通标签(D3),不再是需要滤掉的系统元数据
-  const chips = note.tags;
+  // chip 行展示全部标签:时间标签已降级为普通标签(D3),不再是需要滤掉的系统元数据;
+  // 主题/属性分两排与折叠阈值都在 NoteChips 里(纯函数在 note-chips.ts)
   // 正文渲染按内容缓存:流内任一条目变化会重渲整列,避免重复解析 markdown
   const html = useMemo(() => renderMarkdownInteractive(note.content), [note.content]);
 
@@ -47,28 +47,7 @@ export function NoteItem(p: NoteItemProps): ReactNode {
         interactive
         onToggleTask={p.onToggleTask}
       />
-      {chips.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {chips.map((t) => {
-            const active = p.activeTags.includes(t);
-            return (
-              <button
-                key={t}
-                onClick={() => p.onTagClick(t)}
-                aria-pressed={active}
-                title={t}
-                className={
-                  // S4:chip 文案是完整路径,长路径靠 max-w + truncate 收窄,title 兜底全量
-                  'max-w-[16rem] truncate rounded px-1.5 py-0.5 text-xs transition-colors ' +
-                  (active ? 'bg-accent-soft text-accent-text' : 'bg-tag text-accent-text hover:bg-accent-soft')
-                }
-              >
-                #{tagDisplayName(t)}
-              </button>
-            );
-          })}
-        </div>
-      )}
+      <NoteChips tags={note.tags} activeTags={p.activeTags} onTagClick={p.onTagClick} />
     </li>
   );
 }
