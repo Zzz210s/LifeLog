@@ -2,6 +2,7 @@
 use super::*;
 use crate::db::migrate;
 use crate::db::repos::notes::{create_plain, notes_filter::*, query};
+use crate::db::repos::tags_invariants_tests::{assert_fts_matches_tags, assert_no_orphan_tags};
 use rusqlite::Connection;
 
 fn db() -> Connection {
@@ -45,6 +46,8 @@ fn update_replaces_links_and_cleans_orphans() {
     // 孤儿标签回收:甲标签已无引用即删,乙标签保留
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE name='甲标签'", &[]), 0);
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE name='乙标签'", &[]), 1);
+    assert_fts_matches_tags(&c);
+    assert_no_orphan_tags(&c);
 }
 
 #[test]
@@ -61,6 +64,8 @@ fn update_keeps_tag_shared_with_other_note() {
         &[],
     );
     assert_eq!(b_links, 1);
+    assert_fts_matches_tags(&c);
+    assert_no_orphan_tags(&c);
 }
 
 #[test]
@@ -68,6 +73,8 @@ fn update_returns_none_for_missing_id() {
     let mut c = db();
     create_plain(&mut c, "存在 #x").unwrap();
     assert!(update(&mut c, 9999, "不存在 #y").unwrap().is_none());
+    assert_fts_matches_tags(&c);
+    assert_no_orphan_tags(&c);
 }
 
 #[test]
@@ -99,5 +106,7 @@ fn update_keeps_fts_in_sync() {
     // tags 列聚合同步:新标签可检索、旧标签不残留
     assert_eq!(query(&c, &f(Some("乙标签")), 0).unwrap().len(), 1);
     assert!(query(&c, &f(Some("甲标签")), 0).unwrap().is_empty());
+    assert_fts_matches_tags(&c);
+    assert_no_orphan_tags(&c);
 }
 

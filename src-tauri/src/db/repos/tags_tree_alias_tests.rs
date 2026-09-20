@@ -4,6 +4,7 @@
 use super::*;
 use crate::db::migrate;
 use crate::db::repos::{notes, tag_alias};
+use crate::db::repos::tags_invariants_tests::{assert_fts_matches_tags, assert_no_orphan_tags};
 use rusqlite::{params, Connection};
 
 fn db() -> Connection {
@@ -44,6 +45,8 @@ fn link_paths_resolves_alias_without_creating_node() {
         .query_row("SELECT tags FROM notes_fts WHERE rowid=?1", params![n.id], |r| r.get(0))
         .unwrap();
     assert_eq!(fts, "追番/日漫");
+    assert_fts_matches_tags(&c);
+    assert_no_orphan_tags(&c);
 }
 
 /// ② 同一笔记同时写别名与规范路径:解析后是同一个节点,只留一条链接
@@ -58,6 +61,8 @@ fn link_paths_dedupes_alias_and_canonical_path() {
 
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tag_links"), 1);
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags"), 2);
+    assert_fts_matches_tags(&c);
+    assert_no_orphan_tags(&c);
 }
 
 /// ③ 未登记的字符串按原路径建节点;"近似"别名不生效(D2:不做模糊猜测)

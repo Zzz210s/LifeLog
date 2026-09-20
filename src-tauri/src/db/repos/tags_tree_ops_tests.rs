@@ -3,6 +3,9 @@
 use super::*;
 use crate::db::migrate;
 use crate::db::repos::notes::{self, notes_filter::*, query};
+use crate::db::repos::tags_invariants_tests::{
+    assert_fts_matches_tags, assert_no_orphan_tags, assert_tabs_paths_exist,
+};
 use rusqlite::Connection;
 
 fn db() -> Connection {
@@ -72,6 +75,9 @@ fn rename_updates_whole_subtree_paths_and_fts() {
     assert_eq!(hits(&c, "会议记录"), 1);
     assert_eq!(hits(&c, "事业/项目A"), 1);
     assert_eq!(hits(&c, "工作/项目A"), 0);
+    assert_fts_matches_tags(&c);
+    assert_no_orphan_tags(&c);
+    assert_tabs_paths_exist(&c);
 }
 
 /// ④ 移动:父子关系、path、depth 同步更新(含移回根级)
@@ -94,6 +100,9 @@ fn move_to_reparents_and_rewrites_paths() {
     move_to(&mut c, leaf, None).unwrap();
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='项目A' AND depth=1 AND parent_id IS NULL"), 1);
     assert_eq!(hits(&c, "项目A"), 1);
+    assert_fts_matches_tags(&c);
+    assert_no_orphan_tags(&c);
+    assert_tabs_paths_exist(&c);
 }
 
 /// ⑤+⑩ 移动到自身/自身子树被拒绝,失败路径整事务回滚(结构逐行不变)
@@ -149,6 +158,9 @@ fn same_level_duplicate_rejected() {
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='工作/项目A'"), 1);
     assert!(rename(&mut c, life, "工作 计划").is_err(), "非法的标签名一律拒绝");
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='生活'"), 1);
+    // 失败路径整事务回滚,库内不变量必须依然成立
+    assert_fts_matches_tags(&c);
+    assert_no_orphan_tags(&c);
 }
 
 /// ⑦ 删除子树:父与子一并删除、链接解除、笔记保留、FTS 不再含该路径
@@ -168,6 +180,9 @@ fn delete_subtree_removes_tags_keeps_notes() {
     assert_eq!(count(&c, "SELECT COUNT(*) FROM notes"), 1);
     assert_eq!(hits(&c, "项目A"), 0);
     assert_eq!(hits(&c, "纪要"), 1);
+    // 删除不改写 tabs_state(S7),故只断言 FTS 与孤儿两项
+    assert_fts_matches_tags(&c);
+    assert_no_orphan_tags(&c);
 }
 
 /// ⑩ 删除不存在的标签:报错且整事务回滚(空操作不落库)
@@ -179,4 +194,6 @@ fn delete_missing_tag_rolls_back() {
     assert!(delete_subtree(&mut c, 9999).is_err());
     assert_eq!(dump(&c), before);
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tag_links"), 1);
+    assert_fts_matches_tags(&c);
+    assert_no_orphan_tags(&c);
 }

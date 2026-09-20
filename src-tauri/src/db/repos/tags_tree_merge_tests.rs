@@ -3,6 +3,9 @@
 use super::*;
 use crate::db::migrate;
 use crate::db::repos::{notes, tag_alias};
+use crate::db::repos::tags_invariants_tests::{
+    assert_fts_matches_tags, assert_no_orphan_tags, assert_tabs_paths_exist,
+};
 use rusqlite::Connection;
 
 fn db() -> Connection {
@@ -63,6 +66,8 @@ fn merge_moves_all_links_and_deletes_source() {
     assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tag_links WHERE tag_id={src}")), 0);
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='源'"), 0);
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags"), tags_before - 1);
+    assert_fts_matches_tags(&c);
+    assert_no_orphan_tags(&c);
 }
 
 /// ② 唯一键冲突:一条笔记同时链了源与目标 -> 目标上只剩 1 条链接,moved_links 只算真改的行
@@ -79,6 +84,8 @@ fn merge_dedupes_note_linked_to_both_tags() {
     assert_eq!(r.affected_notes, 2);
     assert_eq!(link_count(&c, dst, both.id), 1, "唯一键冲突行不产生重复链接");
     assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tag_links WHERE tag_id={src}")), 0);
+    assert_fts_matches_tags(&c);
+    assert_no_orphan_tags(&c);
 }
 
 /// ③ 源有子节点:中文报错且整事务回滚(全库快照逐行不变)
@@ -97,6 +104,8 @@ fn source_with_children_rejected_and_rolls_back() {
 
     assert_eq!(err, "该标签还有子标签,请先移走或合并子标签");
     assert_eq!(snapshot(&c), before);
+    assert_fts_matches_tags(&c);
+    assert_no_orphan_tags(&c);
 }
 
 /// ④ 目标在源子树内:拒绝(子树检查先于子节点检查,给更精确的诊断)
@@ -111,6 +120,8 @@ fn target_inside_source_subtree_rejected() {
 
     assert_eq!(err, "目标标签在源标签的子树内,不能合并");
     assert_eq!(snapshot(&c), before);
+    assert_fts_matches_tags(&c);
+    assert_no_orphan_tags(&c);
 }
 
 /// ⑤ 源与目标相同:拒绝且不改库
@@ -125,6 +136,8 @@ fn same_source_and_target_rejected() {
 
     assert_eq!(err, "不能把标签合并到它自己");
     assert_eq!(snapshot(&c), before);
+    assert_fts_matches_tags(&c);
+    assert_no_orphan_tags(&c);
 }
 
 /// ⑥ id 不存在:中文报错且不改库
@@ -138,6 +151,8 @@ fn missing_tag_ids_rejected() {
     assert_eq!(merge_tags(&mut c, 9999, src, false).unwrap_err(), "源标签不存在: 9999");
     assert_eq!(merge_tags(&mut c, src, 9999, false).unwrap_err(), "目标标签不存在: 9999");
     assert_eq!(snapshot(&c), before);
+    assert_fts_matches_tags(&c);
+    assert_no_orphan_tags(&c);
 }
 
 /// ⑦ keep_alias = true:旧完整路径与旧叶子名都登记到目标;解析回目标当前路径
@@ -154,6 +169,9 @@ fn keep_alias_registers_old_path_and_leaf() {
     assert_eq!(tag_alias::resolve(&c, "工作/项目A").unwrap().as_deref(), Some("事业"));
     assert_eq!(tag_alias::resolve(&c, "项目A").unwrap().as_deref(), Some("事业"));
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tag_aliases"), 2);
+    assert_fts_matches_tags(&c);
+    assert_no_orphan_tags(&c);
+    assert_tabs_paths_exist(&c);
 }
 
 /// ⑧ keep_alias = false:别名表保持为空(旧名不落地)
@@ -168,4 +186,7 @@ fn keep_alias_false_leaves_alias_table_empty() {
 
     assert!(r.aliases.is_empty());
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tag_aliases"), 0);
+    assert_fts_matches_tags(&c);
+    assert_no_orphan_tags(&c);
+    assert_tabs_paths_exist(&c);
 }

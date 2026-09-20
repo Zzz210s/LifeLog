@@ -5,6 +5,7 @@ use super::replace::replace_links;
 use super::*;
 use crate::db::migrate;
 use crate::db::repos::notes;
+use crate::db::repos::tags_invariants_tests::{assert_fts_matches_tags, assert_no_orphan_tags};
 use rusqlite::Connection;
 
 fn db() -> Connection {
@@ -38,4 +39,6 @@ fn replace_links_replaces_by_id_and_prunes_orphans() {
     replace_links(&c, n.id, &[yi]).unwrap();
     assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tags WHERE id={jia}")), 0, "无链接又无子节点即回收");
     assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tags WHERE id={yi}")), 1);
+    assert_fts_matches_tags(&c);
+    assert_no_orphan_tags(&c);
 }

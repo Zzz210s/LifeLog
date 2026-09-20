@@ -4,6 +4,9 @@
 use super::*;
 use crate::db::migrate;
 use crate::db::repos::notes;
+use crate::db::repos::tags_invariants_tests::{
+    assert_fts_matches_tags, assert_no_orphan_tags, assert_tabs_paths_exist,
+};
 use rusqlite::Connection;
 
 fn db() -> Connection {
@@ -53,6 +56,9 @@ fn time_root_can_be_renamed_and_fts_follows() {
     assert!(!tags.contains("时间排序"), "旧路径不得残留:{tags}");
     // 普通标签不受影响
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='工作'"), 1);
+    assert_fts_matches_tags(&c);
+    assert_no_orphan_tags(&c);
+    assert_tabs_paths_exist(&c);
 }
 
 /// 改名后新建笔记仍按模板生成:模板还指 `时间排序` 就再建一个同名根(D5 的可配置行为)
@@ -92,6 +98,9 @@ fn time_node_can_be_moved_under_a_normal_tag() {
         count(&c, "SELECT COUNT(*) FROM tag_links l JOIN tags t ON t.id=l.tag_id WHERE t.path='工作/2026/09/15'"),
         1
     );
+    assert_fts_matches_tags(&c);
+    assert_no_orphan_tags(&c);
+    assert_tabs_paths_exist(&c);
 }
 
 /// 删除:时间子树可整棵删除,笔记自身不消失,其它标签保留
@@ -112,4 +121,6 @@ fn time_subtree_can_be_deleted() {
     let work = id_at(&c, "工作");
     delete_subtree(&mut c, work).unwrap();
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='工作'"), 0);
+    assert_fts_matches_tags(&c);
+    assert_no_orphan_tags(&c);
 }

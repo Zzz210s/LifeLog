@@ -4,6 +4,9 @@ use super::*;
 use crate::db::migrate;
 use crate::db::repos::notes::{self, notes_filter::*, query};
 use crate::db::repos::settings::{self, TABS_STATE_KEY};
+use crate::db::repos::tags_invariants_tests::{
+    assert_fts_matches_tags, assert_no_orphan_tags, assert_tabs_paths_exist,
+};
 use rusqlite::{params, Connection};
 use serde_json::{json, Value};
 
@@ -51,6 +54,8 @@ fn merge_rewrites_fts_tag_column() {
     assert_eq!(fts_tags(&c, both.id), "职业生涯", "两处链接合成一条,标签列不重复");
     assert_eq!(hits(&c, "职业生涯"), 2);
     assert_eq!(hits(&c, "工作/项目A"), 0, "源路径已从 FTS 消失");
+    assert_fts_matches_tags(&c);
+    assert_no_orphan_tags(&c);
 }
 
 /// ⑩ 级联(D7):tabs_state 的 tags[] / excludeTags[] / expr token 改写成目标路径,其余字段原样
@@ -87,6 +92,9 @@ fn merge_rewrites_tab_conditions_and_expr_tokens() {
     assert_eq!(conds["tags"][0]["includeChildren"], true, "其余条件字段原样保留");
     assert_eq!(root["tabs"][0]["title"], "页");
     assert_eq!(root["activeIndex"], 0);
+    assert_fts_matches_tags(&c);
+    assert_no_orphan_tags(&c);
+    assert_tabs_paths_exist(&c);
 }
 
 /// ⑪ 孤儿回收:源是父容器的唯一子节点 -> 合并后父容器也消失(整条空链回收到根)
@@ -105,4 +113,35 @@ fn merge_gcs_emptied_parent_container() {
         "源与它变空的父容器一并回收"
     );
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='事业'"), 1);
+    assert_fts_matches_tags(&c);
+    assert_no_orphan_tags(&c);
+}
+
+/// 回归(当初漏掉的那条):合并后不变量①必须成立 —— FTS 标签列与 tag_links 聚合逐笔记一致。
+/// 另附②③:源的父容器被回收、tabs_state 引用的路径在级联后真实存在。
+#[test]
+fn merge_keeps_all_tag_invariants() {
+    let mut c = db();
+    notes::create_plain(&mut c, "甲 #工作/项目A").unwrap();
+    notes::create_plain(&mut c, "乙 #工作/项目A #职业生涯").unwrap();
+    notes::create_plain(&mut c, "丙 #职业生涯").unwrap();
+    let seeded = json!({
+        "tabs": [{
+            "title": "页",
+            "conditions": {
+                "tags": [{"path": "工作/项目A", "includeChildren": true}],
+                "excludeTags": [],
+                "expr": "#工作/项目A"
+            }
+        }],
+        "activeIndex": 0
+    });
+    settings::set(&c, TABS_STATE_KEY, &seeded.to_string()).unwrap();
+    let (src, dst) = (id_at(&c, "工作/项目A"), id_at(&c, "职业生涯"));
+
+    merge_tags(&mut c, src, dst, true).unwrap();
+
+    assert_fts_matches_tags(&c);
+    assert_no_orphan_tags(&c);
+    assert_tabs_paths_exist(&c);
 }

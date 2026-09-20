@@ -1,6 +1,7 @@
 //! notes 仓储既有行为测试(create/recent/delete),自 notes.rs 拆出以守 200 行上限
 use super::*;
 use crate::db::migrate;
+use crate::db::repos::tags_invariants_tests::{assert_fts_matches_tags, assert_no_orphan_tags};
 use rusqlite::Connection;
 
 fn db() -> Connection {
@@ -95,6 +96,8 @@ fn delete_removes_note_links_and_orphan_tags() {
     assert_eq!(orphan, 0);
     let kept = count(&c, "SELECT COUNT(*) FROM tags WHERE name='共用'", &[]);
     assert_eq!(kept, 1);
+    assert_fts_matches_tags(&c);
+    assert_no_orphan_tags(&c);
 }
 
 #[test]
@@ -104,4 +107,6 @@ fn delete_also_cleans_fts_row() {
     delete(&mut c, n.id).unwrap();
     let fts = count(&c, "SELECT COUNT(*) FROM notes_fts", &[]);
     assert_eq!(fts, 0);
+    assert_fts_matches_tags(&c);
+    assert_no_orphan_tags(&c);
 }

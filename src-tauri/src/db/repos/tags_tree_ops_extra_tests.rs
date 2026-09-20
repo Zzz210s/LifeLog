@@ -3,6 +3,7 @@
 use super::*;
 use crate::db::migrate;
 use crate::db::repos::notes;
+use crate::db::repos::tags_invariants_tests::{assert_fts_matches_tags, assert_no_orphan_tags};
 use rusqlite::Connection;
 
 fn db() -> Connection {
@@ -44,4 +45,6 @@ fn move_out_last_child_recycles_emptied_parent() {
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='工作'"), 0, "空容器父级回收");
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='项目A' AND parent_id IS NULL"), 1);
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tag_links WHERE tag_id=(SELECT id FROM tags WHERE path='项目A')"), 1);
+    assert_fts_matches_tags(&c);
+    assert_no_orphan_tags(&c);
 }
