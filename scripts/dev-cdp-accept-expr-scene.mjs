@@ -8,9 +8,6 @@ export const T = (p) => '#验收6/' + p;
 export const BAD = '#工作 AND'; // 末尾类错误:position = 7 = 字符数
 export const E3 = `(${T('工作')} OR ${T('生活')}) AND NOT ${T('临时')}`;
 export const E3A = `${T('工作')} AND NOT ${T('临时')}`;
-export const E5 = `${T('项目A')} OR ${T('项目B')}`;
-export const E5R = `${T('项目X')} OR ${T('项目B')}`;
-export const VIEW = '验收六视图';
 /** 夹具:甲/乙 命中,丙 带被排除标签(负例),丁/戊 让 项目A/项目B 存在 */
 export const FIXTURES = [
   `${T('工作')} 验收六甲`,
@@ -25,7 +22,7 @@ export const trunc = (s) => ([...s].length <= MAX_EXPR_TEXT ? s : [...s].slice(0
 
 /** 构造读者:ctx 提供页面动作与常用断言小工具(main 脚本里注入,便于两处复用) */
 export function createReadings(ctx) {
-  const { x, j, record, call, rows, listTags, listViews, waitX, waitFor, has, ids, norm, same } = ctx;
+  const { x, j, record, call, rows, listTags, waitX, waitFor, has, ids, norm, same } = ctx;
 
   /** 读数 1/2/2b:合法给绿色中文预览;非法红框 + 末尾文案 + 光标落点;非法时「确定」禁用 */
   async function read12() {
@@ -76,16 +73,15 @@ export function createReadings(ctx) {
     return chips;
   }
 
-  /** 读数 3b:非法表达式不写库 —— 「确定」被拒、对话框不关闭、filter_last/视图/条件快照前后一致 */
+  /** 读数 3b:非法表达式不写库 —— 「确定」被拒、对话框不关闭、tabs_state / 条件 chips 快照前后一致 */
   async function read3b(chipsBefore) {
     // 先等读数 3 的合法条件落盘(500ms 节流窗口):否则拿 null 基线去比,
     // 会把读数 3 自己的迟到写入误判成"非法表达式写库"
     const settled = await waitFor(async () => {
-      const v = await call('get_setting', { key: 'filter_last' });
+      const v = await call('get_setting', { key: 'tabs_state' });
       return v && String(v).includes(E3) ? { v } : null;
     }, 16, 250);
-    const fl0 = settled ? settled.v : await call('get_setting', { key: 'filter_last' });
-    const v0 = j(await listViews());
+    const t0 = settled ? settled.v : await call('get_setting', { key: 'tabs_state' });
     await x('openExpr()');
     await x('fillExpr(' + j(BAD) + ')');
     await waitX('status()', (v) => v && v.kind === 'err');
@@ -94,11 +90,11 @@ export function createReadings(ctx) {
     await x('esc()');
     await waitX('exprValue()', (v) => v === null, 8);
     await sleep(700); // 超过 500ms 写库节流窗口:若真有写库这里必然落盘
-    const fl1 = await call('get_setting', { key: 'filter_last' });
+    const t1 = await call('get_setting', { key: 'tabs_state' });
     const chipsSame = same(await x('chips()'), chipsBefore);
-    record('读数3b 非法表达式不写库:「确定」被拒 + filter_last / 视图 / 条件 chips 快照前后一致',
-      refused === false && stillOpen && !!settled && same(fl0, fl1) && v0 === j(await listViews()) && chipsSame,
-      j({ refused, stillOpen, settled: !!settled, before: fl0, after: fl1, viewsSame: v0 === j(await listViews()), chipsSame }));
+    record('读数3b 非法表达式不写库:「确定」被拒 + tabs_state / 条件 chips 快照前后一致',
+      refused === false && stillOpen && !!settled && t0 === t1 && chipsSame,
+      j({ refused, stillOpen, settled: !!settled, before: t0, after: t1, chipsSame }));
   }
 
   /** 读数 4:点表达式 chip 再编辑、Esc 不保存(改过的文本丢弃)、删除 chip 后条件消失 */
@@ -119,66 +115,14 @@ export function createReadings(ctx) {
       opened === E3 && closed === null && kept && reopen === E3 && gone === false, j({ opened, closed, kept, reopen, gone }));
   }
 
-  /** 读数 5:保存为视图 -> 改名级联跟随(含"无失效路径不画圆点")-> 删标签后行内失效提示且文本不变 */
-  async function read5() {
-    await x('openExpr()');
-    await x('fillExpr(' + j(E5) + ')');
-    await waitX('status()', (v) => v && v.kind === 'ok');
-    await x("clickIn('表达式','确定')");
-    await waitX('chipArea()', Boolean);
-    // 走侧栏「+」入口保存:顶栏「保存为视图」不通知侧栏重载(旁证:实测 10.5s 内新行不出现),
-    // 而本读数要断言的就是侧栏视图行,故用会触发 load() 的那个入口
-    console.log('INFO 读数5 用侧栏 + 保存视图(顶栏入口不触发侧栏重载,属既有行为,不在本任务范围)');
-    await x('saveViewFromSidebar(' + j(VIEW) + ')');
-    const id = await waitFor(async () => {
-      const v = (await listViews()).find((v) => v.title === VIEW);
-      return v ? v.id : null;
-    }, 16);
-    if (id === null) {
-      record('读数5a 保存为视图 + 改名跟随 + broken_paths 为空时不画失效圆点', false, '视图未落库');
-      return null;
-    }
-    const v0 = (await listViews()).find((v) => v.id === id);
-    // 视图行由侧栏异步重载,轮询到行挂载后再断言"无失效路径不画圆点"
-    const row0 = await waitX('viewRow(' + id + ')', (r) => !!r, 16);
-    const clean0 = v0.broken_paths.length === 0 && !!row0 && row0.broken === null;
-    await x('ensureTag(' + j('验收6/项目A') + ')');
-    await x('renameTag(' + j('验收6/项目A') + ',' + j('项目X') + ')');
-    const renamed = await waitFor(async () => has((await listTags()).map((t) => t.path), (p) => p === '验收6/项目X'));
-    const v1 = (await listViews()).find((v) => v.id === id);
-    const chips1 = await x('applyViewFor(' + id + ',' + j('验收6/项目X') + ')');
-    const row1 = await x('viewRow(' + id + ')');
-    const clean1 = v1.broken_paths.length === 0 && !!row1 && row1.broken === null;
-    record('读数5a 保存为视图 + 标签改名后条件表达式文本跟随 + broken_paths 为空时视图行不画失效圆点',
-      !!renamed && v0.conditions.expr === E5 && v1.conditions.expr === E5R && !!chips1 && clean0 && clean1,
-      j({ id, renamed, before: v0.conditions.expr, after: v1.conditions.expr, chips: chips1 && chips1.map((c) => c.label), broken0: v0.broken_paths, row0, clean0, clean1 }));
-
-    await x('ensureTag(' + j('验收6/项目B') + ')');
-    const del = await x('deleteTag(' + j('验收6/项目B') + ')');
-    const v2 = await waitFor(async () => {
-      const v = (await listViews()).find((v) => v.id === id);
-      return v && v.broken_paths.length > 0 ? v : null;
-    });
-    const row = await waitX('viewRow(' + id + ')', (r) => r && r.broken, 16);
-    const b = row && row.broken;
-    record('读数5b 删除标签后视图行出现失效提示且表达式文本不变',
-      del === true && !!v2 && v2.conditions.expr === E5R && v2.broken_paths.join('、') === '验收6/项目B' &&
-        !!b && b.paths === '验收6/项目B' && b.title === '引用了已不存在的标签: 验收6/项目B',
-      j({ del, expr: v2 && v2.conditions.expr, broken: v2 && v2.broken_paths, row: b }));
-    await sleep(900); // 等 filter_last 节流落盘(读数 6 依赖)
-    return id;
-  }
-
-  /** 读数 6:重启后条件与视图(含失效提示)仍在 */
+  /** 读数 6:重启后表达式条件仍在(tabs_state 读回 -> 条件 chips 复原) */
   async function readRestart() {
     const chips = await waitX('chips()', (c) => c && has(c, (y) => y.label.startsWith('表达式:')), 16);
-    const v = (await listViews()).find((v) => v.title === VIEW);
-    const row = v && (await x('viewRow(' + v.id + ')'));
-    const b = row && row.broken;
-    record('读数6 重启后表达式条件与视图(含失效提示)仍在',
-      !!chips && !!b && b.title === '引用了已不存在的标签: 验收6/项目B' && !!v && v.conditions.expr === E5R,
-      j({ chips: chips && chips.map((c) => c.label), expr: v && v.conditions.expr, row: b }));
+    const raw = await call('get_setting', { key: 'tabs_state' });
+    record('读数6 重启后表达式条件仍在(tabs_state 持久化读回)',
+      !!chips && has(chips, (y) => y.label === '表达式:' + trunc(E3)) && String(raw).includes(E3),
+      j({ chips: chips && chips.map((c) => c.label), tabsState: raw }));
   }
 
-  return { read12, read3, read3b, read4, read5, readRestart };
+  return { read12, read3, read3b, read4, readRestart };
 }

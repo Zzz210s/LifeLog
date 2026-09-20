@@ -11,8 +11,10 @@ import sqlite3
 import sys
 
 DEFAULT_DB = "C:/Users/23652/AppData/Roaming/com.lifelog.app/lifelog.db"
-TIME_ROOT = "时间排序"
-DAY_LEVEL = "时间排序/????/??/??"
+def time_root(conn):
+    """时间标签根名:从设置 time_tag_template 的第一个路径段推导(不硬编码「时间排序」)"""
+    row = conn.execute("SELECT value FROM settings WHERE key='time_tag_template'").fetchone()
+    return (row[0] if row else "").split("{")[0].rstrip("/") or "<未设置>"
 
 
 def scalar(conn, sql, args=()):
@@ -39,10 +41,12 @@ def readings(db):
             conn,
             "SELECT COUNT(*) FROM tags t WHERE NOT EXISTS (SELECT 1 FROM tag_links l WHERE l.tag_id = t.id)",
         )
-        out[f"{TIME_ROOT} 子树节点"] = scalar(
-            conn, "SELECT COUNT(*) FROM tags WHERE path = ? OR path LIKE ?", (TIME_ROOT, TIME_ROOT + "/%")
+        root = time_root(conn)
+        out["时间标签根名(来自 time_tag_template)"] = root
+        out[f"{root} 子树节点"] = scalar(
+            conn, "SELECT COUNT(*) FROM tags WHERE path = ? OR path LIKE ?", (root, root + "/%")
         )
-        out["日级节点"] = scalar(conn, "SELECT COUNT(*) FROM tags WHERE path GLOB ?", (DAY_LEVEL,))
+        out["日级节点"] = scalar(conn, "SELECT COUNT(*) FROM tags WHERE path = ? OR path GLOB ?", (root, root + "/????/??/??"))
         out["notes_fts 行数"] = scalar(conn, "SELECT COUNT(*) FROM notes_fts")
         out["notes_fts 缺行"] = scalar(
             conn, "SELECT COUNT(*) FROM notes n WHERE NOT EXISTS (SELECT 1 FROM notes_fts f WHERE f.rowid = n.id)"
@@ -53,7 +57,6 @@ def readings(db):
         out["notes_fts 命中 时间线(应为 0)"] = scalar(
             conn, "SELECT COUNT(*) FROM notes_fts WHERE notes_fts MATCH '时间线'"
         )
-        out["saved_views 行数"] = scalar(conn, "SELECT COUNT(*) FROM saved_views")
         out["无任何标签的笔记"] = scalar(
             conn,
             "SELECT COUNT(*) FROM notes n WHERE NOT EXISTS (SELECT 1 FROM tag_links l WHERE l.target_id = n.id AND l.target_type='note')",
@@ -82,7 +85,7 @@ def readings(db):
             conn, "SELECT COUNT(*) FROM notes WHERE content LIKE '%测试验收%'"
         )
         out["integrity_check"] = scalar(conn, "PRAGMA integrity_check")
-        for key in ("auto_time_tag", "time_tag_template", "filter_last", "time_section_open"):
+        for key in ("auto_time_tag", "time_tag_template", "tabs_state", "theme"):
             row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
             out[f"settings.{key}"] = "<缺失>" if row is None else row[0]
         rows = conn.execute("SELECT key, value FROM settings ORDER BY key").fetchall()
