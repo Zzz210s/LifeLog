@@ -12,7 +12,7 @@
  * 数据安全件(库存/审计/清单/清收)在 scripts/dev-startup-clean.mjs(拆分只为满足 200 行规则)。
  */
 import { mkdirSync } from 'node:fs';
-import { open, pages, recorder, sleep, waitFor, bindMain } from './cdp-lib.mjs';
+import { open, pages, recorder, sleep, waitFor, bindMain, ensureMain } from './cdp-lib.mjs';
 import { KEY, ON_SETTINGS, clickBack, os, runRegressScenes, runThemeScenes, setKeyword } from './dev-startup-scenes.mjs';
 import {
   OUT, TEST_NOTE, TEST_VIEW, auditBaseline, cleanupRun, dbInventory, writeJson,
@@ -97,7 +97,7 @@ async function runMain() {
 
 async function runCleanup() {
   const pid = os.pidOf();
-  const { cdp, close } = await open('main');
+  const { cdp, close } = await ensureMain();
   const { call } = bindMain(cdp);
   await setKeyword(cdp, '');
   await sleep(1600); // 先等界面侧关键词防抖(300ms)+ filter_last 节流(500ms)落定,之后恢复才是最后写者

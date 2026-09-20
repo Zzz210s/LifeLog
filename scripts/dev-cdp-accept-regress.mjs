@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 /**
  * 既有功能零回归(一):筛选条件(chips/添加条件/日期范围/无自定义标签/排序)+ 视图 CRUD 与徽标 + 设置页。
- * 用法: node scripts/dev-cdp-accept-regress.mjs   (先以 9222 调试端口启动 pnpm tauri dev)
+ * 用法: node scripts/dev-cdp-accept-regress.mjs   (先以 9222 调试端口启动 pnpm tauri dev;冷启动即可 —— 主窗由 ensureMain 前置自动打开)
  * 所有断言都对照真实 IPC 读数(Rust 查询/视图列表)与库内既有数据,自建数据自删。
  */
 import { spawnSync } from 'node:child_process';
-import { open, recorder, sleep, waitFor, bindMain } from './cdp-lib.mjs';
+import { ensureMain, recorder, sleep, waitFor, bindMain } from './cdp-lib.mjs';
 import { bindDom } from './cdp-dom.mjs';
 
 const { record, finish } = recorder();
-const { cdp, close } = await open('main');
+const { cdp, close } = await ensureMain();
 const { call, hits, liCount, inventory } = bindMain(cdp);
 const sh = (cmd, args) =>
   spawnSync(cmd, args, { encoding: 'utf8', env: { ...process.env, PYTHONIOENCODING: 'utf-8' } });

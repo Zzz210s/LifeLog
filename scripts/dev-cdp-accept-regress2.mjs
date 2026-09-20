@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
  * 既有功能零回归(三):导出 xlsx(界面原生保存框 + 结构校验)与无限滚动(PAGE=50 翻页)。
- * 用法: node scripts/dev-cdp-accept-regress2.mjs   (先以 9222 调试端口启动 pnpm tauri dev)
+ * 用法: node scripts/dev-cdp-accept-regress2.mjs   (先以 9222 调试端口启动 pnpm tauri dev;冷启动即可 —— 主窗由 ensureMain 前置自动打开)
  * 无限滚动的测试数据(55 条)在 finally 里删除,末尾用库存前后对照证明真实库已还原。
  */
 import { spawnSync } from 'node:child_process';
 import { existsSync, statSync, unlinkSync } from 'node:fs';
-import { open, recorder, sleep, waitFor, bindMain } from './cdp-lib.mjs';
+import { ensureMain, recorder, sleep, waitFor, bindMain } from './cdp-lib.mjs';
 import { bindDom } from './cdp-dom.mjs';
 
 const { record, finish } = recorder();
@@ -19,7 +19,7 @@ const EXPORT = `${process.cwd()}/.superpowers/tmp-arch/p5-export.xlsx`;
 const SCROLL_TAG = 'P5滚动';
 const SEED = 55;
 
-const { cdp, close } = await open('main');
+const { cdp, close } = await ensureMain();
 const { call, liCount, inventory } = bindMain(cdp);
 const { evalIn, clickText } = bindDom(cdp);
 

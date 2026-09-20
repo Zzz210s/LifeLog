@@ -2,6 +2,7 @@
 /**
  * 视图图标(E3)阶段 CDP 验收:场景 A-G + 迁移列读数。
  * 前置:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9222 pnpm tauri dev
+ *      (冷启动即可:主窗由 ensureMain 前置自动打开)
  * node scripts/dev-cdp-accept-icon.mjs --phase=main|restart|cleanup
  *   main    = 基线洁净审计(不干净即中止)-> A 新建带图标 / B 重开回填 / C 清空 / D 内置固定图标
  *             / G 脏名字直写库 / F 迁移列读数 -> 落运行清单
@@ -10,7 +11,7 @@
  * 断言用“基线洁净 + 运行清单交集为空”(不用 before == after,避免把污染当基线)。
  */
 import { mkdirSync } from 'node:fs';
-import { bindMain, open, recorder, sleep, waitFor } from './cdp-lib.mjs';
+import { bindMain, ensureMain, recorder, sleep, waitFor } from './cdp-lib.mjs';
 import { HELPERS } from './dev-cdp-icon-ui.mjs';
 import {
   OUT, V1, V2, V3, auditBaseline, cleanupRun, dbProbe, readManifest, setIconDirect, writeJson,
@@ -18,7 +19,7 @@ import {
 
 const phase = (process.argv.find((a) => a.startsWith('--phase=')) || '--phase=main').slice('--phase='.length);
 const { record, finish } = recorder();
-const { cdp, close } = await open('main');
+const { cdp, close } = await ensureMain();
 const { call, inventory } = bindMain(cdp);
 const j = JSON.stringify;
 const listViews = () => call('list_views');

@@ -1,12 +1,12 @@
 // 补充验收(spec 5.2):点侧栏日级时间标签能筛出对应笔记(时间标签=普通标签,可当筛选入口)。
-// 用法:release exe(9222)+ 托盘打开主窗后
+// 用法:release exe(9222)冷启动即可(脚本经 ensureMain 自动用托盘打开主窗)
 //   node scripts/lifelog-sidebar-day-filter.mjs 时间排序/2026/03/28
-import { open, sleep, waitFor, recorder } from './cdp-lib.mjs';
+import { ensureMain, sleep, waitFor, recorder } from './cdp-lib.mjs';
 
 const PATH = process.argv[2] ?? '时间排序/2026/09/14';
 const PAGE = 50; // 笔记流一页条数(与后端一致)
 const r = recorder();
-const { cdp: main, close } = await open('main');
+const { cdp: main, close } = await ensureMain();
 const call = (cmd, args = {}) =>
   main.eval(`(async () => await window.__TAURI_INTERNALS__.invoke(${JSON.stringify(cmd)}, ${JSON.stringify(args)}))()`);
 const selCount = () => main.eval(`document.querySelectorAll('[data-tag-path][aria-pressed="true"]').length`);

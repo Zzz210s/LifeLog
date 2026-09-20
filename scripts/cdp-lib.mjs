@@ -1,5 +1,7 @@
 // dev 验收脚本共用的 CDP 公共件(极简客户端 / 页面发现 / 结果记录)。
 // 依赖 Node 22+ 自带的全局 WebSocket 与 fetch;前置:以 9222 调试端口启动 pnpm tauri dev。
+import { os } from './cdp-os.mjs';
+
 export const BASE = 'http://127.0.0.1:9222';
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -58,6 +60,13 @@ export class Cdp {
   }
 }
 
+/** 主窗外壳已挂载的判定:齿轮(信息流态)或 返回信息流(设置态)任一存在,即可安全点交互 */
+const SHELL_READY = `(() => {
+  const gear = document.querySelector('button[aria-label="设置"]');
+  const back = Array.from(document.querySelectorAll('button')).some((b) => b.textContent.trim() === '返回信息流');
+  return !!(gear || back);
+})()`;
+
 /**
  * 连接页面:kind = 'main'(拾枝 主窗) | 'input'(输入栏)。
  * 主窗判定:非 input.html 且来源为 dev(5173) 或 release(tauri.localhost),优先 title 为 拾枝。
@@ -81,6 +90,28 @@ export async function open(kind) {
   const cdp = new Cdp(ws);
   await cdp.send('Runtime.enable');
   return { cdp, target, close: () => cdp.close() };
+}
+
+/**
+ * 冷启动前置:主窗(标签 main)改为运行时按需创建后,启动后 CDP 里只有输入栏,
+ * 「第一件事就 open('main')」的脚本会直接抛错。这里统一兜底:先直接连;连不到就用托盘
+ * 第 2 项「打开主窗口」创建再轮询重试;最后等主窗外壳挂载(刚建的 webview 还在加载,
+ * 此时就发点击会落空)。幂等 —— 已有 main 目标时就是一次普通 open。
+ */
+export async function ensureMain(opts = {}) {
+  const existing = await open('main').catch(() => null);
+  let conn = existing;
+  if (!conn) {
+    const pid = opts.pid ?? os.pidOf();
+    if (!pid) throw new Error('冷启动下没有 main 页面,且取不到 LifeLog 进程 pid(先以 9222 调试端口启动 pnpm tauri dev)');
+    console.log(`INFO 冷启动没有 main 页面:经托盘「打开主窗口」创建(pid=${pid})`);
+    os.pickTray(pid, 2);
+    conn = await waitFor(() => open('main').catch(() => null), opts.tries ?? 40, opts.gap ?? 250);
+    if (!conn) throw new Error('托盘「打开主窗口」后仍未出现 main 页面:检查 dev 是否在 9222 上运行、托盘菜单第 2 项是否仍为「打开主窗口」');
+  }
+  const shell = await waitFor(() => conn.cdp.eval(SHELL_READY).catch(() => false), opts.readyTries ?? 40, opts.readyGap ?? 250);
+  if (!shell) console.log('WARN 主窗外壳标志(设置齿轮/返回信息流)未在超时内出现,后续交互可能落空');
+  return conn;
 }
 
 /** 逐项记录器:record(...) 打印并累计,finish() 汇总并设置退出码 */export function recorder() {

@@ -1,10 +1,13 @@
 // 冷启动验收(scripts/dev-cdp-accept-startup.mjs)的场景库:窗口/托盘取证件 + 主题镜像三态与
 // 首帧插桩 + 既有功能回归。拆成独立文件只为满足「代码文件 <= 200 行」的仓库规则。
 // 口径:窗口可见性一律用 user32 IsWindowVisible(CDP 的 visibilityState 对已隐藏窗口仍报 visible)。
-import { spawnSync } from 'node:child_process';
 import { sleep, waitFor } from './cdp-lib.mjs';
+import { os } from './cdp-os.mjs';
 import { HELPERS } from './dev-cdp-icon-ui.mjs';
 import { EMPTY_FILTER, TEST_NOTE, TEST_VIEW } from './dev-startup-clean.mjs';
+
+// 转出给既有调用点(dev-cdp-accept-startup.mjs 等按 `os` 从本文件导入)
+export { os };
 
 export const KEY = 'lifelog.theme';
 /** 设置页判定:只有设置态顶栏才有「返回信息流」按钮 */
@@ -32,20 +35,8 @@ export const mirrorCls = (r) => {
   return hit ? hit[1] : '';
 };
 
-const sh = (cmd, args) => spawnSync(cmd, args, { encoding: 'utf8', env: { ...process.env, PYTHONIOENCODING: 'utf-8' } });
-const py = (...a) => sh('python', a);
-export const os = {
-  pidOf: () => Number(sh('powershell', ['-NoProfile', '-Command',
-    "(Get-Process | Where-Object { $_.ProcessName -match '^lifelog$' } | Select-Object -First 1).Id"]).stdout.trim()),
-  wins: (pid) => JSON.parse(py('scripts/win-probe.py', 'list', String(pid)).stdout || '[]'),
-  winVisible(pid, title) {
-    return !!this.wins(pid).find((w) => w.cls === 'Tauri Window' && w.title === title)?.visible;
-  },
-  pickTray: (pid, index) => py('scripts/win-tray.py', 'pick', String(pid), String(index)),
-  trayClick: (pid, cmd) => py('scripts/win-tray.py', cmd, String(pid)),
-  hotkey: () => py('scripts/win-probe.py', 'hotkey', 'ctrl+shift+q'),
-  closeWindow: (pid, title) => JSON.parse(py('scripts/win-probe.py', 'close-window', String(pid), title).stdout || '{}'),
-};
+// 原生窗口/托盘取证件已抽到 scripts/cdp-os.mjs(cdp-lib 的 ensureMain 复用同一份);这里转出保持既有调用点不变
+
 
 /** 设置页 -> 信息流(顶栏返回按钮) */
 export const clickBack = (cdp) => cdp.eval(`(() => {

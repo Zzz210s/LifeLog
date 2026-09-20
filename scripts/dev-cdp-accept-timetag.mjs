@@ -1,15 +1,14 @@
 // 时间标签降级(2026-09-17 spec)Step 3 阶段验收:dev + 真实库 + CDP。
 // 用法:
 //   WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9222 pnpm tauri dev
-//   python scripts/win-tray.py pick <pid> 2        # 打开主窗口(主窗是运行时懒建)
-//   node scripts/dev-cdp-accept-timetag.mjs
+//   node scripts/dev-cdp-accept-timetag.mjs     # 冷启动即可:主窗由 ensureMain 前置自动打开
 // 本脚本只断言与读数,不清理;清理与复位见 scripts/dev-cdp-accept-timetag-clean.mjs。
 import { statSync, writeFileSync } from 'node:fs';
-import { open, sleep, waitFor, recorder } from './cdp-lib.mjs';
+import { ensureMain, open, sleep, waitFor, recorder } from './cdp-lib.mjs';
 import { MARK, TPL_DEFAULT, TPL_ALT, SEL_SWITCH, SEL_TPL, EVIDENCE, EXPORT_PATH, actions, subtree, dayNodes, datePath } from './timetag-lib.mjs';
 
 const r = recorder();
-const { cdp: main, close: closeMain } = await open('main');
+const { cdp: main, close: closeMain } = await ensureMain();
 const { cdp: input, close: closeInput } = await open('input');
 const a = actions(main, input);
 

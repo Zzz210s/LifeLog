@@ -2,13 +2,13 @@
 // 还原根名与设置,并断言标签路径集合/计数逐项回到基线。
 // 用法(dev + 9222 仍在跑):node scripts/dev-cdp-accept-timetag-clean.mjs
 import { readFileSync } from 'node:fs';
-import { open, sleep, recorder } from './cdp-lib.mjs';
+import { ensureMain, sleep, recorder } from './cdp-lib.mjs';
 import { MARK, TPL_DEFAULT, EVIDENCE, actions, subtree, dayNodes } from './timetag-lib.mjs';
 
 const FILTER_LAST_BASELINE = '{"keyword":null,"tags":[],"excludeTags":[],"tagPresence":null,"sort":"newest","expr":null}';
 const MARK_COND = { keyword: MARK, tags: [], excludeTags: [], tagPresence: null, sort: 'newest', expr: null };
 const r = recorder();
-const { cdp: main, close: closeMain } = await open('main');
+const { cdp: main, close: closeMain } = await ensureMain();
 const a = actions(main, null);
 const evidence = JSON.parse(readFileSync(EVIDENCE, 'utf8'));
 const baseline = new Set(evidence.baselinePaths);

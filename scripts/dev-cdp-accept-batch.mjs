@@ -2,14 +2,14 @@
 /**
  * 本批次新能力的 CDP 端到端验收:时间标签(P3)/ 改名与数据目录迁移(P2)。
  * 标签拖拽(P1)单独在 scripts/dev-cdp-accept-drag.mjs;主题(P4)在 scripts/dev-cdp-accept-theme.mjs。
- * 用法: node scripts/dev-cdp-accept-batch.mjs   (先以 9222 调试端口启动 pnpm tauri dev)
+ * 用法: node scripts/dev-cdp-accept-batch.mjs   (先以 9222 调试端口启动 pnpm tauri dev;冷启动即可 —— 主窗由 ensureMain 前置自动打开)
  * 自建自删测试数据:末尾用「库存前后对照」(笔记 id 清单 + 全部标签路径 + 视图数)+
  * 旧数据目录逐文件 sha256 证明真实库与旧目录均被还原。
  */
 import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { open, recorder, sleep, conditions, bindMain } from './cdp-lib.mjs';
+import { ensureMain, recorder, sleep, conditions, bindMain } from './cdp-lib.mjs';
 
 const { record, finish } = recorder();
 const OLD_DIR = 'C:/Users/23652/AppData/Roaming/app.lifelog';
@@ -28,7 +28,7 @@ const snapshot = (dir) =>
     .map((f) => f + ':' + createHash('sha256').update(readFileSync(join(dir, f))).digest('hex').slice(0, 12))
     .join('|');
 
-const { cdp, close } = await open('main');
+const { cdp, close } = await ensureMain();
 const { call, hits, paths, liCount, inventory } = bindMain(cdp);
 
 const oldBefore = snapshot(OLD_DIR);

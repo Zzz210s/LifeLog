@@ -2,12 +2,12 @@
 /**
  * 既有功能零回归(二):快捷输入栏(保存/Ctrl+Enter/Esc/双击隐藏/滚轮缩放/Ctrl+滚轮透明度/宽度拉伸)
  * 与窗口级读数(主窗标题、托盘与全局热键注册、热键切换显隐)。
- * 用法: node scripts/dev-cdp-accept-inputbar.mjs   (先以 9222 调试端口启动 pnpm tauri dev)
+ * 用法: node scripts/dev-cdp-accept-inputbar.mjs   (先以 9222 调试端口启动 pnpm tauri dev;冷启动即可 —— 主窗由 ensureMain 前置自动打开)
  * 可见性一律用 user32 IsWindowVisible 读数(CDP 的 visibilityState 对已隐藏窗口仍报 visible);
  * 输入栏的窗口尺寸变化从 Win32 矩形与设置键 input_w 两处取证。
  */
 import { spawnSync } from 'node:child_process';
-import { open, recorder, sleep, waitFor, bindMain } from './cdp-lib.mjs';
+import { ensureMain, open, recorder, sleep, waitFor, bindMain } from './cdp-lib.mjs';
 import { bindDom } from './cdp-dom.mjs';
 
 const { record, finish } = recorder();
@@ -21,7 +21,7 @@ const shown = () => !!inputWin()?.visible;
 const hotkey = () => sh('python', ['scripts/win-probe.py', 'hotkey', 'ctrl+shift+q']);
 const rectOf = () => (inputWin() || {}).rect;
 
-const mainPage = await open('main');
+const mainPage = await ensureMain();
 const inputPage = await open('input');
 const { call, inventory } = bindMain(mainPage.cdp);
 const setSetting = (key, value) => call('set_setting', { key, value });

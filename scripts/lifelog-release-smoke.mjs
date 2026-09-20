@@ -1,10 +1,10 @@
 // release 安装版冒烟(安装到 E:\1-LifeLog 后):真实 IPC + DOM 读数,不写库。
 // 用法:E:\1-LifeLog\LifeLog.exe(带 WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9222)
-//       python scripts/win-tray.py pick <pid> 2 打开主窗后:node scripts/lifelog-release-smoke.mjs
-import { open, sleep, waitFor, recorder } from './cdp-lib.mjs';
+//       冷启动即可(主窗是运行时懒建,脚本经 ensureMain 自动用托盘打开):node scripts/lifelog-release-smoke.mjs
+import { ensureMain, sleep, waitFor, recorder } from './cdp-lib.mjs';
 
 const r = recorder();
-const { cdp: main, target, close } = await open('main');
+const { cdp: main, target, close } = await ensureMain();
 const call = (cmd, args = {}) =>
   main.eval(`(async () => await window.__TAURI_INTERNALS__.invoke(${JSON.stringify(cmd)}, ${JSON.stringify(args)}))()`);
 const cond = { keyword: null, tags: [], excludeTags: [], tagPresence: null, sort: 'newest', expr: null };

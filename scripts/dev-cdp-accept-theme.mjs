@@ -1,19 +1,19 @@
 #!/usr/bin/env node
 /**
  * 暗色主题(P4)三态端到端验收:即时生效 / 输入栏跟随 / 跟随系统 / 重启保持 / 还原。
- * 用法: node scripts/dev-cdp-accept-theme.mjs [phase1|phase2]   (先以 9222 启动 pnpm tauri dev)
+ * 用法: node scripts/dev-cdp-accept-theme.mjs [phase1|phase2]   (先以 9222 启动 pnpm tauri dev;冷启动即可 —— 主窗由 ensureMain 前置自动打开)
  *   phase1(默认):设置页三态切换即时生效 + 输入栏跟随 + system 态随系统深浅色变化;
  *                 结束时把主题留在「暗色」,供重启后验证持久化。
  *   phase2:重启 dev 后跑,验证主题重启保持;最后还原为「跟随系统」(与验收前一致)。
  * 读数口径:--color-app / --color-text 两个 CSS 变量的计算值 + 根节点 dark 类
  * (亮色 app=#ffffff;暗色 app=#1e1e1e),不靠肉眼看截图。
  */
-import { open, recorder, sleep } from './cdp-lib.mjs';
+import { ensureMain, open, recorder, sleep } from './cdp-lib.mjs';
 
 const PHASE = process.argv[2] === 'phase2' ? 2 : 1;
 const { record, finish } = recorder();
 
-const { cdp: main, close: closeMain } = await open('main');
+const { cdp: main, close: closeMain } = await ensureMain();
 const { cdp: input, close: closeInput } = await open('input');
 
 const PROBE = `(() => {

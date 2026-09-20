@@ -1,16 +1,16 @@
 #!/usr/bin/env node
 /**
  * 标签拖拽(P1)CDP 端到端验收:拖成子级 / 拖回根级 / 自身子树被拒 / 时间子树不可拖。
- * 用法: node scripts/dev-cdp-accept-drag.mjs   (先以 9222 调试端口启动 pnpm tauri dev)
+ * 用法: node scripts/dev-cdp-accept-drag.mjs   (先以 9222 调试端口启动 pnpm tauri dev;冷启动即可 —— 主窗由 ensureMain 前置自动打开)
  * 不带入库清理:用例只在「工作」子树内来回搬动既有标签,结束时还原为原路径,
  * 末尾用 list_tags 全量路径 + 笔记 id 清单 + 视图数做库存前后对照。
  * 读数口径:拖动源行 data-drag-source、悬停目标行 data-drop-target / 根级指示条 border-accent 高亮、
  * 操作回执 [data-testid=tag-flash] 文案,以及真实 IPC 落库后的标签路径。
  */
-import { open, recorder, sleep, bindMain, conditions } from './cdp-lib.mjs';
+import { ensureMain, recorder, sleep, bindMain, conditions } from './cdp-lib.mjs';
 
 const { record, finish } = recorder();
-const { cdp, close } = await open('main');
+const { cdp, close } = await ensureMain();
 const { call, hits, paths, inventory } = bindMain(cdp);
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 

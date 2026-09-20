@@ -2,6 +2,7 @@
 /**
  * 表达式逃生舱 Task 5/6 的 CDP 端到端验收(读数 1-6 + 四条补齐断言)。
  * 前置:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9222 pnpm tauri dev
+ *      (冷启动即可:主窗由 ensureMain 前置自动打开)
  * node scripts/dev-cdp-accept-expr.mjs [--phase=main|restart|cleanup]
  *   main    = 基线洁净审计(不干净立即中止)-> 读数 1-5 -> 落 run-manifest.json
  *   restart = 重启 dev 后读回条件与视图(读数 6)
@@ -12,7 +13,7 @@
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { bindMain, conditions, open, recorder, sleep, waitFor } from './cdp-lib.mjs';
+import { bindMain, conditions, ensureMain, recorder, sleep, waitFor } from './cdp-lib.mjs';
 import { HELPERS } from './dev-cdp-expr-ui.mjs';
 import { FIXTURES, createReadings } from './dev-cdp-accept-expr-scene.mjs';
 import { OUT, RUN_ROOT, auditBaseline, cleanupRun } from './dev-cdp-accept-expr-clean.mjs';
@@ -20,7 +21,7 @@ import { OUT, RUN_ROOT, auditBaseline, cleanupRun } from './dev-cdp-accept-expr-
 const phase = (process.argv.find((a) => a.startsWith('--phase=')) || '--phase=main').slice('--phase='.length);
 
 const { record, finish } = recorder();
-const { cdp, close } = await open('main');
+const { cdp, close } = await ensureMain();
 const { call, inventory } = bindMain(cdp);
 await cdp.eval(HELPERS);
 const x = (js) => cdp.eval('window.__X.' + js);
