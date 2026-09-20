@@ -102,6 +102,23 @@ fn android_is_not_and_plus_word() {
     assert_eq!(toks, vec![Token::Keyword("android".into())]);
 }
 
+/// 落单的 `&` / `|` 不是运算符:read_word 把它们收成**单字符关键词**(否则会在原地打转),
+/// 于是 `a&b` 成为三个相邻叶子,parser 在首个叶子之后发现还有剩余 token -> 「缺少操作数」。
+/// 速查表文案与此行为绑定(见 src/main-window/filter/expr-hint.ts 与共享向量 a&b / a|b)。
+#[test]
+fn lone_ampersand_or_pipe_becomes_single_char_keyword() {
+    assert_eq!(
+        lex("a&b").unwrap(),
+        vec![Token::Keyword("a".into()), Token::Keyword("&".into()), Token::Keyword("b".into())]
+    );
+    assert_eq!(
+        lex("a|b").unwrap(),
+        vec![Token::Keyword("a".into()), Token::Keyword("|".into()), Token::Keyword("b".into())]
+    );
+    // 取反是单字符运算符(与 & | 不同):落单的 ! 由语法层报「缺少操作数」,不会被当关键词
+    assert_eq!(lex("!").unwrap(), vec![Token::Not]);
+}
+
 #[test]
 fn reports_unclosed_quote_with_position() {
     let err = lex(r#"#a AND "未闭合"#).unwrap_err();

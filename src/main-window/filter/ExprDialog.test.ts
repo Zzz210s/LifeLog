@@ -2,6 +2,7 @@
  * 表达式界面的纯函数断言:语法速查表内容、本地长度检查、错误行文案与光标落点。
  * 组件本身(防抖、IPC、折叠区交互)由 CDP 实测取证,这里不渲染 React。
  */
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { MAX_EXPR_CHARS } from '../../shared/filter-conditions';
 import type { ExprCheck } from '../../shared/types';
@@ -37,13 +38,30 @@ describe('语法速查表', () => {
     expect(all).toContain('&&');
   });
 
-  it('补充说明写明日期比较已取消、裸 & | ! 会终止关键词、内嵌标点与 500 字上限', () => {
+  it('补充说明写明日期比较已取消、单 & | 非法、内嵌标点与 500 字上限', () => {
     const notes = SYNTAX_NOTES.join('|');
-    expect(notes).toContain('终止关键词');
+    expect(notes).toContain('单个 & 或 | 不是运算符');
+    expect(notes).toContain('&&');
+    expect(notes).toContain('缺少操作数');
     expect(notes).toContain('引号');
     expect(notes).toContain('·');
     expect(notes).toContain(String(MAX_EXPR_CHARS));
     expect(notes).toContain('日期比较已取消');
+  });
+
+  /**
+   * 速查表对 a&b 的说法必须与共享向量一致 —— 同一份向量的 expr 条目由 Rust 侧喂给
+   * 真源 expr::validate(src-tauri/src/filter_fixtures_tests.rs),不是文案自证。
+   */
+  it('a&b / a|b 非法的说法与共享向量一致(向量由后端 expr::validate 执行)', () => {
+    const cases = JSON.parse(
+      readFileSync(new URL('../../../fixtures/filter-conditions.json', import.meta.url), 'utf8'),
+    ) as Array<{ kind: string; src?: string; valid?: boolean }>;
+    const validOf = (src: string): boolean | undefined =>
+      cases.find((c) => c.kind === 'expr' && c.src === src)?.valid;
+    expect(validOf('a&b')).toBe(false);
+    expect(validOf('a|b')).toBe(false);
+    expect(validOf('a&&b')).toBe(true);
   });
 
   it('示例里不再有日期算子(date>= 现已由后端报中文错)', () => {

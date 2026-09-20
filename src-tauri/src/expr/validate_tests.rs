@@ -45,6 +45,17 @@ fn empty_is_an_error() {
     assert_eq!(validate("  ").unwrap_err().message, "表达式为空");
 }
 
+/// 单 `&` / `|` 的报错文案与位置(词法层为何收成关键词见 lexer_tests):
+/// 位置指向落单的那个符号(字符下标 1),前端据此显示「第 2 个字符:缺少操作数」。
+#[test]
+fn rejects_lone_ampersand_or_pipe_with_position() {
+    for src in ["a&b", "a|b"] {
+        let err = validate(src).unwrap_err();
+        assert_eq!(err.message, "缺少操作数", "{src}");
+        assert_eq!(err.pos, 1, "{src} 的落单符号在字符下标 1:{err:?}");
+    }
+}
+
 /// 语法错误必须原样透传 parser 的中文文案与字符下标
 #[test]
 fn syntax_error_passes_through_with_char_position() {

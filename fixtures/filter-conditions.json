@@ -514,5 +514,23 @@
     "why": "日期比较已取消,给明确的迁移报错",
     "src": "date >= 2026-01-01",
     "valid": false
+  },
+  {
+    "kind": "expr",
+    "why": "单个 & 不是运算符:被切成单字符关键词,表达式报「缺少操作数」",
+    "src": "a&b",
+    "valid": false
+  },
+  {
+    "kind": "expr",
+    "why": "单个 | 不是运算符:同上",
+    "src": "a|b",
+    "valid": false
+  },
+  {
+    "kind": "expr",
+    "why": "对照:&& 才是与运算符",
+    "src": "a&&b",
+    "valid": true
   }
 ]
