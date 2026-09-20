@@ -4,6 +4,7 @@ import { api } from '../shared/api';
 import { renderMarkdown } from '../shared/markdown';
 import { composeSource, prepareForSave } from '../shared/note-source';
 import type { Note } from '../shared/types';
+import { tagCountHint, tagCountLabel } from './edit-tag-count';
 import { MarkdownBody } from './MarkdownBody';
 
 export interface EditPanelProps {
@@ -23,6 +24,11 @@ export function EditPanel(p: EditPanelProps): ReactNode {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const timer = useRef<number | null>(null);
+  // 标签数取笔记已保存的标签集合(与 chip 行、保存路径同一份数据):
+  // 前端没有与 Rust tags.rs 逐字对齐的解析器,现算源码里的 #标签 会与保存结果不一致,
+  // 宁可滞后也不误报;提示只是建议层,不影响保存。
+  const tagCount = p.note.tags.length;
+  const hint = tagCountHint(tagCount);
 
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
 
@@ -71,7 +77,13 @@ export function EditPanel(p: EditPanelProps): ReactNode {
         />
       </div>
       <div className="mt-2 flex items-center justify-between">
-        <span className="text-xs text-danger">{error ? '保存失败: ' + error : 'Ctrl+Enter 保存'}</span>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted" data-testid="edit-tag-count">
+            {tagCountLabel(tagCount)}
+            {hint !== null && <span className="ml-2 text-faint">{hint}</span>}
+          </span>
+          <span className="text-xs text-danger">{error ? '保存失败: ' + error : 'Ctrl+Enter 保存'}</span>
+        </div>
         <div className="flex gap-2">
           <button
             onClick={p.onCancel}
