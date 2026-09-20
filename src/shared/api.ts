@@ -46,6 +46,9 @@ export const api = {
   setInputScale: (zoom: number) => invoke<void>('set_input_scale', { zoom }),
   setInputSize: (width: number, height: number) =>
     invoke<void>('set_input_size', { width, height }),
+  /** 带建议列表时的窗口高度:只改窗口,不把展开高度写回基础尺寸(input_h) */
+  setInputSizeOverlay: (width: number, height: number) =>
+    invoke<void>('set_input_size_overlay', { width, height }),
   /** 三档锁定一次事务写库 */
   setInputLocks: (lockMove: boolean, lockClose: boolean, lockContent: boolean) =>
     invoke<void>('set_input_locks', { lockMove, lockClose, lockContent }),

@@ -58,10 +58,10 @@ fn work_area_cap_wins_over_max_width() {
     assert_eq!(clamped, MAX_WIDTH);
     // 工作区 800 宽 -> 80% = 640,小于 900:取 640
     assert_eq!(cap_to_work_area(clamped, MAX_HEIGHT, 800, 600).0, 640);
-    // 高度同理:硬上限 320 与工作区 300 的 80%(240)冲突时取 240
+    // 高度同理:硬上限(含建议列表后是 560)与工作区 300 的 80%(240)冲突时取 240
     assert_eq!(cap_to_work_area(MIN_WIDTH, clamp_height(10_000), 800, 300).1, 240);
-    // 不冲突时两边都不变
-    assert_eq!(cap_to_work_area(MAX_WIDTH, MAX_HEIGHT, 1920, 1080), (900, 320));
+    // 不冲突时两边都不变:高度取硬上限本身
+    assert_eq!(cap_to_work_area(MAX_WIDTH, MAX_HEIGHT, 1920, 1080), (900, MAX_HEIGHT));
 }
 
 #[test]
@@ -71,7 +71,7 @@ fn display_size_caps_width_command_path_to_work_area() {
     assert_eq!(display_size(900, 87, 1.0, Some((1024, 768)), true), (819, 87));
     // 同一小屏在系统缩放 1.25 下同样收口到 819(先物理换算 1125,再与工作区 80% 取小)
     assert_eq!(display_size(900, 87, 1.25, Some((1024, 768)), true).0, 819);
-    // 1024x768 的 80% 高 = 614,高于 320 硬上限,高度不受工作区影响
+    // 1024x768 的 80% 高 = 614,高于硬上限 560,高度不受工作区影响
     assert_eq!(display_size(900, 10000, 1.0, Some((1024, 768)), true).1, MAX_HEIGHT);
     // 取不到工作区时只做硬区间与物理换算
     assert_eq!(display_size(900, 87, 1.25, None, true), (1125, 109));
@@ -168,3 +168,4 @@ fn migrate_size_converts_legacy_geometry() {
     assert_eq!(migrate_size(525.0, 111.0, 1.0), (525, 111));
     assert_eq!(migrate_size(0.0, 0.0, 1.3), (1, 1));
 }
+

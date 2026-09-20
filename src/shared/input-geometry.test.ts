@@ -1,16 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  clampLines,
-  clampWidth,
-  CARD_DRAG_INSET_CSS,
-  dragBandCss,
-  edgeBandCss,
-  edgeSide,
-  GLOW_PAD,
-  heightForLines,
-  MAX_WIDTH,
-  MIN_WIDTH,
-} from './input-geometry';
+import { CARD_DRAG_INSET_CSS, GLOW_PAD, MAX_WIDTH, MIN_WIDTH, SUGGEST_MAX_ROWS, SUGGEST_PAD_CSS, SUGGEST_ROW_CSS, clampLines, clampWidth, dragBandCss, edgeBandCss, edgeSide, heightForLines, suggestListHeightCss } from './input-geometry';
 
 describe('clampWidth', () => {
   it('钳制到 240-900', () => {
@@ -105,5 +94,20 @@ describe('dragBandCss', () => {
     // 关键回归:卡片可见边缘恰好落在 GLOW_PAD 处,必须落在拖动带内(否则“拖不动”)
     expect(GLOW_PAD).toBeLessThan(band);
     expect(GLOW_PAD + CARD_DRAG_INSET_CSS).toBeLessThanOrEqual(band);
+  });
+});
+
+describe('suggestListHeightCss(# 补全建议列表)', () => {
+  it('0 条不加高;条数决定高度;超过上限按上限(列表内部滚动)', () => {
+    expect(suggestListHeightCss(0)).toBe(0);
+    expect(suggestListHeightCss(-3)).toBe(0);
+    expect(suggestListHeightCss(Number.NaN)).toBe(0);
+    expect(suggestListHeightCss(1)).toBe(SUGGEST_ROW_CSS + SUGGEST_PAD_CSS);
+    expect(suggestListHeightCss(3)).toBe(3 * SUGGEST_ROW_CSS + SUGGEST_PAD_CSS);
+    expect(suggestListHeightCss(SUGGEST_MAX_ROWS)).toBe(SUGGEST_MAX_ROWS * SUGGEST_ROW_CSS + SUGGEST_PAD_CSS);
+    expect(suggestListHeightCss(50)).toBe(SUGGEST_MAX_ROWS * SUGGEST_ROW_CSS + SUGGEST_PAD_CSS);
+  });
+  it('上限与 tag-complete 的候选上限同值(8 条,两处漂移会让列表被裁)', () => {
+    expect(SUGGEST_MAX_ROWS).toBe(8);
   });
 });

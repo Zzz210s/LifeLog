@@ -18,6 +18,12 @@ pub fn set_input_size(app: AppHandle, width: u32, height: u32) -> Result<(), Str
     input_scale::apply_size(&app, input_scale::clamp_width(width), height)
 }
 
+/// 带 # 补全建议列表时的窗口高度:只改窗口,不把展开高度写回 input_h(见 apply_size_overlay)
+#[tauri::command]
+pub fn set_input_size_overlay(app: AppHandle, width: u32, height: u32) -> Result<(), String> {
+    windowing::input_overlay::apply_size_overlay(&app, input_scale::clamp_width(width), height)
+}
+
 /// 缩放:尺寸 = 基础尺寸 x 系数(工作区收口),并把系数落到 webview zoom
 #[tauri::command]
 pub fn set_input_scale(app: AppHandle, zoom: f32) -> Result<(), String> {

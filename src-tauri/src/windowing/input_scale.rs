@@ -9,16 +9,19 @@
 use super::input_geom;
 use tauri::{AppHandle, Manager, PhysicalSize, WebviewWindow};
 
+
 pub const MIN_WIDTH: u32 = 240;
 pub const MAX_WIDTH: u32 = 900;
 
 /// 高度区间(逻辑像素),与前端 windowHeightFor 同源推导:
 /// 单行 CSS 高度 = 22.75(text-sm + leading-relaxed)+ 上下内边距与边框 18 + 光晕内边距 2 x 14
 /// = 68.75;5 行为 159.75。webview 缩放(0.5-2.0)让整体同比放大,故
-/// 下界 = ceil(68.75 x 0.5) = 35,上界 = ceil(159.75 x 2.0) = 320。
+/// 下界 = ceil(68.75 x 0.5) = 35。
+/// 上界 = 5 行 @2.0(320)+ # 补全建议列表 8 行 x 24 + 面板内边距 8,按 2.0 放大后约 560 ——
+/// 建议列表是窗口内的一部分(像浏览器搜索框下方的推荐列表),故上界要把它算进去。
 /// 区间取全部合法缩放的并集:兜底拦下 0 与异常大的值,不误伤任何合法高度。
 pub const MIN_HEIGHT: u32 = 35;
-pub const MAX_HEIGHT: u32 = 320;
+pub const MAX_HEIGHT: u32 = 560;
 
 pub const MIN_SCALE: f64 = 0.5;
 pub const MAX_SCALE: f64 = 2.0;
@@ -132,6 +135,8 @@ pub fn apply_size(app: &AppHandle, width: u32, height: u32) -> Result<(), String
     };
     let height = clamp_height(height);
     let sf = win.scale_factor().unwrap_or(1.0);
+    // 列表关掉时先还原"为列表让位"的临时位移(见 apply_size_overlay)
+    input_overlay::restore(&win);
     // 与缩放路径共用 display_size:宽度命令路径把宽度当拖动意图,套 240-900 后再受工作区 80% 收口。
     // 写回设置用命令意图(base_from_intent),收口结果绝不固化成基础尺寸。
     let phys = display_size(width, height, sf, work_area_of(&win), true);
@@ -175,6 +180,8 @@ pub fn apply_scale(app: &AppHandle, scale: f64) -> Result<(), String> {
     input_geom::set(app, "input_zoom", &format!("{s:.2}"));
     Ok(())
 }
+
+use super::input_overlay;
 
 #[cfg(test)]
 #[path = "input_scale_tests.rs"]

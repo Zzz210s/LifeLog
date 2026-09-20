@@ -11,6 +11,24 @@ export const GLOW_PAD = 14;
 export const MIN_LINES = 1;
 export const MAX_LINES = 5;
 
+/**
+ * # 补全建议列表的尺寸(浏览器搜索框下方那种推荐列表):
+ * 列表在**窗口内**占独立高度 —— 窗口随列表展开而变高、关闭再缩回去,
+ * 于是它看起来就在输入框正下方,而不是被压在小小弹窗里。
+ * 行高与 TagCompleteList 的 py-1 + text-xs 对齐(24 CSS px),面板自身上下各 4px 内边距。
+ */
+export const SUGGEST_ROW_CSS = 24;
+export const SUGGEST_PAD_CSS = 8;
+/** 建议列表最多显示几行(与 tag-complete 的 COMPLETE_LIMIT 同值;超出时列表内部滚动) */
+export const SUGGEST_MAX_ROWS = 8;
+
+/** 建议列表占的 CSS 高度:0 条时为 0(窗口不加高),超过上限则内部滚动 */
+export function suggestListHeightCss(count: number): number {
+  if (!Number.isFinite(count) || count <= 0) return 0;
+  const rows = Math.min(Math.floor(count), SUGGEST_MAX_ROWS);
+  return rows * SUGGEST_ROW_CSS + SUGGEST_PAD_CSS;
+}
+
 /** 边缘热区宽度(**逻辑像素**):热区随 webview 缩放同比放大,0.5-2.0 缩放下手感一致 */
 export const EDGE_BAND_LOGICAL = 8;
 

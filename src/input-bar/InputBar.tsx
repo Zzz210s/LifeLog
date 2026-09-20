@@ -2,14 +2,16 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { api } from '../shared/api';
 import { prepareForSave } from '../shared/note-source';
-import { savedStamp, shouldShowStamp } from '../shared/input-feedback';
+import { savedStamp } from '../shared/input-feedback';
 import { canClose, canDrag, canEdit } from '../shared/input-lock';
 import { useThemeMode } from '../shared/use-theme-mode';
 import { useTagComplete } from './use-tag-complete';
 import { TagCompleteList } from './TagCompleteList';
+import { InputBarOverlays } from './InputBarOverlays';
 import { useDragBand } from './use-drag-band';
 import { useWidthDrag } from './use-width-drag';
 import { useAutoHeight } from './use-auto-height';
+import { suggestListHeightCss } from '../shared/input-geometry';
 import { useInputSettings } from './use-input-settings';
 import { useInputWheel } from './use-input-wheel';
 
@@ -37,8 +39,10 @@ export function InputBar() {
   const anyLock = lock.move || lock.close || lock.content;
   // # 标签补全:词元拉候选、↑↓/Enter/Tab/Esc 路由;Ctrl+Enter 保存不受影响
   const complete = useTagComplete({ textareaRef: inputRef, value: content, onReplace: applyValue });
+  // # 补全建议列表:像浏览器搜索框下方那样长在输入框正下方,窗口随之变高(高度不落库)
+  const listHeight = complete.open ? suggestListHeightCss(complete.items.length) : 0;
   // 内容变化后按真实换行行数(1-5 行)自动长高;滚轮缩放后手动再同步一次
-  const syncHeight = useAutoHeight({ textareaRef: inputRef, value: content });
+  const syncHeight = useAutoHeight({ textareaRef: inputRef, value: content, extraCss: listHeight });
   const { opacity, onMiddleDown, flushView } = useInputWheel({
     settings,
     onResized: syncHeight,
@@ -144,7 +148,7 @@ export function InputBar() {
 
   return (
     <div
-      className="relative box-border h-screen w-full cursor-move p-[14px]"
+      className="relative box-border flex h-screen w-full cursor-move flex-col p-[14px]"
       style={{ opacity: opacity / 100 }}
       onMouseDown={onRootMouseDown}
     >
@@ -157,7 +161,7 @@ export function InputBar() {
         readOnly={!editing}
         onChange={(e) => setContent(e.target.value)}
         onKeyDown={onKeyDown}
-        className="sticker-input h-full w-full resize-none overflow-y-auto bg-raised px-3 py-2 text-sm leading-relaxed text-text read-only:text-faint"
+        className="sticker-input min-h-0 w-full flex-1 resize-none overflow-y-auto bg-raised px-3 py-2 text-sm leading-relaxed text-text read-only:text-faint"
       />
       {complete.open && (
         <TagCompleteList
@@ -166,35 +170,15 @@ export function InputBar() {
           onPick={complete.onPick}
         />
       )}
-      {anyLock ? (
-        <button
-          type="button"
-          aria-label="解除锁定"
-          title="解除锁定"
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={onUnlock}
-          className="absolute top-4 right-4 flex h-5 w-5 items-center justify-center rounded text-faint hover:bg-hover hover:text-muted"
-        >
-          <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden="true">
-            <path d="M5 7V5.5a3 3 0 0 1 6 0V7" fill="none" stroke="currentColor" strokeWidth="1.5" />
-            <rect x="3.5" y="7" width="9" height="6" rx="1.5" fill="currentColor" />
-          </svg>
-        </button>
-      ) : null}
-      {error ? (
-        // 长错误(如路径/原始异常)不再从左侧被裁掉前缀:限宽(max 窗口宽-两侧各 1rem)并省略尾部
-        <span className="pointer-events-none absolute right-4 bottom-4 max-w-[calc(100%-2rem)] truncate text-xs text-danger">
-          {error}
-        </span>
-      ) : shouldShowStamp(savedAt, Date.now()) ? (
-        <span className="pointer-events-none absolute right-4 bottom-4 text-xs text-faint">
-          {stamp}
-        </span>
-      ) : !editing ? (
-        <span className="pointer-events-none absolute right-4 bottom-4 text-xs text-faint">
-          内容已锁定
-        </span>
-      ) : null}
+      <InputBarOverlays
+        anyLock={anyLock}
+        onUnlock={onUnlock}
+        error={error}
+        stamp={stamp}
+        savedAt={savedAt}
+        editing={editing}
+        now={Date.now()}
+      />
     </div>
   );
 }
