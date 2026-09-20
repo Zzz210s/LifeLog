@@ -15,7 +15,7 @@ import { mkdirSync } from 'node:fs';
 import { open, pages, recorder, sleep, waitFor, bindMain, ensureMain } from './cdp-lib.mjs';
 import { KEY, ON_SETTINGS, clickBack, os, runRegressScenes, runThemeScenes, setKeyword } from './dev-startup-scenes.mjs';
 import {
-  OUT, TEST_NOTE, auditBaseline, cleanupRun, dbInventory, writeJson,
+  OUT, auditBaseline, cleanupRun, dbInventory, writeJson,
 } from './dev-startup-clean.mjs';
 
 const phase = (process.argv.find((a) => a.startsWith('--phase=')) || '--phase=main').slice('--phase='.length);
