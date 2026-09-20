@@ -7,5 +7,6 @@ pub mod notes;
 pub mod parse;
 pub mod settings;
 pub mod startup;
+pub mod startup_legacy;
 pub mod tags;
 pub mod windowing;

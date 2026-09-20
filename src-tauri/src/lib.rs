@@ -108,6 +108,14 @@ pub fn run() {
                     return Ok(());
                 }
             }
+            // 改名兜底:历代 productName 下的自启项改名到当前名下(见 startup_legacy 顶部注释)。
+            // 失败只写日志:自启状态仍可从设置页「修复」重写,不该阻断启动。
+            let current_name = app.package_info().name.clone();
+            match commands::startup_legacy::adopt_legacy_entry(&current_name) {
+                Ok(Some(legacy)) => eprintln!("自启项已从旧名 {legacy} 改名到 {current_name}"),
+                Ok(None) => {}
+                Err(e) => eprintln!("自启项改名兜底失败(可从设置页修复):{e}"),
+            }
             // 旧几何键语义(含缩放的尺寸)一次性迁移到新语义(基础物理尺寸),单事务幂等
             windowing::input_geom::migrate_geometry(app.handle());
             windowing::tray::create(app)?;
