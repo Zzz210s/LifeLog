@@ -1,6 +1,7 @@
 //! 标签树命令层(MVP-2 Task 4):只做参数校验与转调仓库层,不写 SQL。
 //! 删除前的影响面由独立的 `tag_impact` 提供(前端二次确认后再调 `delete_tag`)。
 use crate::db::repos::tags_tree::{self, TagCount};
+use crate::db::repos::tags_tree_merge::{self, MergeReport};
 use crate::db::Db;
 use serde::Serialize;
 use tauri::{AppHandle, Manager, State};
@@ -79,6 +80,20 @@ pub fn tag_impact(app: AppHandle, tag_id: i64) -> Result<TagImpact, String> {
         tags_tree::impact(c, tag_id)
             .map(|(tags, notes)| TagImpact { tags, notes })
             .map_err(|e| e.to_string())
+    })
+}
+
+/// 合并标签(G2):把 source 的笔记链接转移给 target,可选把 source 旧路径登记为 target 的别名,
+/// 并级联改写标签页条件;返回转移读数(前端 G3 用它刷新树与筛选条件)。整事务,失败零变化。
+#[tauri::command]
+pub fn merge_tags(
+    app: AppHandle,
+    source_id: i64,
+    target_id: i64,
+    keep_alias: bool,
+) -> Result<MergeReport, String> {
+    with_conn(&app, |c| {
+        tags_tree_merge::merge_tags(c, source_id, target_id, keep_alias)
     })
 }
 

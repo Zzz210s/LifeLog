@@ -52,6 +52,7 @@ pub fn run() {
             commands::tags::delete_tag,
             commands::tags::tag_impact,
             commands::tags::complete_tags,
+            commands::tags::merge_tags,
             commands::windowing::hide_input_bar,
             commands::windowing::show_input_bar,
             commands::windowing::take_pending_open_settings,
