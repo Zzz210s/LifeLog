@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "LifeLog",
+  "productName": "拾枝",
   "mainBinaryName": "LifeLog",
   "version": "0.1.0",
   "identifier": "com.lifelog.app",

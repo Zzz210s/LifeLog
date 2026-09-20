@@ -117,7 +117,7 @@ record(
   dbinfo.path.includes('com.lifelog.app') && dbinfo.path.endsWith('lifelog.db') && dbinfo.notes === inv0.notes + 1,
   JSON.stringify(dbinfo)
 );
-record('B2 主窗页面标题与顶栏应用名为 LifeLog', title === 'LifeLog' && topName === 'LifeLog', `title=${title} 顶栏=${topName}`);
+record('B2 主窗页面标题与顶栏应用名为 拾枝', title === '拾枝' && topName === '拾枝', `title=${title} 顶栏=${topName}`);
 const oldAfter = snapshot(OLD_DIR);
 record(
   'B3 旧数据目录 app.lifelog 未被改动(逐文件 sha256 一致)',

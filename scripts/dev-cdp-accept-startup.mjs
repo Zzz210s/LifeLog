@@ -31,8 +31,8 @@ async function runMain() {
   record('A1 冷启动后 CDP 目标只有输入栏(主窗 webview 未创建)',
     list0.length === 1 && list0[0].url.includes('input.html'), j(list0.map((p) => p.title + '|' + p.url)));
   const w0 = os.wins(pid);
-  record('A2 顶层窗口只有输入栏(Win32 读数:不存在标题 LifeLog 的主窗)',
-    w0.some((w) => w.title === '输入栏') && !w0.some((w) => w.title === 'LifeLog'),
+  record('A2 顶层窗口只有输入栏(Win32 读数:不存在标题 拾枝 的主窗)',
+    w0.some((w) => w.title === '输入栏') && !w0.some((w) => w.title === '拾枝'),
     j(w0.map((w) => w.title + ':' + w.visible)));
   const base = dbInventory();
   const problems = auditBaseline(base);
@@ -69,15 +69,15 @@ async function runMain() {
   record('C1 主窗已存在时托盘「设置」-> 仍切到设置页(事件通道)', back === true && toStream === true && againSettings === true,
     j({ back, toStream, againSettings }));
   // C2/C3 关闭 = 退到托盘;之后普通「打开主窗口」不该被残留 pending 切走
-  const closed = os.closeWindow(pid, 'LifeLog');
-  const hidden = await waitFor(async () => (os.winVisible(pid, 'LifeLog') ? null : true), 12, 250);
+  const closed = os.closeWindow(pid, '拾枝');
+  const hidden = await waitFor(async () => (os.winVisible(pid, '拾枝') ? null : true), 12, 250);
   record('C2 关闭主窗 = 退到托盘(WM_CLOSE 走应用 CloseRequested:窗口隐藏、webview 仍在)',
     closed.closed === true && hidden === true, j(closed));
   await mp.cdp.eval('location.reload()');
   await sleep(2600);
   await waitFor(async () => ((await onSettings()) ? null : true), 24, 250);
   os.pickTray(pid, 2);
-  const shown = await waitFor(async () => (os.winVisible(pid, 'LifeLog') ? true : null), 20, 250);
+  const shown = await waitFor(async () => (os.winVisible(pid, '拾枝') ? true : null), 20, 250);
   record('C3 之后普通「打开主窗口」:窗口显示但视图仍是信息流(pending 未残留,设置页只由设置入口驱动)',
     shown === true && (await onSettings()) === false, j({ shown, settings: await onSettings() }));
 

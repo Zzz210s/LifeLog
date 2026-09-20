@@ -82,7 +82,7 @@ async function bootApp() {
   launch(exe, DEBUG_ENV);
   const inputWin = await winW.done;
   if (!inputWin.pid) throw new Error('输入栏未出现');
-  const mainW = watch(['win', 'LifeLog', '40000']);
+  const mainW = watch(['win', '拾枝', '40000']);
   await mainW.ready;
   const r = spawnSync('python', [SCRIPT('win-tray.py'), 'pick', String(inputWin.pid), '2'], { encoding: 'utf8', windowsHide: true });
   const pick = JSON.parse(r.stdout.trim().split('\n').pop());

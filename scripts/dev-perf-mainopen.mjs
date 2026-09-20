@@ -4,7 +4,7 @@
  *
  * 口径:
  *   主窗首开ms    win-tray.py pick 2 返回的 invoked_at(菜单项被选中的时刻,epoch ms)
- *                 -> 标题 LifeLog 的顶层窗口 IsWindowVisible 为真(dev-perf-winwatch.py 打点)
+ *                 -> 标题 拾枝 的顶层窗口 IsWindowVisible 为真(dev-perf-winwatch.py 打点)
  *   首帧时间ms    主窗页面内 navigationStart -> first-contentful-paint(startTime,与墙钟无关)
  *   JS 负担       Performance.getMetrics 的 ScriptDuration/TaskDuration(自本次导航累计,ms)
  *   侧栏刷新      (a) list_tags IPC 往返 7 次中位;(b) 侧栏隐藏->显示重挂载 7 次中位
@@ -107,7 +107,7 @@ async function oneRun(index) {
   const { at: spawnAt } = launch(exe, DEBUG_ENV);
   const inputWin = await winW.done;
   if (!inputWin.pid) throw new Error('输入栏未出现,无法取 pid: ' + JSON.stringify(inputWin));
-  const mainW = watch(['win', 'LifeLog', '40000']);
+  const mainW = watch(['win', '拾枝', '40000']);
   await mainW.ready;
   const pick = pickTray(inputWin.pid);
   const mainWin = await mainW.done;

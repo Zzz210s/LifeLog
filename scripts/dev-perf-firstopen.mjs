@@ -102,7 +102,7 @@ async function oneRun(index) {
     await bc.send('Profiler.start', {}, session);
     if (WAIT_START) await bc.send('Runtime.runIfWaitingForDebugger', {}, session);
   });
-  const mainW = watch(['win', 'LifeLog', '40000']);
+  const mainW = watch(['win', '拾枝', '40000']);
   await mainW.ready;
   const pick = JSON.parse(spawnSync('python', [SCRIPT('win-tray.py'), 'pick', String(inputWin.pid), '2'],
     { encoding: 'utf8', windowsHide: true }).stdout.trim().split('\n').pop());

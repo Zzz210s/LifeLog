@@ -59,8 +59,8 @@ export class Cdp {
 }
 
 /**
- * 连接页面:kind = 'main'(LifeLog 主窗) | 'input'(输入栏)。
- * 主窗判定:非 input.html 且来源为 dev(5173) 或 release(tauri.localhost),优先 title 为 LifeLog。
+ * 连接页面:kind = 'main'(拾枝 主窗) | 'input'(输入栏)。
+ * 主窗判定:非 input.html 且来源为 dev(5173) 或 release(tauri.localhost),优先 title 为 拾枝。
  */
 export async function open(kind) {
   const list = await pages();
@@ -68,7 +68,7 @@ export async function open(kind) {
   const target =
     kind === 'input'
       ? list.find((p) => p.url.includes('input.html'))
-      : list.find((p) => isMain(p) && p.title === 'LifeLog') || list.find(isMain);
+      : list.find((p) => isMain(p) && p.title === '拾枝') || list.find(isMain);
   if (!target) {
     throw new Error(`未找到 ${kind} 页面;当前页面:` + list.map((p) => `${p.title}|${p.url}`).join(', '));
   }

@@ -36,8 +36,8 @@ console.log('验收前库存:', JSON.stringify({ notes: inv0.notes, views: inv0.
 
 // ---------- 窗口级:改名后的主窗标题 / 托盘与热键注册 / 热键切换显隐 ----------
 const all = wins();
-const mainWin = all.find((w) => w.cls === 'Tauri Window' && w.title === 'LifeLog');
-record('W1 主窗标题为 LifeLog(Win32 读数)', !!mainWin, JSON.stringify(mainWin ? { title: mainWin.title, visible: mainWin.visible, rect: mainWin.rect } : null));
+const mainWin = all.find((w) => w.cls === 'Tauri Window' && w.title === '拾枝');
+record('W1 主窗标题为 拾枝(Win32 读数)', !!mainWin, JSON.stringify(mainWin ? { title: mainWin.title, visible: mainWin.visible, rect: mainWin.rect } : null));
 record(
   'W2 托盘与全局热键已注册(tray_icon_app / global_hotkey_app 窗口存在)',
   all.some((w) => w.cls === 'tray_icon_app') && all.some((w) => w.cls === 'global_hotkey_app'),
