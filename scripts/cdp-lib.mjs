@@ -94,9 +94,9 @@ export async function open(kind) {
 
 /**
  * 冷启动前置:主窗(标签 main)改为运行时按需创建后,启动后 CDP 里只有输入栏,
- * 「第一件事就 open('main')」的脚本会直接抛错。这里统一兜底:先直接连;连不到就等托盘图标
- * 就绪、点「打开主窗口」再轮询重试(托盘交互偶发落空,故最多试 3 次);最后等主窗外壳挂载
- * (刚建的 webview 还在加载,此时就发点击会落空)。幂等 —— 已有 main 目标时就是一次普通 open。
+ * 「第一件事就 open('main')」的脚本会直接抛错。这里统一兜底:先直接连;连不到就等托盘图标就绪、
+ * 点「打开主窗口」再轮询重试(托盘交互偶发落空,故最多试 3 次);最后等主窗外壳挂载。
+ * 幂等 —— 已有 main 目标时就是一次普通 open。
  */
 export async function ensureMain(opts = {}) {
   const existing = await open('main').catch(() => null);
@@ -153,9 +153,22 @@ export const conditions = (over = {}) => ({
 });
 
 /**
+ * 时间标签根名:真源是设置 `time_tag_template`(默认「时间排序/{y}/{m}/{d}」,用户可改成「日期/{y}/{m}/{d}」)。
+ * 取模板里第一个 `{` 之前的路径段并与库内真实根标签对照;绝不硬编码根名(旧验收脚本写死
+ * 「时间排序」,而真实库里早已改名为「日期」);模板为空/取不到时返回 null。
+ */
+export async function timeTagRoot(call) {
+  const tpl = await call('get_setting', { key: 'time_tag_template' });
+  const want = String(tpl ?? '').split('{')[0].replace(/\/+$/, '').trim();
+  if (!want) return null;
+  const hit = (await call('list_tags')).find((t) => t.path === want);
+  return hit ? hit.path : want;
+}
+
+/**
  * 绑定主窗页面的常用动作:验收脚本都只用主窗做 IPC 断言/库存对照。
- * call 走真实 IPC;inventory 是库存快照:笔记数 + `id|首行` 清单 + 全部标签路径 +
- * 视图数/视图 id/视图标题 + `filter_last` 原文(基线洁净断言与运行清单断言都基于它)。
+ * call 走真实 IPC;inventory 是库存快照:笔记数 + `id|首行` 清单(逐页取全,不是首页 50 条)+ 全部标签路径
+ * + `tabs_state` 原文 + `theme` 原文(基线洁净断言与运行清单断言都基于它;保存视图与 `filter_last` 已删)。
  * liCount 数信息流里渲染出的笔记条数(条目根为 li 且内含 .md-body)。
  */
 export function bindMain(cdp) {
@@ -169,18 +182,18 @@ export function bindMain(cdp) {
     inventory: () =>
       cdp.eval(`(async () => {
         const T = window.__TAURI_INTERNALS__.invoke;
-        const notes = await T('query_notes', { conditions: ${JSON.stringify(conditions({}))}, offset: 0 });
+        const C = ${JSON.stringify(conditions({}))};
+        let all = [], off = 0, page;
+        do { page = await T('query_notes', { conditions: C, offset: off }); all = all.concat(page); off += 50; } while (page.length === 50);
         const tags = await T('list_tags');
-        const views = await T('list_views');
-        const filterLast = await T('get_setting', { key: 'filter_last' });
+        const tabsState = await T('get_setting', { key: 'tabs_state' });
+        const theme = await T('get_setting', { key: 'theme' });
         return {
-          notes: notes.length,
-          ids: notes.map((n) => n.id + '|' + n.content.split(String.fromCharCode(10))[0]).sort(),
+          notes: all.length,
+          ids: all.map((n) => n.id + '|' + n.content.split(String.fromCharCode(10))[0]).sort(),
           paths: tags.map((t) => t.path).sort(),
-          views: views.length,
-          viewIds: views.map((v) => v.id).sort((a, b) => a - b),
-          viewTitles: views.map((v) => v.title),
-          filterLast: filterLast === undefined ? null : filterLast,
+          tabsState: tabsState === undefined ? null : tabsState,
+          theme: theme === undefined ? null : theme,
         };
       })()`),
   };

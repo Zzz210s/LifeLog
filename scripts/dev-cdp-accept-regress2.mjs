@@ -6,7 +6,7 @@
  */
 import { spawnSync } from 'node:child_process';
 import { existsSync, statSync, unlinkSync } from 'node:fs';
-import { ensureMain, recorder, sleep, waitFor, bindMain } from './cdp-lib.mjs';
+import { ensureMain, recorder, sleep, waitFor, bindMain, conditions } from './cdp-lib.mjs';
 import { bindDom } from './cdp-dom.mjs';
 
 const { record, finish } = recorder();
@@ -24,7 +24,7 @@ const { call, liCount, inventory } = bindMain(cdp);
 const { evalIn, clickText } = bindDom(cdp);
 
 const inv0 = await inventory();
-console.log('验收前库存:', JSON.stringify({ notes: inv0.notes, views: inv0.views, tagPaths: inv0.paths.length }));
+console.log('验收前库存:', JSON.stringify({ notes: inv0.notes, theme: inv0.theme, tagPaths: inv0.paths.length }));
 
 // ---------- E1 界面导出:原生保存对话框出现并可取消 ----------
 await clickText('导出全部');
@@ -35,7 +35,11 @@ const dlgSeen = await waitFor(() => (saveDlg() ? true : null), 20, 300);
 const dlgTitle = (saveDlg() || {}).title;
 const closed = JSON.parse(sh('python', ['scripts/win-probe.py', 'close-dialog', String(pid), SAVE_DLG]).stdout || '{}');
 const dlgGone = await waitFor(() => (saveDlg() ? null : true));
-const afterCancel = await evalIn(`(() => ({ btn: !!Array.from(document.querySelectorAll('button')).find((b) => b.textContent.trim() === '导出全部'), err: document.body.innerText.includes('导出失败') }))()`);
+// 取消后按钮会短暂处于「导出中」:等它恢复为「导出全部」再断言(不是回归,只是状态回写时机)
+const afterCancel = await waitFor(async () => {
+  const v = await evalIn(`(() => ({ btn: !!Array.from(document.querySelectorAll('button')).find((b) => b.textContent.trim() === '导出全部'), err: document.body.innerText.includes('导出失败') }))()`);
+  return v.btn && !v.err ? v : null;
+}, 20, 300) ?? await evalIn(`(() => ({ btn: false, err: document.body.innerText.includes('导出失败') }))()`);
 record(
   'E1 点「导出全部」弹出原生保存框(取消后按钮复位、无错误提示)',
   dlgSeen === true && closed.closed === true && dlgGone === true && afterCancel.btn === true && afterCancel.err === false,
@@ -51,16 +55,17 @@ ws = wb['笔记'];
 rows = [[c.value for c in r] for r in ws.iter_rows()];
 print(json.dumps({'sheets': wb.sheetnames, 'header': rows[0], 'rows': rows[1:], 'count': len(rows) - 1}, ensure_ascii=False))`);
 const xlsx = JSON.parse(dump);
-const noteDates = (await call('query_notes', { conditions: { keyword: null, tags: [], excludeTags: [], from: null, to: null, tagPresence: null, sort: 'newest' }, offset: 0 })).map((n) => n.date).sort();
-const dates = xlsx.rows.map((r) => r[0]).sort();
+const notesPage = await call('query_notes', { conditions: conditions({}), offset: 0 });
+const heads = notesPage.slice(0, 3).map((n) => String(n.content).split('\n')[0]);
+const xlsxHeads = xlsx.rows.slice(0, 3).map((r) => String(r[0]).split('\n')[0]);
 record(
-  'E2 导出 xlsx 结构与内容(表头四列 / 行数 = 笔记数 / 日期列 = 笔记日期)',
-  JSON.stringify(xlsx.header) === JSON.stringify(['日期', '正文', '标签', '最后修改']) &&
+  'E2 导出 xlsx 结构与内容(表头两列 正文/标签,S2 起不再导出日期与最后修改 / 行数 = 笔记数 / 前三条正文一致)',
+  JSON.stringify(xlsx.header) === JSON.stringify(['正文', '标签']) &&
     xlsx.count === inv0.notes &&
-    JSON.stringify(dates) === JSON.stringify(noteDates) &&
-    xlsx.rows.some((r) => String(r[2]).includes('#todo')) &&
+    JSON.stringify(xlsxHeads) === JSON.stringify(heads) &&
+    xlsx.rows.some((r) => String(r[1]).includes('#')) &&
     size > 0,
-  `sheet=${JSON.stringify(xlsx.sheets)} 表头=${JSON.stringify(xlsx.header)} 行数=${xlsx.count} 日期列=${JSON.stringify(dates)} 文件=${size}B`
+  `sheet=${JSON.stringify(xlsx.sheets)} 表头=${JSON.stringify(xlsx.header)} 行数=${xlsx.count} 前三条=${JSON.stringify(xlsxHeads)} 文件=${size}B`
 );
 
 // ---------- S1 无限滚动:造 55 条(共 61 条 > PAGE=50) ----------
@@ -72,19 +77,30 @@ try {
   }
   await evalIn(`location.reload()`);
   await sleep(3000);
-  await waitFor(() => evalIn(`!!document.querySelector('[data-testid="time-list"]')`));
-  const first = await waitFor(async () => (await liCount()) === 50 && true, 20, 300);
+  await waitFor(() => evalIn(`!!document.querySelector('li .md-body')`), 25, 250);
+  const first = await waitFor(async () => ((await liCount()) === 50 ? true : null), 20, 300);
+  // 一页 50 条、滚到底才追加下一页:反复滚到底直到不再增长(真实库上千条,不能只滚一次)
   const scrolled = await evalIn(`(() => {
     const scroller = Array.from(document.querySelectorAll('div.overflow-y-auto')).find((d) => d.querySelector('li .md-body'));
     if (!scroller) return { error: 'no-scroller' };
     scroller.scrollTop = scroller.scrollHeight;
     return { scrollTop: scroller.scrollTop, scrollHeight: scroller.scrollHeight };
   })()`);
-  const loadedAll = await waitFor(async () => ((await liCount()) === inv0.notes + SEED ? true : null), 24, 300);
+  let prev = -1;
+  let cur = await liCount();
+  let same = 0;
+  for (let i = 0; i < 80 && same < 4; i++) {
+    await evalIn(`(() => { const s = Array.from(document.querySelectorAll('div.overflow-y-auto')).find((d) => d.querySelector('li .md-body')); if (s) s.scrollTop = s.scrollHeight; return true; })()`);
+    await sleep(700);
+    cur = await liCount();
+    same = cur === prev ? same + 1 : 0; // 连续 4 次不增长才判为「已到底」,单次 400ms 会把慢加载误判成结束
+    prev = cur;
+  }
+  const loadedAll = cur === inv0.notes + SEED ? true : null;
   record(
-    'S1 无限滚动:首屏 50 条 + 滚到底自动加载到全部 61 条',
+    'S1 无限滚动:首屏 50 条 + 滚到底逐页加载到全部(验收前笔记数 + 自建 55 条)',
     first === true && loadedAll === true && !scrolled.error,
-    `首屏=${first} 滚到底=${loadedAll} 滚动=${JSON.stringify(scrolled)} 实际条数=${await liCount()}`
+    `首屏=${first} 滚到底=${loadedAll} 滚动=${JSON.stringify(scrolled)} 实际条数=${await liCount()} 期望=${inv0.notes + SEED}`
   );
 } finally {
   for (const id of seeded) await call('delete_note', { id });
@@ -93,9 +109,9 @@ try {
   const inv1 = await inventory();
   const leftovers = inv1.ids.filter((x) => !inv0.ids.includes(x));
   record(
-    'S2 测试数据删净 + 库存前后一致(笔记 id 清单 / 标签路径 / 视图数)',
-    inv1.notes === inv0.notes && inv1.views === inv0.views && JSON.stringify(inv1.paths) === JSON.stringify(inv0.paths) && leftovers.length === 0,
-    `notes ${inv1.notes}/${inv0.notes} views ${inv1.views}/${inv0.views} 残留=${JSON.stringify(leftovers)} paths同=${JSON.stringify(inv1.paths) === JSON.stringify(inv0.paths)}`
+    'S2 测试数据删净 + 库存前后一致(笔记 id 清单 / 标签路径 / tabs_state / theme)',
+    inv1.notes === inv0.notes && inv1.tabsState === inv0.tabsState && inv1.theme === inv0.theme && JSON.stringify(inv1.paths) === JSON.stringify(inv0.paths) && leftovers.length === 0,
+    `notes ${inv1.notes}/${inv0.notes} tabs_state同=${inv1.tabsState === inv0.tabsState} theme ${inv1.theme}/${inv0.theme} 残留=${JSON.stringify(leftovers)} paths同=${JSON.stringify(inv1.paths) === JSON.stringify(inv0.paths)}`
   );
 }
 

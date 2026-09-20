@@ -112,6 +112,14 @@ def main():
         if hit:
             u32.SendMessageW(hit, BM_CLICK, 0, 0)
         print(json.dumps({'found': True, 'title': dlg['title'], 'clicked': bool(hit), 'buttons': [_text(c) for c in children(dlg['hwnd']) if _text(c)]}, ensure_ascii=False))
+    elif cmd == 'move':
+        # move <pid> <title> <x> <y>:把窗口移到指定屏幕坐标(验收还原用;不改尺寸/层级/焦点)
+        win = next((w for w in top_level(pid) if w['title'] == title), None)
+        x, y = int(sys.argv[4]), int(sys.argv[5])
+        SWP = 0x0001 | 0x0004 | 0x0010  # NOSIZE | NOZORDER | NOACTIVATE
+        moved = bool(win) and bool(u32.SetWindowPos(win['hwnd'], 0, x, y, 0, 0, SWP))
+        after = next((w for w in top_level(pid) if w['title'] == title), None)
+        print(json.dumps({'found': bool(win), 'moved': moved, 'rect': after['rect'] if after else None}, ensure_ascii=False))
     elif cmd == 'hotkey':
         combo = sys.argv[2].lower().split('+')
         mods, key = combo[:-1], combo[-1]

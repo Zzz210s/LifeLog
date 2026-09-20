@@ -1,10 +1,13 @@
 // 冷启动验收(scripts/dev-cdp-accept-startup.mjs)的场景库:窗口/托盘取证件 + 主题镜像三态与
 // 首帧插桩 + 既有功能回归。拆成独立文件只为满足「代码文件 <= 200 行」的仓库规则。
 // 口径:窗口可见性一律用 user32 IsWindowVisible(CDP 的 visibilityState 对已隐藏窗口仍报 visible)。
+// 计数口径:信息流一页 50 条(与后端 PAGE 一致),界面条数按 min(50, 命中数) 断言。
 import { sleep, waitFor } from './cdp-lib.mjs';
 import { os } from './cdp-os.mjs';
-import { HELPERS } from './dev-cdp-icon-ui.mjs';
-import { EMPTY_FILTER, TEST_NOTE, TEST_VIEW } from './dev-startup-clean.mjs';
+import { EMPTY_FILTER, TEST_NOTE } from './dev-startup-clean.mjs';
+
+const PAGE = 50; // 信息流一页条数(与后端一致)
+const firstPage = (n) => Math.min(PAGE, n);
 
 // 转出给既有调用点(dev-cdp-accept-startup.mjs 等按 `os` 从本文件导入)
 export { os };
@@ -61,7 +64,6 @@ export const setKeyword = (cdp, v) => cdp.eval(`(() => {
 export async function runThemeScenes({ mp, ipa, call, record, j, themeBefore }) {
   await mp.cdp.send('Page.enable');
   await ipa.cdp.send('Page.enable');
-  await mp.cdp.eval(HELPERS);
   const mirror = (cdp) => cdp.eval(`localStorage.getItem(${j(KEY)})`);
   await mp.cdp.eval(`(() => { const b = document.querySelector('button[aria-label="设置"]'); if (b) b.click(); return true; })()`);
   await sleep(300);
@@ -111,7 +113,7 @@ export async function runThemeScenes({ mp, ipa, call, record, j, themeBefore }) 
   await ipa.cdp.send('Emulation.setEmulatedMedia', { features: [] });
 }
 
-/** 既有功能回归:输入栏保存 / 热键 / 托盘切换 / 筛选栏 / 视图。返回自建数据 id 供清收。 */
+/** 既有功能回归:输入栏保存 / 全局热键 / 托盘左键开主窗 / 筛选栏。返回自建数据 id 供清收。 */
 export async function runRegressScenes({ pid, mp, ipa, call, liCount, base, kw, record, j }) {
   const li0 = await liCount();
   const typed = await ipa.cdp.eval(`(() => {
@@ -130,8 +132,9 @@ export async function runRegressScenes({ pid, mp, ipa, call, liCount, base, kw, 
     }))()`);
     return v.value === '' && v.text.includes('已保存') ? v : null;
   }, 16, 250);
-  const autoRefresh = await waitFor(async () => ((await liCount()) === li0 + 1 ? true : null), 16, 250);
-  record('G1 输入栏 Ctrl+Enter 保存:落库 + 输入框清空 + 保存浮层 + 主窗自动刷新出新条',
+  const autoRefresh = await waitFor(async () => ((await liCount()) === firstPage(li0 + 1) &&
+    (await mp.cdp.eval(`document.body.textContent.includes(${j(TEST_NOTE)})`)) ? true : null), 16, 250);
+  record('G1 输入栏 Ctrl+Enter 保存:落库 + 输入框清空 + 保存浮层 + 主窗自动刷新出新条(信息流已含该条)',
     typed === TEST_NOTE && !!savedNote && !!cleared && autoRefresh === true,
     j({ typed, id: savedNote && savedNote.id, flash: cleared && cleared.text, li: [li0, await liCount()] }));
 
@@ -143,38 +146,28 @@ export async function runRegressScenes({ pid, mp, ipa, call, liCount, base, kw, 
   record('G2 全局热键 Ctrl+Shift+Q 切换输入栏显隐(真实按键 + IsWindowVisible)',
     flipped === true && restored === true, j({ shownBefore, flipped, restored }));
 
-  const trayBefore = os.winVisible(pid, '输入栏');
-  os.trayClick(pid, 'click');
-  const byMouse = await waitFor(async () => (os.winVisible(pid, '输入栏') !== trayBefore ? 'mouse' : null), 8, 250);
+  // G3 托盘左键 = 打开主窗口(原「左键切换输入栏显隐」已随托盘行为调整删除,见 windowing/tray.rs:
+  // 左键开主窗、输入栏切换只在菜单项与全局热键上)
+  const trayClosed = os.closeWindow(pid, '拾枝');
+  const trayHidden = await waitFor(async () => (os.winVisible(pid, '拾枝') ? null : true), 12, 250);
+  const byMouse = await waitFor(async () => ((os.trayClick(pid, 'click'), os.winVisible(pid, '拾枝')) ? 'mouse' : null), 8, 250);
   const channel = byMouse || (os.trayClick(pid, 'toggle'),
-    await waitFor(async () => (os.winVisible(pid, '输入栏') !== trayBefore ? 'message' : null), 8, 250));
-  record('G3 托盘左键切换输入栏显隐(真实鼠标先行;未生效则走同一条 WM_USER_TRAYICON+WM_LBUTTONUP 消息路径)',
-    channel === 'mouse' || channel === 'message', j({ trayBefore, channel }));
+    await waitFor(async () => (os.winVisible(pid, '拾枝') ? 'message' : null), 8, 250));
+  record('G3 托盘左键打开主窗口(真实鼠标先行;未生效则走同一条 WM_USER_TRAYICON+WM_LBUTTONUP 消息路径)',
+    trayClosed.closed === true && trayHidden === true && (channel === 'mouse' || channel === 'message'),
+    j({ trayClosed, trayHidden, channel }));
 
   const setKw = await setKeyword(mp.cdp, kw);
-  // 关键词有 300ms 防抖,先算出 IPC 命中数再等界面收敛到同一数字
+  // 关键词有 300ms 防抖,先算出 IPC 命中数再等界面收敛到同一数字(首页上限 50 条)
   const ipcHits = (await call('query_notes', { conditions: { ...JSON.parse(EMPTY_FILTER), keyword: kw }, offset: 0 })).length;
-  const uiHit = await waitFor(async () => ((await liCount()) === ipcHits ? true : null), 24, 300);
-  record('G4 筛选栏关键词生效(界面条数 = IPC 命中数)',
+  const uiHit = await waitFor(async () => ((await liCount()) === firstPage(ipcHits) ? true : null), 24, 300);
+  record('G4 筛选栏关键词生效(界面条数 = min(50, IPC 命中数))',
     setKw === kw && ipcHits >= 1 && uiHit === true,
     j({ kw, setKw, ipcHits, li: await liCount() }));
 
-  const px = (expr) => mp.cdp.eval('window.__X.' + expr).catch(() => undefined);
-  await px('openSave()');
-  await waitFor(async () => ((await px('dialogOpen("保存为视图")')) === true ? true : null), 16, 250);
-  await px('setTitle(' + j(TEST_VIEW) + ')');
-  await px('clickDialog("保存")');
-  const rowSeen = await waitFor(async () => ((await px('row(' + j(TEST_VIEW) + ')')) ? true : null), 20, 250);
-  const view = (await call('list_views')).find((v) => v.title === TEST_VIEW);
+  // G5 清空关键词:回到首页全量(原 G5「保存为视图」随迁移 014 视图体系删除而作废)
   await setKeyword(mp.cdp, '');
-  const clearedKw = await waitFor(async () => ((await liCount()) === base.notes + 1 ? true : null), 24, 300);
-  await mp.cdp.eval(`(() => { const r = document.querySelector('[data-view-id="${view && view.id}"]'); if (r) r.click(); return !!r; })()`);
-  const applied = await waitFor(async () => {
-    const v = await mp.cdp.eval(`document.querySelector('input[aria-label="搜索笔记与标签"]').value`);
-    return v === kw ? v : null;
-  }, 24, 300);
-  record('G5 视图可用:保存(带关键词条件)-> 侧栏出现该行 -> 清空条件 -> 点视图行还原条件',
-    rowSeen === true && !!view && clearedKw === true && applied === kw,
-    j({ viewId: view && view.id, rowSeen, clearedKw, applied }));
-  return { noteId: savedNote && savedNote.id, viewId: view && view.id };
+  const clearedKw = await waitFor(async () => ((await liCount()) === firstPage(base.notes + 1) ? true : null), 24, 300);
+  record('G5 清空关键词后回到首页全量', clearedKw === true, j({ li: await liCount(), want: firstPage(base.notes + 1) }));
+  return { noteId: savedNote && savedNote.id };
 }

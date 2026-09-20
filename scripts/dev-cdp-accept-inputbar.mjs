@@ -7,7 +7,7 @@
  * 输入栏的窗口尺寸变化从 Win32 矩形与设置键 input_w 两处取证。
  */
 import { spawnSync } from 'node:child_process';
-import { ensureMain, open, recorder, sleep, waitFor, bindMain } from './cdp-lib.mjs';
+import { ensureMain, open, recorder, sleep, waitFor, bindMain, conditions } from './cdp-lib.mjs';
 import { bindDom } from './cdp-dom.mjs';
 
 const { record, finish } = recorder();
@@ -32,7 +32,10 @@ const inv0 = await inventory();
 const zoom0 = await getSetting('input_zoom');
 const width0 = await getSetting('input_w');
 const height0 = await getSetting('input_h');
-console.log('验收前库存:', JSON.stringify({ notes: inv0.notes, views: inv0.views, tagPaths: inv0.paths.length }), `input_zoom=${zoom0} input_w=${width0}`);
+// 位置也要还原:窗口移动时 Rust 会把实际位置落库(input_x/input_y),而 I7 拖左边缘会改掉它
+const x0 = await getSetting('input_x');
+const y0 = await getSetting('input_y');
+console.log('验收前库存:', JSON.stringify({ notes: inv0.notes, theme: inv0.theme, tagPaths: inv0.paths.length }), `input_zoom=${zoom0} input_w=${width0}`);
 
 // ---------- 窗口级:改名后的主窗标题 / 托盘与热键注册 / 热键切换显隐 ----------
 const all = wins();
@@ -66,7 +69,7 @@ const typed = await input.evalIn(`(() => {
   return { typed: ta.value };
 })()`);
 const saved = await waitFor(async () =>
-  (await call('query_notes', { conditions: { keyword: TEST_NOTE, tags: [], excludeTags: [], from: null, to: null, tagPresence: null, sort: 'newest' }, offset: 0 })).length === 1 && true
+  (await call('query_notes', { conditions: conditions({ keyword: TEST_NOTE }), offset: 0 })).length === 1 && true
 );
 // 落库、清空与浮层都是异步落地的:轮询到「输入框已清空 + 出现保存浮层」再断言,避免读到中间态
 const cleared = await waitFor(async () => {
@@ -151,7 +154,7 @@ record(
 );
 
 // ---------- 还原:删除测试笔记 + 窗口尺寸与缩放回到验收前 ----------
-const ids = (await call('query_notes', { conditions: { keyword: TEST_NOTE, tags: [], excludeTags: [], from: null, to: null, tagPresence: null, sort: 'newest' }, offset: 0 })).map((n) => n.id);
+const ids = (await call('query_notes', { conditions: conditions({ keyword: TEST_NOTE }), offset: 0 })).map((n) => n.id);
 for (const id of ids) await call('delete_note', { id });
 // input_w/input_h 存的是「缩放=1 的基础物理尺寸」,set_input_size 的入参是**CSS 意图**;
 // 还原必须先按 sf = dpr / zoom 把基础尺寸换算回意图,否则会写成 base*sf(实测 404 -> 505)
@@ -161,13 +164,15 @@ const sf = dpr / zoomNow;
 const intent = (base) => Math.round((Number(base) * zoomNow) / sf);
 await call('set_input_size', { width: intent(width0), height: intent(height0) });
 await setSetting('input_zoom', zoom0);
-await sleep(600);
+// 窗口位置挪回验收前的屏幕坐标(SetWindowPos);之后 hide 会把这个位置重新落库
+const moved = JSON.parse(sh('python', ['scripts/win-probe.py', 'move', String(pid), '输入栏', String(x0), String(y0)]).stdout || '{}');
+await sleep(700);
 await call('hide_input_bar');
 const inv1 = await inventory();
 record(
-  'I8 库存前后一致(笔记 id 清单 / 标签路径 / 视图数)+ 窗口尺寸还原',
-  inv1.notes === inv0.notes && inv1.views === inv0.views && JSON.stringify(inv1.paths) === JSON.stringify(inv0.paths) && (await getSetting('input_w')) === width0 && (await getSetting('input_h')) === height0,
-  `notes ${inv1.notes}/${inv0.notes} views ${inv1.views}/${inv0.views} input_w ${await getSetting('input_w')}/${width0} input_h ${await getSetting('input_h')}/${height0} 宽 ${rectOf()[2] - rectOf()[0]}`
+  'I8 库存前后一致(笔记 id 清单 / 标签路径 / tabs_state / theme)+ 窗口尺寸与位置还原',
+  inv1.notes === inv0.notes && inv1.tabsState === inv0.tabsState && inv1.theme === inv0.theme && JSON.stringify(inv1.paths) === JSON.stringify(inv0.paths) && (await getSetting('input_w')) === width0 && (await getSetting('input_h')) === height0 && (await getSetting('input_x')) === x0 && (await getSetting('input_y')) === y0,
+  `notes ${inv1.notes}/${inv0.notes} tabs_state同=${inv1.tabsState === inv0.tabsState} theme ${inv1.theme}/${inv0.theme} input_w ${await getSetting('input_w')}/${width0} input_h ${await getSetting('input_h')}/${height0} input_x ${await getSetting('input_x')}/${x0} input_y ${await getSetting('input_y')}/${y0} 移动=${JSON.stringify(moved)} 宽 ${rectOf()[2] - rectOf()[0]}`
 );
 
 finish();
