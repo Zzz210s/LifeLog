@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { DbInfo, ExprCheck, Note, TagCount, TagImpact } from './types';
+import type { CompleteItem, DbInfo, ExprCheck, MergeReport, Note, TagCount, TagImpact } from './types';
 import type { FilterConditions } from './filter-conditions';
 
 export const api = {
@@ -24,8 +24,17 @@ export const api = {
   deleteTag: (tagId: number) => invoke<void>('delete_tag', { tagId }),
   /** 删除前影响面:将影响的子孙标签数与笔记数 */
   tagImpact: (tagId: number) => invoke<TagImpact>('tag_impact', { tagId }),
-  /** 输入栏补全:按路径前缀列出候选 */
-  completeTags: (prefix: string) => invoke<string[]>('complete_tags', { prefix }),
+  /** 该标签的全部别名(按 alias 升序) */
+  listTagAliases: (tagId: number) => invoke<string[]>('list_tag_aliases', { tagId }),
+  /** 登记别名:失败给中文原因(空 / 含空白 / 含 # / 与现有标签重名 / 目标标签不存在) */
+  addTagAlias: (alias: string, tagId: number) => invoke<void>('add_tag_alias', { alias, tagId }),
+  /** 删除别名(幂等:不存在也算成功) */
+  removeTagAlias: (alias: string) => invoke<void>('remove_tag_alias', { alias }),
+  /** 合并标签(G2 命令):转移链接 + 可选保留旧名为别名,返回转移读数 */
+  mergeTags: (sourceId: number, targetId: number, keepAlias: boolean) =>
+    invoke<MergeReport>('merge_tags', { sourceId, targetId, keepAlias }),
+  /** 输入栏补全:按路径前缀列出候选(别名命中项的 kind=alias) */
+  completeTags: (prefix: string) => invoke<CompleteItem[]>('complete_tags', { prefix }),
   /** 更新笔记:**标签集合整集合替换**为正文里的 #标签 —— 调用方必须自带该笔记的全部标签(UI 编辑框会回显),否则会丢标签 */
   updateNote: (id: number, content: string) =>
     invoke<Note | null>('update_note', { id, content }),

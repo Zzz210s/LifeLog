@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react';
 import { api } from '../shared/api';
+import type { CompleteItem } from '../shared/types';
 import { completeMatch, sameList, tokenAt } from './tag-complete';
 
 export interface TagCompleteOptions {
@@ -14,17 +15,18 @@ export interface TagCompleteOptions {
 export interface TagCompleteState {
   /** 有候选且未被 Esc 关闭时为真 */
   open: boolean;
-  items: string[];
+  items: CompleteItem[];
   activeIndex: number;
   /** 键盘路由:返回 true 表示已消费(调用方不再处理该键);Ctrl/组合键恒不消费 */
   onKeyDown: (e: ReactKeyboardEvent<HTMLTextAreaElement>) => boolean;
-  /** 采纳指定路径(鼠标点击候选) */
+  /** 采纳指定路径(鼠标点击候选):恒传目标标签路径(别名候选也写入规范路径) */
   onPick: (path: string) => void;
 }
 
 /**
  * 输入栏 # 标签补全(spec 6.3):
  * - 监听 textarea 的 input/keyup/click,取光标前 # 词元调 completeTags,completeMatch 去重限长
+ * - 候选带来源标记(G3):别名命中项的 kind=alias,采纳时写入的是目标标签路径(归一)
  * - ↑↓ 移动高亮、Enter/Tab 采纳(替换词元并把光标移到末尾)、Esc 关闭(不冒泡,不触发窗口隐藏)
  * - Ctrl/Alt/Win 组合键一律不消费:Ctrl+Enter 保存不受影响;IME 组合中不抢键
  * - 补全请求失败静默关闭下拉,不影响输入与保存
@@ -33,7 +35,7 @@ export interface TagCompleteState {
  *   词元一变(继续打字或换词)就重新求候选。
  */
 export function useTagComplete(opts: TagCompleteOptions): TagCompleteState {
-  const [items, setItems] = useState<string[]>([]);
+  const [items, setItems] = useState<CompleteItem[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   // 被 Esc 关掉的词元(词元变了就失效);用 ref 是因为重算里要即时读到最新值
   const dismissedToken = useRef<string | null>(null);
@@ -122,7 +124,8 @@ export function useTagComplete(opts: TagCompleteOptions): TagCompleteState {
       }
       if (e.key === 'Enter' || e.key === 'Tab') {
         e.preventDefault();
-        adopt(items[activeIndex] ?? items[0]);
+        const pick = items[activeIndex] ?? items[0];
+        if (pick !== undefined) adopt(pick.path);
         return true;
       }
       if (e.key === 'Escape') {
