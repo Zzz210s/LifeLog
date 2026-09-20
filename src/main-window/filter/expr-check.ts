@@ -6,6 +6,9 @@
  *   输入串里不存在的「第 N 个字符」,直接显示「表达式末尾:<原因>」;
  *   光标仍落到末尾(下标 = 字符数),文案与光标不会互相打架。
  * - 长度上限是前端**唯一**的本地校验,其余语义一律走 IPC `validate_expr`,前端不做第二套解析器。
+ * - 后端查询路径的中文错误(没有独立的结构化字段可 +1)在后端自己拼同一套文案,实现见
+ *   `src-tauri/src/db/repos/notes_filter.rs` 的 expr_error_message;两边各有一条用例钉住
+ *   `#工作 AND` -> 「表达式末尾:缺少操作数」与 0 起下标 +1 的同一口径。
  */
 import { MAX_EXPR_CHARS } from '../../shared/filter-conditions';
 import type { ExprCheck } from '../../shared/types';

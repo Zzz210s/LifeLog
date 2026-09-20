@@ -67,7 +67,7 @@ export function filterKey(c: FilterConditions): string {
     c.tagPresence ?? '',
     c.tags.map((t) => [t.path, t.includeChildren]),
     c.excludeTags.map((t) => [t.path, t.includeChildren]),
-    // 表达式按 trim 后的值参与比较:后端解析前也 trim,尾随空白不产生新查询
+    // 表达式按 trim 后的值参与比较:尾随空白不触发重复查询(后端按原文解析,只把全空白视为未设置)
     (c.expr ?? '').trim(),
   ]);
 }

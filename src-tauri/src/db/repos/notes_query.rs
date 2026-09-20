@@ -26,7 +26,7 @@ pub fn query(
     conditions: &FilterConditions,
     offset: i64,
 ) -> Result<Vec<Note>, String> {
-    let (frag, mut args) = where_clause(conditions);
+    let (frag, mut args) = where_clause(conditions)?;
     let dir = order_dir(oldest_first(conditions));
     let sql = format!(
         "WITH page AS (
@@ -51,14 +51,16 @@ pub fn query(
 
 /// 当前条件命中的总条数:**仅供测试使用**。视图模块已删(S6),标签页本轮不做每页计数
 /// 徽标(N 页 N 次 COUNT 的代价不合理,当前页的计数由流头部照旧显示),故生产路径不再有调用方。
+/// 错误类型与 [`query`] 一致("条件非法" 用中文原因而不是 rusqlite 的英文错误)。
 #[cfg(test)]
-pub fn count_matching(conn: &Connection, conditions: &FilterConditions) -> rusqlite::Result<i64> {
-    let (frag, args) = where_clause(conditions);
+pub fn count_matching(conn: &Connection, conditions: &FilterConditions) -> Result<i64, String> {
+    let (frag, args) = where_clause(conditions)?;
     conn.query_row(
         &format!("SELECT COUNT(*) FROM notes n WHERE {frag}"),
         params_from_iter(args),
         |r| r.get(0),
     )
+    .map_err(|e| e.to_string())
 }
 
 #[cfg(test)]

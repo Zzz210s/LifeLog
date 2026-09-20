@@ -22,8 +22,9 @@ pub struct TagCond {
 }
 
 /// 流查询条件对象;字段名与前端 `FilterConditions` 完全一致(JSON camelCase)。
-/// `expr` 是附加的高级表达式条件(spec 3.3,默认 null):与结构化条件 AND 组合;
-/// 文本非法时该条恒假(宁可查不到,也不放宽其余条件的语义)。
+/// `expr` 是附加的高级表达式条件(spec 3.3,默认 null):与结构化条件 AND 组合。
+/// 文本非法时**整条查询失败**(与命令层 `validate_conditions` 同一条规则,不再有
+/// 「恒假降级」的第二套语义;见 2026-09-21 回看 I3)。
 /// Serialize 供标签页把条件对象落库为 JSON(settings.tabs_state),反序列化路径与语义不变。
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(default, rename_all = "camelCase")]
@@ -61,8 +62,29 @@ fn any_tag() -> String {
         .to_string()
 }
 
-/// 条件 -> `WHERE` 之后的 SQL 片段与参数(固定以 `1=1` 起手,子句用 ` AND ` 连接)
-pub fn where_clause(c: &FilterConditions) -> (String, Vec<Value>) {
+/// 表达式的解析口径:只把「全空白」当作未设置,其余一律按**原文**解析 ——
+/// 前后空白也占字符,否则报错序号会与对话框(它解析原文)错位。
+fn expr_source(expr: &Option<String>) -> Option<&str> {
+    expr.as_deref().filter(|s| !s.trim().is_empty())
+}
+
+/// 表达式非法的用户可见中文原因(**两条路径共用同一份文案**,不再各拼一套):
+/// 串内错误「表达式:第 N 个字符:原因」—— 0 起下标只在这里 +1;位置已到文本末尾的
+/// 末尾类错误(「缺少操作数」等)改说「表达式:表达式末尾:原因」,不编造输入串里
+/// 不存在的序号。口径与前端 `src/main-window/filter/expr-check.ts` 的 errorLabelOf 一致
+/// (那边另有「表达式为空」的空白分支,这里的调用点已先把空白当未设置)。
+fn expr_error_message(src: &str, e: &crate::expr::lexer::ExprError) -> String {
+    let total = src.chars().count();
+    if e.pos >= total {
+        format!("表达式:表达式末尾:{}", e.message)
+    } else {
+        format!("表达式:第 {} 个字符:{}", e.pos + 1, e.message)
+    }
+}
+
+/// 条件 -> `WHERE` 之后的 SQL 片段与参数(固定以 `1=1` 起手,子句用 ` AND ` 连接)。
+/// 非法表达式**不降级**:与 [`validate`] 一样返回同一条中文错误(调用方命令层已先拦一次)。
+pub fn where_clause(c: &FilterConditions) -> Result<(String, Vec<Value>), String> {
     let mut args: Vec<Value> = Vec::new();
     let mut clauses: Vec<String> = Vec::new();
     if let Some(k) = c.keyword.as_deref().map(str::trim).filter(|k| !k.is_empty()) {
@@ -80,12 +102,10 @@ pub fn where_clause(c: &FilterConditions) -> (String, Vec<Value>) {
         Some("none") => clauses.push(format!("NOT ({})", any_tag())),
         _ => {}
     }
-    // 表达式是最后一条附加条件:与前面所有结构化条件 AND 组合;文本非法则整条恒假
-    if let Some(src) = c.expr.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
-        match crate::expr::validate(src) {
-            Ok(ast) => clauses.push(crate::expr::compile(&ast, &mut args)),
-            Err(_) => clauses.push("0=1".into()),
-        }
+    // 表达式是最后一条附加条件:与前面所有结构化条件 AND 组合;文本非法则整条失败
+    if let Some(src) = expr_source(&c.expr) {
+        let ast = crate::expr::validate(src).map_err(|e| expr_error_message(src, &e))?;
+        clauses.push(crate::expr::compile(&ast, &mut args));
     }
     let mut out = String::from("1=1");
     for cl in clauses {
@@ -93,7 +113,7 @@ pub fn where_clause(c: &FilterConditions) -> (String, Vec<Value>) {
         out.push(' ');
         out.push_str(&cl);
     }
-    (out, args)
+    Ok((out, args))
 }
 
 /// 校验(后端为唯一权威;前端只做即时提示):返回中文原因或 `Ok(())`
@@ -123,12 +143,11 @@ pub fn validate(c: &FilterConditions) -> Result<(), String> {
             return Err("标签有无取值非法".into());
         }
     }
-    // 附加表达式:空白视为未设置;非法时带原因与**字符位置**(0 起字符下标,
-    // 与 expr::ExprError.pos / 前端 setSelectionRange 同一口径,切勿再 +1)
-    if let Some(src) = c.expr.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
-        if let Err(e) = crate::expr::validate(src) {
-            return Err(format!("表达式:{}(第 {} 个字符)", e.message, e.pos));
-        }
+    // 附加表达式:空白视为未设置(与 where_clause 同一口径);非法时带原因与位置 ——
+    // 位置口径见 expr_error_message:结构化 `pos` 保持 0 起,拼给用户看的**完整文案**
+    // 由后端 +1 或改说「表达式末尾」,与前端 errorLabelOf 一致。
+    if let Some(src) = expr_source(&c.expr) {
+        crate::expr::validate(src).map_err(|e| expr_error_message(src, &e))?;
     }
     Ok(())
 }

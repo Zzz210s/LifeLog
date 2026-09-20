@@ -1,6 +1,9 @@
 //! 表达式逃生舱的纯逻辑层(spec 3.1-3.3):词法 -> 语法 -> AST -> 校验 -> 中文预览 -> SQL 片段。
 //! 不触数据库、不碰前端;所有错误位置 `pos` 均为**字符下标**(Unicode 字符数,非字节数),
-//! 0 起 —— 与前端 `setSelectionRange(position)` 同一口径,后端消息不得再自行 +1。
+//! 0 起 —— 与前端 `setSelectionRange(position)` 同一口径,结构化字段(ExprError.pos /
+//! ExprCheck.position)**绝不改写**。只有拼给用户看的完整文案才由后端格式化(串内 +1 说
+//! 「第 N 个字符」、位置到末尾说「表达式末尾」),口径与前端 expr-check.ts 的 errorLabelOf
+//! 一致(见 db::repos::notes_filter::expr_error_message 与 2026-09-21 回看 I3)。
 //! 校验/编译同时以模块与同名函数两种路径暴露:`crate::expr::validate::validate` 与
 //! `crate::expr::validate`(模块在类型命名空间、函数在值命名空间,不冲突),调用点按
 //! 计划文档的写法取后者。

@@ -113,7 +113,7 @@ fn conditions_match_shared_fixture() {
         validate(&raw).unwrap_or_else(|err| panic!("第 {i} 条:validate 报错:{err}"));
         let n = e.normalized.as_ref().unwrap();
         assert_eq!(
-            where_clause(&raw).0 == "1=1",
+            where_clause(&raw).expect("合法条件不得报错").0 == "1=1",
             e.empty.unwrap(),
             "第 {i} 条:空/收窄判定不一致(为何:{})",
             e.why

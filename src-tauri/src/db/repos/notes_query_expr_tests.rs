@@ -86,7 +86,7 @@ fn or_and_parens_combine_as_expected() {
     assert_eq!(expr_hits(&c, "#c"), only_c, "表达式 #c 与结构化 tags=[c] 一致");
 }
 
-/// 表达式里的日期比较已整体取消(D2):校验给中文报错,查询恒不命中(绝不静默放宽)
+/// 表达式里的日期比较已整体取消(D2):校验给中文报错,查询整条失败(绝不静默放宽)
 #[test]
 fn date_comparison_in_expression_is_rejected() {
     let mut c = db();
@@ -96,18 +96,18 @@ fn date_comparison_in_expression_is_rejected() {
     let cond = FilterConditions { expr: Some("date>=2026-01-01".into()), ..empty() };
     assert_eq!(
         validate(&cond),
-        Err("表达式:日期比较已取消,请用时间标签筛选(第 0 个字符)".to_string()),
-        "报错要带原因与 0 起字符位置"
+        Err("表达式:第 1 个字符:日期比较已取消,请用时间标签筛选".to_string()),
+        "报错要带原因与 +1 展示的字符序号(位置 0 -> 第 1 个字符)"
     );
-    assert!(query(&c, &cond, 0).unwrap().is_empty(), "非法表达式查不到任何行");
-    assert_eq!(super::count_matching(&c, &cond).unwrap(), 0);
-    // 旧写法在组合条件下同样不给任何行
+    assert!(query(&c, &cond, 0).is_err(), "非法表达式让整条查询失败(不再降级成 0=1)");
+    assert!(super::count_matching(&c, &cond).is_err());
+    // 旧写法在组合条件下同样整条失败
     let mixed = FilterConditions {
         tags: vec![tag("时间排序/2026/08", true)],
         expr: Some("date<2026-09-01".into()),
         ..empty()
     };
-    assert!(query(&c, &mixed, 0).unwrap().is_empty());
+    assert!(query(&c, &mixed, 0).is_err(), "组合条件里的非法表达式同样整条失败");
 
     // 替代路径:想看某段时间就点时间标签(含子级)
     let by_tag = FilterConditions { tags: vec![tag("时间排序/2026/08", true)], ..empty() };
@@ -142,23 +142,22 @@ fn expression_ands_with_structured_conditions() {
 }
 
 #[test]
-fn invalid_expression_yields_no_rows_and_validate_rejects() {
+fn invalid_expression_fails_query_and_validate_rejects() {
     let mut c = db();
     let n = create_plain(&mut c, "正文 #甲").unwrap();
     let blank = FilterConditions { expr: Some("   ".into()), ..empty() };
     assert_eq!(hits(&c, &blank), vec![n.id], "空白表达式视为未设置");
     assert!(validate(&blank).is_ok());
     let bad = FilterConditions { expr: Some("#工作 AND".into()), ..empty() };
-    assert!(query(&c, &bad, 0).unwrap().is_empty(), "非法表达式查不到任何行");
-    assert_eq!(super::count_matching(&c, &bad).unwrap(), 0);
-    // 位置是 **0 起字符下标**(与 expr::ExprError.pos、前端 setSelectionRange 同口径):
-    // `#工作 AND` 共 7 个字符,错误指向末尾
-    assert_eq!(validate(&bad).unwrap_err(), "表达式:缺少操作数(第 7 个字符)");
-    // 非法表达式不得被忽略:结构化的其它条件照样被 AND 成恒假
+    assert!(query(&c, &bad, 0).is_err(), "非法表达式让整条查询失败");
+    assert!(super::count_matching(&c, &bad).is_err());
+    // 位置口径:0 起下标 +1 展示;`#工作 AND` 共 7 个字符,末尾类错误改说「表达式末尾」
+    assert_eq!(validate(&bad).unwrap_err(), "表达式:表达式末尾:缺少操作数");
+    // 非法表达式不得被忽略:结构化的其它条件不会被放宽
     let ok = FilterConditions { tags: vec![tag("甲", true)], ..empty() };
     assert_eq!(hits(&c, &ok), vec![n.id]);
     let poisoned = FilterConditions { tags: vec![tag("甲", true)], expr: Some("#工作 AND".into()), ..empty() };
-    assert!(hits(&c, &poisoned).is_empty(), "非法表达式让整条查询恒假");
+    assert!(query(&c, &poisoned, 0).is_err(), "非法表达式让整条查询失败,不放宽其余条件");
     // 缺括号 / 超长同样被拒
     assert!(validate(&FilterConditions { expr: Some("(#a".into()), ..empty() }).is_err());
     assert!(validate(&FilterConditions { expr: Some("a".repeat(501)), ..empty() }).is_err());
