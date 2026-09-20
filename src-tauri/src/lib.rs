@@ -50,6 +50,7 @@ pub fn run() {
             commands::notes::query_notes,
             commands::notes::update_note,
             commands::notes::delete_note,
+            commands::parse::parse_note_source,
             commands::expr::validate_expr,
             commands::exchange::export_notes,
             commands::tags::list_tags,

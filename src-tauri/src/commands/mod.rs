@@ -4,6 +4,7 @@ pub mod exchange;
 pub mod expr;
 pub mod hotkey;
 pub mod notes;
+pub mod parse;
 pub mod settings;
 pub mod startup;
 pub mod tags;

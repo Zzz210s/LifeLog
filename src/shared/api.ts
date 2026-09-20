@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { CompleteItem, DbInfo, ExprCheck, MergeReport, Note, TagCount, TagImpact } from './types';
+import type { CompleteItem, DbInfo, ExprCheck, MergeReport, Note, ParseResult, TagCount, TagImpact } from './types';
 import type { FilterConditions } from './filter-conditions';
 
 export const api = {
@@ -39,6 +39,9 @@ export const api = {
   updateNote: (id: number, content: string) =>
     invoke<Note | null>('update_note', { id, content }),
   deleteNote: (id: number) => invoke<void>('delete_note', { id }),
+  /** 解析笔记源码 -> 保存后的正文 + 标签集合(与保存路径共用同一实现,解析的唯一真源);
+   *  编辑面板用它实时显示标签数,前端不复制标签语法 */
+  parseNoteSource: (source: string) => invoke<ParseResult>('parse_note_source', { source }),
   exportNotes: (path: string) => invoke<void>('export_notes', { path }),
   hideInputBar: () => invoke<void>('hide_input_bar'),
   /** 设置输入栏唤起快捷键:成功返回规范化后的生效值;失败返回中文原因且旧键仍可用 */

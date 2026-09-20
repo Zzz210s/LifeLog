@@ -65,6 +65,18 @@ export interface DbInfo {
   notes: number;
 }
 
+/**
+ * 笔记源码解析结果(IPC `parse_note_source`):与保存路径**共用同一实现**
+ * (`tags::extract_tags` + `notes::strip_tags`),是"源码 -> 正文 + 标签集合"的唯一真源。
+ * 前端不得另写一份标签语法(那等于把漂移固化)。
+ */
+export interface ParseResult {
+  /** 保存后的正文:标签词元已剥离、行内空白已归一 */
+  content: string;
+  /** 按首现顺序去重的标签**完整路径** */
+  tags: string[];
+}
+
 /** 筛选条件对象与前端默认值统一从 `filter-conditions.ts` 取(避免两处定义漂移) */
 export type { FilterConditions, TagCond } from './filter-conditions';
 export { EMPTY_FILTER } from './filter-conditions';
