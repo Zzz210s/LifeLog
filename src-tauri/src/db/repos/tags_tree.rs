@@ -65,12 +65,25 @@ pub fn link_note(conn: &Connection, note_id: i64, tag_id: i64) -> rusqlite::Resu
 
 /// 笔记维度的链接替换(增量):只删不再需要的、只补缺失的,未变化的链接保持原样
 /// (节点 id 与触发器行为稳定)。路径经 parse_tag_path 校验后走 ensure_path 自动建父级。
-/// 别名优先(spec D2/D3,保存漏斗唯一解析点):只有别名表里登记过的原样字符串才归一,
-/// 命中即改用目标标签的**当前路径**再走同一条建树路径 —— 目标必然已存在,
-/// ensure_path 幂等命中它,不会新建以别名为名的节点。未命中则原样解析。
+/// 按路径精确取标签 id(不存在返回 None);用于"真实标签优先于别名"的判定
+fn existing_id(conn: &Connection, path: &str) -> rusqlite::Result<Option<i64>> {
+    use rusqlite::OptionalExtension;
+    conn.query_row("SELECT id FROM tags WHERE path = ?1", params![path], |r| r.get(0))
+        .optional()
+}
+/// 解析顺序(spec D2/D3,保存漏斗唯一解析点):**真实标签优先,其次别名,最后新建**。
+/// ① 该路径已是存在的标签 -> 用它(用户确实能创建/保留同名标签,别名不该把它挡住)
+/// ② 否则查别名表,命中即改用目标标签的**当前路径**(目标必然已存在,ensure_path 幂等命中它)
+/// ③ 都没有 -> 原样解析并自动建树。
 pub(crate) fn link_paths(conn: &Connection, note_id: i64, paths: &[String]) -> rusqlite::Result<()> {
     let mut desired: Vec<i64> = Vec::new();
     for path in paths {
+        if let Some(id) = existing_id(conn, path.trim())? {
+            if !desired.contains(&id) {
+                desired.push(id);
+            }
+            continue;
+        }
         let canonical = tag_alias::resolve(conn, path)?;
         let target = canonical.as_deref().unwrap_or(path.as_str());
         let segs = crate::tags::parse_tag_path(target).ok_or_else(|| {
