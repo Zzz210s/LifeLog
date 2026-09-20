@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { listen } from '@tauri-apps/api/event';
-import { shouldAutoRefresh } from './notes-list';
+import { shouldAutoRefresh } from '../stream/notes-list';
 
 /**
  * 订阅后端 note-created(输入栏保存成功):满足 shouldAutoRefresh 时自动刷新主窗列表。

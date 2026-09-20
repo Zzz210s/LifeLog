@@ -6,7 +6,7 @@
  */
 import type { TagCount } from '../../shared/types';
 import type { FilterConditions } from '../../shared/filter-conditions';
-import { applyTagPick } from '../filter-chips';
+import { applyTagPick } from '../filter/filter-chips';
 
 /** 树节点:id 为 null 表示父行缺失时补出的结构节点(不可右键管理) */
 export interface TagNode {

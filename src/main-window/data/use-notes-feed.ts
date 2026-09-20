@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { api } from '../shared/api';
-import type { Note } from '../shared/types';
-import { filterKey } from '../shared/filter-conditions';
-import { normalizeFilter } from '../shared/filter-conditions-parse';
-import type { FilterConditions } from '../shared/filter-conditions';
-import type { ErrorKind } from './ErrorBar';
-import { PAGE, mergeNotes } from './notes-list';
+import { api } from '../../shared/api';
+import type { Note } from '../../shared/types';
+import { filterKey } from '../../shared/filter-conditions';
+import { normalizeFilter } from '../../shared/filter-conditions-parse';
+import type { FilterConditions } from '../../shared/filter-conditions';
+import type { ErrorKind } from '../shell/ErrorBar';
+import { PAGE, mergeNotes } from '../stream/notes-list';
 
 /**
  * 主窗流查询状态机(自 App 抽出以守 200 行上限):分页、过期响应丢弃、查询错误与失败事实。

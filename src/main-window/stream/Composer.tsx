@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { api } from '../shared/api';
-import { prepareForSave } from '../shared/note-source';
+import { api } from '../../shared/api';
+import { prepareForSave } from '../../shared/note-source';
 
 /** 顶部常驻输入框:自动增高,Ctrl+Enter 或按钮保存(语法与输入栏一致)。
  *  editing 态下由父组件传 disabled:两个可写入口互斥,避免刷新时卸载 EditPanel 丢掉未保存文本 */

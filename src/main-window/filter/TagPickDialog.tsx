@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { api } from '../shared/api';
-import type { TagCount } from '../shared/types';
+import { api } from '../../shared/api';
+import type { TagCount } from '../../shared/types';
 
 export interface TagPickDialogProps {
   /** 模式:false 加入标签 / true 排除标签 */

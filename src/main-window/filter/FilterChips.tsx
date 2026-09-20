@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import type { FilterConditions } from '../shared/filter-conditions';
+import type { FilterConditions } from '../../shared/filter-conditions';
 import type { Chip } from './filter-chips';
 
 export interface FilterChipsProps {

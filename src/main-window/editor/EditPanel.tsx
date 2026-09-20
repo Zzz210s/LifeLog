@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { api } from '../shared/api';
-import { renderMarkdown } from '../shared/markdown';
-import { composeSource, prepareForSave } from '../shared/note-source';
-import type { Note } from '../shared/types';
+import { api } from '../../shared/api';
+import { renderMarkdown } from '../../shared/markdown';
+import { composeSource, prepareForSave } from '../../shared/note-source';
+import type { Note } from '../../shared/types';
 import { tagCountHint, tagCountLabel } from './edit-tag-count';
-import { MarkdownBody } from './MarkdownBody';
+import { MarkdownBody } from '../stream/MarkdownBody';
 
 export interface EditPanelProps {
   note: Note;

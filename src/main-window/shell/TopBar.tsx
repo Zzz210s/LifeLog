@@ -1,6 +1,6 @@
 // 主窗顶栏:左侧应用名与侧栏开关;右侧按视图显示齿轮(进设置)或返回(回信息流)。
 import type { ReactNode } from 'react';
-import type { MainView } from './settings/settings-model';
+import type { MainView } from '../settings/settings-model';
 
 export interface TopBarProps {
   view: MainView;

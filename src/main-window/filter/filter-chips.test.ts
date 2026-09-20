@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EMPTY_FILTER } from '../shared/filter-conditions';
+import { EMPTY_FILTER } from '../../shared/filter-conditions';
 import { EXPR_TEXT_MAX, applyTagPick, chipsOf, summaryOf, summaryTitleOf, truncateExpr } from './filter-chips';
 
 const EXPR = '#工作 AND NOT #临时';

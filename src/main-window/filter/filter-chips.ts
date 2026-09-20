@@ -3,8 +3,8 @@
  * 每个收窄来源一个 chip,chip 自带「删掉我之后的完整条件对象」;
  * 摘要为中文一句话,空条件返回空串。
  */
-import { hasExpr } from '../shared/filter-conditions';
-import type { FilterConditions, TagCond } from '../shared/filter-conditions';
+import { hasExpr } from '../../shared/filter-conditions';
+import type { FilterConditions, TagCond } from '../../shared/filter-conditions';
 
 /** chip 种类与文案一一对应;remove 是删掉该 chip 后的条件对象(完整替换用) */
 export type Chip = {

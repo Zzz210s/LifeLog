@@ -4,7 +4,7 @@
  * 非 Tauri 环境(浏览器冒烟)或取值失败一律静默,不影响主界面。
  */
 import { useEffect } from 'react';
-import { api } from '../shared/api';
+import { api } from '../../shared/api';
 import type { ErrorKind } from './ErrorBar';
 import { backupWarningText } from './backup-notice';
 

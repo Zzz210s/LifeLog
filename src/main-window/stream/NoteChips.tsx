@@ -6,7 +6,7 @@
  */
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { tagDisplayName } from './tag-display';
+import { tagDisplayName } from '../editor/tag-display';
 import { ATTR_MAX, TOPIC_MAX, collapseAncestors, collapseChips, groupChips } from './note-chips';
 
 export interface NoteChipsProps {

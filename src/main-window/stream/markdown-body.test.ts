@@ -4,7 +4,7 @@ import { createElement } from 'react';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { describe, expect, it } from 'vitest';
-import { renderMarkdown, renderMarkdownInteractive } from '../shared/markdown';
+import { renderMarkdown, renderMarkdownInteractive } from '../../shared/markdown';
 import { MarkdownBody } from './MarkdownBody';
 
 // react-dom 的 act 需要这个全局标记(Vitest 无内置 RTL 配置)

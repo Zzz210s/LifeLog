@@ -3,8 +3,8 @@
  * 组件本身(防抖、IPC、折叠区交互)由 CDP 实测取证,这里不渲染 React。
  */
 import { describe, expect, it } from 'vitest';
-import { MAX_EXPR_CHARS } from '../shared/filter-conditions';
-import type { ExprCheck } from '../shared/types';
+import { MAX_EXPR_CHARS } from '../../shared/filter-conditions';
+import type { ExprCheck } from '../../shared/types';
 import { caretOf, charCount, errorLabelOf, localExprError } from './expr-check';
 import { EXAMPLES, SYNTAX_HINTS, SYNTAX_NOTES } from './expr-hint';
 

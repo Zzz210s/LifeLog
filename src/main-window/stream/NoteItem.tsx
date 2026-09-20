@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
-import { renderMarkdownInteractive } from '../shared/markdown';
-import type { Note } from '../shared/types';
+import { renderMarkdownInteractive } from '../../shared/markdown';
+import type { Note } from '../../shared/types';
 import { MarkdownBody } from './MarkdownBody';
 import { NoteChips } from './NoteChips';
 

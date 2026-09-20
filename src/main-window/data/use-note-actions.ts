@@ -6,14 +6,14 @@
 import { useCallback } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { confirm } from '@tauri-apps/plugin-dialog';
-import { api } from '../shared/api';
-import { toggleTaskAt } from '../shared/md-task';
-import { composeSource } from '../shared/note-source';
-import type { Note } from '../shared/types';
-import { canEvaluateLocally, matchesTagsByPath } from '../shared/filter-conditions-local';
-import type { FilterConditions } from '../shared/filter-conditions';
-import type { ErrorKind } from './ErrorBar';
-import { needsRefetchAfterChange, replaceNote } from './notes-list';
+import { api } from '../../shared/api';
+import { toggleTaskAt } from '../../shared/md-task';
+import { composeSource } from '../../shared/note-source';
+import type { Note } from '../../shared/types';
+import { canEvaluateLocally, matchesTagsByPath } from '../../shared/filter-conditions-local';
+import type { FilterConditions } from '../../shared/filter-conditions';
+import type { ErrorKind } from '../shell/ErrorBar';
+import { needsRefetchAfterChange, replaceNote } from '../stream/notes-list';
 
 export interface NoteActionsDeps {
   conditions: FilterConditions;

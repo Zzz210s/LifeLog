@@ -7,8 +7,8 @@
  *   光标仍落到末尾(下标 = 字符数),文案与光标不会互相打架。
  * - 长度上限是前端**唯一**的本地校验,其余语义一律走 IPC `validate_expr`,前端不做第二套解析器。
  */
-import { MAX_EXPR_CHARS } from '../shared/filter-conditions';
-import type { ExprCheck } from '../shared/types';
+import { MAX_EXPR_CHARS } from '../../shared/filter-conditions';
+import type { ExprCheck } from '../../shared/types';
 
 /** 按字符(码点)计数,与 Rust `chars().count()` 同口径 */
 export const charCount = (text: string): number => [...text].length;

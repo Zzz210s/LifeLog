@@ -1,5 +1,5 @@
 import type { MouseEvent, ReactNode } from 'react';
-import { linkHrefFrom, openExternal } from '../shared/links';
+import { linkHrefFrom, openExternal } from '../../shared/links';
 
 export interface MarkdownBodyProps {
   /** 必须来自 renderMarkdown/sanitize 的消毒产物 */

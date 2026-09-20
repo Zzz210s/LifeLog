@@ -1,4 +1,4 @@
-import type { Note } from '../shared/types';
+import type { Note } from '../../shared/types';
 
 /** 每次拉取的页大小(查询分页) */
 export const PAGE = 50;

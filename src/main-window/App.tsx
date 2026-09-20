@@ -4,24 +4,24 @@ import { api } from '../shared/api';
 import { EMPTY_FILTER, isFilterEmpty } from '../shared/filter-conditions';
 import { useThemeMode } from '../shared/use-theme-mode';
 import type { TagCount } from '../shared/types';
-import { ErrorBars } from './ErrorBars';
+import { ErrorBars } from './shell/ErrorBars';
 import type { MainView } from './settings/settings-model';
-import { FilterBar } from './FilterBar';
-import { NoteStream } from './NoteStream';
-import { SettingsView } from './SettingsView';
+import { FilterBar } from './filter/FilterBar';
+import { NoteStream } from './stream/NoteStream';
+import { SettingsView } from './settings/SettingsView';
 import { Sidebar } from './sidebar/Sidebar';
 import { useSidebarState } from './sidebar/use-sidebar-state';
 import { TabsBar } from './tabs/TabsBar';
 import { useTabs } from './tabs/use-tabs';
-import { TopBar } from './TopBar';
-import { Composer } from './Composer';
-import { useNoteActions } from './use-note-actions';
-import { useAppErrors } from './use-app-errors';
-import { useBackupWarning } from './use-backup-warning';
-import { useNoteCreatedRefresh } from './use-note-created';
-import { useOpenSettings } from './use-open-settings';
-import { useNotesFeed } from './use-notes-feed';
-import { useNotesExport } from './use-export';
+import { TopBar } from './shell/TopBar';
+import { Composer } from './stream/Composer';
+import { useNoteActions } from './data/use-note-actions';
+import { useAppErrors } from './shell/use-app-errors';
+import { useBackupWarning } from './shell/use-backup-warning';
+import { useNoteCreatedRefresh } from './data/use-note-created';
+import { useOpenSettings } from './shell/use-open-settings';
+import { useNotesFeed } from './data/use-notes-feed';
+import { useNotesExport } from './data/use-export';
 
 /** 主窗 v2:侧栏(标签)+ 标签页栏 + 单列流(Composer + FilterBar + NoteStream) */
 export function App(): ReactNode {

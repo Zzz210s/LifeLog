@@ -3,7 +3,7 @@
 // ②窗口是这次才新建的 -> 事件早于本订阅发出,改为 mount 时取用 Rust 的 pending 标志(取走即清空)。
 import { useEffect, useRef } from 'react';
 import { listen } from '@tauri-apps/api/event';
-import { api } from '../shared/api';
+import { api } from '../../shared/api';
 
 export const OPEN_SETTINGS_EVENT = 'open-settings';
 

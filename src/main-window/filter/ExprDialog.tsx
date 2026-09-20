@@ -8,7 +8,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { api } from '../shared/api';
+import { api } from '../../shared/api';
 import { ExprSyntaxHint } from './ExprSyntaxHint';
 import { caretOf, errorLabelOf, localExprError } from './expr-check';
 

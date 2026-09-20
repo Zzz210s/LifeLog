@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { save } from '@tauri-apps/plugin-dialog';
-import { api } from '../shared/api';
-import type { ErrorKind } from './ErrorBar';
+import { api } from '../../shared/api';
+import type { ErrorKind } from '../shell/ErrorBar';
 
 /**
  * 整库导出:保存对话框选路径 -> export_notes 写 xlsx;取消对话框静默返回。
