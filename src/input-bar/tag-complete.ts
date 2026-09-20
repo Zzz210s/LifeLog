@@ -4,8 +4,12 @@
  */
 import type { CompleteItem } from '../shared/types';
 
-/** 下拉最多展示的候选条数(前端展示上限;Rust 端 complete_tags 内部上限为 50,由 SQL LIMIT 兜底) */
+/** 下拉最多展示的候选条数(前端展示上限;Rust 端 complete_tags 内部上限为 50,由 SQL LIMIT 兜底;
+ *  近义项的补位阈值在 Rust 侧是同一个数字 tags_tree_similar::SIMILAR_TRIGGER,改动须同步) */
 export const COMPLETE_LIMIT = 8;
+
+/** 候选展示顺序:标签命中 -> 别名命中 -> 近义提示(G4),与后端追加顺序一致 */
+const KIND_RANK: Record<CompleteItem['kind'], number> = { tag: 0, alias: 1, similar: 2 };
 
 /**
  * 光标前紧邻的 # 词元:捕获组为词元本体(可空,即刚敲下的 #)。
@@ -36,10 +40,10 @@ export function sameList(a: readonly CompleteItem[], b: readonly CompleteItem[])
 }
 
 /**
- * 前缀匹配候选:标签项按词元前缀过滤,**别名项不做前缀过滤** —— 后端已按别名字符串前缀
- * 筛过,而别名项的 path 是目标标签路径,通常与词元不同形(别名 `日漫` -> `追番/日漫`)。
- * 按 path 去重且标签优先(别名不得遮蔽真实标签);标签项整体在前、别名项在后,
- * 各段内部按路径序;空词元匹配全部;默认限 8 条。
+ * 前缀匹配候选:标签项按词元前缀过滤,**别名项与近义项不做前缀过滤** —— 别名项后端已按
+ * 别名字符串前缀筛过(其 path 是目标路径,通常与词元不同形),近义项的 path 按定义就**不以词元开头**
+ * (否则它早就作为标签项返回了)。按 path 去重且标签优先、其次别名;三段顺序固定
+ * tag -> alias -> similar,各段内部按路径序;空词元匹配全部;默认限 8 条。
  */
 export function completeMatch(
   candidates: readonly CompleteItem[],
@@ -49,7 +53,7 @@ export function completeMatch(
   const byPath = (a: CompleteItem, b: CompleteItem): number =>
     a.path < b.path ? -1 : a.path > b.path ? 1 : 0;
   const ordered = [...candidates].sort((a, b) =>
-    a.kind === b.kind ? byPath(a, b) : a.kind === 'tag' ? -1 : 1
+    a.kind === b.kind ? byPath(a, b) : KIND_RANK[a.kind] - KIND_RANK[b.kind]
   );
   const seen = new Set<string>();
   const out: CompleteItem[] = [];

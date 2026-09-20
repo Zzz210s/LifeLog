@@ -9,11 +9,30 @@ export interface TagCompleteListProps {
   onPick: (path: string) => void;
 }
 
+const BADGE: Record<'alias' | 'similar', { text: string; hint: string }> = {
+  alias: { text: '别名', hint: '别名:采纳后写入 ' },
+  similar: { text: '近似', hint: '近似标签:采纳后写入 ' },
+};
+
+/** 行尾弱化标记:别名 / 近似(标签项无标记) */
+function KindBadge(p: { kind: 'alias' | 'similar'; path: string }): ReactNode {
+  const badge = BADGE[p.kind];
+  return (
+    <span
+      className="ml-2 shrink-0 rounded border border-border px-1 text-[10px] leading-4 text-faint"
+      title={badge.hint + p.path}
+    >
+      {badge.text}
+    </span>
+  );
+}
+
 /**
  * # 补全候选列表(spec 6.3 的形态升级):像浏览器搜索框下方的推荐词条那样,
  * **长在输入框正下方**、占窗口内的独立高度(窗口随之变高,关闭再缩回去),
  * 而不是压在小弹窗里盖住输入框。完整路径展示、末级加粗;别名命中项(G3)在行尾标一个弱化的
- * 「别名」小标 —— 提示这行是按别名命中的,采纳后写入的是目标标签的规范路径。
+ * 「别名」小标,近义提示项(G4)标「近似」—— 都是提示这行是怎么命中的,
+ * 采纳后写入的始终是目标标签的规范路径。
  * 行高固定 SUGGEST_ROW_CSS,前端按它算窗口高度,所以这里不再用 py 之类的可变内边距。
  * onMouseDown + preventDefault 保住 textarea 焦点与光标(采纳要读光标位置)。
  */
@@ -54,14 +73,7 @@ export function TagCompleteList(p: TagCompleteListProps): ReactNode {
               <span className="text-faint">{parent}</span>
               <span className="font-semibold">{leaf}</span>
             </span>
-            {it.kind === 'alias' && (
-              <span
-                className="ml-2 shrink-0 rounded border border-border px-1 text-[10px] leading-4 text-faint"
-                title={'别名:采纳后写入 ' + path}
-              >
-                别名
-              </span>
-            )}
+            {it.kind !== 'tag' && <KindBadge kind={it.kind} path={path} />}
           </button>
         );
       })}

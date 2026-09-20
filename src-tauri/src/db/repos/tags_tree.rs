@@ -133,6 +133,8 @@ mod path;
 mod query;
 #[path = "tags_tree_replace.rs"]
 mod replace;
+#[path = "tags_tree_similar.rs"]
+mod similar;
 pub use ensure::ensure_path;
 pub use ops::{delete_subtree, move_beside, move_to, rename};
 // `complete`(纯标签路径补全)现在只被 complete_with_aliases 与仓库层测试使用,不再向命令层导出;
@@ -188,3 +190,11 @@ mod tags_tree_legacy_tests;
 #[cfg(test)]
 #[path = "tags_tree_complete_alias_tests.rs"]
 mod tags_tree_complete_alias_tests;
+
+#[cfg(test)]
+#[path = "tags_tree_complete_similar_tests.rs"]
+mod tags_tree_complete_similar_tests;
+
+#[cfg(test)]
+#[path = "tags_tree_similar_tests.rs"]
+mod tags_tree_similar_tests;

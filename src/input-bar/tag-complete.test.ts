@@ -4,6 +4,7 @@ import { completeMatch, sameList, tokenAt } from './tag-complete';
 
 const tag = (path: string): CompleteItem => ({ path, kind: 'tag' });
 const alias = (path: string): CompleteItem => ({ path, kind: 'alias' });
+const similar = (path: string): CompleteItem => ({ path, kind: 'similar' });
 
 describe('tokenAt(前导字符规则与 Rust tags.rs 逐字对齐)', () => {
   it('字母数字后不匹配:abc# / C#', () => {
@@ -67,6 +68,30 @@ describe('completeMatch', () => {
   });
 });
 
+describe('completeMatch 近义项(G4 spec §2 D8)', () => {
+  it('近义项不做前缀过滤:其 path 按定义不以词元开头(否则早作为标签项返回)', () => {
+    expect(completeMatch([similar('追番/日漫')], '日漫')).toEqual([similar('追番/日漫')]);
+  });
+  it('顺序固定 tag -> alias -> similar,各段内部按路径序,与输入顺序无关', () => {
+    const a = completeMatch([similar('乙近似'), alias('甲别名'), tag('丙标签')], '');
+    const b = completeMatch([tag('丙标签'), similar('乙近似'), alias('甲别名')], '');
+    expect(a).toEqual([tag('丙标签'), alias('甲别名'), similar('乙近似')]);
+    expect(b).toEqual(a);
+  });
+  it('去重按 path:标签优先,其次别名,近义项最后被丢掉', () => {
+    expect(
+      completeMatch([similar('工作/项目A'), alias('工作/项目A'), tag('工作/项目A')], '工作')
+    ).toEqual([tag('工作/项目A')]);
+    expect(completeMatch([similar('追番/日漫'), alias('追番/日漫')], '日漫')).toEqual([
+      alias('追番/日漫'),
+    ]);
+  });
+  it('近义项同样计入展示上限', () => {
+    const many = Array.from({ length: 3 }, (_, i) => similar(`近似${i}`));
+    expect(completeMatch(many, 'x', 2)).toEqual([similar('近似0'), similar('近似1')]);
+  });
+});
+
 describe('sameList(输入事件里的 bail out 判据)', () => {
   it('长度、路径或来源不同 -> false,顺序不同也算不同', () => {
     expect(sameList([], [])).toBe(true);
@@ -76,5 +101,7 @@ describe('sameList(输入事件里的 bail out 判据)', () => {
     expect(sameList([tag('a'), tag('b')], [tag('b'), tag('a')])).toBe(false);
     expect(sameList([tag('a')], [tag('ab')])).toBe(false);
     expect(sameList([tag('a')], [alias('a')])).toBe(false);
+    expect(sameList([tag('a')], [similar('a')])).toBe(false);
+    expect(sameList([alias('a')], [similar('a')])).toBe(false);
   });
 });

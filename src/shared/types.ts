@@ -30,11 +30,13 @@ export interface TagImpact {
 /**
  * # 补全候选项(IPC `complete_tags`):kind="tag" 为标签路径前缀命中,
  * kind="alias" 为别名前缀命中 —— 此时 path 是**别名目标标签的当前路径**
- * (别名存的是指向,目标改名后后端给的就是新路径)。
+ * (别名存的是指向,目标改名后后端给的就是新路径);
+ * kind="similar" 为近义提示项(G4)—— path 是叶子名与词元近似的标签,
+ * 采纳行为与标签项一致,只在列表里标注「近似」,绝不自动改写用户输入。
  */
 export interface CompleteItem {
   path: string;
-  kind: 'tag' | 'alias';
+  kind: 'tag' | 'alias' | 'similar';
 }
 
 /** 合并标签读数(IPC `merge_tags`,camelCase 与 Rust MergeReport 一致) */

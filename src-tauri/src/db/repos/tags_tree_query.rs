@@ -1,5 +1,6 @@
 //! 标签树查询(自 tags_tree.rs / ops 拆出以守 200 行上限):计数 / 补全 / 影响面。
 use super::{subtree_ids, COMPLETE_LIMIT};
+use super::similar::{similar_paths, SIMILAR_MAX, SIMILAR_TRIGGER};
 use rusqlite::{params, Connection};
 use serde::Serialize;
 use std::collections::HashSet;
@@ -61,9 +62,9 @@ pub fn complete(conn: &Connection, prefix: &str) -> rusqlite::Result<Vec<String>
     rows.collect()
 }
 
-/// 补全候选项(G3 spec §4):`kind` 为 `"tag"`(标签路径前缀命中)或
-/// `"alias"`(别名前缀命中,`path` 是别名目标标签的**当前路径** —— 别名存的是指向,
-/// 目标改名/移动后这里给的是新路径)
+/// 补全候选项(G3 spec §4 + G4 spec §2 D8):`kind` 为
+/// `"tag"`(标签路径前缀命中)、`"alias"`(别名前缀命中,`path` 是别名目标标签的**当前路径** ——
+/// 别名存的是指向,目标改名/移动后这里给的是新路径)或 `"similar"`(近义提示项,见下)。
 #[derive(Serialize, Debug, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct CompleteItem {
@@ -71,10 +72,12 @@ pub struct CompleteItem {
     pub kind: String,
 }
 
-/// 带别名的补全(命令层 `complete_tags` 的唯一数据源):标签项在前(语义与顺序同 `complete`,
+/// 带别名与近义项的补全(命令层 `complete_tags` 的唯一数据源):标签项在前(语义与顺序同 `complete`,
 /// 路径升序),别名项按目标路径升序追加;按 path 去重且**标签优先**(别名不得遮蔽真实标签);
 /// 整体上限仍是 COMPLETE_LIMIT。别名项不做二次前缀过滤:后端已按**别名字符串**前缀筛过,
 /// 目标路径通常与别名字符串不同形(如别名 `日漫` -> 路径 `追番/日漫`)。
+/// 近义项(G4)排在最后,且只在标签 + 别名候选**占不满前端展示上限**时才去取
+/// (见 SIMILAR_TRIGGER):下拉已满时相似项必然被截掉,整表取候选只是白费。
 pub fn complete_with_aliases(
     conn: &Connection,
     prefix: &str,
@@ -90,7 +93,26 @@ pub fn complete_with_aliases(
         }
     }
     out.truncate(COMPLETE_LIMIT as usize);
+    if out.len() < SIMILAR_TRIGGER {
+        // seen 已含标签与别名项:相似项不重复已展示的路径(标签/别名优先)
+        for path in similar_paths(&all_tag_paths(conn)?, prefix, &seen, SIMILAR_MAX) {
+            seen.insert(path.clone());
+            out.push(CompleteItem { path, kind: "similar".into() });
+        }
+        out.truncate(COMPLETE_LIMIT as usize);
+    }
     Ok(out)
+}
+
+/// 近义项的候选集合:全部标签路径(路径升序)。
+/// **取舍**:相似规则 ② 的"词元包含叶子名"与 ③ 的编辑距离都没有子串关系,
+/// 用 instr/LIKE 做不出可靠的超集预筛(漏筛 = 丢候选),所以这里整表取路径、
+/// 由纯函数 `similar_paths` 精确判定;整表扫描只在"标签 + 别名候选占不满展示上限"时才发生,
+/// 量级是标签总数(百级),不构成每击键都扫表的负担。
+fn all_tag_paths(conn: &Connection) -> rusqlite::Result<Vec<String>> {
+    let mut stmt = conn.prepare("SELECT path FROM tags ORDER BY path")?;
+    let rows = stmt.query_map([], |r| r.get(0))?;
+    rows.collect()
 }
 
 /// 别名字符串前缀命中 -> 目标标签当前路径(按目标路径升序;多个别名可指向同一标签,
