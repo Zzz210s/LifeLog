@@ -24,7 +24,7 @@ pub struct BuildConfig {
 
 pub fn build_config() -> BuildConfig {
     BuildConfig {
-        title: "LifeLog",
+        title: "拾枝",
         url: "index.html",
         width: 1100.0,
         height: 720.0,

@@ -20,7 +20,7 @@ fn pending_flag_starts_clear() {
 #[test]
 fn build_config_matches_legacy_window_declaration() {
     let c = build_config();
-    assert_eq!(c.title, "LifeLog");
+    assert_eq!(c.title, "拾枝");
     assert_eq!(c.url, "index.html");
     assert_eq!(c.width, 1100.0);
     assert_eq!(c.height, 720.0);
