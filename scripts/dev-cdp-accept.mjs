@@ -1,11 +1,11 @@
 // MVP-3 Task 5 端到端验收(CDP 驱动真实 dev 应用)
 // 用法: node scripts/dev-cdp-accept.mjs  (需先以 9222 调试端口启动 pnpm tauri dev)
-import { open, recorder, sleep, F } from './cdp-lib.mjs';
+import { ensureMain, recorder, sleep, F } from './cdp-lib.mjs';
 
 const { record, finish } = recorder();
 
 // ---- 启动 ----
-const { cdp: mainCdp, target: main } = await open('main');
+const { cdp: mainCdp, target: main } = await ensureMain();
 console.log('主窗就绪:', main.title, main.url);
 
 // 库存快照(验收前后对照)
