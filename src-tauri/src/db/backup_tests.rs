@@ -99,7 +99,7 @@ fn failed_copy_removes_partial_snapshot() {
     let dest = dir.join("lifelog.db.bak-6-20260912T101010");
     std::fs::write(&dest, b"half-written").unwrap(); // 模拟复制中途留下的半截文件
     let err = copy_snapshot(Path::new("not-a-file"), &dest, &|_, _| {
-        Err(std::io::Error::new(std::io::ErrorKind::Other, "磁盘已满"))
+        Err(std::io::Error::other("磁盘已满"))
     })
     .unwrap_err();
     assert!(err.contains("复制数据库失败"));

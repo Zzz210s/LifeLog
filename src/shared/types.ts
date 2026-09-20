@@ -1,4 +1,3 @@
-import type { FilterConditions } from './filter-conditions';
 
 export interface Note {
   id: number;

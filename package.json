@@ -8,7 +8,9 @@
     "build": "vite build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "verify": "node scripts/verify.mjs",
+    "verify:quick": "node scripts/verify.mjs --quick"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.9.0",

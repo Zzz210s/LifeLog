@@ -13,7 +13,7 @@ fn rejects_too_long_expression() {
 /// 用单字符裸词 + 空格分隔,共 201 字符、101 个 token
 #[test]
 fn rejects_too_many_tokens() {
-    let many = std::iter::repeat("a").take(101).collect::<Vec<_>>().join(" ");
+    let many = std::iter::repeat_n("a", 101).collect::<Vec<_>>().join(" ");
     assert!(many.chars().count() <= MAX_LEN, "用例本身需短于长度上限:{many}");
     let err = validate(&many).unwrap_err();
     assert_eq!(err.message, "表达式项数超过上限 100");

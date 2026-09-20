@@ -55,9 +55,9 @@ fn fresh_db_has_no_updated_at_but_keeps_created_at() {
 
 #[test]
 fn upgrading_legacy_db_drops_column_without_touching_data() {
-    let mut c = db_at_011();
+    let c = db_at_011();
     assert!(has_updated_at(&c), "前置:旧库仍有 updated_at");
-    run(&mut c).unwrap();
+    run(&c).unwrap();
 
     assert_eq!(count(&c, "PRAGMA user_version"), latest_version());
     assert!(!has_updated_at(&c));
@@ -70,11 +70,11 @@ fn upgrading_legacy_db_drops_column_without_touching_data() {
 
 #[test]
 fn rerunning_012_is_a_noop() {
-    let mut c = db();
+    let c = db();
     // 直接把版本退回 11,模拟"同一迁移再跑一次"(真实 run() 靠 user_version 不会重跑)
     c.pragma_update(None, "user_version", DROP_UPDATED_AT_VERSION - 1)
         .unwrap();
-    run(&mut c).unwrap();
+    run(&c).unwrap();
     assert_eq!(count(&c, "PRAGMA user_version"), latest_version());
     assert!(!has_updated_at(&c));
 }

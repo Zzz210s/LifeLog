@@ -18,8 +18,10 @@ fn overlay_position_keeps_window_inside_work_area() {
 
 #[test]
 fn overlay_height_cap_fits_input_plus_suggestion_list() {
-    // 5 行 @2.0 = 320,加 8 行建议列表(24 CSS x 8 + 8)在 2.0 下约 560
-    assert!(MAX_HEIGHT >= 560);
+    // 5 行 @2.0 = 320,加 8 行建议列表(24 CSS x 8 + 8)在 2.0 下约 560:
+    // 用运行期比较而不是 assert! 常量表达式(clippy 会判"断言恒真"而告警)
+    let need = 560;
+    assert_eq!(MAX_HEIGHT.max(need), MAX_HEIGHT, "上限必须容得下 5 行 + 建议列表");
     assert_eq!(clamp_height(9999), MAX_HEIGHT);
     assert_eq!(clamp_height(0), MIN_HEIGHT);
 }

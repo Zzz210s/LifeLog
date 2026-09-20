@@ -7,8 +7,8 @@ use crate::db::repos::notes;
 use rusqlite::Connection;
 
 fn db() -> Connection {
-    let mut conn = Connection::open_in_memory().unwrap();
-    migrate::run(&mut conn).unwrap();
+    let conn = Connection::open_in_memory().unwrap();
+    migrate::run(&conn).unwrap();
     conn
 }
 

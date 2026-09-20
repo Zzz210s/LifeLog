@@ -50,7 +50,8 @@ export function parseStartupSettings(raw: Record<string, string | null>): Startu
 }
 
 export function serializeStartupSetting<K extends keyof StartupSettings>(
-  key: K,
+  // 参数只为类型收窄(K 决定 value 的类型),运行期不读 key —— 下划线前缀避免未用告警
+  _key: K,
   value: StartupSettings[K],
 ): string {
   if (typeof value === 'boolean') return value ? 'true' : 'false';

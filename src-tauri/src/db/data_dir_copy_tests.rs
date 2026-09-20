@@ -112,7 +112,7 @@ fn stale_sidecars_are_cleared_but_kept_ones_survive() {
     fs::create_dir_all(old_db.parent().unwrap()).unwrap();
     fs::write(&old_db, b"main").unwrap();
     // 本次不复制任何附属文件(只有主库):三者都应被清掉
-    clear_stale_sidecars(&new_dir, &[old_db.clone()]).unwrap();
+    clear_stale_sidecars(&new_dir, std::slice::from_ref(&old_db)).unwrap();
     for suffix in ["-wal", "-journal", "-shm"] {
         assert!(!new_dir.join(format!("lifelog.db{suffix}")).exists());
     }
