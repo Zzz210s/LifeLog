@@ -11,6 +11,8 @@ docs/superpowers/
 # 依赖与构建
 node_modules/
 dist/
+# 带 sourcemap 的分析用产物(chunk-attribution.mjs;放仓根会被 tailwind 扫进 CSS,故也建议直接用 .superpowers/dist-an)
+dist-an/
 src-tauri/target/
 src-tauri/gen/schemas/
 
