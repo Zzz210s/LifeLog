@@ -2,6 +2,7 @@
 //! 树真源是 parent_id,path 为冗余但受唯一索引约束,结构变更必须同步维护 path/depth;
 //! 路径前缀比较一律用 substr 而非 LIKE(存量标签名可能含 % 或 _),ensure_path/link_note 收在调用方事务里。
 //! 空标签回收策略:既无 tag_links 又无子节点的容器才回收(link_paths 与 delete_subtree 一致)。
+use super::tag_alias;
 use rusqlite::{params, Connection};
 
 /// 前缀补全返回上限:前缀过短时不一次吐全库
@@ -64,10 +65,15 @@ pub fn link_note(conn: &Connection, note_id: i64, tag_id: i64) -> rusqlite::Resu
 
 /// 笔记维度的链接替换(增量):只删不再需要的、只补缺失的,未变化的链接保持原样
 /// (节点 id 与触发器行为稳定)。路径经 parse_tag_path 校验后走 ensure_path 自动建父级。
+/// 别名优先(spec D2/D3,保存漏斗唯一解析点):只有别名表里登记过的原样字符串才归一,
+/// 命中即改用目标标签的**当前路径**再走同一条建树路径 —— 目标必然已存在,
+/// ensure_path 幂等命中它,不会新建以别名为名的节点。未命中则原样解析。
 pub(crate) fn link_paths(conn: &Connection, note_id: i64, paths: &[String]) -> rusqlite::Result<()> {
     let mut desired: Vec<i64> = Vec::new();
     for path in paths {
-        let segs = crate::tags::parse_tag_path(path).ok_or_else(|| {
+        let canonical = tag_alias::resolve(conn, path)?;
+        let target = canonical.as_deref().unwrap_or(path.as_str());
+        let segs = crate::tags::parse_tag_path(target).ok_or_else(|| {
             rusqlite::Error::InvalidParameterName(format!("非法标签路径: {path}"))
         })?;
         let id = ensure_path(conn, &segs)?;
@@ -110,6 +116,10 @@ mod replace;
 pub use ensure::ensure_path;
 pub use ops::{delete_subtree, move_beside, move_to, rename};
 pub use query::{complete, counts, impact, TagCount};
+
+#[cfg(test)]
+#[path = "tags_tree_alias_tests.rs"]
+mod tags_tree_alias_tests;
 
 #[cfg(test)]
 #[path = "tags_tree_tests.rs"]

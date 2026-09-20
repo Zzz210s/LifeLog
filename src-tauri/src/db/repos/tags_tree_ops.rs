@@ -7,11 +7,13 @@ use super::ops_sql::{
     subtree_note_ids, Anchor,
 };
 use super::{gc_orphans, linked_notes, refresh_fts, subtree_ids};
-use crate::db::repos::tabs_rewrite;
+use crate::db::repos::{tag_alias, tabs_rewrite};
 use rusqlite::{params, Connection, OptionalExtension};
 
-/// 改标签名:校验 -> 同级重名 -> 子树 path 前缀重写 -> 受影响笔记 FTS 重写。整事务。
-pub fn rename(conn: &mut Connection, tag_id: i64, new_name: &str) -> Result<(), String> {
+/// 改标签名:校验 -> 同级重名 -> 子树 path 前缀重写 -> 受影响笔记 FTS 重写 ->
+/// 自动登记旧名(D4,旧完整路径 + 冲突则跳过的旧叶子名)。整事务。
+/// 返回实际登记为别名的旧名列表(供命令层回报界面);无变化时返回空列表。
+pub fn rename(conn: &mut Connection, tag_id: i64, new_name: &str) -> Result<Vec<String>, String> {
     let segs = crate::tags::parse_tag_path(new_name)
         .filter(|s| s.len() == 1)
         .ok_or_else(|| format!("标签名不合法: {new_name}"))?;
@@ -19,7 +21,7 @@ pub fn rename(conn: &mut Connection, tag_id: i64, new_name: &str) -> Result<(), 
     let tx = conn.transaction().map_err(|e| e.to_string())?;
     let node = load(&tx, tag_id)?;
     if node.name == new_name {
-        return Ok(()); // 无变化:回滚空事务
+        return Ok(Vec::new()); // 无变化:回滚空事务
     }
     ensure_sibling_free(&tx, node.parent_id, &new_name, tag_id)?;
     // 新路径从父节点派生(存量平铺根的 path 可能与 name 不一致,不能用自身旧 path 派生)
@@ -31,7 +33,12 @@ pub fn rename(conn: &mut Connection, tag_id: i64, new_name: &str) -> Result<(), 
         .map_err(|e| super::path::unique_conflict(e, "已存在同名标签"))?;
     tabs_rewrite::rewrite_prefix(&tx, &node.path, &new_path).map_err(|e| e.to_string())?;
     refresh_fts(&tx, &notes).map_err(|e| e.to_string())?;
-    tx.commit().map_err(|e| super::path::unique_conflict(e, "已存在同名标签"))
+    // 旧名自动登记为别名(D4):与结构变更同事务 —— 任一步失败,别名也不落地;
+    // 必须在路径重写之后调:此时 old_path 已无对应标签,登记的是"旧名"本身
+    let aliases = tag_alias::register_rename(&tx, &node.path, tag_id).map_err(|e| e.to_string())?;
+    tx.commit()
+        .map_err(|e| super::path::unique_conflict(e, "已存在同名标签"))?;
+    Ok(aliases)
 }
 
 /// 移动标签到新父级(None 为根级):追加到新父级最后一个兄弟之后(右键菜单的口径)

@@ -11,17 +11,25 @@ use crate::db::repos::notes::{create_plain, query, FilterConditions};
 
 const V_012: i64 = 12;
 
+/// 015(标签别名表)的位次:本文件的夹具要经生产写路径造存量数据,而 link_paths
+/// 自 015 起会先查 tag_aliases(见 db_at_012 的说明)
+const V_015: i64 = 15;
+
 fn count(conn: &Connection, sql: &str) -> i64 {
     conn.query_row(sql, [], |r| r.get(0)).unwrap()
 }
 
-/// 停在 012 的库(与 drop_updated_at_tests 同一做法:逐条执行原始 SQL 并推进版本号)
+/// 停在 012 的库(与 drop_updated_at_tests 同一做法:逐条执行原始 SQL 并推进版本号)。
+/// 额外把 015 的别名表建好:自 015 起 link_paths(生产唯一保存漏斗)会先查 tag_aliases,
+/// 而本夹具的存量数据走 create_plain 写入 —— 015 是 CREATE TABLE IF NOT EXISTS,
+/// run() 后面重放它是空操作,不影响本文件对 013 的断言。
 fn db_at_012() -> Connection {
     let conn = Connection::open_in_memory().unwrap();
     for (i, sql) in MIGRATIONS.iter().enumerate().take(V_012 as usize) {
         conn.execute_batch(sql).unwrap();
         conn.pragma_update(None, "user_version", (i + 1) as i64).unwrap();
     }
+    conn.execute_batch(MIGRATIONS[(V_015 - 1) as usize]).unwrap();
     conn
 }
 

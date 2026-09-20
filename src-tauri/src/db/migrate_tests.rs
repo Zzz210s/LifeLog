@@ -139,3 +139,60 @@ fn backfill_hook_reports_only_notes_missing_time_tags() {
     assert!(!skips.iter().any(|(id, _)| *id == tagged || *id == ok));
 }
 
+/// 015 建表:tag_aliases 在,外键 ON(CASCADE 依赖它),且无数据回填
+#[test]
+fn migration_015_creates_tag_aliases_with_fk_on() {
+    let conn = db();
+    assert_eq!(count(&conn, "PRAGMA user_version"), latest_version());
+    assert_eq!(count(&conn, "PRAGMA foreign_keys"), 1, "CASCADE 依赖外键开关");
+    assert_eq!(count(&conn, "SELECT COUNT(*) FROM sqlite_master WHERE name='tag_aliases'"), 1);
+    assert_eq!(count(&conn, "SELECT COUNT(*) FROM tag_aliases"), 0, "别名从零开始");
+}
+
+/// 015 升级路径 + 幂等:v14 旧库升上来存量数据不动;重放本体 SQL 两次也是空操作
+#[test]
+fn migration_015_upgrades_v14_and_is_idempotent() {
+    let conn = Connection::open_in_memory().unwrap();
+    for (i, sql) in MIGRATIONS.iter().enumerate().take(14) {
+        apply(&conn, sql, (i + 1) as i64).unwrap();
+    }
+    conn.execute_batch(
+        "INSERT INTO tags(name, path, depth) VALUES('甲', '甲', 1);
+         INSERT INTO notes(content) VALUES('存量笔记');
+         INSERT INTO tag_links(tag_id, target_type, target_id) VALUES(1, 'note', 1);",
+    )
+    .unwrap();
+
+    run(&conn).unwrap();
+
+    assert_eq!(count(&conn, "SELECT COUNT(*) FROM tag_aliases"), 0, "别名从零开始");
+    assert_eq!(count(&conn, "SELECT COUNT(*) FROM tags"), 1, "存量标签原样保留");
+    assert_eq!(count(&conn, "SELECT COUNT(*) FROM notes"), 1);
+    assert_eq!(count(&conn, "SELECT COUNT(*) FROM tag_links"), 1);
+    conn.execute("INSERT INTO tag_aliases(alias, tag_id) VALUES('旧名', 1)", []).unwrap();
+    let snap = || (count(&conn, "PRAGMA user_version"), count(&conn, "SELECT COUNT(*) FROM tag_aliases"));
+    let first = snap();
+    run(&conn).unwrap(); // 版本闸门:第二次 no-op
+    assert_eq!(snap(), first);
+    let sql = MIGRATIONS[14];
+    conn.execute_batch(sql).unwrap();
+    conn.execute_batch(sql).unwrap(); // 本体重放两次
+    assert_eq!(snap(), first, "重放 015 不得改库");
+}
+
+/// 015 CASCADE:删目标标签连带清掉它的别名,别的标签的别名不受影响
+#[test]
+fn deleting_target_tag_cascades_aliases() {
+    let conn = db();
+    conn.execute_batch(
+        "INSERT INTO tags(name, path, depth) VALUES('甲', '甲', 1);
+         INSERT INTO tags(name, path, depth) VALUES('乙', '乙', 1);
+         INSERT INTO tag_aliases(alias, tag_id) VALUES('旧甲', 1), ('甲甲', 1), ('旧乙', 2);",
+    )
+    .unwrap();
+    assert_eq!(count(&conn, "SELECT COUNT(*) FROM tag_aliases"), 3);
+    conn.execute("DELETE FROM tags WHERE id = 1", []).unwrap();
+    assert_eq!(count(&conn, "SELECT COUNT(*) FROM tag_aliases"), 1, "只清目标标签的别名");
+    assert_eq!(count(&conn, "SELECT tag_id FROM tag_aliases"), 2, "幸存别名仍指向乙");
+}
+

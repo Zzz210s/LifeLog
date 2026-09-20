@@ -28,13 +28,24 @@ pub fn list_tags(app: AppHandle) -> Result<Vec<TagCount>, String> {
     with_conn(&app, |c| tags_tree::counts(c).map_err(|e| e.to_string()))
 }
 
-/// 改标签名(单段名称);级联重写子树路径与全文索引
+/// 改名结果:本次自动登记为别名的旧名列表(D4;旧完整路径在前、叶子名在后)。
+/// 前端调用点暂不使用该返回值(G3 标签菜单再接入),保留原命令名与参数不变。
+#[derive(Serialize, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct RenameReport {
+    pub aliases: Vec<String>,
+}
+
+/// 改标签名(单段名称);级联重写子树路径与全文索引,并自动登记旧名为别名
 #[tauri::command]
-pub fn rename_tag(app: AppHandle, tag_id: i64, new_name: String) -> Result<(), String> {
+pub fn rename_tag(app: AppHandle, tag_id: i64, new_name: String) -> Result<RenameReport, String> {
     if new_name.trim().is_empty() {
         return Err("标签名不能为空".into());
     }
-    with_conn(&app, |c| tags_tree::rename(c, tag_id, new_name.trim()))
+    with_conn(&app, |c| {
+        tags_tree::rename(c, tag_id, new_name.trim())
+            .map(|aliases| RenameReport { aliases })
+    })
 }
 
 /// 移动标签(含环检测与深度上限);new_parent_id 为 null 表示移到根级
