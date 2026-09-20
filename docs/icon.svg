@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" role="img" aria-label="LifeLog">
+  <!-- LifeLog 应用图标(设计源)。
+       视觉语言参考瑞幸咖啡的图标:深蓝实底 + 纯白极简剪影 + 无渐变无阴影的高对比扁平风;
+       图形是自有的 —— 一条信息流自左下汇聚、向上分成两支并各带一个节点,
+       对应本软件的两个核心概念:统一信息流 + 层级标签(不使用鹿的剪影,避免撞商标)。
+       光栅源由 scripts/gen-icon.py 生成(同一套几何),再经 pnpm tauri icon 派生全套尺寸。 -->
+  <rect width="1024" height="1024" rx="230" fill="#002D62"/>
+  <g fill="none" stroke="#FFFFFF" stroke-width="100.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M279.2 804.8 C 320 670.4, 392 620, 466.4 574.4"/>
+    <path d="M466.4 574.4 C 495.2 468.8, 447.2 360.8, 375.2 254.4"/>
+    <path d="M466.4 574.4 C 555.2 528.8, 663.2 485.6, 756.8 334.4"/>
+  </g>
+  <g fill="#FFFFFF">
+    <circle cx="279.2" cy="804.8" r="57.6"/>
+    <circle cx="375.2" cy="254.4" r="57.6"/>
+    <circle cx="756.8" cy="334.4" r="57.6"/>
+  </g>
+</svg>

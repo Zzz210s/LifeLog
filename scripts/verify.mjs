@@ -20,15 +20,25 @@ const codeFiles = execSync('git ls-files', { cwd, encoding: 'utf8' })
   .split('\n')
   .filter((f) => /\.(ts|tsx|js|mjs|cjs|rs|py|css|html)$/.test(f));
 
-/** 行数(与 wc -l 同口径:结尾换行不算新的一行;CRLF 不影响计数) */
+/**
+ * 行数(与 wc -l 同口径:结尾换行不算新的一行;CRLF 不影响计数)。
+ * 读不到(如 git 里已删、尚未提交)返回 null —— 这种瞬时状态不该让门禁崩在 ENOENT。
+ */
 function lineCount(file) {
-  const text = readFileSync(file, 'utf8');
+  let text;
+  try {
+    text = readFileSync(file, 'utf8');
+  } catch {
+    return null;
+  }
   return text.replace(/\n$/, '').split('\n').length;
 }
 
 /** 行数红线:代码文件 ≤200 行(.md 文档按用户规则不受限) */
 function checkLineLimit() {
-  const sizes = codeFiles.map((f) => [f, lineCount(f)]);
+  const sizes = codeFiles
+    .map((f) => [f, lineCount(f)])
+    .filter(([, n]) => n !== null);
   const bad = sizes.filter(([, n]) => n > 200);
   if (bad.length) {
     console.error('行数超限(代码文件上限 200 行):');
@@ -36,7 +46,7 @@ function checkLineLimit() {
     return false;
   }
   const max = Math.max(...sizes.map(([, n]) => n));
-  console.log(`通过(${codeFiles.length} 个代码文件,最长 ${max} 行)`);
+  console.log(`通过(${sizes.length} 个代码文件,最长 ${max} 行)`);
   return true;
 }
 

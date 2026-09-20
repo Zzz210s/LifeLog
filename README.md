@@ -1,5 +1,7 @@
 English | [简体中文](README.zh-CN.md)
 
+<img src="docs/icon.svg" width="88" alt="LifeLog">
+
 # LifeLog
 
 A local-first personal life database: capture with #tags, search, filter, and export to Excel.
