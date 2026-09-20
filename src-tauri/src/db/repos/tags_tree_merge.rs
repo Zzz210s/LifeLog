@@ -3,8 +3,9 @@
 //! 单事务:校验失败或任一步出错都整体回滚 —— 失败时数据库零变化。
 //! 语义边界(D5):源标签必须无子节点(子树层级如何映射到目标没有唯一正解,先不做);
 //! 目标标签不得落在源标签子树内(否则合并后语义自指)。
-use super::tags_tree::{gc_orphans, linked_notes, refresh_fts, subtree_ids};
-use crate::db::repos::{tag_alias, tabs_rewrite};
+use super::tags_tree::{linked_notes, subtree_ids};
+use super::tags_write::{finish, PostWrite};
+use crate::db::repos::tag_alias;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
 
@@ -21,7 +22,7 @@ pub struct MergeReport {
 }
 
 /// 合并标签:校验 -> 转移链接 -> 清重复行 -> 可选登记别名 -> 删除源标签
-/// -> 标签页条件级联 -> 孤儿回收 -> FTS 重写。整事务提交。
+/// -> 统一收尾(tags_write::finish:路径级联 -> FTS 重写 -> 孤儿回收)。整事务提交。
 pub fn merge_tags(
     conn: &mut Connection,
     source_id: i64,
@@ -71,13 +72,18 @@ pub fn merge_tags(
     // ⑥ 删除源标签(外键级联兜底清理残余链接行)
     tx.execute("DELETE FROM tags WHERE id = ?1", params![source_id])
         .map_err(|e| e.to_string())?;
-    // ⑦ 标签页条件级联(D7):tags[] / excludeTags[] / expr token 按前缀规则改写到目标路径
-    tabs_rewrite::rewrite_prefix(&tx, &source_path, &target_path).map_err(|e| e.to_string())?;
-    // ⑧ 孤儿回收:源标签的父链可能因此变成空容器
-    gc_orphans(&tx).map_err(|e| e.to_string())?;
-    // ⑨ 显式重写 FTS:tag_links 的 UPDATE 从未配触发器(003 起只有 ai/ad),被转移链接的
-    //    笔记不会自动刷新 —— 不重写会残留源路径且搜不到目标路径。必须在删掉源标签之后做。
-    refresh_fts(&tx, &notes).map_err(|e| e.to_string())?;
+    // ⑦ 统一收尾:标签页条件级联(D7) -> 受影响笔记 FTS 重写 -> 孤儿回收(源的父链可能变空容器)。
+    //    FTS 必须在删掉源标签之后显式重写:被转移链接的笔记不会自动刷新(tag_links 无 au 触发器),
+    //    不重写会残留源路径且搜不到目标路径(2026-09-20 合并功能漏的正是这一步)。
+    finish(
+        &tx,
+        PostWrite {
+            notes: &notes,
+            path_change: Some((source_path.as_str(), target_path.as_str())),
+            gc: true,
+        },
+    )
+    .map_err(|e| e.to_string())?;
     tx.commit().map_err(|e| e.to_string())?;
     Ok(MergeReport {
         moved_links,

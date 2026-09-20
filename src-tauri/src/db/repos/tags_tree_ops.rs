@@ -6,8 +6,9 @@ use super::ops_sql::{
     apply_sibling_order, ensure_sibling_free, load, rewrite_subtree_paths, shift_subtree_depths,
     subtree_note_ids, Anchor,
 };
-use super::{gc_orphans, linked_notes, refresh_fts, subtree_ids};
-use crate::db::repos::{tag_alias, tabs_rewrite};
+use super::{linked_notes, subtree_ids};
+use crate::db::repos::tag_alias;
+use crate::db::repos::tags_write::{finish, PostWrite};
 use rusqlite::{params, Connection, OptionalExtension};
 
 /// 改标签名:校验 -> 同级重名 -> 子树 path 前缀重写 -> 受影响笔记 FTS 重写 ->
@@ -31,8 +32,15 @@ pub fn rename(conn: &mut Connection, tag_id: i64, new_name: &str) -> Result<Vec<
         .map_err(|e| super::path::unique_conflict(e, "已存在同名标签"))?;
     rewrite_subtree_paths(&tx, &node.path, &new_path)
         .map_err(|e| super::path::unique_conflict(e, "已存在同名标签"))?;
-    tabs_rewrite::rewrite_prefix(&tx, &node.path, &new_path).map_err(|e| e.to_string())?;
-    refresh_fts(&tx, &notes).map_err(|e| e.to_string())?;
+    finish(
+        &tx,
+        PostWrite {
+            notes: &notes,
+            path_change: Some((node.path.as_str(), new_path.as_str())),
+            gc: false, // 仅改名:没有节点被移走,不产生空容器
+        },
+    )
+    .map_err(|e| e.to_string())?;
     // 旧名自动登记为别名(D4):与结构变更同事务 —— 任一步失败,别名也不落地;
     // 必须在路径重写之后调:此时 old_path 已无对应标签,登记的是"旧名"本身
     let aliases = tag_alias::register_rename(&tx, &node.path, tag_id).map_err(|e| e.to_string())?;
@@ -104,9 +112,15 @@ pub fn move_to_ordered(
     shift_subtree_depths(&tx, tag_id, delta).map_err(|e| e.to_string())?;
     // 同层次序(S8):插到锚点位置后整层重写 sort_order;锚点 None = 追加到末尾
     apply_sibling_order(&tx, new_parent, tag_id, anchor)?;
-    tabs_rewrite::rewrite_prefix(&tx, &node.path, &new_path).map_err(|e| e.to_string())?;
-    gc_orphans(&tx).map_err(|e| e.to_string())?;
-    refresh_fts(&tx, &notes).map_err(|e| e.to_string())?;
+    finish(
+        &tx,
+        PostWrite {
+            notes: &notes,
+            path_change: Some((node.path.as_str(), new_path.as_str())),
+            gc: true, // 移走最后的子节点后,旧父级会变成无链接无子节点的空容器
+        },
+    )
+    .map_err(|e| e.to_string())?;
     tx.commit().map_err(|e| super::path::unique_conflict(e, "该层级下已有同名标签"))
 }
 
@@ -145,8 +159,8 @@ pub fn delete_subtree(conn: &mut Connection, tag_id: i64) -> Result<(), String> 
     // tag_links 触发器已按"链接移除后"的聚合重写 FTS,此处再显式重写一次兜底
     tx.execute(&format!("DELETE FROM tags WHERE id IN ({marks})"), args())
         .map_err(|e| e.to_string())?;
-    gc_orphans(&tx).map_err(|e| e.to_string())?;
     // 删除标签**不**重写 tabs_state 条件(S7):已删路径的标签页自然筛不出笔记,由用户自行调整。
-    refresh_fts(&tx, &notes).map_err(|e| e.to_string())?;
+    finish(&tx, PostWrite { notes: &notes, path_change: None, gc: true })
+        .map_err(|e| e.to_string())?;
     tx.commit().map_err(|e| e.to_string())
 }
