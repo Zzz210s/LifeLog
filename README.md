@@ -66,8 +66,9 @@ The window *is* the input box: no frame, no title bar, no buttons, transparent s
   and the caret stays in the input for the next entry
 - Typing `#` shows tag suggestions the way a browser search box shows its recommendations: the list
   appears **directly under the input** (the window grows to fit it and shrinks back when it closes);
-  `Up`/`Down` to choose, `Enter`/`Tab` to accept, `Esc` to close just the list. The list height is
-  never remembered
+  `Up`/`Down` to choose, `Enter`/`Tab` to accept, `Esc` to close just the list. Entries are marked as an
+  **alias** (an old name that still points at the canonical tag) or as **similar** (an existing lookalike,
+  reuse it instead of creating a new tag). The list height is never remembered
 - Mouse-wheel zoom from 50% to 200% with no modifier key; `Ctrl` + wheel changes the opacity from
   30% to 100%; middle-click restores 100% zoom and the configured default opacity
 - Three locks — block moving, block closing, lock content — each switchable in the settings page;
@@ -86,7 +87,16 @@ The window *is* the input box: no frame, no title bar, no buttons, transparent s
   it a **sibling** — an insertion line appears at the boundary and its indent shows the level you
   are about to land on; dropping on empty space moves it back to the root. The context menu offers
   rename / move / delete, and sibling order is remembered
-- Inline editing in a VSCode-style split pane: Markdown source on the left, live preview on the
+- The tag context menu offers rename / move / **alias** / **merge**. An alias records which tag a name
+  points at (old names and short forms normalise automatically, so writing `#old-name` still lands on the
+  renamed tag; aliases can be added and removed in the menu). Merge folds tag A into tag B: links move over,
+  the old name is kept as an alias by default, and tag-page filters are rewritten — only leaf tags can merge
+- **Parent tags are clickable**: clicking `电影`, `信息` or `日期/2026` filters every descendant (a child
+  implies its parent, so notes do not need redundant parent tags)
+- Note cards split chips into two rows: **topic** (domain / genre / region) and **attribute** (status / origin /
+  channel / platform / author nationality / date); each row collapses to `+N` past its threshold (6 / 4) and
+  expands on click
+- The editor shows the tag count and, above five, a gentle 3-5 hint; saving is never blocked- Inline editing in a VSCode-style split pane: Markdown source on the left, live preview on the
   right, `Ctrl+Enter` to save
 - Deleting asks for confirmation
 - A gear in the top bar opens an inline settings page (the stream stays mounted behind it, so
