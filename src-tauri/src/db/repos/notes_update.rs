@@ -8,7 +8,7 @@ use rusqlite::{params, Connection};
 /// 替换笔记标签集合(事务内):路径经校验后建/复用节点并做增量链接,最后收窄回收孤儿。
 /// tag_links 触发器负责将聚合结果同步进 FTS tags 列。
 fn set_tags(tx: &rusqlite::Transaction<'_>, id: i64, paths: &[String]) -> rusqlite::Result<()> {
-    crate::db::repos::tags_tree::link_paths(tx, id, paths)
+    crate::db::repos::tags::link_paths(tx, id, paths)
 }
 
 /// 更新笔记正文(事务):剥离/提取标签后整条重存,链接为替换语义。

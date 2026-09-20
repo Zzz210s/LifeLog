@@ -91,7 +91,7 @@ fn create_with(
     tx.execute("INSERT INTO notes(content) VALUES(?1)", params![text])?;
     let id = tx.last_insert_rowid();
     // 006 起 tags 为树:按路径自动建父级并做增量链接(孤儿回收已收窄为"无链接且无子")
-    crate::db::repos::tags_tree::link_paths(&tx, id, &names)?;
+    crate::db::repos::tags::link_paths(&tx, id, &names)?;
     let note = read_full(&tx, id)?.ok_or(rusqlite::Error::QueryReturnedNoRows)?;
     tx.commit()?;
     Ok(note)

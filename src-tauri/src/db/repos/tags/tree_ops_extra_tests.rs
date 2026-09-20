@@ -3,7 +3,7 @@
 use super::*;
 use crate::db::migrate;
 use crate::db::repos::notes;
-use crate::db::repos::tags_invariants_tests::{assert_fts_matches_tags, assert_no_orphan_tags};
+use crate::db::repos::tags::invariants_tests::{assert_fts_matches_tags, assert_no_orphan_tags};
 use rusqlite::Connection;
 
 fn db() -> Connection {

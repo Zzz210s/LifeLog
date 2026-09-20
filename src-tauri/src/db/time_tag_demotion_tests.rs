@@ -152,6 +152,6 @@ fn migration_011_triggers_agree_with_refresh_fts() {
     assert!(updated.contains('乙') && updated.contains("时间排序"), "{updated}");
     // 结构变更路径(tags_tree::refresh_fts)口径必须一致
     conn.execute("DELETE FROM notes_fts WHERE rowid=?1", [id]).unwrap();
-    crate::db::repos::tags_tree::refresh_fts(&conn, &[id]).unwrap();
+    crate::db::repos::tags::refresh_fts(&conn, &[id]).unwrap();
     assert_eq!(fts_tags(&conn, id), updated, "两条写入路径的索引串必须一致");
 }

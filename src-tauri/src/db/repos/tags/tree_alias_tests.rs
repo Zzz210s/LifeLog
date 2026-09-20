@@ -3,8 +3,8 @@
 //! 未登记的字符串原样建节点(不做模糊猜测)。
 use super::*;
 use crate::db::migrate;
-use crate::db::repos::{notes, tag_alias};
-use crate::db::repos::tags_invariants_tests::{assert_fts_matches_tags, assert_no_orphan_tags};
+use crate::db::repos::{notes, tags::alias};
+use crate::db::repos::tags::invariants_tests::{assert_fts_matches_tags, assert_no_orphan_tags};
 use rusqlite::{params, Connection};
 
 fn db() -> Connection {
@@ -28,7 +28,7 @@ fn link_paths_resolves_alias_without_creating_node() {
     let mut c = db();
     let n = notes::create_plain(&mut c, "看番 #追番/日漫").unwrap();
     let target = id_at(&c, "追番/日漫");
-    tag_alias::add(&c, "日漫", target).unwrap();
+    alias::add(&c, "日漫", target).unwrap();
 
     // 走替换语义:原来链的是目标路径,现在只写别名,仍应落在同一个节点上
     link_paths(&c, n.id, &["日漫".to_string()]).unwrap();
@@ -55,7 +55,7 @@ fn link_paths_dedupes_alias_and_canonical_path() {
     let mut c = db();
     let n = notes::create_plain(&mut c, "看番 #追番/日漫").unwrap();
     let target = id_at(&c, "追番/日漫");
-    tag_alias::add(&c, "日漫", target).unwrap();
+    alias::add(&c, "日漫", target).unwrap();
 
     link_paths(&c, n.id, &["日漫".to_string(), "追番/日漫".to_string()]).unwrap();
 
@@ -71,7 +71,7 @@ fn link_paths_creates_nodes_for_unregistered_strings() {
     let mut c = db();
     notes::create_plain(&mut c, "看番 #追番/日漫").unwrap();
     let target = id_at(&c, "追番/日漫");
-    tag_alias::add(&c, "日漫", target).unwrap();
+    alias::add(&c, "日漫", target).unwrap();
 
     let n = notes::create_plain(&mut c, "另一条 #日漫2 #番剧").unwrap();
 
@@ -90,7 +90,7 @@ fn add_rejects_alias_shadowing_real_tag() {
     let mut c = db();
     let n = notes::create_plain(&mut c, "旧写法 #日漫").unwrap();
     let real = id_at(&c, "日漫");
-    let err = tag_alias::add(&c, "日漫", real).unwrap_err();
+    let err = alias::add(&c, "日漫", real).unwrap_err();
     assert!(err.to_string().contains("重名"), "应给出中文重名提示: {err}");
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tag_aliases"), 0);
     let _ = n;
@@ -104,11 +104,11 @@ fn real_tag_wins_over_alias_after_rename() {
     // ① 先有 追番/日漫,并把它登记为别名 日漫 的目标
     let n1 = notes::create_plain(&mut c, "看番 #追番/日漫").unwrap();
     let target = id_at(&c, "追番/日漫");
-    tag_alias::add(&c, "日漫", target).unwrap();
+    alias::add(&c, "日漫", target).unwrap();
     // ② 之后通过改名造出一个真实标签 日漫(根级)
     let n2 = notes::create_plain(&mut c, "临时 #临时标签").unwrap();
     let tmp = id_at(&c, "临时标签");
-    crate::db::repos::tags_tree::rename(&mut c, tmp, "日漫").expect("改名应成功");
+    crate::db::repos::tags::rename(&mut c, tmp, "日漫").expect("改名应成功");
     let real = id_at(&c, "日漫");
     // ③ 再写 #日漫:必须落在真实标签上
     link_paths(&c, n1.id, &["日漫".to_string()]).unwrap();

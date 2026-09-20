@@ -3,7 +3,7 @@
 //! 同一 path 只出现一次且标签优先;别名按"别名字符串"前缀命中,不按目标路径。
 use super::*;
 use crate::db::migrate;
-use crate::db::repos::{notes, tag_alias};
+use crate::db::repos::{notes, tags::alias};
 use rusqlite::Connection;
 
 fn db() -> Connection {
@@ -39,7 +39,7 @@ fn alias_prefix_matches_alias_string_and_returns_target_path() {
     let mut c = db();
     notes::create_plain(&mut c, "看番 #追番/日漫").unwrap();
     let target = id_at(&c, "追番/日漫");
-    tag_alias::add(&c, "日漫", target).unwrap();
+    alias::add(&c, "日漫", target).unwrap();
 
     assert_eq!(
         complete_with_aliases(&c, "日").unwrap(),
@@ -62,7 +62,7 @@ fn dedupes_by_path_keeping_tag() {
     let mut c = db();
     notes::create_plain(&mut c, "a #工作/项目A").unwrap();
     let target = id_at(&c, "工作/项目A");
-    tag_alias::add(&c, "项目甲", target).unwrap();
+    alias::add(&c, "项目甲", target).unwrap();
 
     // 前缀 "工作" 命中标签;前缀 "项" 同时命中别名 项目甲 与标签 工作/项目A?否 —— 只命中别名
     assert_eq!(
@@ -89,7 +89,7 @@ fn alias_item_follows_target_rename() {
     let mut c = db();
     notes::create_plain(&mut c, "看番 #追番/日漫").unwrap();
     let target = id_at(&c, "追番/日漫");
-    tag_alias::add(&c, "日漫", target).unwrap();
+    alias::add(&c, "日漫", target).unwrap();
     rename(&mut c, target, "动画").unwrap();
 
     assert_eq!(
@@ -104,7 +104,7 @@ fn alias_items_are_appended_after_tag_items() {
     let mut c = db();
     notes::create_plain(&mut c, "a #日子 #追番/日漫").unwrap();
     let target = id_at(&c, "追番/日漫");
-    tag_alias::add(&c, "日漫", target).unwrap();
+    alias::add(&c, "日漫", target).unwrap();
 
     assert_eq!(
         complete_with_aliases(&c, "日").unwrap(),
@@ -122,7 +122,7 @@ fn respects_complete_limit() {
         notes::create_plain(&mut c, &format!("n{i} #标签{i:02}")).unwrap();
     }
     let target = id_at(&c, "标签00");
-    tag_alias::add(&c, "别名甲", target).unwrap();
+    alias::add(&c, "别名甲", target).unwrap();
 
     let rows = complete_with_aliases(&c, "").unwrap();
     assert_eq!(rows.len(), 50, "不得超过 COMPLETE_LIMIT");

@@ -7,8 +7,8 @@ use super::ops_sql::{
     subtree_note_ids, Anchor,
 };
 use super::{linked_notes, subtree_ids};
-use crate::db::repos::tag_alias;
-use crate::db::repos::tags_write::{finish, PostWrite};
+use crate::db::repos::tags::alias;
+use crate::db::repos::tags::{finish, PostWrite};
 use rusqlite::{params, Connection, OptionalExtension};
 
 /// 改标签名:校验 -> 同级重名 -> 子树 path 前缀重写 -> 受影响笔记 FTS 重写 ->
@@ -43,7 +43,7 @@ pub fn rename(conn: &mut Connection, tag_id: i64, new_name: &str) -> Result<Vec<
     .map_err(|e| e.to_string())?;
     // 旧名自动登记为别名(D4):与结构变更同事务 —— 任一步失败,别名也不落地;
     // 必须在路径重写之后调:此时 old_path 已无对应标签,登记的是"旧名"本身
-    let aliases = tag_alias::register_rename(&tx, &node.path, tag_id).map_err(|e| e.to_string())?;
+    let aliases = alias::register_rename(&tx, &node.path, tag_id).map_err(|e| e.to_string())?;
     tx.commit()
         .map_err(|e| super::path::unique_conflict(e, "已存在同名标签"))?;
     Ok(aliases)

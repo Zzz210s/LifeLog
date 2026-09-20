@@ -2,8 +2,8 @@
 //! 三类校验失败整事务回滚(逐行快照比对)、别名开关。级联与 FTS 见 extra 文件。
 use super::*;
 use crate::db::migrate;
-use crate::db::repos::{notes, tag_alias};
-use crate::db::repos::tags_invariants_tests::{
+use crate::db::repos::{notes, tags::alias};
+use crate::db::repos::tags::invariants_tests::{
     assert_fts_matches_tags, assert_no_orphan_tags, assert_tabs_paths_exist,
 };
 use rusqlite::Connection;
@@ -97,7 +97,7 @@ fn source_with_children_rejected_and_rolls_back() {
     notes::create_plain(&mut c, "c #其它").unwrap();
     let (src, dst) = (id_at(&c, "源"), id_at(&c, "目标"));
     // 先让别名表与标签页有内容,验证失败时它们也不动
-    tag_alias::add(&c, "别名X", dst).unwrap();
+    alias::add(&c, "别名X", dst).unwrap();
     let before = snapshot(&c);
 
     let err = merge_tags(&mut c, src, dst, true).unwrap_err();
@@ -166,8 +166,8 @@ fn keep_alias_registers_old_path_and_leaf() {
     let r = merge_tags(&mut c, src, dst, true).unwrap();
 
     assert_eq!(r.aliases, vec!["工作/项目A".to_string(), "项目A".to_string()]);
-    assert_eq!(tag_alias::resolve(&c, "工作/项目A").unwrap().as_deref(), Some("事业"));
-    assert_eq!(tag_alias::resolve(&c, "项目A").unwrap().as_deref(), Some("事业"));
+    assert_eq!(alias::resolve(&c, "工作/项目A").unwrap().as_deref(), Some("事业"));
+    assert_eq!(alias::resolve(&c, "项目A").unwrap().as_deref(), Some("事业"));
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tag_aliases"), 2);
     assert_fts_matches_tags(&c);
     assert_no_orphan_tags(&c);

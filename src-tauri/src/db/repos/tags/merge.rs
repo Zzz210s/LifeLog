@@ -3,9 +3,9 @@
 //! 单事务:校验失败或任一步出错都整体回滚 —— 失败时数据库零变化。
 //! 语义边界(D5):源标签必须无子节点(子树层级如何映射到目标没有唯一正解,先不做);
 //! 目标标签不得落在源标签子树内(否则合并后语义自指)。
-use super::tags_tree::{linked_notes, subtree_ids};
-use super::tags_write::{finish, PostWrite};
-use crate::db::repos::tag_alias;
+use super::tree::{linked_notes, subtree_ids};
+use super::alias;
+use crate::db::repos::tags::{finish, PostWrite};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
 
@@ -65,7 +65,7 @@ pub fn merge_tags(
         .map_err(|e| e.to_string())?;
     // ⑤ 旧名登记为别名(D6):旧完整路径 + 不冲突的旧叶子名
     let aliases = if keep_alias {
-        tag_alias::register_rename(&tx, &source_path, target_id).map_err(|e| e.to_string())?
+        alias::register_rename(&tx, &source_path, target_id).map_err(|e| e.to_string())?
     } else {
         Vec::new()
     };
@@ -111,9 +111,9 @@ fn has_children(conn: &Connection, id: i64) -> rusqlite::Result<bool> {
 }
 
 #[cfg(test)]
-#[path = "tags_tree_merge_tests.rs"]
-mod tags_tree_merge_tests;
+#[path = "tree_merge_tests.rs"]
+mod tree_merge_tests;
 
 #[cfg(test)]
-#[path = "tags_tree_merge_extra_tests.rs"]
-mod tags_tree_merge_extra_tests;
+#[path = "tree_merge_extra_tests.rs"]
+mod tree_merge_extra_tests;

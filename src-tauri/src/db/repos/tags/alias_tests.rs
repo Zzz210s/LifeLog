@@ -3,7 +3,7 @@
 use super::*;
 use crate::db::migrate;
 use crate::db::repos::notes;
-use crate::db::repos::tags_tree::rename;
+use crate::db::repos::tags::rename;
 use rusqlite::Connection;
 
 fn db() -> Connection {

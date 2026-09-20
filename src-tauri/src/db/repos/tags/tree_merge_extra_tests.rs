@@ -4,7 +4,7 @@ use super::*;
 use crate::db::migrate;
 use crate::db::repos::notes::{self, notes_filter::*, query};
 use crate::db::repos::settings::{self, TABS_STATE_KEY};
-use crate::db::repos::tags_invariants_tests::{
+use crate::db::repos::tags::invariants_tests::{
     assert_fts_matches_tags, assert_no_orphan_tags, assert_tabs_paths_exist,
 };
 use rusqlite::{params, Connection};

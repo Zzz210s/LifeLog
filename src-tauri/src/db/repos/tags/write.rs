@@ -3,8 +3,8 @@
 //! 固定顺序 ① 路径级联 ② FTS 重写 ③ 孤儿回收由这里保证,调用方不必(也不应)自己记得。
 //! 为什么 FTS 必须显式重写:tag_links 自迁移 003 起只有 INSERT/DELETE 触发器,
 //! `UPDATE tag_links SET tag_id` 不会触发 → 漏写就静默漂移(按新名搜不到、旧名仍命中)。
-use super::tags_tree::{gc_orphans, refresh_fts};
-use super::tabs_rewrite;
+use super::tree::{gc_orphans, refresh_fts};
+use crate::db::repos::tabs_rewrite;
 use rusqlite::Connection;
 
 /// 标签写入的收尾输入(见 [`finish`])。调用方按自己的语义填:仅改名可 `gc: false`、

@@ -7,7 +7,7 @@
 //! ③ [`assert_tabs_paths_exist`]:settings.tabs_state 引用的每个标签路径(结构化 tags[] /
 //!    excludeTags[] 与 expr token)都真实存在。只对"路径变化"类操作断言:删除按设计不改写
 //!    条件(S7),留下已删路径是允许的。
-use super::settings::{self, TABS_STATE_KEY};
+use crate::db::repos::settings::{self, TABS_STATE_KEY};
 use crate::expr::lexer::{lex_spans, Token};
 use rusqlite::{params, Connection, OptionalExtension};
 
@@ -123,7 +123,7 @@ fn rename_cascades_tabs_and_keeps_invariants() {
     crate::db::repos::settings::set(&c, TABS_STATE_KEY, tabs).unwrap();
     let root = id_at(&c, "工作");
 
-    crate::db::repos::tags_tree::rename(&mut c, root, "事业").unwrap();
+    crate::db::repos::tags::rename(&mut c, root, "事业").unwrap();
 
     let raw = crate::db::repos::settings::get(&c, TABS_STATE_KEY).unwrap().unwrap();
     assert!(raw.contains("事业/项目A") && !raw.contains("工作"), "条件未级联: {raw}");
@@ -140,7 +140,7 @@ fn fts_invariant_catches_manual_update_drift() {
     crate::db::migrate::run(&c).unwrap();
     let note = crate::db::repos::notes::create_plain(&mut c, "x #甲").unwrap();
     let jia = id_at(&c, "甲");
-    let yi = crate::db::repos::tags_tree::ensure_path(&c, &["乙".to_string()]).unwrap();
+    let yi = crate::db::repos::tags::ensure_path(&c, &["乙".to_string()]).unwrap();
 
     // 变异:绕开所有仓库层入口,直接改链接表
     c.execute("UPDATE tag_links SET tag_id = ?1 WHERE tag_id = ?2", params![yi, jia])

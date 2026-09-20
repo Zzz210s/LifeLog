@@ -135,5 +135,5 @@ fn invalid(msg: &str) -> rusqlite::Error {
 }
 
 #[cfg(test)]
-#[path = "tag_alias_tests.rs"]
-mod tag_alias_tests;
+#[path = "alias_tests.rs"]
+mod alias_tests;

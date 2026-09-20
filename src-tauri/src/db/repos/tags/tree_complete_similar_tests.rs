@@ -3,7 +3,7 @@
 use super::similar::{SIMILAR_MAX, SIMILAR_TRIGGER};
 use super::*;
 use crate::db::migrate;
-use crate::db::repos::{notes, tag_alias};
+use crate::db::repos::{notes, tags::alias};
 use rusqlite::Connection;
 
 fn db() -> Connection {
@@ -39,7 +39,7 @@ fn similar_does_not_duplicate_alias_path() {
     let mut c = db();
     notes::create_plain(&mut c, "看番 #追番/日漫").unwrap();
     let target = id_at(&c, "追番/日漫");
-    tag_alias::add(&c, "日漫", target).unwrap();
+    alias::add(&c, "日漫", target).unwrap();
 
     assert_eq!(
         complete_with_aliases(&c, "日漫").unwrap(),

@@ -2,7 +2,7 @@
 //! 树真源是 parent_id,path 为冗余但受唯一索引约束,结构变更必须同步维护 path/depth;
 //! 路径前缀比较一律用 substr 而非 LIKE(存量标签名可能含 % 或 _),ensure_path/link_note 收在调用方事务里。
 //! 空标签回收策略:既无 tag_links 又无子节点的容器才回收(link_paths 与 delete_subtree 一致)。
-use super::tag_alias;
+use super::alias;
 use rusqlite::{params, Connection};
 
 /// 前缀补全返回上限:前缀过短时不一次吐全库
@@ -91,7 +91,7 @@ pub(crate) fn link_paths(conn: &Connection, note_id: i64, paths: &[String]) -> r
             }
             continue;
         }
-        let canonical = tag_alias::resolve(conn, path)?;
+        let canonical = alias::resolve(conn, path)?;
         let target = canonical.as_deref().unwrap_or(path.as_str());
         let segs = crate::tags::parse_tag_path(target).ok_or_else(|| {
             rusqlite::Error::InvalidParameterName(format!("非法标签路径: {path}"))
@@ -121,19 +121,19 @@ pub(crate) fn gc_orphans(conn: &Connection) -> rusqlite::Result<()> {
 }
 
 // Task 4 命令层已接入:结构化/查询接口均有生产调用方,不再需要 allow(dead_code)
-#[path = "tags_tree_ensure.rs"]
+#[path = "ensure.rs"]
 mod ensure;
-#[path = "tags_tree_ops.rs"]
+#[path = "ops.rs"]
 mod ops;
-#[path = "tags_tree_ops_sql.rs"]
+#[path = "ops_sql.rs"]
 mod ops_sql;
-#[path = "tags_tree_path.rs"]
+#[path = "path.rs"]
 mod path;
-#[path = "tags_tree_query.rs"]
+#[path = "query.rs"]
 mod query;
-#[path = "tags_tree_replace.rs"]
+#[path = "replace.rs"]
 mod replace;
-#[path = "tags_tree_similar.rs"]
+#[path = "similar.rs"]
 mod similar;
 pub use ensure::ensure_path;
 pub use ops::{delete_subtree, move_beside, move_to, rename};
@@ -144,57 +144,57 @@ pub use query::complete;
 pub use query::{complete_with_aliases, counts, impact, CompleteItem, TagCount};
 
 #[cfg(test)]
-#[path = "tags_tree_alias_tests.rs"]
-mod tags_tree_alias_tests;
+#[path = "tree_alias_tests.rs"]
+mod tree_alias_tests;
 
 #[cfg(test)]
-#[path = "tags_tree_tests.rs"]
-mod tags_tree_tests;
+#[path = "tree_tests.rs"]
+mod tree_tests;
 
 #[cfg(test)]
-#[path = "tags_tree_id_tests.rs"]
-mod tags_tree_id_tests;
+#[path = "tree_id_tests.rs"]
+mod tree_id_tests;
 
 #[cfg(test)]
-#[path = "tags_tree_ops_tests.rs"]
-mod tags_tree_ops_tests;
+#[path = "tree_ops_tests.rs"]
+mod tree_ops_tests;
 
 #[cfg(test)]
-#[path = "tags_tree_order_support.rs"]
+#[path = "order_support.rs"]
 mod order_support;
 
 #[cfg(test)]
-#[path = "tags_tree_order_tests.rs"]
-mod tags_tree_order_tests;
+#[path = "tree_order_tests.rs"]
+mod tree_order_tests;
 
 #[cfg(test)]
-#[path = "tags_tree_order_sql_tests.rs"]
-mod tags_tree_order_sql_tests;
+#[path = "tree_order_sql_tests.rs"]
+mod tree_order_sql_tests;
 
 #[cfg(test)]
-#[path = "tags_tree_ops_extra_tests.rs"]
-mod tags_tree_ops_extra_tests;
+#[path = "tree_ops_extra_tests.rs"]
+mod tree_ops_extra_tests;
 
 #[cfg(test)]
-#[path = "tags_tree_time_ops_tests.rs"]
-mod tags_tree_time_ops_tests;
+#[path = "tree_time_ops_tests.rs"]
+mod tree_time_ops_tests;
 
 #[cfg(test)]
-#[path = "tags_tree_replace_tests.rs"]
-mod tags_tree_replace_tests;
+#[path = "tree_replace_tests.rs"]
+mod tree_replace_tests;
 
 #[cfg(test)]
-#[path = "tags_tree_legacy_tests.rs"]
-mod tags_tree_legacy_tests;
+#[path = "tree_legacy_tests.rs"]
+mod tree_legacy_tests;
 
 #[cfg(test)]
-#[path = "tags_tree_complete_alias_tests.rs"]
-mod tags_tree_complete_alias_tests;
+#[path = "tree_complete_alias_tests.rs"]
+mod tree_complete_alias_tests;
 
 #[cfg(test)]
-#[path = "tags_tree_complete_similar_tests.rs"]
-mod tags_tree_complete_similar_tests;
+#[path = "tree_complete_similar_tests.rs"]
+mod tree_complete_similar_tests;
 
 #[cfg(test)]
-#[path = "tags_tree_similar_tests.rs"]
-mod tags_tree_similar_tests;
+#[path = "tree_similar_tests.rs"]
+mod tree_similar_tests;

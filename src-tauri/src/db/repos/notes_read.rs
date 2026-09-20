@@ -57,7 +57,7 @@ pub fn delete(conn: &mut Connection, id: i64) -> rusqlite::Result<()> {
     let tx = conn.transaction()?;
     tx.execute("DELETE FROM tag_links WHERE target_type='note' AND target_id=?1", params![id])?;
     tx.execute("DELETE FROM notes WHERE id=?1", params![id])?;
-    crate::db::repos::tags_tree::gc_orphans(&tx)?;
+    crate::db::repos::tags::gc_orphans(&tx)?;
     tx.commit()
 }
 

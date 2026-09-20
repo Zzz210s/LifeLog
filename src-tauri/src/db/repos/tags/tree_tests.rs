@@ -136,7 +136,7 @@ fn complete_returns_prefix_paths_and_treats_chars_literally() {
     assert!(complete(&c, "无此").unwrap().is_empty());
 }
 
-#[path = "tags_tree_legacy_name_tests.rs"]
+#[path = "tree_legacy_name_tests.rs"]
 mod legacy_name_tests;
 
 /// 按路径取标签 id(两份测试文件共用:父模块定义,子模块用 super::* 取)
