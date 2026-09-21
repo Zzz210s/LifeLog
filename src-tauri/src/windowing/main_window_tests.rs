@@ -36,3 +36,9 @@ fn build_config_matches_legacy_window_declaration() {
     // 声明里 visible=false:建完由 open() 显式 show,避免半成品窗口先露出来
     assert!(!c.visible);
 }
+
+#[test]
+fn 主窗失焦事件名与前端约定一致() {
+    // 前端 use-leave-save.ts 的 BLUR_SAVE_EVENT 必须是同一个字符串,否则"点到窗口外也保存"会静默失效
+    assert_eq!(super::BLUR_SAVE_EVENT, "main-window-blur");
+}

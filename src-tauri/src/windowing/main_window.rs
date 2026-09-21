@@ -7,6 +7,8 @@ use tauri::{AppHandle, Emitter, Manager, WebviewWindow, WindowEvent};
 pub const MAIN_LABEL: &str = "main";
 /// 「打开后切到设置页」事件名(与前端 use-open-settings.ts 的 OPEN_SETTINGS_EVENT 同值)
 pub const OPEN_SETTINGS_EVENT: &str = "open-settings";
+/// 主窗失焦事件名(与前端 use-leave-save.ts 同值):前端据此执行"离开编辑区块即保存"
+pub const BLUR_SAVE_EVENT: &str = "main-window-blur";
 
 /// 主窗新建时前端还没订阅事件,用这个标志把「切到设置页」的意图留到前端 mount 时取用。
 /// 取走即清空:第二次打开主窗不会被再次切走。
@@ -69,6 +71,7 @@ pub fn open(app: &AppHandle) -> tauri::Result<()> {
     }
     let w = builder.build()?;
     attach_close_to_tray(&w);
+    attach_blur_save(&w);
     w.show()?;
     w.set_focus()?;
     Ok(())
@@ -102,6 +105,20 @@ pub fn open_settings(app: &AppHandle) -> tauri::Result<()> {
         let _ = app.emit(OPEN_SETTINGS_EVENT, ());
     }
     Ok(())
+}
+
+/// 主窗失焦 -> 通知前端「离开编辑区块即保存」(用户 2026-09-21 要求:鼠标点出程序页面也保存)。
+/// 为什么不用 DOM 的 window blur:WebView2 在宿主窗口失活时不保证派发,而宿主窗口的
+/// Focused(false) 是可靠信号(输入栏的失焦隐藏早就用它);前端两条通道都监听,
+/// 先到的那次发起保存、后到的那次被 in-flight 守卫挡下,不会重复写库。
+fn attach_blur_save(w: &WebviewWindow) {
+    let handle = w.clone();
+    w.on_window_event(move |event| {
+        if let WindowEvent::Focused(false) = event {
+            // 隐藏(退到托盘)也会失焦:此时同样应该把未保存的编辑落库,故不额外判可见性
+            let _ = handle.emit(BLUR_SAVE_EVENT, ());
+        }
+    });
 }
 
 fn attach_close_to_tray(w: &WebviewWindow) {

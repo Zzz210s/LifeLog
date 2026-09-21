@@ -16,6 +16,29 @@ const { updateNote, parseNoteSource } = vi.hoisted(() => ({
 }));
 vi.mock('../../shared/api', () => ({ api: { updateNote, parseNoteSource } }));
 
+// 宿主窗口失焦通道:mock 成可手动触发的订阅(Rust 侧 emit 的等价物)
+const tauriListeners: Array<{ event: string; handler: () => void }> = [];
+vi.mock('@tauri-apps/api/event', () => ({
+  listen: (event: string, handler: () => void) => {
+    tauriListeners.push({ event, handler });
+    return Promise.resolve(() => {
+      const i = tauriListeners.findIndex((l) => l.handler === handler);
+      if (i >= 0) tauriListeners.splice(i, 1);
+    });
+  },
+}));
+
+/** 触发 Rust 侧的主窗失焦事件 */
+const emitHostBlur = async (): Promise<void> => {
+  const subs = tauriListeners.filter((l) => l.event === 'main-window-blur');
+  expect(subs.length).toBeGreaterThan(0); // 没有订阅就说明通道没接上
+  await act(async () => {
+    subs.forEach((l) => l.handler());
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+};
+
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const note = (content: string): Note => ({
@@ -115,12 +138,41 @@ describe('点到程序窗口之外也保存', () => {
     expect(onSwitchNote).not.toHaveBeenCalled();
   });
 
+  it('宿主窗口失焦事件(Rust emit)-> 也触发保存', async () => {
+    updateNote.mockResolvedValue(note('改了'));
+    const onSaved = vi.fn();
+    await mount({ onSaved });
+    await type('改了');
+    await emitHostBlur();
+    expect(updateNote).toHaveBeenCalledTimes(1);
+    expect(onSaved).toHaveBeenCalledTimes(1);
+  });
+
+  it('宿主事件与 DOM blur 同时到达 -> 只写一次(在飞守卫)', async () => {
+    let resolveSave: ((n: Note) => void) | null = null;
+    updateNote.mockImplementation(() => new Promise((res) => { resolveSave = res; }));
+    await mount({});
+    await type('改了');
+    await emitHostBlur();
+    await blurWindow(); // 第二条通道紧接着到达
+    await act(async () => {
+      resolveSave?.(note('改了'));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(updateNote).toHaveBeenCalledTimes(1);
+  });
+
   it('卸载后 blur 不再触发保存(监听已摘)', async () => {
     await mount({});
     await type('改');
     act(() => root?.unmount());
     root = null;
+    await act(async () => {
+      await Promise.resolve();
+    });
     await blurWindow();
     expect(updateNote).not.toHaveBeenCalled();
+    expect(tauriListeners.filter((l) => l.event === 'main-window-blur')).toHaveLength(0); // 订阅已摘
   });
 });
