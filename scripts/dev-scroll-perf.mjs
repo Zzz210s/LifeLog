@@ -1,11 +1,14 @@
-// 滚动测量 E 节:滚动性能(50 条流 / 602 标签侧栏各一次)。
+// 滚动优化验收(主题四:滚动性能)
+// 用例:50 条笔记流 / 602 标签侧栏各连续滚一次。
 // 采:Performance.getMetrics 前后差值、rAF 帧间隔中位/最大、长任务(>50ms)次数、
 //     MutationObserver 的 DOM 变更数(React 重渲染的代理指标)。
-// 用法:node scripts/dev-scroll-e.mjs
+// 用法:node scripts/dev-scroll-perf.mjs [exe路径]   默认 E:/1-LifeLog/LifeLog.exe
+// 输出:.superpowers/sdd/2026-09-21-scroll/readings/perf.json(gitignored)
+// 前置:单实例应用 —— 先按 dev-scroll-geometry.mjs 的方式在 9222 上启动。
 import { writeFileSync } from 'node:fs';
 import { main, install, js, one, findSel, rect, wheel, sleep, reloadPage, dump } from './dev-scroll-lib.mjs';
 
-const OUT = '.superpowers/sdd/2026-09-21-scroll/readings/E-perf.json';
+const OUT = '.superpowers/sdd/2026-09-21-scroll/readings/perf.json';
 const STREAM = `(() => { const el = document.querySelector('.md-body'); return el ? el.closest('div[class*=overflow-y-auto]') : null; })()`;
 const R = {};
 

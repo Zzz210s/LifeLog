@@ -1,9 +1,18 @@
-// 滚动测量 C 节后半:交互正确性 5-7(输入栏滚轮、编辑面板独立滚动、切筛选/切标签页后的流向)+ 根级链式滚动补测。
-// 用法:node scripts/dev-scroll-c2.mjs
+// 滚动优化验收(主题二:交互正确性)
+//   C1 补 流滚到最底时的链式滚动(根是否被带走)
+//   C5 输入栏:输入框上滚是否缩放、补全列表上滚是否被缩放吞掉
+//   C6 编辑面板 textarea 独立滚动 + 根滚动的可见后果(顶栏是否被带走)
+//   C7 切筛选 / 切标签页后的流向位置
+//   A3 小视口(Emulation 页面级 400x300)下表达式/标签两个弹层是否被裁、关键按钮是否可达
+// 输入全部走 CDP 合成(滚轮/键盘/指针)与页面内 DOM 动作,不用 OS 鼠标;仅 Emulation 改页面级视口。
+// 用法:node scripts/dev-scroll-interaction.mjs [exe路径]   默认 E:/1-LifeLog/LifeLog.exe
+// 输出:.superpowers/sdd/2026-09-21-scroll/readings/interaction.json(gitignored)
+// 前置:单实例应用 —— 脚本不自行拉起,先按 dev-scroll-geometry.mjs 的方式在 9222 上启动。
 import { writeFileSync } from 'node:fs';
 import { main, install, js, one, findSel, rect, wheel, sleep, reloadPage, dump, input as openInput } from './dev-scroll-lib.mjs';
+import { dialogSections } from './dev-scroll-dialogs.mjs';
 
-const OUT = '.superpowers/sdd/2026-09-21-scroll/readings/C2-interaction.json';
+const OUT = '.superpowers/sdd/2026-09-21-scroll/readings/interaction.json';
 const R = {};
 const STREAM = `(() => { const el = document.querySelector('.md-body'); return el ? el.closest('div[class*=overflow-y-auto]') : null; })()`;
 const call = (cdp, cmd, args = {}) =>
@@ -157,6 +166,9 @@ R.C7_收尾 = {
   tabs_state: await call(cdp, 'get_setting', { key: 'tabs_state' }),
   排序后再流top: await streamTop(cdp),
 };
+
+// ---- A3 小视口下弹层的裁剪与可滚性(节模块 dev-scroll-dialogs.mjs,Emulation 页面级视口 400x300) ----
+await dialogSections(R, cdp);
 
 writeFileSync(OUT, JSON.stringify(R, null, 2));
 dump('C5-C7', R);
