@@ -78,10 +78,9 @@ afterEach(() => {
 describe('点区块外保存:复审 C1 / I1', () => {
   it('C1 面板已卸载后保存失败 -> 交主窗错误条(不静默)', async () => {
     const onErrorFallback = vi.fn();
-    let rejectSave: ((e: Error) => void) | null = null;
-    updateNote.mockImplementation(
-      () => new Promise((_res, rej) => { rejectSave = rej; })
-    );
+    // 卸载兜底也会发起一次保存:把所有在飞 promise 一起 reject,才测得到"错误交主窗"
+    const pending: Array<(e: Error) => void> = [];
+    updateNote.mockImplementation(() => new Promise((_res, rej) => { pending.push(rej); }));
     await mount({ onErrorFallback });
     await type('改一下');
 
@@ -89,7 +88,7 @@ describe('点区块外保存:复审 C1 / I1', () => {
     act(() => root?.unmount()); // 面板卸载:错误无法就地显示
     root = null;
     await act(async () => {
-      rejectSave?.(new Error('数据库忙'));
+      pending.forEach((rej) => rej(new Error('数据库忙')));
       await Promise.resolve();
       await Promise.resolve();
     });

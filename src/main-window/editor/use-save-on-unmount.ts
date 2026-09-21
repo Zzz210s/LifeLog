@@ -1,0 +1,39 @@
+// 卸载兜底保存(2026-09-21,用户实测"两种离开方式都没保存"后加):
+// 只要用户改过内容、且没有主动取消,面板一卸载就把 DOM 里的字写库。
+// 覆盖"点区块外 / 切到另一条笔记 / 窗口失焦 / 列表刷新把面板换掉"等**所有**离开方式,
+// 不依赖任何一条通道的时序(输入法组合期间 React state 可能落后,所以以 DOM 镜像为准)。
+//
+// 静默:失败无处呈现(面板已卸载),成功也不改界面(退出是既定事实)。
+import { useEffect } from 'react';
+import type { RefObject } from 'react';
+import { api } from '../../shared/api';
+import { prepareForSave } from '../../shared/note-source';
+
+export interface SaveOnUnmountRefs {
+  noteId: number;
+  /** 挂载时的源码:与它相同即「未变」,不写库 */
+  initial: RefObject<string>;
+  /** DOM 文本镜像(卸载时 DOM 可能已读不到) */
+  domText: RefObject<string>;
+  /** 已成功写库:不再重复保存 */
+  saved: RefObject<boolean>;
+  /** 用户主动取消(Esc/取消按钮):不保存 */
+  cancelled: RefObject<boolean>;
+}
+
+export function useSaveOnUnmount(refs: SaveOnUnmountRefs): void {
+  const { noteId, initial, domText, saved, cancelled } = refs;
+  useEffect(
+    () => () => {
+      if (saved.current || cancelled.current) return;
+      const text = prepareForSave(domText.current);
+      if (text === null || text === prepareForSave(initial.current)) return;
+      try {
+        void Promise.resolve(api.updateNote(noteId, text)).catch(() => undefined);
+      } catch {
+        // 同步抛错同样忽略
+      }
+    },
+    [noteId, initial, domText, saved, cancelled]
+  );
+}

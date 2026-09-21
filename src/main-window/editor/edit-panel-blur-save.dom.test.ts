@@ -113,15 +113,15 @@ describe('点到程序窗口之外也保存', () => {
 
   it('blur 时保存失败 -> 交主窗错误条(不静默)', async () => {
     const onErrorFallback = vi.fn();
-    let rejectSave: ((e: Error) => void) | null = null;
-    updateNote.mockImplementation(() => new Promise((_res, rej) => { rejectSave = rej; }));
+    const pending: Array<(e: Error) => void> = [];
+    updateNote.mockImplementation(() => new Promise((_res, rej) => { pending.push(rej); }));
     await mount({ onErrorFallback });
     await type('改了');
     await blurWindow();
     act(() => root?.unmount()); // 失焦往往伴随窗口隐藏/卸载
     root = null;
     await act(async () => {
-      rejectSave?.(new Error('数据库忙'));
+      pending.forEach((rej) => rej(new Error('数据库忙')));
       await Promise.resolve();
       await Promise.resolve();
     });
@@ -163,16 +163,19 @@ describe('点到程序窗口之外也保存', () => {
     expect(updateNote).toHaveBeenCalledTimes(1);
   });
 
-  it('卸载后 blur 不再触发保存(监听已摘)', async () => {
+  it('卸载即兜底保存一次;卸载后 blur 不再额外触发(监听已摘)', async () => {
+    updateNote.mockResolvedValue(note('改了'));
     await mount({});
-    await type('改');
+    await type('改了');
     act(() => root?.unmount());
     root = null;
     await act(async () => {
       await Promise.resolve();
+      await Promise.resolve();
     });
+    expect(updateNote).toHaveBeenCalledTimes(1); // 卸载兜底保存
     await blurWindow();
-    expect(updateNote).not.toHaveBeenCalled();
-    expect(tauriListeners.filter((l) => l.event === 'main-window-blur')).toHaveLength(0); // 订阅已摘
+    expect(updateNote).toHaveBeenCalledTimes(1); // 监听已摘,不再加一次
+    expect(tauriListeners.filter((l) => l.event === 'main-window-blur')).toHaveLength(0);
   });
 });

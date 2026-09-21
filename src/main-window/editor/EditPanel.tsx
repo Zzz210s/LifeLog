@@ -8,6 +8,7 @@ import { tagCountHint, tagCountLabel } from './edit-tag-count';
 import { editRows } from './textarea-rows';
 import { useSourceTagCount } from './use-source-tags';
 import { useLeaveSave } from './use-leave-save';
+import { useSaveOnUnmount } from './use-save-on-unmount';
 
 export interface EditPanelProps {
   note: Note;
@@ -29,11 +30,17 @@ type CommitResult =
   | { ok: false; message: string; inline: boolean; busy?: boolean };
 
 /** 编辑态:点正文即就地变源码框(形态 A,2026-09-21;分屏实时预览已退场)。
- *  提交判定(2026-09-21 起):点区块内 = 继续编辑,点区块外 = 保存(未变则不写库直接退出),
- *  点另一条笔记正文 = 先存后进;Esc = 取消(与取消按钮同义);Ctrl+Enter / 保存按钮不变。 */
+ *  提交判定(2026-09-21 二次修订):点区块内 = 继续编辑;点区块外 / 点到程序窗口外 / 切到另一条笔记 = 保存
+ *  (未变则不写库直接退出);Esc = 取消(与取消按钮同义);**键盘保存(Ctrl+Enter)已按用户要求删除**。
+ *
+ *  源码框是**非受控**的:真实输入法(中文 IME)组合期间,受控 `value` 的 React state 不会跟上,
+ *  于是"点区块外保存"会拿旧 state 与初始值比较、判成"未变"而**静默丢弃刚打的字**(2026-09-21 实测:
+ *  组合中/组合上屏两条路径都不落库)。所以与输入栏同一套做法:DOM 是唯一真源,
+ *  保存一律读 `boxRef.current.value`,state 只作派生 UI(行数/标签数/按钮可用)用。 */
 export function EditPanel(p: EditPanelProps): ReactNode {
   // 决策:note.content 是已剥离标签的正文;编辑源码补回 '#标签' 尾缀,
   // 与输入栏捕获语法一致(用户可看/改标签),保存时后端重新剥离归类。
+  // 初值只用于非受控框的 defaultValue 与派生 UI;真正的文本以 DOM 为准(见上方注释)
   const [source, setSource] = useState(() => composeSource(p.note.content, p.note.tags));
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -43,6 +50,14 @@ export function EditPanel(p: EditPanelProps): ReactNode {
   const tagCount = useSourceTagCount(source, p.note.tags.length);
   const hint = tagCountHint(tagCount);
   const boxRef = useRef<HTMLTextAreaElement>(null);
+  /** 保存时读的文本:非受控框的 DOM 值(含输入法组合中的字),拿不到才回退 state */
+  const currentText = (): string => boxRef.current?.value ?? domText.current;
+  /** DOM 文本镜像:输入/组合事件里同步(卸载时 DOM 可能已读不到,靠它兜底保存) */
+  const domText = useRef(source);
+  /** 已成功写库:卸载兜底不再重复保存 */
+  const saved = useRef(false);
+  /** 用户主动取消(Esc/取消按钮):卸载兜底不保存 */
+  const cancelled = useRef(false);
   const panelRef = useRef<HTMLLIElement>(null);
   /** 挂载时的源码:点区块外时与它比较,内容未变就不写库 */
   const initial = useRef(source);
@@ -52,7 +67,7 @@ export function EditPanel(p: EditPanelProps): ReactNode {
 
   // R4:进编辑**不改动笔记流的滚动位置**。原先用 autoFocus,浏览器聚焦时会做 scrollIntoView ——
   // 被视口裁掉的卡片一旦点进编辑,流 scrollTop 就被拉回去(实测 200 -> 0,跳 200px)。
-  // 改成显式 focus + preventScroll:焦点照样落在源码框(键盘可达性与 Ctrl+Enter 不变),
+  // 改成显式 focus + preventScroll:焦点照样落在源码框(键盘仍可直接打字),
   // 但不向任何滚动祖先请求“把焦点元素滚进视野”。
   useEffect(() => {
     alive.current = true;
@@ -62,6 +77,9 @@ export function EditPanel(p: EditPanelProps): ReactNode {
       alive.current = false;
     };
   }, []);
+
+  // 卸载兜底:任何离开方式都要把已改内容写库(见 use-save-on-unmount.ts 的说明)
+  useSaveOnUnmount({ noteId: p.note.id, initial, domText, saved, cancelled });
 
   /** 真正写库;失败留在编辑态并给中文原因 */
   const commit = async (text: string): Promise<CommitResult> => {
@@ -87,25 +105,25 @@ export function EditPanel(p: EditPanelProps): ReactNode {
     }
   };
 
-  /** 显式保存(Ctrl+Enter / 保存按钮):空内容拒绝并就地给中文错误 */
+  /** 显式保存(保存按钮;键盘保存 Ctrl+Enter 已删):空内容拒绝并就地给中文错误 */
   const save = async (): Promise<CommitResult> => {
     if (saving || inFlight.current) {
       setError('正在保存,请稍候');
       return { ok: false, message: '正在保存,请稍候', inline: alive.current, busy: true };
     }
-    const text = prepareForSave(source);
+    const text = prepareForSave(currentText());
     if (text === null) {
       setError('内容不能为空');
-      return { ok: false, message: '内容不能为空', inline: true };
+      return { ok: false, message: '内容不能为空', inline: alive.current };
     }
     return commit(text);
   };
 
-  /** 点区块外/切走时的提交:内容未变 -> 直接退出不写库;否则同显式保存 */
+  /** 点区块外 / 切走 / 窗口失焦时的提交:读 DOM 值,内容未变 -> 直接退出不写库;否则同显式保存 */
   const flush = useCallback(async (): Promise<CommitResult> => {
     // 已有保存在飞:忽略这次点击(否则连点两次区块外会发两次 updateNote,复审 I1)
     if (inFlight.current) return { ok: false, message: '正在保存,请稍候', inline: alive.current, busy: true };
-    const text = prepareForSave(source);
+    const text = prepareForSave(currentText());
     if (text === null) {
       setError('内容不能为空');
       return { ok: false, message: '内容不能为空', inline: alive.current };
@@ -141,13 +159,15 @@ export function EditPanel(p: EditPanelProps): ReactNode {
         ref={boxRef}
         aria-label="编辑源码"
         rows={editRows(source)}
-        value={source}
-        onChange={(e) => setSource(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.ctrlKey && e.key === 'Enter') {
-            e.preventDefault();
-            void save();
-          }
+        defaultValue={source}
+        // 输入/组合结束都把 DOM 值同步进 state(仅供派生 UI);保存永远读 DOM,故 IME 组合中也不会丢字
+        onChange={(e) => {
+          domText.current = e.target.value;
+          setSource(e.target.value);
+        }}
+        onCompositionEnd={(e) => {
+          domText.current = (e.target as HTMLTextAreaElement).value;
+          setSource(domText.current);
         }}
         className="scroll-gutter w-full resize-y rounded-md border border-border bg-raised p-2 font-mono text-sm leading-relaxed outline-none focus:border-accent"
       />
@@ -157,7 +177,7 @@ export function EditPanel(p: EditPanelProps): ReactNode {
             {tagCountLabel(tagCount)}
             {hint !== null && <span className="ml-2 text-faint">{hint}</span>}
           </span>
-          <span className="text-xs text-danger">{error || 'Ctrl+Enter 保存'}</span>
+          <span className="text-xs text-danger">{error || '点其他位置或切换条目即保存'}</span>
         </div>
         <div className="flex gap-2">
           <button

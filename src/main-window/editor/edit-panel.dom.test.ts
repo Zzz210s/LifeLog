@@ -1,9 +1,6 @@
 // @vitest-environment jsdom
-/**
- * 形态 A 编辑态证据(jsdom 真实渲染 EditPanel):
- * 单栏源码(分屏实时预览已退场)、#标签 回显、行数按源码推导、Ctrl+Enter 保存、
- * 取消回调、标签数提示仍在、保存失败留编辑态(文本不丢)、并发删除静默退出。
- */
+// 形态 A 编辑态证据(jsdom 真实渲染 EditPanel):单栏源码、#标签 回显、行数按源码推导、
+// 保存按钮与点区块外保存、取消回调、标签数提示、失败留编辑态、并发删除静默退出。
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -51,17 +48,17 @@ const textarea = (): HTMLTextAreaElement => {
 
 const setValue = (el: HTMLTextAreaElement, v: string): Promise<void> =>
   act(async () => {
-    // React 受控输入:必须走原生 setter + input 事件才能触发 onChange
+    // 必须走原生 setter + input 事件才能触发 React 的 onChange
     const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
     setter?.call(el, v);
     el.dispatchEvent(new Event('input', { bubbles: true }));
   });
 
-const pressCtrlEnter = (el: HTMLElement): Promise<void> =>
+/** 点面板里的「保存」按钮(键盘保存 Ctrl+Enter 已按用户要求删除) */
+const clickSave = (): Promise<void> =>
   act(async () => {
-    el.dispatchEvent(
-      new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true, cancelable: true })
-    );
+    const btn = [...host.querySelectorAll('button')].find((b) => b.textContent?.trim() === '保存')!;
+    btn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
   });
 
 beforeEach(() => {
@@ -108,12 +105,12 @@ describe('EditPanel 单栏源码版式', () => {
 });
 
 describe('EditPanel 保存与取消', () => {
-  it('Ctrl+Enter:按保存前入口归一后调 update_note,成功回调 onSaved', async () => {
+  it('保存按钮:按保存前入口归一后调 update_note,成功回调 onSaved', async () => {
     const updated = note('改后的正文', []);
     updateNote.mockResolvedValue(updated);
     await mount(note('正文'));
     await setValue(textarea(), '改后的正文   ');
-    await pressCtrlEnter(textarea());
+    await clickSave();
     expect(updateNote).toHaveBeenCalledWith(7, '改后的正文');
     expect(onSaved).toHaveBeenCalledWith(updated);
     expect(onCancel).not.toHaveBeenCalled();
@@ -123,7 +120,7 @@ describe('EditPanel 保存与取消', () => {
     updateNote.mockRejectedValue(new Error('IPC 失败'));
     await mount(note('正文'));
     await setValue(textarea(), '改后的正文');
-    await pressCtrlEnter(textarea());
+    await clickSave();
     expect(onSaved).not.toHaveBeenCalled();
     expect(onCancel).not.toHaveBeenCalled();
     expect(textarea().value).toBe('改后的正文');
@@ -133,17 +130,16 @@ describe('EditPanel 保存与取消', () => {
   it('取消按钮回调 onCancel;保存按钮在内容为空时禁用', async () => {
     await mount(note('正文'));
     await setValue(textarea(), '   ');
-    const saveBtn = [...host.querySelectorAll('button')].find((b) => b.textContent === '保存');
-    expect((saveBtn as HTMLButtonElement).disabled).toBe(true);
-    const cancelBtn = [...host.querySelectorAll('button')].find((b) => b.textContent === '取消');
-    await act(async () => cancelBtn?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    const btn = (t: string) => [...host.querySelectorAll('button')].find((b) => b.textContent === t);
+    expect((btn('保存') as HTMLButtonElement).disabled).toBe(true);
+    await act(async () => btn('取消')?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
 
   it('笔记已被并发删除(update_note 返回 null):静默退出编辑', async () => {
     updateNote.mockResolvedValue(null);
     await mount(note('正文'));
-    await pressCtrlEnter(textarea());
+    await clickSave();
     expect(onCancel).toHaveBeenCalledTimes(1);
     expect(onSaved).not.toHaveBeenCalled();
   });
@@ -166,13 +162,18 @@ describe('R4 进编辑不改动滚动位置', () => {
     focus.mockRestore();
   });
 
-  it('焦点仍在源码框时 Ctrl+Enter 保存路径不变(键盘可达性不退化)', async () => {
+  it('键盘保存已删除:Ctrl+Enter 不再写库(用户 2026-09-21 明确要求)', async () => {
     updateNote.mockResolvedValue(note('改后的正文', []));
     await mount(note('正文'));
     expect(document.activeElement).toBe(textarea());
     await setValue(textarea(), '改后的正文');
-    await pressCtrlEnter(textarea());
-    expect(updateNote).toHaveBeenCalledWith(7, '改后的正文');
+    await act(async () => {
+      textarea().dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true, cancelable: true })
+      );
+    });
+    expect(updateNote).not.toHaveBeenCalled();
+    expect(host.querySelector('textarea')).not.toBeNull(); // 仍在编辑态
   });
 });
 
