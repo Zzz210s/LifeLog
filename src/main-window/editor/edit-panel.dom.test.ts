@@ -54,11 +54,14 @@ const setValue = (el: HTMLTextAreaElement, v: string): Promise<void> =>
     el.dispatchEvent(new Event('input', { bubbles: true }));
   });
 
-/** 点面板里的「保存」按钮(键盘保存 Ctrl+Enter 已按用户要求删除) */
+/** 离开编辑区块 = 保存:按钮与键盘保存均已按用户要求删除,统一用"点区块外"触发 */
 const clickSave = (): Promise<void> =>
   act(async () => {
-    const btn = [...host.querySelectorAll('button')].find((b) => b.textContent?.trim() === '保存')!;
-    btn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    const outside = document.body.appendChild(document.createElement('div'));
+    outside.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    outside.remove();
+    await Promise.resolve();
+    await Promise.resolve();
   });
 
 beforeEach(() => {
@@ -104,13 +107,13 @@ describe('EditPanel 单栏源码版式', () => {
   });
 });
 
-describe('EditPanel 保存与取消', () => {
-  it('保存按钮:按保存前入口归一后调 update_note,成功回调 onSaved', async () => {
+describe('EditPanel 离开区块即保存', () => {
+  it('离开区块:按保存前入口归一后调 update_note,成功回调 onSaved', async () => {
     const updated = note('改后的正文', []);
     updateNote.mockResolvedValue(updated);
     await mount(note('正文'));
     await setValue(textarea(), '改后的正文   ');
-    await clickSave();
+    await clickSave(); // 行尾空白被裁
     expect(updateNote).toHaveBeenCalledWith(7, '改后的正文');
     expect(onSaved).toHaveBeenCalledWith(updated);
     expect(onCancel).not.toHaveBeenCalled();
@@ -127,13 +130,13 @@ describe('EditPanel 保存与取消', () => {
     expect(host.textContent).toContain('保存失败');
   });
 
-  it('取消按钮回调 onCancel;保存按钮在内容为空时禁用', async () => {
+  it('内容为空时离开区块:留在编辑态并就地给中文错误(不写库)', async () => {
     await mount(note('正文'));
     await setValue(textarea(), '   ');
-    const btn = (t: string) => [...host.querySelectorAll('button')].find((b) => b.textContent === t);
-    expect((btn('保存') as HTMLButtonElement).disabled).toBe(true);
-    await act(async () => btn('取消')?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
-    expect(onCancel).toHaveBeenCalledTimes(1);
+    await clickSave();
+    expect(updateNote).not.toHaveBeenCalled();
+    expect(onCancel).not.toHaveBeenCalled();
+    expect(host.textContent).toContain('内容不能为空');
   });
 
   it('笔记已被并发删除(update_note 返回 null):静默退出编辑', async () => {
@@ -145,12 +148,8 @@ describe('EditPanel 保存与取消', () => {
   });
 });
 
-/**
- * R4:进编辑不得改动笔记流的滚动位置。
- * 原实现用 textarea 的 autoFocus:浏览器聚焦时会 scrollIntoView,把被视口裁掉的卡片
- * 拉回视野(实测流 scrollTop 200 -> 0)。改为显式 focus({preventScroll:true})。
- * 这两个断言就是防回归:①不能再出现 autofocus 属性;②focus 必须带 preventScroll。
- */
+// R4:进编辑不得改动笔记流滚动位置。原用 autoFocus(聚焦会 scrollIntoView,把被裁掉的卡片拉回视野,
+// 实测 scrollTop 200 -> 0),改为显式 focus({preventScroll:true});防回归:无 autofocus 属性 + focus 带 preventScroll。
 describe('R4 进编辑不改动滚动位置', () => {
   it('挂载后焦点在源码框;focus 带 preventScroll 且无 autoFocus 属性', async () => {
     const focus = vi.spyOn(HTMLTextAreaElement.prototype, 'focus');

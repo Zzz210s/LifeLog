@@ -40,15 +40,16 @@ export function EditPanel(p: EditPanelProps): ReactNode {
   // 决策:note.content 是已剥离标签的正文;编辑源码补回 '#标签' 尾缀,保存时后端重新剥离归类。
   const [source, setSource] = useState(() => composeSource(p.note.content, p.note.tags));
   const [error, setError] = useState('');
-  const [saving, setSaving] = useState(false);
   // 标签数实时化:输入变化后 250ms 防抖调后端命令 parse_note_source(与保存路径同源),
   // 尚未返回/失败时回退已保存标签数(不闪烁成 0);顺序守卫与去抖细节见 use-source-tags.ts。
   // 纯建议层:保存行为与校验完全不受影响。
   const tagCount = useSourceTagCount(source, p.note.tags.length);
   const hint = tagCountHint(tagCount);
   const boxRef = useRef<HTMLTextAreaElement>(null);
-  /** 保存时读的文本:非受控框的 DOM 值(含输入法组合中的字),拿不到才回退 state */
-  const currentText = (): string => boxRef.current?.value ?? domText.current;
+  /** 保存时读的文本:非受控框的 DOM 值(含输入法组合中的字),拿不到才回退镜像。
+   *  必须 useCallback 稳定身份 —— 它被卸载兜底 hook 当依赖,身份一变 effect 就重跑、
+   *  其 cleanup 会在每次渲染时误触发一次兜底保存(实测:同一动作写库两次)。 */
+  const currentText = useCallback((): string => boxRef.current?.value ?? domText.current, []);
   const domText = useRef(source); // DOM 文本镜像(卸载时 DOM 可能读不到,靠它兜底保存)
   const saved = useRef(false); // 已成功写库:卸载兜底不重复保存
   const cancelled = useRef(false); // 主动取消(Esc/取消按钮):卸载兜底不保存
@@ -77,11 +78,10 @@ export function EditPanel(p: EditPanelProps): ReactNode {
   }, []);
 
   // 卸载兜底:任何离开方式都要把已改内容写库(见 use-save-on-unmount.ts 的说明)
-  useSaveOnUnmount({ noteId: p.note.id, initial, domText, saved, cancelled });
+  useSaveOnUnmount({ noteId: p.note.id, initial, getText: currentText, saved, cancelled });
 
   /** 真正写库;失败留在编辑态并给中文原因 */
   const commit = async (text: string): Promise<CommitResult> => {
-    setSaving(true);
     setError('');
     inFlight.current = true;
     try {
@@ -99,22 +99,7 @@ export function EditPanel(p: EditPanelProps): ReactNode {
       return { ok: false, message, inline: alive.current };
     } finally {
       inFlight.current = false;
-      setSaving(false);
     }
-  };
-
-  /** 显式保存(保存按钮;键盘保存 Ctrl+Enter 已删):空内容拒绝并就地给中文错误 */
-  const save = async (): Promise<CommitResult> => {
-    if (saving || inFlight.current) {
-      setError('正在保存,请稍候');
-      return { ok: false, message: '正在保存,请稍候', inline: alive.current, busy: true };
-    }
-    const text = prepareForSave(currentText());
-    if (text === null) {
-      setError('内容不能为空');
-      return { ok: false, message: '内容不能为空', inline: alive.current };
-    }
-    return commit(text);
   };
 
   /** 点区块外 / 切走 / 窗口失焦时的提交:读 DOM 值,内容未变 -> 直接退出不写库;否则同显式保存 */
@@ -169,29 +154,13 @@ export function EditPanel(p: EditPanelProps): ReactNode {
         }}
         className="scroll-gutter w-full resize-y rounded-md border border-border bg-raised p-2 font-mono text-sm leading-relaxed outline-none focus:border-accent"
       />
-      <div className="mt-2 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-muted" data-testid="edit-tag-count">
-            {tagCountLabel(tagCount)}
-            {hint !== null && <span className="ml-2 text-faint">{hint}</span>}
-          </span>
-          <span className="text-xs text-danger">{error || '点其他位置或切换条目即保存'}</span>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={p.onCancel}
-            className="rounded-md border border-border px-3 py-1 text-sm text-muted hover:bg-hover"
-          >
-            取消
-          </button>
-          <button
-            onClick={() => void save()}
-            disabled={!source.trim() || saving}
-            className="rounded-md bg-accent px-3 py-1 text-sm text-on-accent hover:bg-accent-hover disabled:opacity-50"
-          >
-            保存
-          </button>
-        </div>
+      {/* 保存/取消按钮与「点其他位置即保存」提示已按用户要求删除:离开区块(点别处/切条目/失焦)即保存,Esc 取消 */}
+      <div className="mt-2 flex items-center gap-3">
+        <span className="text-xs text-muted" data-testid="edit-tag-count">
+          {tagCountLabel(tagCount)}
+          {hint !== null && <span className="ml-2 text-faint">{hint}</span>}
+        </span>
+        {error !== '' && <span className="text-xs text-danger">{error}</span>}
       </div>
     </li>
   );

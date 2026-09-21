@@ -13,8 +13,8 @@ export interface SaveOnUnmountRefs {
   noteId: number;
   /** 挂载时的源码:与它相同即「未变」,不写库 */
   initial: RefObject<string>;
-  /** DOM 文本镜像(卸载时 DOM 可能已读不到) */
-  domText: RefObject<string>;
+  /** 取当前文本:优先活着的 DOM,读不到时回退镜像(卸载时 DOM 可能已被摘掉) */
+  getText: () => string;
   /** 已成功写库:不再重复保存 */
   saved: RefObject<boolean>;
   /** 用户主动取消(Esc/取消按钮):不保存 */
@@ -22,11 +22,11 @@ export interface SaveOnUnmountRefs {
 }
 
 export function useSaveOnUnmount(refs: SaveOnUnmountRefs): void {
-  const { noteId, initial, domText, saved, cancelled } = refs;
+  const { noteId, initial, getText, saved, cancelled } = refs;
   useEffect(
     () => () => {
       if (saved.current || cancelled.current) return;
-      const text = prepareForSave(domText.current);
+      const text = prepareForSave(getText());
       if (text === null || text === prepareForSave(initial.current)) return;
       try {
         void Promise.resolve(api.updateNote(noteId, text)).catch(() => undefined);
@@ -34,6 +34,6 @@ export function useSaveOnUnmount(refs: SaveOnUnmountRefs): void {
         // 同步抛错同样忽略
       }
     },
-    [noteId, initial, domText, saved, cancelled]
+    [noteId, initial, getText, saved, cancelled]
   );
 }

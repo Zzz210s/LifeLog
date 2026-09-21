@@ -99,19 +99,23 @@ describe('输入法组合中的字也必须落库(读 DOM 而不是 React state)
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
 
-  it('保存按钮同样读 DOM(组合中的字不会丢)', async () => {
-    updateNote.mockResolvedValue(note('原始正文组合中的字'));
+  it('卸载兜底:改过内容的面板一卸载就写库(按钮已删后这是最后一道保险)', async () => {
+    updateNote.mockResolvedValue(note('原始正文改过'));
     await mount();
-    setDomOnly('原始正文组合中的字');
+    // 走真实输入事件:镜像随之更新(卸载时 DOM 已被 React 摘掉,只能靠镜像)
     await act(async () => {
-      const btn = Array.from(host?.querySelectorAll('button') ?? []).find(
-        (b) => b.textContent.trim() === '保存'
-      );
-      btn?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      const el = textarea();
+      const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
+      setter?.call(el, '原始正文改过');
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => {
+      root?.unmount();
       await Promise.resolve();
       await Promise.resolve();
     });
-    expect(updateNote).toHaveBeenCalledWith(9, '原始正文组合中的字');
+    root = null;
+    expect(updateNote).toHaveBeenCalledWith(9, '原始正文改过');
   });
 
   it('组合结束事件会把 DOM 值同步进 state(派生 UI 如行数跟着走)', async () => {
