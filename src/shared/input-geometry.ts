@@ -1,7 +1,9 @@
 // 输入栏几何的纯函数:宽度钳制、行数钳制、按行高算高度、左右边缘判定。
 // 单位表(换算靠 input-bar/logical-size.ts 的 ratio = 逻辑像素 / CSS 像素,勿混用):
 // - 逻辑像素:MIN_WIDTH / MAX_WIDTH(宽度区间)、EDGE_BAND_LOGICAL(边缘热区),
-//   与 Rust set_input_size / input_scale 同一单位;
+//   与 Rust set_input_size 的宽度入参同一单位;
+// - 基础逻辑像素(缩放 1 时的逻辑像素,页面上等于 CSS 像素):heightForLines 等高度函数,
+//   与 Rust set_input_height 的入参同一单位 —— 高度不带缩放因子(缩放只乘在落窗口的物理尺寸上);
 // - CSS 像素:GLOW_PAD(光晕内边距环),与 Rust input_scale 的 MIN_HEIGHT/MAX_HEIGHT 推导同源。
 
 export const MIN_WIDTH = 240;
@@ -19,10 +21,12 @@ export const MAX_LINES = 5;
  */
 export const SUGGEST_ROW_CSS = 24;
 export const SUGGEST_PAD_CSS = 8;
-/** 建议列表最多显示几行(与 tag-complete 的 COMPLETE_LIMIT 同值;超出时列表内部滚动) */
+/** 建议列表最多显示几行。与 tag-complete 的 COMPLETE_LIMIT 同值 —— 两条上限相等意味着
+ *  列表内容高度永不高于自身 max-height,即**不需要内部滚动**(R5-1:列表现不声明 overflow,
+ *  落在列表上的滚轮按既有 spec 继续缩放输入栏);两值一旦漂移,列表就会变成“有滚动条却滚不动”。 */
 export const SUGGEST_MAX_ROWS = 8;
 
-/** 建议列表占的 CSS 高度:0 条时为 0(窗口不加高),超过上限则内部滚动 */
+/** 建议列表占的 CSS 高度:0 条时为 0(窗口不加高),超过上限按上限(候选本身也被限在同值条数) */
 export function suggestListHeightCss(count: number): number {
   if (!Number.isFinite(count) || count <= 0) return 0;
   const rows = Math.min(Math.floor(count), SUGGEST_MAX_ROWS);

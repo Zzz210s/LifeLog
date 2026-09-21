@@ -5,19 +5,24 @@ import { clampLines, GLOW_PAD, heightForLines } from '../shared/input-geometry';
 import { readGeometry } from './logical-size';
 
 /**
- * 输入内容对应的窗口高度(逻辑像素)。
+ * 输入内容对应的窗口高度(**基础逻辑像素**,即缩放 1 时的逻辑像素 —— 页面上就是内容高度的
+ * CSS 像素值,与 webview 缩放无关)。为什么把单位定在缩放 1:缩放会同时改窗口尺寸,
+ * 而缩放写库与几何读数分属两条异步链路;按“当前逻辑高度”传参需要 Rust 再除以缩放,
+ * 实测(2026-09-21)交错时会把派生值固化进 input_w/input_h。Rust 侧只把缩放乘在落窗口的物理尺寸上,
+ * 库里存的基础尺寸因此不带缩放因子。
+ *
  * textarea 撑满窗口,直接读 scrollHeight 在「窗口比内容高」时会等于窗口高,窗口将永远缩不回去;
  * 故先把它压到 0 高再读 scrollHeight,拿到真实换行后的内容高度,再钳到 1-5 行。
  * scrollHeight 含内边距、不含边框,故行高换算只减内边距,回加时补回边框。
  * 输入框无占位文案(用户 2026-09-11 决定完全去掉),空内容时内容高度为 0 -> 钳到 1 行,
  * 即空输入就是单行基准高度,不会顶出滚动条。
+ * `cssWidth` 是测量换行宽度时临时指定的输入框 CSS 宽度(拖动路径用);
  * `extraCss` 是输入框下方额外让出的高度(# 补全建议列表):窗口随之变高,列表因此长在输入框
  * 正下方而不是被压在弹窗里。测量时临时取消 flex 约束(flex: none)—— flex-1 会让
  * style.height=0 失效,量到的会是窗口高度而不是内容高度。
  */
 export function windowHeightFor(
   ta: HTMLTextAreaElement,
-  ratio: number,
   cssWidth?: number,
   extraCss = 0,
 ): number {
@@ -37,9 +42,9 @@ export function windowHeightFor(
   ta.style.flex = prevFlex;
   const lines = clampLines(line > 0 ? content / line : 1);
   const extra = Number.isFinite(extraCss) && extraCss > 0 ? extraCss : 0;
-  // 向上取整:逻辑高度还要经「scale 换算 + 物理取整」才落到窗口上,
+  // 向上取整:Rust 还要乘「系统缩放 x webview 缩放」并做物理取整,
   // 四舍五入可能让实际 CSS 高度比内容少不到 1 像素,溢出即触发 overflow-y-auto 滚动条。
-  return Math.ceil((heightForLines(lines, line) + padY + borderY + 2 * GLOW_PAD + extra) * ratio);
+  return Math.ceil(heightForLines(lines, line) + padY + borderY + 2 * GLOW_PAD + extra);
 }
 
 /**
@@ -85,13 +90,13 @@ export function useAutoHeight(opts: {
     if (!activated || !ta) return;
     void readGeometry().then((geo) => {
       if (!geo) return;
-      const height = windowHeightFor(ta, geo.ratio, undefined, extraCss);
-      // 1 逻辑像素容差:物理尺寸往返取整会带来不到 1 像素的抖动,避免每次内容变化都改窗口
-      if (Math.abs(height - geo.height) <= 1) return;
-      // 宽度必须是整数:命令签名是 u32,浮点会被 IPC 拒绝
-      const width = Math.round(geo.width);
-      const call = extraCss > 0 ? api.setInputSizeOverlay : api.setInputSize;
-      void call(width, height).catch(() => {});
+      const height = windowHeightFor(ta, undefined, extraCss);
+      // geo.height / geo.ratio = 当前窗口高度换算回「基础逻辑高度」(ratio = 逻辑/CSS = 缩放),
+      // 1 逻辑像素容差:物理尺寸往返取整会带来不到 1 像素的抖动,避免每次内容变化都改窗口。
+      // 宽度**不传**:自动高度路径不掌握宽度意图,只让 Rust 按当前宽度改高度(它绝不写 input_w)。
+      if (Math.abs(height - Math.round(geo.height / geo.ratio)) <= 1) return;
+      const call = extraCss > 0 ? api.setInputHeightOverlay : api.setInputHeight;
+      void call(height).catch(() => {});
     });
   }, [activated, textareaRef, extraCss]);
 

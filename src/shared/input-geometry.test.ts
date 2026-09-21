@@ -98,7 +98,7 @@ describe('dragBandCss', () => {
 });
 
 describe('suggestListHeightCss(# 补全建议列表)', () => {
-  it('0 条不加高;条数决定高度;超过上限按上限(列表内部滚动)', () => {
+  it('0 条不加高;条数决定高度;超过上限按上限(候选条数本身也被限在同值)', () => {
     expect(suggestListHeightCss(0)).toBe(0);
     expect(suggestListHeightCss(-3)).toBe(0);
     expect(suggestListHeightCss(Number.NaN)).toBe(0);
@@ -107,7 +107,7 @@ describe('suggestListHeightCss(# 补全建议列表)', () => {
     expect(suggestListHeightCss(SUGGEST_MAX_ROWS)).toBe(SUGGEST_MAX_ROWS * SUGGEST_ROW_CSS + SUGGEST_PAD_CSS);
     expect(suggestListHeightCss(50)).toBe(SUGGEST_MAX_ROWS * SUGGEST_ROW_CSS + SUGGEST_PAD_CSS);
   });
-  it('上限与 tag-complete 的候选上限同值(8 条,两处漂移会让列表被裁)', () => {
+  it('上限与 tag-complete 的候选上限同值(8 条,两处漂移会让列表被裁或滚不动)', () => {
     expect(SUGGEST_MAX_ROWS).toBe(8);
   });
 });

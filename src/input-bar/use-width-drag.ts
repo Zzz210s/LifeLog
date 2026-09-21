@@ -64,11 +64,12 @@ async function startWidthDrag(
   const apply = (screenX: number) => {
     const delta = (side === 'left' ? -1 : 1) * (screenX - startScreenX);
     const width = clampWidth(startWidth + delta);
-    // windowHeightFor 的第 3 个参数是**输入框**的 border-box 宽度(cssWidth),
+    // windowHeightFor 的 cssWidth 参数是**输入框**的 border-box 宽度,
     // 而这里是**窗口**的 CSS 宽度:窗口根节点有 p-[14px] 且 Tailwind preflight 为 border-box,
     // 输入框比窗口窄 2 x GLOW_PAD。不减掉就会按偏宽的宽度测量换行、少算一行,
     // 窗口变矮、滚动条提前出现(拖动路径专用;自动高度路径传的是实测宽度,不受影响)。
-    const height = windowHeightFor(ta, ratio, width / ratio - 2 * GLOW_PAD);
+    // 返回值是基础逻辑高度(缩放无关),与 setInputSize 的高度入参同一单位。
+    const height = windowHeightFor(ta, width / ratio - 2 * GLOW_PAD);
     void api.setInputSize(width, height).catch(() => {});
     if (side === 'left') {
       // 左边缘:窗口左边界跟手(宽度减多少,位置就右移多少)

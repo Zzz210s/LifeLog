@@ -28,6 +28,8 @@ export function useInputWheel(opts: {
     // 目标处于可滚动容器内时,普通滚轮优先滚内容(既有行为);Ctrl+滚轮一律调透明度。
     // 判定必须带容差(hasScrollOverflow):输入框撑满窗口,取整残差会让 `>` 恒真,
     // 于是空输入时在输入框上滚动也走内容分支、缩放失效(详见 input-gestures 的说明)。
+    // `#` 补全列表按设计**没有**内部滚动(候选上限 = 列表最大行数,见 SUGGEST_MAX_ROWS),
+    // 故它不会命中这条分支:滚轮落在列表上仍然缩放输入栏,这是既有 spec,不是缺陷。
     const inScrollable = (t: EventTarget | null): boolean => {
       for (let el = t as HTMLElement | null; el && el !== document.body; el = el.parentElement) {
         if (hasScrollOverflow(el.scrollHeight, el.clientHeight)) return true;

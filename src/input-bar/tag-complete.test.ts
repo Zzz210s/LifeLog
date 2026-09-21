@@ -1,6 +1,19 @@
 import { describe, expect, it } from 'vitest';
+import { SUGGEST_MAX_ROWS, SUGGEST_PAD_CSS, SUGGEST_ROW_CSS, suggestListHeightCss } from '../shared/input-geometry';
 import type { CompleteItem } from '../shared/types';
-import { completeMatch, sameList, tokenAt } from './tag-complete';
+import { COMPLETE_LIMIT, completeMatch, sameList, tokenAt } from './tag-complete';
+
+/**
+ * R5-1 不变量:候选上限(COMPLETE_LIMIT)与列表最大行数(SUGGEST_MAX_ROWS)必须相等 ——
+ * TagCompleteList 已不再声明 overflow(靠“内容高度 == 让出的高度”来避免出现滚不动的滚动条):
+ * 若候选上限变大而列表上限不变,多出的候选会被窗口裁掉;反之列表上限变大则又冒出一条空滚动条。
+ */
+describe('R5-1 列表尺寸不变量:候选上限 = 最大行数,内容永不溢出', () => {
+  it('两值相等,且 8 条候选的列表高度正好等于上限高度', () => {
+    expect(COMPLETE_LIMIT).toBe(SUGGEST_MAX_ROWS);
+    expect(suggestListHeightCss(COMPLETE_LIMIT)).toBe(SUGGEST_MAX_ROWS * SUGGEST_ROW_CSS + SUGGEST_PAD_CSS);
+  });
+});
 
 const tag = (path: string): CompleteItem => ({ path, kind: 'tag' });
 const alias = (path: string): CompleteItem => ({ path, kind: 'alias' });

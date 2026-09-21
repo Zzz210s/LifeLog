@@ -152,7 +152,7 @@ pub fn hide(app: &AppHandle) -> tauri::Result<()> {
             let _ = w.emit("input-hiding", ());
         }
         // 尺寸不回写:窗口不可手动 resize(resizable:false),所有尺寸变化都经
-        // set_input_size(apply_size,按意图写回)或 apply_scale;由 outer_size 反推基础尺寸
+        // set_input_size / set_input_height(按意图写回)或 apply_scale;由 outer_size 反推基础尺寸
         // 会把钳制/工作区收口的结果固化成"用户的基础尺寸"(缩放系数越大越错),且无法还原。
         // 窗口实际可见而 tao 缓存认为已隐藏时(例如被外部 ShowWindow / SetWindowPos
         // (SWP_SHOWWINDOW) 显示过,或由系统恢复),hide() 的 flags diff 为空会静默早退

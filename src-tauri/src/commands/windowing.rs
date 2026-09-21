@@ -1,4 +1,5 @@
 use crate::windowing;
+use crate::windowing::input_height;
 use crate::windowing::input_scale;
 use tauri::AppHandle;
 
@@ -13,15 +14,24 @@ pub fn show_input_bar(app: AppHandle) -> Result<(), String> {
     windowing::input::show(&app).map_err(|e| e.to_string())
 }
 
+/// 宽度拖动路径(唯一会写 input_w 的命令):width = 当前逻辑像素意图(套 240-900),
+/// height = **基础逻辑高度**(缩放无关,见 input_height)
 #[tauri::command]
 pub fn set_input_size(app: AppHandle, width: u32, height: u32) -> Result<(), String> {
     input_scale::apply_size(&app, input_scale::clamp_width(width), height)
 }
 
-/// 带 # 补全建议列表时的窗口高度:只改窗口,不把展开高度写回 input_h(见 apply_size_overlay)
+/// 自动高度(内容行数派生):只改高度(height = **基础逻辑像素**,缩放无关),
+/// 宽度原样保留 —— 这条路径绝不改写 input_w(把窗口当前宽度当意图写回会在缩放交错时改写用户宽度)
 #[tauri::command]
-pub fn set_input_size_overlay(app: AppHandle, width: u32, height: u32) -> Result<(), String> {
-    windowing::input_overlay::apply_size_overlay(&app, input_scale::clamp_width(width), height)
+pub fn set_input_height(app: AppHandle, height: u32) -> Result<(), String> {
+    input_height::apply_height(&app, height)
+}
+
+/// 带 # 补全建议列表时的窗口高度:同样只改高度,且**不把展开高度写回 input_h**
+#[tauri::command]
+pub fn set_input_height_overlay(app: AppHandle, height: u32) -> Result<(), String> {
+    input_height::apply_height_overlay(&app, height)
 }
 
 /// 缩放:尺寸 = 基础尺寸 x 系数(工作区收口),并把系数落到 webview zoom

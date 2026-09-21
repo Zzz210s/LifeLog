@@ -156,13 +156,15 @@ record(
 // ---------- 还原:删除测试笔记 + 窗口尺寸与缩放回到验收前 ----------
 const ids = (await call('query_notes', { conditions: conditions({ keyword: TEST_NOTE }), offset: 0 })).map((n) => n.id);
 for (const id of ids) await call('delete_note', { id });
-// input_w/input_h 存的是「缩放=1 的基础物理尺寸」,set_input_size 的入参是**CSS 意图**;
-// 还原必须先按 sf = dpr / zoom 把基础尺寸换算回意图,否则会写成 base*sf(实测 404 -> 505)
+// input_w/input_h 存的是「缩放=1 的基础物理尺寸」,set_input_size 的入参单位**按轴不同**:
+// width = 当前逻辑像素(含缩放)= 基础物理 x zoom / sf;height = 基础逻辑像素(缩放无关)= 基础物理 / sf。
+// (2026-09-21 起高度改用基础逻辑像素:缩放派生值一律不落库,见 windowing/input_height.rs)
 const dpr = await inputPage.cdp.eval('window.devicePixelRatio');
 const zoomNow = Number(await getSetting('input_zoom'));
 const sf = dpr / zoomNow;
-const intent = (base) => Math.round((Number(base) * zoomNow) / sf);
-await call('set_input_size', { width: intent(width0), height: intent(height0) });
+const widthIntent = Math.round((Number(width0) * zoomNow) / sf);
+const heightIntent = Math.round(Number(height0) / sf);
+await call('set_input_size', { width: widthIntent, height: heightIntent });
 await setSetting('input_zoom', zoom0);
 // 窗口位置挪回验收前的屏幕坐标(SetWindowPos);之后 hide 会把这个位置重新落库
 const moved = JSON.parse(sh('python', ['scripts/win-probe.py', 'move', String(pid), '输入栏', String(x0), String(y0)]).stdout || '{}');

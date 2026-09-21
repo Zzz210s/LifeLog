@@ -35,6 +35,13 @@ function KindBadge(p: { kind: 'alias' | 'similar'; path: string }): ReactNode {
  * 采纳后写入的始终是目标标签的规范路径。
  * 行高固定 SUGGEST_ROW_CSS,前端按它算窗口高度,所以这里不再用 py 之类的可变内边距。
  * onMouseDown + preventDefault 保住 textarea 焦点与光标(采纳要读光标位置)。
+ *
+ * R5-1(2026-09-21 实测):候选上限 COMPLETE_LIMIT(8)与 SUGGEST_MAX_ROWS(8)同值,
+ * 列表高度正是“8 行 + 自身上下内边距”,内容永远不会高于自身 max-height ——
+ * 原先的 overflow-y-auto 因此在 8 条候选时只能从 1 像素取整残差里挤出一条**永远滚不动的**
+ * 滚动条(实测 ch 199 / sh 200 / barW 15),滚轮落在列表上反而触发了输入栏缩放,
+ * 既误导视觉又白吃 15px 宽度。这里不再声明 overflow(内容高度按行数算准,不需要内部滚动);
+ * 若将来把 COMPLETE_LIMIT 调大于 SUGGEST_MAX_ROWS,必须同时改回可滚动,否则多余候选会被窗口裁掉。
  */
 export function TagCompleteList(p: TagCompleteListProps): ReactNode {
   if (p.items.length === 0) return null;
@@ -43,7 +50,7 @@ export function TagCompleteList(p: TagCompleteListProps): ReactNode {
       role="listbox"
       aria-label="标签补全候选"
       data-testid="tag-suggest"
-      className="w-full shrink-0 overflow-y-auto border-t border-border bg-raised"
+      className="w-full shrink-0 border-t border-border bg-raised"
       style={{ maxHeight: SUGGEST_MAX_ROWS * SUGGEST_ROW_CSS + SUGGEST_PAD_CSS, paddingTop: 4, paddingBottom: 4 }}
     >
       {p.items.map((it, i) => {

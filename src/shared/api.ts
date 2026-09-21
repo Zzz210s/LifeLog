@@ -56,11 +56,14 @@ export const api = {
   takePendingOpenSettings: () => invoke<boolean>('take_pending_open_settings'),
   /** 缩放:窗口尺寸 = 基础尺寸 x 系数,并落到 webview zoom */
   setInputScale: (zoom: number) => invoke<void>('set_input_scale', { zoom }),
+  /** 宽度拖动路径(唯一会写 input_w 的命令):width = 当前逻辑像素意图,height = 基础逻辑像素 */
   setInputSize: (width: number, height: number) =>
     invoke<void>('set_input_size', { width, height }),
-  /** 带建议列表时的窗口高度:只改窗口,不把展开高度写回基础尺寸(input_h) */
-  setInputSizeOverlay: (width: number, height: number) =>
-    invoke<void>('set_input_size_overlay', { width, height }),
+  /** 自动高度:height 是**基础**逻辑像素(缩放无关);宽度原样保留,绝不改写 input_w */
+  setInputHeight: (height: number) => invoke<void>('set_input_height', { height }),
+  /** 带建议列表时的高度:同上但不写库(展开高度不落 input_h) */
+  setInputHeightOverlay: (height: number) =>
+    invoke<void>('set_input_height_overlay', { height }),
   /** 三档锁定一次事务写库 */
   setInputLocks: (lockMove: boolean, lockClose: boolean, lockContent: boolean) =>
     invoke<void>('set_input_locks', { lockMove, lockClose, lockContent }),
