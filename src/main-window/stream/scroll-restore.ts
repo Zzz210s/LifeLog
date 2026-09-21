@@ -13,3 +13,16 @@ export function applyScrollRestore(el: { scrollTop: number } | null, saved: numb
   el.scrollTop = saved;
   return true;
 }
+
+/** 一次性用掉记录的位置:先取再清空(无论是否真的写回)。
+ * 为什么要清(2026-09-21 复审 A4):`saved` 用完不清,之后 EditPanel 在没有新一次 onEdit 的
+ * 情况下重挂载(例如整表刷新后重新渲染编辑面板),会把这个早已过期的位置再写回一次,
+ * 把流拉回旧位置。位置是“这一次进编辑”的一次性令牌,不是持久状态。 */
+export function takeScrollRestore(
+  el: { scrollTop: number } | null,
+  ref: { current: number | null },
+): boolean {
+  const saved = ref.current;
+  ref.current = null;
+  return applyScrollRestore(el, saved);
+}

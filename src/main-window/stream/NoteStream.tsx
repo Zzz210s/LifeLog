@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import type { Note } from '../../shared/types';
 import { EMPTY_STATE_ACTION, EMPTY_STATE_TEXT, streamEmptyState } from '../shell/empty-stream';
 import { EditPanel } from '../editor/EditPanel';
-import { applyScrollRestore } from './scroll-restore';
+import { takeScrollRestore } from './scroll-restore';
 import { NoteItem } from './NoteItem';
 
 export interface NoteStreamProps {
@@ -85,7 +85,9 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
                 onSaved={p.onEditSaved}
                 onCancel={p.onEditCancel}
                 onMounted={() => {
-                  applyScrollRestore(scroller, scrollBeforeEdit.current);
+                  // 一次性用掉记录的位置:还原完就置 null,避免将来 EditPanel 在没有新 onEdit 的
+                  // 情况下重挂载,把过期位置再写回一次(2026-09-21 复审 A4)
+                  takeScrollRestore(scroller, scrollBeforeEdit);
                 }}
               />
           ) : (

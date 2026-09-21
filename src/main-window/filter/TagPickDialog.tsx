@@ -63,7 +63,9 @@ export function TagPickDialog(p: TagPickDialogProps): ReactNode {
       <div
         role="dialog"
         aria-label={title}
-        className="w-80 rounded-lg border border-border bg-raised p-4 shadow-xl"
+        // 同表达式弹层:根滚动已关,弹层必须自己能滚且不超出视口(2026-09-21 复审 A3);
+        // 内部标签列表原有的 max-h-64 + 自身滚动保持不变(外层可滚只是极小窗口下再兜一层)
+        className="max-h-[calc(100vh-2rem)] w-80 overflow-y-auto rounded-lg border border-border bg-raised p-4 shadow-xl"
       >
         <div className="mb-2 flex items-center justify-between">
           <h2 className="text-sm font-medium text-text">{title}</h2>

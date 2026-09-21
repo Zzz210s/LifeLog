@@ -103,7 +103,9 @@ export function ExprDialog(p: ExprDialogProps): ReactNode {
       <div
         role="dialog"
         aria-label="表达式"
-        className="w-[30rem] max-w-[90vw] rounded-lg border border-border bg-raised p-4 shadow-xl"
+        // 根滚动已关(整页不得滚,R1),小窗口下弹层只能靠自己滚:上限 100vh - 2rem + 自身可滚,
+        // 否则高窗口/高系统缩放下会被上下裁掉且没有任何滚动路径(2026-09-21 复审 A3)
+        className="max-h-[calc(100vh-2rem)] w-[30rem] max-w-[90vw] overflow-y-auto rounded-lg border border-border bg-raised p-4 shadow-xl"
       >
         <div className="mb-1 flex items-center justify-between">
           <h2 className="text-sm font-medium text-text">表达式(高级)</h2>
