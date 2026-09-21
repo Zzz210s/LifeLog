@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { api } from '../../shared/api';
 import { composeSource, prepareForSave } from '../../shared/note-source';
@@ -25,6 +25,15 @@ export function EditPanel(p: EditPanelProps): ReactNode {
   // 纯建议层:保存行为与校验完全不受影响。
   const tagCount = useSourceTagCount(source, p.note.tags.length);
   const hint = tagCountHint(tagCount);
+  const boxRef = useRef<HTMLTextAreaElement>(null);
+
+  // R4:进编辑**不改动笔记流的滚动位置**。原先用 autoFocus,浏览器聚焦时会做 scrollIntoView ——
+  // 被视口裁掉的卡片一旦点进编辑,流 scrollTop 就被拉回去(实测 200 -> 0,跳 200px)。
+  // 改成显式 focus + preventScroll:焦点照样落在源码框(键盘可达性与 Ctrl+Enter 不变),
+  // 但不向任何滚动祖先请求“把焦点元素滚进视野”。
+  useEffect(() => {
+    boxRef.current?.focus({ preventScroll: true });
+  }, []);
 
   const save = async () => {
     const text = prepareForSave(source); // 与创建路径共用保存前入口:只裁行尾空白,空内容拒绝
@@ -45,7 +54,7 @@ export function EditPanel(p: EditPanelProps): ReactNode {
   return (
     <li className="border-b border-accent/40 bg-accent-soft/40 px-4 py-3">
       <textarea
-        autoFocus
+        ref={boxRef}
         aria-label="编辑源码"
         rows={editRows(source)}
         value={source}
@@ -56,7 +65,7 @@ export function EditPanel(p: EditPanelProps): ReactNode {
             void save();
           }
         }}
-        className="w-full resize-y rounded-md border border-border bg-raised p-2 font-mono text-sm leading-relaxed outline-none focus:border-accent"
+        className="scroll-gutter w-full resize-y rounded-md border border-border bg-raised p-2 font-mono text-sm leading-relaxed outline-none focus:border-accent"
       />
       <div className="mt-2 flex items-center justify-between">
         <div className="flex items-center gap-3">

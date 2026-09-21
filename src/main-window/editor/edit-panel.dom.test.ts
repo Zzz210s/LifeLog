@@ -149,6 +149,33 @@ describe('EditPanel 保存与取消', () => {
   });
 });
 
+/**
+ * R4:进编辑不得改动笔记流的滚动位置。
+ * 原实现用 textarea 的 autoFocus:浏览器聚焦时会 scrollIntoView,把被视口裁掉的卡片
+ * 拉回视野(实测流 scrollTop 200 -> 0)。改为显式 focus({preventScroll:true})。
+ * 这两个断言就是防回归:①不能再出现 autofocus 属性;②focus 必须带 preventScroll。
+ */
+describe('R4 进编辑不改动滚动位置', () => {
+  it('挂载后焦点在源码框;focus 带 preventScroll 且无 autoFocus 属性', async () => {
+    const focus = vi.spyOn(HTMLTextAreaElement.prototype, 'focus');
+    await mount(note('正文'));
+    const el = textarea();
+    expect(document.activeElement).toBe(el);
+    expect(el.getAttribute('autofocus')).toBeNull();
+    expect(focus).toHaveBeenCalledWith({ preventScroll: true });
+    focus.mockRestore();
+  });
+
+  it('焦点仍在源码框时 Ctrl+Enter 保存路径不变(键盘可达性不退化)', async () => {
+    updateNote.mockResolvedValue(note('改后的正文', []));
+    await mount(note('正文'));
+    expect(document.activeElement).toBe(textarea());
+    await setValue(textarea(), '改后的正文');
+    await pressCtrlEnter(textarea());
+    expect(updateNote).toHaveBeenCalledWith(7, '改后的正文');
+  });
+});
+
 describe('EditPanel 标签数实时提示', () => {
   it('提示仍在:初始回退已保存标签数,防抖后显示解析结果', async () => {
     parseNoteSource.mockResolvedValue({ content: '', tags: ['a', 'b'] });
