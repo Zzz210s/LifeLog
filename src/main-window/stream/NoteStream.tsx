@@ -25,6 +25,8 @@ export interface NoteStreamProps {
   onLoadMore: () => void;
   onTagClick: (name: string) => void;
   onEdit: (note: Note) => void;
+  /** 编辑面板已提交成功后的切换(内容未变也算):不受"编辑中不抢"守卫限制 */
+  onSwitchEdit: (note: Note) => void;
   onDelete: (note: Note) => void;
   onEditSaved: (note: Note) => void;
   onEditCancel: () => void;
@@ -41,6 +43,18 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
   // 进编辑前记下流的滚动位置:编辑面板比卡片高,浏览器滚动锚定会补偿性地改 scrollTop
   // (实测 +81/+58),导致被点的卡片整体上移。挂载后把这一个值写回,卡片就停在原处。
   const scrollBeforeEdit = useRef<number | null>(null);
+
+  /** 进编辑:click = 用户点正文;panel = 编辑面板已提交成功后的切换 */
+  const openEdit = (n: Note, via: 'click' | 'panel'): void => {
+    scrollBeforeEdit.current = scroller?.scrollTop ?? null;
+    if (via === 'panel') p.onSwitchEdit(n);
+    else p.onEdit(n);
+  };
+
+  // 编辑中的笔记已不在列表里(被并发删除/筛选自愈):收起编辑态,避免"永远编辑中"卡住
+  useEffect(() => {
+    if (p.editingId !== null && !p.notes.some((n) => n.id === p.editingId)) p.onEditCancel();
+  }, [p.editingId, p.notes, p.onEditCancel]);
 
   useEffect(() => {
     if (!sentinel) return;
@@ -84,6 +98,12 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
                 note={n}
                 onSaved={p.onEditSaved}
                 onCancel={p.onEditCancel}
+                onSwitchNote={(id) => {
+                  const next = p.notes.find((x) => x.id === id);
+                  if (next) openEdit(next, 'panel');
+                  else p.onEditCancel();
+                }}
+                onErrorFallback={p.onLinkError}
                 onMounted={() => {
                   // 一次性用掉记录的位置:还原完就置 null,避免将来 EditPanel 在没有新 onEdit 的
                   // 情况下重挂载,把过期位置再写回一次(2026-09-21 复审 A4)
@@ -96,10 +116,7 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
               note={n}
               activeTags={p.activeTags}
               onTagClick={p.onTagClick}
-              onEdit={() => {
-                scrollBeforeEdit.current = scroller?.scrollTop ?? null;
-                p.onEdit(n);
-              }}
+              onEdit={() => openEdit(n, 'click')}
               onDelete={() => p.onDelete(n)}
               onToggleTask={(index) => p.onToggleTask(n, index)}
               onLinkError={p.onLinkError}

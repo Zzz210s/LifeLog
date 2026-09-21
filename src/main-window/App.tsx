@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { api } from '../shared/api';
 import { EMPTY_FILTER, isFilterEmpty } from '../shared/filter-conditions';
 import { useThemeMode } from '../shared/use-theme-mode';
-import type { TagCount } from '../shared/types';
+import type { Note, TagCount } from '../shared/types';
 import { ErrorBars } from './shell/ErrorBars';
 import type { MainView } from './settings/settings-model';
 import { FilterBar } from './filter/FilterBar';
@@ -92,6 +92,16 @@ export function App(): ReactNode {
   });
 
   /**
+   * 点正文进编辑:编辑面板在场时面板的提交守卫接管(点另一条 = 先存后进),这里不抢 ——
+   * 用函数式更新读最新值,避免同一 tick 里已被排队清空的旧 editingId。
+   */
+  const requestEdit = useCallback((n: Note) => {
+    setEditingId((prev) => (prev === null ? n.id : prev));
+  }, []);
+  /** 编辑面板已提交成功后的切换(内容未变时也走这条):不受上述守卫限制 */
+  const switchEdit = useCallback((n: Note) => setEditingId(n.id), []);
+
+  /**
    * 标签改名/移动/删除成功:刷新标签树;改名/移动时各标签页条件里的路径已由 Rust
    * 在同一事务里重写(tabs_rewrite),这里重读 settings 即同步 —— 前端不重复实现一套重写。
    */
@@ -155,7 +165,8 @@ export function App(): ReactNode {
             loading={loading}
             onLoadMore={loadMore}
             onTagClick={toggleTag}
-            onEdit={(n) => setEditingId(n.id)}
+            onEdit={requestEdit}
+            onSwitchEdit={switchEdit}
             onDelete={remove}
             onEditSaved={onEditSaved}
             onEditCancel={() => setEditingId(null)}
