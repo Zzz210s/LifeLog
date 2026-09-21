@@ -169,3 +169,27 @@ describe('sameTarget:feedback 未变早退的比较口径', () => {
     expect(sameTarget({ path: '工作', zone: 'child' }, null)).toBe(false);
   });
 });
+
+describe('过滤态的同级序必须按完整树算(复审 I2)', () => {
+  // 真实序:B, X, A(A 在 X 之后);过滤后只显示 B, A(隐藏了 X)
+  const full = [node(1, 'B'), node(2, 'X'), node(3, 'A')];
+  const filtered = [node(1, 'B'), node(3, 'A')];
+  const src = { id: 3, path: 'A', name: 'A' };
+
+  it('拿完整树算:把 A 拖到 B 之后 = 真移动(不是原地不动)', () => {
+    const t = resolveDrop(filtered, src, { path: 'B', zone: 'after' }, full);
+    expect(t).toEqual({ path: 'B', zone: 'after' });
+  });
+
+  it('若拿过滤后的树算,同一个落点会被误判成原地不动(这就是复审抓到的漏洞)', () => {
+    // 过滤树里 A 紧跟在 B 之后 -> 旧实现判成 noop 并静默吞掉
+    expect(resolveDrop(filtered, src, { path: 'B', zone: 'after' })).toBeNull();
+  });
+
+  it('未过滤时两棵树相同,行为与从前一致', () => {
+    expect(resolveDrop(full, src, { path: 'B', zone: 'after' }, full)).toEqual({
+      path: 'B',
+      zone: 'after',
+    });
+  });
+});

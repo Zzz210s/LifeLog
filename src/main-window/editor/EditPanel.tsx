@@ -103,7 +103,7 @@ export function EditPanel(p: EditPanelProps): ReactNode {
   /** 点区块外/切走时的提交:内容未变 -> 直接退出不写库;否则同显式保存 */
   const flush = useCallback(async (): Promise<CommitResult> => {
     // 已有保存在飞:忽略这次点击(否则连点两次区块外会发两次 updateNote,复审 I1)
-    if (inFlight.current) return { ok: false, message: '正在保存,请稍候', inline: true, busy: true };
+    if (inFlight.current) return { ok: false, message: '正在保存,请稍候', inline: alive.current, busy: true };
     const text = prepareForSave(source);
     if (text === null) {
       setError('内容不能为空');
