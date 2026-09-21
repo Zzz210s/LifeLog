@@ -25,3 +25,11 @@ fn overlay_height_cap_fits_input_plus_suggestion_list() {
     assert_eq!(clamp_height(9999), MAX_HEIGHT);
     assert_eq!(clamp_height(0), MIN_HEIGHT);
 }
+
+#[test]
+fn 让位期间的窗口坐标不落库() {
+    use super::should_commit_position;
+    assert!(should_commit_position(true, false)); // 可见且不在让位:正常落库
+    assert!(!should_commit_position(true, true)); // 让位进行中:跳过(坐标是临时的)
+    assert!(!should_commit_position(false, false)); // 不可见:不落库(既有语义)
+}

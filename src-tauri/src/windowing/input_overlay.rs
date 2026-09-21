@@ -55,6 +55,18 @@ pub fn shift_for_overlay(win: &WebviewWindow, phys: (u32, u32)) {
     let _ = win.set_position(PhysicalPosition::new(x, y));
 }
 
+/// 让位位移是否正在进行。给位置落库路径当守卫用:让位期间窗口坐标是"为列表让开"的临时值,
+/// 不是用户位置 —— 落库会把输入栏永久挪到那个位置(2026-09-21 复审 Important;与"几何只按
+/// 用户拖动意图写回"同一条纪律)。
+pub fn shift_in_progress() -> bool {
+    OVERLAY_RESTORE.lock().unwrap_or_else(|e| e.into_inner()).is_some()
+}
+
+/// 纯函数:该不该把当前窗口位置写进记忆位置(可见 + 不在让位位移中)
+pub fn should_commit_position(visible: bool, shifting: bool) -> bool {
+    visible && !shifting
+}
+
 /// 还原被 shift_for_overlay 挪动的窗口位置(没有挪过则什么都不做;列表关闭时由 input_height::apply_height 调用)
 pub fn restore(win: &WebviewWindow) {
     let saved = OVERLAY_RESTORE.lock().unwrap_or_else(|e| e.into_inner()).take();

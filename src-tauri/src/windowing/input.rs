@@ -1,5 +1,6 @@
 use crate::db::repos;
 use crate::db::Db;
+use crate::windowing::input_overlay;
 use crate::windowing::input_scale;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
@@ -59,7 +60,9 @@ pub fn end_drag_session() {
 /// 只有窗口确实可见时才写,避免把创建期默认位置(96,96)覆盖成用户记忆。
 pub fn commit_position(app: &AppHandle) {
     if let Some(w) = win(app) {
-        if w.is_visible().unwrap_or(false) {
+        // 让位位移进行中时的 Moved 事件写的是临时坐标:跳过一次,别把输入栏永久挪走
+        let visible = w.is_visible().unwrap_or(false);
+        if input_overlay::should_commit_position(visible, input_overlay::shift_in_progress()) {
             remember_position(app, &w);
         }
     }
