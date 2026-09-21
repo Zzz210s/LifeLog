@@ -37,12 +37,52 @@ fn height_phys_multiplies_by_system_scale_and_zoom() {
 
 #[test]
 fn height_phys_caps_to_work_area_height() {
-    // 工作区 1080 的 80% = 864:2.0 缩放下的大高度被收口(与宽度同一收口比例)
-    assert_eq!(height_phys(MAX_HEIGHT, 1.0, 2.0, Some(1080)), 864);
+    // 最大内容(360 基础逻辑高)x 2.0 = 720 物理:工作区 900 的 80% = 720 -> 正好收口在 720
+    assert_eq!(height_phys(MAX_HEIGHT, 1.0, 2.0, Some(900)), 720);
+    // 更矮的工作区(800 -> 640)会真的把窗口压下来(与宽度同一收口比例)
+    assert_eq!(height_phys(MAX_HEIGHT, 1.0, 2.0, Some(800)), 640);
     // 不冲突时原样保留
     assert_eq!(height_phys(87, 1.0, 1.0, Some(1080)), 87);
     // 取不到工作区时不收口
-    assert_eq!(height_phys(MAX_HEIGHT, 1.0, 2.0, None), 1120);
+    assert_eq!(height_phys(MAX_HEIGHT, 1.0, 2.0, None), 720);
+}
+
+#[test]
+fn height_clamp_is_base_logical_not_zoomed() {
+    // 修复前的坑:35-560 被套在“含缩放的逻辑高”上。现在上下界只作用于**基础逻辑高**:
+    // 360(最大内容)在 zoom 2 下不被钳;异常大的值仍被钳到 360 后再等比放大。
+    assert_eq!(height_phys(MAX_HEIGHT, 1.0, 2.0, None), 720);
+    assert_eq!(height_phys(10_000, 1.0, 2.0, None), 720);
+    assert_eq!(height_phys_from_base(10_000, 1.0, 2.0, None), 720);
+    assert_eq!(height_phys(1, 1.0, 1.0, None), MIN_HEIGHT);
+    // 上限就是“5 行窗口(160)+ 8 条候选列表(8 x 24 + 8 = 200)”= 360,与前端同源
+    assert_eq!(MAX_HEIGHT, 160 + 200);
+}
+
+#[test]
+fn scale_path_and_content_path_agree_at_zoom_two_with_max_content() {
+    // 复审 Important 1 的回归:内容 = 5 行 + 8 条候选(前端 windowHeightFor:
+    // ceil(5 x 22.75 + 18 + 28 + 200) = 360 基础逻辑像素),zoom = 2.0。
+    let content = 360u32;
+    let (sf, zoom) = (1.25f64, 2.0f64);
+    // 库里的基础物理高是自动高度路径写回的值(缩放不落库)
+    let stored = base_h_phys(content, sf);
+    assert_eq!(stored, 450);
+    // 内容路径:360 x 1.25 x 2.0 = 900
+    let content_path = height_phys(content, sf, zoom, None);
+    assert_eq!(content_path, 900);
+    // 缩放路径(show/apply_scale 的入参就是库里的基础物理高):与内容路径完全相同
+    assert_eq!(height_phys_from_base(stored, sf, zoom, None), content_path);
+    // 修复前的公式:上界常量 560 是“缩放态量”(现在已改为基础逻辑 360),被套在含缩放的
+    // 逻辑高上 -> clamp(720) = 560,再 x sf = 700;工作区 1080 时内容路径被收口到 864,
+    // 两者差 164 物理像素(复审实测值)
+    let legacy = ((720f64.min(560.0)) * sf).round() as u32;
+    assert_eq!(legacy, 700);
+    assert_eq!(height_phys(content, sf, zoom, Some(1080)), 864);
+    assert_ne!(legacy, 864);
+    assert_eq!(864 - legacy, 164);
+    // 工作区收口对两条路径同样生效
+    assert_eq!(height_phys_from_base(stored, sf, zoom, Some(1080)), 864);
 }
 
 #[test]

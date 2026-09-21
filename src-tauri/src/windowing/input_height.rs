@@ -16,7 +16,7 @@ use super::input_overlay;
 use super::input_scale::{clamp_height, clamp_scale, work_area_of, WORK_AREA_RATIO};
 use tauri::{AppHandle, Manager, PhysicalSize, WebviewWindow};
 
-/// 缩放系数兜底:非有限值/非正数按 1.0(与 input_scale::display_size 同一处理)
+/// 缩放系数兜底:非有限值/非正数按 1.0(与 input_scale::display_width 同一处理)
 fn sane_sf(sf: f64) -> f64 {
     if sf.is_finite() && sf > 0.0 {
         sf
@@ -38,8 +38,9 @@ pub fn base_h_phys(base_logical_h: u32, sf: f64) -> u32 {
         .max(1.0) as u32
 }
 
-/// 基础逻辑高度 -> **落窗口的物理高度**:先按 35-560 兜底,再乘 sf 与缩放,
+/// 基础逻辑高度 -> **落窗口的物理高度**:先按 35-360 兜底,再乘 sf 与缩放,
 /// 最后与工作区 80% 收口(与宽度同一收口比例;取不到工作区时不收口)。
+/// 这是**唯一**的高度换算,自动高度路径与缩放路径都调它(或 height_phys_from_base)。
 pub fn height_phys(base_logical_h: u32, sf: f64, zoom: f64, work_h: Option<u32>) -> u32 {
     let h = clamp_height(base_logical_h) as f64;
     let phys = (h * sane_sf(sf) * clamp_scale(zoom)).round().max(1.0) as u32;
@@ -47,6 +48,16 @@ pub fn height_phys(base_logical_h: u32, sf: f64, zoom: f64, work_h: Option<u32>)
         Some(wh) => phys.min(((wh as f64) * WORK_AREA_RATIO) as u32),
         None => phys,
     }
+}
+
+/// 库里的**基础物理高度** -> 落窗口的物理高度(缩放路径 show()/apply_scale 用)。
+/// 先把基础物理高除回系统缩放得到基础逻辑高,再交给 height_phys —— 与自动高度路径同一换算,
+/// 所以「同一内容」在两条路径下落到的窗口高相同(2026-09-21 复审 Important 1)。
+/// 旧实现把 35-560 套在「含缩放的逻辑高」上,zoom 2.0 下比内容路径矮 164 物理像素。
+pub fn height_phys_from_base(base_h_phys: u32, sf: f64, zoom: f64, work_h: Option<u32>) -> u32 {
+    let sf = sane_sf(sf);
+    let base_logical = ((base_h_phys as f64) / sf).round().max(1.0) as u32;
+    height_phys(base_logical, sf, zoom, work_h)
 }
 
 /// 只改高度、宽度原样保留(取窗口当前物理宽度)。返回落到的物理尺寸。

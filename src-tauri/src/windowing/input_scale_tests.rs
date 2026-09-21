@@ -1,5 +1,6 @@
 //! 输入栏尺寸/缩放钳制测试(纯函数,不触碰窗口句柄)
 use super::*;
+use super::super::input_height::height_phys;
 
 #[test]
 fn clamp_width_bounds() {
@@ -16,11 +17,12 @@ fn clamp_width_keeps_bounds() {
 
 #[test]
 fn clamp_height_bounds() {
-    // 0 与过小的值兜底到 1 行 @0.5x 缩放下界
+    // 0 与过小的值兜底到下界 35(基础逻辑像素,故意低于单行 69)
     assert_eq!(clamp_height(0), MIN_HEIGHT);
     assert_eq!(clamp_height(1), MIN_HEIGHT);
-    // 过大的值兜底到 5 行 @2.0x 缩放上界
+    // 过大的值兜底到最大内容上界 360(5 行 160 + 8 条候选 200,基础逻辑像素)
     assert_eq!(clamp_height(10_000), MAX_HEIGHT);
+    assert_eq!(MAX_HEIGHT, 360);
 }
 
 #[test]
@@ -46,9 +48,14 @@ fn scaled_size_rounds() {
 }
 
 #[test]
-fn cap_to_work_area_is_80_percent_per_axis() {
-    assert_eq!(cap_to_work_area(2000, 1600, 1920, 1080), (1536, 864));
-    assert_eq!(cap_to_work_area(800, 600, 1920, 1080), (800, 600));
+fn work_area_cap_is_80_percent_per_axis() {
+    // 宽高各自独立与工作区 80% 收口:1920x1080 -> 1536x864(宽度按显示逻辑宽收口)
+    assert_eq!(display_width(2000, 1.0, Some((1920, 1080)), false), 1536);
+    // 高度:最大内容 360 x 2.0 = 720,与工作区 900 的 80%(720)相等;工作区 800 -> 640 才真压下来
+    assert_eq!(height_phys(MAX_HEIGHT, 1.0, 2.0, Some(900)), 720);
+    assert_eq!(height_phys(MAX_HEIGHT, 1.0, 2.0, Some(800)), 640);
+    // 不冲突时原样保留
+    assert_eq!(display_width(800, 1.0, Some((1920, 1080)), false), 800);
 }
 
 #[test]
@@ -57,49 +64,45 @@ fn work_area_cap_wins_over_max_width() {
     let clamped = clamp_width(1200); // 先落到硬上限 900
     assert_eq!(clamped, MAX_WIDTH);
     // 工作区 800 宽 -> 80% = 640,小于 900:取 640
-    assert_eq!(cap_to_work_area(clamped, MAX_HEIGHT, 800, 600).0, 640);
-    // 高度同理:硬上限(含建议列表后是 560)与工作区 300 的 80%(240)冲突时取 240
-    assert_eq!(cap_to_work_area(MIN_WIDTH, clamp_height(10_000), 800, 300).1, 240);
-    // 不冲突时两边都不变:高度取硬上限本身
-    assert_eq!(cap_to_work_area(MAX_WIDTH, MAX_HEIGHT, 1920, 1080), (900, MAX_HEIGHT));
+    assert_eq!(display_width(clamped, 1.0, Some((800, 300)), true), 640);
+    // 高度同理:硬上限(基础逻辑 360,即 5 行 + 8 条候选)与工作区 300 的 80%(240)冲突时取 240
+    assert_eq!(height_phys(10_000, 1.0, 1.0, Some(300)), 240);
+    // 不冲突时两边都不变:宽度取硬上限本身
+    assert_eq!(display_width(MAX_WIDTH, 1.0, Some((1920, 1080)), true), MAX_WIDTH);
 }
 
 #[test]
-fn display_size_caps_width_command_path_to_work_area() {
-    // 宽度命令路径(apply_size,clamp_intent=true)与缩放路径共用 display_size:
-    // 1024x768 工作区的 80% 宽 = 819,小于 900 硬上限 -> 意图 900 也得 819(而非越界的 900/1125)
-    assert_eq!(display_size(900, 87, 1.0, Some((1024, 768)), true), (819, 87));
+fn display_width_caps_command_path_to_work_area() {
+    // 宽度命令路径(apply_size,clamp_intent=true):1024x768 工作区的 80% 宽 = 819,
+    // 小于 900 硬上限 -> 意图 900 也得 819(而非越界的 900/1125)
+    assert_eq!(display_width(900, 1.0, Some((1024, 768)), true), 819);
     // 同一小屏在系统缩放 1.25 下同样收口到 819(先物理换算 1125,再与工作区 80% 取小)
-    assert_eq!(display_size(900, 87, 1.25, Some((1024, 768)), true).0, 819);
-    // 1024x768 的 80% 高 = 614,高于硬上限 560,高度不受工作区影响
-    assert_eq!(display_size(900, 10000, 1.0, Some((1024, 768)), true).1, MAX_HEIGHT);
+    assert_eq!(display_width(900, 1.25, Some((1024, 768)), true), 819);
     // 取不到工作区时只做硬区间与物理换算
-    assert_eq!(display_size(900, 87, 1.25, None, true), (1125, 109));
+    assert_eq!(display_width(900, 1.25, None, true), 1125);
     // 工作区充足时不收口
-    assert_eq!(display_size(900, 320, 1.25, Some((1920, 1080)), true), (1125, 400));
+    assert_eq!(display_width(900, 1.25, Some((1920, 1080)), true), 1125);
 }
 
 #[test]
-fn display_size_scale_path_ignores_width_intent_range() {
+fn display_width_scale_path_ignores_width_intent_range() {
     // 缩放路径(clamp_intent=false):基宽 900 逻辑 @2.0 -> 1800,不再被 900 硬上限卡住,
     // 只被工作区 80%(1920x1080 -> 1536)收口 —— 宽度与字号才真正等比。
     let lw = scaled_size(900, 87, 2.0).0;
     assert_eq!(lw, 1800);
-    assert_eq!(display_size(lw, 87, 1.0, Some((1920, 1080)), false).0, 1536);
+    assert_eq!(display_width(lw, 1.0, Some((1920, 1080)), false), 1536);
     // 工作区足够大时完全不被 900 或工作区改变
-    assert_eq!(display_size(lw, 87, 1.0, Some((3840, 2160)), false).0, 1800);
+    assert_eq!(display_width(lw, 1.0, Some((3840, 2160)), false), 1800);
     // 下限同理不强制 240:缩小后的 100 逻辑像素原样保留
-    assert_eq!(display_size(100, 87, 1.0, None, false).0, 100);
-    // 高度仍兜底钳制
-    assert_eq!(display_size(100, 10_000, 1.0, None, false).1, MAX_HEIGHT);
+    assert_eq!(display_width(100, 1.0, None, false), 100);
 }
 
 #[test]
-fn display_size_drag_intent_path_still_clamps_to_900() {
+fn display_width_drag_intent_path_still_clamps_to_900() {
     // 拖动意图 5000 仍被钳到 900(工作区 80% = 1536 > 900,不参与收口)
-    assert_eq!(display_size(5000, 87, 1.0, Some((1920, 1080)), true).0, MAX_WIDTH);
+    assert_eq!(display_width(5000, 1.0, Some((1920, 1080)), true), MAX_WIDTH);
     // 拖动意图 100 被抬到 240
-    assert_eq!(display_size(100, 87, 1.0, None, true).0, MIN_WIDTH);
+    assert_eq!(display_width(100, 1.0, None, true), MIN_WIDTH);
 }
 
 #[test]
@@ -141,13 +144,14 @@ fn repeated_roundtrip_has_no_systematic_drift() {
 }
 
 #[test]
-fn clamped_display_size_does_not_leak_into_stored_base() {
+fn clamped_work_area_size_does_not_leak_into_stored_base() {
     let (base_w, sf, s) = (404u32, 1.25f64, 1.3f64);
     let logical = (base_w as f64 / sf).round() as u32;
     let displayed = scaled_size(logical, 87, s);
-    // 工作区很小时 apply_scale 的收口会把显示宽度钳进 80%
-    let capped = cap_to_work_area(displayed.0, displayed.1, 400, 400);
-    let leaked = base_from_intent(capped.0, sf, s);
+    // 工作区很小时 display_width 会把显示宽度钳进 80%(404 逻辑 @1.25 -> 505,400 工作区 -> 320)
+    let capped_w = display_width(displayed.0, sf, Some((400, 400)), false);
+    assert_eq!(capped_w, 320);
+    let leaked = base_from_intent(capped_w, sf, s);
     assert_ne!(leaked, base_w, "钳制结果不该被当成基础尺寸");
     // 按命令意图写回才稳定
     assert_eq!(base_from_intent(displayed.0, sf, s), base_w);

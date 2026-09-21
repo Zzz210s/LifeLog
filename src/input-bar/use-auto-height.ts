@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { api } from '../shared/api';
 import { clampLines, GLOW_PAD, heightForLines } from '../shared/input-geometry';
@@ -85,9 +86,10 @@ export function useAutoHeight(opts: {
   const extraCss = opts.extraCss ?? 0;
   const activated = useWindowActivated();
 
-  const sync = useCallback(() => {
+  /** 立即按当前内容/宽度重算高度(不受 activated 门控;只在“确定窗口已显示”的入口调) */
+  const syncNow = useCallback(() => {
     const ta = textareaRef.current;
-    if (!activated || !ta) return;
+    if (!ta) return;
     void readGeometry().then((geo) => {
       if (!geo) return;
       const height = windowHeightFor(ta, undefined, extraCss);
@@ -98,11 +100,39 @@ export function useAutoHeight(opts: {
       const call = extraCss > 0 ? api.setInputHeightOverlay : api.setInputHeight;
       void call(height).catch(() => {});
     });
-  }, [activated, textareaRef, extraCss]);
+  }, [textareaRef, extraCss]);
+
+  const sync = useCallback(() => {
+    if (!activated) return;
+    syncNow();
+  }, [activated, syncNow]);
 
   useEffect(() => {
     sync();
   }, [sync, value]);
+
+  // 窗口被后端显示后(show() 会 emit input-shown)重新同步一次:
+  // show() 的尺寸是 apply_scale 从**库里的基础高**算出的,不含候选列表占的高度,而 120ms 重同步
+  // 只在内容/宽度变化时跑 —— 带着展开的列表隐藏再显示时,窗口会一直停在“只算内容”的矮高,
+  // 输入框被压瘪、列表被裁(2026-09-21 复审 Important 1;实测 864 -> 400 物理 px、输入框 118 -> 18 CSS)。
+  // 只在列表开着时强制同步:列表关闭时库里的基础高本来就等于内容高(show 已算对),
+  // 再同步是空操作,还会把“窗口比内容高”的既有观感改成每次显示都缩到内容高。
+  useEffect(() => {
+    let dispose: (() => void) | undefined;
+    let cancelled = false;
+    void listen('input-shown', () => {
+      if (extraCss > 0) syncNow();
+    })
+      .then((un) => {
+        if (cancelled) un();
+        else dispose = un;
+      })
+      .catch(() => {}); // 订阅失败不阻断显示流程
+    return () => {
+      cancelled = true;
+      dispose?.();
+    };
+  }, [extraCss, syncNow]);
 
   return sync;
 }
