@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { Note } from '../../shared/types';
 import { EMPTY_STATE_ACTION, EMPTY_STATE_TEXT, streamEmptyState } from '../shell/empty-stream';
 import { EditPanel } from '../editor/EditPanel';
+import { applyScrollRestore } from './scroll-restore';
 import { NoteItem } from './NoteItem';
 
 export interface NoteStreamProps {
@@ -37,6 +38,9 @@ export interface NoteStreamProps {
 export function NoteStream(p: NoteStreamProps): ReactNode {
   const [sentinel, setSentinel] = useState<HTMLDivElement | null>(null);
   const [scroller, setScroller] = useState<HTMLDivElement | null>(null);
+  // 进编辑前记下流的滚动位置:编辑面板比卡片高,浏览器滚动锚定会补偿性地改 scrollTop
+  // (实测 +81/+58),导致被点的卡片整体上移。挂载后把这一个值写回,卡片就停在原处。
+  const scrollBeforeEdit = useRef<number | null>(null);
 
   useEffect(() => {
     if (!sentinel) return;
@@ -75,14 +79,25 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
       <ul>
         {p.notes.map((n) =>
           n.id === p.editingId ? (
-            <EditPanel key={n.id} note={n} onSaved={p.onEditSaved} onCancel={p.onEditCancel} />
+            <EditPanel
+                key={n.id}
+                note={n}
+                onSaved={p.onEditSaved}
+                onCancel={p.onEditCancel}
+                onMounted={() => {
+                  applyScrollRestore(scroller, scrollBeforeEdit.current);
+                }}
+              />
           ) : (
             <NoteItem
               key={n.id}
               note={n}
               activeTags={p.activeTags}
               onTagClick={p.onTagClick}
-              onEdit={() => p.onEdit(n)}
+              onEdit={() => {
+                scrollBeforeEdit.current = scroller?.scrollTop ?? null;
+                p.onEdit(n);
+              }}
               onDelete={() => p.onDelete(n)}
               onToggleTask={(index) => p.onToggleTask(n, index)}
               onLinkError={p.onLinkError}

@@ -30,9 +30,9 @@ let host: HTMLDivElement;
 let onSaved: ReturnType<typeof vi.fn>;
 let onCancel: ReturnType<typeof vi.fn>;
 
-async function mount(n: Note): Promise<void> {
+async function mount(n: Note, extra: Record<string, unknown> = {}): Promise<void> {
   await act(async () => {
-    root.render(createElement(EditPanel, { note: n, onSaved, onCancel }));
+    root.render(createElement(EditPanel, { note: n, onSaved, onCancel, ...extra }));
   });
 }
 
@@ -187,5 +187,12 @@ describe('EditPanel 标签数实时提示', () => {
     });
     expect(parseNoteSource).toHaveBeenCalledWith('正文\n#水果');
     expect(host.querySelector('[data-testid="edit-tag-count"]')?.textContent).toContain('标签 2 个');
+  });
+
+  it('挂载并聚焦完成后回调 onMounted(父层据此还原流的滚动位置)', async () => {
+    let calls = 0;
+    await mount(note('正文'), { onMounted: () => { calls += 1; } });
+    expect(calls).toBe(1);
+    expect(document.activeElement).toBe(document.querySelector('textarea'));
   });
 });

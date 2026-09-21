@@ -11,6 +11,8 @@ export interface EditPanelProps {
   note: Note;
   onSaved: (note: Note) => void;
   onCancel: () => void;
+  /** 挂载并聚焦完成后的回调:父层用它把笔记流的滚动位置还原到进编辑之前 */
+  onMounted?: () => void;
 }
 
 /** 编辑态:点正文即就地变源码框(形态 A,2026-09-21;分屏实时预览已退场) */
@@ -33,6 +35,7 @@ export function EditPanel(p: EditPanelProps): ReactNode {
   // 但不向任何滚动祖先请求“把焦点元素滚进视野”。
   useEffect(() => {
     boxRef.current?.focus({ preventScroll: true });
+    p.onMounted?.(); // 焦点落定后再还原流位置
   }, []);
 
   const save = async () => {
