@@ -37,6 +37,7 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
   const [menu, setMenu] = useState<{ node: ManagedNode; x: number; y: number } | null>(null);
   const [flash, setFlash] = useState<TagFlash | null>(null);
   const flashTimer = useRef<number | null>(null);
+  const listRef = useRef<HTMLDivElement | null>(null);
 
   // 全量标签行(含时间标签)就是本分区的数据源(D3)
   const visibleRows = p.tagRows;
@@ -94,15 +95,30 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
     [p]
   );
 
+  const isExpanded = (path: string): boolean => filtering || !collapsed.has(path);
+
+  /** 悬停自动展开(T2):只展开不收起 —— 自动展开的计时期间用户可能已手动展开过 */
+  const expandPath = useCallback((path: string) => {
+    setCollapsed((prev) => {
+      if (!prev.has(path)) return prev;
+      const next = new Set(prev);
+      next.delete(path);
+      return next;
+    });
+  }, []);
+
   // 拖拽移动(spec 6):成功走与右键移动同一级联链,失败(预校验/后端)红色提示
   const drag = useTagDrag({
+    roots: shown,
+    expanded: isExpanded,
+    onAutoExpand: expandPath,
+    listRef,
     onMoved: (pathChange) => {
       showFlash('已移动标签');
       p.onTagsMutated(pathChange);
     },
     onError: (message) => showFlash(message, 'error'),
   });
-  const isExpanded = (path: string): boolean => filtering || !collapsed.has(path);
 
   // 扁平模式:树拉平为深度优先序列(保留过滤后的可见集合)
   const flatNodes = useMemo(() => {
@@ -124,10 +140,12 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
         onQueryChange={setQuery}
       />
       <div
+        ref={listRef}
         className="scroll-gutter min-h-0 flex-1 overflow-y-auto px-1 pb-2"
         data-testid="tag-list"
         onDragOver={drag.rootEvents.onDragOverRoot}
         onDrop={drag.rootEvents.onDropRoot}
+        onDragLeave={drag.listEvents.onDragLeaveList}
       >
         {visibleRows.length === 0 ? (
           <p className="px-2 py-3 text-xs text-faint">还没有标签,在输入栏写 #标签 试试</p>
@@ -148,8 +166,8 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
           <p className="px-2 py-2 text-xs text-faint">没有匹配的标签</p>
         )}
       </div>
-      {/* 拖拽期间常驻的「移到根级」指示条:悬停分区空白时高亮,松手移到根级 */}
-      {drag.dragging && (
+      {/* 「移到根级」指示条:拖拽期间渲染;源已在根级时不出现(T8,避免假成功) */}
+      {drag.dragging && drag.rootAllowed && (
         <TagRootDropBar
           overRoot={drag.overRoot}
           onDragOver={drag.rootEvents.onDragOverRoot}
