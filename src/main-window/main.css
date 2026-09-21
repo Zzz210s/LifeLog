@@ -1,5 +1,27 @@
 @import "../shared/theme.css";
 
+/* 应用外壳固定:R1 实测根文档自身可滚动(scrollHeight 6674 / clientHeight 720),焦点在 body /
+   Composer / 搜索框时按 PageDown、End 会把整页滚走(根 scrollTop 0 -> 630 / 0 -> 18929,
+   顶栏视口 y 0 -> -300)。滚动只应发生在设计好的容器里(笔记流、侧栏标签区、设置页、编辑框),
+   故这里把根与 #root 的高度钉死为视口高并关掉整页溢出。
+   不要改成 overflow: auto/scroll —— 那等于把 bug 换个名字。 */
+html,
+body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+#root {
+  height: 100%;
+}
+
+/* 滚动条出现/消失不再让内容横跳(R3):常驻预留滚动条槽,宽度跟随 R2 定制的 10px。
+   只给真正会“由短变长”的竖向滚动容器用;横向 TabsBar 不加,免得白吃一条竖槽。 */
+.scroll-gutter {
+  scrollbar-gutter: stable;
+}
+
 /* Markdown 渲染区(.md-body):参考 VSCode 预览风格的排版基线。
    颜色一律取主题 token,亮暗两套由 shared/theme.css 的 .dark 变量切换。 */
 

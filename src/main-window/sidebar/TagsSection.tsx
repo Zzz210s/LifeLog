@@ -124,7 +124,7 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
         onQueryChange={setQuery}
       />
       <div
-        className="min-h-0 flex-1 overflow-y-auto px-1 pb-2"
+        className="scroll-gutter min-h-0 flex-1 overflow-y-auto px-1 pb-2"
         data-testid="tag-list"
         onDragOver={drag.rootEvents.onDragOverRoot}
         onDrop={drag.rootEvents.onDropRoot}

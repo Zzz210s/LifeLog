@@ -15,7 +15,7 @@ export interface SettingsViewProps {
 
 export function SettingsView({ themeMode, onThemeChange }: SettingsViewProps): ReactNode {
   return (
-    <div className="flex-1 overflow-y-auto bg-panel">
+    <div className="scroll-gutter flex-1 overflow-y-auto bg-panel">
       <div className="mx-auto flex max-w-2xl flex-col gap-5 px-4 py-5">
         <h1 className="text-base font-semibold text-text">设置</h1>
         <AppearanceSection mode={themeMode} onChange={onThemeChange} />

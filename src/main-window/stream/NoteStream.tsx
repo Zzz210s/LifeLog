@@ -60,7 +60,7 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
     empty === 'failed' ? p.onRetry : empty === 'no-match' ? p.onClearFilters : p.onShowInput;
 
   return (
-    <div ref={setScroller} className="flex-1 overflow-y-auto">
+    <div ref={setScroller} className="scroll-gutter flex-1 overflow-y-auto">
       {empty !== null && (
         <div className="flex h-full flex-col items-center justify-center gap-2 text-sm text-faint">
           <span>{EMPTY_STATE_TEXT[empty]}</span>
