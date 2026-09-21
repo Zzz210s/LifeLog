@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from 'react';
-import { hasScrollOverflow } from '../shared/input-gestures';
+import { canScrollOnWheel } from '../shared/input-gestures';
 import {
   nextOpacity,
   nextScale,
@@ -25,14 +25,16 @@ export function useInputWheel(opts: {
 
   // 滚轮:手动注册为非 passive(React 的 wheel 监听是被动的,preventDefault 会失效)
   useEffect(() => {
-    // 目标处于可滚动容器内时,普通滚轮优先滚内容(既有行为);Ctrl+滚轮一律调透明度。
-    // 判定必须带容差(hasScrollOverflow):输入框撑满窗口,取整残差会让 `>` 恒真,
-    // 于是空输入时在输入框上滚动也走内容分支、缩放失效(详见 input-gestures 的说明)。
+    // 落点处于**真能自己滚**的容器内时,普通滚轮优先滚内容。判定两条缺一不可:
+    // ① computed overflow-y 为 auto/scroll(overflow: visible 的祖先不算 —— 输入栏根就是 visible,
+    //    只判溢出会让整个输入栏被当成“列表在滚”,缩放被静默吞掉,2026-09-21 复审 A2);
+    // ② 确实溢出且带容差(输入框撑满窗口,取整残差会让 `>` 恒真)。
     // `#` 补全列表按设计**没有**内部滚动(候选上限 = 列表最大行数,见 SUGGEST_MAX_ROWS),
     // 故它不会命中这条分支:滚轮落在列表上仍然缩放输入栏,这是既有 spec,不是缺陷。
     const inScrollable = (t: EventTarget | null): boolean => {
       for (let el = t as HTMLElement | null; el && el !== document.body; el = el.parentElement) {
-        if (hasScrollOverflow(el.scrollHeight, el.clientHeight)) return true;
+        const cs = getComputedStyle(el);
+        if (canScrollOnWheel(cs.overflowY, el.scrollHeight, el.clientHeight)) return true;
       }
       return false;
     };

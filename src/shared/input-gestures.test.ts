@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  canScrollOnWheel,
   hasScrollOverflow,
   isInDragBand,
+  isScrollableOverflow,
   pressKind,
   SCROLL_OVERFLOW_TOLERANCE_PX,
 } from './input-gestures';
@@ -50,6 +52,30 @@ describe('hasScrollOverflow', () => {
   });
   it('容差恒为 2 像素', () => {
     expect(SCROLL_OVERFLOW_TOLERANCE_PX).toBe(2);
+  });
+});
+
+describe('isScrollableOverflow / canScrollOnWheel(滚轮是否让位给内容)', () => {
+  it('只有 auto/scroll/overlay 算可能自己滚', () => {
+    expect(isScrollableOverflow('auto')).toBe(true);
+    expect(isScrollableOverflow('scroll')).toBe(true);
+    expect(isScrollableOverflow(' overlay ')).toBe(true);
+    expect(isScrollableOverflow('visible')).toBe(false);
+    expect(isScrollableOverflow('hidden')).toBe(false);
+    expect(isScrollableOverflow('clip')).toBe(false);
+  });
+
+  it('overflow: visible 且 scrollHeight 更大 -> 判否(复审 A2:不再吞掉滚轮缩放)', () => {
+    expect(canScrollOnWheel('visible', 500, 100)).toBe(false);
+    expect(canScrollOnWheel('visible', 303, 300)).toBe(false);
+  });
+
+  it('auto/scroll 且真溢出才算可滚', () => {
+    expect(canScrollOnWheel('auto', 500, 100)).toBe(true);
+    expect(canScrollOnWheel('scroll', 500, 100)).toBe(true);
+    // 溢出量在容差内(取整残差)不算
+    expect(canScrollOnWheel('auto', 302, 300)).toBe(false);
+    expect(canScrollOnWheel('scroll', 300, 300)).toBe(false);
   });
 });
 

@@ -29,6 +29,27 @@ export function hasScrollOverflow(scrollHeight: number, clientHeight: number): b
   return scrollHeight - clientHeight > SCROLL_OVERFLOW_TOLERANCE_PX;
 }
 
+/** computed overflow-y 是否可能让元素自己滚(visible / hidden / clip 一律不算) */
+const SCROLLABLE_OVERFLOW_Y = /^(auto|scroll|overlay)$/;
+
+export function isScrollableOverflow(overflowY: string): boolean {
+  return SCROLLABLE_OVERFLOW_Y.test(overflowY.trim());
+}
+
+/**
+ * 滚轮落点是否应该让位给「元素自己滚」:computed overflow-y 必须是 auto/scroll/overlay,
+ * **且**确实溢出(容差同 hasScrollOverflow)。
+ * 修复(2026-09-21 复审 A2):只判溢出会把 `overflow: visible` 的祖先也算成可滚动 ——
+ * 输入栏根就是 visible,于是滚轮落在输入栏内部任何位置都被当作“列表在滚”,缩放被静默吞掉。
+ */
+export function canScrollOnWheel(
+  overflowY: string,
+  scrollHeight: number,
+  clientHeight: number,
+): boolean {
+  return isScrollableOverflow(overflowY) && hasScrollOverflow(scrollHeight, clientHeight);
+}
+
 export type PressKind = 'drag' | 'double';
 
 // 双击必须在 mousedown 阶段用 detail 判定:原生拖动会吞掉后续 dblclick。
