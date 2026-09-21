@@ -23,6 +23,8 @@ export interface UseTagDragArgs {
   onError: (message: string) => void;
   /** 标签树(过滤后):落点解析与冒泡要用层级;扁平模式的显示序不影响解析 */
   roots: TagNode[];
+  /** 完整标签树(未过滤):只用于"原地不动"的同级序判定 —— 过滤隐藏行但不改变真实兄弟序 */
+  orderRoots?: TagNode[];
   /** 展开判定与自动展开入口(T2;过滤态恒展开,故不会有自动展开) */
   expanded: (path: string) => boolean;
   onAutoExpand: (path: string) => void;
@@ -73,7 +75,7 @@ export function useTagDrag(args: UseTagDragArgs) {
     e.stopPropagation(); // 行/边界带一律抢占,不让容器把这次悬停当成"移到根级"
     cancelClear();
     rt.pointer(e);
-    const target = resolveDrop(args.roots, src, { path: node.path, zone });
+    const target = resolveDrop(args.roots, src, { path: node.path, zone }, args.orderRoots);
     // 有效目标才设 move;无效目标不设 dropEffect(以"无高亮"为反馈,与 VS Code 一致)
     if (target) e.dataTransfer.dropEffect = 'move';
     rt.maybeAutoExpand(node);
@@ -132,7 +134,7 @@ export function useTagDrag(args: UseTagDragArgs) {
     if (!src) return;
     e.preventDefault();
     e.stopPropagation();
-    const target = resolveDrop(args.roots, src, { path: anchorPath, zone });
+    const target = resolveDrop(args.roots, src, { path: anchorPath, zone }, args.orderRoots);
     stopAll();
     if (target) move.move(src, target);
   };

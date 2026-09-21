@@ -110,6 +110,7 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
   // 拖拽移动(spec 6):成功走与右键移动同一级联链,失败(预校验/后端)红色提示
   const drag = useTagDrag({
     roots: shown,
+    orderRoots: tree, // 过滤只隐藏行,不改变真实兄弟序(复审 I2)
     expanded: isExpanded,
     onAutoExpand: expandPath,
     listRef,

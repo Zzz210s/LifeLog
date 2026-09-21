@@ -107,18 +107,23 @@ export function bandHalves(
 /**
  * 解析落点:目标不合法就向上找最近合法祖先(zone 保持不变,与 VS Code bubble: Up 一致);
  * 一路找不到、或解析结果是"原地不动" -> null(调用方据此不做任何反馈、不写库)。
+ *
+ * `roots` 是**过滤后**的可见树(用于命中与冒泡),`orderRoots` 是**未过滤**的完整树
+ * (用于"原地不动"的同级序判定):过滤只隐藏行、不改变真实兄弟序,若拿过滤后的树算序,
+ * 会把真实可移动误判成 noop 静默吞掉(2026-09-21 复审 I2)。默认回落到 roots 便于既有调用方。
  */
 export function resolveDrop(
   roots: TagNode[],
   src: DragSourceRef,
-  hover: DropTarget
+  hover: DropTarget,
+  orderRoots: TagNode[] = roots
 ): DropTarget | null {
   if (src.id === null) return null;
   let node = findNode(roots, hover.path);
   while (node) {
     if (checkDrop(src, node).ok) {
       const t: DropTarget = { path: node.path, zone: hover.zone };
-      return isNoopDrop(roots, src, t) ? null : t;
+      return isNoopDrop(orderRoots, src, t) ? null : t;
     }
     const parent = parentOf(node.path);
     node = parent === '' ? null : findNode(roots, parent);

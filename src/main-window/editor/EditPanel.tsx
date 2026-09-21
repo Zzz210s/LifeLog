@@ -22,7 +22,10 @@ export interface EditPanelProps {
 
 /** 提交结果:ok 为假时 message 是中文原因;inline = 面板内已经显示过(卸载时才需要转交);
  *  ok 为真时 changed 表示是否真的写了库(未变 = 没写,调用方需自行退出编辑) */
-type CommitResult = { ok: true; changed: boolean } | { ok: false; message: string; inline: boolean };
+// busy: 已有保存在飞,本次点击被忽略(调用方不提示、不退出、不切笔记)
+type CommitResult =
+  | { ok: true; changed: boolean }
+  | { ok: false; message: string; inline: boolean; busy?: boolean };
 
 /** 编辑态:点正文即就地变源码框(形态 A,2026-09-21;分屏实时预览已退场)。
  *  提交判定(2026-09-21 起):点区块内 = 继续编辑,点区块外 = 保存(未变则不写库直接退出),
@@ -43,6 +46,8 @@ export function EditPanel(p: EditPanelProps): ReactNode {
   /** 挂载时的源码:点区块外时与它比较,内容未变就不写库 */
   const initial = useRef(source);
   const alive = useRef(true);
+  /** 已有保存在飞(区块外连点 / 点另一条笔记时的重复提交守卫) */
+  const inFlight = useRef(false);
 
   // R4:进编辑**不改动笔记流的滚动位置**。原先用 autoFocus,浏览器聚焦时会做 scrollIntoView ——
   // 被视口裁掉的卡片一旦点进编辑,流 scrollTop 就被拉回去(实测 200 -> 0,跳 200px)。
@@ -61,6 +66,7 @@ export function EditPanel(p: EditPanelProps): ReactNode {
   const commit = async (text: string): Promise<CommitResult> => {
     setSaving(true);
     setError('');
+    inFlight.current = true;
     try {
       const updated = await api.updateNote(p.note.id, text);
       if (updated) {
@@ -72,17 +78,19 @@ export function EditPanel(p: EditPanelProps): ReactNode {
     } catch (e) {
       const message = '保存失败: ' + String(e);
       setError(message);
-      return { ok: false, message, inline: true };
+      // 面板还活着就地显示;已被卸载(例如点侧栏导致卸载)时交给主窗错误条,不能静默(复审 C1)
+      return { ok: false, message, inline: alive.current };
     } finally {
+      inFlight.current = false;
       setSaving(false);
     }
   };
 
   /** 显式保存(Ctrl+Enter / 保存按钮):空内容拒绝并就地给中文错误 */
   const save = async (): Promise<CommitResult> => {
-    if (saving) {
+    if (saving || inFlight.current) {
       setError('正在保存,请稍候');
-      return { ok: false, message: '正在保存,请稍候', inline: true };
+      return { ok: false, message: '正在保存,请稍候', inline: alive.current, busy: true };
     }
     const text = prepareForSave(source);
     if (text === null) {
@@ -94,14 +102,16 @@ export function EditPanel(p: EditPanelProps): ReactNode {
 
   /** 点区块外/切走时的提交:内容未变 -> 直接退出不写库;否则同显式保存 */
   const flush = useCallback(async (): Promise<CommitResult> => {
+    // 已有保存在飞:忽略这次点击(否则连点两次区块外会发两次 updateNote,复审 I1)
+    if (inFlight.current) return { ok: false, message: '正在保存,请稍候', inline: true, busy: true };
     const text = prepareForSave(source);
     if (text === null) {
       setError('内容不能为空');
-      return { ok: false, message: '内容不能为空', inline: true };
+      return { ok: false, message: '内容不能为空', inline: alive.current };
     }
     if (text === prepareForSave(initial.current)) return { ok: true, changed: false }; // 未变:no-op
     return commit(text);
-  }, [source, saving, p]);
+  }, [source, p]);
 
   // 点编辑区块外 = 保存:区块内继续编辑;落点是另一条笔记正文(且不是链接/复选框)则先存后进
   useEffect(() => {
@@ -114,8 +124,9 @@ export function EditPanel(p: EditPanelProps): ReactNode {
         Number.isFinite(nextId) && shouldEnterEdit(e.target, window.getSelection()?.toString() ?? '');
       void flush().then((r) => {
         if (!r.ok) {
+          if (r.busy) return; // 上一次保存还在飞:这次点击不参与决策
           // 保存失败(含空内容)必须留在编辑态;面板已被卸载时就地显示不了,转交主窗错误条
-          if (!r.inline && !alive.current) p.onErrorFallback?.(r.message);
+          if (!r.inline) p.onErrorFallback?.(r.message);
           return;
         }
         if (switching) p.onSwitchNote?.(nextId);
