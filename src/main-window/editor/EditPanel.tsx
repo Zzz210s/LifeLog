@@ -7,6 +7,7 @@ import { shouldEnterEdit } from '../stream/body-click';
 import { tagCountHint, tagCountLabel } from './edit-tag-count';
 import { editRows } from './textarea-rows';
 import { useSourceTagCount } from './use-source-tags';
+import { useLeaveSave } from './use-leave-save';
 
 export interface EditPanelProps {
   note: Note;
@@ -113,30 +114,15 @@ export function EditPanel(p: EditPanelProps): ReactNode {
     return commit(text);
   }, [source, p]);
 
-  // 点编辑区块外 = 保存:区块内继续编辑;落点是另一条笔记正文(且不是链接/复选框)则先存后进
-  useEffect(() => {
-    const onDown = (e: Event): void => {
-      const box = panelRef.current;
-      if (!box || !(e.target instanceof Node) || box.contains(e.target)) return;
-      const holder = e.target instanceof Element ? e.target.closest('[data-note-body]') : null;
-      const nextId = holder ? Number(holder.getAttribute('data-note-body')) : Number.NaN;
-      const switching =
-        Number.isFinite(nextId) && shouldEnterEdit(e.target, window.getSelection()?.toString() ?? '');
-      void flush().then((r) => {
-        if (!r.ok) {
-          if (r.busy) return; // 上一次保存还在飞:这次点击不参与决策
-          // 保存失败(含空内容)必须留在编辑态;面板已被卸载时就地显示不了,转交主窗错误条
-          if (!r.inline) p.onErrorFallback?.(r.message);
-          return;
-        }
-        if (switching) p.onSwitchNote?.(nextId);
-        // 未写库(内容未变)时由面板负责退出编辑;写库成功时 onSaved 已经退出了编辑态
-        else if (!r.changed) p.onCancel();
-      });
-    };
-    document.addEventListener('pointerdown', onDown);
-    return () => document.removeEventListener('pointerdown', onDown);
-  }, [flush, p.onCancel, p.onErrorFallback, p.onSwitchNote]);
+  // 离开编辑区块 = 保存(点区块外 / 点到程序窗口外):两条通道都在 useLeaveSave 里
+  useLeaveSave({
+    panelRef,
+    flush,
+    onSwitchNote: p.onSwitchNote,
+    onCancel: p.onCancel,
+    onErrorFallback: p.onErrorFallback,
+    shouldEnterEdit,
+  });
 
   return (
     <li
