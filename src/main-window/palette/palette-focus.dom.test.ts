@@ -1,7 +1,7 @@
 // 焦点归位与应用内快捷键:前者是「关闭浮层不能有副作用」的不变量,后者要求 e.repeat 被忽略、
 // 非法存储值回退默认而不是静默失效(T3 审查 Minor 7/8)。
 // @vitest-environment jsdom
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { hotkeyHarness, paletteHarness } from './palette-harness';
 import type { HotkeyHarness, PaletteHarness } from './palette-harness';
 
@@ -43,6 +43,34 @@ describe('焦点归位(打开前 activeElement -> 关闭后同一元素)', () =>
     ui.open('');
     ui.press('Enter');
     expect(document.activeElement).toBe(other);
+  });
+
+  it('归位目标已被卸载时不调用 focus(不静默乱移焦点,M3)', () => {
+    const trigger = ui.host.querySelector<HTMLButtonElement>('#palette-trigger');
+    trigger?.focus();
+    ui.open('');
+    const spy = vi.spyOn(trigger as HTMLButtonElement, 'focus');
+    trigger?.remove();
+    ui.input().focus(); // 关闭前焦点仍在浮层输入框(Esc 路径一致)
+    ui.press('Escape');
+    expect(spy).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(ui.input());
+  });
+
+  it('命令主动把焦点 blur 到 body 时不抢回(M4)', () => {
+    ui.unmount();
+    ui = paletteHarness({
+      onAccept: () => {
+        if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+      },
+    });
+    const trigger = ui.host.querySelector<HTMLButtonElement>('#palette-trigger');
+    trigger?.focus();
+    ui.open('');
+    const spy = vi.spyOn(trigger as HTMLButtonElement, 'focus');
+    ui.press('Enter');
+    expect(spy).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(document.body);
   });
 });
 

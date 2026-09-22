@@ -50,8 +50,10 @@ export interface PaletteHarness extends Mounted {
   accepted: Array<{ id: string; keepOpen: boolean }>;
   controller(): PaletteController;
   input(): HTMLInputElement;
-  /** 在输入框上派发真实 keydown(走 React 委托监听) */
+  /** 在输入框上派发真实 keydown(浮层的 window 监听靠冒泡收到) */
   press(key: string, init?: KeyboardEventInit): void;
+  /** 在「当前焦点元素」(如焦点被挪到 body 后)派发真实 keydown,复现键盘监听不能只挂在输入框 */
+  pressOnFocus(key: string, init?: KeyboardEventInit): void;
   open(prefix?: string): void;
   /** 真实 input 事件(受控输入:必须用原生 setter 才触发 React onChange) */
   type(value: string): void;
@@ -106,6 +108,12 @@ export function paletteHarness(options: PaletteHarnessOptions = {}): PaletteHarn
     input,
     press: (key, init = {}) => {
       const el = input();
+      act(() => {
+        el.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...init }));
+      });
+    },
+    pressOnFocus: (key, init = {}) => {
+      const el = document.activeElement ?? document.body;
       act(() => {
         el.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...init }));
       });

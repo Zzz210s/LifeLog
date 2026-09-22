@@ -108,4 +108,20 @@ describe('浮层不改布局', () => {
       restore();
     }
   });
+
+  it('60vh 上限落在面板根节点,列表只在剩余高度里滚动(M2)', () => {
+    const restore = installFlowRects();
+    try {
+      mounted = mountHost(() => createElement(LayoutHost, { extra: false }));
+      act(() => controller().open('>'));
+      const panel = document.querySelector('[data-floating="palette"]');
+      expect(panel?.className).toMatch(/max-h-\[60vh\]/);
+      expect(panel?.className).toMatch(/\bflex-col\b/);
+      const list = document.querySelector('[role="listbox"]');
+      expect(list?.className).not.toMatch(/max-h/);
+      expect(list?.className).toMatch(/\bflex-1\b/);
+    } finally {
+      restore();
+    }
+  });
 });

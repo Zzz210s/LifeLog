@@ -1,6 +1,10 @@
 // 浮层 aria 与空态(设计 §3.1/§3.8):断言真实 DOM 上的角色/状态,不是组件内部字段。
 // @vitest-environment jsdom
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { Palette } from './Palette';
+import type { PaletteController } from './use-palette';
 import { paletteHarness } from './palette-harness';
 import type { PaletteHarness } from './palette-harness';
 
@@ -16,6 +20,16 @@ afterEach(() => {
 
 function liveText(): string | undefined {
   return document.querySelector('[aria-live="polite"]')?.textContent ?? undefined;
+}
+
+/** 只用于 SSR「首帧」读数的静态 controller(effect 在服务端不跑) */
+function staticController(): PaletteController {
+  return {
+    isOpen: true, prefix: '', query: '', rows: [], total: 3, truncated: false, activeIndex: 0,
+    inputRef: { current: null },
+    open: () => {}, close: () => {}, setQuery: () => {}, setActiveIndex: () => {},
+    accept: () => {}, handleKeyDown: () => {},
+  };
 }
 
 describe('浮层 aria', () => {
@@ -53,6 +67,27 @@ describe('浮层 aria', () => {
     expect(liveText()).toBe('1 项');
     ui.type('zzz 无此命令');
     expect(liveText()).toBe('0 项');
+  });
+
+  it('关闭态保持挂载:aria-expanded 真为 false,根节点靠 hidden 隐藏(M1)', () => {
+    const root = (): Element | null => document.querySelector('[data-floating="palette"]');
+    expect(root()).not.toBeNull();
+    expect(root()?.hasAttribute('hidden')).toBe(true);
+    expect(ui.input().getAttribute('aria-expanded')).toBe('false');
+    expect(liveText()).toBe('');
+    ui.open();
+    expect(root()?.hasAttribute('hidden')).toBe(false);
+    expect(ui.input().getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('aria-live 区域先挂空,挂载后才写入计数(首帧不播报,M6)', () => {
+    const html = renderToStaticMarkup(createElement(Palette, { controller: staticController() }));
+    const firstFrame = new DOMParser().parseFromString(html, 'text/html');
+    const live = firstFrame.querySelector('[aria-live="polite"]');
+    expect(live).not.toBeNull();
+    expect(live?.textContent).toBe(''); // 首帧区域已在、文本为空
+    ui.open();
+    expect(liveText()).toBe('3 项'); // 挂载后由 effect 写入
   });
 
   it('真实输入事件驱动查询(受控输入 -> onChange -> 列表重算)', () => {
