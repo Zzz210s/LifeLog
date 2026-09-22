@@ -74,15 +74,20 @@ export function defineCommands(defs: readonly CommandDef[]): CommandRegistry {
   });
 }
 
-/** 搜索字段:标题在前、别名在后(T4 打分与别名命中共用) */
-export function searchTerms(cmd: Command): readonly string[] {
-  return Object.freeze([cmd.title, ...cmd.aliases]);
-}
+/** 接线映射:命令 id -> 真实副作用(缺 id 由 withRuns 报错) */
+export type CommandRuns = Readonly<Record<string, () => void | Promise<void>>>;
 
-/** 标题/别名包含匹配(去两端空白 + 大小写不敏感);模糊排序由 T4 的 fuzzy-score 负责 */
-export function matchesCommand(cmd: Command, query: string): boolean {
-  const q = query.trim().toLowerCase();
-  return q === '' || searchTerms(cmd).some((t) => t.toLowerCase().includes(q));
+/**
+ * 把真实副作用接到注册表上(T3 审查 Important 1)。
+ * 缺 id 即抛中文错误并列出全部缺失 id —— 漏接在构造期/测试期就失败,
+ * 不会退化成 `notWired` 的静默占位(界面上表现成「点了没反应」)。
+ */
+export function withRuns(registry: CommandRegistry, runs: CommandRuns): CommandRegistry {
+  const missing = registry.all.filter((c) => !Object.prototype.hasOwnProperty.call(runs, c.id));
+  if (missing.length > 0) {
+    throw new Error(`命令未接线(withRuns 缺少 run):${missing.map((c) => c.id).join('、')}`);
+  }
+  return defineCommands(registry.all.map((c) => ({ ...c, run: runs[c.id] })));
 }
 
 /** 命令清单(设计 §3.7;11 条)。id/title/aliases/when/toggled/danger 定型,T5/T6 依赖。 */

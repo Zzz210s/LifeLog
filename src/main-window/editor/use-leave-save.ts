@@ -2,6 +2,8 @@
 //   ① 点编辑区块之外(文档级 pointerdown):区块内继续编辑;落点是另一条笔记正文则先存后进
 //   ② 鼠标点到程序窗口之外:宿主窗口失焦 -> Rust 侧 emit BLUR_SAVE_EVENT(可靠信号)
 //   ③ DOM window blur(兜底:WebView2 未必派发,派发了也只算一次 —— 在飞守卫挡住第二次)
+//   ④ 浮层内点击:跳过(不算「区块外」,设计 §8 风险一);浮层的关闭由 use-palette 自己的
+//      window mousedown 负责 —— 同一次外部按下的事件序列是「先保存(浮层仍开)-> 后关浮层」
 // 保存失败(含空内容)必须留在编辑态;面板已被卸载时就地显示不了,转交主窗错误条。
 import { useEffect } from 'react';
 import type { RefObject } from 'react';
@@ -42,6 +44,11 @@ export function useLeaveSave(args: UseLeaveSaveArgs): void {
       });
     };
     const onDown = (e: Event): void => {
+      // 浮层内的点击**不算**「点区块外」:不触发保存(设计 §8 风险一)。
+      // 判「点击在不在浮层内」只读 `closest('[data-floating]')`;浮层开合由 use-palette 自己管 ——
+      // 这里不关浮层、也不读 controller.isOpen(pointerdown 那一刻它还是 true,当保存前置条件就错了;
+      // 关闭态子树常驻,用 querySelector 判开合恒真。见 T5 复审 §2.2)。
+      if (e.target instanceof Element && e.target.closest('[data-floating]') !== null) return;
       const box = panelRef.current;
       if (!box || !(e.target instanceof Node) || box.contains(e.target)) return;
       const holder = e.target instanceof Element ? e.target.closest('[data-note-body]') : null;

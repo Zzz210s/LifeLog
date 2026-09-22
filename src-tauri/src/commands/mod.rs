@@ -3,6 +3,7 @@ pub mod backup_notice;
 pub mod exchange;
 pub mod expr;
 pub mod hotkey;
+pub mod maintenance;
 pub mod notes;
 pub mod parse;
 pub mod settings;

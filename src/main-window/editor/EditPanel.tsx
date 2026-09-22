@@ -7,6 +7,7 @@ import { shouldEnterEdit } from '../stream/body-click';
 import { tagCountHint, tagCountLabel } from './edit-tag-count';
 import { editRows } from './textarea-rows';
 import { useSourceTagCount } from './use-source-tags';
+import { registerEditFlush } from './edit-flush';
 import { useLeaveSave } from './use-leave-save';
 import { useSaveOnUnmount } from './use-save-on-unmount';
 
@@ -124,6 +125,18 @@ export function EditPanel(p: EditPanelProps): ReactNode {
     onErrorFallback: p.onErrorFallback,
     shouldEnterEdit,
   });
+
+  // 命令面板执行前先 flush 编辑态(设计 §3.2):登记的就是上面那条 flush(同一保存通道)。
+  // 用 ref 取最新实现,effect 只挂一次 —— flush 身份随输入变化,直接进依赖会反复注销/登记。
+  const latestFlush = useRef(flush);
+  latestFlush.current = flush;
+  useEffect(() => {
+    registerEditFlush(async () => {
+      const r = await latestFlush.current();
+      return r.ok ? { ok: true } : { ok: false, message: r.message };
+    });
+    return () => registerEditFlush(null);
+  }, []);
 
   return (
     <li

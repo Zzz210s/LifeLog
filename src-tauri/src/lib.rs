@@ -45,6 +45,8 @@ pub fn run() {
             commands::startup::get_autostart_status,
             commands::startup::set_autostart,
             commands::app_info::get_db_info,
+            commands::maintenance::rebuild_search_index,
+            commands::maintenance::quit_app,
             commands::backup_notice::take_backup_warning,
             commands::notes::save_input_note,
             commands::notes::query_notes,

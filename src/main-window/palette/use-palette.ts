@@ -14,9 +14,11 @@ import type { RefObject } from 'react';
 import { buildList } from '../../shared/quickpick/model';
 import type { ListRow, MruEntry, QuickPickItem } from '../../shared/quickpick/model';
 import { isInsidePalette, shouldIgnoreKey } from './palette-target';
+import { resolveKeyAction, wrapIndex } from './palette-keydown';
+import { restoreFocus } from './palette-restore';
 
-/** PageUp/PageDown 的跨页步长(设计未给值:渲染上限 200,取 10 便于扫读) */
-export const PAGE_STEP = 10;
+/** 边界循环取模(上下方向键与翻页共用;total 为 0 时恒 0)—— 实现在 palette-keydown.ts */
+export { wrapIndex } from './palette-keydown';
 
 export interface UsePaletteOptions {
   /** 候选(注入:T5 假数据,T6 由 provider 产出) */
@@ -31,6 +33,16 @@ export interface UsePaletteOptions {
    * 须 `tabIndex={-1}` 才可聚焦)。不注入时退化为「不抢焦点」(审查 N2/N3)。
    */
   anchorRef?: RefObject<HTMLElement | null>;
+  /**
+   * 前缀实时驱动(T6):输入变化时把原始输入切成(前缀, query);返回 null 表示"按当前前缀处理"。
+   * 不注入时前缀只由 `open(prefix)` 决定(T5 行为不变)。
+   */
+  splitPrefix?: (raw: string) => { prefix: string; query: string } | null;
+  /**
+   * 过滤条件变化回调(T6):host 据此取候选。用回调而不是让 host 读 controller 的字段 ——
+   * host 还要把候选传回 `items`,直读会形成数据环(取候选需要 prefix/query,而 prefix/query 在 hook 里)。
+   */
+  onFilterChange?: (state: { open: boolean; prefix: string; query: string }) => void;
 }
 
 export interface PaletteController {
@@ -46,20 +58,18 @@ export interface PaletteController {
   open: (prefix?: string) => void;
   close: () => void;
   setQuery: (next: string) => void;
+  /** 直接切前缀(前缀实时驱动与「打开即带前缀」共用同一入口) */
+  setPrefix: (next: string) => void;
   setActiveIndex: (index: number) => void;
   accept: (index: number, keepOpen: boolean) => void;
   /** 原生 keydown 处理(面板打开时由本 hook 挂到 window;输入框不再单独接 React onKeyDown) */
   handleKeyDown: (event: KeyboardEvent) => void;
 }
 
-/** 边界循环取模(上下方向键与翻页共用;total 为 0 时恒 0) */
-export function wrapIndex(current: number, delta: number, total: number): number {
-  if (total <= 0) return 0;
-  return (((current + delta) % total) + total) % total;
-}
+/** 边界循环取模的再导出由 palette-keydown.ts 提供(保持既有 import 路径不破) */
 
 export function usePalette(options: UsePaletteOptions): PaletteController {
-  const { items, pinned, mru, limit, onAccept, anchorRef } = options;
+  const { items, pinned, mru, limit, onAccept, anchorRef, splitPrefix, onFilterChange } = options;
   const [isOpen, setIsOpen] = useState(false);
   const [prefix, setPrefix] = useState('');
   const [query, setQueryState] = useState('');
@@ -80,24 +90,19 @@ export function usePalette(options: UsePaletteOptions): PaletteController {
     if (isOpen) inputRef.current?.focus();
   }, [isOpen]);
 
+  // 过滤条件上报(T6 取候选用):变化即通知,回调身份由 host 用稳定函数传(useState 的 setter 本身稳定)
+  useEffect(() => {
+    onFilterChange?.({ open: isOpen, prefix, query });
+  }, [onFilterChange, isOpen, prefix, query]);
+
   const close = useCallback(() => {
     setIsOpen(false);
     setQueryState('');
     setRawActive(0);
     const target = restoreRef.current;
     restoreRef.current = null;
-    // 归位条件(审查 N2/N3 订正 M3/M4):焦点仍在浮层输入框、或掉到 body/无 activeElement
-    // (即没有接管者)时才归位;命令把焦点交给**另一个元素**时不抢回。顺序:打开前元素 ->
-    // 主区锚点(T6 注入);目标已卸载又没有锚点时保持不抢(不静默乱移焦点)。
-    const active = document.activeElement;
-    const unclaimed = active === null || active === inputRef.current || active === document.body;
-    if (!unclaimed) return;
-    if (target !== null && target.isConnected) {
-      target.focus();
-      return;
-    }
-    const anchor = anchorRef?.current ?? null;
-    if (anchor !== null && anchor.isConnected) anchor.focus(); // 锚点也未接入时不调用 focus(不静默乱移)
+    // 归位顺序与"不抢回"边界都在 palette-restore.ts(自本文件抽出以守行数红线)
+    restoreFocus({ restore: target, input: inputRef.current, anchor: anchorRef?.current ?? null });
   }, [anchorRef]);
 
   const open = useCallback((nextPrefix = '') => {
@@ -109,10 +114,19 @@ export function usePalette(options: UsePaletteOptions): PaletteController {
     setIsOpen(true);
   }, []);
 
-  const setQuery = useCallback((next: string) => {
-    setQueryState(next);
-    setRawActive(0); // 输入变化即回到第一行
-  }, []);
+  const setQuery = useCallback(
+    (next: string) => {
+      // 前缀实时驱动:输入里的 `>` / `#` 当场切 provider(不注入时前缀不动,T5 行为不变)
+      const split = splitPrefix?.(next) ?? null;
+      if (split === null) setQueryState(next);
+      else {
+        setPrefix(split.prefix);
+        setQueryState(split.query);
+      }
+      setRawActive(0); // 输入变化即回到第一行
+    },
+    [splitPrefix],
+  );
 
   const accept = useCallback(
     (index: number, keepOpen: boolean) => {
@@ -133,28 +147,14 @@ export function usePalette(options: UsePaletteOptions): PaletteController {
       // 目标在浮层之外且是可编辑元素(Composer/编辑面板):那不是给浮层的输入(审查 N4),
       // 除 Esc 外一律不处理,否则光标键被吞、Enter 双动作。
       if (shouldIgnoreKey(event)) return;
+      const action = resolveKeyAction(event);
+      if (action.type === 'ignore') return;
+      if (action.type !== 'close' || action.preventDefault) event.preventDefault();
       const total = rows.length;
-      const move = (delta: number): void => {
-        event.preventDefault();
-        setRawActive((current) => wrapIndex(current, delta, total));
-      };
-      switch (event.key) {
-        case 'ArrowDown': return move(1);
-        case 'ArrowUp': return move(-1);
-        case 'PageDown': return move(PAGE_STEP);
-        case 'PageUp': return move(-PAGE_STEP);
-        case 'Home': event.preventDefault(); return setRawActive(0);
-        case 'End': event.preventDefault(); if (total > 0) setRawActive(total - 1); return;
-        case 'Enter':
-          // Ctrl/Cmd+Enter 是别的组件的组合(Composer 的保存),浮层不抢(审查 N4);
-          // Alt+Enter 仍是「接受但不关闭」(设计 §3.1)。
-          if (event.ctrlKey || event.metaKey) return;
-          event.preventDefault();
-          return accept(activeIndex, event.altKey);
-        case 'Escape': return close();
-        case 'Tab': event.preventDefault(); return close(); // Tab 关闭并把焦点交回打开前元素
-        default: return;
-      }
+      if (action.type === 'move') setRawActive((current) => wrapIndex(current, action.delta, total));
+      else if (action.type === 'set') setRawActive(action.index < 0 ? Math.max(0, total - 1) : 0);
+      else if (action.type === 'accept') accept(activeIndex, action.keepOpen);
+      else close();
     },
     [rows.length, activeIndex, accept, close],
   );
@@ -185,7 +185,7 @@ export function usePalette(options: UsePaletteOptions): PaletteController {
 
   return {
     isOpen, prefix, query, rows, total: list.total, truncated: list.truncated, activeIndex,
-    inputRef, open, close, setQuery, setActiveIndex: setRawActive, accept, handleKeyDown,
+    inputRef, open, close, setQuery, setPrefix, setActiveIndex: setRawActive, accept, handleKeyDown,
   };
 }
 

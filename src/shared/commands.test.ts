@@ -9,8 +9,7 @@ import {
   defineCommands,
   findCommand,
   listCommands,
-  matchesCommand,
-  searchTerms,
+  withRuns,
   type CommandDef,
 } from './commands';
 import { serialize } from './when';
@@ -115,17 +114,43 @@ describe('commands:defineCommands 校验', () => {
     expect(reg.find('missing')).toBeUndefined();
   });
 
-  it('别名去空白并丢弃空串;别名与标题可命中(去空白 + 大小写不敏感)', () => {
+  it('别名去空白并丢弃空串;声明顺序保留', () => {
     const reg = defineCommands([def('quit', { title: '退出', aliases: [' quit ', ''] })]);
-    const quit = reg.all[0];
-    expect([...quit.aliases]).toEqual(['quit']);
-    expect(searchTerms(quit)).toEqual(['退出', 'quit']);
-    expect(matchesCommand(quit, '')).toBe(true);
-    expect(matchesCommand(quit, ' QUIT ')).toBe(true);
-    expect(matchesCommand(quit, '退出')).toBe(true);
-    expect(matchesCommand(quit, 'nope')).toBe(false);
-    const exportCmd = findCommand('export.all');
-    expect(matchesCommand(exportCmd!, 'xlsx')).toBe(true);
-    expect(matchesCommand(exportCmd!, 'reindex')).toBe(false);
+    expect([...reg.all[0].aliases]).toEqual(['quit']);
+  });
+});
+
+describe('commands:withRuns 接线门禁(T6,T3 审查 Important 1)', () => {
+  /** 把 11 条命令全部接上(可逐条替换实现,便于断言注入的就是这份) */
+  const fullRuns = (over: Record<string, () => void> = {}): Record<string, () => void> =>
+    Object.fromEntries(COMMANDS.all.map((c) => [c.id, over[c.id] ?? (() => {})]));
+
+  it('全部 id 都接线时构造成功,run 就是注入的那一份', () => {
+    const calls: string[] = [];
+    const wired = withRuns(
+      COMMANDS,
+      Object.fromEntries(COMMANDS.all.map((c) => [c.id, () => {
+        calls.push(c.id);
+      }])),
+    );
+    expect(wired.all.map((c) => c.id)).toEqual(COMMANDS.all.map((c) => c.id));
+    wired.find('app.quit')!.run();
+    wired.find('note.new')!.run();
+    expect(calls).toEqual(['app.quit', 'note.new']);
+  });
+
+  it('缺 id 即抛中文错误,并列出全部缺失的 id(漏接不再是静默占位)', () => {
+    const missing = fullRuns();
+    delete missing['export.all'];
+    delete missing['app.quit'];
+    expect(() => withRuns(COMMANDS, missing)).toThrow(/未接线/);
+    expect(() => withRuns(COMMANDS, missing)).toThrow(/export\.all/);
+    expect(() => withRuns(COMMANDS, missing)).toThrow(/app\.quit/);
+  });
+
+  it('接线后的注册表不再保留占位(run 调用不抛未接线)', () => {
+    const wired = withRuns(COMMANDS, fullRuns());
+    for (const cmd of wired.all) expect(() => cmd.run(), cmd.id).not.toThrow(/未接线/);
+    expect(findCommand('note.new')?.id).toBe('note.new');
   });
 });

@@ -79,4 +79,8 @@ export const api = {
   getAutostartStatus: () => invoke<{ enabled: boolean; path_ok: boolean }>('get_autostart_status'),
   /** 实际注册/取消开机启动;Rust 侧写后回读校验,不一致会 reject */
   setAutostart: (enabled: boolean) => invoke<void>('set_autostart', { enabled }),
+  /** 命令面板「重建搜索索引」:幂等整体重建 FTS,返回写入的索引行数 */
+  rebuildSearchIndex: () => invoke<number>('rebuild_search_index'),
+  /** 命令面板「退出」:与托盘「退出」同路径(先落库输入栏位置再退出进程) */
+  quitApp: () => invoke<void>('quit_app'),
 };

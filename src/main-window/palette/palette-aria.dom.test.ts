@@ -27,7 +27,7 @@ function staticController(): PaletteController {
   return {
     isOpen: true, prefix: '', query: '', rows: [], total: 3, truncated: false, activeIndex: 0,
     inputRef: { current: null },
-    open: () => {}, close: () => {}, setQuery: () => {}, setActiveIndex: () => {},
+    open: () => {}, close: () => {}, setQuery: () => {}, setPrefix: () => {}, setActiveIndex: () => {},
     accept: () => {}, handleKeyDown: () => {},
   };
 }

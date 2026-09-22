@@ -1,29 +1,29 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { api } from '../shared/api';
 import { EMPTY_FILTER, isFilterEmpty } from '../shared/filter-conditions';
 import { useThemeMode } from '../shared/use-theme-mode';
-import type { Note, TagCount } from '../shared/types';
-import { ErrorBars } from './shell/ErrorBars';
+import type { TagCount } from '../shared/types';
+import { CommandStatusPill } from './shell/CommandStatusPill';
 import type { MainView } from './settings/settings-model';
-import { FilterBar } from './filter/FilterBar';
-import { NoteStream } from './stream/NoteStream';
 import { SettingsView } from './settings/SettingsView';
 import { Sidebar } from './sidebar/Sidebar';
 import { useSidebarState } from './sidebar/use-sidebar-state';
-import { TabsBar } from './tabs/TabsBar';
+import { StreamView } from './shell/StreamView';
 import { useTabs } from './tabs/use-tabs';
 import { TopBar } from './shell/TopBar';
-import { Composer } from './stream/Composer';
-import { useNoteActions } from './data/use-note-actions';
 import { useAppErrors } from './shell/use-app-errors';
+import { useAppCommands } from './shell/use-app-commands';
+import { useEditFlow } from './shell/use-edit-flow';
+import { useMainPalette } from './shell/use-main-palette';
 import { useBackupWarning } from './shell/use-backup-warning';
 import { useNoteCreatedRefresh } from './data/use-note-created';
 import { useOpenSettings } from './shell/use-open-settings';
+import { Palette } from './palette/Palette';
 import { useNotesFeed } from './data/use-notes-feed';
 import { useNotesExport } from './data/use-export';
 
-/** 主窗 v2:侧栏(标签)+ 标签页栏 + 单列流(Composer + FilterBar + NoteStream) */
+/** 主窗 v2:侧栏(标签)+ 标签页栏 + 单列流(Composer + FilterBar + NoteStream)+ 命令面板浮层 */
 export function App(): ReactNode {
   // 标签页真源(S7):当前活动页的条件就是唯一条件对象,查询/筛选栏/侧栏选中态都从它派生
   const tabs = useTabs();
@@ -81,37 +81,43 @@ export function App(): ReactNode {
   /** 空库引导:清空当前标签页的全部筛选条件(排序也回默认) */
   const clearFilters = useCallback(() => patch(EMPTY_FILTER), [patch]);
 
-  const { remove, onEditSaved, toggleTask } = useNoteActions({
+  const { remove, onEditSaved, toggleTask, requestEdit, switchEdit, handleTagsMutated } = useEditFlow({
     conditions,
     fetchPage,
     setNotes,
     setEditingId,
-    reload: loadTags,
+    reloadTags: loadTags,
+    reloadTabs,
     setError,
     clearError,
   });
 
-  /**
-   * 点正文进编辑:编辑面板在场时面板的提交守卫接管(点另一条 = 先存后进),这里不抢 ——
-   * 用函数式更新读最新值,避免同一 tick 里已被排队清空的旧 editingId。
-   */
-  const requestEdit = useCallback((n: Note) => {
-    setEditingId((prev) => (prev === null ? n.id : prev));
-  }, []);
-  /** 编辑面板已提交成功后的切换(内容未变时也走这条):不受上述守卫限制 */
-  const switchEdit = useCallback((n: Note) => setEditingId(n.id), []);
+  // 命令副作用(11 条):注册表在构造期校验「全部接线」,漏一条即抛
+  const commands = useAppCommands({
+    tabs: { count: tabs.tabs.length, activeIndex: tabs.activeIndex, activate: tabs.activate },
+    sidebar: { visible: sidebar.visible, setVisible: sidebar.setVisible },
+    theme: { mode: theme.mode, setMode: theme.setMode },
+    setView,
+    exportAll: onExport,
+    setError,
+  });
 
-  /**
-   * 标签改名/移动/删除成功:刷新标签树;改名/移动时各标签页条件里的路径已由 Rust
-   * 在同一事务里重写(tabs_rewrite),这里重读 settings 即同步 —— 前端不重复实现一套重写。
-   */
-  const handleTagsMutated = useCallback(
-    (pathChange?: { from: string; to: string }) => {
-      loadTags();
-      if (pathChange) reloadTabs();
-    },
-    [loadTags, reloadTabs]
-  );
+  // 主区容器 = 浮层关闭时的焦点归位锚点(tabIndex=-1 才可聚焦;可见焦点环见 className)
+  const anchorRef = useRef<HTMLDivElement>(null);
+  const { controller, decorations } = useMainPalette({
+    anchorRef,
+    registry: commands.registry,
+    executeCommand: commands.execute,
+    tabCount: tabs.tabs.length,
+    sidebarVisible: sidebar.visible,
+    editingId,
+    notes,
+    loadingNotes: loading,
+    conditions,
+    clearFilters,
+    toggleTag,
+    setError,
+  });
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-app text-text">
@@ -122,8 +128,13 @@ export function App(): ReactNode {
         tagRows={tagRows}
         onTagsMutated={handleTagsMutated}
       />
-      {/* 内容区 min-w 保护:窄窗口下侧栏允许被压缩,内容区不被挤没 */}
-      <div className="mx-auto flex h-full w-full min-w-[420px] max-w-3xl flex-1 flex-col">
+      {/* 内容区 min-w 保护:窄窗口下侧栏允许被压缩,内容区不被挤没;
+          同时是浮层关闭时的焦点归位锚点(键盘关闭 -> 焦点回主区,焦点环可见) */}
+      <div
+        ref={anchorRef}
+        tabIndex={-1}
+        className="mx-auto flex h-full w-full min-w-[420px] max-w-3xl flex-1 flex-col outline-none focus-visible:ring-1 focus-visible:ring-accent"
+      >
         <TopBar
           view={view}
           sidebarVisible={sidebar.visible}
@@ -131,53 +142,43 @@ export function App(): ReactNode {
           onOpenSettings={() => setView('settings')}
           onBack={() => setView('stream')}
         />
-        {/* 信息流始终挂载:切到设置页只是隐藏,返回时分页与滚动位置都不丢(不重新查询) */}
-        <div className={view === 'stream' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}>
-          <TabsBar
-            tabs={tabs.tabs}
-            activeIndex={tabs.activeIndex}
-            onActivate={tabs.activate}
-            onClose={tabs.close}
-            onMove={tabs.move}
-            onRename={tabs.rename}
-            onPreset={tabs.addPreset}
-            onAddCurrent={tabs.addFromCurrent}
-          />
-          <Composer onSaved={refresh} disabled={editingId !== null} />
-          <FilterBar
-            conditions={conditions}
-            onPatch={patch}
-            onExport={() => void onExport()}
-            exporting={exporting}
-            exported={exported}
-          />
-          <ErrorBars errors={errors} onRetry={retry} onDismiss={clearError} />
-          <NoteStream
-            notes={notes}
-            queryFailed={queryFailed}
-            filterEmpty={isFilterEmpty(conditions)}
-            onRetry={retry}
-            onClearFilters={clearFilters}
-            onShowInput={showInput}
-            activeTags={conditions.tags.map((t) => t.path)}
-            editingId={editingId}
-            hasMore={hasMore}
-            loading={loading}
-            onLoadMore={loadMore}
-            onTagClick={toggleTag}
-            onEdit={requestEdit}
-            onSwitchEdit={switchEdit}
-            onDelete={remove}
-            onEditSaved={onEditSaved}
-            onEditCancel={() => setEditingId(null)}
-            onToggleTask={toggleTask}
-            onLinkError={(m) => setError('action', m)}
-          />
-        </div>
+        <StreamView
+          visible={view === 'stream'}
+          tabs={tabs}
+          conditions={conditions}
+          notes={notes}
+          editingId={editingId}
+          hasMore={hasMore}
+          loading={loading}
+          queryFailed={queryFailed}
+          filterEmpty={isFilterEmpty(conditions)}
+          exporting={exporting}
+          exported={exported}
+          errors={errors}
+          onPatch={patch}
+          onToggleTag={toggleTag}
+          onExport={() => void onExport()}
+          onRetry={retry}
+          onDismissError={clearError}
+          onClearFilters={clearFilters}
+          onShowInput={showInput}
+          onLoadMore={loadMore}
+          onEdit={requestEdit}
+          onSwitchEdit={switchEdit}
+          onDelete={remove}
+          onEditSaved={onEditSaved}
+          onEditCancel={() => setEditingId(null)}
+          onToggleTask={toggleTask}
+          onLinkError={(m) => setError('action', m)}
+          onSaved={refresh}
+        />
         {view === 'settings' && (
           <SettingsView themeMode={theme.mode} onThemeChange={theme.setMode} />
         )}
       </div>
+      {/* 浮层挂在 shell 层(fixed 覆盖内容,不进布局),不塞进内容区 */}
+      <Palette controller={controller} decorations={decorations} />
+      <CommandStatusPill status={commands.status} />
     </div>
   );
 }
