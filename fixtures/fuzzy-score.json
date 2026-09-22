@@ -1,0 +1,258 @@
+{
+  "note": "模糊打分共享向量。rawScore 为关闭分层加权(boostTiers:false)时的原始分,数值取自 VS Code fuzzyScorer.ts(sha 62c8ac8ac5e0feaba1fa728fa48b10403f96ccab)实测;tier 为默认(分层)打分的档位。",
+  "cases": [
+    {
+      "why": "全串连续:字符 +1、同大小写 +1、词首 +8、连续第 2/3 个 ×6",
+      "query": "abc",
+      "target": "abc",
+      "positions": [0, 1, 2],
+      "rawScore": 32,
+      "tier": "prefix"
+    },
+    {
+      "why": "连续序列第 4 个起改按 ×3(前 3 个仍 ×6)",
+      "query": "abcde",
+      "target": "abcde",
+      "positions": [0, 1, 2, 3, 4],
+      "rawScore": 75,
+      "tier": "prefix"
+    },
+    {
+      "why": "非连续命中:漏掉的字符让连续计数归零(且不以 ac 开头,属包含命中)",
+      "query": "ac",
+      "target": "abc",
+      "positions": [0, 2],
+      "rawScore": 12,
+      "tier": "contains"
+    },
+    {
+      "why": "词中连续:无词首加分",
+      "query": "bc",
+      "target": "abc",
+      "positions": [1, 2],
+      "rawScore": 10,
+      "tier": "contains"
+    },
+    {
+      "why": "整串全等含分隔符:斜杠后 +5 与连续加成叠加",
+      "query": "工作/项目A",
+      "target": "工作/项目A",
+      "positions": [0, 1, 2, 3, 4, 5],
+      "rawScore": 106,
+      "tier": "prefix"
+    },
+    {
+      "why": "中文标签路径:词首连续命中",
+      "query": "工作",
+      "target": "工作/项目A",
+      "positions": [0, 1],
+      "rawScore": 18,
+      "tier": "prefix"
+    },
+    {
+      "why": "中文标签路径:分隔符后非连续命中(项 与 A 跨过 目)",
+      "query": "项A",
+      "target": "工作/项目A",
+      "positions": [3, 5],
+      "rawScore": 11,
+      "tier": "contains"
+    },
+    {
+      "why": "中文标签路径:词中命中无额外加分",
+      "query": "设置",
+      "target": "初始化设置",
+      "positions": [3, 4],
+      "rawScore": 10,
+      "tier": "contains"
+    },
+    {
+      "why": "中文词首命中:中文无大小写之分,同大小写恒等",
+      "query": "初",
+      "target": "初始化设置",
+      "positions": [0],
+      "rawScore": 10,
+      "tier": "prefix"
+    },
+    {
+      "why": "中文目标:ASCII 查询无命中(P 与中文不相等)",
+      "query": "P",
+      "target": "项目A",
+      "positions": [],
+      "rawScore": 0,
+      "noMatch": true
+    },
+    {
+      "why": "反斜杠与正斜杠等价命中(分隔符差 4 分不给,因不在词首之后)",
+      "query": "\\",
+      "target": "工作/项目A",
+      "positions": [2],
+      "rawScore": 1,
+      "tier": "contains"
+    },
+    {
+      "why": "斜杠开头命中:分隔符 +5 叠加连续序列",
+      "query": "/项目",
+      "target": "工作/项目A",
+      "positions": [2, 3, 4],
+      "rawScore": 29,
+      "tier": "contains"
+    },
+    {
+      "why": "驼峰大写非连续 +2(N 与 P 之间不连续)",
+      "query": "fb",
+      "target": "fooBar",
+      "positions": [0, 3],
+      "rawScore": 13,
+      "tier": "contains"
+    },
+    {
+      "why": "驼峰多段:回溯取同大小写更优路径(末位落在大写 E)",
+      "query": "npe",
+      "target": "NullPointerException",
+      "positions": [0, 4, 11],
+      "rawScore": 15,
+      "tier": "contains"
+    },
+    {
+      "why": "同大小写加分:全大写查询比全小写多 3 分",
+      "query": "NPE",
+      "target": "NullPointerException",
+      "positions": [0, 4, 11],
+      "rawScore": 18,
+      "tier": "contains"
+    },
+    {
+      "why": "连续命中时不再给驼峰大写 +2(HTTP 全连续)",
+      "query": "HTTP",
+      "target": "HTTP",
+      "positions": [0, 1, 2, 3],
+      "rawScore": 52,
+      "tier": "prefix"
+    },
+    {
+      "why": "分隔符后加分:短横线 +4",
+      "query": "bar",
+      "target": "foo-bar",
+      "positions": [4, 5, 6],
+      "rawScore": 28,
+      "tier": "contains"
+    },
+    {
+      "why": "同 query 无分隔符对照:每字符少 4 分",
+      "query": "bar",
+      "target": "foobar",
+      "positions": [3, 4, 5],
+      "rawScore": 24,
+      "tier": "contains"
+    },
+    {
+      "why": "下划线后 +4",
+      "query": "fb",
+      "target": "foo_bar",
+      "positions": [0, 4],
+      "rawScore": 16,
+      "tier": "contains"
+    },
+    {
+      "why": "同大小写不一致:每个字符少 1 分",
+      "query": "ABC",
+      "target": "abc",
+      "positions": [0, 1, 2],
+      "rawScore": 29,
+      "tier": "prefix"
+    },
+    {
+      "why": "大小写混排:只对真正同大小写的位置加分(末位 B)",
+      "query": "FB",
+      "target": "fooBar",
+      "positions": [0, 3],
+      "rawScore": 13,
+      "tier": "contains"
+    },
+    {
+      "why": "大小写混排对照:全小写目标无同大小写分",
+      "query": "FB",
+      "target": "foobar",
+      "positions": [0, 3],
+      "rawScore": 10,
+      "tier": "contains"
+    },
+    {
+      "why": "完全无命中返回 0",
+      "query": "xyz",
+      "target": "abc",
+      "positions": [],
+      "rawScore": 0,
+      "noMatch": true
+    },
+    {
+      "why": "查询长于目标返回 0",
+      "query": "abc",
+      "target": "ab",
+      "positions": [],
+      "rawScore": 0,
+      "noMatch": true
+    },
+    {
+      "why": "空目标返回 0",
+      "query": "a",
+      "target": "",
+      "positions": [],
+      "rawScore": 0,
+      "noMatch": true
+    },
+    {
+      "why": "空查询返回中性分且无命中位置",
+      "query": "",
+      "target": "任意文本",
+      "positions": [],
+      "neutral": true
+    }
+  ],
+  "ranking": [
+    {
+      "why": "标签路径:前缀命中整档高于包含命中",
+      "query": "项A",
+      "targets": ["工作/项目A", "项A/子项", "项目"],
+      "order": ["项A/子项", "工作/项目A"],
+      "miss": ["项目"]
+    },
+    {
+      "why": "非连续可命中(工项 -> 工作/项目A),但仍排在精确前缀之后",
+      "query": "工项",
+      "targets": ["工作/项目A", "工项", "工作"],
+      "order": ["工项", "工作/项目A"],
+      "miss": ["工作"]
+    },
+    {
+      "why": "同为包含命中时按原始权重排序:分隔符后的 项目 高于词中的",
+      "query": "项目",
+      "targets": ["工作/项目A", "项目B/子项", "汇总项目"],
+      "order": ["项目B/子项", "工作/项目A", "汇总项目"]
+    },
+    {
+      "why": "连续命中优于分散命中",
+      "query": "abc",
+      "targets": ["abc", "a_b_c", "aXbXc"],
+      "order": ["abc", "a_b_c", "aXbXc"]
+    },
+    {
+      "why": "分隔符后加分:短横线后的 bar 胜出",
+      "query": "bar",
+      "targets": ["foo-bar", "foobar"],
+      "order": ["foo-bar", "foobar"]
+    },
+    {
+      "why": "同大小写加分:fooBar 胜 foobar(FB 查询)",
+      "query": "FB",
+      "targets": ["fooBar", "foobar"],
+      "order": ["fooBar", "foobar"]
+    },
+    {
+      "why": "同为前缀命中:短标签优先(prefixLengthBoost)",
+      "query": "工作",
+      "targets": ["工作/项目A", "工作"],
+      "order": ["工作", "工作/项目A"]
+    }
+  ]
+}
