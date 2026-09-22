@@ -42,7 +42,7 @@ function ChipRow(p: ChipRowProps): ReactNode {
     ? { shown: [...p.tags], hidden: 0 }
     : collapseChips(p.tags, p.max);
   return (
-    <div className={'flex flex-wrap ' + (p.attr ? 'mt-1 gap-1' : 'mt-2 gap-1.5')}>
+    <div className={'flex flex-wrap ' + (p.attr ? 'mt-1 gap-1' : 'mt-2 gap-1')}>
       {shown.map((t) => {
         const active = p.activeTags.includes(t);
         return (
@@ -62,7 +62,7 @@ function ChipRow(p: ChipRowProps): ReactNode {
           type="button"
           onClick={() => setExpanded(true)}
           title={`展开其余 ${hidden} 个标签`}
-          className="shrink-0 rounded px-1.5 py-0.5 text-xs text-faint hover:text-accent-text"
+          className="shrink-0 rounded px-1.5 py-0.5 text-xs text-muted hover:text-accent-text"
         >
           +{hidden}
         </button>

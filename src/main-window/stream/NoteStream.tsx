@@ -80,7 +80,7 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
   return (
     <div ref={setScroller} className="scroll-gutter flex-1 overflow-y-auto">
       {empty !== null && (
-        <div className="flex h-full flex-col items-center justify-center gap-2 text-sm text-faint">
+        <div className="flex h-full flex-col items-center justify-center gap-2 text-sm text-muted">
           <span>{EMPTY_STATE_TEXT[empty]}</span>
           <button
             onClick={onEmptyAction}
@@ -90,7 +90,9 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
           </button>
         </div>
       )}
-      <ul>
+      {/* 卡片流容器(视觉刷新 V2):卡片之间用 gap-2(8px)分隔,不再逐条画分隔线;
+          容器自带 px-4 py-3,与卡片内边距对齐 */}
+      <ul className="flex flex-col gap-2 px-4 py-3">
         {p.notes.map((n) =>
           n.id === p.editingId ? (
             <EditPanel
@@ -125,7 +127,7 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
         )}
       </ul>
       {p.loading && (
-        <div className="py-3 text-center text-xs text-faint">加载中...</div>
+        <div className="py-3 text-center text-xs text-muted">加载中...</div>
       )}
       <div ref={setSentinel} className="h-px" />
     </div>

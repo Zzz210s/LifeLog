@@ -30,11 +30,11 @@ const token = (tokens: Map<string, string>, name: string) => tokens.get(name) ??
 
 /** §3.1 [令牌, 亮色, 暗色] */
 const COLORS: ReadonlyArray<readonly [string, string, string]> = [
-  ['--color-canvas', '#ffffff', '#1e1e1e'],
-  ['--color-chrome', '#f7f7f8', '#252526'],
-  ['--color-chrome-alt', '#efeff1', '#2d2d30'],
+  ['--color-canvas', '#f6f6f7', '#1e1e1e'],
+  ['--color-chrome', '#ffffff', '#252526'],
+  ['--color-chrome-alt', '#ececee', '#2d2d30'],
   ['--color-raised', '#ffffff', '#252526'],
-  ['--color-hover', '#f2f2f4', '#2a2d2e'],
+  ['--color-hover', '#efeff1', '#2a2d2e'],
   ['--color-selected', '#e8f1fd', '#264f78'],
   ['--color-accent', '#2563eb', '#007acc'],
   ['--color-accent-text', '#1d4ed8', '#60caff'],
@@ -42,8 +42,8 @@ const COLORS: ReadonlyArray<readonly [string, string, string]> = [
   ['--color-border', '#e3e5e8', '#3c3c3c'],
   ['--color-border-strong', '#cfd4d9', '#4a4a4a'],
   ['--color-text', '#1f2328', '#cccccc'],
-  ['--color-muted', '#656d76', '#9d9d9d'],
-  ['--color-faint', '#8c959f', '#7a7a7a'],
+  ['--color-muted', '#5e666f', '#9d9d9d'],
+  ['--color-faint', '#7e868f', '#7a7a7a'],
 ];
 
 /** 旧令牌名 -> 新档(别名只在亮色块里定义一次) */
