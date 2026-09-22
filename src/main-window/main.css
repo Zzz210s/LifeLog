@@ -22,6 +22,31 @@ body {
   scrollbar-gutter: stable;
 }
 
+/* 全局焦点基元(设计 §4-10 / D6;VS Code style.css:258-272 + keyboardFocusOnly.css:35-44):
+   键盘聚焦统一画 1px accent 环并向内收 1px;鼠标点击(:focus:not(:focus-visible))不画环。
+   用 outline 而非 border/box-shadow —— 圆角元素上改边框色会出现「方框套圆角」(style.css:292-294)。
+   本规则位于 Tailwind 实用类之后(@import 顺序在前),故会压过组件上的 outline-none;
+   组件自带的 focus:border-accent 属冗余,由 V4 统一移除,此处不改组件。 */
+:focus-visible {
+  outline: 1px solid var(--color-accent);
+  outline-offset: -1px;
+}
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* 系统开启「减少动效」时关掉过渡与动画(设计 §3.3;对应 VS Code 的 reduceMotion 开关) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* Markdown 渲染区(.md-body):参考 VSCode 预览风格的排版基线。
    颜色一律取主题 token,亮暗两套由 shared/theme.css 的 .dark 变量切换。 */
 

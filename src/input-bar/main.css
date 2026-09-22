@@ -14,6 +14,8 @@ body {
 }
 
 /* 输入框光晕:未聚焦浅黑,聚焦强调色。
+   本文件不存色值:--color-border / --color-accent 来自共享 theme.css,令牌层重排后自动同步到本窗口。
+   两处 rgb(0 0 0 / …) 是阴影的几何用色(不是表面/文本令牌),按 D12「输入栏形态不动」保留。
    窗口四周留 14 像素透明内边距容纳外阴影,:focus-within 在 textarea 自身上同样命中。 */
 .sticker-input {
   border: 1px solid var(--color-border);
