@@ -3,7 +3,7 @@
  * 与 when-expr.ts 拆开只为守住单文件 200 行红线;这里只管文本,归一化与求值在 when-expr.ts
  * (when.ts 的 deserialize 统一归一化)。失败不抛异常而是返回带 0 基 offset 的结果,便于 validate 复用。
  */
-import type { ContextKeyExpr, ContextValue } from './when-expr';
+import type { ContextKeyExpr, EqualsValue } from './when-expr';
 
 export type ParseResult =
   | { readonly ok: true; readonly expr: ContextKeyExpr }
@@ -47,9 +47,9 @@ export function serialize(expr: ContextKeyExpr): string {
   }
 }
 
-function serializeValue(value: ContextValue): string {
+function serializeValue(value: EqualsValue): string {
   if (typeof value === 'boolean' || typeof value === 'number') return String(value);
-  if (value === null || value === undefined) return 'null';
+  if (value === null) return 'null';
   if (BARE_VALUE.test(value) && !RESERVED.has(value)) return value;
   return `'${value.replace(/([\\'])/g, '\\$1')}'`;
 }
@@ -145,7 +145,7 @@ class Parser {
     return this.src.slice(start, this.i);
   }
 
-  private readValue(): ContextValue {
+  private readValue(): EqualsValue {
     this.ws();
     if (this.i >= this.src.length) this.fail('缺少比较的值');
     const ch = this.src[this.i];

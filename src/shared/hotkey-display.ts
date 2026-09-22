@@ -6,9 +6,14 @@ export const DEFAULT_HOTKEY = 'ctrl+shift+q';
 export const HOTKEY_KEY = 'input_hotkey';
 
 const MOD_ORDER = ['ctrl', 'alt', 'shift', 'super'] as const;
+/** 修饰键别名表:与 Rust `hotkey_spec::modifier_of` 逐条对齐(缺项会让两侧规范化结果漂移) */
 const MOD_ALIASES: Record<string, string> = {
   ctrl: 'ctrl',
   control: 'ctrl',
+  cmdorctrl: 'ctrl',
+  cmdorcontrol: 'ctrl',
+  commandorctrl: 'ctrl',
+  commandorcontrol: 'ctrl',
   alt: 'alt',
   option: 'alt',
   shift: 'shift',
@@ -16,6 +21,7 @@ const MOD_ALIASES: Record<string, string> = {
   cmd: 'super',
   command: 'super',
   meta: 'super',
+  win: 'super',
 };
 /** 单个按键只允许功能键(避免把全系统的普通键劫持成全局热键) */
 const SINGLE_FUNCTION_KEY = /^f([1-9]|1[0-9]|2[0-4])$/;

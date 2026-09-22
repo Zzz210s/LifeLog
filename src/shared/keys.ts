@@ -1,6 +1,13 @@
 /**
  * 上下文键集中声明(D9):组件、命令表与快捷键逻辑只准引用这里的键,禁止裸字符串。
  * 键字符串与键实例成对出现;本文件不引入 React,任何层都可引用。
+ *
+ * 两条硬约定(I2/I3,T1 审查遗留):
+ * 1) **布尔键一律 `.equals(true)` / `.equals(false)`,禁止裸键** —— 裸键是 `defined`,
+ *    对 `false` 也为真,而 defaultContext() 会铺满全部键,裸键会让命令/菜单项永不隐藏。
+ *    裸键只用来表达「键是否存在」(非布尔键)。
+ * 2) `tab.count` 只作数据(如界面显示),**不得入 when**;「是否多标签」用派生布尔键
+ *    `tab.multiple`(真源 `tabs.tabs.length > 1`),因为标签数恒 >= 1,比较运算符无法表达。
  */
 import { RawContextKey } from './when';
 import type { Context, ContextValue } from './when';
@@ -11,7 +18,7 @@ export const KEYS = Object.freeze({
   editing: 'editing',
   paletteOpen: 'palette.open',
   tabCount: 'tab.count',
-  noteSelected: 'note.selected',
+  tabMultiple: 'tab.multiple',
 } as const);
 
 export type ContextKeyName = keyof typeof KEYS;
@@ -22,7 +29,7 @@ export const CONTEXT = Object.freeze({
   editing: new RawContextKey<boolean>(KEYS.editing, false),
   paletteOpen: new RawContextKey<boolean>(KEYS.paletteOpen, false),
   tabCount: new RawContextKey<number>(KEYS.tabCount, 1),
-  noteSelected: new RawContextKey<boolean>(KEYS.noteSelected, false),
+  tabMultiple: new RawContextKey<boolean>(KEYS.tabMultiple, false),
 });
 
 /** 铺满声明默认值的上下文:首帧求值与测试共用(空上下文等价于全部取默认) */

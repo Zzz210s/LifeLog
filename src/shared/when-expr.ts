@@ -8,6 +8,13 @@ import { serialize } from './when-parse';
 
 export type ContextValue = string | number | boolean | null | undefined;
 
+/**
+ * `equals` 的值域:排除 undefined(I1/T1 审查)。
+ * undefined 与 null 序列化后同为 `null`,`null` 又只与自身相等 —— 二者混用会让
+ * `serialize` -> `deserialize` 往返改语义;表达「键缺失」请用 `not(defined(k))`。
+ */
+export type EqualsValue = Exclude<ContextValue, undefined>;
+
 /** 求值上下文:键 -> 值;缺键一律按未定义处理(getOrDefault 才补声明默认值) */
 export interface Context {
   readonly [key: string]: ContextValue;
@@ -21,7 +28,7 @@ export interface ContextKeyDefinedExpr {
 export interface ContextKeyEqualsExpr {
   readonly type: 'equals';
   readonly key: string;
-  readonly value: ContextValue;
+  readonly value: EqualsValue;
 }
 
 export interface ContextKeyNotExpr {
@@ -55,7 +62,7 @@ const isEmptyJunction = (e: ContextKeyExpr, kind: 'and' | 'or'): boolean =>
   e.type === kind && e.exprs.length === 0;
 
 export const defined = (key: string): ContextKeyExpr => ({ type: 'defined', key });
-export const equals = (key: string, value: ContextValue): ContextKeyExpr => ({ type: 'equals', key, value });
+export const equals = (key: string, value: EqualsValue): ContextKeyExpr => ({ type: 'equals', key, value });
 export const not = (expr: ContextKeyExpr): ContextKeyExpr => normalize({ type: 'not', expr });
 export const and = (...exprs: ContextKeyExpr[]): ContextKeyExpr => normalize({ type: 'and', exprs });
 export const or = (...exprs: ContextKeyExpr[]): ContextKeyExpr => normalize({ type: 'or', exprs });
@@ -120,9 +127,10 @@ export function evaluate(expr: ContextKeyExpr, ctx: Context): boolean {
   }
 }
 
-/** 值比较:空值只与自身相等;其余按字符串宽松匹配(数字键 2 与 '2' 都算命中) */
-function sameValue(actual: ContextValue, expected: ContextValue): boolean {
-  if (actual === undefined || actual === null) return actual === expected;
+/** 值比较:undefined 只等于 undefined(即永不命中,取值缺失);null 只与 null 相等;其余按字符串宽松匹配(数字键 2 与 '2' 都算命中) */
+function sameValue(actual: ContextValue, expected: EqualsValue): boolean {
+  if (actual === undefined) return false;
+  if (actual === null) return actual === expected;
   return String(actual) === String(expected);
 }
 
@@ -151,11 +159,11 @@ export class RawContextKey<T extends ContextValue = ContextValue> implements Con
     return ctx[this.key] !== undefined;
   }
 
-  equals(value: ContextValue): ContextKeyExpr {
+  equals(value: EqualsValue): ContextKeyExpr {
     return equals(this.key, value);
   }
 
-  notEquals(value: ContextValue): ContextKeyExpr {
+  notEquals(value: EqualsValue): ContextKeyExpr {
     return not(equals(this.key, value));
   }
 }

@@ -5,6 +5,7 @@ import {
   TRUE,
   and,
   defined,
+  deserialize,
   equals,
   evaluate,
   normalize,
@@ -95,7 +96,8 @@ describe('when:求值', () => {
     expect(evaluate(equals('tab.count', 2), {})).toBe(false);
     expect(evaluate(equals('sidebar', true), { sidebar: 'true' })).toBe(true);
     expect(evaluate(equals('sidebar', false), { sidebar: false })).toBe(true);
-    expect(evaluate(equals('note.selected', null), { 'note.selected': null })).toBe(true);
+    expect(evaluate(equals('k', null), { k: null })).toBe(true);
+    expect(evaluate(equals('k', null), {})).toBe(false);
   });
 
   it('逻辑组合按上下文求值', () => {
@@ -122,6 +124,8 @@ describe('when:RawContextKey 与键声明表', () => {
   it('键字符串非空、唯一,导出对象冻结,键实例与字符串一一对应', () => {
     const names = Object.values(KEYS);
     expect(names.length).toBe(5);
+    expect(names).toContain('tab.multiple');
+    expect(names).not.toContain('note.selected');
     expect(new Set(names).size).toBe(names.length);
     for (const name of names) expect(name.length).toBeGreaterThan(0);
     expect(Object.isFrozen(KEYS)).toBe(true);
@@ -138,5 +142,51 @@ describe('when:RawContextKey 与键声明表', () => {
     expect(evaluate(defined('tab.count'), ctx)).toBe(true);
     expect(evaluate(CONTEXT.sidebar.notEquals(false), ctx)).toBe(true);
     expect(CONTEXT.paletteOpen.getOrDefault({})).toBe(false);
+  });
+});
+
+describe('when:I1 equals 值域收窄(T1 审查遗留)', () => {
+  it('undefined 不再是合法值:键缺失改用 not(defined(k))', () => {
+    // @ts-expect-error I1:equals 值类型已收窄为 Exclude<ContextValue, undefined>
+    const illegal = equals('k', undefined);
+    expect(illegal).toBeDefined();
+    expect(evaluate(not(defined('k')), {})).toBe(true);
+    expect(evaluate(not(defined('k')), { k: null })).toBe(false);
+  });
+
+  it('收窄后 null 往返不再改语义', () => {
+    const ctxs: Context[] = [{}, { k: null }, { k: 'null' }, { k: 0 }, { k: false }, { k: 'v' }];
+    for (const value of [null, 0, 1, false, true, 'v', 'true'] as const) {
+      const expr = equals('k', value);
+      const round = deserialize(serialize(expr));
+      for (const ctx of ctxs) {
+        expect(evaluate(round, ctx), `${serialize(expr)} @ ${JSON.stringify(ctx)}`).toBe(
+          evaluate(expr, ctx),
+        );
+      }
+    }
+  });
+});
+
+describe('when:I2 布尔键纪律(T1 审查遗留)', () => {
+  it('反例:裸键恒真,布尔键必须 equals(true/false)', () => {
+    const ctx = defaultContext();
+    // 裸键是 defined:sidebar 为 false 时也为真 -> 命令永不隐藏,故禁止
+    expect(evaluate(CONTEXT.sidebar, { sidebar: false })).toBe(true);
+    expect(evaluate(CONTEXT.sidebar, ctx)).toBe(true);
+    expect(evaluate(CONTEXT.sidebar.equals(true), ctx)).toBe(true);
+    expect(evaluate(CONTEXT.sidebar.equals(false), ctx)).toBe(false);
+    expect(evaluate(CONTEXT.sidebar.equals(false), { sidebar: false })).toBe(true);
+  });
+});
+
+describe('when:I3 键表范围(T1 审查遗留)', () => {
+  it('note.selected 已删除;tab.multiple 是派生布尔键(默认 false)', () => {
+    expect(KEYS).not.toHaveProperty('noteSelected');
+    expect(CONTEXT).not.toHaveProperty('noteSelected');
+    expect(CONTEXT.tabMultiple.key).toBe('tab.multiple');
+    expect(CONTEXT.tabMultiple.defaultValue).toBe(false);
+    expect(evaluate(CONTEXT.tabMultiple.equals(true), defaultContext())).toBe(false);
+    expect(evaluate(CONTEXT.tabMultiple.equals(true), { 'tab.multiple': true })).toBe(true);
   });
 });
