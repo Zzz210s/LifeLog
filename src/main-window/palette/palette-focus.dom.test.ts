@@ -57,7 +57,7 @@ describe('焦点归位(打开前 activeElement -> 关闭后同一元素)', () =>
     expect(document.activeElement).toBe(ui.input());
   });
 
-  it('命令主动把焦点 blur 到 body 时不抢回(M4)', () => {
+  it('命令主动把焦点 blur 到 body(无接管者)时归位到原元素(N3 订正 M4)', () => {
     ui.unmount();
     ui = paletteHarness({
       onAccept: () => {
@@ -69,8 +69,64 @@ describe('焦点归位(打开前 activeElement -> 关闭后同一元素)', () =>
     ui.open('');
     const spy = vi.spyOn(trigger as HTMLButtonElement, 'focus');
     ui.press('Enter');
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(document.activeElement).toBe(trigger); // 不再留在 body(焦点落 body = 没有接管者)
+  });
+
+  it('归位目标已被卸载时退到主区锚点(N2 方案:原元素 -> 锚点)', () => {
+    const anchor = document.createElement('div');
+    anchor.tabIndex = -1; // 锚点必须可聚焦,否则 focus() 无声 no-op
+    document.body.appendChild(anchor);
+    try {
+      ui.unmount();
+      ui = paletteHarness({ anchor });
+      const trigger = ui.host.querySelector<HTMLButtonElement>('#palette-trigger');
+      trigger?.focus();
+      ui.open('');
+      const spy = vi.spyOn(anchor, 'focus');
+      trigger?.remove();
+      ui.press('Escape');
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(document.activeElement).toBe(anchor);
+    } finally {
+      anchor.remove();
+    }
+  });
+
+  it('原元素和锚点都不可用时保持不抢(不静默乱移焦点,M3 兜底)', () => {
+    const anchor = document.createElement('div'); // 未插入文档 -> focus 无效
+    ui.unmount();
+    ui = paletteHarness({ anchor });
+    const trigger = ui.host.querySelector<HTMLButtonElement>('#palette-trigger');
+    trigger?.focus();
+    ui.open('');
+    const spy = vi.spyOn(anchor, 'focus');
+    trigger?.remove();
+    ui.press('Escape');
     expect(spy).not.toHaveBeenCalled();
-    expect(document.activeElement).toBe(document.body);
+  });
+
+  it('命令 blur 到 body 且原元素已卸载时退到锚点(N3+N2 合并路径)', () => {
+    const anchor = document.createElement('div');
+    anchor.tabIndex = -1;
+    document.body.appendChild(anchor);
+    try {
+      ui.unmount();
+      ui = paletteHarness({
+        anchor,
+        onAccept: () => {
+          if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+        },
+      });
+      const trigger = ui.host.querySelector<HTMLButtonElement>('#palette-trigger');
+      trigger?.focus();
+      ui.open('');
+      trigger?.remove();
+      ui.press('Enter');
+      expect(document.activeElement).toBe(anchor);
+    } finally {
+      anchor.remove();
+    }
   });
 });
 

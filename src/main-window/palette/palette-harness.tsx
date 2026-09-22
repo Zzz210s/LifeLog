@@ -3,7 +3,7 @@
  * 照 `sidebar/drag-harness.tsx` 的既有做法)。
  * 只负责挂载 / 派遣真实事件 / 读取 controller,不做断言 —— 断言留在各自的 *.dom.test.ts。
  */
-import { act, createElement } from 'react';
+import { act, createElement, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import type { ListRow, QuickPickItem } from '../../shared/quickpick/model';
@@ -54,6 +54,10 @@ export interface PaletteHarness extends Mounted {
   press(key: string, init?: KeyboardEventInit): void;
   /** 在「当前焦点元素」(如焦点被挪到 body 后)派发真实 keydown,复现键盘监听不能只挂在输入框 */
   pressOnFocus(key: string, init?: KeyboardEventInit): void;
+  /** 在浮层之外的指定元素(如 Composer 文本域)派发真实 keydown,复现 window 监听收到外部按键 */
+  pressFrom(el: Element, key: string, init?: KeyboardEventInit): void;
+  /** 在任意目标上派发真实 mousedown(冒泡到 window,用于浮层外关闭) */
+  mouseDown(target: EventTarget): void;
   open(prefix?: string): void;
   /** 真实 input 事件(受控输入:必须用原生 setter 才触发 React onChange) */
   type(value: string): void;
@@ -63,6 +67,8 @@ export interface PaletteHarnessOptions {
   items?: readonly QuickPickItem[];
   decorations?: Readonly<Record<string, RowDecoration>>;
   onAccept?: (row: ListRow, keepOpen: boolean) => void;
+  /** 归位锚点(N2/N3):真挂载时由 T6 传主区容器,这里用测试自带容器 */
+  anchor?: HTMLElement | null;
 }
 
 /** 标准夹具:触发按钮 + 浮层(不接真 provider,T6 才接) */
@@ -73,8 +79,11 @@ export function paletteHarness(options: PaletteHarnessOptions = {}): PaletteHarn
 
   const mounted = mountHost(() => {
     function Host(): ReactNode {
+      const anchorRef = useRef<HTMLElement | null>(null);
+      anchorRef.current = options.anchor ?? null;
       const controller = usePalette({
         items,
+        anchorRef,
         onAccept: (row, keepOpen) => {
           accepted.push({ id: row.item.id, keepOpen });
           options.onAccept?.(row, keepOpen);
@@ -116,6 +125,16 @@ export function paletteHarness(options: PaletteHarnessOptions = {}): PaletteHarn
       const el = document.activeElement ?? document.body;
       act(() => {
         el.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...init }));
+      });
+    },
+    pressFrom: (el, key, init = {}) => {
+      act(() => {
+        el.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...init }));
+      });
+    },
+    mouseDown: (target) => {
+      act(() => {
+        target.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
       });
     },
     open: (prefix = '') => act(() => controller().open(prefix)),
