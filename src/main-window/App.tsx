@@ -30,6 +30,8 @@ export function App(): ReactNode {
   const { conditions, patch, toggleTag, reload: reloadTabs } = tabs;
   const sidebar = useSidebarState();
   const [tagRows, setTagRows] = useState<TagCount[]>([]);
+  // 标签数据版本:每次 loadTags 成功递增,浮层的 `#` 候选池据此作废(不每键一次全树查询)
+  const [tagsVersion, setTagsVersion] = useState(0);
   const { errors, setError, clearError } = useAppErrors();
   const [editingId, setEditingId] = useState<number | null>(null);
   const [view, setView] = useState<MainView>('stream');
@@ -45,6 +47,7 @@ export function App(): ReactNode {
       .listTags()
       .then((rows) => {
         setTagRows(rows);
+        setTagsVersion((v) => v + 1);
         clearError('tags');
       })
       .catch((e) => setError('tags', '标签加载失败: ' + String(e)));
@@ -108,6 +111,7 @@ export function App(): ReactNode {
     anchorRef,
     registry: commands.registry,
     executeCommand: commands.execute,
+    tagsVersion,
     tabCount: tabs.tabs.length,
     sidebarVisible: sidebar.visible,
     editingId,

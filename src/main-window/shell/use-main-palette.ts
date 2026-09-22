@@ -21,6 +21,8 @@ export interface MainPaletteOptions {
   anchorRef: RefObject<HTMLElement | null>;
   registry: CommandRegistry;
   executeCommand: (id: string) => Promise<void>;
+  /** 标签数据版本(`#` 候选池据此作废缓存) */
+  tagsVersion: number;
   tabCount: number;
   sidebarVisible: boolean;
   editingId: number | null;
@@ -60,6 +62,7 @@ export function useMainPalette(o: MainPaletteOptions): MainPalette {
     clearFilters: o.clearFilters,
     toggleTag: o.toggleTag,
     executeCommand: o.executeCommand,
+    tagsVersion: o.tagsVersion,
     setError: o.setError,
   });
 

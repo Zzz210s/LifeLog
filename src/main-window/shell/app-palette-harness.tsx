@@ -33,6 +33,8 @@ export interface AppPaletteHarness {
   setNotes: (rows: Note[]) => void;
   setLoading: (v: boolean) => void;
   setConditions: (c: FilterConditions) => void;
+  /** 模拟主窗 loadTags 成功:标签数据版本 +1(标签候选池据此作废) */
+  setTagsVersion: (v: number) => void;
   open: (prefix?: string) => Promise<void>;
   type: (value: string) => Promise<void>;
   accept: (index: number, keepOpen?: boolean) => Promise<void>;
@@ -46,6 +48,7 @@ export interface AppPaletteHarnessOptions {
   conditions?: FilterConditions;
   loading?: boolean;
   context?: Partial<Context>;
+  tagsVersion?: number;
 }
 
 export function mountAppPalette(options: AppPaletteHarnessOptions = {}): AppPaletteHarness {
@@ -68,10 +71,16 @@ export function mountAppPalette(options: AppPaletteHarnessOptions = {}): AppPale
   const toggleTag = vi.fn();
   const clearFilters = vi.fn();
   const errors: string[] = [];
-  const ctl: { setNotes: (r: Note[]) => void; setLoading: (v: boolean) => void; setConditions: (c: FilterConditions) => void } = {
+  const ctl: {
+    setNotes: (r: Note[]) => void;
+    setLoading: (v: boolean) => void;
+    setConditions: (c: FilterConditions) => void;
+    setTagsVersion: (v: number) => void;
+  } = {
     setNotes: () => {},
     setLoading: () => {},
     setConditions: () => {},
+    setTagsVersion: () => {},
   };
 
   act(() =>
@@ -81,10 +90,12 @@ export function mountAppPalette(options: AppPaletteHarnessOptions = {}): AppPale
         const [notes, setNotes] = useState(options.notes ?? []);
         const [loading, setLoading] = useState(options.loading ?? false);
         const [conditions, setConditions] = useState(options.conditions ?? EMPTY_FILTER);
+        const [tagsVersion, setTagsVersion] = useState(options.tagsVersion ?? 0);
         const ctx = { ...defaultContext(), ...options.context };
         ctl.setNotes = setNotes;
         ctl.setLoading = setLoading;
         ctl.setConditions = setConditions;
+        ctl.setTagsVersion = setTagsVersion;
         box.p = useAppPalette({
           anchorRef,
           registry,
@@ -92,6 +103,7 @@ export function mountAppPalette(options: AppPaletteHarnessOptions = {}): AppPale
           notes,
           loadingNotes: loading,
           conditions,
+          tagsVersion,
           clearFilters,
           toggleTag,
           executeCommand: async (id) => {
@@ -129,6 +141,7 @@ export function mountAppPalette(options: AppPaletteHarnessOptions = {}): AppPale
     setNotes: (rows) => act(() => ctl.setNotes(rows)),
     setLoading: (v) => act(() => ctl.setLoading(v)),
     setConditions: (c) => act(() => ctl.setConditions(c)),
+    setTagsVersion: (v) => act(() => ctl.setTagsVersion(v)),
     open: async (prefix = '') => {
       act(() => palette().controller.open(prefix));
       await settle();

@@ -17,20 +17,17 @@ import type { RefObject } from 'react';
 import { api } from '../../shared/api';
 import type { CommandRegistry } from '../../shared/commands';
 import type { FilterConditions } from '../../shared/filter-conditions';
-import { createProviderRegistry } from '../../shared/quickpick/providers';
 import type { Note, TagCount } from '../../shared/types';
 import type { Context } from '../../shared/when';
 import type { ErrorKind } from './ErrorBar';
 import type { RowDecoration } from '../palette/PaletteRow';
-import {
-  createNoteCandidates,
-  recentConditions,
-  searchConditions,
-} from '../palette/note-candidates';
+import { createNoteCandidates, recentConditions } from '../palette/note-candidates';
+import { buildAppProviders } from '../palette/providers/app-providers';
 import { usePaletteSettings } from '../palette/use-palette-settings';
-import { createCommandProvider, commandDecorations } from '../palette/providers/commands';
-import { createNoteProvider, noteDecorationsFor } from '../palette/providers/notes';
-import { createTagProvider, tagDecorations } from '../palette/providers/tags';
+import { createTagCandidates } from '../palette/tag-candidates';
+import { commandDecorations } from '../palette/providers/commands';
+import { noteDecorationsFor } from '../palette/providers/notes';
+import { tagDecorations } from '../palette/providers/tags';
 import { usePalette } from '../palette/use-palette';
 import type { PaletteController } from '../palette/use-palette';
 import { useProviderItems } from '../palette/use-provider-items';
@@ -48,6 +45,8 @@ export interface AppPaletteOptions {
   clearFilters: () => void;
   toggleTag: (path: string) => void;
   executeCommand: (id: string) => Promise<void>;
+  /** 标签数据版本(主窗 loadTags 成功时递增):`#` 候选池据此作废缓存 */
+  tagsVersion: number;
   setError: (kind: ErrorKind, message: string) => void;
 }
 
@@ -76,39 +75,23 @@ export function useAppPalette(options: AppPaletteOptions): AppPalette {
     [],
   );
 
-  const providers = useMemo(() => {
-    const registry = createProviderRegistry();
-    registry.register(
-      createCommandProvider({
+  // 标签候选池(复审 I1):整个数组缓存在会话内,缓存键 = 标签数据版本;
+  // 版本由主窗 loadTags 成功时递增,所以标签增删改后下一次取候选会重打库
+  const tagPool = useMemo(() => createTagCandidates(() => api.listTags()), []);
+
+  const providers = useMemo(
+    () =>
+      buildAppProviders({
         registry: options.registry,
         getContext: () => latest.current.getContext(),
+        pool,
+        tagPool,
+        tagsVersion: options.tagsVersion,
+        noteIndex,
+        tagsRef,
       }),
-    );
-    registry.register(
-      createTagProvider({
-        listTags: async () => {
-          const rows = await api.listTags();
-          tagsRef.current = rows;
-          return rows;
-        },
-      }),
-    );
-    registry.register(
-      createNoteProvider({
-        getCandidates: async () => {
-          const rows = await pool.current();
-          for (const note of rows) noteIndex.current.set(note.id, note);
-          return rows;
-        },
-        search: async (query) => {
-          const rows = await api.queryNotes(searchConditions(query), 0);
-          for (const note of rows) noteIndex.current.set(note.id, note);
-          return rows;
-        },
-      }),
-    );
-    return registry;
-  }, [options.registry, pool]);
+    [options.registry, options.tagsVersion, pool, tagPool],
+  );
 
   // 每次打开作废候选缓存(刚保存的笔记也要能搜到)。必须在 useProviderItems 的 effect 之前声明:
   // 同一次提交里 effect 按声明顺序执行,先清缓存、再取候选,否则取到的还是上一次的旧缓存。

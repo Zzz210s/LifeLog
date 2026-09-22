@@ -25,9 +25,13 @@ pub fn quit_app(app: AppHandle) {
 /// 聚合口径必须与迁移 011 重建的触发器逐字一致 —— `group_concat(t.path, ' ' ORDER BY t.path)`,
 /// 无链接为空串(用 `path` 而非 `name`:树语义下真源是完整路径)。触发器已覆盖日常增删改,
 /// 本命令是「索引与正文疑似不一致」时的自愈入口(见 `notes_fts` 为普通 FTS5 表的设计说明)。
+///
+/// 两条语句必须在同一事务内(与 `migrate::apply` 同口径的 `unchecked_transaction`):
+/// 进程死在两条之间会留下空 `notes_fts`,3 字以上关键词会静默搜不到。
 pub fn rebuild(conn: &rusqlite::Connection) -> rusqlite::Result<usize> {
-    conn.execute("DELETE FROM notes_fts", [])?;
-    conn.execute(
+    let tx = conn.unchecked_transaction()?;
+    tx.execute("DELETE FROM notes_fts", [])?;
+    let written = tx.execute(
         "INSERT INTO notes_fts(rowid, content, tags)
          SELECT n.id, n.content,
                 COALESCE((SELECT group_concat(t.path, ' ' ORDER BY t.path)
@@ -35,7 +39,9 @@ pub fn rebuild(conn: &rusqlite::Connection) -> rusqlite::Result<usize> {
                           WHERE l.target_type = 'note' AND l.target_id = n.id), '')
          FROM notes n",
         [],
-    )
+    )?;
+    tx.commit()?;
+    Ok(written)
 }
 
 #[cfg(test)]

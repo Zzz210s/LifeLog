@@ -89,6 +89,24 @@ describe('浮层接线:三个 provider', () => {
     expect(listTags).toHaveBeenCalled();
   });
 
+  it('`#` 模式:连续输入 10 个字符只打一次 list_tags(候选池按数据版本缓存)', async () => {
+    await h.open('#');
+    expect(listTags).toHaveBeenCalledTimes(1); // 打开浮层时取一次
+    const typed = '工作项目生活日常事务'; // 10 个字符
+    expect(typed.length).toBe(10);
+    for (let i = 1; i <= typed.length; i++) await h.type('#' + typed.slice(0, i));
+    expect(listTags).toHaveBeenCalledTimes(1); // 10 次按键,0 次新查询
+  });
+
+  it('标签增删改(数据版本 +1)后浮层看到新标签,不陈旧', async () => {
+    await h.open('#');
+    expect(labels()).toEqual(['工作', '生活']);
+    listTags.mockResolvedValue([tag('工作', 4), tag('生活', 1), tag('新标签', 0)]);
+    h.setTagsVersion(1);
+    await h.flush();
+    expect(labels()).toContain('新标签');
+  });
+
   it('前缀实时驱动:空前缀里输入 `>` 当场切到命令 provider', async () => {
     await h.open('');
     await h.type('>导');
