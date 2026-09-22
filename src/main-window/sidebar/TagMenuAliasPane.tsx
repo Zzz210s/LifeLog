@@ -65,7 +65,7 @@ export function TagMenuAliasPane(p: TagMenuAliasPaneProps): ReactNode {
           }}
           placeholder="新别名"
           aria-label="新别名"
-          className="h-7 min-w-0 flex-1 rounded border border-border bg-raised px-1.5 text-xs text-text outline-none focus:border-accent"
+          className="h-7 min-w-0 flex-1 rounded border border-border bg-raised px-1.5 text-xs text-text outline-none"
         />
         <button
           type="button"

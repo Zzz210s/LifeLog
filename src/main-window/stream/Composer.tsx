@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { api } from '../../shared/api';
 import { prepareForSave } from '../../shared/note-source';
+import { BTN_PRIMARY } from '../shell/button-classes';
 
 /** 顶部常驻输入框:自动增高,Ctrl+Enter 或按钮保存(语法与输入栏一致)。
  *  editing 态下由父组件传 disabled:两个可写入口互斥,避免刷新时卸载 EditPanel 丢掉未保存文本 */
@@ -37,7 +38,7 @@ export function Composer({ onSaved, disabled = false }: { onSaved: () => void; d
   };
 
   return (
-    <div className="border-b border-border px-4 py-3">
+    <div className="border-b border-border px-4 py-2">
       <textarea
         ref={ref}
         rows={1}
@@ -60,7 +61,7 @@ export function Composer({ onSaved, disabled = false }: { onSaved: () => void; d
           }
         }}
         style={{ maxHeight: 280, overflowY: 'auto' }}
-        className="w-full resize-none rounded-lg border border-border bg-raised px-3 py-2 text-sm leading-relaxed text-text outline-none focus:border-accent"
+        className="block h-8 w-full resize-none rounded-sm border border-border-strong bg-raised px-2.5 py-1.5 text-ui text-text outline-none"
       />
       <div className="mt-2 flex items-center justify-between">
         <span className="text-xs text-danger">
@@ -73,7 +74,7 @@ export function Composer({ onSaved, disabled = false }: { onSaved: () => void; d
         <button
           onClick={() => void save()}
           disabled={disabled || !content.trim() || saving}
-          className="rounded-md bg-accent px-4 py-1.5 text-sm text-on-accent hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
+          className={BTN_PRIMARY}
         >
           保存
         </button>

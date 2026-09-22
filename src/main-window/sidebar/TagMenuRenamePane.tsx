@@ -27,7 +27,7 @@ export function TagMenuRenamePane(p: TagMenuRenamePaneProps): ReactNode {
           if (e.key === 'Enter' && !p.busy) p.onSubmit();
         }}
         aria-label="新标签名"
-        className="h-7 w-full rounded border border-border px-2 text-xs outline-none focus:border-accent"
+        className="h-7 w-full rounded border border-border px-2 text-xs outline-none"
       />
       {p.error !== '' && <p className="mt-1 px-1 text-xs text-danger">{p.error}</p>}
       <div className="mt-1.5 flex justify-end gap-1.5">

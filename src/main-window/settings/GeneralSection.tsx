@@ -6,6 +6,7 @@ import { api } from '../../shared/api';
 import type { DbInfo } from '../../shared/types';
 import { SettingsRow } from './controls';
 import { appVersion } from './settings-model';
+import { BTN_SECONDARY } from '../shell/button-classes';
 
 export function GeneralSection(): ReactNode {
   const [info, setInfo] = useState<DbInfo | null>(null);
@@ -51,7 +52,7 @@ export function GeneralSection(): ReactNode {
           <button
             type="button"
             onClick={load}
-            className="shrink-0 rounded border border-border px-2 py-0.5 text-xs text-muted hover:border-accent hover:text-accent-text"
+            className={BTN_SECONDARY}
           >
             重试
           </button>
@@ -66,7 +67,7 @@ export function GeneralSection(): ReactNode {
             type="button"
             onClick={reveal}
             disabled={!info}
-            className="rounded-md border border-border px-3 py-1.5 text-xs text-muted hover:border-accent hover:text-accent-text disabled:cursor-not-allowed disabled:opacity-50"
+            className={BTN_SECONDARY}
           >
             打开所在文件夹
           </button>

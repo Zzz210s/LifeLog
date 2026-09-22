@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { BTN_TEXT } from './button-classes';
 import { dismissLabel } from './errors';
 
 /** 错误来源:查询分页 / 标签计数 / 操作(删除、勾选、编辑保存) */
@@ -24,14 +25,14 @@ export function ErrorBar(p: ErrorBarProps): ReactNode {
         {p.error.message}
       </span>
       {p.error.kind === 'query' && (
-        <button onClick={p.onRetry} className="shrink-0 text-danger hover:text-danger-hover">
+        <button onClick={p.onRetry} className={BTN_TEXT + ' text-danger hover:text-danger-hover'}>
           重试
         </button>
       )}
       <button
         onClick={p.onDismiss}
         aria-label={dismissLabel(p.error.kind)}
-        className="shrink-0 text-danger hover:text-danger-hover"
+        className={BTN_TEXT + ' text-danger hover:text-danger-hover'}
       >
         关闭
       </button>

@@ -66,7 +66,7 @@ export function FilterBar(p: FilterBarProps): ReactNode {
           onChange={(e) => onInput(e.target.value)}
           placeholder="搜索笔记与标签"
           aria-label="搜索笔记与标签"
-          className="h-8 min-w-40 flex-1 rounded-sm border border-border px-2.5 text-ui outline-none focus:border-accent"
+          className="h-8 min-w-40 flex-1 rounded-sm border border-border-strong px-2.5 text-ui outline-none"
         />
         <button
           onClick={() => p.onPatch({ sort: oldestFirst ? 'newest' : 'oldest' })}

@@ -94,7 +94,7 @@ export function PercentInput({ value, label, min, max, onCommit }: PercentInputP
         onKeyDown={(e) => {
           if (e.key === 'Enter') e.currentTarget.blur();
         }}
-        className="h-8 w-16 rounded-md border border-border px-2 text-right text-sm outline-none focus:border-accent"
+        className="h-8 w-16 rounded-sm border border-border-strong px-2 text-right text-ui outline-none"
       />
       <span className="text-xs text-faint">%</span>
     </div>
@@ -123,7 +123,7 @@ export function SelectInput<T extends string>({
         const hit = options.find((o) => o.value === e.target.value);
         if (hit) onChange(hit.value);
       }}
-      className="h-8 rounded-md border border-border bg-raised px-2 text-sm text-muted outline-none focus:border-accent"
+      className="h-8 rounded-sm border border-border-strong bg-raised px-2 text-ui text-muted outline-none"
     >
       {options.map((o) => (
         <option key={o.value} value={o.value}>

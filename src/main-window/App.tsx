@@ -10,6 +10,7 @@ import { SettingsView } from './settings/SettingsView';
 import { Sidebar } from './sidebar/Sidebar';
 import { useSidebarState } from './sidebar/use-sidebar-state';
 import { StreamView } from './shell/StreamView';
+import { contentColumnClass } from './shell/content-column';
 import { useTabs } from './tabs/use-tabs';
 import { TopBar } from './shell/TopBar';
 import { useAppErrors } from './shell/use-app-errors';
@@ -138,11 +139,12 @@ export function App(): ReactNode {
         onTagsMutated={handleTagsMutated}
       />
       {/* 内容区 min-w 保护:窄窗口下侧栏允许被压缩,内容区不被挤没;
-          同时是浮层关闭时的焦点归位锚点(键盘关闭 -> 焦点回主区,焦点环可见) */}
+          同时是浮层关闭时的焦点归位锚点(键盘关闭 -> 焦点回主区,焦点环可见)。
+          列宽随侧栏显隐切换(有侧栏 768 / 无侧栏 1024,视觉刷新 V4) */}
       <div
         ref={anchorRef}
         tabIndex={-1}
-        className="mx-auto flex h-full w-full min-w-[420px] max-w-3xl flex-1 flex-col outline-none focus-visible:ring-1 focus-visible:ring-accent"
+        className={`mx-auto flex h-full w-full min-w-[420px] flex-1 flex-col outline-none focus-visible:ring-1 focus-visible:ring-accent ${contentColumnClass(sidebar.visible)}`}
       >
         <TopBar
           view={view}

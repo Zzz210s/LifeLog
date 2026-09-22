@@ -16,6 +16,7 @@ import {
 } from '../../shared/startup-settings';
 import { SelectInput, SettingsRow, Toggle } from './controls';
 import { startupRows } from './settings-model';
+import { BTN_SECONDARY, BTN_WARN } from '../shell/button-classes';
 
 const STATUS_TEXT: Record<AutostartState, string> = {
   off: '已关闭',
@@ -98,7 +99,7 @@ export function StartupSection(): ReactNode {
             <button
               type="button"
               onClick={() => reload()}
-              className="rounded border border-border px-2 py-0.5 text-xs text-muted hover:bg-hover"
+              className={BTN_SECONDARY}
             >
               重试
             </button>
@@ -114,7 +115,7 @@ export function StartupSection(): ReactNode {
                     type="button"
                     disabled={busy}
                     onClick={() => void applyAutostart(settings.autostart)}
-                    className="rounded border border-warn px-2 py-0.5 text-xs text-warn hover:bg-warn-soft disabled:opacity-50"
+                    className={BTN_WARN}
                   >
                     修复
                   </button>

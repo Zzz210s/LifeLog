@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import type { MouseEvent, ReactNode } from 'react';
 import { renderMarkdownInteractive } from '../../shared/markdown';
 import type { Note } from '../../shared/types';
+import { BTN_TEXT } from '../shell/button-classes';
 import { shouldEnterEdit } from './body-click';
 import { MarkdownBody } from './MarkdownBody';
 import { NoteChips } from './NoteChips';
@@ -64,7 +65,8 @@ export function NoteItem(p: NoteItemProps): ReactNode {
           编辑
         </button>
         <div className="ml-auto flex gap-2 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-          <button onClick={p.onDelete} className="text-xs text-muted hover:text-danger">
+          {/* 卡片内联动作按 28px 档统一(BTN_TEXT):高度与图标按钮同档,悬停给底色 */}
+          <button onClick={p.onDelete} className={BTN_TEXT + ' text-muted hover:text-danger'}>
             删除
           </button>
         </div>

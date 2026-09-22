@@ -16,6 +16,7 @@ import {
   partsFromEvent,
 } from '../../shared/hotkey-display';
 import { SettingsRow } from './controls';
+import { BTN_SECONDARY } from '../shell/button-classes';
 
 const LABEL = '唤起/隐藏快捷键';
 
@@ -122,7 +123,7 @@ export function HotkeyRecorder(): ReactNode {
             }}
             onKeyDown={onKeyDown}
             className={
-              'h-8 min-w-[9rem] rounded-md border px-3 text-xs tabular-nums ' +
+              'h-8 min-w-[9rem] rounded-sm border px-3 text-ui tabular-nums ' +
               (capturing
                 ? 'border-accent bg-accent/10 text-accent-text'
                 : 'border-border text-muted hover:border-accent hover:text-accent-text')
@@ -134,7 +135,7 @@ export function HotkeyRecorder(): ReactNode {
             type="button"
             disabled={busy || accelerator === DEFAULT_HOTKEY}
             onClick={() => void submit(DEFAULT_HOTKEY)}
-            className="rounded-md border border-border px-3 py-1.5 text-xs text-muted hover:border-accent hover:text-accent-text disabled:opacity-50"
+            className={BTN_SECONDARY}
           >
             恢复默认
           </button>

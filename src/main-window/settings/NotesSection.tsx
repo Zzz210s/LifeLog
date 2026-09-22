@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { api } from '../../shared/api';
 import { SettingsRow, Toggle } from './controls';
+import { BTN_SECONDARY } from '../shell/button-classes';
 import {
   AUTO_TIME_TAG_KEY,
   DEFAULT_TIME_TAG_TEMPLATE,
@@ -85,7 +86,7 @@ export function NotesSection(): ReactNode {
             <button
               type="button"
               onClick={() => load()}
-              className="rounded border border-border px-2 py-0.5 text-xs text-muted hover:bg-hover"
+              className={BTN_SECONDARY}
             >
               重试
             </button>
@@ -110,10 +111,8 @@ export function NotesSection(): ReactNode {
               spellCheck={false}
               onChange={(e) => onTemplateInput(e.target.value)}
               className={
-                'h-8 w-56 rounded-md border px-2 font-mono text-xs outline-none ' +
-                (verdict !== null && !verdict.ok
-                  ? 'border-danger bg-danger-soft'
-                  : 'border-border focus:border-accent')
+                'h-8 w-56 rounded-sm border px-2.5 font-mono text-ui outline-none ' +
+                (verdict !== null && !verdict.ok ? 'border-danger bg-danger-soft' : 'border-border-strong')
               }
             />
           </SettingsRow>

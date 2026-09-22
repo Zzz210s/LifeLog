@@ -9,6 +9,7 @@ import type { ReactNode } from 'react';
 import type { FilterConditions } from '../../shared/filter-conditions';
 import type { TagCount } from '../../shared/types';
 import { TagsSection } from './TagsSection';
+import { BTN_ICON } from '../shell/button-classes';
 import { clampSidebarWidth } from './use-sidebar-state';
 import type { SidebarStateApi } from './use-sidebar-state';
 
@@ -62,7 +63,7 @@ export function Sidebar(p: SidebarProps): ReactNode {
           title="隐藏侧栏(顶栏可重新显示)"
           aria-label="隐藏侧栏"
           onClick={() => p.sidebar.setVisible(false)}
-          className="rounded p-1 text-faint hover:bg-text/10 hover:text-muted"
+          className={BTN_ICON}
         >
           <svg viewBox="0 0 16 16" aria-hidden="true" className="h-3.5 w-3.5">
             <path d="M10 4l-4 4 4 4" fill="none" stroke="currentColor" strokeWidth="1.5" />

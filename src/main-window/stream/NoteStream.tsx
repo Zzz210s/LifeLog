@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { Note } from '../../shared/types';
 import { EMPTY_STATE_ACTION, EMPTY_STATE_TEXT, streamEmptyState } from '../shell/empty-stream';
+import { BTN_SECONDARY } from '../shell/button-classes';
 import { EditPanel } from '../editor/EditPanel';
 import { takeScrollRestore } from './scroll-restore';
 import { NoteItem } from './NoteItem';
@@ -84,7 +85,7 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
           <span>{EMPTY_STATE_TEXT[empty]}</span>
           <button
             onClick={onEmptyAction}
-            className="rounded border border-border px-2 py-0.5 text-xs text-muted hover:bg-hover"
+            className={BTN_SECONDARY}
           >
             {EMPTY_STATE_ACTION[empty]}
           </button>

@@ -130,7 +130,7 @@ export function ExprDialog(p: ExprDialogProps): ReactNode {
           className={
             'w-full resize-y rounded-md border px-2 py-1 font-mono text-sm outline-none ' +
             (check.ok || pending
-              ? 'border-border focus:border-accent'
+              ? 'border-border'
               : 'border-danger bg-danger-soft')
           }
         />

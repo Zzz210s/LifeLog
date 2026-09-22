@@ -4,6 +4,7 @@
  */
 import type { ReactNode } from 'react';
 import type { TagViewMode } from './use-sidebar-state';
+import { BTN_TEXT } from '../shell/button-classes';
 
 /** 操作回执:成功(绿)或失败(红,拖拽预校验/后端拒绝) */
 export interface TagFlash {
@@ -22,7 +23,7 @@ export interface TagsHeaderProps {
 }
 
 const HEADER_BTN =
-  'rounded p-1 text-faint hover:bg-text/10 hover:text-muted';
+  BTN_TEXT + ' text-faint hover:text-muted';
 
 export function TagsHeader(p: TagsHeaderProps): ReactNode {
   return (
@@ -65,7 +66,7 @@ export function TagsHeader(p: TagsHeaderProps): ReactNode {
           onChange={(e) => p.onQueryChange(e.target.value)}
           placeholder="输入关键词过滤标签"
           aria-label="过滤标签"
-          className="mx-2 mb-1 h-7 shrink-0 rounded border border-border px-2 text-xs outline-none focus:border-accent"
+          className="mx-2 mb-1 h-8 shrink-0 rounded-sm border border-border-strong px-2.5 text-ui outline-none"
         />
       )}
     </>

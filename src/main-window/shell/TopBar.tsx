@@ -1,6 +1,7 @@
 // 主窗顶栏:左侧应用名与侧栏开关;右侧按视图显示齿轮(进设置)或返回(回信息流)。
 import type { ReactNode } from 'react';
 import type { MainView } from '../settings/settings-model';
+import { BTN_ICON, BTN_SECONDARY } from './button-classes';
 
 export interface TopBarProps {
   view: MainView;
@@ -13,7 +14,7 @@ export interface TopBarProps {
 
 export function TopBar({ view, sidebarVisible, onToggleSidebar, onOpenSettings, onBack }: TopBarProps): ReactNode {
   return (
-    <header className="flex h-12 shrink-0 items-center justify-between border-b border-border px-4">
+    <header className="flex h-11 shrink-0 items-center justify-between border-b border-border px-4">
       <span className="flex items-center gap-1 text-sm font-semibold text-text">
         <button
           type="button"
@@ -21,7 +22,7 @@ export function TopBar({ view, sidebarVisible, onToggleSidebar, onOpenSettings, 
           title={sidebarVisible ? '隐藏侧栏' : '显示侧栏'}
           aria-label={sidebarVisible ? '隐藏侧栏' : '显示侧栏'}
           aria-pressed={sidebarVisible}
-          className="rounded-md p-1.5 text-faint hover:bg-hover hover:text-muted"
+          className={BTN_ICON}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="h-4 w-4">
             <rect x="3" y="4" width="18" height="16" rx="2" />
@@ -36,7 +37,7 @@ export function TopBar({ view, sidebarVisible, onToggleSidebar, onOpenSettings, 
           onClick={onOpenSettings}
           title="设置"
           aria-label="设置"
-          className="rounded-md p-1.5 text-faint hover:bg-hover hover:text-muted"
+          className={BTN_ICON}
         >
           <svg
             viewBox="0 0 24 24"
@@ -56,7 +57,7 @@ export function TopBar({ view, sidebarVisible, onToggleSidebar, onOpenSettings, 
         <button
           type="button"
           onClick={onBack}
-          className="rounded-md border border-border px-2.5 py-1 text-xs text-muted hover:border-accent hover:text-accent-text"
+          className={BTN_SECONDARY}
         >
           返回信息流
         </button>

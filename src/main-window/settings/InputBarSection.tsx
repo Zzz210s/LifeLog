@@ -8,6 +8,7 @@ import {
   type InputSettings,
 } from '../../shared/input-settings';
 import { RowControl, SettingsRow } from './controls';
+import { BTN_SECONDARY } from '../shell/button-classes';
 import { HotkeyRecorder } from './HotkeyRecorder';
 import { notifyInputSettingsChanged } from './input-settings-events';
 import { inputResetKeys, inputRows, resetInputSettings, withInputSetting } from './settings-model';
@@ -79,7 +80,7 @@ export function InputBarSection(): ReactNode {
             <button
               type="button"
               onClick={reload}
-              className="rounded border border-border px-2 py-0.5 text-xs text-muted hover:bg-hover"
+              className={BTN_SECONDARY}
             >
               重试
             </button>
@@ -99,7 +100,7 @@ export function InputBarSection(): ReactNode {
             <button
               type="button"
               onClick={onReset}
-              className="rounded-md border border-border px-3 py-1.5 text-xs text-muted hover:border-accent hover:text-accent-text"
+              className={BTN_SECONDARY}
             >
               恢复输入栏分区默认
             </button>
