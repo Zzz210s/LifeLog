@@ -11,7 +11,7 @@ import type { AppPaletteHarness } from './app-palette-harness';
 const { queryNotes, listTags, getSetting, setSetting } = vi.hoisted(() => ({
   queryNotes: vi.fn(async () => [] as Note[]),
   listTags: vi.fn(async () => [] as TagCount[]),
-  getSetting: vi.fn(async () => null as string | null),
+  getSetting: vi.fn(async (_key: string): Promise<string | null> => null),
   setSetting: vi.fn(async () => {}),
 }));
 vi.mock('../../shared/api', () => ({ api: { queryNotes, listTags, getSetting, setSetting } }));
@@ -100,6 +100,16 @@ describe('浮层接线:三个 provider', () => {
   it('笔记装饰带日期与标签(取到过该笔记才有)', async () => {
     await h.open('');
     expect(h.decorations()['1'].detail).toBe('2026-09-22 · #生活');
+  });
+
+  it('固定项不跨 provider 串:标签固定项(路径)不得改变笔记列表顺序', async () => {
+    getSetting.mockImplementation(async (key: string) =>
+      key === 'ui.pinned.tags' ? '["2"]' : null, // '2' 恰好是一条笔记的 id
+    );
+    const h2 = mountAppPalette();
+    await h2.open('');
+    expect(h2.controller().rows.map((r) => r.item.id)).toEqual(['1', '2']); // 仍按传入顺序
+    h2.unmount();
   });
 
   it('笔记候选硬截 200 条(provider 侧保护)', async () => {

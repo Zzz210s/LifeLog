@@ -139,10 +139,16 @@ export function useAppPalette(options: AppPaletteOptions): AppPalette {
     );
   }, []);
 
+  // 固定项/最近用过**按 provider 分开**:笔记 id 是数字、命令 id 是点分 ASCII、标签是路径,
+  // 三者的 id 空间不同 —— 串着传会让"标签名恰好等于某条笔记 id"这类巧合改变列表顺序。
+  const pinned = filter.prefix === '#' ? (settings?.pinnedTags ?? []) : [];
+  const mru =
+    filter.prefix === '>' ? settings?.mruCommands.entries() : filter.prefix === '' ? settings?.mruNotes.entries() : [];
+
   const controller = usePalette({
     items,
-    pinned: settings?.pinnedTags ?? [],
-    mru: filter.prefix === '>' ? settings?.mruCommands.entries() : settings?.mruNotes.entries(),
+    pinned,
+    mru,
     limit: settings?.limit,
     anchorRef: options.anchorRef,
     onFilterChange,
