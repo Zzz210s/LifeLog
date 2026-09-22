@@ -11,6 +11,11 @@
 /** 分层档位:前缀命中整档高于包含命中(VS Code LABEL_PREFIX_SCORE_THRESHOLD / LABEL_SCORE_THRESHOLD) */
 export const LABEL_PREFIX_BOOST = 1 << 17;
 export const LABEL_MATCH_BOOST = 1 << 16;
+/**
+ * 第三档基数(VS Code PATH_IDENTITY_SCORE,1<<18):笔记 provider 的「标题 > 正文 > 标签」三分层用。
+ * T6/T8 一律取这里的常量,禁止在 provider 里自造阈值,否则等于把 matcher 阈值漂移固化。
+ */
+export const PATH_BOOST = 1 << 18;
 /** 空查询的中性分:视为全部命中但不加权,排序保持稳定 */
 export const EMPTY_QUERY_SCORE = 1;
 

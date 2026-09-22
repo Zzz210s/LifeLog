@@ -207,6 +207,14 @@
       "target": "任意文本",
       "positions": [],
       "neutral": true
+    },
+    {
+      "why": "特征化(I1):DP 最优路径取到 [0,8](下标 8 的 A 前是 / 分隔符 +5、大小写相同 +1,得分 10+7=17),高亮仍是整段前缀 [0,1];与上游 fuzzyScorer.ts:531 同源,刻意保留",
+      "query": "作A",
+      "target": "作aA工.a作/AB作B",
+      "positions": [0, 8],
+      "rawScore": 17,
+      "tier": "prefix"
     }
   ],
   "ranking": [
