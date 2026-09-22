@@ -42,6 +42,13 @@ const fixture = JSON.parse(
 /** 分隔符等价(反斜杠视同正斜杠),用于校验命中位置与查询一一对应 */
 const norm = (text: string): string => text.toLowerCase().replace(/\\/g, '/');
 
+/** lengthBoost 上界:q <= t 时 round((q/t)*100) <= 100 */
+const MAX_LENGTH_BOOST = 100;
+/** 逐字符原始分上界 3i+19(1 命中 + 3i+9 连续序列 + 1 同大小写 + 8 词首)的 q 字和 */
+const rawUpperBound = (q: number): number => (3 * q * (q - 1)) / 2 + 19 * q;
+/** 现实查询长度上界(输入框量级;再长只是余量变小,见下面结构性断言) */
+const MAX_QUERY_LENGTH = 50;
+
 describe('共享向量:权重与命中位置', () => {
   it('向量条数不少于 20(防止向量被悄悄删空)', () => {
     expect(fixture.cases.length + fixture.ranking.length).toBeGreaterThanOrEqual(20);
@@ -98,9 +105,21 @@ describe('分层阈值', () => {
     expect(prefix.score).toBeGreaterThan(contains.score);
   });
 
-  it('档位差大于任意原始分,保证跨档顺序不被原始分翻转', () => {
+  it('档位差大于向量里的最大原始分(回归快照,不是结构性证明)', () => {
     const maxRaw = Math.max(...fixture.cases.map((c) => c.rawScore ?? 0));
     expect(LABEL_PREFIX_BOOST).toBeGreaterThan(LABEL_MATCH_BOOST + maxRaw);
+  });
+
+  it('档位差的结构性保证:query <= 50 时原始分上界 + lengthBoost 上界也翻不过档', () => {
+    const margin = rawUpperBound(MAX_QUERY_LENGTH) + MAX_LENGTH_BOOST;
+    expect(LABEL_PREFIX_BOOST - LABEL_MATCH_BOOST).toBeGreaterThan(margin);
+    expect(PATH_BOOST - LABEL_PREFIX_BOOST).toBeGreaterThan(margin);
+    // 两个上界都不是纸上推导:最坏连续命中的原始分落在界内,lengthBoost 恰好取满上界
+    const query = 'a'.repeat(MAX_QUERY_LENGTH);
+    const raw = scoreFuzzy(query, query, { boostTiers: false });
+    const boosted = scoreFuzzy(query, query);
+    expect(raw.score).toBeLessThanOrEqual(rawUpperBound(MAX_QUERY_LENGTH));
+    expect(boosted.score - LABEL_PREFIX_BOOST - raw.score).toBe(MAX_LENGTH_BOOST);
   });
 
   it('阈值常量取自 VS Code(1<<17 / 1<<16)', () => {
@@ -109,16 +128,12 @@ describe('分层阈值', () => {
   });
 
   it('第三档 PATH_BOOST 供笔记「标题 > 正文 > 标签」三分层', () => {
-    // 1<<18 是上游 PATH_IDENTITY_SCORE;三档差必须大于任意原始分,否则跨档顺序会被原始分翻转
-    // (结构性保证,不只对向量成立:见 T2 审查 §三的穷举论证)
     expect(PATH_BOOST).toBe(1 << 18);
     expect(PATH_BOOST).toBeGreaterThan(LABEL_PREFIX_BOOST);
     expect(LABEL_PREFIX_BOOST).toBeGreaterThan(LABEL_MATCH_BOOST);
-    const maxRaw = Math.max(...fixture.cases.map((c) => c.rawScore ?? 0));
-    expect(PATH_BOOST).toBeGreaterThan(LABEL_PREFIX_BOOST + maxRaw);
-    // 标题命中(第三档)压得住任何正文命中(前缀档)
-    const body = scoreFuzzy('项A', '项A/子项');
-    expect(PATH_BOOST + body.score).toBeGreaterThan(body.score);
+    // 标题档最坏情形(标题自身 0 原始分)也要压住正文前缀档(含 lengthBoost 与原始分上界)
+    const worstBody = LABEL_PREFIX_BOOST + MAX_LENGTH_BOOST + rawUpperBound(MAX_QUERY_LENGTH);
+    expect(PATH_BOOST).toBeGreaterThan(worstBody);
   });
 });
 

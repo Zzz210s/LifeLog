@@ -21,14 +21,14 @@ export interface QuickPickItem {
   /**
    * provider 预计算的分数(分层排序用:笔记「标题 > 正文 > 标签」按
    * PATH_BOOST / LABEL_PREFIX_BOOST / LABEL_MATCH_BOOST 三档叠加)。
-   * 给定时模型不再对 label 打分,直接采信(<= 0 视为不命中)。
+   * 给定时模型不再对 label 打分,直接采信(<= 0 或非有限值视为不命中)。
    */
   readonly score?: number;
   /** 与 score 配对的命中位置;缺省为空 */
   readonly positions?: readonly number[];
 }
 
-/** 最近用过的一项(由 createMru().entries() 提供;顺序不要求预先排序) */
+/** 最近用过的一项(由 createMru().entries() 提供;顺序不要求预先排序,重复 id 取最大次数) */
 export interface MruEntry {
   readonly id: string;
   readonly count: number;
@@ -47,10 +47,10 @@ export interface ListRow {
 export interface BuildListOptions {
   readonly items: readonly QuickPickItem[];
   readonly query: string;
-  /** 缺省 QUICK_OPEN_LIMIT */
+  /** 缺省 QUICK_OPEN_LIMIT;非有限值(NaN/Infinity)同样回退缺省,小数向下取整 */
   readonly limit?: number;
   readonly mru?: readonly MruEntry[];
-  /** 固定项 id,数组顺序即固定档顺序 */
+  /** 固定项 id,数组顺序即固定档顺序;同一 id 重复出现取最后一次的位置 */
   readonly pinned?: readonly string[];
 }
 
@@ -65,6 +65,12 @@ interface Scored {
   item: QuickPickItem;
   score: number;
   positions: readonly number[];
+}
+
+/** limit 归一:缺省 / 非有限回退缺省上限,负数取 0,小数向下取整 */
+function normalizeLimit(limit: number | undefined): number {
+  if (limit === undefined || !Number.isFinite(limit)) return QUICK_OPEN_LIMIT;
+  return Math.max(0, Math.floor(limit));
 }
 
 /** 空查询:固定 → 最近 → 全量(排序稳定,同档保持传入顺序) */
@@ -88,7 +94,9 @@ function orderScored(items: readonly QuickPickItem[], query: string): Scored[] {
   const scored: Scored[] = [];
   for (const item of items) {
     if (item.score !== undefined) {
-      if (item.score > 0) scored.push({ item, score: item.score, positions: item.positions ?? [] });
+      if (Number.isFinite(item.score) && item.score > 0) {
+        scored.push({ item, score: item.score, positions: item.positions ?? [] });
+      }
       continue;
     }
     const hit = scoreFuzzy(query, item.label);
@@ -98,26 +106,25 @@ function orderScored(items: readonly QuickPickItem[], query: string): Scored[] {
 }
 
 export function buildList(options: BuildListOptions): ListResult {
-  const { items, query, limit = QUICK_OPEN_LIMIT, mru = [], pinned = [] } = options;
+  const { items, query, mru = [], pinned = [] } = options;
 
   const pinnedRank = new Map(pinned.map((id, index) => [id, index]));
-  // 模型自己按次数排序,调用方不必预排(同次数按传入顺序 = 最近的在前)
-  const mruRank = new Map<string, number>();
-  [...mru]
-    .sort((a, b) => b.count - a.count)
-    .forEach((entry, index) => {
-      if (!mruRank.has(entry.id)) mruRank.set(entry.id, index);
-    });
+  // 模型自己按次数排序,调用方不必预排;重复 id 取最大次数,rank 与 mruCount 同一口径
+  const mruCounts = new Map<string, number>();
+  for (const entry of mru) mruCounts.set(entry.id, Math.max(mruCounts.get(entry.id) ?? 0, entry.count));
+  const mruRank = new Map(
+    [...mruCounts.entries()].sort((a, b) => b[1] - a[1]).map(([id], index) => [id, index]),
+  );
 
   const matched = query === '' ? orderDefault(items, pinnedRank, mruRank) : orderScored(items, query);
-  const capped = Math.max(0, limit);
+  const capped = normalizeLimit(options.limit);
   const rows = matched.slice(0, capped).map((row): ListRow => ({
     item: row.item,
     score: row.score,
     positions: row.positions,
     ranges: mergePositions([...row.positions]),
     pinned: pinnedRank.has(row.item.id),
-    mruCount: mru.find((entry) => entry.id === row.item.id)?.count ?? 0,
+    mruCount: mruCounts.get(row.item.id) ?? 0,
   }));
 
   return { rows, total: matched.length, truncated: matched.length > rows.length };

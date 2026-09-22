@@ -25,7 +25,7 @@ export interface ProviderRegistry {
   register(provider: QuickPickProvider): void;
   /** 前缀长度降序里第一个命中的;都没有则用默认 provider;没有默认则 undefined(不硬猜) */
   resolve(input: string): ProviderMatch | undefined;
-  /** 前缀长度降序(同长度保持注册顺序) */
+  /** 前缀长度降序(同长度保持注册顺序);返回**副本**,改返回值动不了注册表 */
   providers(): readonly QuickPickProvider[];
   /** 清空注册表(仅供测试隔离;生产启动时注册一次) */
   clear(): void;
@@ -55,7 +55,7 @@ export function createProviderRegistry(): ProviderRegistry {
       return fallback ? { provider: fallback, query: input } : undefined;
     },
 
-    providers: () => list,
+    providers: () => [...list],
 
     clear(): void {
       list.length = 0;

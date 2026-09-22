@@ -7,6 +7,7 @@ import {
   registeredProviders,
   resetProviders,
   resolveProvider,
+  type QuickPickProvider,
 } from './providers';
 
 const item = (id: string, label: string): QuickPickItem => ({ id, label });
@@ -43,6 +44,12 @@ describe('provider 前缀选择', () => {
   });
 
   it('registeredProviders() 暴露全局注册表(前缀长度降序)', () => {
+    expect(registeredProviders().map((p) => p.id)).toEqual(['commands', 'tags', 'notes']);
+  });
+
+  it('providers() 返回副本:改返回值动不了内部注册表', () => {
+    const snapshot = registeredProviders() as QuickPickProvider[];
+    snapshot.length = 0;
     expect(registeredProviders().map((p) => p.id)).toEqual(['commands', 'tags', 'notes']);
   });
 });
