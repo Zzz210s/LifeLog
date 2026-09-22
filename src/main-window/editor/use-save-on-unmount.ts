@@ -4,9 +4,11 @@
 // 不依赖任何一条通道的时序(输入法组合期间 React state 可能落后,所以以 DOM 镜像为准)。
 //
 // 静默:失败无处呈现(面板已卸载),成功也不改界面(退出是既定事实)。
+// 写库走唯一出口(../data/note-writes):它成功后通知标签新鲜度 —— 这条路径没有任何 reload 回调
+// 通道,若直接调 api.updateNote,编辑里新加的标签会不进 `#` 候选(复审 I2 绕过 1)。
 import { useEffect } from 'react';
 import type { RefObject } from 'react';
-import { api } from '../../shared/api';
+import { updateNote } from '../data/note-writes';
 import { prepareForSave } from '../../shared/note-source';
 
 export interface SaveOnUnmountRefs {
@@ -29,7 +31,7 @@ export function useSaveOnUnmount(refs: SaveOnUnmountRefs): void {
       const text = prepareForSave(getText());
       if (text === null || text === prepareForSave(initial.current)) return;
       try {
-        void Promise.resolve(api.updateNote(noteId, text)).catch(() => undefined);
+        void Promise.resolve(updateNote(noteId, text)).catch(() => undefined);
       } catch {
         // 同步抛错同样忽略
       }

@@ -23,6 +23,7 @@ import type { ErrorKind } from './ErrorBar';
 import type { RowDecoration } from '../palette/PaletteRow';
 import { createNoteCandidates, recentConditions } from '../palette/note-candidates';
 import { buildAppProviders } from '../palette/providers/app-providers';
+import { acceptTagPath } from '../palette/tag-accept';
 import { usePaletteSettings } from '../palette/use-palette-settings';
 import { createTagCandidates } from '../palette/tag-candidates';
 import { commandDecorations } from '../palette/providers/commands';
@@ -86,11 +87,12 @@ export function useAppPalette(options: AppPaletteOptions): AppPalette {
         getContext: () => latest.current.getContext(),
         pool,
         tagPool,
-        tagsVersion: options.tagsVersion,
+        // 版本现读(复审 m2):注册表身份不随版本变化,`#` 的重取由下面的 refreshKey 驱动
+        getTagsVersion: () => latest.current.tagsVersion,
         noteIndex,
         tagsRef,
       }),
-    [options.registry, options.tagsVersion, pool, tagPool],
+    [options.registry, pool, tagPool],
   );
 
   // 每次打开作废候选缓存(刚保存的笔记也要能搜到)。必须在 useProviderItems 的 effect 之前声明:
@@ -104,6 +106,8 @@ export function useAppPalette(options: AppPaletteOptions): AppPalette {
     isOpen: filter.open,
     prefix: filter.prefix,
     query: filter.query,
+    // 只有 `#` 的候选与标签数据版本有关;其余前缀传常量,版本变化不重跑
+    refreshKey: filter.prefix === '#' ? options.tagsVersion : 0,
     onError: (message) => latest.current.setError('action', message),
   });
 
@@ -114,6 +118,18 @@ export function useAppPalette(options: AppPaletteOptions): AppPalette {
     clearFilters: options.clearFilters,
     setError: options.setError,
   });
+
+  /** 接受标签行(复审 m1):按当前版本复核路径还在不在 —— 实现见 palette/tag-accept.ts */
+  const acceptTag = useCallback(
+    (path: string) =>
+      acceptTagPath(path, {
+        pool: tagPool,
+        getVersion: () => latest.current.tagsVersion,
+        toggleTag: (p) => latest.current.toggleTag(p),
+        setError: (m) => latest.current.setError('action', m),
+      }),
+    [tagPool],
+  );
 
   // prefix/query -> FilterState:值没变就沿用旧对象,避免每帧多一次渲染
   const onFilterChange = useCallback((next: FilterState) => {
@@ -152,7 +168,7 @@ export function useAppPalette(options: AppPaletteOptions): AppPalette {
         return;
       }
       if (prefix === '#') {
-        latest.current.toggleTag(row.item.id);
+        acceptTag(row.item.id);
         return;
       }
       settings?.mruNotes.touch(row.item.id);

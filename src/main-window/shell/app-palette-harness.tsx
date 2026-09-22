@@ -27,6 +27,8 @@ export interface AppPaletteHarness {
   registry: CommandRegistry;
   /** 命令 run 的调用记录(executeCommand 内部真的调 run) */
   runCalls: string[];
+  /** 命令 provider 取候选的次数(m2 读数:标签版本变化不该让非 `#` 前缀重跑) */
+  commandItemRuns: () => number;
   toggleTag: ReturnType<typeof vi.fn>;
   clearFilters: ReturnType<typeof vi.fn>;
   errors: string[];
@@ -57,7 +59,7 @@ export function mountAppPalette(options: AppPaletteHarnessOptions = {}): AppPale
   const root: Root = createRoot(host);
   const box: { p: AppPalette | null } = { p: null };
   const runCalls: string[] = [];
-  const registry = withRuns(
+  const runs = withRuns(
     COMMANDS,
     Object.fromEntries(
       COMMANDS.all.map((c) => [
@@ -68,6 +70,16 @@ export function mountAppPalette(options: AppPaletteHarnessOptions = {}): AppPale
       ]),
     ),
   );
+  // 包一层计数:命令 provider 每次取候选都会调 list(ctx);装饰走 all,不计入
+  let commandItemRuns = 0;
+  const registry: CommandRegistry = {
+    all: runs.all,
+    list: (ctx) => {
+      commandItemRuns += 1;
+      return runs.list(ctx);
+    },
+    find: (id) => runs.find(id),
+  };
   const toggleTag = vi.fn();
   const clearFilters = vi.fn();
   const errors: string[] = [];
@@ -135,6 +147,7 @@ export function mountAppPalette(options: AppPaletteHarnessOptions = {}): AppPale
     decorations: () => palette().decorations,
     registry,
     runCalls,
+    commandItemRuns: () => commandItemRuns,
     toggleTag,
     clearFilters,
     errors,

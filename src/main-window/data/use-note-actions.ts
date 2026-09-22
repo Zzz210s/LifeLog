@@ -6,7 +6,6 @@
 import { useCallback } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { confirm } from '@tauri-apps/plugin-dialog';
-import { api } from '../../shared/api';
 import { toggleTaskAt } from '../../shared/md-task';
 import { composeSource } from '../../shared/note-source';
 import type { Note } from '../../shared/types';
@@ -14,6 +13,7 @@ import { canEvaluateLocally, matchesTagsByPath } from '../../shared/filter-condi
 import type { FilterConditions } from '../../shared/filter-conditions';
 import type { ErrorKind } from '../shell/ErrorBar';
 import { needsRefetchAfterChange, replaceNote } from '../stream/notes-list';
+import { deleteNote, updateNote } from './note-writes';
 
 export interface NoteActionsDeps {
   conditions: FilterConditions;
@@ -62,7 +62,7 @@ export function useNoteActions(d: NoteActionsDeps) {
         }).catch(() => false); // 弹窗失败一律当作取消,绝不静默删除
         if (!ok) return;
         try {
-          await api.deleteNote(note.id);
+          await deleteNote(note.id);
           setNotes((prev) => prev.filter((n) => n.id !== note.id));
           setEditingId(null);
           clearError('action');
@@ -97,7 +97,7 @@ export function useNoteActions(d: NoteActionsDeps) {
       if (next === null) return; // 索引与当前正文对不上(如并发编辑):静默 no-op
       void (async () => {
         try {
-          const updated = await api.updateNote(note.id, composeSource(next, note.tags));
+          const updated = await updateNote(note.id, composeSource(next, note.tags));
           if (updated) applyNoteChange(updated);
           else setNotes((prev) => prev.filter((n) => n.id !== note.id)); // 已被并发删除:本行消失
           clearError('action');

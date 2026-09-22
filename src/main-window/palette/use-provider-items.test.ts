@@ -106,3 +106,38 @@ describe('useProviderItems:乱序回包丢弃', () => {
     });
   });
 });
+
+describe('useProviderItems:候选数据源的作废键(refreshKey)', () => {
+  it('registry 身份不变时:refreshKey 不变不重跑,变化即重跑', async () => {
+    const reg = createProviderRegistry();
+    const getItems = vi.fn(() => [item('a')]);
+    reg.register({ prefix: '#', id: 'tags', getItems });
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    const state = { refreshKey: 0 };
+    const build = (): ReactNode => {
+      useProviderItems({
+        registry: reg,
+        isOpen: true,
+        prefix: '#',
+        query: '',
+        refreshKey: state.refreshKey,
+        onError: () => {},
+      });
+      return null;
+    };
+    await act(async () => root.render(createElement(build)));
+    expect(getItems).toHaveBeenCalledTimes(1);
+
+    await act(async () => root.render(createElement(build))); // 同一 refreshKey 重渲:不重跑
+    expect(getItems).toHaveBeenCalledTimes(1);
+
+    state.refreshKey = 1; // 数据版本变了:重跑一次取候选
+    await act(async () => root.render(createElement(build)));
+    expect(getItems).toHaveBeenCalledTimes(2);
+
+    act(() => root.unmount());
+    host.remove();
+  });
+});

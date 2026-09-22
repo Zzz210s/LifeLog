@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { api } from '../../shared/api';
 import { composeSource, prepareForSave } from '../../shared/note-source';
 import type { Note } from '../../shared/types';
+import { updateNote } from '../data/note-writes';
 import { shouldEnterEdit } from '../stream/body-click';
 import { tagCountHint, tagCountLabel } from './edit-tag-count';
 import { editRows } from './textarea-rows';
@@ -86,7 +86,7 @@ export function EditPanel(p: EditPanelProps): ReactNode {
     setError('');
     inFlight.current = true;
     try {
-      const updated = await api.updateNote(p.note.id, text);
+      const updated = await updateNote(p.note.id, text);
       if (updated) {
         p.onSaved(updated); // 保存成功后的就地刷新与退出编辑由 onSaved 负责
         return { ok: true, changed: true };

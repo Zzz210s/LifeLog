@@ -3,7 +3,10 @@
  * 命令 / 笔记 / 标签的接线只在这里,host 只把数据源、上下文与装饰用的 ref 递进来。
  *
  * 标签侧(复审 I1):取候选走 `TagCandidates` 的版本缓存 —— 同一数据版本内连续输入
- * 不再每键一次全树 `list_tags`;版本由主窗 `loadTags` 成功时递增。
+ * 不再每键一次全树 `list_tags`。
+ * 标签版本用 **getter** 传入(复审 m2):装配出来的注册表因此不随版本换新对象 ——
+ * 版本一变就换 registry 会让 `useProviderItems` 的 effect 在任意前缀下都重跑一次。
+ * 版本变化只该让 `#` 重取候选,那由 `useProviderItems` 的 `refreshKey` 负责。
  */
 import type { RefObject } from 'react';
 import { api } from '../../../shared/api';
@@ -28,8 +31,8 @@ export interface AppProvidersOptions {
   pool: NoteCandidates;
   /** 标签候选池(按数据版本缓存) */
   tagPool: TagCandidates;
-  /** 标签数据版本 */
-  tagsVersion: number;
+  /** 现读标签数据版本(主窗 loadTags 成功时递增);不放进装配依赖,故注册表身份稳定 */
+  getTagsVersion: () => number;
   /** 取到过的笔记(笔记装饰按 id 查日期与标签) */
   noteIndex: RefObject<Map<number, Note>>;
   /** 最后一次取到的标签树(标签装饰用) */
@@ -44,7 +47,7 @@ export function buildAppProviders(o: AppProvidersOptions): ProviderRegistry {
   registry.register(
     createTagProvider({
       listTags: async () => {
-        const rows = await o.tagPool.current(o.tagsVersion);
+        const rows = await o.tagPool.current(o.getTagsVersion());
         o.tagsRef.current = rows;
         return rows;
       },

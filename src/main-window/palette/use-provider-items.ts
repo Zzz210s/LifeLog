@@ -30,12 +30,17 @@ export interface ProviderItemsOptions {
   isOpen: boolean;
   prefix: string;
   query: string;
+  /**
+   * 候选数据源的作废键(复审 m2):变化即重跑一次取候选。标签 provider 传数据版本;
+   * 命令/笔记 provider 与标签无关,传常量(不随版本重跑)。
+   */
+  refreshKey?: number;
   /** 取回失败(IPC/后端错误):中文原因交主窗错误条 */
   onError: (message: string) => void;
 }
 
 export function useProviderItems(options: ProviderItemsOptions): readonly QuickPickItem[] {
-  const { registry, isOpen, prefix, query, onError } = options;
+  const { registry, isOpen, prefix, query, refreshKey, onError } = options;
   const [items, setItems] = useState<readonly QuickPickItem[]>([]);
   const seq = useRef(0);
   const latestOnError = useRef(onError);
@@ -56,7 +61,7 @@ export function useProviderItems(options: ProviderItemsOptions): readonly QuickP
         setItems([]);
         latestOnError.current('浮层加载失败: ' + String(e));
       });
-  }, [registry, isOpen, prefix, query]);
+  }, [registry, isOpen, prefix, query, refreshKey]);
 
   return items;
 }

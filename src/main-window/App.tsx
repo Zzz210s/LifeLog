@@ -18,6 +18,7 @@ import { useEditFlow } from './shell/use-edit-flow';
 import { useMainPalette } from './shell/use-main-palette';
 import { useBackupWarning } from './shell/use-backup-warning';
 import { useNoteCreatedRefresh } from './data/use-note-created';
+import { notifyTagsChanged, onTagsChanged } from './data/tags-changed';
 import { useOpenSettings } from './shell/use-open-settings';
 import { Palette } from './palette/Palette';
 import { useNotesFeed } from './data/use-notes-feed';
@@ -58,15 +59,19 @@ export function App(): ReactNode {
     setEditingId(null);
   }, [conditions]);
 
-  useEffect(loadTags, [loadTags]);
+  // 标签重载:挂载先读一次;之后只由唯一出口驱动(写库出口/输入栏事件/侧栏变更都只声明"可能变了")
+  useEffect(() => {
+    loadTags();
+    return onTagsChanged(loadTags);
+  }, [loadTags]);
   useBackupWarning(setError);
 
   /** 新增笔记后回第一页(新内容必在最前);就地变更走 replaceNote,不重置分页与滚动位置 */
   const refresh = useCallback(() => {
     setEditingId(null);
     void fetchPage(0, false);
-    loadTags();
-  }, [fetchPage, loadTags]);
+    notifyTagsChanged(); // 标签走唯一出口(与写库出口的重复通知合并成一次)
+  }, [fetchPage]);
 
   // 输入栏保存后主窗自动出现(W1);已翻页或正在编辑时由 shouldAutoRefresh 拦下
   useNoteCreatedRefresh(notes.length, editingId, refresh, (m) => setError('action', m));
@@ -89,7 +94,7 @@ export function App(): ReactNode {
     fetchPage,
     setNotes,
     setEditingId,
-    reloadTags: loadTags,
+    reloadTags: notifyTagsChanged,
     reloadTabs,
     setError,
     clearError,
