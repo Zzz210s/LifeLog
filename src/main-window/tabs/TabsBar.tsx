@@ -2,7 +2,7 @@
  * 标签页栏(spec 2026-09-17 S7):顶栏下方一条;一个标签页 = 一套筛选条件快照 + 标题。
  * 本文件只做栏容器与拖拽重排(HTML5 draggable):单页行见 TabItem,「+」菜单见 TabAddMenu。
  * 拖拽落点 = 目标页本身(放到它当前的位置);末尾另有一条窄落区,用于拖到最后一页之后。
- * 只有一个默认页时给出行内空状态提示("没有额外页"的展示)。
+ * 只有一个默认页时不再挂长占位提示(设计 §4-3:「+」按钮的 title 已说明入口)。
  */
 import { useState } from 'react';
 import type { ReactNode } from 'react';
@@ -38,7 +38,7 @@ export function TabsBar(p: TabsBarProps): ReactNode {
       role="tablist"
       aria-label="标签页"
       data-tabs-count={p.tabs.length}
-      className="flex h-9 shrink-0 items-center gap-1 overflow-x-auto border-b border-border bg-app px-2"
+      className="flex h-8 shrink-0 items-center gap-1 overflow-x-auto border-b border-border bg-chrome px-2"
     >
       {p.tabs.map((tab, i) => (
         <TabItem
@@ -75,15 +75,10 @@ export function TabsBar(p: TabsBarProps): ReactNode {
             e.preventDefault();
             drop(p.tabs.length - 1);
           }}
-          className="h-6 w-3 shrink-0"
+          className="h-8 w-3 shrink-0"
         />
       )}
       <TabAddMenu onPreset={p.onPreset} onAddCurrent={p.onAddCurrent} />
-      {p.tabs.length === 1 && (
-        <span className="ml-1 shrink-0 text-xs text-faint">
-          还没有额外标签页;点 + 从预设或当前筛选新建
-        </span>
-      )}
     </div>
   );
 }

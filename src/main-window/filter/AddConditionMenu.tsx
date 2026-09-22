@@ -59,7 +59,7 @@ export function AddConditionMenu(p: AddConditionMenuProps): ReactNode {
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="h-8 rounded-md border border-border px-2.5 text-xs text-muted hover:border-accent hover:text-accent-text"
+        className="h-8 rounded-sm border border-border px-2.5 text-ui text-muted hover:border-accent hover:text-accent-text"
       >
         添加条件
         <svg viewBox="0 0 16 16" className="ml-1 inline h-3 w-3 align-[-1px]" aria-hidden="true">

@@ -59,18 +59,18 @@ export function FilterBar(p: FilterBarProps): ReactNode {
   const summaryTitle = summaryTitleOf(p.conditions);
 
   return (
-    <div className="border-b border-border px-4 py-2">
+    <div className="border-b border-border px-4 py-1">
       <div className="flex flex-wrap items-center gap-2">
         <input
           value={kw}
           onChange={(e) => onInput(e.target.value)}
           placeholder="搜索笔记与标签"
           aria-label="搜索笔记与标签"
-          className="h-8 min-w-40 flex-1 rounded-md border border-border px-2.5 text-sm outline-none focus:border-accent"
+          className="h-8 min-w-40 flex-1 rounded-sm border border-border px-2.5 text-ui outline-none focus:border-accent"
         />
         <button
           onClick={() => p.onPatch({ sort: oldestFirst ? 'newest' : 'oldest' })}
-          className="h-8 shrink-0 rounded-md border border-border px-2.5 text-xs text-muted hover:border-accent hover:text-accent-text"
+          className="h-8 shrink-0 rounded-sm border border-border px-2.5 text-ui text-muted hover:border-accent hover:text-accent-text"
         >
           排序: {oldestFirst ? '最早' : '最新'}
         </button>
@@ -82,12 +82,12 @@ export function FilterBar(p: FilterBarProps): ReactNode {
         />
         {p.onExport && (
           <>
-            {p.exported && <span className="shrink-0 text-xs text-success">已导出</span>}
+            {p.exported && <span className="shrink-0 text-ui text-success">已导出</span>}
             <button
               onClick={p.onExport}
               disabled={p.exporting}
               title="导出全部笔记(不受筛选影响)"
-              className="h-8 shrink-0 rounded-md border border-border px-2.5 text-xs text-muted hover:border-accent hover:text-accent-text disabled:cursor-not-allowed disabled:opacity-50"
+              className="h-8 shrink-0 rounded-sm border border-border px-2.5 text-ui text-muted hover:border-accent hover:text-accent-text disabled:cursor-not-allowed disabled:opacity-50"
             >
               {p.exporting ? '导出中' : '导出全部'}
             </button>
@@ -100,7 +100,7 @@ export function FilterBar(p: FilterBarProps): ReactNode {
         onEditExpr={() => setExprOpen(true)}
       />
       {summary !== '' && (
-        <p className="mt-1 truncate text-xs text-faint" title={summaryTitle}>
+        <p className="mt-1 truncate text-label text-faint" title={summaryTitle}>
           {summary}
         </p>
       )}

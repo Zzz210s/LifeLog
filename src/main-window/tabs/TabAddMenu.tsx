@@ -53,7 +53,7 @@ export function TabAddMenu(p: TabAddMenuProps): ReactNode {
         aria-expanded={open}
         title="新建标签页(预设或当前筛选)"
         aria-label="新建标签页"
-        className="h-7 rounded-md px-2 text-sm text-faint hover:bg-hover hover:text-muted"
+        className="h-7 rounded-sm px-2 text-ui text-muted hover:bg-hover hover:text-text"
       >
         +
       </button>

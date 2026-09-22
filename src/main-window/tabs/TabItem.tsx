@@ -22,8 +22,10 @@ export interface TabItemProps {
   onDrop: () => void;
 }
 
+/** 标签页语义(设计 §4-3,VS Code):活动页 = canvas 底 + 顶部 2px accent 指示;
+ * 非活动页 = chrome-alt 底;条高 32,页角 6/6/0/0。两态底色必须成对可区分。 */
 const TAB_CLASS =
-  'group flex h-7 max-w-56 shrink-0 items-center gap-1 rounded-t-md border border-b-0 px-2 text-xs ';
+  'group flex h-8 max-w-56 shrink-0 items-center gap-1 rounded-t-sm border-t-2 px-2 text-ui ';
 
 export function TabItem(p: TabItemProps): ReactNode {
   const input = useRef<HTMLInputElement>(null);
@@ -46,7 +48,7 @@ export function TabItem(p: TabItemProps): ReactNode {
           if (e.key === 'Enter') commit();
           if (e.key === 'Escape') p.onCancelEdit();
         }}
-        className="h-7 w-32 shrink-0 rounded-t-md border border-b-0 border-accent px-2 text-xs outline-none"
+        className="h-8 w-32 shrink-0 rounded-t-sm border border-b-0 border-accent px-2 text-ui outline-none"
       />
     );
   }
@@ -72,8 +74,8 @@ export function TabItem(p: TabItemProps): ReactNode {
       className={
         TAB_CLASS +
         (p.active
-          ? 'bg-panel text-text shadow-sm'
-          : 'border-transparent text-muted hover:bg-panel/60 hover:text-text')
+          ? 'border-accent bg-canvas text-text'
+          : 'border-transparent bg-chrome-alt text-muted hover:bg-hover hover:text-text')
       }
     >
       <span className="min-w-0 truncate">{p.label}</span>
@@ -85,7 +87,7 @@ export function TabItem(p: TabItemProps): ReactNode {
           e.stopPropagation();
           p.onClose();
         }}
-        className="shrink-0 rounded px-1 text-faint hover:bg-text/10 hover:text-danger"
+        className="shrink-0 rounded-xs px-1 text-faint hover:bg-text/10 hover:text-danger"
       >
         ×
       </button>

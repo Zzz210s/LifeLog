@@ -11,11 +11,12 @@ export interface FilterChipsProps {
   onEditExpr?: () => void;
 }
 
-/** chip 底色按种类区分:排除偏红、排序/有无标签偏灰、其余(关键词/标签/表达式)偏蓝 */
+/** chip 底色按种类区分(设计 §4-2 中性化):默认 chrome 底 + border + muted 文字;
+ * accent 只给**已生效的收窄条件**(关键词/标签/表达式 = 已选中),排除走 danger 语义色。 */
 function chipClass(kind: Chip['kind']): string {
   if (kind === 'excludeTag') return 'border-danger/40 bg-danger-soft text-danger hover:border-danger';
   if (kind === 'sort' || kind === 'presence')
-    return 'border-border bg-panel text-muted hover:border-accent';
+    return 'border-border bg-chrome text-muted hover:border-accent';
   return 'border-accent/40 bg-accent-soft text-accent-text hover:border-accent';
 }
 
@@ -23,13 +24,13 @@ function chipClass(kind: Chip['kind']): string {
 export function FilterChips(p: FilterChipsProps): ReactNode {
   if (p.chips.length === 0) return null;
   return (
-    <div className="mt-2 flex flex-wrap items-center gap-1.5" aria-label="已生效的筛选条件">
+    <div className="mt-1 flex flex-wrap items-center gap-1" aria-label="已生效的筛选条件">
       {p.chips.map((chip) => (
         <span
           key={`${chip.kind}:${chip.label}`}
           title={chip.title}
           className={
-            'inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs transition-colors ' +
+            'inline-flex items-center gap-1 rounded-xs border px-2 py-0.5 text-label transition-colors ' +
             chipClass(chip.kind)
           }
         >
@@ -50,7 +51,7 @@ export function FilterChips(p: FilterChipsProps): ReactNode {
             onClick={() => p.onRemove(chip.remove)}
             aria-label={`移除条件 ${chip.label}`}
             title={`移除条件 ${chip.label}`}
-            className="rounded-full px-0.5 leading-none opacity-60 hover:opacity-100"
+            className="rounded-xs px-0.5 leading-none opacity-60 hover:opacity-100"
           >
             ×
           </button>

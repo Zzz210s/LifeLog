@@ -25,14 +25,19 @@ interface ChipRowProps {
 }
 
 /** S4:chip 文案是完整路径,长路径靠 max-w + truncate 收窄,title 兜底全量 */
-const CHIP_BASE = 'max-w-[16rem] truncate rounded transition-colors ';
-const ACTIVE = 'bg-accent-soft text-accent-text';
+const CHIP_BASE = 'max-w-[16rem] truncate rounded-xs border px-1.5 py-0.5 text-label transition-colors ';
+const ACTIVE = 'border-accent bg-accent-soft text-accent-text';
 
-/** chip 样式:两排**完全一致**(统一字号与文字色,只有分行不同)。
- * 曾把属性排做成 text-[10px] + text-faint,结果同一张卡片上蓝字与灰字并排(用户报为 bug);
- * 现在只有"选中(在筛选里)= 蓝底蓝字 / 未选中 = 灰底蓝字"这一种状态区分。 */
+/** chip 样式(设计 §4-2 中性化):两排**完全一致**(只有分行不同)。
+ * 默认 = chrome 底 + 1px border + muted 文字,accent 只出现在 hover(可点)与选中态 ——
+ * 改前 128 个 chip 默认就是蓝字灰底,强调色被贬成装饰色,读者分不出"哪个能点/已选"。 */
 function chipClass(active: boolean): string {
-  return CHIP_BASE + 'px-1.5 py-0.5 text-xs ' + (active ? ACTIVE : 'bg-tag text-accent-text hover:bg-accent-soft');
+  return (
+    CHIP_BASE +
+    (active
+      ? ACTIVE
+      : 'border-border bg-chrome text-muted hover:border-accent hover:bg-accent-soft hover:text-accent-text')
+  );
 }
 function ChipRow(p: ChipRowProps): ReactNode {
   const [expanded, setExpanded] = useState(false);
@@ -62,7 +67,7 @@ function ChipRow(p: ChipRowProps): ReactNode {
           type="button"
           onClick={() => setExpanded(true)}
           title={`展开其余 ${hidden} 个标签`}
-          className="shrink-0 rounded px-1.5 py-0.5 text-xs text-muted hover:text-accent-text"
+          className="shrink-0 rounded-xs border border-border bg-chrome px-1.5 py-0.5 text-label text-muted hover:border-accent hover:text-accent-text"
         >
           +{hidden}
         </button>
