@@ -6,7 +6,13 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { normalizeParts } from './hotkey-display';
-import { DEFAULT_APP_HOTKEYS, acceleratorFromEvent, matchesHotkey } from './hotkey-match';
+import {
+  APP_HOTKEY_KEYS,
+  DEFAULT_APP_HOTKEYS,
+  acceleratorFromEvent,
+  effectiveAppHotkey,
+  matchesHotkey,
+} from './hotkey-match';
 import type { KeyEventLike } from './hotkey-match';
 
 interface Case {
@@ -79,6 +85,39 @@ describe('hotkey-match:与存储键值比较', () => {
     expect(matchesHotkey(evt({ ctrlKey: true, shiftKey: true, code: 'KeyP' }), DEFAULT_APP_HOTKEYS.palette)).toBe(true);
     expect(matchesHotkey(evt({ ctrlKey: true, code: 'KeyP' }), DEFAULT_APP_HOTKEYS.quickOpen)).toBe(true);
     expect(matchesHotkey(evt({ ctrlKey: true, code: 'KeyP' }), DEFAULT_APP_HOTKEYS.palette)).toBe(false);
+  });
+});
+
+describe('effectiveAppHotkey:缺失/非法一律回退默认(T3 审查 M7)', () => {
+  it('缺失(undefined/null)回退默认', () => {
+    expect(effectiveAppHotkey(undefined, 'palette')).toBe('ctrl+shift+p');
+    expect(effectiveAppHotkey(null, 'quickOpen')).toBe('ctrl+p');
+  });
+
+  it('非法值回退默认,合法值规范化后采用', () => {
+    expect(effectiveAppHotkey('不是键名', 'palette')).toBe('ctrl+shift+p');
+    expect(effectiveAppHotkey('a', 'quickOpen')).toBe('ctrl+p'); // 单普通键非法
+    expect(effectiveAppHotkey('Ctrl+Alt+K', 'palette')).toBe('ctrl+alt+k');
+    expect(effectiveAppHotkey(' win + Digit5 ', 'quickOpen')).toBe('super+5');
+  });
+
+  it('生效值一定能被同一事件命中,非法存储值不会死键', () => {
+    const alt = evt({ ctrlKey: true, altKey: true, code: 'KeyK' });
+    expect(matchesHotkey(alt, effectiveAppHotkey('ctrl+alt+k', 'palette'))).toBe(true);
+    expect(matchesHotkey(alt, effectiveAppHotkey('不是键名', 'palette'))).toBe(false);
+  });
+});
+
+describe('存储键名与默认值同处一源(T3 审查 M6)', () => {
+  it('键名常量与设计 §3.6 一致,且每种 kind 都有键名与默认值', () => {
+    expect(APP_HOTKEY_KEYS).toEqual({
+      palette: 'main_palette_hotkey',
+      quickOpen: 'main_quick_open_hotkey',
+    });
+    for (const kind of ['palette', 'quickOpen'] as const) {
+      expect(APP_HOTKEY_KEYS[kind]).not.toBe('');
+      expect(effectiveAppHotkey(undefined, kind)).toBe(DEFAULT_APP_HOTKEYS[kind]);
+    }
   });
 });
 
