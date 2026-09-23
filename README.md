@@ -107,8 +107,26 @@ The window *is* the input box: no frame, no title bar, no buttons, transparent s
   returning neither re-queries nor loses the scroll position): the nine input-bar options, the
   notes section (whether new notes get a time tag automatically, and the template that decides the
   tag path), a startup section (autostart with the real registry state and a repair button, plus
-  what to show on launch), and a general section with the version, the database path, an "open
-  containing folder" button and a reset for the input-bar section
+  what to show on launch), a hotkeys section (the system-wide input hotkey plus the two in-app
+  ones below), and a general section with the version, the database path, an "open containing
+  folder" button and a reset for the input-bar section
+
+**Command palette and quick open**
+
+- `Ctrl+Shift+P` opens the command palette and `Ctrl+P` quick-opens a note; both are **in-app**
+  hotkeys (nothing is registered system-wide) and can be re-recorded in the settings page, with a
+  Chinese conflict message when a combination clashes with the global input hotkey or with the
+  other in-app one
+- One overlay, three providers: no prefix searches notes, `>` lists commands, `#` jumps to a tag
+- Ranking and the `<mark>` highlight come from the same fuzzy scorer that the input bar's `#`
+  suggestions use, so the row that ranks first is the row that is highlighted
+- A command's visibility and its checked state are data (`when` / `toggled`), not component
+  branches: a hidden command is absent from the DOM, and `隐藏侧栏` becomes `显示侧栏` while the
+  sidebar is hidden
+- Eleven commands: new note, next/previous tab, open settings, cycle the theme, hide the sidebar,
+  focus mode, export everything, rebuild the search index, edit the global hotkey, quit
+- Notes and commands each keep a most-recently-used list in the settings table
+- Accepting a command first flushes the open editor, so switching views never drops unsaved text
 
 **Notes**
 
@@ -216,6 +234,12 @@ All state lives in SQLite; the frontend never talks to the database directly.
     `note-source.ts` (shared pre-save normalisation), `time.ts`, and the pure input-bar models
     (`input-geometry.ts`, `input-gestures.ts`, `input-lock.ts`, `input-scale.ts`,
     `input-settings.ts`, `input-feedback.ts`).
+  - `src/shared/` also holds the command-palette core: `when.ts` (context-key expressions),
+    `keys.ts` (key declarations), `commands.ts` (the command registry), `hotkey-match.ts`
+    (in-app hotkey matching), `fuzzy-score.ts` (the scorer shared with the input bar) and
+    `quickpick/` (provider registry, list model, MRU).
+  - `src/main-window/palette/` — the overlay (`Palette`, `PaletteRow`, `use-palette`) and its
+    three providers (commands / notes / tags), plus quick-open and the tag-freshness pool.
 - **Command layer (`src-tauri/src/commands/`)** — thin Tauri commands for notes, settings, window
   control and export.
 - **Domain layer (`src-tauri/src/`)** — `tags.rs` (tag tokeniser), `db/repos/` (notes CRUD, search
