@@ -51,6 +51,12 @@ describe('completeMatch 有词元:换 fuzzy-score 排序(设计 §3.5)', () => {
     expect(paths(completeMatch(all, '项A'))).toEqual(['工作/项目A']);
   });
 
+  it('A6a 验收夹具:词元 项A -> T9验收/项目A,两段高亮(项、A 在路径里不相邻)', () => {
+    const rows = completeMatch([tag('T9验收/项目A')], '项A');
+    expect(paths(rows)).toEqual(['T9验收/项目A']);
+    expect(rows[0].ranges).toEqual([{ start: 5, end: 6 }, { start: 7, end: 8 }]);
+  });
+
   it('前缀命中整档高于包含命中(同一引擎的分层档位)', () => {
     const rows = completeMatch([tag('生活/项目'), tag('项目'), tag('工作/项目A')], '项目');
     expect(paths(rows)).toEqual(['项目', '工作/项目A', '生活/项目']);

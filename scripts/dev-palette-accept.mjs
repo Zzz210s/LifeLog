@@ -126,7 +126,7 @@ if (inputConn) {
   const hitA = sug.rows.find((r) => r.path === `${FIX}/项目A`);
   record('A6a 输入栏 `#项A`:设计 §6.3 期望「…/项目A」在候选内且含高亮',
     hitA !== undefined && hitA.marks > 0,
-    `候选=${JSON.stringify(sug.rows.map((r) => r.path + '#' + r.marks))} 目标项=${JSON.stringify(hitA ?? null)}(后端候选池是路径前缀命中)`);
+    `候选=${JSON.stringify(sug.rows.map((r) => r.path + '#' + r.marks))} 目标项=${JSON.stringify(hitA ?? null)}(候选池 = 前缀 + 子串/子序列)`);
   await ih.setInputText(`#${FIX}/项`);
   await sleep(600);
   const sug2 = await ih.suggest();

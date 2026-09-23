@@ -1,12 +1,21 @@
-/** 浮层设置装配的单测:读一次、空闲落盘去抖、卸载兜底落盘 */
+/** 浮层设置装配的单测:读一次、空闲落盘去抖、卸载兜底落盘、退出前广播落盘 */
 // @vitest-environment jsdom
 import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PALETTE_SETTING_KEYS } from './palette-settings';
-import { MRU_IDLE_SAVE_MS, usePaletteSettings } from './use-palette-settings';
+import { APP_QUITTING_EVENT, MRU_IDLE_SAVE_MS, usePaletteSettings } from './use-palette-settings';
 import type { PaletteSettingsApi, SettingIo } from './use-palette-settings';
 import type { PaletteSettings } from './palette-mru';
+
+/** 捕获本 hook 注册的 Rust 事件订阅(键 = 事件名),供「退出前广播」用例手动触发 */
+const { handlers } = vi.hoisted(() => ({ handlers: [] as Array<{ event: string; fn: () => void }> }));
+vi.mock('@tauri-apps/api/event', () => ({
+  listen: (event: string, fn: () => void) => {
+    handlers.push({ event, fn });
+    return Promise.resolve(() => undefined);
+  },
+}));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -55,6 +64,7 @@ let h: Harness;
 let io: SettingIo & { writes: string[] };
 beforeEach(async () => {
   vi.useFakeTimers();
+  handlers.length = 0;
   io = ioWith();
   h = mount(io);
   await act(async () => {
@@ -87,5 +97,25 @@ describe('usePaletteSettings:读与落盘时机', () => {
     h.settings()!.mruNotes.touch('42');
     h.unmount();
     expect(io.writes.some((w) => w.includes('"42"'))).toBe(true);
+  });
+
+  it('连续 10 次接受仍只写 1 次盘(落盘时机未改成每次接受都写)', () => {
+    for (let i = 0; i < 10; i++) {
+      h.settings()!.mruCommands.touch('note.new');
+      h.api().saveMruSoon();
+    }
+    expect(io.writes).toEqual([]);
+    vi.advanceTimersByTime(MRU_IDLE_SAVE_MS);
+    expect(io.writes).toHaveLength(1);
+  });
+
+  it('Rust 退出前广播 app-quitting:立刻落盘(退出路径不触发 beforeunload)', () => {
+    const quit = handlers.find((x) => x.event === APP_QUITTING_EVENT);
+    expect(quit, '必须订阅 Rust 的退出前广播').toBeDefined();
+    h.settings()!.mruCommands.touch('settings.open'); // 只标脏,等落盘
+    expect(io.writes).toEqual([]);
+    act(() => quit!.fn());
+    expect(io.writes).toHaveLength(1);
+    expect(io.writes[0]).toContain('settings.open');
   });
 });

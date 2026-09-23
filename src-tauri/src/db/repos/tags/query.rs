@@ -5,6 +5,14 @@ use rusqlite::{params, Connection};
 use serde::Serialize;
 use std::collections::HashSet;
 
+// 模糊扩展档(前缀/别名之外的子串 + 子序列命中):查询侧的私有子模块
+#[path = "complete_fuzzy.rs"]
+mod complete_fuzzy;
+
+#[cfg(test)]
+#[path = "tree_complete_fuzzy_tests.rs"]
+mod tree_complete_fuzzy_tests;
+
 /// 标签树节点计数(供标签面板):id 供侧栏右键管理(rename/move/delete/tag_impact 都按 id 寻址);
 /// self_count 为本级**去重笔记数**,subtree_count 含全部子孙的**去重笔记数**(两者同一口径,
 /// 与标签筛选/标签页计数一致 —— 一条笔记同时链了子树内的多个节点时只算一条);
@@ -72,12 +80,13 @@ pub struct CompleteItem {
     pub kind: String,
 }
 
-/// 带别名与近义项的补全(命令层 `complete_tags` 的唯一数据源):标签项在前(语义与顺序同 `complete`,
-/// 路径升序),别名项按目标路径升序追加;按 path 去重且**标签优先**(别名不得遮蔽真实标签);
+/// 带别名与近义项的补全(命令层 `complete_tags` 的唯一数据源):标签项在前(前缀命中语义与顺序同 `complete`,
+/// 路径升序;其后可跟模糊扩展档),别名项按目标路径升序追加;按 path 去重且**标签优先**(别名不得遮蔽真实标签);
 /// 整体上限仍是 COMPLETE_LIMIT。别名项不做二次前缀过滤:后端已按**别名字符串**前缀筛过,
 /// 目标路径通常与别名字符串不同形(如别名 `日漫` -> 路径 `追番/日漫`)。
-/// 近义项(G4)排在最后,且只在标签 + 别名候选**占不满前端展示上限**时才去取
-/// (见 SIMILAR_TRIGGER):下拉已满时相似项必然被截掉,整表取候选只是白费。
+/// 模糊扩展档(A6a)与近义项(G4)都只在标签 + 别名候选**占不满前端展示上限**时才去取
+/// (前者见 fuzzy_paths,后者见 SIMILAR_TRIGGER):下拉已被精确命中占满时,扩展项必然被截掉,
+/// 整表取候选只是白费。模糊扩展档的路径不参与近义档(二者口径互斥,见 complete_fuzzy)。
 pub fn complete_with_aliases(
     conn: &Connection,
     prefix: &str,
@@ -93,6 +102,17 @@ pub fn complete_with_aliases(
         }
     }
     out.truncate(COMPLETE_LIMIT as usize);
+    // 模糊扩展档(A6a):前缀/别名之外补子串 + 子序列命中,让输入栏与主窗 `#` 的候选池同源。
+    // 放在近义档之前:扩展项是带高亮的命中(kind="tag"),近义项是末尾的提示(kind="similar");
+    // 二者路径互斥(扩展档让位给近义规则),故不会互相遮蔽。
+    if !prefix.is_empty() && out.len() < SIMILAR_TRIGGER {
+        for path in complete_fuzzy::fuzzy_paths(conn, prefix, &seen)? {
+            if seen.insert(path.clone()) {
+                out.push(CompleteItem { path, kind: "tag".into() });
+            }
+        }
+        out.truncate(COMPLETE_LIMIT as usize);
+    }
     if out.len() < SIMILAR_TRIGGER {
         // seen 已含标签与别名项:相似项不重复已展示的路径(标签/别名优先)
         for path in similar_paths(&all_tag_paths(conn)?, prefix, &seen, SIMILAR_MAX) {

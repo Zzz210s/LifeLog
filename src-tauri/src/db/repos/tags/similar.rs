@@ -39,6 +39,13 @@ fn similar_rank(leaf: &str, token: &str) -> Option<u8> {
     None
 }
 
+/// 该路径是否会被近义档接管(词元与叶子名近似)。补全的模糊扩展档据此**让位**:
+/// 近义项是提示(kind="similar",不给高亮),扩展档是命中(kind="tag",带高亮),
+/// 若扩展档把它们也收进来,既有的近义语义会被顶掉(G4 契约,见 tree_complete_similar_tests)。
+pub fn is_similar_candidate(path: &str, token: &str) -> bool {
+    similar_rank(leaf_name(path), token).is_some()
+}
+
 /// 编辑距离是否 ≤1(两串已确认均为 ASCII,按字节比较即字符比较):
 /// 长度差 >1 直接否;等长时允许一处不同;差 1 时长串去掉那个多余字符后必须等于短串。
 fn ascii_dist_le1(a: &str, b: &str) -> bool {
