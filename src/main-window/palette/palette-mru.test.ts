@@ -16,10 +16,11 @@ function io(initial: Record<string, string> = {}): SettingIo & { writes: Array<[
 }
 
 describe('palette-mru:读取与默认值', () => {
-  it('四个键都缺失时:空 MRU、无固定标签、上限回缺省', async () => {
+  it('五个键都缺失时:空 MRU(含标签)、无固定标签、上限回缺省', async () => {
     const s = await loadPaletteSettings(io());
     expect(s.mruCommands.entries()).toEqual([]);
     expect(s.mruNotes.entries()).toEqual([]);
+    expect(s.mruTags.entries()).toEqual([]);
     expect(s.pinnedTags).toEqual([]);
     expect(s.limit).toBe(PALETTE_LIMIT_DEFAULT);
   });
@@ -29,12 +30,14 @@ describe('palette-mru:读取与默认值', () => {
       io({
         [PALETTE_SETTING_KEYS.mruCommands]: '{坏',
         [PALETTE_SETTING_KEYS.mruNotes]: '[{"id":"n1","count":"NaN"}]',
+        [PALETTE_SETTING_KEYS.mruTags]: '[{"id":"工作/项目A","count":2}]',
         [PALETTE_SETTING_KEYS.pinnedTags]: '["工作", 3, ""]',
         [PALETTE_SETTING_KEYS.limit]: 'abc',
       }),
     );
     expect(s.mruCommands.entries()).toEqual([]);
     expect(s.mruNotes.entries()).toEqual([]);
+    expect(s.mruTags.entries()).toEqual([{ id: '工作/项目A', count: 2 }]);
     expect(s.pinnedTags).toEqual(['工作']);
     expect(s.limit).toBe(PALETTE_LIMIT_DEFAULT);
   });
@@ -79,6 +82,17 @@ describe('palette-mru:只在有改动时落盘', () => {
 
     s.saveMru(); // 已清脏:不再写
     expect(store.writes).toHaveLength(1);
+  });
+
+  it('标签 MRU 与另两份互不串键:同一份 saveMru 各自写自己的键', async () => {
+    const store = io();
+    const s = await loadPaletteSettings(store);
+    s.mruTags.touch('书籍/SQL');
+    s.saveMru();
+    expect(store.writes).toHaveLength(1);
+    expect(store.writes[0][0]).toBe(PALETTE_SETTING_KEYS.mruTags);
+    expect(JSON.parse(store.writes[0][1])).toEqual([{ id: '书籍/SQL', count: 1 }]);
+    expect(store.writes[0][0]).not.toBe(PALETTE_SETTING_KEYS.mruNotes);
   });
 
   it('落盘失败静默(不抛),同一份快照不重复写', async () => {

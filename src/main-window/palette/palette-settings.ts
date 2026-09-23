@@ -14,6 +14,8 @@ export const PALETTE_SETTING_KEYS = Object.freeze({
   mruCommands: 'ui.mru.commands',
   /** 笔记 MRU(同上) */
   mruNotes: 'ui.mru.notes',
+  /** 标签 MRU(同上;T8:输入栏 `#` 补全的「最近用过」档。设计 §5 表未列此键,由 T8 补,见 T8 报告) */
+  mruTags: 'ui.mru.tags',
   /** 输入栏固定标签(路径数组) */
   pinnedTags: 'ui.pinned.tags',
   /** 浮层渲染上限 */

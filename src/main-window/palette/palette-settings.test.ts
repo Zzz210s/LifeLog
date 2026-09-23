@@ -21,10 +21,11 @@ const items: QuickPickItem[] = [
 ];
 
 describe('palette-settings:键与默认值', () => {
-  it('四个键与设计 §5 逐字一致', () => {
+  it('五个键与设计 §5 一致(mruTags 是 T8 补的第五个,设计 §5 表未列)', () => {
     expect(PALETTE_SETTING_KEYS).toEqual({
       mruCommands: 'ui.mru.commands',
       mruNotes: 'ui.mru.notes',
+      mruTags: 'ui.mru.tags',
       pinnedTags: 'ui.pinned.tags',
       limit: 'ui.palette.limit',
     });

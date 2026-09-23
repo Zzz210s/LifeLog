@@ -1,7 +1,10 @@
 /**
- * 浮层设置的读写装配(设计 §5 / D6):MRU 两份 + 固定标签 + 渲染上限。
+ * 浮层设置的读写装配(设计 §5 / D6):MRU 三份(命令/笔记/标签)+ 固定标签 + 渲染上限。
  *
- * - 读:四个键一次并发读,任一失败/损坏都回默认(坏数据不能把浮层搞挂);
+ * 标签 MRU 由 T8(输入栏 `#` 补全)使用:同一份装配同时供主窗浮层与输入栏读取,
+ * 避免第二套 MRU 实现(设计 D6 的「MRU + 固定项」是一套逻辑,两个界面共用)。
+ *
+ * - 读:五个键一次并发读,任一失败/损坏都回默认(坏数据不能把浮层搞挂);
  *   MRU 文本交给 `createMru` 解析(它自带容错与容量裁剪),固定标签与上限走 palette-settings 的消毒。
  * - 写:**只在接受时标脏,退出/空闲落盘**(`saveMru()` 有改动才写);写失败静默
  *   (IPC 失败时本次快照丢失,下次 touch 会重新标脏)。
@@ -18,6 +21,8 @@ export interface SettingIo {
 export interface PaletteSettings {
   mruCommands: Mru;
   mruNotes: Mru;
+  /** 标签 MRU(输入栏 `#` 补全的「最近用过」档;id = 标签完整路径) */
+  mruTags: Mru;
   pinnedTags: readonly string[];
   limit: number;
   /** 两份 MRU 有改动才落盘;写失败静默(不抛、不阻塞退出) */
@@ -46,9 +51,10 @@ function storageFor(io: SettingIo, key: string, initial: string | null): MruStor
 }
 
 export async function loadPaletteSettings(io: SettingIo): Promise<PaletteSettings> {
-  const [commands, notes, pinned, limit] = await Promise.all([
+  const [commands, notes, tags, pinned, limit] = await Promise.all([
     safeRead(io, PALETTE_SETTING_KEYS.mruCommands),
     safeRead(io, PALETTE_SETTING_KEYS.mruNotes),
+    safeRead(io, PALETTE_SETTING_KEYS.mruTags),
     safeRead(io, PALETTE_SETTING_KEYS.pinnedTags),
     safeRead(io, PALETTE_SETTING_KEYS.limit),
   ]);
@@ -60,14 +66,20 @@ export async function loadPaletteSettings(io: SettingIo): Promise<PaletteSetting
     capacity: MRU_CAPACITY,
     storage: storageFor(io, PALETTE_SETTING_KEYS.mruNotes, notes),
   });
+  const mruTags = createMru({
+    capacity: MRU_CAPACITY,
+    storage: storageFor(io, PALETTE_SETTING_KEYS.mruTags, tags),
+  });
   return {
     mruCommands,
     mruNotes,
+    mruTags,
     pinnedTags: parsePinnedTags(pinned),
     limit: sanitizeLimit(limit),
     saveMru: () => {
       mruCommands.save();
       mruNotes.save();
+      mruTags.save();
     },
   };
 }

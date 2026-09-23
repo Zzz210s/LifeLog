@@ -14,6 +14,7 @@ import { useAutoHeight } from './use-auto-height';
 import { suggestListHeightCss } from '../shared/input-geometry';
 import { useInputSettings } from './use-input-settings';
 import { useInputWheel } from './use-input-wheel';
+import { usePaletteSettings } from '../main-window/palette/use-palette-settings';
 
 export function InputBar() {
   const [content, setContent] = useState('');
@@ -37,8 +38,16 @@ export function InputBar() {
   useThemeMode({ follow: true, onError: setError });
   const editing = canEdit(lock);
   const anyLock = lock.move || lock.close || lock.content;
-  // # 标签补全:词元拉候选、↑↓/Enter/Tab/Esc 路由;Ctrl+Enter 保存不受影响
-  const complete = useTagComplete({ textareaRef: inputRef, value: content, onReplace: applyValue });
+  // # 标签补全:词元拉候选、↑↓/Enter/Tab/Esc 路由;Ctrl+Enter 保存不受影响。
+  // 固定项(ui.pinned.tags)与标签 MRU(ui.mru.tags)走主窗浮层同一份装配(别造第二套)
+  const palette = usePaletteSettings();
+  const complete = useTagComplete({
+    textareaRef: inputRef,
+    value: content,
+    onReplace: applyValue,
+    settings: palette.settings,
+    onMruChange: palette.saveMruSoon,
+  });
   // # 补全建议列表:像浏览器搜索框下方那样长在输入框正下方,窗口随之变高(高度不落库)
   const listHeight = complete.open ? suggestListHeightCss(complete.items.length) : 0;
   // 内容变化后按真实换行行数(1-5 行)自动长高;滚轮缩放后手动再同步一次
