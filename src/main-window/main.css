@@ -35,6 +35,23 @@ body {
   outline: none;
 }
 
+/* 浮层遮罩(设计 §4-9;视觉刷新 V5):命令面板是「不进 DOM 的 fixed 浮层」(T6 把它挂在 shell 层),
+   加一个真实 backdrop 节点等于改 DOM 结构,故用超大 spread 的 box-shadow 在浮层之外一圈画
+   --color-overlay —— 盒阴影先于元素背景绘制,浮层本体不被压暗。
+   注意:这是**纯视觉**遮罩,不吃指针事件(点遮罩区仍落到下层界面,与加遮罩前行为一致)。 */
+.overlay-scrim {
+  box-shadow: var(--shadow-lg), 0 0 0 100vmax var(--color-overlay);
+}
+
+/* 标签树缩进导轨(设计 §4-8):每级 1px 竖线,只画在缩进区内(从 6px 起每 12px 一条,与
+   TagRow 的 lineIndent 同源)。导轨宽度由行内 --tag-guide 给出(0 = 不画),因此不引入额外 DOM 节点。 */
+.tag-guides {
+  background-image: repeating-linear-gradient(to right, var(--color-border) 0 1px, transparent 1px 12px);
+  background-repeat: no-repeat;
+  background-position: 6px 0;
+  background-size: var(--tag-guide, 0) 100%;
+}
+
 /* 系统开启「减少动效」时关掉过渡与动画(设计 §3.3;对应 VS Code 的 reduceMotion 开关) */
 @media (prefers-reduced-motion: reduce) {
   *,

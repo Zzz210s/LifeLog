@@ -11,10 +11,10 @@ export interface AppearanceSectionProps {
 
 export function AppearanceSection({ mode, onChange }: AppearanceSectionProps): ReactNode {
   return (
-    <section className="rounded-lg border border-border bg-raised">
-      <div className="border-b border-border px-4 py-2.5">
-        <h2 className="text-sm font-medium text-text">外观</h2>
-        <p className="mt-0.5 text-xs text-faint">
+    <section className="rounded-md border border-border bg-raised">
+      <div className="border-b border-border px-4 py-2">
+        <h2 className="text-title text-text">外观</h2>
+        <p className="mt-0.5 text-label text-muted">
           改动立即生效,并同时应用到输入栏;跟随系统时随系统深浅色自动切换
         </p>
       </div>
@@ -24,7 +24,7 @@ export function AppearanceSection({ mode, onChange }: AppearanceSectionProps): R
             {THEME_MODES.map((option) => (
               <label
                 key={option.value}
-                className="flex cursor-pointer items-center gap-1 text-xs text-muted"
+                className="flex cursor-pointer items-center gap-1 text-ui text-muted"
               >
                 <input
                   type="radio"

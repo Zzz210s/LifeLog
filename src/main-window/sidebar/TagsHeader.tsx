@@ -23,17 +23,17 @@ export interface TagsHeaderProps {
 }
 
 const HEADER_BTN =
-  BTN_TEXT + ' text-faint hover:text-muted';
+  BTN_TEXT + ' text-muted hover:text-text';
 
 export function TagsHeader(p: TagsHeaderProps): ReactNode {
   return (
     <>
       <div className="group flex h-8 shrink-0 items-center gap-1 px-2">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-faint">标签</h2>
+        <h2 className="text-label font-semibold uppercase tracking-wide text-muted">标签</h2>
         {p.flash && (
           <span
             data-testid="tag-flash"
-            className={'truncate text-xs ' + (p.flash.tone === 'error' ? 'text-danger' : 'text-success')}
+            className={'truncate text-label ' + (p.flash.tone === 'error' ? 'text-danger' : 'text-success')}
           >
             {p.flash.text}
           </span>
@@ -53,7 +53,7 @@ export function TagsHeader(p: TagsHeaderProps): ReactNode {
             title="过滤标签"
             aria-label="过滤标签"
             onClick={p.onToggleFilter}
-            className={HEADER_BTN + (p.filterOpen ? ' bg-text/10 text-muted' : '')}
+            className={HEADER_BTN + (p.filterOpen ? ' bg-selected text-accent-text' : '')}
           >
             过滤
           </button>

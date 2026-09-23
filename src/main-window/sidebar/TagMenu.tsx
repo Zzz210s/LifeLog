@@ -116,7 +116,7 @@ export function TagMenu(p: TagMenuProps): ReactNode {
       data-tag-menu
       role="menu"
       aria-label="标签管理"
-      className="fixed z-50 max-h-80 w-56 overflow-y-auto rounded-md border border-border bg-raised p-1 shadow-lg"
+      className="fixed z-50 max-h-80 w-56 overflow-y-auto rounded-lg border border-border bg-raised p-1 shadow-lg"
       style={{ left: p.x, top: p.y }}
     >
       {pane === 'main' && <TagMenuMainPane path={p.node.path} onPick={pickPane} />}

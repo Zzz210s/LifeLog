@@ -141,7 +141,7 @@ export function HotkeyRecorder(): ReactNode {
           </button>
         </div>
       </SettingsRow>
-      {error && <p className="pb-3 text-xs text-danger">{error}</p>}
+      {error && <p className="pb-3 text-label text-danger">{error}</p>}
     </>
   );
 }

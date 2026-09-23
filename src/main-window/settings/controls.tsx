@@ -17,8 +17,8 @@ export function SettingsRow({ label, hint, children }: SettingsRowProps): ReactN
   return (
     <div className="flex items-center justify-between gap-4 border-b border-border py-3 last:border-b-0">
       <div className="min-w-0">
-        <div className="text-sm text-text">{label}</div>
-        <div className="mt-0.5 text-xs leading-relaxed text-faint">{hint}</div>
+        <div className="text-ui text-text">{label}</div>
+        <div className="mt-0.5 text-label text-muted">{hint}</div>
       </div>
       <div className="shrink-0">{children}</div>
     </div>
@@ -96,7 +96,7 @@ export function PercentInput({ value, label, min, max, onCommit }: PercentInputP
         }}
         className="h-8 w-16 rounded-sm border border-border-strong px-2 text-right text-ui outline-none"
       />
-      <span className="text-xs text-faint">%</span>
+      <span className="text-label text-muted">%</span>
     </div>
   );
 }

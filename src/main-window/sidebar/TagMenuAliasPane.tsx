@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { BTN_PRIMARY, BTN_TEXT } from '../shell/button-classes';
 import { BTN_GHOST } from './tag-menu-ui';
 
 export interface TagMenuAliasPaneProps {
@@ -18,9 +19,6 @@ export interface TagMenuAliasPaneProps {
   onCancel: () => void;
 }
 
-const BTN_PRIMARY =
-  'h-7 rounded bg-accent px-2 text-xs text-on-accent hover:bg-accent-hover disabled:opacity-50';
-
 /**
  * 别名面板(G3 spec §5.1):列出该标签的别名(可逐行删)+ 输入框添加新别名。
  * 校验在 TagMenu(纯助手 validateAliasInput)与仓库层各做一次,这里只负责渲染与就地错误。
@@ -28,17 +26,17 @@ const BTN_PRIMARY =
 export function TagMenuAliasPane(p: TagMenuAliasPaneProps): ReactNode {
   return (
     <div className="p-1">
-      <p className="truncate px-1 py-0.5 text-xs font-medium text-faint" title={p.path}>
+      <p className="truncate px-1 py-0.5 text-label font-medium text-muted" title={p.path}>
         别名:{p.path}
       </p>
-      {p.aliases === null && <p className="px-1 py-1 text-xs text-faint">加载中…</p>}
+      {p.aliases === null && <p className="px-1 py-1 text-label text-muted">加载中…</p>}
       {p.aliases !== null && p.aliases.length === 0 && (
-        <p className="px-1 py-1 text-xs text-faint">还没有别名</p>
+        <p className="px-1 py-1 text-label text-muted">还没有别名</p>
       )}
       {p.aliases !== null &&
         p.aliases.map((a) => (
           <div key={a} className="flex items-center gap-1">
-            <span className="min-w-0 flex-1 truncate px-1 py-1 text-xs text-muted" title={a}>
+            <span className="min-w-0 flex-1 truncate px-1 py-1 text-label text-muted" title={a}>
               {a}
             </span>
             <button
@@ -46,7 +44,7 @@ export function TagMenuAliasPane(p: TagMenuAliasPaneProps): ReactNode {
               disabled={p.busy}
               title={'删除别名 ' + a}
               onClick={() => p.onRemove(a)}
-              className="h-6 shrink-0 rounded px-1 text-xs text-faint hover:bg-hover hover:text-danger disabled:opacity-50"
+              className={BTN_TEXT + ' text-muted hover:text-danger'}
             >
               删除
             </button>
@@ -65,7 +63,7 @@ export function TagMenuAliasPane(p: TagMenuAliasPaneProps): ReactNode {
           }}
           placeholder="新别名"
           aria-label="新别名"
-          className="h-7 min-w-0 flex-1 rounded border border-border bg-raised px-1.5 text-xs text-text outline-none"
+          className="h-8 min-w-0 flex-1 rounded-sm border border-border-strong bg-raised px-2.5 text-ui text-text outline-none"
         />
         <button
           type="button"
@@ -76,10 +74,10 @@ export function TagMenuAliasPane(p: TagMenuAliasPaneProps): ReactNode {
           添加
         </button>
       </div>
-      <p className="mt-1 px-1 text-xs text-faint">
+      <p className="mt-1 px-1 text-label text-muted">
         写 <span className="font-mono">#别名</span> 会自动归一到本标签
       </p>
-      {p.error !== '' && <p className="mt-1 px-1 text-xs text-danger">{p.error}</p>}
+      {p.error !== '' && <p className="mt-1 px-1 text-label text-danger">{p.error}</p>}
       <div className="mt-1.5 flex justify-end gap-1.5">
         <button type="button" onClick={p.onCancel} className={BTN_GHOST}>
           取消

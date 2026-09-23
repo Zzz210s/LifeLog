@@ -67,15 +67,15 @@ export function InputBarSection(): ReactNode {
   }, [reload]);
 
   return (
-    <section className="rounded-lg border border-border bg-raised">
-      <div className="border-b border-border px-4 py-2.5">
-        <h2 className="text-sm font-medium text-text">输入栏</h2>
-        <p className="mt-0.5 text-xs text-faint">改动立即生效并保存,不需要点保存按钮</p>
+    <section className="rounded-md border border-border bg-raised">
+      <div className="border-b border-border px-4 py-2">
+        <h2 className="text-title text-text">输入栏</h2>
+        <p className="mt-0.5 text-label text-muted">改动立即生效并保存,不需要点保存按钮</p>
       </div>
-      {error && <p className="px-4 pt-3 text-xs text-danger">{error}</p>}
+      {error && <p className="px-4 pt-3 text-label text-danger">{error}</p>}
       {settings === null ? (
         <div className="flex flex-col items-center gap-2 px-4 py-6">
-          <span className="text-xs text-faint">加载中...</span>
+          <span className="text-label text-muted">加载中...</span>
           {error && (
             <button
               type="button"

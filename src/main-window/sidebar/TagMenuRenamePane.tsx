@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { BTN_PRIMARY } from '../shell/button-classes';
 import { BTN_GHOST } from './tag-menu-ui';
 
 export interface TagMenuRenamePaneProps {
@@ -18,7 +19,7 @@ export interface TagMenuRenamePaneProps {
 export function TagMenuRenamePane(p: TagMenuRenamePaneProps): ReactNode {
   return (
     <div className="p-1">
-      <p className="mb-1.5 px-1 text-xs text-faint">重命名为</p>
+      <p className="mb-1.5 px-1 text-label text-muted">重命名为</p>
       <input
         autoFocus
         value={p.newName}
@@ -27,9 +28,9 @@ export function TagMenuRenamePane(p: TagMenuRenamePaneProps): ReactNode {
           if (e.key === 'Enter' && !p.busy) p.onSubmit();
         }}
         aria-label="新标签名"
-        className="h-7 w-full rounded border border-border px-2 text-xs outline-none"
+        className="h-8 w-full rounded-sm border border-border-strong px-2.5 text-ui outline-none"
       />
-      {p.error !== '' && <p className="mt-1 px-1 text-xs text-danger">{p.error}</p>}
+      {p.error !== '' && <p className="mt-1 px-1 text-label text-danger">{p.error}</p>}
       <div className="mt-1.5 flex justify-end gap-1.5">
         <button type="button" onClick={p.onCancel} className={BTN_GHOST}>
           取消
@@ -38,7 +39,7 @@ export function TagMenuRenamePane(p: TagMenuRenamePaneProps): ReactNode {
           type="button"
           onClick={p.onSubmit}
           disabled={p.busy}
-          className="h-7 rounded bg-accent px-2 text-xs text-on-accent hover:bg-accent-hover disabled:opacity-50"
+          className={BTN_PRIMARY}
         >
           {p.busy ? '保存中…' : '确定'}
         </button>

@@ -149,7 +149,7 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
         onDragLeave={drag.listEvents.onDragLeaveList}
       >
         {visibleRows.length === 0 ? (
-          <p className="px-2 py-3 text-xs text-faint">还没有标签,在输入栏写 #标签 试试</p>
+          <p className="px-2 py-3 text-label text-muted">还没有标签,在输入栏写 #标签 试试</p>
         ) : (
           <TagRowList
             nodes={p.mode === 'tree' ? shown : flatNodes}
@@ -164,7 +164,7 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
           />
         )}
         {visibleRows.length > 0 && filtering && shown.length === 0 && (
-          <p className="px-2 py-2 text-xs text-faint">没有匹配的标签</p>
+          <p className="px-2 py-2 text-label text-muted">没有匹配的标签</p>
         )}
       </div>
       {/* 「移到根级」指示条:拖拽期间渲染;源已在根级时不出现(T8,避免假成功) */}

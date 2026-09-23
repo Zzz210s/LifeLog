@@ -13,7 +13,7 @@ export interface TagMenuMainPaneProps {
 export function TagMenuMainPane(p: TagMenuMainPaneProps): ReactNode {
   return (
     <>
-      <p className="truncate px-2.5 py-1 text-xs font-medium text-faint" title={p.path}>
+      <p className="truncate px-2.5 py-1 text-label font-medium text-muted" title={p.path}>
         {p.path}
       </p>
       <button type="button" role="menuitem" className={ITEM_CLASS} onClick={() => p.onPick('rename')}>

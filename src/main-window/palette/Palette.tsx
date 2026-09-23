@@ -57,10 +57,10 @@ export function Palette(p: PaletteProps): ReactNode {
       aria-label={p.label ?? '快速打开'}
       hidden={!c.isOpen}
       onMouseDown={(e) => e.preventDefault()}
-      className="fixed left-1/2 top-14 z-40 flex max-h-[60vh] w-[36rem] max-w-[calc(100vw-2rem)] -translate-x-1/2 flex-col overflow-hidden rounded-lg border border-border bg-raised shadow-xl"
+      className="overlay-scrim fixed left-1/2 top-14 z-40 flex max-h-[60vh] w-[36rem] max-w-[calc(100vw-2rem)] -translate-x-1/2 flex-col overflow-hidden rounded-lg border border-border bg-raised"
     >
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
-        <span className="shrink-0 rounded bg-accent-soft px-1.5 py-0.5 text-xs text-accent-text">
+        <span className="shrink-0 rounded-xs bg-accent-soft px-1.5 py-0.5 text-label text-accent-text">
           {badge}
         </span>
         <input
@@ -74,14 +74,14 @@ export function Palette(p: PaletteProps): ReactNode {
           value={c.query}
           onChange={(e) => c.setQuery(e.target.value)}
           placeholder={prefixHint(c.prefix)}
-          className="h-7 min-w-0 flex-1 bg-transparent text-sm text-text outline-none placeholder:text-faint"
+          className="h-8 min-w-0 flex-1 bg-transparent text-ui text-text outline-none placeholder:text-faint"
         />
-        <span aria-live="polite" className="shrink-0 text-xs tabular-nums text-faint">
+        <span aria-live="polite" className="shrink-0 text-label tabular-nums text-muted">
           {announced}
         </span>
       </div>
       {c.truncated && (
-        <p className="shrink-0 border-b border-border px-3 py-1 text-[11px] text-faint">
+        <p className="shrink-0 border-b border-border px-3 py-1 text-micro text-muted">
           结果过多,只显示前 {c.rows.length} 项,继续输入以缩小范围
         </p>
       )}
@@ -91,8 +91,8 @@ export function Palette(p: PaletteProps): ReactNode {
           // 代价是部分屏幕阅读器只播报列表名而不读该行;行为正确(Enter 不会误接受,见 use-palette accept),
           // 取舍已披露(审查 M7),不改行为。
           <li role="option" aria-disabled="true" aria-selected={false} className="px-3 py-4">
-            <p className="text-sm text-muted">无匹配结果</p>
-            <p className="mt-0.5 text-xs text-faint">换个关键词,或用 &gt; 执行命令</p>
+            <p className="text-ui text-muted">无匹配结果</p>
+            <p className="mt-0.5 text-label text-muted">换个关键词,或用 &gt; 执行命令</p>
           </li>
         ) : (
           c.rows.map((row, index) => (

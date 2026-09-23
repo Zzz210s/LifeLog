@@ -15,7 +15,7 @@ export interface AddConditionMenuProps {
 type Pane = 'main' | 'presence' | 'sort';
 
 const ITEM_CLASS =
-  'block w-full rounded px-2.5 py-1.5 text-left text-xs text-muted hover:bg-accent-soft hover:text-accent-text';
+  'block w-full rounded-xs px-2.5 py-1.5 text-left text-ui text-muted hover:bg-accent-soft hover:text-accent-text';
 
 /** 「添加条件」下拉:主面板五项(无日期入口,spec D2);有无标签/排序切换到子面板直接生效 */
 export function AddConditionMenu(p: AddConditionMenuProps): ReactNode {
@@ -69,7 +69,7 @@ export function AddConditionMenu(p: AddConditionMenuProps): ReactNode {
       {open && (
         <div
           role="menu"
-          className="absolute left-0 top-full z-20 mt-1 rounded-md border border-border bg-raised p-1 shadow-lg"
+          className="absolute left-0 top-full z-20 mt-1 rounded-lg border border-border bg-raised p-1 shadow-lg"
         >
           {pane === 'main' && (
             <>

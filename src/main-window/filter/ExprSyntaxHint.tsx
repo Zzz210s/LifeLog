@@ -13,8 +13,8 @@ export interface ExprSyntaxHintProps {
 export function ExprSyntaxHint(p: ExprSyntaxHintProps): ReactNode {
   return (
     <details open className="mt-2 rounded-md border border-border px-2 py-1">
-      <summary className="cursor-pointer text-xs text-muted">语法速查</summary>
-      <table className="mt-1 w-full text-xs">
+      <summary className="cursor-pointer text-label text-muted">语法速查</summary>
+      <table className="mt-1 w-full text-label">
         <tbody>
           {SYNTAX_HINTS.map((h) => (
             <tr key={h.form}>
@@ -26,7 +26,7 @@ export function ExprSyntaxHint(p: ExprSyntaxHintProps): ReactNode {
           ))}
         </tbody>
       </table>
-      <ul className="mt-1 list-disc pl-4 text-xs text-faint">
+      <ul className="mt-1 list-disc pl-4 text-label text-muted">
         {SYNTAX_NOTES.map((n) => (
           <li key={n}>{n}</li>
         ))}
@@ -38,7 +38,7 @@ export function ExprSyntaxHint(p: ExprSyntaxHintProps): ReactNode {
             type="button"
             title={`填入示例:${e}`}
             onClick={() => p.onPick(e)}
-            className="rounded border border-border px-1.5 py-0.5 font-mono text-xs text-muted hover:border-accent hover:text-accent-text"
+            className="rounded-xs border border-border bg-chrome px-1.5 py-0.5 font-mono text-label text-muted hover:border-accent hover:text-accent-text"
           >
             {e}
           </button>

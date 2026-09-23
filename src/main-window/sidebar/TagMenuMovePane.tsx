@@ -22,7 +22,7 @@ export interface TagMenuMovePaneProps {
 export function TagMenuMovePane(p: TagMenuMovePaneProps): ReactNode {
   return (
     <div className="p-1">
-      <p className="mb-1 px-1 text-xs text-faint">移动「{p.nodeName}」到</p>
+      <p className="mb-1 px-1 text-label text-muted">移动「{p.nodeName}」到</p>
       <button
         type="button"
         onClick={() => p.onMove(null, p.nodeName)}
@@ -44,7 +44,7 @@ export function TagMenuMovePane(p: TagMenuMovePaneProps): ReactNode {
           {r.path === p.currentParent ? ' - 当前' : ''}
         </button>
       ))}
-      {p.error !== '' && <p className="mt-1 px-1 text-xs text-danger">{p.error}</p>}
+      {p.error !== '' && <p className="mt-1 px-1 text-label text-danger">{p.error}</p>}
       <div className="mt-1.5 flex justify-end gap-1.5">
         <button type="button" onClick={p.onCancel} className={BTN_GHOST}>
           取消

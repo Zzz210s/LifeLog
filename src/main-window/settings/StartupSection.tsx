@@ -86,15 +86,15 @@ export function StartupSection(): ReactNode {
     settings && actual !== null ? resolveAutostartStatus(settings.autostart, actual) : null;
 
   return (
-    <section className="rounded-lg border border-border bg-raised">
-      <div className="border-b border-border px-4 py-2.5">
-        <h2 className="text-sm font-medium text-text">启动</h2>
-        <p className="mt-0.5 text-xs text-faint">开机启动会在系统注册表中登记;改动立即保存</p>
+    <section className="rounded-md border border-border bg-raised">
+      <div className="border-b border-border px-4 py-2">
+        <h2 className="text-title text-text">启动</h2>
+        <p className="mt-0.5 text-label text-muted">开机启动会在系统注册表中登记;改动立即保存</p>
       </div>
-      {error && <p className="px-4 pt-3 text-xs text-danger">{error}</p>}
+      {error && <p className="px-4 pt-3 text-label text-danger">{error}</p>}
       {settings === null ? (
         <div className="flex flex-col items-center gap-2 px-4 py-6">
-          <span className="text-xs text-faint">加载中...</span>
+          <span className="text-label text-muted">加载中...</span>
           {error && (
             <button
               type="button"
@@ -122,7 +122,7 @@ export function StartupSection(): ReactNode {
                 )}
                 <span
                   className={
-                    'text-xs ' + (status === 'needs-repair' ? 'text-warn' : 'text-faint')
+                    'text-label ' + (status === 'needs-repair' ? 'text-warn' : 'text-muted')
                   }
                 >
                   {status ? STATUS_TEXT[status] : '读取中...'}
@@ -143,7 +143,7 @@ export function StartupSection(): ReactNode {
               />
             </SettingsRow>
           </div>
-          <p className="border-t border-border px-4 py-3 text-xs text-faint">
+          <p className="border-t border-border px-4 py-3 text-label text-muted">
             托盘图标左键打开主窗口,右键打开菜单
           </p>
         </>

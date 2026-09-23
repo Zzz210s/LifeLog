@@ -9,7 +9,7 @@
  *   几何与边界带完全一致(边界 y + 按层级缩进),所以即使两者同时命中也是同一条线;
  * - 源行不再改透明度(VS Code 源行没有任何半透明处理),拖拽中抑制 hover 高亮。
  */
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import type { TagNode } from './tag-tree';
 import { isSelectable } from './tag-tree';
 import type { DropZone } from './drag-check';
@@ -40,11 +40,20 @@ export interface TagRowProps {
   onDragLeave: (e: React.DragEvent) => void;
 }
 
-const COUNT_RAIL_CLASS = 'ml-auto shrink-0 pl-2 text-xs tabular-nums text-faint';
+const COUNT_RAIL_CLASS = 'ml-auto shrink-0 pl-2 text-label tabular-nums text-muted';
 
 /** 行的左内边距 = 同级插入线的左端(扁平 6、树 6 + (depth-1)*12),两处必须同源 */
 export function lineIndent(node: TagNode, flat: boolean): number {
   return flat ? 6 : 6 + (node.depth - 1) * 12;
+}
+
+/**
+ * 缩进导轨宽度(视觉刷新 V5,设计 §4-8):每级 1px 竖线画在缩进区内(x = 6 + k*12)。
+ * 第 2 层起每多一层多一条线,宽度 = 最后一条线的位置相对首条线的偏移 + 1px(首条在缩进区起点)。
+ * main.css 的 .tag-guides 用这个宽度裁切那条 repeating-linear-gradient,因此不需要额外 DOM 节点。
+ */
+export function guideWidth(depth: number, flat: boolean): number {
+  return flat || depth < 2 ? 0 : 1 + (depth - 2) * 12;
 }
 
 export function TagRow(p: TagRowProps): ReactNode {
@@ -54,13 +63,13 @@ export function TagRow(p: TagRowProps): ReactNode {
   const state = p.excluded
     ? 'bg-danger-soft text-danger hover:bg-danger/20'
     : p.selected
-      ? 'bg-accent-soft text-accent-text'
+      ? 'bg-selected text-accent-text'
       : p.dragActive
         ? 'text-muted'
-        : 'text-muted hover:bg-accent-soft hover:text-accent-text';
+        : 'text-muted hover:bg-hover hover:text-text';
   const rowClass =
-    'group relative flex w-full items-center gap-1 rounded px-1.5 py-1 pr-2 text-left text-xs transition-colors ' +
-    (selectable ? state : 'cursor-default text-faint' + (p.dragActive ? '' : ' hover:bg-hover')) +
+    'tag-guides group relative flex w-full items-center gap-1 rounded-xs px-1.5 py-1 pr-2 text-left text-ui transition-colors ' +
+    (selectable ? state : 'cursor-default text-muted' + (p.dragActive ? '' : ' hover:bg-hover')) +
     (p.dropZone === 'child' ? ' bg-accent-soft' : '');
 
   return (
@@ -73,7 +82,12 @@ export function TagRow(p: TagRowProps): ReactNode {
       aria-pressed={selectable ? p.selected : undefined}
       title={`${p.node.path}(本级 ${p.node.selfCount} / 含子级 ${p.node.subtreeCount})`}
       className={rowClass}
-      style={{ paddingLeft: lineIndent(p.node, p.flat) }}
+      style={
+        {
+          paddingLeft: lineIndent(p.node, p.flat),
+          '--tag-guide': `${guideWidth(p.node.depth, p.flat)}px`,
+        } as CSSProperties
+      }
       onClick={() => (selectable ? p.onToggle(p.node) : hasChildren && p.onToggleExpand(p.node.path))}
       onContextMenu={(e) => p.onContextMenu(e, p.node)}
       onDragStart={p.onDragStart}
@@ -102,7 +116,7 @@ export function TagRow(p: TagRowProps): ReactNode {
         <svg
           viewBox="0 0 16 16"
           aria-hidden="true"
-          className={'w-3 h-3 shrink-0 text-faint transition-transform ' + (p.expanded ? 'rotate-90' : '')}
+          className={'w-3 h-3 shrink-0 text-muted transition-transform ' + (p.expanded ? 'rotate-90' : '')}
           onClick={(e) => {
             e.stopPropagation();
             p.onToggleExpand(p.node.path);
@@ -114,7 +128,7 @@ export function TagRow(p: TagRowProps): ReactNode {
       {!p.flat && !hasChildren && <span className="w-3 shrink-0" />}
       <span className="min-w-0 truncate">{label}</span>
       {p.excluded && (
-        <span className="shrink-0 rounded bg-danger-soft px-1 text-[10px] leading-4 text-danger">已排除</span>
+        <span className="shrink-0 rounded-xs bg-danger-soft px-1 text-micro text-danger">已排除</span>
       )}
       <span className={COUNT_RAIL_CLASS}>{p.node.subtreeCount}</span>
     </button>

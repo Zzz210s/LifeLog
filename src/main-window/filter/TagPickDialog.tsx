@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { api } from '../../shared/api';
 import type { TagCount } from '../../shared/types';
+import { BTN_ICON } from '../shell/button-classes';
 
 export interface TagPickDialogProps {
   /** 模式:false 加入标签 / true 排除标签 */
@@ -65,20 +66,20 @@ export function TagPickDialog(p: TagPickDialogProps): ReactNode {
         aria-label={title}
         // 同表达式弹层:根滚动已关,弹层必须自己能滚且不超出视口(2026-09-21 复审 A3);
         // 内部标签列表原有的 max-h-64 + 自身滚动保持不变(外层可滚只是极小窗口下再兜一层)
-        className="max-h-[calc(100vh-2rem)] w-80 overflow-y-auto rounded-lg border border-border bg-raised p-4 shadow-xl"
+        className="max-h-[calc(100vh-2rem)] w-80 overflow-y-auto rounded-lg border border-border bg-raised p-4 shadow-lg"
       >
         <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-sm font-medium text-text">{title}</h2>
+          <h2 className="text-title text-text">{title}</h2>
           <button
             type="button"
             onClick={p.onClose}
             aria-label="关闭"
-            className="rounded px-1 text-faint hover:bg-hover hover:text-muted"
+            className={BTN_ICON}
           >
             ×
           </button>
         </div>
-        <label className="mb-2 flex items-center gap-1.5 text-xs text-muted">
+        <label className="mb-2 flex items-center gap-1.5 text-label text-muted">
           <input
             type="checkbox"
             checked={includeChildren}
@@ -87,13 +88,13 @@ export function TagPickDialog(p: TagPickDialogProps): ReactNode {
           含子级(按路径前缀匹配子孙标签)
         </label>
         {error !== '' ? (
-          <p className="py-6 text-center text-xs text-danger">{error}</p>
+          <p className="py-6 text-center text-label text-danger">{error}</p>
         ) : rows === null ? (
-          <p className="py-6 text-center text-xs text-faint">加载中…</p>
+          <p className="py-6 text-center text-label text-muted">加载中…</p>
         ) : rows.length === 0 ? (
-          <p className="py-6 text-center text-xs text-faint">还没有标签,在输入栏写 #标签 试试</p>
+          <p className="py-6 text-center text-label text-muted">还没有标签,在输入栏写 #标签 试试</p>
         ) : (
-          <ul className="max-h-64 overflow-y-auto rounded border border-border">
+          <ul className="max-h-64 overflow-y-auto rounded-md border border-border">
             {rows.map((row) => {
               const picked = p.selected.includes(row.path);
               const count = includeChildren ? row.subtree_count : row.self_count;
@@ -104,14 +105,14 @@ export function TagPickDialog(p: TagPickDialogProps): ReactNode {
                     disabled={picked}
                     onClick={() => p.onPick(row.path, includeChildren)}
                     title={row.path}
-                    className="flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left text-xs text-muted hover:bg-accent-soft hover:text-accent-text disabled:cursor-default disabled:text-faint disabled:line-through disabled:hover:bg-transparent disabled:hover:text-faint"
+                    className="flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left text-ui text-muted hover:bg-accent-soft hover:text-accent-text disabled:cursor-default disabled:text-faint disabled:line-through disabled:hover:bg-transparent disabled:hover:text-faint"
                     style={{ paddingLeft: 10 + row.depth * 12 }}
                   >
                     <span className="truncate">{row.path}</span>
                     {picked ? (
-                      <span className="shrink-0 text-faint">已添加</span>
+                      <span className="shrink-0 text-label text-muted">已添加</span>
                     ) : (
-                      <span className="shrink-0 text-faint">{count}</span>
+                      <span className="shrink-0 text-label text-muted">{count}</span>
                     )}
                   </button>
                 </li>

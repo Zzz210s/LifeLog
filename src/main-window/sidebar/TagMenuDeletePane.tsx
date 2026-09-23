@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { BTN_DANGER } from '../shell/button-classes';
 import { BTN_GHOST } from './tag-menu-ui';
 
 export interface TagMenuDeletePaneProps {
@@ -18,17 +19,17 @@ export interface TagMenuDeletePaneProps {
 export function TagMenuDeletePane(p: TagMenuDeletePaneProps): ReactNode {
   return (
     <div className="p-1">
-      <p className="px-1 text-xs text-muted">删除「{p.path}」?</p>
-      <p className="mt-1 px-1 text-xs text-faint">
+      <p className="px-1 text-label text-muted">删除「{p.path}」?</p>
+      <p className="mt-1 px-1 text-label text-muted">
         {p.impact === null
           ? '计算影响面…'
           : `将影响 ${p.impact.notes} 条笔记` +
             (p.impact.tags > 0 ? `、${p.impact.tags} 个子标签` : '')}
       </p>
-      <p className="mt-1 px-1 text-xs text-faint">
+      <p className="mt-1 px-1 text-label text-muted">
         只解除这些笔记上的该标签,笔记本身不会被删除;已存在的笔记也不会因删除而重新生成标签。
       </p>
-      {p.error !== '' && <p className="mt-1 px-1 text-xs text-danger">{p.error}</p>}
+      {p.error !== '' && <p className="mt-1 px-1 text-label text-danger">{p.error}</p>}
       <div className="mt-1.5 flex justify-end gap-1.5">
         <button type="button" onClick={p.onCancel} className={BTN_GHOST}>
           取消
@@ -37,7 +38,7 @@ export function TagMenuDeletePane(p: TagMenuDeletePaneProps): ReactNode {
           type="button"
           onClick={p.onConfirm}
           disabled={p.busy || p.impact === null}
-          className="h-7 rounded bg-danger px-2 text-xs text-on-danger hover:bg-danger-hover disabled:opacity-50"
+          className={BTN_DANGER}
         >
           {p.busy ? '删除中…' : '确认删除'}
         </button>

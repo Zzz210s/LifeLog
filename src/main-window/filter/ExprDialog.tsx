@@ -9,6 +9,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { api } from '../../shared/api';
+import { BTN_ICON, BTN_PRIMARY, BTN_SECONDARY } from '../shell/button-classes';
 import { ExprSyntaxHint } from './ExprSyntaxHint';
 import { caretOf, errorLabelOf, localExprError } from './expr-check';
 
@@ -26,9 +27,6 @@ const DEBOUNCE_MS = 250;
 
 /** 校验状态:forText 记录结果对应哪一版文字,便于识别「校验中」 */
 type Check = { forText: string; ok: boolean; message: string; position: number | null };
-
-const BTN =
-  'h-8 rounded-md border border-border px-3 text-xs text-muted hover:border-accent hover:text-accent-text';
 
 /** 表达式编辑对话框 */
 export function ExprDialog(p: ExprDialogProps): ReactNode {
@@ -105,20 +103,20 @@ export function ExprDialog(p: ExprDialogProps): ReactNode {
         aria-label="表达式"
         // 根滚动已关(整页不得滚,R1),小窗口下弹层只能靠自己滚:上限 100vh - 2rem + 自身可滚,
         // 否则高窗口/高系统缩放下会被上下裁掉且没有任何滚动路径(2026-09-21 复审 A3)
-        className="max-h-[calc(100vh-2rem)] w-[30rem] max-w-[90vw] overflow-y-auto rounded-lg border border-border bg-raised p-4 shadow-xl"
+        className="max-h-[calc(100vh-2rem)] w-[30rem] max-w-[90vw] overflow-y-auto rounded-lg border border-border bg-raised p-4 shadow-lg"
       >
         <div className="mb-1 flex items-center justify-between">
-          <h2 className="text-sm font-medium text-text">表达式(高级)</h2>
+          <h2 className="text-title text-text">表达式(高级)</h2>
           <button
             type="button"
             onClick={p.onClose}
             aria-label="关闭"
-            className="rounded px-1 text-faint hover:bg-hover hover:text-muted"
+            className={BTN_ICON}
           >
             ×
           </button>
         </div>
-        <p className="mb-2 text-xs text-faint">表达式与其它筛选条件同时生效(按与组合)。</p>
+        <p className="mb-2 text-label text-muted">表达式与其它筛选条件同时生效(按与组合)。</p>
         <textarea
           autoFocus
           ref={box}
@@ -128,15 +126,15 @@ export function ExprDialog(p: ExprDialogProps): ReactNode {
           onChange={(e) => setText(e.target.value)}
           placeholder='如:#工作 AND NOT #临时,或 "买牛奶" OR #生活'
           className={
-            'w-full resize-y rounded-md border px-2 py-1 font-mono text-sm outline-none ' +
+            'w-full resize-y rounded-sm border px-2.5 py-2 font-mono text-ui outline-none ' +
             (check.ok || pending
-              ? 'border-border'
+              ? 'border-border-strong'
               : 'border-danger bg-danger-soft')
           }
         />
-        <p className="mt-1 min-h-4 text-xs" aria-live="polite">
+        <p className="mt-1 min-h-4 text-label" aria-live="polite">
           {pending ? (
-            <span className="text-faint">校验中…</span>
+            <span className="text-muted">校验中…</span>
           ) : check.ok ? (
             check.message !== '' && <span className="text-success">预览:{check.message}</span>
           ) : (
@@ -152,11 +150,11 @@ export function ExprDialog(p: ExprDialogProps): ReactNode {
               p.onSave('');
               p.onClose();
             }}
-            className={BTN + ' mr-auto'}
+            className={BTN_SECONDARY + ' mr-auto'}
           >
             清空
           </button>
-          <button type="button" onClick={p.onClose} className={BTN}>
+          <button type="button" onClick={p.onClose} className={BTN_SECONDARY}>
             取消
           </button>
           <button
@@ -166,7 +164,7 @@ export function ExprDialog(p: ExprDialogProps): ReactNode {
               p.onSave(text);
               p.onClose();
             }}
-            className="h-8 rounded-md bg-accent px-3 text-xs text-on-accent hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
+            className={BTN_PRIMARY}
           >
             确定
           </button>

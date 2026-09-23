@@ -1,7 +1,8 @@
 /**
- * 按钮三型的类名常真源(视觉刷新 V4,设计 §4-4 / D4):
+ * 按钮四型的类名常真源(视觉刷新 V4,设计 §4-4 / D4):
  * 主 = accent / 高 32 / radius-sm;次 = border / 高 32 / radius-sm;图标 = 28×28 / radius-sm;
  * 纯文字动作用 BTN_TEXT(同为 28 高,靠内边距拉开宽度)。全部走 --text-ui(13/18)。
+ * 另有两个同档语义色(警示次按钮 BTN_WARN、危险主按钮 BTN_DANGER)。
  *
  * 只导出类名,不导出组件 —— 调用点仍自己渲染 <button>,这样事件、aria、禁用态与既有测试选择器都不动。
  * 圆角按名取用:rounded-sm = 6px(V1 已把 --radius-sm 定为 6px),别靠 Tailwind 默认值。
@@ -18,6 +19,9 @@ export const BTN_SECONDARY = BTN_BASE + ' border border-border text-muted hover:
 
 /** 警示次按钮:边框与文字走 warn(启动项「修复」) */
 export const BTN_WARN = BTN_BASE + ' border border-warn text-warn hover:bg-warn-soft';
+
+/** 危险主按钮:主按钮档换成 danger 底色(标签删除这类不可逆动作,V5 加) */
+export const BTN_DANGER = BTN_BASE + ' bg-danger text-on-danger hover:bg-danger-hover';
 
 /** 图标按钮:28×28 方框,悬停底色由 hover 态给(顶栏齿轮/侧栏折叠等) */
 export const BTN_ICON =

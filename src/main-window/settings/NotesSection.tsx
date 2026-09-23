@@ -73,15 +73,15 @@ export function NotesSection(): ReactNode {
   };
 
   return (
-    <section className="rounded-lg border border-border bg-raised">
-      <div className="border-b border-border px-4 py-2.5">
-        <h2 className="text-sm font-medium text-text">笔记</h2>
-        <p className="mt-0.5 text-xs text-faint">新建笔记与时间标签的存放规则;改动立即保存</p>
+    <section className="rounded-md border border-border bg-raised">
+      <div className="border-b border-border px-4 py-2">
+        <h2 className="text-title text-text">笔记</h2>
+        <p className="mt-0.5 text-label text-muted">新建笔记与时间标签的存放规则;改动立即保存</p>
       </div>
-      {error && <p className="px-4 pt-3 text-xs text-danger">{error}</p>}
+      {error && <p className="px-4 pt-3 text-label text-danger">{error}</p>}
       {!loaded ? (
         <div className="flex flex-col items-center gap-2 px-4 py-6">
-          <span className="text-xs text-faint">加载中...</span>
+          <span className="text-label text-muted">加载中...</span>
           {error && (
             <button
               type="button"
@@ -117,7 +117,7 @@ export function NotesSection(): ReactNode {
             />
           </SettingsRow>
           {verdict !== null && (
-            <p className={'pb-2 text-xs ' + (verdict.ok ? 'text-success' : 'text-danger')} role="status">
+            <p className={'pb-2 text-label ' + (verdict.ok ? 'text-success' : 'text-danger')} role="status">
               {verdict.message}
             </p>
           )}

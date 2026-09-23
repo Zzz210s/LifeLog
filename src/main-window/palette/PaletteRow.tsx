@@ -42,7 +42,7 @@ export function highlightLabel(label: string, ranges: readonly MatchRange[] | un
   for (const range of ranges ?? []) {
     if (range.start > at) parts.push(label.slice(at, range.start));
     parts.push(
-      <mark key={range.start} className="rounded-[2px] bg-accent-soft text-accent-text">
+      <mark key={range.start} className="rounded-xs bg-accent-soft text-accent-text">
         {label.slice(range.start, range.end)}
       </mark>,
     );
@@ -64,7 +64,7 @@ export interface PaletteRowProps {
 export function PaletteRow(p: PaletteRowProps): ReactNode {
   const tone = p.row.danger === true ? 'text-danger' : p.selected ? 'text-accent-text' : 'text-text';
   const cls =
-    'flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm ' +
+    'flex cursor-pointer items-center gap-2 px-3 py-1.5 text-ui ' +
     `${tone} ${p.selected ? 'bg-accent-soft' : 'hover:bg-hover'}`;
   return (
     <li
@@ -78,9 +78,9 @@ export function PaletteRow(p: PaletteRowProps): ReactNode {
       className={cls}
     >
       <span className="min-w-0 flex-1 truncate">{highlightLabel(p.row.label, p.row.ranges)}</span>
-      {p.row.checked === true && <span className="shrink-0 text-xs text-accent-text">已勾选</span>}
+      {p.row.checked === true && <span className="shrink-0 text-label text-accent-text">已勾选</span>}
       {p.row.detail !== undefined && p.row.detail !== '' && (
-        <span className="shrink-0 text-xs tabular-nums text-faint">{p.row.detail}</span>
+        <span className="shrink-0 text-label tabular-nums text-muted">{p.row.detail}</span>
       )}
     </li>
   );
