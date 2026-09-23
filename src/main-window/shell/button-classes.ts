@@ -23,6 +23,8 @@ export const BTN_WARN = BTN_BASE + ' border border-warn text-warn hover:bg-warn-
 export const BTN_ICON =
   'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-sm text-muted transition-colors hover:bg-hover hover:text-text';
 
-/** 纯文字动作按钮:高度与图标按钮同档(28),颜色由调用点给(卡片「删除」、错误条「关闭」) */
+/** 纯文字动作按钮:高度与图标按钮同档(28),颜色由调用点给(卡片「删除」、错误条「关闭」)。
+ *  `-my-1.5`(负外边距):视觉占位回到 16px,不把卡片撑高 —— 命中区仍是 28×N,
+ *  但行高不受影响(视觉刷新 V4 复测:不加时单卡 +12px,一屏少一张卡)。 */
 export const BTN_TEXT =
-  'inline-flex h-7 shrink-0 items-center justify-center rounded-sm px-2 text-ui transition-colors hover:bg-hover';
+  'inline-flex h-7 -my-1.5 shrink-0 items-center justify-center rounded-sm px-2 text-ui transition-colors hover:bg-hover';

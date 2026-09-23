@@ -165,7 +165,7 @@ export function EditPanel(p: EditPanelProps): ReactNode {
           domText.current = (e.target as HTMLTextAreaElement).value;
           setSource(domText.current);
         }}
-        className="scroll-gutter w-full resize-y rounded-md border border-border bg-raised p-2 font-mono text-sm leading-relaxed outline-none"
+        className="scroll-gutter w-full resize-y rounded-md border border-border-strong bg-raised p-2 font-mono text-body"
       />
       {/* 保存/取消按钮与「点其他位置即保存」提示已按用户要求删除:离开区块(点别处/切条目/失焦)即保存,Esc 取消 */}
       <div className="mt-2 flex items-center gap-3">
