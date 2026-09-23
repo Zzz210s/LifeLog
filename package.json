@@ -10,7 +10,8 @@
     "test": "vitest run",
     "tauri": "tauri",
     "verify": "node scripts/verify.mjs",
-    "verify:quick": "node scripts/verify.mjs --quick"
+    "verify:quick": "node scripts/verify.mjs --quick",
+    "audit:visual": "node scripts/audit-visual-tokens.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.9.0",

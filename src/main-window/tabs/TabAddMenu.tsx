@@ -61,7 +61,7 @@ export function TabAddMenu(p: TabAddMenuProps): ReactNode {
         <div
           role="menu"
           aria-label="新建标签页"
-          className="absolute left-0 top-8 z-20 w-52 rounded-md border border-border bg-app p-1 shadow-lg"
+          className="absolute left-0 top-8 z-20 w-52 rounded-lg border border-border bg-app p-1 shadow-lg"
         >
           {TAB_PRESETS.map((preset) => (
             <button

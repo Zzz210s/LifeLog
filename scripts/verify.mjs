@@ -9,6 +9,7 @@
  *   6) Clippy     cargo clippy --lib --all-targets -- -D warnings   (--quick 跳过)
  *   7) 未用符号   tsc --noEmit --noUnusedLocals --noUnusedParameters
  *   8) 行数红线   代码文件 ≤200 行(.md 文档不受限)
+ *   9) 视觉令牌   计算样式审计(字号/圆角/gap/颜色/卡片三态/对比度);应用不在 9222 时跳过
  * 用法:pnpm verify / pnpm verify:quick;任一步失败即非零退出并打印输出尾部。
  */
 import { execSync, spawnSync } from 'node:child_process';
@@ -81,6 +82,24 @@ for (const s of steps) {
 
 process.stdout.write('[门禁] 行数红线 ... ');
 if (!checkLineLimit()) failed++;
+
+// 视觉令牌审计需要运行中的应用:退出码 2 = 跳过(应用不在 9222 / 主窗不在信息流视图),不算失败
+process.stdout.write('[门禁] 视觉令牌审计 ... ');
+{
+  const started = Date.now();
+  const v = spawnSync('node scripts/audit-visual-tokens.mjs', { cwd, shell: true, encoding: 'utf8' });
+  const secs = ((Date.now() - started) / 1000).toFixed(1);
+  if (v.status === 0) {
+    console.log(`通过 (${secs}s)`);
+  } else if (v.status === 2) {
+    console.log(`跳过 (${secs}s)`);
+    console.log(String(v.stdout ?? '').trim());
+  } else {
+    failed++;
+    console.log(`失败 (${secs}s)`);
+    console.log(String(v.stdout ?? '').trim().split('\n').slice(-25).join('\n'));
+  }
+}
 
 const total = ((Date.now() - t0) / 1000).toFixed(1);
 if (failed) {

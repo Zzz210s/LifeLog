@@ -38,7 +38,7 @@ export function TagsHeader(p: TagsHeaderProps): ReactNode {
             {p.flash.text}
           </span>
         )}
-        <span className="ml-auto flex items-center gap-0.5">
+        <span className="ml-auto flex items-center gap-1">
           <button
             type="button"
             title={p.mode === 'tree' ? '切换为扁平列表' : '切换为树形'}
