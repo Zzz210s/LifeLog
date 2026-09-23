@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 import type { ThemeMode } from '../../shared/theme-mode';
 import { AppearanceSection } from './AppearanceSection';
+import { AppHotkeySection } from './AppHotkeySection';
 import { GeneralSection } from './GeneralSection';
 import { InputBarSection } from './InputBarSection';
 import { NotesSection } from './NotesSection';
@@ -20,6 +21,7 @@ export function SettingsView({ themeMode, onThemeChange }: SettingsViewProps): R
         <h1 className="text-display text-text">设置</h1>
         <AppearanceSection mode={themeMode} onChange={onThemeChange} />
         <InputBarSection />
+        <AppHotkeySection />
         <NotesSection />
         <StartupSection />
         <GeneralSection />

@@ -8,6 +8,7 @@ mod exchange;
 mod expr;
 mod hotkey;
 mod hotkey_spec;
+mod app_hotkey;
 mod startup_report;
 
 // 共享测试向量(仓库根 fixtures/filter-conditions.json)的 Rust 侧断言:
@@ -15,6 +16,12 @@ mod startup_report;
 #[cfg(test)]
 #[path = "filter_fixtures_tests.rs"]
 mod filter_fixtures_tests;
+
+// 共享测试向量(仓库根 fixtures/hotkey-spec.json)的 Rust 侧断言:
+// 与 src/shared/hotkey-match.test.ts / hotkey-keys.test.ts 读同一份文件,探测主键名与规范化漂移
+#[cfg(test)]
+#[path = "hotkey_fixtures_tests.rs"]
+mod hotkey_fixtures_tests;
 
 mod tags;
 mod timetag;
@@ -42,6 +49,7 @@ pub fn run() {
             commands::settings::validate_time_tag_template,
             commands::hotkey::get_input_hotkey,
             commands::hotkey::set_input_hotkey,
+            commands::app_hotkey::set_app_hotkey,
             commands::startup::get_autostart_status,
             commands::startup::set_autostart,
             commands::app_info::get_db_info,

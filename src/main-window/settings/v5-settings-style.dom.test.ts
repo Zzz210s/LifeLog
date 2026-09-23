@@ -55,7 +55,7 @@ const typeLike = (cls: string): string[] =>
   cls.split(/\s+/).filter((c) => /^text-(\d|xs|sm|base|lg|xl|2xl|3xl|\[)/.test(c));
 
 describe('V5 设置页:字号全部落在 7 档令牌内', () => {
-  it('整页(5 个分区 + 全部行)没有任何越档字号类', async () => {
+  it('整页(6 个分区 + 全部行)没有任何越档字号类', async () => {
     render(createElement(SettingsView, { themeMode: 'system', onThemeChange: () => {} }));
     await flush();
     await flush();
@@ -78,7 +78,7 @@ describe('V5 设置页:字号全部落在 7 档令牌内', () => {
     expect([...used].sort()).toEqual(['text-display', 'text-label', 'text-title', 'text-ui']);
   });
 
-  it('页标题 text-display;5 个分区标题全部 text-title(16/24,600)', async () => {
+  it('页标题 text-display;6 个分区标题全部 text-title(16/24,600)', async () => {
     render(createElement(SettingsView, { themeMode: 'system', onThemeChange: () => {} }));
     await flush();
     await flush();
@@ -87,7 +87,7 @@ describe('V5 设置页:字号全部落在 7 档令牌内', () => {
     expect(tokens(h1)).toContain('text-display');
 
     const h2s = [...host.querySelectorAll('h2')] as HTMLElement[];
-    expect(h2s.map((h) => h.textContent)).toEqual(['外观', '输入栏', '笔记', '启动', '通用']);
+    expect(h2s.map((h) => h.textContent)).toEqual(['外观', '输入栏', '快捷键', '笔记', '启动', '通用']);
     for (const h2 of h2s) {
       expect(tokens(h2), String(h2.textContent)).toContain('text-title');
       expect(tokens(h2), String(h2.textContent)).not.toContain('text-sm');

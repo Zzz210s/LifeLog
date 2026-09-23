@@ -16,6 +16,11 @@ pub fn set_setting(app: AppHandle, key: String, value: String) -> Result<(), Str
     if key == crate::hotkey::HOTKEY_KEY {
         return Err("快捷键请用 set_input_hotkey 设置(需要先注册成功再保存)".to_string());
     }
+    // 应用内快捷键(命令面板 / 快速打开笔记)有唯一写路径 set_app_hotkey(规范化 + 冲突检查):
+    // 绕过它写入未经 Rust 规范化的值(如 ctrl+zzz)只会得到一个永远匹配不上的死键
+    if crate::app_hotkey::is_setting_key(&key) {
+        return Err("应用内快捷键请用 set_app_hotkey 设置(需要规范化与冲突检查)".to_string());
+    }
     let db: State<Db> = app.state();
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     repos::settings::set(&conn, &key, &value).map_err(|e| e.to_string())

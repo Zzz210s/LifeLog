@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { CompleteItem, DbInfo, ExprCheck, MergeReport, Note, ParseResult, TagCount, TagImpact } from './types';
 import type { FilterConditions } from './filter-conditions';
+import type { AppHotkeyKind } from './hotkey-match';
 
 export const api = {
   saveInputNote: (content: string) => invoke<Note>('save_input_note', { content }),
@@ -48,6 +49,11 @@ export const api = {
   setInputHotkey: (accelerator: string) => invoke<string>('set_input_hotkey', { accelerator }),
   /** 运行时实际生效的快捷键(null = 当前没有热键在生效);界面显示用它而非库值 */
   getInputHotkey: () => invoke<string | null>('get_input_hotkey'),
+  /** 应用内快捷键(命令面板 / 快速打开笔记)的唯一写路径:经 Rust 规范化 + 冲突检查后落库,
+   *  返回规范化值;accelerator 传空串 = 清除自定义(读取侧回退默认键)。
+   *  失败给中文原因(语法非法 / 与系统级键冲突 / 与另一个应用内键冲突)且旧键保持可用 */
+  setAppHotkey: (kind: AppHotkeyKind, accelerator: string) =>
+    invoke<string>('set_app_hotkey', { kind, accelerator }),
   /** 显示(不切换)输入栏:主窗空库引导用 */
   showInputWindow: () => invoke<void>('show_input_bar'),
   /** 取一次「迁移前自动备份失败」提示(取值即清空;无提示时返回 null) */

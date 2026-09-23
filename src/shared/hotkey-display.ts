@@ -1,7 +1,9 @@
 // 输入栏唤起快捷键的纯逻辑与显示文案(可单测,不碰 DOM 与 IPC)。
-// 规则与 Rust 侧 src-tauri/src/hotkey.rs 对齐:1-3 个键、单键只允许 F1-F24、
-// 规范化顺序 Ctrl+Alt+Shift+Super+主键。本地只做形态预检(即时中文提示),
-// **正式判定以 Rust 为准**(未知键名只有插件解析器认得出来,由命令返回中文原因)。
+// 规则与 Rust 侧 src-tauri/src/hotkey_spec.rs 对齐:1-3 个键、单键只允许 F1-F24、
+// 规范化顺序 Ctrl+Alt+Shift+Super+主键;主键名表见 hotkey-keys(与插件解析器同源)。
+// 本地只做形态预检(即时中文提示),**正式判定以 Rust 为准**(命令返回中文原因)。
+import { canonicalMainKey } from './hotkey-keys';
+
 export const DEFAULT_HOTKEY = 'ctrl+shift+q';
 export const HOTKEY_KEY = 'input_hotkey';
 
@@ -25,16 +27,6 @@ const MOD_ALIASES: Record<string, string> = {
 };
 /** 单个按键只允许功能键(避免把全系统的普通键劫持成全局热键) */
 const SINGLE_FUNCTION_KEY = /^f([1-9]|1[0-9]|2[0-4])$/;
-/** 主键名的形态:字母/数字/插件规范名(space、numpadadd…);具体合法性交给 Rust */
-const MAIN_KEY_SHAPE = /^[a-z0-9]{1,16}$/;
-/** 插件别名归一:KeyQ -> q、Digit5 -> 5(与 Rust 的规范名一致) */
-const KEY_ALIAS = /^key([a-z])$/;
-const DIGIT_ALIAS = /^digit([0-9])$/;
-
-function canonicalMainKey(token: string): string {
-  const lower = token.toLowerCase();
-  return KEY_ALIAS.exec(lower)?.[1] ?? DIGIT_ALIAS.exec(lower)?.[1] ?? lower;
-}
 /** 修饰键自身的 DOM code:按下修饰键时不算按下了主键 */
 const MODIFIER_CODES = new Set([
   'ControlLeft',
@@ -60,7 +52,7 @@ export function normalizeParts(parts: string[]): string | null {
       continue;
     }
     const key = canonicalMainKey(token);
-    if (!MAIN_KEY_SHAPE.test(key)) return null;
+    if (key === null) return null; // 未知键名:与 Rust 一致拒绝(表见 hotkey-keys)
     keys.push(key);
   }
   if (keys.length !== 1) return null;
@@ -156,7 +148,7 @@ export function hotkeyHint(parts: string[]): string {
   const main = tokens.filter((t) => !isMod(t));
   if (main.length === 0) return '还需要一个主键(如 Q 或 F5)';
   if (main.length > 1) return '只能有一个主键';
-  if (tokens.length === 1 && !SINGLE_FUNCTION_KEY.test(canonicalMainKey(main[0]))) {
+  if (tokens.length === 1 && !SINGLE_FUNCTION_KEY.test(canonicalMainKey(main[0]) ?? '')) {
     return '单个按键只允许 F1-F24';
   }
   return '';

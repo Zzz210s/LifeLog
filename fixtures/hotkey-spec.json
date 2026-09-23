@@ -1,37 +1,659 @@
 {
-  "note": "应用内快捷键规范化的共享向量。cases = 键名片段 -> 规范化加速键(小写,修饰键序 ctrl/alt/shift/super),与 src-tauri/src/hotkey_spec.rs 的 validate 同规则,Rust 侧镜像后续任务读同一段;events = DOM 事件面(TS 独有:Rust 没有 KeyboardEvent)。normalized 为 null 表示非法(key 数 1-3、单键仅 F1-F24、单主键)。",
+  "note": "应用内快捷键规范化的共享向量。cases = 键名片段 -> 规范化加速键(小写,修饰键序 ctrl/alt/shift/super),与 src-tauri/src/hotkey_spec.rs 的 validate 同规则;mainKeys = 插件解析器(global-hotkey 0.8 parse_key)认识的**全部**规范主键名,TS(hotkey-keys.ts)与 Rust(hotkey_fixtures_tests.rs)两侧都读它做漂移探测;events = DOM 事件面(TS 独有:Rust 没有 KeyboardEvent)。normalized 为 null 表示非法(key 数 1-3、单键仅 F1-F24、单主键、主键名必须在 mainKeys 里)。",
   "cases": [
-    { "why": "修饰键按 Ctrl -> Alt -> Shift -> Super 排序", "keys": ["shift", "ctrl", "p"], "normalized": "ctrl+shift+p" },
-    { "why": "主键大小写不敏感", "keys": ["ctrl", "shift", "P"], "normalized": "ctrl+shift+p" },
-    { "why": "control 是 ctrl 的别名", "keys": ["control", "q"], "normalized": "ctrl+q" },
-    { "why": "cmd/meta/win 都归一为 super", "keys": ["cmd", "space"], "normalized": "super+space" },
-    { "why": "win 同上", "keys": ["win", "Digit5"], "normalized": "super+5" },
-    { "why": "cmdorctrl 系列(插件别名)归一为 ctrl", "keys": ["cmdorctrl", "p"], "normalized": "ctrl+p" },
-    { "why": "插件别名 KeyQ -> q", "keys": ["Ctrl", "KeyQ"], "normalized": "ctrl+q" },
-    { "why": "单个功能键允许(F1-F24)", "keys": ["f5"], "normalized": "f5" },
-    { "why": "上界 F24 允许", "keys": ["f24"], "normalized": "f24" },
-    { "why": "单键必须功能键:普通字母拒绝", "keys": ["a"], "normalized": null },
-    { "why": "单键必须功能键:数字拒绝", "keys": ["5"], "normalized": null },
-    { "why": "3 键组合须含修饰键:两个主键拒绝", "keys": ["ctrl", "p", "q"], "normalized": null },
-    { "why": "只有修饰键不算组合", "keys": ["ctrl", "alt"], "normalized": null },
-    { "why": "超过 3 个键拒绝", "keys": ["ctrl", "shift", "alt", "p"], "normalized": null },
-    { "why": "空输入拒绝", "keys": [], "normalized": null },
-    { "why": "F25 超出单键范围", "keys": ["f25"], "normalized": null },
-    { "why": "重复修饰键去重后仍是 2 键组合", "keys": ["ctrl", "ctrl", "p"], "normalized": "ctrl+p" },
-    { "why": "修饰键 + 功能键", "keys": ["shift", "f5"], "normalized": "shift+f5" },
-    { "why": "命名键保留规范名", "keys": ["ctrl", "escape"], "normalized": "ctrl+escape" }
+    {
+      "why": "修饰键按 Ctrl -> Alt -> Shift -> Super 排序",
+      "keys": [
+        "shift",
+        "ctrl",
+        "p"
+      ],
+      "normalized": "ctrl+shift+p"
+    },
+    {
+      "why": "主键大小写不敏感",
+      "keys": [
+        "ctrl",
+        "shift",
+        "P"
+      ],
+      "normalized": "ctrl+shift+p"
+    },
+    {
+      "why": "control 是 ctrl 的别名",
+      "keys": [
+        "control",
+        "q"
+      ],
+      "normalized": "ctrl+q"
+    },
+    {
+      "why": "cmd/meta/win 都归一为 super",
+      "keys": [
+        "cmd",
+        "space"
+      ],
+      "normalized": "super+space"
+    },
+    {
+      "why": "win 同上",
+      "keys": [
+        "win",
+        "Digit5"
+      ],
+      "normalized": "super+5"
+    },
+    {
+      "why": "cmdorctrl 系列(插件别名)归一为 ctrl",
+      "keys": [
+        "cmdorctrl",
+        "p"
+      ],
+      "normalized": "ctrl+p"
+    },
+    {
+      "why": "插件别名 KeyQ -> q",
+      "keys": [
+        "Ctrl",
+        "KeyQ"
+      ],
+      "normalized": "ctrl+q"
+    },
+    {
+      "why": "单个功能键允许(F1-F24)",
+      "keys": [
+        "f5"
+      ],
+      "normalized": "f5"
+    },
+    {
+      "why": "上界 F24 允许",
+      "keys": [
+        "f24"
+      ],
+      "normalized": "f24"
+    },
+    {
+      "why": "单键必须功能键:普通字母拒绝",
+      "keys": [
+        "a"
+      ],
+      "normalized": null
+    },
+    {
+      "why": "单键必须功能键:数字拒绝",
+      "keys": [
+        "5"
+      ],
+      "normalized": null
+    },
+    {
+      "why": "3 键组合须含修饰键:两个主键拒绝",
+      "keys": [
+        "ctrl",
+        "p",
+        "q"
+      ],
+      "normalized": null
+    },
+    {
+      "why": "只有修饰键不算组合",
+      "keys": [
+        "ctrl",
+        "alt"
+      ],
+      "normalized": null
+    },
+    {
+      "why": "超过 3 个键拒绝",
+      "keys": [
+        "ctrl",
+        "shift",
+        "alt",
+        "p"
+      ],
+      "normalized": null
+    },
+    {
+      "why": "空输入拒绝",
+      "keys": [],
+      "normalized": null
+    },
+    {
+      "why": "F25 超出单键范围",
+      "keys": [
+        "f25"
+      ],
+      "normalized": null
+    },
+    {
+      "why": "重复修饰键去重后仍是 2 键组合",
+      "keys": [
+        "ctrl",
+        "ctrl",
+        "p"
+      ],
+      "normalized": "ctrl+p"
+    },
+    {
+      "why": "修饰键 + 功能键",
+      "keys": [
+        "shift",
+        "f5"
+      ],
+      "normalized": "shift+f5"
+    },
+    {
+      "why": "命名键保留规范名",
+      "keys": [
+        "ctrl",
+        "escape"
+      ],
+      "normalized": "ctrl+escape"
+    },
+    {
+      "why": "未知主键名(原 11 条分歧 A 组):TS 与 Rust 必须一致拒绝",
+      "keys": [
+        "ctrl",
+        "zzz"
+      ],
+      "normalized": null
+    },
+    {
+      "why": "未知主键名(同上)",
+      "keys": [
+        "ctrl",
+        "foobar"
+      ],
+      "normalized": null
+    },
+    {
+      "why": "未知主键名(同上)",
+      "keys": [
+        "ctrl",
+        "abc123"
+      ],
+      "normalized": null
+    },
+    {
+      "why": "F25 不在插件解析表里(带修饰键也不认)",
+      "keys": [
+        "ctrl",
+        "f25"
+      ],
+      "normalized": null
+    },
+    {
+      "why": "F35 同上(单键上界是 F24)",
+      "keys": [
+        "ctrl",
+        "f35"
+      ],
+      "normalized": null
+    },
+    {
+      "why": "numpadfoo 不是键名",
+      "keys": [
+        "ctrl",
+        "numpadfoo"
+      ],
+      "normalized": null
+    },
+    {
+      "why": "intlbackslash 键盘上存在但插件不认",
+      "keys": [
+        "ctrl",
+        "intlbackslash"
+      ],
+      "normalized": null
+    },
+    {
+      "why": "裸 key(没有字母后缀)不是键名",
+      "keys": [
+        "ctrl",
+        "key"
+      ],
+      "normalized": null
+    },
+    {
+      "why": "裸 digit(没有数字后缀)不是键名",
+      "keys": [
+        "ctrl",
+        "digit"
+      ],
+      "normalized": null
+    },
+    {
+      "why": "esc 是 escape 的插件别名(原 11 条分歧 B 组:TS 也要归一到插件规范名)",
+      "keys": [
+        "ctrl",
+        "esc"
+      ],
+      "normalized": "ctrl+escape"
+    },
+    {
+      "why": "volumeup 归一到插件规范名 audiovolumeup(B 组)",
+      "keys": [
+        "ctrl",
+        "volumeup"
+      ],
+      "normalized": "ctrl+audiovolumeup"
+    },
+    {
+      "why": "缺主键:只有修饰键",
+      "keys": [
+        "ctrl",
+        "shift"
+      ],
+      "normalized": null
+    },
+    {
+      "why": "修饰键 + 功能键(alt+F1)",
+      "keys": [
+        "alt",
+        "f1"
+      ],
+      "normalized": "alt+f1"
+    },
+    {
+      "why": "大小写混写一律小写归一",
+      "keys": [
+        "CTRL",
+        "Shift",
+        "P"
+      ],
+      "normalized": "ctrl+shift+p"
+    },
+    {
+      "why": "多余修饰键:4 键一律拒绝(不是忽略多余的那个)",
+      "keys": [
+        "ctrl",
+        "alt",
+        "shift",
+        "p"
+      ],
+      "normalized": null
+    },
+    {
+      "why": "cmdorctrl 别名(非 mac 平台映射为 ctrl)",
+      "keys": [
+        "cmdorctrl",
+        "p"
+      ],
+      "normalized": "ctrl+p"
+    },
+    {
+      "why": "win 别名 + 大小写混写主键",
+      "keys": [
+        "win",
+        "shift",
+        "q"
+      ],
+      "normalized": "shift+super+q"
+    },
+    {
+      "why": "单键必须功能键:esc 单独按下同样拒绝",
+      "keys": [
+        "esc"
+      ],
+      "normalized": null
+    },
+    {
+      "why": "方向键别名 up -> arrowup",
+      "keys": [
+        "ctrl",
+        "up"
+      ],
+      "normalized": "ctrl+arrowup"
+    },
+    {
+      "why": "插件规范名 audiovolumeup 原样保留",
+      "keys": [
+        "ctrl",
+        "audiovolumeup"
+      ],
+      "normalized": "ctrl+audiovolumeup"
+    },
+    {
+      "why": "numpadplus 别名 -> numpadadd",
+      "keys": [
+        "ctrl",
+        "numpadplus"
+      ],
+      "normalized": "ctrl+numpadadd"
+    },
+    {
+      "why": "volumedown 别名 -> audiovolumedown",
+      "keys": [
+        "ctrl",
+        "volumedown"
+      ],
+      "normalized": "ctrl+audiovolumedown"
+    },
+    {
+      "why": "return 不是插件键名(应写 enter)",
+      "keys": [
+        "ctrl",
+        "return"
+      ],
+      "normalized": null
+    },
+    {
+      "why": "符号别名 -> 规范名",
+      "keys": [
+        "ctrl",
+        "["
+      ],
+      "normalized": "ctrl+bracketleft"
+    },
+    {
+      "why": "大小写混写的插件别名 KEYQ -> q",
+      "keys": [
+        "ctrl",
+        "KEYQ"
+      ],
+      "normalized": "ctrl+q"
+    },
+    {
+      "why": "mediatrackprev 别名 -> mediatrackprevious",
+      "keys": [
+        "ctrl",
+        "mediatrackprev"
+      ],
+      "normalized": "ctrl+mediatrackprevious"
+    },
+    {
+      "why": "两个主键(无修饰键)拒绝",
+      "keys": [
+        "p",
+        "q"
+      ],
+      "normalized": null
+    },
+    {
+      "why": "num0 是 numpad0 的插件别名(旧 TS 按形态放行会留下 num0,与 Rust 漂移)",
+      "keys": [
+        "ctrl",
+        "num0"
+      ],
+      "normalized": "ctrl+numpad0"
+    },
+    {
+      "why": "numadd 别名 -> numpadadd",
+      "keys": [
+        "ctrl",
+        "numadd"
+      ],
+      "normalized": "ctrl+numpadadd"
+    },
+    {
+      "why": "mediatrackprevious 规范名原样保留",
+      "keys": [
+        "ctrl",
+        "mediatrackprevious"
+      ],
+      "normalized": "ctrl+mediatrackprevious"
+    },
+    {
+      "why": "pausebreak 别名 -> pause",
+      "keys": [
+        "ctrl",
+        "pausebreak"
+      ],
+      "normalized": "ctrl+pause"
+    }
+  ],
+  "mainKeys": [
+    "0",
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "a",
+    "arrowdown",
+    "arrowleft",
+    "arrowright",
+    "arrowup",
+    "audiovolumedown",
+    "audiovolumemute",
+    "audiovolumeup",
+    "b",
+    "backquote",
+    "backslash",
+    "backspace",
+    "bracketleft",
+    "bracketright",
+    "c",
+    "capslock",
+    "comma",
+    "d",
+    "delete",
+    "e",
+    "end",
+    "enter",
+    "equal",
+    "escape",
+    "f",
+    "f1",
+    "f10",
+    "f11",
+    "f12",
+    "f13",
+    "f14",
+    "f15",
+    "f16",
+    "f17",
+    "f18",
+    "f19",
+    "f2",
+    "f20",
+    "f21",
+    "f22",
+    "f23",
+    "f24",
+    "f3",
+    "f4",
+    "f5",
+    "f6",
+    "f7",
+    "f8",
+    "f9",
+    "g",
+    "h",
+    "home",
+    "i",
+    "insert",
+    "j",
+    "k",
+    "l",
+    "m",
+    "mediapause",
+    "mediaplay",
+    "mediaplaypause",
+    "mediastop",
+    "mediatracknext",
+    "mediatrackprevious",
+    "minus",
+    "n",
+    "numlock",
+    "numpad0",
+    "numpad1",
+    "numpad2",
+    "numpad3",
+    "numpad4",
+    "numpad5",
+    "numpad6",
+    "numpad7",
+    "numpad8",
+    "numpad9",
+    "numpadadd",
+    "numpaddecimal",
+    "numpaddivide",
+    "numpadenter",
+    "numpadequal",
+    "numpadmultiply",
+    "numpadsubtract",
+    "o",
+    "p",
+    "pagedown",
+    "pageup",
+    "pause",
+    "period",
+    "printscreen",
+    "q",
+    "quote",
+    "r",
+    "s",
+    "scrolllock",
+    "semicolon",
+    "slash",
+    "space",
+    "t",
+    "tab",
+    "u",
+    "v",
+    "w",
+    "x",
+    "y",
+    "z"
   ],
   "events": [
-    { "why": "Ctrl+P 命中存储值", "event": { "ctrlKey": true, "altKey": false, "shiftKey": false, "metaKey": false, "code": "KeyP" }, "stored": "ctrl+p", "match": true },
-    { "why": "多余修饰键不算命中", "event": { "ctrlKey": true, "altKey": false, "shiftKey": true, "metaKey": false, "code": "KeyP" }, "stored": "ctrl+p", "match": false },
-    { "why": "少一个修饰键不算命中", "event": { "ctrlKey": true, "altKey": false, "shiftKey": false, "metaKey": false, "code": "KeyP" }, "stored": "ctrl+shift+p", "match": false },
-    { "why": "Cmd 事件映射 super 后命中", "event": { "ctrlKey": false, "altKey": false, "shiftKey": false, "metaKey": true, "code": "KeyP" }, "stored": "super+p", "match": true },
-    { "why": "无修饰键的 F5 命中", "event": { "ctrlKey": false, "altKey": false, "shiftKey": false, "metaKey": false, "code": "F5" }, "stored": "f5", "match": true },
-    { "why": "修饰键顺序不影响命中(存储值与事件都先规范化)", "event": { "ctrlKey": true, "altKey": true, "shiftKey": false, "metaKey": false, "code": "KeyP" }, "stored": "alt+ctrl+p", "match": true },
-    { "why": "存储值大小写不一也命中(比较前规范化)", "event": { "ctrlKey": true, "altKey": false, "shiftKey": false, "metaKey": false, "code": "KeyP" }, "stored": "CTRL+P", "match": true },
-    { "why": "只按下修饰键不算命中", "event": { "ctrlKey": true, "altKey": false, "shiftKey": false, "metaKey": false, "code": "ControlLeft" }, "stored": "ctrl+p", "match": false },
-    { "why": "普通单键存储值非法,永不命中", "event": { "ctrlKey": false, "altKey": false, "shiftKey": false, "metaKey": false, "code": "KeyA" }, "stored": "a", "match": false },
-    { "why": "存储值为空(null)时不命中", "event": { "ctrlKey": true, "altKey": false, "shiftKey": false, "metaKey": false, "code": "KeyP" }, "stored": null, "match": false },
-    { "why": "无关键不命中", "event": { "ctrlKey": true, "altKey": false, "shiftKey": false, "metaKey": false, "code": "KeyQ" }, "stored": "ctrl+p", "match": false }
+    {
+      "why": "Ctrl+P 命中存储值",
+      "event": {
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false,
+        "code": "KeyP"
+      },
+      "stored": "ctrl+p",
+      "match": true
+    },
+    {
+      "why": "多余修饰键不算命中",
+      "event": {
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": true,
+        "metaKey": false,
+        "code": "KeyP"
+      },
+      "stored": "ctrl+p",
+      "match": false
+    },
+    {
+      "why": "少一个修饰键不算命中",
+      "event": {
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false,
+        "code": "KeyP"
+      },
+      "stored": "ctrl+shift+p",
+      "match": false
+    },
+    {
+      "why": "Cmd 事件映射 super 后命中",
+      "event": {
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": true,
+        "code": "KeyP"
+      },
+      "stored": "super+p",
+      "match": true
+    },
+    {
+      "why": "无修饰键的 F5 命中",
+      "event": {
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false,
+        "code": "F5"
+      },
+      "stored": "f5",
+      "match": true
+    },
+    {
+      "why": "修饰键顺序不影响命中(存储值与事件都先规范化)",
+      "event": {
+        "ctrlKey": true,
+        "altKey": true,
+        "shiftKey": false,
+        "metaKey": false,
+        "code": "KeyP"
+      },
+      "stored": "alt+ctrl+p",
+      "match": true
+    },
+    {
+      "why": "存储值大小写不一也命中(比较前规范化)",
+      "event": {
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false,
+        "code": "KeyP"
+      },
+      "stored": "CTRL+P",
+      "match": true
+    },
+    {
+      "why": "只按下修饰键不算命中",
+      "event": {
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false,
+        "code": "ControlLeft"
+      },
+      "stored": "ctrl+p",
+      "match": false
+    },
+    {
+      "why": "普通单键存储值非法,永不命中",
+      "event": {
+        "ctrlKey": false,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false,
+        "code": "KeyA"
+      },
+      "stored": "a",
+      "match": false
+    },
+    {
+      "why": "存储值为空(null)时不命中",
+      "event": {
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false,
+        "code": "KeyP"
+      },
+      "stored": null,
+      "match": false
+    },
+    {
+      "why": "无关键不命中",
+      "event": {
+        "ctrlKey": true,
+        "altKey": false,
+        "shiftKey": false,
+        "metaKey": false,
+        "code": "KeyQ"
+      },
+      "stored": "ctrl+p",
+      "match": false
+    }
   ]
 }

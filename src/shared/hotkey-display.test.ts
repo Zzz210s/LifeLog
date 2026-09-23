@@ -46,7 +46,9 @@ describe('normalizeAccelerator', () => {
     expect(normalizeAccelerator('shift+ctrl+q')).toBe('ctrl+shift+q');
     expect(normalizeAccelerator('KeyQ+CTRL')).toBe('ctrl+q');
     expect(normalizeAccelerator('f24')).toBe('f24');
-    expect(normalizeAccelerator('num0+ctrl')).toBe('ctrl+num0');
+    // num0 是插件别名,规范名是 numpad0(与 Rust 的 canonical_key 一致;旧实现按形态放行会留下 num0)
+    expect(normalizeAccelerator('num0+ctrl')).toBe('ctrl+numpad0');
+    expect(normalizeAccelerator('ctrl+esc')).toBe('ctrl+escape');
   });
   it('非法组合被拒', () => {
     for (const raw of ['', 'q', 'space', 'ctrl', 'ctrl+shift', 'ctrl+alt+shift+q', 'ctrl+q+z']) {
