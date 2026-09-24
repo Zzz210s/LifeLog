@@ -1,8 +1,9 @@
 /**
  * 标签树纯函数(spec 6.1 标签分区):扁平行(list_tags,路径序)转嵌套树、
- * 类型过滤(命中保留祖先链)、可选性判定、改名/移动后的条件路径改写。
+ * 可选性判定、改名/移动后的条件路径改写。
  * 时间标签已降级为普通标签(D3):本模块不再有任何时间子树的特殊处理。
  * 全部无副作用,可单测;UI 在 TagsSection 里消费。
+ * (2/3 Task 5:侧栏过滤框已删,`filterTree` 随之删除;过滤改由统一输入框驱动。)
  */
 import type { TagCount } from '../../shared/types';
 import type { FilterConditions } from '../../shared/filter-conditions';
@@ -95,26 +96,6 @@ export function buildTree(rows: TagCount[]): TagNode[] {
 }
 
 /**
- * 类型过滤:按完整路径子串匹配(不区分大小写),命中节点的祖先链保留、
- * 未命中的兄弟分支裁掉。空白查询返回原数组(不过滤)。
- */
-export function filterTree(nodes: TagNode[], query: string): TagNode[] {
-  const q = query.trim().toLowerCase();
-  if (q === '') return nodes;
-  const walk = (list: TagNode[]): TagNode[] => {
-    const out: TagNode[] = [];
-    for (const n of list) {
-      const children = walk(n.children);
-      if (n.path.toLowerCase().includes(q) || children.length > 0) {
-        out.push(children.length > 0 ? { ...n, children } : n);
-      }
-    }
-    return out;
-  };
-  return walk(nodes);
-}
-
-/**
  * 可选性(2026-09-20 spec §5.2 / D9,有意变更):含子级计数 > 0 即可选 —— "子蕴含父",
  * 父标签行点击 = 加入筛选(applyTagPick 默认含子级),展开仍靠箭头(stopPropagation 单独处理)。
  * 含子级计数为 0 的空容器不可选:筛它只会得到空结果,只能展开/右键管理。
@@ -137,17 +118,22 @@ export function isManageable(node: TagNode): node is ManagedNode {
 }
 
 /**
- * 侧栏标签行点击的两侧判定(修复轮):路径在排除侧 -> 移除该排除项
- * (用户意图是撤掉这个排除);在引入侧 -> 移除引入;两侧都不在 ->
- * applyTagPick 加入引入侧(含子级)。与 TagPickDialog 的跨侧禁选保持同一不变量:
- * 同一路径永不同时存在两侧(结果恒空无意义)。
+ * 侧栏标签行点击的两侧判定(2026-09-24 计划 2/3 Task 5 定死一个口径):
+ * **任何"采纳这个标签"的动作都把该路径移到包含侧** —— 排除侧命中 -> 撤掉排除项再加进引入侧
+ * (与统一输入框 `#` 的采纳同口径);已在引入侧 -> 移除(再点 = 取消);两侧都不在 ->
+ * applyTagPick 加入引入侧(含子级)。不变量不变:同一路径永不同时存在两侧(结果恒空无意义)。
  */
 export function toggleTagPick(
   c: FilterConditions,
   path: string
 ): Partial<FilterConditions> {
   if (c.excludeTags.some((t) => t.path === path)) {
-    return { excludeTags: c.excludeTags.filter((t) => t.path !== path) };
+    const moved = applyTagPick(
+      { ...c, excludeTags: c.excludeTags.filter((t) => t.path !== path) },
+      path,
+      { exclude: false, includeChildren: true }
+    );
+    return { tags: moved.tags, excludeTags: moved.excludeTags };
   }
   if (c.tags.some((t) => t.path === path)) {
     return { tags: c.tags.filter((t) => t.path !== path) };

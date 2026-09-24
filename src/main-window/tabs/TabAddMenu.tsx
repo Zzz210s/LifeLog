@@ -3,8 +3,9 @@
  * 加「把当前筛选开成新标签页」。菜单交互与筛选栏的添加条件菜单同款:
  * 点击菜单外或 Esc 关闭。
  */
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import { useDismiss } from '../shell/use-dismiss';
 import type { PresetKey } from './tab-presets';
 import { TAB_PRESETS } from './tab-presets';
 
@@ -20,25 +21,8 @@ const ITEM_CLASS =
 export function TabAddMenu(p: TabAddMenuProps): ReactNode {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (!root.current?.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation();
-        setOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey, true);
-    return () => {
-      document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey, true);
-    };
-  }, [open]);
+  // 关闭手势统一到 shell/use-dismiss(点菜单外 / Esc 捕获阶段拦下),不再内联一份副本
+  useDismiss(open, root, () => setOpen(false));
 
   const act = (fn: () => void) => {
     fn();

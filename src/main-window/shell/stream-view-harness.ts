@@ -2,7 +2,7 @@
 /**
  * StreamView 的测试装配(自 stream-view-accept.dom.test.ts 抽出:两份用例文件共用,且单文件守 200 行红线)。
  *
- * 挂**真** `UnifiedInput`(真键盘路由)+ 桩浮层控制器(只提供行与高亮),数据层(api)由各用例文件
+ * 挂**真** `UnifiedInput`(真键盘路由)+ 桩候选控制器(只提供行与高亮),数据层(api)由各用例文件
  * 自己 `vi.mock`(vi.mock 必须写在用例文件里:助手的静态 import 先于助手模块体执行,写在这里会太晚)。
  * 这里只给"造数据 + 打字 + 按键 + 几何桩"这些与断言无关的样板。
  */
@@ -81,9 +81,8 @@ export async function mountStreamView(o: MountOptions = {}): Promise<Mounted> {
   const rows = o.rows ?? [];
   const initial = o.conditions ?? EMPTY_FILTER;
   const palette: PaletteController = {
-    isOpen: false, prefix: '', query: '', rows, total: rows.length, truncated: false, activeIndex: 0,
-    inputRef: { current: null }, open: () => {}, close: () => {}, setQuery: () => {}, setPrefix: () => {},
-    setActiveIndex: () => {}, accept: () => {}, handleKeyDown: () => {},
+    prefix: '', query: '', rows, total: rows.length, truncated: false, activeIndex: 0,
+    setQuery: () => {}, setPrefix: () => {}, setActiveIndex: () => {},
   };
   const props: Parameters<typeof StreamView>[0] = {
     visible: true, tabs: tabsStub(), conditions: initial, notes: o.notes ?? [],

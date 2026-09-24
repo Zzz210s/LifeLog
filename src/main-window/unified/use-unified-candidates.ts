@@ -1,5 +1,5 @@
 /**
- * 统一输入框的候选(计划 Task 5):把输入框的 `(mode, query)` **常驻**推进浮层控制器的候选态,
+ * 统一输入框的候选(计划 Task 5):把输入框的 `(mode, query)` **常驻**推进候选控制器的候选态,
  * 再把控制器里的列表原样投影给下拉。
  *
  * 为什么不在这里自己取候选:候选池(`createNoteCandidates`/`createTagCandidates`)、行装饰、
@@ -7,8 +7,7 @@
  * 复制一份就会多出第二个 matcher/候选池。本文件只做两件事:
  *  1) **驱动**:`note` / `filter` 没有下拉(清掉前缀,停掉后台取候选),其余三类把
  *     `前缀 + query` 写进控制器 —— 控制器里的 `splitPrefix` 会照注册表把它重新切成
- *     (前缀, query),于是复用同一套 provider 解析;浮层自己打开时不驱动(两种候选 UI
- *     不得同时出现,调用方的渲染条件再兜一层)。
+ *     (前缀, query),于是复用同一套 provider 解析。
  *  2) **投影**:三类前缀返回控制器的 `rows/total/truncated`,其余返回空列表。
  *
  * `refreshKey` / `onError` 与 `useAppPalette` 的取候选参数同值(标签数据版本、主窗错误条),
@@ -37,7 +36,7 @@ export interface UnifiedCandidateOptions {
   refreshKey: number;
   /** 取回失败的中文原因出口 */
   onError: (message: string) => void;
-  /** 浮层控制器(宿主没接浮层时为 null:本 hook 退化为空列表,不驱动) */
+  /** 候选控制器(宿主没接时为 null:本 hook 退化为空列表,不驱动) */
   controller: PaletteController | null;
 }
 
@@ -49,7 +48,7 @@ export interface UnifiedCandidates {
 
 /** 宿主一次给全的候选接线(统一输入框只透传,不自己拼散字段) */
 export interface UnifiedCandidateWiring {
-  /** 浮层控制器:候选/高亮/采纳状态的唯一宿主 */
+  /** 候选控制器:候选/高亮状态的唯一宿主 */
   palette: PaletteController;
   /** 行装饰(命令快捷键/标签计数/笔记日期),按行 id 索引 */
   decorations?: Readonly<Record<string, RowDecoration>>;
@@ -64,7 +63,6 @@ const EMPTY: UnifiedCandidates = { rows: [], total: 0, truncated: false };
 export function useUnifiedCandidates(o: UnifiedCandidateOptions): UnifiedCandidates {
   const prefix = PREFIX_FOR_MODE[o.mode];
   const controller = o.controller;
-  const isOpen = controller?.isOpen ?? false;
   // 控制器对象每次渲染都是新的(usePalette 返回字面量),方法身份才稳定(useCallback):
   // 用 ref 取最新一份。
   const latest = useRef(controller);
@@ -76,16 +74,12 @@ export function useUnifiedCandidates(o: UnifiedCandidateOptions): UnifiedCandida
   useEffect(() => {
     const ctl = latest.current;
     if (ctl === null) return;
-    if (isOpen) {
-      driven.current = null; // 浮层接管;它关掉后要重新驱动一次
-      return;
-    }
     const key = (prefix ?? '') + '\u0000' + o.query;
     if (driven.current === key) return;
     driven.current = key;
     if (prefix === null) ctl.setPrefix('');
     else ctl.setQuery(prefix + o.query);
-  }, [prefix, o.query, isOpen]);
+  }, [prefix, o.query]);
 
   if (prefix === null || controller === null) return EMPTY;
   return { rows: controller.rows, total: controller.total, truncated: controller.truncated };

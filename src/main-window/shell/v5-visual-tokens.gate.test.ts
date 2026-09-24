@@ -7,7 +7,7 @@
  * - 字号:只允许 7 档令牌(text-display/title/body/body-sm/ui/label/micro),禁 text-xs/sm/base/lg/[Npx]
  * - 圆角:只允许 rounded-xs/sm/md/lg(+ 开关的 rounded-full,单列例外)
  * - 按钮/输入:不再出现 h-6 这类旧档与 rounded-md
- * - 浮层:容器 rounded-lg + (shadow-lg 或 overlay-scrim);模态层必须有 bg-overlay 遮罩
+ * - 浮层:容器 rounded-lg + shadow-lg;模态层必须有 bg-overlay 遮罩
  * - 对比度:白底不用 text-faint,只有 placeholder: 与 disabled: 两处豁免
  */
 import { readFileSync } from 'node:fs';
@@ -55,7 +55,7 @@ const FLOATS: Array<[string, string]> = [
   ['sidebar/TagMenu.tsx', 'role="menu"'],
 ];
 
-/** 有模态遮罩的文件(浮层外壳 bg-overlay 或纯 CSS 的 overlay-scrim) */
+/** 有模态遮罩的文件(对话框的 bg-overlay;2/3 Task 5 已删零使用者的 .overlay-scrim) */
 const SCRIMS: Array<[string, string]> = [
   ['filter/ExprDialog.tsx', 'bg-overlay'],
   ['filter/TagPickDialog.tsx', 'bg-overlay'],
@@ -140,26 +140,18 @@ describe('V5 门禁:浮层容器与遮罩', () => {
     expect(bad.map(([f]) => f)).toEqual([]);
   });
 
-  it('每个浮层都有阴影:shadow-lg 或 overlay-scrim(内含 --shadow-lg)', () => {
-    const bad = FLOATS.filter(([file]) => {
-      const t = src(file);
-      return !t.includes('shadow-lg') && !t.includes('overlay-scrim');
-    });
+  it('每个浮层都有阴影:shadow-lg', () => {
+    const bad = FLOATS.filter(([file]) => !src(file).includes('shadow-lg'));
     expect(bad.map(([f]) => f)).toEqual([]);
   });
 
-  it('模态浮层都有遮罩:shell 层浮层用 overlay-scrim,对话框用 bg-overlay', () => {
+  it('模态浮层都有遮罩:对话框用 bg-overlay', () => {
     const bad = SCRIMS.filter(([file, token]) => !src(file).includes(token));
     expect(bad.map(([f]) => f)).toEqual([]);
   });
 
-  // 记账(修复轮 1):`.overlay-scrim` 目前**零使用者** —— 命令面板外壳已随统一输入框删除(浮层改成
-  // 列表外的下拉,不吃遮罩)。保留不删的理由:它是视觉刷新 V5「设计 §4-9」的基元,2/3 的对话框/
-  // 其它 shell 层浮层还会用到,单方面删掉等于自创设计变更。若后续确认不再需要,应把这条断言与
-  // main.css 里的基元一起删(不留死 CSS)。
-  it('main.css 定义了两个新基元:overlay-scrim(阴影 + 100vmax overlay)与 tag-guides', () => {
+  it('main.css 定义了标签树导轨基元 tag-guides', () => {
     const css = readFileSync('src/main-window/main.css', 'utf8');
-    expect(css).toMatch(/\.overlay-scrim\s*\{[^}]*var\(--shadow-lg\)[^}]*100vmax\s+var\(--color-overlay\)/);
     expect(css).toMatch(/\.tag-guides\s*\{[^}]*repeating-linear-gradient\([^)]*\)[^}]*var\(--tag-guide/);
   });
 });

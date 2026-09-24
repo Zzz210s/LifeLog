@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { isFilterEmpty } from '../shared/filter-conditions';
 import { useThemeMode } from '../shared/use-theme-mode';
@@ -33,7 +33,7 @@ export function App(): ReactNode {
   const { conditions, patch, toggleTag, reload: reloadTabs } = tabs;
   const sidebar = useSidebarState();
   const { errors, setError, clearError } = useAppErrors();
-  // 标签树数据与版本号(版本号是浮层 `#` 候选池的作废键;重载只由 tags-changed 唯一出口驱动)
+  // 标签树数据与版本号(版本号是 `#` 候选池的作废键;重载只由 tags-changed 唯一出口驱动)
   const { tagRows, tagsVersion } = useTagRows(setError, clearError);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [view, setView] = useState<MainView>('stream');
@@ -93,22 +93,15 @@ export function App(): ReactNode {
   // 顶栏溢出菜单四条:标题与勾选态取自命令表,执行走同一条 commands.execute(与 `>` 一致)
   const menuItems = topBarMenuItems({ sort: conditions.sort, exporting, run: (id) => void commands.execute(id) });
 
-  // 主区容器 = 候选下拉关闭时的焦点归位锚点(tabIndex=-1 才可聚焦;可见焦点环见 className)
-  const anchorRef = useRef<HTMLDivElement>(null);
+  // 候选控制器/装饰 + 快捷键接线(prefill 是唯一入口;采纳副作用在 StreamView)
   const { controller, decorations, unified, prefill } = useMainPalette({
-    anchorRef,
     registry: commands.registry,
-    executeCommand: commands.execute,
     beforePrefill: () => setView('stream'),
     tagsVersion,
+    conditions,
     tabCount: tabs.tabs.length,
     sidebarVisible: sidebar.visible,
     editingId,
-    notes,
-    loadingNotes: loading,
-    conditions,
-    clearFilters,
-    toggleTag,
     setError,
   });
 
@@ -123,10 +116,8 @@ export function App(): ReactNode {
         onPrefill={prefill}
       />
       {/* 内容区 min-w 保护:窄窗口下侧栏允许被压缩,内容区不被挤没;
-          同时是浮层关闭时的焦点归位锚点(键盘关闭 -> 焦点回主区,焦点环可见)。
           列宽随侧栏显隐切换(有侧栏 768 / 无侧栏 1024,视觉刷新 V4) */}
       <div
-        ref={anchorRef}
         tabIndex={-1}
         className={`mx-auto flex h-full w-full min-w-[420px] flex-1 flex-col outline-none focus-visible:ring-1 focus-visible:ring-accent ${contentColumnClass(sidebar.visible)}`}
       >

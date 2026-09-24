@@ -1,7 +1,7 @@
 /**
- * `#`(标签)前缀的接线读数(T6 修复轮):m1 换新窗口内旧行的接受复核、I2 卸载兜底静默保存后
- * `#` 立刻新鲜、m2 数据版本变化不再换新注册表。自 use-app-palette.test.ts 分出(那个文件 191 行,
- * 逼近 200 行红线)。
+ * `#`(标签)前缀的接线读数(T6 修复轮 + 2/3 Task 5):I2 卸载兜底静默保存后 `#` 立刻新鲜、
+ * m2 数据版本变化不再换新注册表。自 use-app-palette.test.ts 分出(那个文件 191 行,逼近 200 行红线)。
+ * m1 的"换新窗口内接受旧行"随 accepting 死半删除(接受复核已随浮层外壳消失)。
  */
 // @vitest-environment jsdom
 import { act, createElement, useCallback, useRef } from 'react';
@@ -15,8 +15,8 @@ import { updateNote as writeNote } from '../data/note-writes';
 import { useSaveOnUnmount } from '../editor/use-save-on-unmount';
 import { buildAppProviders } from '../palette/providers/app-providers';
 import { createTagCandidates } from '../palette/tag-candidates';
-import { mountAppPalette } from './app-palette-harness';
-import type { AppPaletteHarness } from './app-palette-harness';
+import { mountAppPalette } from './__fixtures__/app-palette-harness';
+import type { AppPaletteHarness } from './__fixtures__/app-palette-harness';
 
 const { queryNotes, listTags, getSetting, setSetting, updateNote } = vi.hoisted(() => ({
   queryNotes: vi.fn(async () => [] as Note[]),
@@ -64,32 +64,9 @@ function SaveProbe(): ReactNode {
   return null;
 }
 
-describe('浮层 `#`:换新窗口内接受旧行(复审 m1)', () => {
-  it('路径已被改名/删除 -> 报错且不 toggleTag(不落一个空筛选)', async () => {
-    await h.open('#');
-    expect(labels()).toEqual(['工作', '生活']);
-
-    let release!: (rows: TagCount[]) => void;
-    listTags.mockImplementationOnce(() => new Promise<TagCount[]>((r) => (release = r)));
-    h.setTagsVersion(1); // 数据版本 +1:新数据还在飞(~12ms 窗口)
-    const accepting = h.accept(0); // 旧列表仍可接受:高亮行正是已消失的「工作」
-    release([tag('生活', 1)]); // 新数据落地:「工作」已不在
-    await accepting;
-
-    expect(h.toggleTag).not.toHaveBeenCalled();
-    expect(h.errors.some((m) => m.includes('工作'))).toBe(true);
-  });
-
-  it('路径仍在 -> 照常 toggleTag(复核不误伤正常接受)', async () => {
-    await h.open('#');
-    await h.accept(0);
-    expect(h.toggleTag).toHaveBeenCalledWith('工作');
-  });
-});
-
-describe('浮层 `#`:标签新鲜度出口(复审 I2)', () => {
-  it('卸载兜底静默保存后 `#` 立刻看到新标签(修前:关开浮层也陈旧)', async () => {
-    await h.open('#');
+describe('`#` 候选:标签新鲜度出口(复审 I2)', () => {
+  it('卸载兜底静默保存后 `#` 立刻看到新标签(修前:重新进 `#` 档也陈旧)', async () => {
+    await h.type('#');
     expect(labels()).toEqual(['工作', '生活']);
 
     let reloads = 0;
@@ -143,7 +120,7 @@ describe('浮层 `#`:标签新鲜度出口(复审 I2)', () => {
   });
 });
 
-describe('浮层 `#`:数据版本不换新注册表(复审 m2)', () => {
+describe('`#` 候选:数据版本不换新注册表(复审 m2)', () => {
   it('同一个 registry 实例在版本变化后仍取到新数据(所以 memo 不必依赖版本)', async () => {
     let version = 0;
     let rows: TagCount[] = [tag('工作', 4)];
@@ -166,7 +143,7 @@ describe('浮层 `#`:数据版本不换新注册表(复审 m2)', () => {
   });
 
   it('对照:`#` 前缀下版本变化照旧重取候选(版本就是给它用的)', async () => {
-    await h.open('#');
+    await h.type('#');
     expect(listTags).toHaveBeenCalledTimes(1);
     listTags.mockResolvedValue([tag('工作', 4), tag('生活', 1), tag('新标签', 0)]);
     h.setTagsVersion(1);
@@ -176,7 +153,7 @@ describe('浮层 `#`:数据版本不换新注册表(复审 m2)', () => {
   });
 
   it('标签版本变化不再让无关前缀重跑取候选(`>` 前缀命令数不变)', async () => {
-    await h.open('>');
+    await h.type('>');
     expect(h.commandItemRuns()).toBe(1);
     h.setTagsVersion(1);
     await h.flush();

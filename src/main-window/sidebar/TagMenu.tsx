@@ -4,7 +4,7 @@
  * 重命名/移动/合并成功后回报 pathChange(旧路径 -> 新路径)让上层级联改写当前筛选条件。
  * 本文件只保留状态、异步动作与容器;五个子面板各自成文件(行数上限)。
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { api } from '../../shared/api';
 import { isValidTagPath } from '../../shared/filter-conditions';
@@ -15,11 +15,11 @@ import { TagMenuMainPane } from './TagMenuMainPane';
 import { TagMenuMergePane } from './TagMenuMergePane';
 import { TagMenuMovePane } from './TagMenuMovePane';
 import { TagMenuRenamePane } from './TagMenuRenamePane';
+import { useDismiss } from '../shell/use-dismiss';
 import { mergeCandidates } from './tag-menu-pure';
 import type { Pane } from './tag-menu-ui';
 import type { ManagedNode } from './tag-tree';
 import { useTagMenuAliases } from './use-tag-menu-aliases';
-import { useTagMenuDismiss } from './use-tag-menu-dismiss';
 
 export interface TagMenuProps {
   /** 目标标签(id 必非 null:上层 TagsSection 已拦结构节点,ManagedNode 类型固化这一约束) */
@@ -42,8 +42,10 @@ export function TagMenu(p: TagMenuProps): ReactNode {
   const [newName, setNewName] = useState(p.node.name);
   const [impact, setImpact] = useState<{ tags: number; notes: number } | null>(null);
 
-  // Esc 关闭 / 点击菜单外关闭(手势实现在 use-tag-menu-dismiss)
-  useTagMenuDismiss(p.onClose);
+  // Esc 关闭 / 点击菜单外关闭:统一走 shell/use-dismiss(与 AddConditionMenu、TopBarMenu 同一实现)。
+  // 菜单本体只在打开时挂载,故 open 恒 true(useDismiss 的 ref 现读保证回调不闭包旧 props)。
+  const menuRef = useRef<HTMLDivElement>(null);
+  useDismiss(true, menuRef, p.onClose);
 
   // 进入删除/合并面板时取影响面;失败就地显示,不静默
   useEffect(() => {
@@ -113,6 +115,7 @@ export function TagMenu(p: TagMenuProps): ReactNode {
 
   return (
     <div
+      ref={menuRef}
       data-tag-menu
       role="menu"
       aria-label="标签管理"

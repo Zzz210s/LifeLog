@@ -3,7 +3,7 @@
  * 输入法组合守卫的接线证据(审查 C1):中文候选下拉开着时,上屏那一下的 Enter 不能当成
  * 「采纳当前行」(会误加筛选条件/误滚到笔记/误跑命令)。
  * 守卫写在 routeUnifiedKey 里,但只有派发真实 keydown(React 把 nativeEvent.isComposing
- * 交给路由)才算把接线钉住,故这里挂真组件 + 浮层控制器桩。
+ * 交给路由)才算把接线钉住,故这里挂真组件 + 候选控制器桩。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, createElement } from 'react';
@@ -50,9 +50,8 @@ const rows = (n: number): ListRow[] => // 候选行:列表模型的形状
   }));
 
 const stubPalette = (over: Partial<PaletteController> = {}): PaletteController => ({
-  isOpen: false, prefix: '', query: '', rows: [], total: 0, truncated: false, activeIndex: 0,
-  inputRef: { current: null }, open: () => {}, close: () => {}, setQuery: () => {}, setPrefix: () => {},
-  setActiveIndex: () => {}, accept: () => {}, handleKeyDown: () => {}, ...over,
+  prefix: '', query: '', rows: [], total: 0, truncated: false, activeIndex: 0,
+  setQuery: () => {}, setPrefix: () => {}, setActiveIndex: () => {}, ...over,
 });
 
 const drop = (host: HTMLElement) => host.querySelector('[data-testid="unified-dropdown"]');

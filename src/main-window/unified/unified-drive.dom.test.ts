@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * Task 5 的接线证据:统一输入框敲前缀 -> 浮层控制器取候选 -> 下拉真出候选。
+ * Task 5 的接线证据:统一输入框敲前缀 -> 候选控制器取候选 -> 下拉真出候选。
  * 这里挂的是**真** useAppPalette + 真 provider + 真 usePalette,只把数据层(api)换成桩,
  * 所以能钉住"常驻驱动"这条链(输入框自己不开浮层,也不复制一套 matcher)。
  */
@@ -10,7 +10,6 @@ import type { ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { COMMANDS, withRuns } from '../../shared/commands';
 import type { CommandRegistry } from '../../shared/commands';
-import { EMPTY_FILTER } from '../../shared/filter-conditions';
 import { defaultContext } from '../../shared/keys';
 import type { Note, TagCount } from '../../shared/types';
 import { useAppPalette } from '../shell/use-app-palette';
@@ -41,16 +40,9 @@ function Host(): ReactNode {
   const anchorRef = useRef<HTMLDivElement>(null);
   const [tagsVersion] = useState(0);
   const palette = useAppPalette({
-    anchorRef,
     registry,
     getContext: () => defaultContext(),
-    notes: [],
-    loadingNotes: false,
-    conditions: EMPTY_FILTER,
     tagsVersion,
-    clearFilters: () => {},
-    toggleTag: () => {},
-    executeCommand: async () => {},
     setError: () => {},
   });
   return createElement(
@@ -104,7 +96,7 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe('统一输入框 -> 浮层控制器 -> 候选下拉(常驻驱动)', () => {
+describe('统一输入框 -> 候选控制器 -> 候选下拉(常驻驱动)', () => {
   it('`#` 输入后下拉出现标签候选(数据来自 list_tags)', async () => {
     await type('#工作');
     expect(listTags).toHaveBeenCalled();
@@ -135,7 +127,7 @@ describe('统一输入框 -> 浮层控制器 -> 候选下拉(常驻驱动)', () 
     expect(selected()).toBe(1);
   });
 
-  it('记录模式与 `/` 筛选不出现下拉,且不打开浮层(控制器 isOpen 恒 false)', async () => {
+  it('记录模式与 `/` 筛选不出现下拉(控制器不再有浮层开合态)', async () => {
     await type('买牛奶');
     expect(drop()).toBeNull();
     await type('/买牛奶');

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildTree, filterTree, isManageable, isSelectable, rewriteTagPaths, toggleTagPick } from './tag-tree';
+import { buildTree, isManageable, isSelectable, rewriteTagPaths, toggleTagPick } from './tag-tree';
 import { EMPTY_FILTER } from '../../shared/filter-conditions';
 import type { FilterConditions } from '../../shared/filter-conditions';
 
@@ -84,26 +84,6 @@ describe('isSelectable(子蕴含父:2026-09-20 D9 的有意行为变更)', () =>
   });
 });
 
-describe('filterTree', () => {
-  it('命中子节点时保留祖先链', () => {
-    const filtered = filterTree(buildTree(rows as never), '会议');
-    expect(filtered[0].name).toBe('工作');
-    expect(filtered[0].children[0].children[0].name).toBe('会议');
-  });
-  it('无命中返回空', () => {
-    expect(filterTree(buildTree(rows as never), 'zzz')).toEqual([]);
-  });
-  it('空查询原样返回', () => {
-    const tree = buildTree(rows as never);
-    expect(filterTree(tree, '  ')).toBe(tree);
-  });
-  it('按完整路径子串命中(输入父级路径片段可见整棵子树)', () => {
-    const filtered = filterTree(buildTree(rows as never), '工作/项目');
-    expect(filtered[0].children[0].name).toBe('项目A');
-    expect(filtered[0].children[0].children).toHaveLength(1);
-  });
-});
-
 describe('isManageable(右键管理入口把关)', () => {
   it('真实标签行可管理', () => {
     const tree = buildTree([{ id: 7, path: '工作', depth: 1, self_count: 1, subtree_count: 1 }] as never);
@@ -131,10 +111,13 @@ describe('toggleTagPick(侧栏行点击的两侧判定)', () => {
     tags: [{ path: '工作', includeChildren: true }],
     excludeTags: [{ path: '生活', includeChildren: false }],
   };
-  it('路径在排除侧:点击撤掉该排除项(不进 tags)', () => {
+  it('路径在排除侧:采纳 = 移到包含侧(与统一输入框 `#` 同口径,2026-09-24 计划 2/3 定死)', () => {
     const next = toggleTagPick(base, '生活');
-    expect(next.excludeTags).toHaveLength(0);
-    expect(next.tags).toBeUndefined(); // 不动引入侧,避免同路径两侧并存(结果恒空)
+    expect(next.tags).toEqual([
+      { path: '工作', includeChildren: true },
+      { path: '生活', includeChildren: true },
+    ]);
+    expect(next.excludeTags).toHaveLength(0); // 同一路径不再留在排除侧(两侧并存的结果恒空)
   });
   it('路径在引入侧:点击移除引入项(不动排除侧)', () => {
     const next = toggleTagPick(base, '工作');

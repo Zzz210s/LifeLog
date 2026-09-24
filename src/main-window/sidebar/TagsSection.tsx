@@ -106,7 +106,6 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
   // 拖拽移动(spec 6):成功走与右键移动同一级联链,失败(预校验/后端)红色提示
   const drag = useTagDrag({
     roots: tree,
-    orderRoots: tree, // 同级序与显示序是同一棵树(过滤已移到统一输入框)
     expanded: isExpanded,
     onAutoExpand: expandPath,
     listRef,

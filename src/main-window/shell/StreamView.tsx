@@ -1,5 +1,5 @@
 /**
- * 信息流视图(自 App.tsx 抽出以留出行数余量:App 要挂浮层与快捷键接线)。
+ * 信息流视图(自 App.tsx 抽出以留出行数余量:App 要挂候选接线与快捷键)。
  * 纯搬移 + 透传 props,不改行为:信息流**始终挂载**,切到设置页只是 `hidden`(返回时分页与滚动位置都不丢)。
  *
  * Task 6:统一输入框的采纳副作用与 `/` 实时筛选在这里落地。决策与执行分开 —— 决策是纯函数
@@ -51,7 +51,7 @@ export interface StreamViewProps {
   onEditCancel: () => void;
   onToggleTask: (note: Note, index: number) => void;
   onLinkError: (message: string) => void;
-  /** 浮层控制器:统一输入框的候选/高亮/采纳状态与它共用(浮层本任务保持不打开) */
+  /** 候选控制器:统一输入框的候选/高亮状态与它共用(采纳副作用见 acceptAt) */
   palette: PaletteController;
   /** 候选行装饰(命令快捷键/标签计数/笔记日期) */
   decorations: Readonly<Record<string, RowDecoration>>;
@@ -75,7 +75,7 @@ export function StreamView(p: StreamViewProps): ReactNode {
   // props 现读:采纳回调可能在很久以后才跑,不能闭包住旧 props
   const latest = useRef(p);
   latest.current = p;
-  // MRU 记账与浮层同一套设置装配(只在此处标脏,空闲/退出才落盘)
+  // MRU 记账与候选体系同一套设置装配(只在此处标脏,空闲/退出才落盘)
   const { settings, saveMruSoon } = usePaletteSettings();
 
   // 统一错误出口:useQuickOpen 只按 'action' 来源上报,这里透传给主窗错误条

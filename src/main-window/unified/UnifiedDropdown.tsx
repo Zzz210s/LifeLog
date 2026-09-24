@@ -23,6 +23,17 @@ export const MAX_RENDER_ROWS = 90;
 /** 下拉容器(listbox)的 DOM id:输入框的 `aria-controls` 指向它 */
 export const UNIFIED_LISTBOX_ID = 'unified-listbox';
 
+/**
+ * 高亮行的 DOM id(输入框的 `aria-activedescendant`):只在**渲染范围内**给值 ——
+ * 下拉只画前 `MAX_RENDER_ROWS` 行(行 id 到 `unified-opt-89`),范围外的索引在 DOM 里
+ * 没有对应行,输出就是悬空引用(空 query 的 `@` 按一下 ↑ 就是 activeIndex=199)。
+ * 无候选行时同样不给 —— 这一条与下面渲染时的 `selected` 夹紧是同一个口径。
+ */
+export function activeOptionRowId(rowCount: number, activeIndex: number): string | null {
+  if (rowCount === 0 || activeIndex < 0 || activeIndex >= MAX_RENDER_ROWS) return null;
+  return `unified-opt-${activeIndex}`;
+}
+
 export interface UnifiedDropdownProps {
   /** 视图行 = 列表模型的 `ListRow` 经 `rowFromListRow(row, decoration)` 投影(含装饰) */
   rows: readonly PaletteRowData[];
@@ -36,6 +47,9 @@ export interface UnifiedDropdownProps {
 
 export function UnifiedDropdown(p: UnifiedDropdownProps): ReactNode {
   const rows = p.rows.slice(0, MAX_RENDER_ROWS);
+  // 高亮索引同样钳在渲染范围内:范围外的索引没有对应行,不给任何行加选中态
+  // (与输入框的 aria-activedescendant 同口径:要么指向真在的行,要么都不指)
+  const active = p.activeIndex >= 0 && p.activeIndex < rows.length ? p.activeIndex : -1;
   return (
     <>
       <div
@@ -57,7 +71,7 @@ export function UnifiedDropdown(p: UnifiedDropdownProps): ReactNode {
                 key={row.id}
                 id={`unified-opt-${index}`}
                 row={row}
-                selected={index === p.activeIndex}
+                selected={index === active}
                 onHover={() => p.onHover(index)}
                 onSelect={() => p.onAccept(index)}
               />
@@ -83,7 +97,7 @@ export interface UnifiedDropdownSlotProps {
   rows: readonly ListRow[];
   total: number;
   truncated: boolean;
-  /** 高亮行与悬停都走浮层控制器(循环取模与夹紧在那边):不另建一份选中状态 */
+  /** 高亮行与悬停都走候选控制器(夹紧在那边):不另建一份选中状态 */
   palette: PaletteController;
   decorations?: Readonly<Record<string, RowDecoration>>;
   onAccept: (index: number) => void;

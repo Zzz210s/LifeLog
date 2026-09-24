@@ -46,10 +46,9 @@ const rows = (n: number): ListRow[] => // 候选行:列表模型的形状(buildL
     mruCount: 0,
   }));
 
-const stubPalette = (over: Partial<PaletteController> = {}): PaletteController => ({ // 浮层控制器的桩
-  isOpen: false, prefix: '', query: '', rows: [], total: 0, truncated: false, activeIndex: 0,
-  inputRef: { current: null }, open: () => {}, close: () => {}, setQuery: () => {}, setPrefix: () => {},
-  setActiveIndex: () => {}, accept: () => {}, handleKeyDown: () => {}, ...over,
+const stubPalette = (over: Partial<PaletteController> = {}): PaletteController => ({ // 候选控制器的桩
+  prefix: '', query: '', rows: [], total: 0, truncated: false, activeIndex: 0,
+  setQuery: () => {}, setPrefix: () => {}, setActiveIndex: () => {}, ...over,
 });
 
 beforeEach(() => saveInputNote.mockClear());
@@ -139,12 +138,6 @@ describe('唯一输入框的候选下拉(任务 5:复用浮层列表)', () => {
   it('筛选模式不下拉(它是实时筛选,候选另行接;设计 §4)', async () => {
     const host = await mount(wire(stubPalette({ rows: rows(2), total: 2 })));
     await type(host, '/牛奶');
-    expect(drop(host)).toBeNull();
-  });
-
-  it('浮层开着时让位给浮层(两种候选 UI 不同时出现)', async () => {
-    const host = await mount(wire(stubPalette({ rows: rows(2), total: 2, isOpen: true })));
-    await type(host, '#购');
     expect(drop(host)).toBeNull();
   });
 

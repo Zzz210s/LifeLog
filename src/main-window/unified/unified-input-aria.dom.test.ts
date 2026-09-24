@@ -26,9 +26,8 @@ const rows = (n: number): ListRow[] =>
   }));
 
 const stubPalette = (over: Partial<PaletteController> = {}): PaletteController => ({
-  isOpen: false, prefix: '', query: '', rows: [], total: 0, truncated: false, activeIndex: 0,
-  inputRef: { current: null }, open: () => {}, close: () => {}, setQuery: () => {}, setPrefix: () => {},
-  setActiveIndex: () => {}, accept: () => {}, handleKeyDown: () => {}, ...over,
+  prefix: '', query: '', rows: [], total: 0, truncated: false, activeIndex: 0,
+  setQuery: () => {}, setPrefix: () => {}, setActiveIndex: () => {}, ...over,
 });
 
 const view = (palette: PaletteController) =>
@@ -84,6 +83,21 @@ describe('统一输入框 aria', () => {
     await key(host, 'Escape');
     expect(el.getAttribute('aria-expanded')).toBe('false');
     expect(el.hasAttribute('aria-activedescendant')).toBe(false);
+  });
+
+  it('候选超过渲染上限:范围外的高亮不输出 aria-activedescendant,也不留悬空引用', async () => {
+    // 空 query 的 `@` 按一下 ↑ 就是 activeIndex = count-1(199):下拉只渲染前 90 行,id 只到 unified-opt-89
+    const host = await mount(stubPalette({ rows: rows(200), total: 200, activeIndex: 199 }));
+    await type(host, '@');
+    const el = box(host);
+    expect(el.getAttribute('aria-expanded')).toBe('true');
+    expect(el.hasAttribute('aria-activedescendant')).toBe(false); // 悬空 IDREF 比不输出更糟
+    expect(host.querySelector('[aria-selected="true"]')).toBeNull(); // 高亮也一并钳在渲染范围内
+
+    // 上限内仍照常输出,且指向的行真的在
+    await rerender(stubPalette({ rows: rows(200), total: 200, activeIndex: 89 }));
+    expect(el.getAttribute('aria-activedescendant')).toBe('unified-opt-89');
+    expect(host.querySelector('#unified-opt-89')).not.toBeNull();
   });
 
   it('listbox 里没有 role=list 的中间层,直接子元素是 presentation/option', async () => {

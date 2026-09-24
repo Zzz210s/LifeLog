@@ -4,9 +4,9 @@
  * 状态全在 `useUnifiedInput` 的纯状态机里,本组件做四件事:接线(自动增高/焦点请求/受控值)、
  * 保存(Ctrl+Enter/按钮 -> `api.saveInputNote`)、渲染(输入框 + 保存按钮 + 提示行)、以及候选下拉的模式门控与键盘路由。
  *
- * 候选下拉(Task 5):候选由 `useUnifiedCandidates` 经浮层控制器取回(驱动也在那个 hook 里),高亮行
- * 直接复用控制器的 `activeIndex`;只在有前缀且不是实时筛选模式且浮层没开时渲染(记录模式恒不渲染
- * D6;`/` 只做实时筛选,§4)。键盘与浮层同口径:↓/↑ -> Tab/Enter 采纳 -> Esc 交状态机 ->
+ * 候选下拉(Task 5):候选由 `useUnifiedCandidates` 经候选控制器取回(驱动也在那个 hook 里),高亮行
+ * 直接复用控制器的 `activeIndex`;只在有前缀且不是实时筛选模式时渲染(记录模式恒不渲染 D6;`/`
+ * 只做实时筛选,§4)。键盘与下拉同口径:↓/↑ -> Tab/Enter 采纳 -> Esc 交状态机 ->
  * Ctrl+Enter **永远**保存;采纳只交出索引,三类前缀的副作用由容器 `StreamView` 决策并执行(Task 6)。
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -16,7 +16,7 @@ import { prepareForSave } from '../../shared/note-source';
 import type { InputMode } from '../../shared/input-prefix';
 import { BTN_PRIMARY } from '../shell/button-classes';
 import { PrefixHint } from './PrefixHint';
-import { UNIFIED_LISTBOX_ID, UnifiedDropdownSlot } from './UnifiedDropdown';
+import { activeOptionRowId, UNIFIED_LISTBOX_ID, UnifiedDropdownSlot } from './UnifiedDropdown';
 import { UnifiedTextarea } from './UnifiedTextarea';
 import { useUnifiedCandidates, type UnifiedCandidateWiring } from './use-unified-candidates';
 import { useUnifiedKeys } from './use-unified-keys';
@@ -50,7 +50,7 @@ export function UnifiedInput(p: UnifiedInputProps): ReactNode {
   const ref = useRef<HTMLTextAreaElement>(null);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
-  // 候选:三类前缀由 hook 驱动浮层控制器取回(记录/筛选模式返回空)
+  // 候选:三类前缀由 hook 驱动候选控制器取回(记录/筛选模式返回空)
   const wiring = p.candidates ?? null;
   const cands = useUnifiedCandidates({
     mode: c.state.mode,
@@ -119,10 +119,9 @@ export function UnifiedInput(p: UnifiedInputProps): ReactNode {
     }
   };
 
-  // 候选:记录模式与实时筛选模式没有下拉(状态机已保证这两个模式的 dropdownOpen 恒假,D6/§4);
-  // 浮层开着时让位给浮层(两个候选 UI 互斥)
+  // 候选:记录/筛选模式没有下拉(状态机保证这两个模式的 dropdownOpen 恒假,D6/§4)
   const pal = wiring?.palette ?? null;
-  const showDropdown = c.state.dropdownOpen && !(pal?.isOpen ?? false);
+  const showDropdown = c.state.dropdownOpen;
 
   /** 采纳:先关下拉(状态机保留模式),再把索引交给 Task 6 的副作用出口 */
   const accept = (index: number) => {
@@ -153,7 +152,7 @@ export function UnifiedInput(p: UnifiedInputProps): ReactNode {
           placeholder={PLACEHOLDER}
           dropdownShown={showDropdown}
           dropdownId={UNIFIED_LISTBOX_ID}
-          activeOptionId={cands.rows.length > 0 ? `unified-opt-${pal?.activeIndex ?? 0}` : null}
+          activeOptionId={pal === null ? null : activeOptionRowId(cands.rows.length, pal.activeIndex)}
           onKeyDown={routeKey}
           onChange={(raw) => {
             c.setRaw(raw);
