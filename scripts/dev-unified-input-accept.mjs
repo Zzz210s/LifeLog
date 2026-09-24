@@ -1,11 +1,11 @@
-// Task 7 实机验收(8 条读数;键鼠全走 CDP Input,不碰物理鼠标)。
-// 前置:pnpm tauri dev 已在 9222 上跑(origin http://localhost:5173,IPC 正常)。
-// 夹具(UI测试* 笔记 + UI测试 标签)自建自清;前后 notes/tags/tag_links/FTS 计数在外层用
-// scripts/lifelog-db-readings.py 比对。动作件在 scripts/unified-accept-lib.mjs(供计划 2/3、3/3 复用)。
+// Task 7 + 计划 2/3 Task 6 实机验收(第二批读数见 unified-accept-phases2.mjs);键鼠全走 CDP Input。
+// 前置:pnpm tauri dev 已在 9222 上跑(origin http://localhost:5173,IPC 正常)。夹具(UI测试* 笔记 +
+// UI测试 标签)自建自清,前后 notes/tags/tag_links/FTS 计数在外层用 lifelog-db-readings.py 比对。
 import { ensureMain, recorder, sleep, waitFor } from './cdp-lib.mjs';
 import {
   BOX, COMMAND_IDS, FIXTURE_TAG, HINT, RECORD_TEXT, SIDEBAR, STAT, TAB_GATED, cleanupFixtures, createFixtures, driver,
 } from './unified-accept-lib.mjs';
+import { phaseB } from './unified-accept-phases2.mjs';
 
 const r = recorder();
 
@@ -182,6 +182,8 @@ async function main() {
   const off = await d.aria();
   r.record('⑩b 收起后 aria', off.expanded === 'false' && off.controls === null && off.activedescendant === null,
     `expanded=${off.expanded} controls=${off.controls} activedescendant=${off.activedescendant}`);
+
+  await phaseB(d, r); // 第二批 5 条:条件栏瘦身 / 排序命令 / 顶栏溢出菜单 / 侧栏筛选标签
 
   // --- 清理:输入/条件/夹具笔记与标签 ---
   await cleanupFixtures(d, r);

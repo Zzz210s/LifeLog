@@ -10,6 +10,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { BASE, ensureMain, recorder, sleep } from './cdp-lib.mjs';
+import { recordTopBarMenu } from './audit-visual-menu.mjs';
 import {
   BLUR_JS, CARD_STATE_JS, CLOSE_DIALOG_JS, MENU_SCAN_JS, OPEN_DIALOG_JS, PICK_CARDS_JS,
   REAL_FOCUS_JS, SCAN_JS, TOKEN_NAMES,
@@ -147,7 +148,7 @@ r.record(
   badContrast.join(' ') || scans.map((s) => `${s.theme} ${s.contrast.ratio}:1(${s.contrast.fg} on ${s.contrast.bg})`).join(' '),
 );
 
-// 9) 浮层/对话框档位(现场逐个开一遍菜单与表达式对话框;全程 Esc/取消关闭,不落任何筛选条件)
+// 9) 浮层/对话框档位(逐个开一遍菜单与表达式对话框,含顶栏 ⋯ 溢出菜单,读数在 audit-visual-menu.mjs)
 const menus = await js(MENU_SCAN_JS);
 const menuBad = menus.filter((m) => m.menu?.radius !== '12px' || m.menu?.shadow === 'none');
 r.record(
@@ -155,6 +156,7 @@ r.record(
   menus.length > 0 && menuBad.length === 0,
   menus.map((m) => `${m.label}:${m.menu?.radius}/${m.menu?.shadow === 'none' ? '无阴影' : '有阴影'}`).join(' ') || '没有可开的下拉菜单',
 );
+await recordTopBarMenu(js, r);
 const dialog = await js(OPEN_DIALOG_JS);
 const closed = await js(CLOSE_DIALOG_JS);
 r.record(

@@ -7,10 +7,12 @@
  * 只读用例:只开对话框、改文本、Esc 关闭,不保存条件,故无需清收(库存靠前后对照证明)。
  */
 import { ensureMain, recorder, sleep, waitFor } from './cdp-lib.mjs';
+import { bindDom } from './cdp-dom.mjs';
 
 const r = recorder();
 const j = JSON.stringify;
 const { cdp, close } = await ensureMain();
+const { openAddCondition } = bindDom(cdp);
 
 /** 受控 textarea 必须走原生 setter + input 事件,否则 React 的 onChange 不触发 */
 const setExpr = (v) => cdp.eval(`(() => {
@@ -40,13 +42,6 @@ const state = () => cdp.eval(`(() => {
   };
 })()`);
 
-const clickText = (text) => cdp.eval(`(() => {
-  const b = Array.from(document.querySelectorAll('button')).find((x) => x.textContent.trim().startsWith(${j(text)}));
-  if (!b) return false;
-  b.click();
-  return true;
-})()`);
-
 const clickMenuItem = (text) => cdp.eval(`(() => {
   const m = Array.from(document.querySelectorAll('[role="menuitem"]')).find((x) => x.textContent.trim() === ${j(text)});
   if (!m) return false;
@@ -55,8 +50,8 @@ const clickMenuItem = (text) => cdp.eval(`(() => {
 })()`);
 
 // H1 打开对话框:添加条件 -> 表达式(高级)
-const addBtn = await clickText('添加条件');
-await sleep(200);
+// 条件栏的「添加条件」触发按钮已随统一输入框 2/3 Task 2 搬走,入口改走 `>添加条件` 命令
+const addBtn = await openAddCondition();
 const menuItem = await clickMenuItem('表达式(高级)');
 const up = await waitFor(async () => ((await hasDialog()) ? true : null), 20, 250);
 r.record('H1 筛选栏「添加条件 -> 表达式(高级)」打开表达式对话框', addBtn === true && menuItem === true && up === true,

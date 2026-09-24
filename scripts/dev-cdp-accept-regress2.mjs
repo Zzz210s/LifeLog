@@ -21,13 +21,14 @@ const SEED = 55;
 
 const { cdp, close } = await ensureMain();
 const { call, liCount, inventory } = bindMain(cdp);
-const { evalIn, clickText } = bindDom(cdp);
+const { evalIn, openTopBarMenu } = bindDom(cdp);
 
 const inv0 = await inventory();
 console.log('验收前库存:', JSON.stringify({ notes: inv0.notes, theme: inv0.theme, tagPaths: inv0.paths.length }));
 
-// ---------- E1 界面导出:原生保存对话框出现并可取消 ----------
-await clickText('导出全部');
+// ---------- E1 界面导出:顶栏 `⋯` 菜单 -> 原生保存对话框出现并可取消 ----------
+// 条件栏的「导出全部」按钮已随统一输入框 2/3 Task 2 搬走:鼠标入口在顶栏溢出菜单里
+const menuPicked = await openTopBarMenu('导出整库');
 // 只看目标标题的**可见**对话框:进程里可能留有其他/已完成但未关闭的 #32770 窗口
 const SAVE_DLG = '另存为';
 const saveDlg = () => wins().find((w) => w.cls === '#32770' && w.visible && w.title.includes(SAVE_DLG));
@@ -35,15 +36,15 @@ const dlgSeen = await waitFor(() => (saveDlg() ? true : null), 20, 300);
 const dlgTitle = (saveDlg() || {}).title;
 const closed = JSON.parse(sh('python', ['scripts/win-probe.py', 'close-dialog', String(pid), SAVE_DLG]).stdout || '{}');
 const dlgGone = await waitFor(() => (saveDlg() ? null : true));
-// 取消后按钮会短暂处于「导出中」:等它恢复为「导出全部」再断言(不是回归,只是状态回写时机)
+// 取消后状态条(「正在导出整库…」)会复位:等它消失再断言(不是回归,只是状态回写时机)
 const afterCancel = await waitFor(async () => {
-  const v = await evalIn(`(() => ({ btn: !!Array.from(document.querySelectorAll('button')).find((b) => b.textContent.trim() === '导出全部'), err: document.body.innerText.includes('导出失败') }))()`);
-  return v.btn && !v.err ? v : null;
-}, 20, 300) ?? await evalIn(`(() => ({ btn: false, err: document.body.innerText.includes('导出失败') }))()`);
+  const v = await evalIn(`(() => ({ busy: !!document.querySelector('[data-testid="command-status"]'), err: document.body.innerText.includes('导出失败') }))()`);
+  return v.busy === false && v.err === false ? v : null;
+}, 20, 300) ?? await evalIn(`(() => ({ busy: true, err: document.body.innerText.includes('导出失败') }))()`);
 record(
-  'E1 点「导出全部」弹出原生保存框(取消后按钮复位、无错误提示)',
-  dlgSeen === true && closed.closed === true && dlgGone === true && afterCancel.btn === true && afterCancel.err === false,
-  `原生框=${JSON.stringify({ seen: dlgSeen, title: dlgTitle, closed })} 复位=${JSON.stringify(afterCancel)}`
+  'E1 顶栏「导出整库」弹出原生保存框(取消后状态条复位、无错误提示)',
+  menuPicked === true && dlgSeen === true && closed.closed === true && dlgGone === true && afterCancel.busy === false && afterCancel.err === false,
+  `菜单点中=${menuPicked} 原生框=${JSON.stringify({ seen: dlgSeen, title: dlgTitle, closed })} 复位=${JSON.stringify(afterCancel)}`
 );
 
 // ---------- E2 导出命令 + xlsx 结构校验(openpyxl 读回) ----------

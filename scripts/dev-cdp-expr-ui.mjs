@@ -22,12 +22,29 @@ export const HELPERS = `(() => {
     // 打开表达式编辑对话框(菜单是开/关切换,失手时重试)
     openExpr: async () => {
       for (let k = 0; k < 3 && !dlg('表达式'); k++) {
-        X.click('添加条件');
+        await X.openAddMenu();
         await pause(150);
         X.click('表达式(高级)', '[role=menuitem]');
         await pause(150);
       }
       return !!dlg('表达式');
+    },
+    // 打开「添加条件」菜单:条件栏的触发按钮已随统一输入框 2/3 Task 2 搬走,改走「>添加条件」命令
+    openAddMenu: async () => {
+      const box = q('[data-testid="unified-input"]');
+      if (!box) return false;
+      const rows = () => all('[data-testid="unified-dropdown"] li[role=option]').filter((li) => li.textContent.includes('添加条件'));
+      for (let k = 0; k < 3; k++) {
+        set(box, '>添加条件');
+        for (let i = 0; i < 12 && rows().length === 0; i++) await pause(250);
+        if (rows().length === 0) continue;
+        box.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+        await pause(700);
+        set(box, '');
+        await pause(200);
+        if (all('[role=menuitem]').length > 0) return true;
+      }
+      return false;
     },
     fillExpr: (v) => { const d = dlg('表达式'); if (!d) return false; set(d.querySelector('textarea'), v); return true; },
     exprValue: () => { const d = dlg('表达式'); return d ? d.querySelector('textarea').value : null; },
@@ -57,7 +74,8 @@ export const HELPERS = `(() => {
       return true;
     },
     summary: () => {
-      const p = all('p').find((e) => e.className.includes('truncate') && e.textContent.includes('表达式:'));
+      // 摘要元素在统一输入框 2/3 Task 2 里从「p.truncate」改成带 testid 的 span(文案口径不变)
+      const p = q('[data-testid="condition-bar-summary"]');
       return p ? { text: p.textContent.trim(), title: p.getAttribute('title') } : null;
     },
     texts: () => all('li .md-body').map((e) => e.textContent.trim()),

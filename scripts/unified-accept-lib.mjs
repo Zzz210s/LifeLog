@@ -11,10 +11,11 @@ export const SIDEBAR = 'aside[data-testid="sidebar"]';
 export const FIXTURE_TAG = 'UI测试';
 export const RECORD_TEXT = 'UI测试·记录';
 export const FIXTURES = [`UI测试夹具一 #${FIXTURE_TAG}`, `UI测试夹具二 #${FIXTURE_TAG}`, 'UI测试夹具三'];
-/** 11 条命令(shared/commands.ts 声明);只有这两条受 when(tabMultiple) 门控 */
+/** 14 条命令(shared/commands.ts 声明);只有这两条受 when(tabMultiple) 门控 */
 export const COMMAND_IDS = [
   'note.new', 'tab.next', 'tab.prev', 'settings.open', 'theme.cycle', 'sidebar.toggle',
-  'focus.mode', 'export.all', 'search.reindex', 'hotkey.edit', 'app.quit',
+  'focus.mode', 'sort.newest', 'sort.oldest', 'filter.addCondition',
+  'export.all', 'search.reindex', 'hotkey.edit', 'app.quit',
 ];
 export const TAB_GATED = ['tab.next', 'tab.prev'];
 export const EMPTY = { keyword: null, tags: [], excludeTags: [], tagPresence: null, sort: 'newest', expr: null };

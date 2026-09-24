@@ -76,6 +76,70 @@ export function bindDom(cdp) {
       return true;
     })()`);
 
+  /**
+   * 把统一输入框设成带前缀的值(`>` 命令 / `/` 关键词筛选 / `#` 标签 / `@` 打开笔记)。
+   * 旧筛选栏的关键词输入框已随统一输入框 1/3 删除,关键词筛选的入口就是这里。
+   */
+  const setBox = (value) =>
+    evalIn(`(() => {
+      const box = document.querySelector('[data-testid="unified-input"]');
+      if (!box) return false;
+      Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set.call(box, ${JSON.stringify(value)});
+      box.dispatchEvent(new Event('input', { bubbles: true }));
+      return true;
+    })()`);
+
+  /**
+   * 打开「添加条件」菜单:条件栏的触发按钮已随统一输入框 2/3 Task 2 搬走(只剩顶栏 `⋯` 菜单
+   * 与这里的 `>添加条件` 命令两条入口);菜单项仍用 menuPick 点,与旧写法一致。
+   */
+  const openAddCondition = async () => {
+    const opened = await evalIn(`(async () => {
+      const box = document.querySelector('[data-testid="unified-input"]');
+      if (!box) return false;
+      const pause = (ms) => new Promise((r) => setTimeout(r, ms));
+      const setValue = (v) => {
+        Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set.call(box, v);
+        box.dispatchEvent(new Event('input', { bubbles: true }));
+      };
+      const rows = () => [...document.querySelectorAll('[data-testid="unified-dropdown"] li[role="option"]')]
+        .filter((li) => li.textContent.includes('添加条件'));
+      for (let k = 0; k < 3; k++) {
+        setValue('>添加条件');
+        for (let i = 0; i < 12 && rows().length === 0; i++) await pause(250);
+        if (rows().length === 0) continue;
+        box.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+        await pause(700);
+        setValue('');
+        await pause(200);
+        if (document.querySelector('[role="menuitem"]')) return true;
+      }
+      return false;
+    })()`);
+    await sleep(200);
+    return opened === true;
+  };
+
+  /** 点顶栏 `⋯` 溢出菜单里的一条(Task 3:排序 / 导出整库 / 添加条件的鼠标入口) */
+  const openTopBarMenu = async (label) => {
+    const opened = await evalIn(`(() => {
+      const btn = document.querySelector('#root button[aria-label="更多操作"]');
+      if (!btn) return false;
+      btn.click();
+      return true;
+    })()`);
+    await sleep(320);
+    const picked = await evalIn(`(() => {
+      const b = [...document.querySelectorAll('[data-testid="topbar-menu"] button')]
+        .find((x) => x.textContent.trim() === ${JSON.stringify(label)});
+      if (!b) return false;
+      b.click();
+      return true;
+    })()`);
+    await sleep(300);
+    return opened === true && picked === true;
+  };
+
   /** 整页重载并等到主窗外壳(设置齿轮)与侧栏标签行渲染完成(清掉上一次运行/手工调试残留的界面状态) */
   const reloadPage = async () => {
     await evalIn('location.reload()');
@@ -83,5 +147,6 @@ export function bindDom(cdp) {
     await waitFor(() => evalIn(`!!document.querySelector('button[aria-label="设置"]') && !!document.querySelector('[data-tag-path]')`));
   };
 
-  return { evalIn, setInput, dlgSetInput, chips, clearChips, clickText, dlgClick, dialogLabels, menuPick, reloadPage };
+  return { evalIn, setInput, dlgSetInput, chips, clearChips, clickText, dlgClick, dialogLabels, menuPick, reloadPage,
+    setBox, openAddCondition, openTopBarMenu };
 }

@@ -25,4 +25,6 @@ export const os = {
   trayClick: (pid, cmd) => py('scripts/win-tray.py', cmd, String(pid)),
   hotkey: () => py('scripts/win-probe.py', 'hotkey', 'ctrl+shift+q'),
   closeWindow: (pid, title) => JSON.parse(py('scripts/win-probe.py', 'close-window', String(pid), title).stdout || '{}'),
+  /** 给该进程第一个 #32770 原生对话框发 WM_CLOSE(取消另存为等系统对话框) */
+  closeDialog: (pid) => JSON.parse(py('scripts/win-probe.py', 'close-dialog', String(pid)).stdout || '{}'),
 };

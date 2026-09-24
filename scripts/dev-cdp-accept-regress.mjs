@@ -14,7 +14,7 @@ const PAGE = 50; // 信息流一页条数(与后端一致)
 const { record, finish } = recorder();
 const { cdp, close } = await ensureMain();
 const { call, hits, liCount, inventory } = bindMain(cdp);
-const { evalIn, setInput, chips, clearChips, clickText, dlgClick, dialogLabels, menuPick, reloadPage } = bindDom(cdp);
+const { evalIn, setBox, chips, clearChips, clickText, dlgClick, dialogLabels, menuPick, openAddCondition, reloadPage } = bindDom(cdp);
 
 const inv0 = await inventory();
 const firstPage = Math.min(PAGE, inv0.notes); // 一屏能渲染出来的条数(库有上千条时只渲染首页)
@@ -23,17 +23,20 @@ await reloadPage();
 console.log('验收前库存:', JSON.stringify({ notes: inv0.notes, theme: inv0.theme, tagPaths: inv0.paths.length, tabsState: inv0.tabsState !== null }),
   '首页条数', firstPage, '起始 chips', JSON.stringify(await chips()), '残留对话框', JSON.stringify(await dialogLabels()));
 
-// ---------- 1 关键词筛选与 chip ----------
-await setInput('搜索笔记与标签', '牛奶');
-await sleep(800);
-const kw = { count: await liCount(), chips: await chips() };
+// ---------- 1 关键词筛选与 chip(旧筛选栏关键词输入框已随统一输入框 1/3 删除:改走 `/` 模式) ----------
+await setBox('/牛奶');
+const kw = await waitFor(async () => {
+  const c = { count: await liCount(), chips: await chips() };
+  return c.count === 1 && c.chips.includes('关键词:牛奶') ? c : null;
+}, 16, 250) ?? { count: await liCount(), chips: await chips() };
 record('R1 关键词筛选命中 1 条并生成 chip', kw.count === 1 && kw.chips.includes('关键词:牛奶'), JSON.stringify(kw));
+await setBox('');
 await clearChips();
 record('R2 移除 chip 后恢复首页全量', (await liCount()) === firstPage, `列表 ${await liCount()}/${firstPage}`);
 
 // ---------- 2 添加条件菜单:标签选择器 / 有无标签 / 排序 / 表达式 ----------
-const menuOpened = await clickText('添加条件');
-await sleep(300);
+// 入口已随 Task 2 搬走(旧条件栏触发按钮没了):走统一输入框的 `>添加条件` 命令
+const menuOpened = await openAddCondition();
 const menuItems = await evalIn(`Array.from(document.querySelectorAll('[role="menuitem"]')).map((x) => x.textContent.trim())`);
 record(
   'R3 「添加条件」菜单项齐全(标签/排除标签/有无标签/排序/表达式;无日期入口)',
@@ -48,8 +51,7 @@ await dlgClick('添加标签', '关闭');
 await sleep(400);
 
 // 有无标签 -> 无自定义标签(所有笔记都有标签,应为 0 条 + 「没有匹配的记录」空态)
-await clickText('添加条件');
-await sleep(300);
+await openAddCondition();
 await menuPick('有无标签');
 await sleep(300);
 await menuPick('无自定义标签');
@@ -68,8 +70,7 @@ await clearChips();
 
 // 排序:最早在前 -> 出现排序 chip,且界面首页前 3 条与后端 oldest 前 3 条逐条对位
 // (行内日期已随 S2 不再显示,故改用「正文尾段对位」取证顺序)
-await clickText('添加条件');
-await sleep(300);
+await openAddCondition();
 await menuPick('排序');
 await sleep(300);
 await menuPick('最早在前');

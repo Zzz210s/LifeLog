@@ -40,10 +40,38 @@ const read = (cdp) =>
     };
   })()`);
 
+/**
+ * 打开「添加条件」菜单:条件栏的触发按钮已随统一输入框 2/3 Task 2 搬走 ——
+ * 旧写法是点按钮正文「添加条件」,现在改走统一输入框的「>添加条件」命令(菜单项仍按 [role=menuitem] 点)。
+ */
+const openAddMenu = (cdp) =>
+  js(cdp, `(async () => {
+    const box = document.querySelector('[data-testid="unified-input"]');
+    if (!box) return false;
+    const pause = (ms) => new Promise((r) => setTimeout(r, ms));
+    const setValue = (v) => {
+      Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set.call(box, v);
+      box.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+    const rows = () => [...document.querySelectorAll('[data-testid="unified-dropdown"] li[role=option]')]
+      .filter((li) => li.textContent.includes('添加条件'));
+    for (let k = 0; k < 3; k++) {
+      setValue('>添加条件');
+      for (let i = 0; i < 12 && rows().length === 0; i++) await pause(250);
+      if (rows().length === 0) continue;
+      box.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      await pause(700);
+      setValue('');
+      await pause(200);
+      if (document.querySelector('[role=menuitem]')) return true;
+    }
+    return false;
+  })()`);
+
 const open = async (cdp, item) => {
   // 先收掉残留弹层(上一轮关不掉时,下面的「添加条件」会被遮罩吃掉)
   if (await js(cdp, `!!document.querySelector('[role="dialog"]')`)) await close(cdp);
-  await callText(cdp, 'document', '添加条件');
+  await openAddMenu(cdp);
   await sleep(400);
   await js(cdp, `(() => {
     const b = Array.from(document.querySelectorAll('[role="menuitem"]')).find((x) => x.textContent.trim() === ${JSON.stringify(item)});
