@@ -10,6 +10,11 @@ export interface AddConditionMenuProps {
   onPickTag: (exclude: boolean) => void;
   /** 表达式(高级):交给上层打开表达式对话框(D4:只在筛选栏编辑) */
   onOpenExpr: () => void;
+  /** 受控开关:命令与顶栏菜单(Task 3)、条件栏都把开关放在上层 */
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  /** 是否渲染「添加条件」按钮:条件栏里鼠标入口已搬到顶栏菜单,只留浮层(默认渲染) */
+  showTrigger?: boolean;
 }
 
 type Pane = 'main' | 'presence' | 'sort';
@@ -17,22 +22,25 @@ type Pane = 'main' | 'presence' | 'sort';
 const ITEM_CLASS =
   'block w-full rounded-xs px-2.5 py-1.5 text-left text-ui text-muted hover:bg-accent-soft hover:text-accent-text';
 
-/** 「添加条件」下拉:主面板五项(无日期入口,spec D2);有无标签/排序切换到子面板直接生效 */
+/** 「添加条件」下拉:主面板五项(无日期入口,spec D2);有无标签/排序切换到子面板直接生效。
+ * 开关受控(open/onOpenChange),方便 `>` 命令与顶栏菜单从别处打开它;`showTrigger=false` 时只渲染浮层。 */
 export function AddConditionMenu(p: AddConditionMenuProps): ReactNode {
-  const [open, setOpen] = useState(false);
   const [pane, setPane] = useState<Pane>('main');
   const root = useRef<HTMLDivElement>(null);
+  // props 现读:浮层可能开着很久才被点外/按 Esc 关掉,不能闭包住旧回调
+  const latest = useRef(p);
+  latest.current = p;
 
   // 开着时:点击菜单外或 Esc 关闭(不冒泡到窗口级)
   useEffect(() => {
-    if (!open) return;
+    if (!p.open) return;
     const onDown = (e: MouseEvent) => {
-      if (!root.current?.contains(e.target as Node)) setOpen(false);
+      if (!root.current?.contains(e.target as Node)) latest.current.onOpenChange(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation();
-        setOpen(false);
+        latest.current.onOpenChange(false);
       }
     };
     document.addEventListener('mousedown', onDown);
@@ -41,10 +49,10 @@ export function AddConditionMenu(p: AddConditionMenuProps): ReactNode {
       document.removeEventListener('mousedown', onDown);
       document.removeEventListener('keydown', onKey, true);
     };
-  }, [open]);
+  }, [p.open]);
 
   const close = () => {
-    setOpen(false);
+    latest.current.onOpenChange(false);
     setPane('main');
   };
   const act = (fn: () => void) => {
@@ -54,19 +62,21 @@ export function AddConditionMenu(p: AddConditionMenuProps): ReactNode {
 
   return (
     <div ref={root} className="relative shrink-0">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        className="h-8 rounded-sm border border-border px-2.5 text-ui text-muted hover:border-accent hover:text-accent-text"
-      >
-        添加条件
-        <svg viewBox="0 0 16 16" className="ml-1 inline h-3 w-3 align-[-1px]" aria-hidden="true">
-          <path d="M3 6l5 5 5-5" fill="none" stroke="currentColor" strokeWidth="1.5" />
-        </svg>
-      </button>
-      {open && (
+      {p.showTrigger !== false && (
+        <button
+          type="button"
+          onClick={() => p.onOpenChange(!p.open)}
+          aria-haspopup="menu"
+          aria-expanded={p.open}
+          className="h-8 rounded-sm border border-border px-2.5 text-ui text-muted hover:border-accent hover:text-accent-text"
+        >
+          添加条件
+          <svg viewBox="0 0 16 16" className="ml-1 inline h-3 w-3 align-[-1px]" aria-hidden="true">
+            <path d="M3 6l5 5 5-5" fill="none" stroke="currentColor" strokeWidth="1.5" />
+          </svg>
+        </button>
+      )}
+      {p.open && (
         <div
           role="menu"
           className="absolute left-0 top-full z-20 mt-1 rounded-lg border border-border bg-raised p-1 shadow-lg"

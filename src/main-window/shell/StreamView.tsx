@@ -18,7 +18,7 @@ import type { UnifiedController } from '../unified/use-unified-input';
 import { effectFor } from '../unified/unified-accept';
 import { useQuickOpen } from '../palette/use-quick-open';
 import { NoteStream } from '../stream/NoteStream';
-import { FilterBar } from '../filter/FilterBar';
+import { ConditionBar } from '../filter/ConditionBar';
 import { ErrorBars } from './ErrorBars';
 import { TabsBar } from '../tabs/TabsBar';
 import type { TabsApi } from '../tabs/use-tabs';
@@ -63,6 +63,9 @@ export interface StreamViewProps {
   onSaved: () => void;
   /** `>` 采纳后执行既有命令(use-app-commands 的 execute:先 flush 编辑态,失败落错误条) */
   onRunCommand: (id: string) => void;
+  /** 「添加条件」命令/顶栏菜单上抛的开关(命令消费后由 App 复位) */
+  addConditionOpen: boolean;
+  onAddConditionOpenChange: (open: boolean) => void;
   /** 统一输入框控制器上抛口(快捷键要 `prefill`):App 持有的 ref,这里只写不读 */
   unifiedRef: RefObject<UnifiedController | null>;
 }
@@ -163,12 +166,11 @@ export function StreamView(p: StreamViewProps): ReactNode {
         onController={(c) => { p.unifiedRef.current = c; }}
         candidates={{ palette: p.palette, decorations: p.decorations, refreshKey: p.tagsVersion, onError: p.onLinkError }}
       />
-      <FilterBar
+      <ConditionBar
         conditions={p.conditions}
         onPatch={p.onPatch}
-        onExport={p.onExport}
-        exporting={p.exporting}
-        exported={p.exported}
+        addConditionOpen={p.addConditionOpen}
+        onAddConditionOpenChange={p.onAddConditionOpenChange}
       />
       <ErrorBars errors={p.errors} onRetry={p.onRetry} onDismiss={p.onDismissError} />
       <NoteStream

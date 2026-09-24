@@ -159,7 +159,7 @@ describe('V5 标签选择对话框:同一浮层口径', () => {
   });
 });
 
-describe('V5 添加条件下拉:菜单浮层口径', () => {
+describe('V5 添加条件下拉:菜单浮层口径(受控:直接以 open: true 渲染,Task 2 起不再点触发按钮)', () => {
   const menu = (): HTMLElement => host.querySelector('[role="menu"]') as HTMLElement;
   const open = (over: Partial<Parameters<typeof AddConditionMenu>[0]> = {}): Record<string, unknown> => {
     const props = {
@@ -167,10 +167,10 @@ describe('V5 添加条件下拉:菜单浮层口径', () => {
       onPatch: vi.fn(),
       onPickTag: vi.fn(),
       onOpenExpr: vi.fn(),
+      open: true, onOpenChange: vi.fn(),
       ...over,
     };
     render(createElement(AddConditionMenu, props));
-    act(() => (button('添加条件') as HTMLElement).click());
     return props;
   };
 

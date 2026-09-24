@@ -73,8 +73,10 @@ describe('标签新鲜度门禁:写笔记的命令只在唯一出口', () => {
     expect(sub).toContain('notifyTagsChanged()');
   });
 
-  it('主窗订阅了出口(否则出口通知没人听,`#` 照样陈旧)', () => {
+  it('主窗的标签订阅挂在出口上(订阅自 App 抽在 use-tag-rows,App 也真的用了它)', () => {
+    const sub = readFileSync(join(SRC, 'main-window/data/use-tag-rows.ts'), 'utf8');
+    expect(sub).toContain('onTagsChanged(reloadTags)');
     const app = readFileSync(join(SRC, 'main-window/App.tsx'), 'utf8');
-    expect(app).toContain('onTagsChanged(loadTags)');
+    expect(app).toContain('useTagRows(');
   });
 });

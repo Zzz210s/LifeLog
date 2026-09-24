@@ -94,6 +94,7 @@ export async function mountStreamView(o: MountOptions = {}): Promise<Mounted> {
     onSwitchEdit: () => {}, onDelete: () => {}, onEditSaved: () => {}, onEditCancel: () => {},
     onToggleTask: () => {}, onLinkError: o.onLinkError ?? (() => {}), palette, decorations: {}, tagsVersion: 0,
     onSaved: () => {}, onRunCommand: o.onRunCommand ?? (() => {}),
+    addConditionOpen: false, onAddConditionOpenChange: () => {},
     unifiedRef: { current: null },
   };
   /**

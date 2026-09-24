@@ -133,17 +133,6 @@ ${HELPERS}
 
 export const BLUR_JS = `(() => { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); return true; })()`;
 
-/** 添加条件菜单(调试用;门禁用 MENU_SCAN_JS) */
-export const OPEN_MENU_JS = `(async () => {
-${HELPERS}
-  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-  const btn = [...document.querySelectorAll('#root button[aria-haspopup="menu"]')].find((b) => vis(b) && b.textContent.includes('添加条件'));
-  if (!btn) return { ok: false, why: '未找到「添加条件」按钮' };
-  btn.click(); await sleep(160);
-  const menu = [...btn.parentElement.querySelectorAll('[role=menu]')].find(vis);
-  return { ok: true, menu: read(menu) };
-})()`;
-
 /** 逐个开一遍下拉菜单(设计 §4-9:菜单属浮层,radius-lg + shadow-lg),读完 Esc 关掉 */
 export const MENU_SCAN_JS = `(async () => {
 ${HELPERS}
@@ -160,13 +149,24 @@ ${HELPERS}
   return out;
 })()`;
 
-/** 开「添加条件」菜单 → 点「表达式(高级)」→ 读对话框容器与内部控件档位 */
+/** 开「添加条件」菜单 → 点「表达式(高级)」→ 读对话框容器与内部控件档位。
+ * 菜单入口:条件栏的触发按钮已在 Task 2 搬走,这里走 `>` 命令(顶栏菜单项跑的是同一条命令)。 */
 export const OPEN_DIALOG_JS = `(async () => {
 ${HELPERS}
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-  const btn = [...document.querySelectorAll('#root button[aria-haspopup="menu"]')].find((b) => vis(b) && b.textContent.includes('添加条件'));
-  if (!btn) return { ok: false, why: '未找到「添加条件」按钮' };
-  btn.click(); await sleep(200);
+  const box = document.querySelector('#root [data-testid="unified-input"]');
+  if (!box) return { ok: false, why: '没有统一输入框' };
+  const set = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set;
+  set.call(box, '>添加条件'); box.dispatchEvent(new Event('input', { bubbles: true }));
+  const rows = () => [...document.querySelectorAll('#root [data-testid="unified-dropdown"] li[role="option"]')]
+    .filter((li) => li.textContent.includes('添加条件'));
+  let row = rows()[0];
+  for (let i = 0; i < 12 && !row; i++) { await sleep(250); row = rows()[0]; }
+  if (!row) return { ok: false, why: '「>添加条件」没有候选行' };
+  box.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  await sleep(600);
+  set.call(box, ''); box.dispatchEvent(new Event('input', { bubbles: true }));
+  await sleep(200);
   const item = [...document.querySelectorAll('#root [role=menuitem]')].find((b) => b.textContent.includes('表达式'));
   if (!item) return { ok: false, why: '菜单里没有「表达式(高级)」项' };
   item.click(); await sleep(280);

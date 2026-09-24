@@ -3,7 +3,6 @@ import type { ReactNode } from 'react';
 import { api } from '../shared/api';
 import { EMPTY_FILTER, isFilterEmpty } from '../shared/filter-conditions';
 import { useThemeMode } from '../shared/use-theme-mode';
-import type { TagCount } from '../shared/types';
 import { CommandStatusPill } from './shell/CommandStatusPill';
 import type { MainView } from './settings/settings-model';
 import { SettingsView } from './settings/SettingsView';
@@ -15,11 +14,13 @@ import { useTabs } from './tabs/use-tabs';
 import { TopBar } from './shell/TopBar';
 import { useAppErrors } from './shell/use-app-errors';
 import { useAppCommands } from './shell/use-app-commands';
+import { useAddConditionMenu } from './shell/use-add-condition-menu';
 import { useEditFlow } from './shell/use-edit-flow';
 import { useMainPalette } from './shell/use-main-palette';
 import { useBackupWarning } from './shell/use-backup-warning';
 import { useNoteCreatedRefresh } from './data/use-note-created';
-import { notifyTagsChanged, onTagsChanged } from './data/tags-changed';
+import { notifyTagsChanged } from './data/tags-changed';
+import { useTagRows } from './data/use-tag-rows';
 import { useOpenSettings } from './shell/use-open-settings';
 import { useNotesFeed } from './data/use-notes-feed';
 import { useNotesExport } from './data/use-export';
@@ -30,10 +31,9 @@ export function App(): ReactNode {
   const tabs = useTabs();
   const { conditions, patch, toggleTag, reload: reloadTabs } = tabs;
   const sidebar = useSidebarState();
-  const [tagRows, setTagRows] = useState<TagCount[]>([]);
-  // 标签数据版本:每次 loadTags 成功递增,浮层的 `#` 候选池据此作废(不每键一次全树查询)
-  const [tagsVersion, setTagsVersion] = useState(0);
   const { errors, setError, clearError } = useAppErrors();
+  // 标签树数据与版本号(版本号是浮层 `#` 候选池的作废键;重载只由 tags-changed 唯一出口驱动)
+  const { tagRows, tagsVersion } = useTagRows(setError, clearError);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [view, setView] = useState<MainView>('stream');
   // 主题三态:主窗持有并广播给输入栏(见 shared/use-theme-mode);挂载即读库应用
@@ -43,27 +43,11 @@ export function App(): ReactNode {
   const { notes, setNotes, hasMore, loading, queryFailed, fetchPage, loadMore, retry } =
     useNotesFeed(conditions, setError, clearError);
 
-  const loadTags = useCallback(() => {
-    void api
-      .listTags()
-      .then((rows) => {
-        setTagRows(rows);
-        setTagsVersion((v) => v + 1);
-        clearError('tags');
-      })
-      .catch((e) => setError('tags', '标签加载失败: ' + String(e)));
-  }, [clearError, setError]);
-
   // 条件变化(含切换标签页):退出编辑态(列表重查由 useNotesFeed 负责)
   useEffect(() => {
     setEditingId(null);
   }, [conditions]);
 
-  // 标签重载:挂载先读一次;之后只由唯一出口驱动(写库出口/输入栏事件/侧栏变更都只声明"可能变了")
-  useEffect(() => {
-    loadTags();
-    return onTagsChanged(loadTags);
-  }, [loadTags]);
   useBackupWarning(setError);
 
   /** 新增笔记后回第一页(新内容必在最前);就地变更走 replaceNote,不重置分页与滚动位置 */
@@ -110,6 +94,8 @@ export function App(): ReactNode {
     exportAll: onExport,
     setError,
   });
+  // 「添加条件」命令的一次性信号 -> 条件栏菜单开关(打开即复位)
+  const addCondition = useAddConditionMenu(commands);
 
   // 主区容器 = 候选下拉关闭时的焦点归位锚点(tabIndex=-1 才可聚焦;可见焦点环见 className)
   const anchorRef = useRef<HTMLDivElement>(null);
@@ -187,6 +173,8 @@ export function App(): ReactNode {
           tagsVersion={tagsVersion}
           onSaved={refresh}
           onRunCommand={commands.execute}
+          addConditionOpen={addCondition.open}
+          onAddConditionOpenChange={addCondition.setOpen}
           unifiedRef={unified}
         />
         {view === 'settings' && (
