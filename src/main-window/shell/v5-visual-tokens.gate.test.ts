@@ -151,6 +151,10 @@ describe('V5 门禁:浮层容器与遮罩', () => {
     expect(bad.map(([f]) => f)).toEqual([]);
   });
 
+  // 记账(修复轮 1):`.overlay-scrim` 目前**零使用者** —— 命令面板外壳已随统一输入框删除(浮层改成
+  // 列表外的下拉,不吃遮罩)。保留不删的理由:它是视觉刷新 V5「设计 §4-9」的基元,2/3 的对话框/
+  // 其它 shell 层浮层还会用到,单方面删掉等于自创设计变更。若后续确认不再需要,应把这条断言与
+  // main.css 里的基元一起删(不留死 CSS)。
   it('main.css 定义了两个新基元:overlay-scrim(阴影 + 100vmax overlay)与 tag-guides', () => {
     const css = readFileSync('src/main-window/main.css', 'utf8');
     expect(css).toMatch(/\.overlay-scrim\s*\{[^}]*var\(--shadow-lg\)[^}]*100vmax\s+var\(--color-overlay\)/);

@@ -10,15 +10,15 @@
  * Ctrl+Enter **永远**保存;采纳只交出索引,三类前缀的副作用由容器 `StreamView` 决策并执行(Task 6)。
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { KeyboardEvent, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { api } from '../../shared/api';
 import { prepareForSave } from '../../shared/note-source';
 import type { InputMode } from '../../shared/input-prefix';
 import { BTN_PRIMARY } from '../shell/button-classes';
 import { PrefixHint } from './PrefixHint';
 import { UnifiedDropdownSlot } from './UnifiedDropdown';
-import { routeUnifiedKey } from './unified-keys';
 import { useUnifiedCandidates, type UnifiedCandidateWiring } from './use-unified-candidates';
+import { useUnifiedKeys } from './use-unified-keys';
 import { useUnifiedInput, type UnifiedController } from './use-unified-input';
 
 export interface UnifiedInputProps {
@@ -129,20 +129,16 @@ export function UnifiedInput(p: UnifiedInputProps): ReactNode {
     p.onAccept?.(index);
   };
 
-  // 键盘路由(与浮层同口径):↓/↑ 移动 -> Tab 采纳 -> Enter 采纳(有行时)-> Esc -> Ctrl+Enter 保存
-  const routeKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    const action = routeUnifiedKey(e, {
-      dropdownShown: showDropdown,
-      activeIndex: pal?.activeIndex ?? 0,
-      count: cands.rows.length,
-    });
-    if (action.type === 'ignore') return;
-    e.preventDefault();
-    if (action.type === 'save') void save();
-    else if (action.type === 'esc') c.esc(); // 两级:有下拉先关下拉(模式/内容不动),没下拉才退模式
-    else if (action.type === 'highlight') pal?.setActiveIndex(action.index);
-    else accept(action.index);
-  };
+  // 键盘路由(与浮层同口径,含输入法组合守卫):↓/↑ 移动 -> Tab 采纳 -> Enter 采纳(有行时才)-> Esc -> Ctrl+Enter 保存
+  const routeKey = useUnifiedKeys({
+    dropdownShown: showDropdown,
+    activeIndex: pal?.activeIndex ?? 0,
+    count: cands.rows.length,
+    save: () => void save(),
+    esc: () => c.esc(), // 两级:有下拉先关下拉(模式/内容不动),没下拉才退模式
+    highlight: (index) => pal?.setActiveIndex(index),
+    accept,
+  });
 
   return (
     <div className="border-b border-border px-4 py-2">
