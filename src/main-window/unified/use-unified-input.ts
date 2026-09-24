@@ -7,7 +7,7 @@
  *     (快捷键 Ctrl+P / Ctrl+Shift+P 的语义 = 聚焦这一个框并预填前缀,
  *      见计划 Task 7;不在这里直接 focus,是因为 ref 归组件所有)。
  */
-import { useCallback, useReducer, useRef } from 'react';
+import { useCallback, useReducer, useState } from 'react';
 import { initialUnified, reduceUnified, type UnifiedState } from './unified-input-model';
 
 export interface UnifiedController {
@@ -26,25 +26,27 @@ export interface UnifiedController {
 }
 
 export function useUnifiedInput(initialRaw = ''): UnifiedController {
-  const [state, dispatch] = useReducer(reduceUnified, initialUnified(initialRaw));
-  const focusSignal = useRef(0);
+  // 惰性初始化 + 明确"仅挂载生效":后续改 initialRaw 不会重置状态
+  const [state, dispatch] = useReducer(reduceUnified, initialRaw, initialUnified);
+  // 焦点请求用 state 而不是 ref:ref 变更不触发渲染,焦点会静默丢失(2026-09-24 评审)
+  const [focusSignal, setFocusSignal] = useState(0);
 
   const setRaw = useCallback((raw: string) => dispatch({ type: 'set', raw }), []);
   const pickPrefix = useCallback((prefix: string) => dispatch({ type: 'pickPrefix', prefix }), []);
   const esc = useCallback(() => dispatch({ type: 'esc' }), []);
   const clear = useCallback(() => dispatch({ type: 'clear' }), []);
-  const openDropdown = useCallback(() => dispatch({ type: 'accept' }), []);
+  const openDropdown = useCallback(() => dispatch({ type: 'openDropdown' }), []);
   const closeDropdown = useCallback(() => dispatch({ type: 'closeDropdown' }), []);
 
   // prefill 与 pickPrefix 的区别只在"顺带把焦点抢回来",状态迁移完全一样
   const prefill = useCallback((prefix: string) => {
     dispatch({ type: 'pickPrefix', prefix });
-    focusSignal.current += 1;
+    setFocusSignal((n) => n + 1);
   }, []);
 
   return {
     state,
-    focusSignal: focusSignal.current,
+    focusSignal,
     setRaw,
     pickPrefix,
     prefill,

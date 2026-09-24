@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { reduceUnified, type UnifiedState } from './unified-input-model';
+import { derive, reduceUnified, type UnifiedState } from './unified-input-model';
 
 const init = (raw: string): UnifiedState => ({ raw, mode: 'note', query: raw, prefix: '', dropdownOpen: false });
 
@@ -51,4 +51,34 @@ describe('统一输入框状态机(设计 §4)', () => {
     expect(reduceUnified({ ...init('@夏天'), mode: 'open', prefix: '@', query: '夏天', dropdownOpen: true }, { type: 'clear' }))
       .toMatchObject({ mode: 'note', raw: '', query: '', prefix: '' });
   });
+  it('set:有前缀开下拉、记录模式关下拉(D6 主路径)', () => {
+    expect(reduceUnified(init(''), { type: 'set', raw: '#购' }).dropdownOpen).toBe(true);
+    expect(reduceUnified({ ...init('#购'), dropdownOpen: true }, { type: 'set', raw: '买牛奶' }).dropdownOpen).toBe(false);
+  });
+
+  it('openDropdown:有前缀才开;记录模式保持关(评审 M2)', () => {
+    const closed = { ...derive('#购'), dropdownOpen: false };
+    expect(reduceUnified(closed, { type: 'openDropdown' })).toMatchObject({ dropdownOpen: true, raw: '#购' });
+    const note = derive('草稿');
+    expect(reduceUnified(note, { type: 'openDropdown' }).dropdownOpen).toBe(false);
+  });
+
+  it('closeDropdown:关下拉且内容与模式都不动', () => {
+    const s = reduceUnified({ ...init('/牛奶'), mode: 'filter', prefix: '/', query: '牛奶', dropdownOpen: true },
+      { type: 'closeDropdown' });
+    expect(s).toMatchObject({ dropdownOpen: false, raw: '/牛奶', mode: 'filter' });
+  });
+
+  it('pickPrefix 切到记录模式时保留已输入内容(评审 G5)', () => {
+    const s = reduceUnified({ ...init('#购物'), mode: 'tag', prefix: '#', query: '购物', dropdownOpen: true },
+      { type: 'pickPrefix', prefix: '' });
+    expect(s.raw).toBe('购物');
+  });
+
+  it('带前缀换另一个前缀:内容保留(评审 G6)', () => {
+    const s = reduceUnified({ ...init('/牛奶'), mode: 'filter', prefix: '/', query: '牛奶' },
+      { type: 'pickPrefix', prefix: '#' });
+    expect(s).toMatchObject({ raw: '#牛奶', mode: 'tag', query: '牛奶', dropdownOpen: true });
+  });
 });
+
