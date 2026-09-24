@@ -2,6 +2,7 @@
  * 侧栏容器(spec 6.1):标签分区(视图分区已随视图模块删除,S6——标签页在顶栏下方),
  * 右缘 4px 热区拖宽(180-420,松手才落库),顶部「隐藏」按钮整栏收起(顶栏提供「显示侧栏」入口)。
  * 时间分区已删除(spec 2026-09-17 D3):时间标签降级为普通标签,就在标签分区里。
+ * 「筛选标签」按钮不带输入框(Task 4):点击经 onPrefill 把 `#` 交给统一输入框。
  * 窄窗口保护:内容区 min-w 在 App 侧声明,本栏允许被压缩(不设 shrink-0)。
  */
 import { useState } from 'react';
@@ -21,6 +22,11 @@ export interface SidebarProps {
   tagRows: TagCount[];
   /** 标签改名/移动/删除成功后:刷新标签树 + 级联改写当前标签页条件 */
   onTagsMutated: (pathChange?: { from: string; to: string }) => void;
+  /**
+   * 统一输入框的预填通道(与快捷键同一条):聚焦输入框并预填前缀。
+   * 「筛选标签」按钮的语义就是 `onPrefill('#')` —— 用户接着打字即标签筛选。
+   */
+  onPrefill: (prefix: string) => void;
 }
 
 /** 拖宽热区:右缘 4px(w-1),光标与悬停高亮提示可拖 */
@@ -77,6 +83,7 @@ export function Sidebar(p: SidebarProps): ReactNode {
         mode={p.sidebar.mode}
         onModeChange={p.sidebar.setMode}
         onTagsMutated={p.onTagsMutated}
+        onFilterTags={() => p.onPrefill('#')}
       />
       {/* 右缘拖宽热区:悬停高亮,拖动中抑制选中文本 */}
       <div

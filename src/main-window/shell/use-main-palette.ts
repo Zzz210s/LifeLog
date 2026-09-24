@@ -1,7 +1,8 @@
 /**
  * 主窗候选体系的整体接线(自 App.tsx 抽出以守行数红线):上下文键快照 + 三个 provider 接线 +
  * 应用内快捷键监听(Task 7 起快捷键 = 聚焦统一输入框并预填前缀,不再开关浮层)。
- * App 只负责把状态递进来、把 controller/decorations/unified 递出去。
+ * `prefill(prefix)` 是唯一入口:快捷键与侧栏「筛选标签」(Task 4)都走它。
+ * App 只负责把状态递进来、把 controller/decorations/unified/prefill 递出去。
  */
 import { useCallback, useRef } from 'react';
 import type { RefObject } from 'react';
@@ -41,8 +42,10 @@ export interface MainPaletteOptions {
 export interface MainPalette {
   controller: PaletteController;
   decorations: Readonly<Record<string, RowDecoration>>;
-  /** 统一输入框控制器(由 StreamView 上抛):快捷键的 prefill 打在这里 */
+  /** 统一输入框控制器(由 StreamView 上抛):状态取用方从它读 */
   unified: RefObject<UnifiedController | null>;
+  /** 聚焦统一输入框并预填前缀(快捷键与侧栏「筛选标签」共用这一条通道) */
+  prefill: (prefix: string) => void;
 }
 
 /**
@@ -86,14 +89,15 @@ export function useMainPalette(o: MainPaletteOptions): MainPalette {
 
   // 应用内快捷键(默认 Ctrl+P / Ctrl+Shift+P,可在设置页自设):命中即聚焦统一输入框并预填前缀
   const unified = useRef<UnifiedController | null>(null);
-  const readHotkeys = useAppHotkeys();
-  usePaletteHotkeys({
-    onPrefill: (prefix) => {
+  const prefill = useCallback(
+    (prefix: string) => {
       o.beforePrefill();
       unified.current?.prefill(prefix);
     },
-    read: readHotkeys,
-  });
+    [o.beforePrefill],
+  );
+  const readHotkeys = useAppHotkeys();
+  usePaletteHotkeys({ onPrefill: prefill, read: readHotkeys });
 
-  return { controller: palette.controller, decorations: palette.decorations, unified };
+  return { controller: palette.controller, decorations: palette.decorations, unified, prefill };
 }

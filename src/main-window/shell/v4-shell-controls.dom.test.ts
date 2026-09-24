@@ -128,42 +128,29 @@ describe('V4 错误条:文字动作按钮走 28 档', () => {
   });
 });
 
-describe('V4 标签分区头部:动作按钮 28 档 + 过滤框 32 档', () => {
+describe('V4 标签分区头部:动作按钮 28 档', () => {
   const header = (over: Record<string, unknown> = {}) =>
     createElement(TagsHeader, {
       flash: null,
       mode: 'tree',
       onModeChange: () => {},
-      filterOpen: false,
-      onToggleFilter: () => {},
-      query: '',
-      onQueryChange: () => {},
+      onFilterTags: () => {},
       ...over,
     });
 
-  it('树/扁平与过滤按钮都是 h-7 / rounded-sm / text-ui', async () => {
+  it('树/扁平与筛选标签按钮都是 h-7 / rounded-sm / text-ui', async () => {
     await render(header());
     const buttons = [...host.querySelectorAll('button')] as HTMLElement[];
-    expect(buttons.map((b) => b.textContent)).toEqual(['树', '过滤']);
+    expect(buttons.map((b) => b.textContent)).toEqual(['树', '筛选标签']);
     for (const btn of buttons) {
       for (const token of ['h-7', 'rounded-sm', 'text-ui']) expect(tokens(btn)).toContain(token);
       expect(tokens(btn)).not.toContain('text-xs');
     }
   });
 
-  it('过滤框 h-8 / rounded-sm / border-border-strong / text-ui', async () => {
-    await render(header({ filterOpen: true }));
-    const input = host.querySelector('input') as HTMLElement;
-    for (const token of ['h-8', 'rounded-sm', 'border-border-strong', 'text-ui']) {
-      expect(tokens(input)).toContain(token);
-    }
-    expect(tokens(input)).not.toContain('rounded');
-    expect(tokens(input)).not.toContain('text-xs');
-  });
-
-  it('回归:模式切换与过滤回调不变', async () => {
+  it('回归:模式切换与筛选标签回调不变', async () => {
     const calls: string[] = [];
-    await render(header({ onModeChange: (m: string) => calls.push('mode:' + m), onToggleFilter: () => calls.push('filter') }));
+    await render(header({ onModeChange: (m: string) => calls.push('mode:' + m), onFilterTags: () => calls.push('filter') }));
     const [mode, filter] = [...host.querySelectorAll('button')] as HTMLElement[];
     await act(async () => mode.click());
     await act(async () => filter.click());

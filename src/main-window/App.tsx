@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { api } from '../shared/api';
-import { EMPTY_FILTER, isFilterEmpty } from '../shared/filter-conditions';
+import { isFilterEmpty } from '../shared/filter-conditions';
 import { useThemeMode } from '../shared/use-theme-mode';
 import { CommandStatusPill } from './shell/CommandStatusPill';
 import type { MainView } from './settings/settings-model';
@@ -25,6 +24,7 @@ import { useTagRows } from './data/use-tag-rows';
 import { useOpenSettings } from './shell/use-open-settings';
 import { useNotesFeed } from './data/use-notes-feed';
 import { useNotesExport } from './data/use-export';
+import { useStreamActions } from './shell/use-stream-actions';
 
 /** 主窗 v2:侧栏(标签)+ 标签页栏 + 单列流(统一输入框 + 条件栏 + NoteStream);候选下拉在输入框内 */
 export function App(): ReactNode {
@@ -51,12 +51,13 @@ export function App(): ReactNode {
 
   useBackupWarning(setError);
 
-  /** 新增笔记后回第一页(新内容必在最前);就地变更走 replaceNote,不重置分页与滚动位置 */
-  const refresh = useCallback(() => {
-    setEditingId(null);
-    void fetchPage(0, false);
-    notifyTagsChanged(); // 标签走唯一出口(与写库出口的重复通知合并成一次)
-  }, [fetchPage]);
+  // 信息流的三条命令式动作(回第一页/唤起输入栏/清筛选):接线在 shell/use-stream-actions
+  const { refresh, showInput, clearFilters } = useStreamActions({
+    fetchPage,
+    patch,
+    resetEditing: setEditingId,
+    setError,
+  });
 
   // 输入栏保存后主窗自动出现(W1);已翻页或正在编辑时由 shouldAutoRefresh 拦下
   useNoteCreatedRefresh(notes.length, editingId, refresh, (m) => setError('action', m));
@@ -65,14 +66,6 @@ export function App(): ReactNode {
   const openSettings = useCallback(() => setView('settings'), []);
   const reportSettingsError = useCallback((m: string) => setError('action', m), [setError]);
   useOpenSettings(openSettings, reportSettingsError);
-
-  /** 空库引导:显示(不切换)输入栏;失败走既有错误条 */
-  const showInput = useCallback(() => {
-    void api.showInputWindow().catch((e) => setError('action', '唤起输入栏失败: ' + String(e)));
-  }, [setError]);
-
-  /** 空库引导:清空当前标签页的全部筛选条件(排序也回默认) */
-  const clearFilters = useCallback(() => patch(EMPTY_FILTER), [patch]);
 
   const { remove, onEditSaved, toggleTask, requestEdit, switchEdit, handleTagsMutated } = useEditFlow({
     conditions,
@@ -102,7 +95,7 @@ export function App(): ReactNode {
 
   // 主区容器 = 候选下拉关闭时的焦点归位锚点(tabIndex=-1 才可聚焦;可见焦点环见 className)
   const anchorRef = useRef<HTMLDivElement>(null);
-  const { controller, decorations, unified } = useMainPalette({
+  const { controller, decorations, unified, prefill } = useMainPalette({
     anchorRef,
     registry: commands.registry,
     executeCommand: commands.execute,
@@ -127,6 +120,7 @@ export function App(): ReactNode {
         onPatch={patch}
         tagRows={tagRows}
         onTagsMutated={handleTagsMutated}
+        onPrefill={prefill}
       />
       {/* 内容区 min-w 保护:窄窗口下侧栏允许被压缩,内容区不被挤没;
           同时是浮层关闭时的焦点归位锚点(键盘关闭 -> 焦点回主区,焦点环可见)。
