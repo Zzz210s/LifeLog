@@ -13,8 +13,9 @@ export interface TabAddMenuProps {
   onAddCurrent: () => void;
 }
 
+// 视觉口径(V5 收口):rounded-xs(4px)+ text-ui(13/18)+ 中性 hover;选中态才用 accent
 const ITEM_CLASS =
-  'block w-full rounded px-2.5 py-1.5 text-left text-xs text-muted hover:bg-accent-soft hover:text-accent-text';
+  'block w-full rounded-xs px-2 py-1.5 text-left text-ui text-text hover:bg-hover hover:text-text';
 
 export function TabAddMenu(p: TabAddMenuProps): ReactNode {
   const [open, setOpen] = useState(false);
