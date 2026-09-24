@@ -22,6 +22,7 @@ const FILES = [
   'filter/ExprSyntaxHint.tsx',
   'filter/TagPickDialog.tsx',
   'filter/AddConditionMenu.tsx',
+  'shell/TopBarMenu.tsx',
   'sidebar/TagRow.tsx',
   'sidebar/TagsHeader.tsx',
   'sidebar/TagsSection.tsx',
@@ -50,6 +51,7 @@ const FLOATS: Array<[string, string]> = [
   ['filter/ExprDialog.tsx', 'role="dialog"'],
   ['filter/TagPickDialog.tsx', 'role="dialog"'],
   ['filter/AddConditionMenu.tsx', 'role="menu"'],
+  ['shell/TopBarMenu.tsx', 'role="menu"'],
   ['sidebar/TagMenu.tsx', 'role="menu"'],
 ];
 

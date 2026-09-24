@@ -44,6 +44,9 @@ const topBar = (over: Partial<Parameters<typeof TopBar>[0]> = {}) =>
   createElement(TopBar, {
     view: 'stream',
     sidebarVisible: true,
+    menuItems: [],
+    exporting: false,
+    exported: false,
     onToggleSidebar: () => {},
     onOpenSettings: () => {},
     onBack: () => {},

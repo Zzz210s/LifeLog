@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { FilterConditions } from '../../shared/filter-conditions';
+import { useDismiss } from '../shell/use-dismiss';
 
 export interface AddConditionMenuProps {
   conditions: FilterConditions;
@@ -27,29 +28,12 @@ const ITEM_CLASS =
 export function AddConditionMenu(p: AddConditionMenuProps): ReactNode {
   const [pane, setPane] = useState<Pane>('main');
   const root = useRef<HTMLDivElement>(null);
-  // props 现读:浮层可能开着很久才被点外/按 Esc 关掉,不能闭包住旧回调
+  // props 现读:菜单的关闭/选择回调可能很晚才跑,不能闭包住旧 props
   const latest = useRef(p);
   latest.current = p;
 
-  // 开着时:点击菜单外或 Esc 关闭(不冒泡到窗口级)
-  useEffect(() => {
-    if (!p.open) return;
-    const onDown = (e: MouseEvent) => {
-      if (!root.current?.contains(e.target as Node)) latest.current.onOpenChange(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation();
-        latest.current.onOpenChange(false);
-      }
-    };
-    document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey, true);
-    return () => {
-      document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey, true);
-    };
-  }, [p.open]);
+  // 开着时:点击菜单外或 Esc 关闭(共用写法见 shell/use-dismiss)
+  useDismiss(p.open, root, () => latest.current.onOpenChange(false));
 
   const close = () => {
     latest.current.onOpenChange(false);

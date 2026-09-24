@@ -12,6 +12,7 @@ import { StreamView } from './shell/StreamView';
 import { contentColumnClass } from './shell/content-column';
 import { useTabs } from './tabs/use-tabs';
 import { TopBar } from './shell/TopBar';
+import { topBarMenuItems } from './shell/TopBarMenu';
 import { useAppErrors } from './shell/use-app-errors';
 import { useAppCommands } from './shell/use-app-commands';
 import { useAddConditionMenu } from './shell/use-add-condition-menu';
@@ -96,6 +97,8 @@ export function App(): ReactNode {
   });
   // 「添加条件」命令的一次性信号 -> 条件栏菜单开关(打开即复位)
   const addCondition = useAddConditionMenu(commands);
+  // 顶栏溢出菜单四条:标题与勾选态取自命令表,执行走同一条 commands.execute(与 `>` 一致)
+  const menuItems = topBarMenuItems({ sort: conditions.sort, exporting, run: (id) => void commands.execute(id) });
 
   // 主区容器 = 候选下拉关闭时的焦点归位锚点(tabIndex=-1 才可聚焦;可见焦点环见 className)
   const anchorRef = useRef<HTMLDivElement>(null);
@@ -136,6 +139,9 @@ export function App(): ReactNode {
         <TopBar
           view={view}
           sidebarVisible={sidebar.visible}
+          menuItems={menuItems}
+          exporting={exporting}
+          exported={exported}
           onToggleSidebar={() => sidebar.setVisible(!sidebar.visible)}
           onOpenSettings={() => setView('settings')}
           onBack={() => setView('stream')}
@@ -150,12 +156,9 @@ export function App(): ReactNode {
           loading={loading}
           queryFailed={queryFailed}
           filterEmpty={isFilterEmpty(conditions)}
-          exporting={exporting}
-          exported={exported}
           errors={errors}
           onPatch={patch}
           onToggleTag={toggleTag}
-          onExport={() => void onExport()}
           onRetry={retry}
           onDismissError={clearError}
           onClearFilters={clearFilters}

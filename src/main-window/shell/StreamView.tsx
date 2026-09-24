@@ -35,12 +35,9 @@ export interface StreamViewProps {
   loading: boolean;
   queryFailed: boolean;
   filterEmpty: boolean;
-  exporting: boolean;
-  exported: boolean;
   errors: ErrorMap;
   onPatch: (value: Partial<FilterConditions>) => void;
   onToggleTag: (path: string) => void;
-  onExport: () => void;
   onRetry: () => void;
   onDismissError: (kind: ErrorKind) => void;
   onClearFilters: () => void;

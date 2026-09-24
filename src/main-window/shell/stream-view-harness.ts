@@ -88,8 +88,8 @@ export async function mountStreamView(o: MountOptions = {}): Promise<Mounted> {
   const props: Parameters<typeof StreamView>[0] = {
     visible: true, tabs: tabsStub(), conditions: initial, notes: o.notes ?? [],
     editingId: null, hasMore: false, loading: false, queryFailed: false, filterEmpty: true,
-    exporting: false, exported: false, errors: {}, onPatch: o.onPatch ?? (() => {}),
-    onToggleTag: () => {}, onExport: () => {}, onRetry: () => {}, onDismissError: () => {},
+    errors: {}, onPatch: o.onPatch ?? (() => {}),
+    onToggleTag: () => {}, onRetry: () => {}, onDismissError: () => {},
     onClearFilters: o.onClearFilters ?? (() => {}), onShowInput: () => {}, onLoadMore: () => {}, onEdit: () => {},
     onSwitchEdit: () => {}, onDelete: () => {}, onEditSaved: () => {}, onEditCancel: () => {},
     onToggleTask: () => {}, onLinkError: o.onLinkError ?? (() => {}), palette, decorations: {}, tagsVersion: 0,
