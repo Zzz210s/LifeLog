@@ -90,6 +90,7 @@ export async function mountStreamView(o: MountOptions = {}): Promise<Mounted> {
     onSwitchEdit: () => {}, onDelete: () => {}, onEditSaved: () => {}, onEditCancel: () => {},
     onToggleTask: () => {}, onLinkError: () => {}, palette, decorations: {}, tagsVersion: 0,
     onSaved: () => {}, onRunCommand: o.onRunCommand ?? (() => {}),
+    unifiedRef: { current: null },
   };
   /**
    * 条件宿主:补丁先在这里落地(与 App 的 `patchActive` 同构:`{ ...conditions, ...patch }`),

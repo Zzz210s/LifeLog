@@ -1,14 +1,14 @@
 // @vitest-environment jsdom
 /**
- * 视觉刷新 V4 的组件证据(信息流三件:Composer / 卡片内联动作 / 空态按钮):
- * Composer 区 py-2(y-3 已去掉)→ 输入框 32 高 + 6 圆角 + 强边 + --text-ui,保存 = 主按钮档;
+ * 视觉刷新 V4 的组件证据(信息流三件:唯一输入框 / 卡片内联动作 / 空态按钮):
+ * 输入区 py-2(y-3 已去掉)→ 输入框 32 高 + 圆角 + 强边 + --text-ui,保存 = 主按钮档;
  * 卡片「删除」与空态按钮分别落到 28 / 32 档;保存与删除行为不变。
  */
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Note } from '../../shared/types';
-import { Composer } from './Composer';
+import { UnifiedInput } from '../unified/UnifiedInput';
 import { NoteItem } from './NoteItem';
 import { NoteStream } from './NoteStream';
 
@@ -50,20 +50,20 @@ afterEach(() => {
 
 const NOTE: Note = { id: 1, content: '第一条正文', created_at: '2026-09-22 08:00:00', tags: [] };
 
-describe('V4 Composer:区高收紧到 92 以内,输入框与保存按钮同档', () => {
-  it('区容器 py-2(不再是 py-3),行距 mt-2 保留', async () => {
-    await render(createElement(Composer, { onSaved: () => {} }));
+describe('V4 唯一输入框:区高收紧,输入框与保存按钮同档', () => {
+  it('区容器 py-2(不再是 py-3),输入框与保存按钮同一行 gap-2', async () => {
+    await render(createElement(UnifiedInput, { onSaved: () => {}, editing: false }));
     const box = host.querySelector('textarea') as HTMLElement;
-    const section = box.parentElement as HTMLElement;
+    const section = box.parentElement?.parentElement as HTMLElement;
     expect(tokens(section)).toContain('py-2');
     expect(tokens(section)).not.toContain('py-3');
     expect(tokens(section)).toContain('border-b');
-    // 保存行:mt-2(8px)+ 32 高按钮;算术见 .superpowers/sdd/2026-09-22-visual/V4-report.md
-    expect(tokens(box.nextElementSibling as HTMLElement)).toContain('mt-2');
+    // 保存按钮与输入框同一行(items-start + gap-2);算术见 .superpowers/sdd/2026-09-22-visual/V4-report.md
+    expect(tokens(box.parentElement as HTMLElement)).toContain('gap-2');
   });
 
   it('输入框 h-8 / rounded-sm / border-border-strong / text-ui(不再 rounded-lg + text-sm)', async () => {
-    await render(createElement(Composer, { onSaved: () => {} }));
+    await render(createElement(UnifiedInput, { onSaved: () => {}, editing: false }));
     const box = host.querySelector('textarea') as HTMLElement;
     for (const token of ['h-8', 'rounded-sm', 'border-border-strong', 'text-ui', 'resize-none']) {
       expect(tokens(box)).toContain(token);
@@ -74,7 +74,7 @@ describe('V4 Composer:区高收紧到 92 以内,输入框与保存按钮同档',
   });
 
   it('保存 = 主按钮档(accent 底 / 32 / rounded-sm / text-ui)', async () => {
-    await render(createElement(Composer, { onSaved: () => {} }));
+    await render(createElement(UnifiedInput, { onSaved: () => {}, editing: false }));
     const save = [...host.querySelectorAll('button')].find((b) => b.textContent === '保存') as HTMLElement;
     for (const token of ['h-8', 'rounded-sm', 'text-ui', 'bg-accent', 'text-on-accent']) {
       expect(tokens(save)).toContain(token);
@@ -84,7 +84,7 @@ describe('V4 Composer:区高收紧到 92 以内,输入框与保存按钮同档',
 
   it('回归:输入后点保存走 saveInputNote,成功后清空并回调 onSaved', async () => {
     const saved: number[] = [];
-    await render(createElement(Composer, { onSaved: () => saved.push(1) }));
+    await render(createElement(UnifiedInput, { onSaved: () => saved.push(1), editing: false }));
     const box = host.querySelector('textarea') as HTMLTextAreaElement;
     await act(async () => {
       // 受控输入必须走原生 setter:直接赋 value 会被 React 的 value tracker 当成「没变」

@@ -1,21 +1,9 @@
-// 浮层键盘的输入安全边界:输入法组合不抢键(审查 N1)、浮层外的可编辑区域与组合键不双动作(N4)。
-// 两条都源于「键盘监听挂在 window,会收到不是给浮层的按键」,所以一律用真实事件派发,
-// 直调 handler 挡不住回归。
+// 键盘目标判定函数的边界(palette-target):可编辑目标 / 浮层内 / 该忽略哪些键。
+// Task 7 删掉浮层外壳后,原先经真实浮层派发事件的三组用例(IME 组合 / 浮层外不双动作 /
+// 焦点在 body 仍生效)随之删除;判定函数仍被 use-palette 的窗口级监听使用,故保留纯函数这组。
 // @vitest-environment jsdom
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { isEditableTarget, isInsidePalette, shouldIgnoreKey } from './palette-target';
-import { paletteHarness } from './palette-harness';
-import type { PaletteHarness } from './palette-harness';
-
-let ui: PaletteHarness;
-
-beforeEach(() => {
-  ui = paletteHarness();
-});
-
-afterEach(() => {
-  ui.unmount();
-});
 
 /** 在指定元素上派发真实 keydown 并返回该事件(判定函数读的是 event.target) */
 function fire(target: EventTarget, key: string, init: KeyboardEventInit = {}): KeyboardEvent {
@@ -24,66 +12,18 @@ function fire(target: EventTarget, key: string, init: KeyboardEventInit = {}): K
   return event;
 }
 
-describe('输入法组合守卫(N1)', () => {
-  it('组合中的 Esc 不关浮层、Enter 不接受高亮行', () => {
-    ui.open();
-    ui.press('Escape', { isComposing: true });
-    expect(ui.controller().isOpen).toBe(true);
-    ui.press('Enter', { isComposing: true });
-    expect(ui.accepted).toEqual([]);
-    expect(ui.controller().isOpen).toBe(true);
-  });
-
-  it('keyCode 229(只给 keyCode 的 IME 形态)与组合态等价', () => {
-    ui.open();
-    ui.press('Escape', { keyCode: 229 });
-    expect(ui.controller().isOpen).toBe(true);
-    ui.press('Enter', { keyCode: 229 });
-    expect(ui.accepted).toEqual([]);
-    expect(ui.controller().isOpen).toBe(true);
-  });
-});
-
-describe('浮层外按键不双动作(N4)', () => {
-  it('Enter 带 Ctrl/Meta 时浮层不接受(那是其它组件的组合)', () => {
-    ui.open();
-    ui.press('Enter', { ctrlKey: true });
-    ui.press('Enter', { metaKey: true });
-    expect(ui.accepted).toEqual([]);
-    expect(ui.controller().isOpen).toBe(true);
-  });
-
-  it('Composer 持焦时 Enter / Ctrl+Enter 都不触发浮层接受,方向键不被吞,Esc 仍关闭', () => {
-    const composer = document.createElement('textarea');
-    document.body.appendChild(composer);
-    try {
-      composer.focus();
-      ui.open('');
-      composer.focus(); // 命令把焦点交给 Composer(note.new 的实际路径)
-      ui.pressFrom(composer, 'Enter', { ctrlKey: true });
-      ui.pressFrom(composer, 'Enter');
-      expect(ui.accepted).toEqual([]);
-      expect(ui.controller().isOpen).toBe(true);
-      ui.pressFrom(composer, 'ArrowDown');
-      expect(ui.controller().activeIndex).toBe(0);
-      ui.pressFrom(composer, 'Escape');
-      expect(ui.controller().isOpen).toBe(false);
-      expect(document.activeElement).toBe(composer); // 焦点在真实元素上,不抢回
-    } finally {
-      composer.remove();
-    }
-  });
-
-  it('浮层外非可编辑目标(如 body)的方向键仍生效(Important 1 不回归)', () => {
-    ui.open();
-    ui.input().blur();
-    ui.pressOnFocus('ArrowDown');
-    expect(ui.controller().activeIndex).toBe(1);
-  });
-});
+/** 带 data-floating 的容器 + 内部输入框(浮层内的判定标记) */
+function floating(): HTMLElement {
+  const box = document.createElement('div');
+  box.setAttribute('data-floating', 'palette');
+  box.appendChild(document.createElement('input'));
+  document.body.appendChild(box);
+  return box;
+}
 
 describe('目标判定函数(palette-target)', () => {
   it('可编辑 = input/textarea/contenteditable(含后代);浮层内 = 命中 data-floating', () => {
+    const box = floating();
     const input = document.createElement('input');
     const area = document.createElement('textarea');
     const plain = document.createElement('div');
@@ -98,18 +38,21 @@ describe('目标判定函数(palette-target)', () => {
       true, true, true, true, false, false,
     ]);
     expect(isEditableTarget(null)).toBe(false);
-    expect(isInsidePalette(ui.input())).toBe(true);
-    expect(isInsidePalette(document.querySelector('[data-floating="palette"]'))).toBe(true);
+    expect(isInsidePalette(box.querySelector('input'))).toBe(true);
+    expect(isInsidePalette(box)).toBe(true);
     expect(isInsidePalette(plain)).toBe(false);
     expect(isInsidePalette(null)).toBe(false);
+    box.remove();
   });
 
   it('shouldIgnoreKey:浮层外的可编辑目标除 Esc 外一律忽略,其余目标不忽略', () => {
+    const box = floating();
     const area = document.createElement('textarea');
     const plain = document.createElement('div');
     expect(shouldIgnoreKey(fire(area, 'ArrowDown'))).toBe(true);
     expect(shouldIgnoreKey(fire(area, 'Escape'))).toBe(false);
     expect(shouldIgnoreKey(fire(plain, 'ArrowDown'))).toBe(false);
-    expect(shouldIgnoreKey(fire(ui.input(), 'ArrowDown'))).toBe(false);
+    expect(shouldIgnoreKey(fire(box.querySelector('input') as Element, 'ArrowDown'))).toBe(false);
+    box.remove();
   });
 });

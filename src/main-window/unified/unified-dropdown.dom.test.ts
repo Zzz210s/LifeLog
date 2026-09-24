@@ -48,6 +48,17 @@ describe('统一输入框的下拉(复用浮层列表)', () => {
     expect(host.querySelectorAll('li[role="option"]').length).toBe(90); // 渲染上限仍是 90
   });
 
+  it('容器口径:6px 圆角 + 强边 + raised 底 + shadow-lg(浮层外壳删除后由本用例接管)', async () => {
+    const host = await mount({ rows: [] as never, activeIndex: 0, total: 0, truncated: false, onHover: () => {}, onAccept: () => {} });
+    const box = host.firstElementChild as HTMLElement;
+    const tokens = box.className.split(/\s+/);
+    for (const token of ['rounded-md', 'border-border', 'bg-raised', 'shadow-lg', 'overflow-y-auto']) {
+      expect(tokens).toContain(token);
+    }
+    expect(box.getAttribute('data-testid')).toBe('unified-dropdown');
+    expect(box.style.maxHeight).not.toBe('');
+  });
+
   it('无匹配时给空态文案,且不渲染行', async () => {
     const host = await mount({ rows: [] as never, activeIndex: 0, total: 0, truncated: false, onHover: () => {}, onAccept: () => {} });
     expect(host.textContent).toContain('无匹配结果');

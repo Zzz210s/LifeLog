@@ -1,6 +1,7 @@
 /**
- * 浮层接线的共用夹具(仅测试引用):真注册表 + 真 provider + 真 usePalette,
+ * 候选接线的共用夹具(仅测试引用):真注册表 + 真 provider + 真 usePalette,
  * 只把数据层(api)与视图回调换成桩。用于"打开 -> 搜 -> 接受"的端到端读数。
+ * 视图侧只有一个最小探针壳(浮层外壳已删,Task 7):只保留「原始输入 -> controller.setQuery」这条真实路径。
  */
 import { act, createElement, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
@@ -13,7 +14,6 @@ import { EMPTY_FILTER } from '../../shared/filter-conditions';
 import type { FilterConditions } from '../../shared/filter-conditions';
 import type { Note } from '../../shared/types';
 import type { Context } from '../../shared/when';
-import { Palette } from '../palette/Palette';
 import { useAppPalette } from './use-app-palette';
 import type { AppPalette } from './use-app-palette';
 import type { PaletteController } from '../palette/use-palette';
@@ -51,6 +51,15 @@ export interface AppPaletteHarnessOptions {
   loading?: boolean;
   context?: Partial<Context>;
   tagsVersion?: number;
+}
+
+/** 最小候选输入壳:受控值取 controller.query,输入经 controller.setQuery 走真前缀解析 */
+function Probe({ controller }: { controller: PaletteController }): ReactNode {
+  return createElement('input', {
+    role: 'combobox',
+    value: controller.query,
+    onChange: (e) => controller.setQuery(e.target.value),
+  });
 }
 
 export function mountAppPalette(options: AppPaletteHarnessOptions = {}): AppPaletteHarness {
@@ -127,7 +136,7 @@ export function mountAppPalette(options: AppPaletteHarnessOptions = {}): AppPale
         return createElement(
           'div',
           { ref: anchorRef },
-          createElement(Palette, { controller: p.controller, decorations: p.decorations }),
+          createElement(Probe, { controller: p.controller }),
         );
       }),
     ),

@@ -1,0 +1,179 @@
+// Task 7 实机验收(8 条读数;键鼠全走 CDP Input,不碰物理鼠标)。
+// 前置:pnpm tauri dev 已在 9222 上跑(origin http://localhost:5173,IPC 正常)。
+// 夹具(UI测试* 笔记 + UI测试 标签)自建自清;前后 notes/tags/tag_links/FTS 计数在外层用
+// scripts/lifelog-db-readings.py 比对。动作件在 scripts/unified-accept-lib.mjs(供计划 2/3、3/3 复用)。
+import { ensureMain, recorder, sleep, waitFor } from './cdp-lib.mjs';
+import {
+  BOX, COMMAND_IDS, EMPTY, FIXTURE_TAG, FIXTURES, HINT, RECORD_TEXT, SIDEBAR, STAT, TAB_GATED, driver,
+} from './unified-accept-lib.mjs';
+
+const r = recorder();
+
+async function main() {
+  const conn = await ensureMain();
+  const d = driver(conn.cdp);
+  await conn.cdp.send('Page.reload');
+  await waitFor(() => d.ev(`!!document.querySelector('${BOX}')`).catch(() => false), 60, 500);
+  await sleep(1200);
+  const sidebarBefore = await d.sidebar();
+
+  // --- 夹具:三条笔记(两条带 UI测试 标签),走真实保存路径 ---
+  for (const text of FIXTURES) {
+    await d.clearBox();
+    await d.type(text);
+    await d.ctrlEnter();
+    await sleep(600);
+  }
+  const fixtures = await d.call('query_notes', { conditions: { ...EMPTY, keyword: 'UI测试夹具' }, offset: 0 });
+  r.record('夹具就绪', fixtures.length === 3, `UI测试夹具* 笔记 ${fixtures.length} 条,id=${JSON.stringify(fixtures.map((n) => n.id))}`);
+  if (fixtures.length !== 3) throw new Error('夹具笔记未创建成功,中止');
+  const target = fixtures[0]; // 最新一条(流里在最前)
+
+  // --- ① 布局:可见 input/textarea 只有统一输入框;侧栏没有输入框 ---
+  const inputs = await d.visibleInputs();
+  const sidebarInputs = await d.ev(`document.querySelectorAll('${SIDEBAR} input, ${SIDEBAR} textarea').length`);
+  r.record('① 唯一可见输入框', inputs.length === 1 && inputs[0] === 'unified-input' && sidebarInputs === 0,
+    `可见 input/textarea = ${JSON.stringify(inputs)}(期望 ["unified-input"]);侧栏内输入框 ${sidebarInputs} 个`);
+
+  // --- ② 记录:Ctrl+Enter 落库 + 输入框清空 ---
+  const recBefore = await d.hits(RECORD_TEXT);
+  await d.clearBox();
+  await d.type(RECORD_TEXT);
+  await d.ctrlEnter();
+  await sleep(700);
+  const recAfter = await d.hits(RECORD_TEXT);
+  const cleared = (await d.boxValue()) === '';
+  r.record('② 记录 -> Ctrl+Enter', recBefore === 0 && recAfter === 1 && cleared,
+    `库中「${RECORD_TEXT}」${recBefore} -> ${recAfter} 条;输入框清空=${cleared}`);
+
+  // --- ③ `/` 实时筛选:300ms 后流条数 == 命中数,小字给命中数 ---
+  await d.clearChips();
+  await d.clearBox();
+  const expect3 = await d.hits('UI测试');
+  await d.type('/UI测试');
+  const got3 = await waitFor(async () => { const n = await d.streamCount(); return n === expect3 ? n : null; }, 12, 250);
+  const statText = await d.stat();
+  const statNum = Number((statText ?? '').match(/命中 (\d+) 条/)?.[1] ?? -1);
+  r.record('③ `/` 实时筛选', got3 === expect3 && statNum === expect3,
+    `流条数=${await d.streamCount()} 期望命中=${expect3} stat="${statText}"`);
+
+  // --- ④ `#` 标签:下拉出现 -> Enter -> 条件栏出现该 chip ---
+  await d.clearChips();
+  await d.clearBox();
+  await d.type(`#${FIXTURE_TAG}`);
+  const tagRows = await waitFor(async () => { const rs = await d.rows(); return rs.length > 0 ? rs : null; }, 12, 250);
+  await d.enter();
+  await sleep(700);
+  const chipTexts = await d.chips();
+  r.record('④ `#` 采纳 -> 条件 chip', (chipTexts[0] ?? '').startsWith('⊢') && (chipTexts[0] ?? '').includes(`#${FIXTURE_TAG}`),
+    `候选 ${tagRows?.length ?? 0} 行(首行 ${tagRows?.[0]?.label ?? '-'});chip=${JSON.stringify(chipTexts)}`);
+
+  // --- ⑤ `>` 命令:候选行数 == 可用命令数;`>侧栏` 勾选态换边 ---
+  // 注:命令表当前没有排序命令(`>最新` 属计划 2/3),这里用带勾选态的 sidebar.toggle 驱动。
+  await d.clearChips();
+  await d.clearBox();
+  await d.type('>');
+  const cmdRows = await d.rows();
+  const tabCount = Number(await d.ev(`document.querySelector('[role="tablist"]')?.dataset.tabsCount ?? 0`));
+  const expectCmds = COMMAND_IDS.length - (tabCount > 1 ? 0 : TAB_GATED.length);
+  const unknown = cmdRows.filter((x) => !COMMAND_IDS.includes(x.id));
+  await d.clearBox();
+  await d.type('>侧栏');
+  const beforeRow = (await d.rows())[0];
+  await d.enter();
+  await sleep(800);
+  const hidden = await d.sidebar();
+  await d.clearBox();
+  await d.type('>侧栏');
+  const afterRow = (await d.rows())[0];
+  await d.enter();
+  await sleep(800);
+  const restored = await d.sidebar();
+  const flipped = beforeRow?.label !== afterRow?.label && beforeRow?.checked !== afterRow?.checked;
+  r.record('⑤ `>` 候选与勾选态', cmdRows.length === expectCmds && unknown.length === 0 && flipped && restored === sidebarBefore,
+    `候选 ${cmdRows.length} 行(期望 ${expectCmds},标签页 ${tabCount} 个);未知 id ${unknown.length};` +
+      `侧栏 ${beforeRow?.label}(checked=${beforeRow?.checked}) -> ${afterRow?.label}(checked=${afterRow?.checked});` +
+      `可见 ${sidebarBefore}->${hidden}->${restored}`);
+
+  // --- ⑥ `@` 打开笔记:下拉首项是被测笔记 -> Enter -> 滚进视野 ---
+  await d.clearChips();
+  await d.clearBox();
+  await sleep(400);
+  const scrolled = await d.scrollToBottom();
+  const before6 = await d.noteInView(target.id);
+  await d.type(`@${target.content.trim()}`);
+  const openRows = await waitFor(async () => { const rs = await d.rows(); return rs.length > 0 ? rs : null; }, 12, 250);
+  await d.enter();
+  await sleep(900);
+  const after6 = await d.noteInView(target.id);
+  r.record('⑥ `@` 采纳 -> 滚进视野',
+    String(openRows?.[0]?.id) === String(target.id) && after6.found === true && after6.inView === true && before6.inView === false,
+    `查询 @${target.content.trim()};首行 ${openRows?.[0]?.id}(期望 ${target.id});滚到底 scrollTop=${scrolled};` +
+      `滚前 inView=${before6.inView} 滚后 inView=${after6.inView}(scrollTop=${after6.scrollTop})`);
+
+  // --- ⑦ 提示行:空闲四段;带前缀该段 data-active + 统计;点 `#` 段写进输入框 ---
+  await d.clearBox();
+  await sleep(250);
+  const idleSegs = await d.hintSegs();
+  const idleText = await d.ev(`document.querySelector('${HINT}')?.textContent ?? ''`);
+  await d.type('/UI测试');
+  const activeSeg = (await d.hintSegs()).find((s) => s.prefix === '/');
+  const hasStat = await d.ev(`!!document.querySelector('${STAT}')`);
+  await d.clearBox();
+  await d.ev(`document.querySelector('${HINT} [data-prefix="#"]').click()`);
+  await sleep(300);
+  const clicked = await d.boxValue();
+  r.record('⑦ 提示行', idleSegs.length === 4 && idleText.includes('记点什么') && activeSeg?.active === 'true' && hasStat && clicked.startsWith('#'),
+    `空闲四段=${JSON.stringify(idleSegs.map((s) => s.prefix))};/ 段 active=${activeSeg?.active} 有统计=${hasStat};点 # 段后输入框="${clicked}"`);
+
+  // --- ⑧ Esc 两级:第一下只关下拉(模式/内容不变),再一下回记录模式 ---
+  await d.clearBox();
+  await d.type(`@${FIXTURE_TAG}`);
+  await waitFor(async () => ((await d.rows()).length > 0 ? true : false), 12, 250);
+  const value8 = await d.boxValue();
+  await d.esc();
+  await sleep(250);
+  const esc1 = { rows: (await d.rows()).length, value: await d.boxValue() };
+  await d.esc();
+  await sleep(250);
+  const esc2 = { rows: (await d.rows()).length, value: await d.boxValue() };
+  r.record('⑧ Esc 两级', esc1.rows === 0 && esc1.value === value8 && esc2.rows === 0 && esc2.value === '',
+    `第一下:下拉行 ${esc1.rows}、输入框="${esc1.value}";第二下:下拉行 ${esc2.rows}、输入框="${esc2.value}"`);
+
+  // --- ⑨ 快捷键(Task 7 的主变更,8 条之外补的读数):Ctrl+Shift+P -> >,Ctrl+P -> @,且都抢焦点 ---
+  await conn.cdp.send('Page.bringToFront');
+  await d.clearBox();
+  await d.ev(`document.querySelector('${BOX}').blur()`);
+  await d.key(80, 'p', 'KeyP', 2 | 8); // Ctrl+Shift
+  await sleep(350);
+  const hot1 = { value: await d.boxValue(), focused: await d.ev(`document.activeElement === document.querySelector('${BOX}')`) };
+  await d.clearBox();
+  await d.ev(`document.querySelector('${BOX}').blur()`);
+  await d.key(80, 'p', 'KeyP', 2); // Ctrl
+  await sleep(350);
+  const hot2 = { value: await d.boxValue(), focused: await d.ev(`document.activeElement === document.querySelector('${BOX}')`) };
+  r.record('⑨ 快捷键聚焦预填', hot1.value === '>' && hot1.focused === true && hot2.value === '@' && hot2.focused === true,
+    `Ctrl+Shift+P -> "${hot1.value}"(焦点=${hot1.focused});Ctrl+P -> "${hot2.value}"(焦点=${hot2.focused})`);
+
+  // --- 清理:输入/条件/夹具笔记与标签 ---
+  await d.clearBox();
+  await d.esc();
+  await d.clearChips();
+  const leftovers = await d.call('query_notes', { conditions: { ...EMPTY, keyword: 'UI测试' }, offset: 0 });
+  for (const n of leftovers) await d.call('delete_note', { id: n.id });
+  const leftoverTags = (await d.call('list_tags')).filter((t) => t.path === FIXTURE_TAG || t.path.startsWith(FIXTURE_TAG + '/'));
+  for (const t of leftoverTags) await d.call('delete_tag', { tagId: t.id });
+  await sleep(600);
+  const gone = await d.hits('UI测试');
+  const tagLeft = (await d.call('list_tags')).filter((t) => t.path.startsWith(FIXTURE_TAG)).length;
+  r.record('夹具清理', gone === 0 && tagLeft === 0,
+    `剩余夹具笔记 ${gone} 条、夹具标签 ${tagLeft} 个(删除标签 ${JSON.stringify(leftoverTags.map((t) => t.path))})`);
+
+  r.finish();
+  conn.close();
+}
+
+main().catch((e) => {
+  console.error('FAIL 脚本异常:', e?.message ?? e);
+  process.exitCode = 1;
+});

@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 /**
- * 视觉刷新 V3「筛选栏 + 条件 chips」的组件证据(jsdom,只看类名,不引入计算样式):
- * 输入框与按钮统一 h-8(32)/rounded-sm(6px)/text-ui;整条 py-1(32+8 = 40);行 gap-2(8px);
+ * 视觉刷新 V3「条件栏 + 条件 chips」的组件证据(jsdom,只看类名,不引入计算样式):
+ * 按钮统一 h-8(32)/rounded-sm(6px)/text-ui;整条 py-1(32+8 = 40);行 gap-2(8px);
+ * 关键词输入框已在 Task 7 删除(`/` 模式接管),本文件不再有输入框断言。
  * 条件 chips 沿用 chip 中性化口径(rounded-xs + text-label);排序/有无标签这类中性条件走 chrome 底,
  * 已生效的收窄条件(关键词/标签/表达式)才用 accent,排除仍走 danger;单删行为不变(回归)。
  */
@@ -42,8 +43,8 @@ async function render(conditions: FilterConditions = EMPTY_FILTER): Promise<void
 }
 
 const tokens = (el: Element): string[] => el.className.split(/\s+/).filter(Boolean);
-const input = (): HTMLElement => host.querySelector('input[aria-label="搜索笔记与标签"]') as HTMLElement;
-const row = (): HTMLElement => input().parentElement as HTMLElement;
+const bar = (): HTMLElement => host.firstElementChild as HTMLElement;
+const row = (): HTMLElement => bar().firstElementChild as HTMLElement;
 const chips = (): HTMLElement[] =>
   [...host.querySelectorAll('[aria-label="已生效的筛选条件"] > span')] as HTMLElement[];
 
@@ -62,17 +63,8 @@ afterEach(() => {
 describe('V3 筛选栏:控件统一 32 / r6 / text-ui,整条 40', () => {
   it('整条 py-1(32 + 8 = 40),行间距 gap-2(8px)', async () => {
     await render();
-    const bar = row().parentElement as HTMLElement;
-    for (const token of ['px-4', 'py-1', 'border-b', 'border-border']) expect(tokens(bar)).toContain(token);
+    for (const token of ['px-4', 'py-1', 'border-b', 'border-border']) expect(tokens(bar())).toContain(token);
     expect(tokens(row())).toContain('gap-2');
-  });
-
-  it('输入框 h-8 / rounded-sm / text-ui(不再 rounded-md / text-sm)', async () => {
-    await render();
-    const t = tokens(input());
-    for (const token of ['h-8', 'rounded-sm', 'text-ui', 'border']) expect(t).toContain(token);
-    expect(t).not.toContain('rounded-md');
-    expect(t).not.toContain('text-sm');
   });
 
   it('行内每个按钮都 h-8 / rounded-sm / text-ui(排序、添加条件、导出全部)', async () => {

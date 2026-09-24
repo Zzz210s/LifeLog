@@ -21,11 +21,10 @@ import { useBackupWarning } from './shell/use-backup-warning';
 import { useNoteCreatedRefresh } from './data/use-note-created';
 import { notifyTagsChanged, onTagsChanged } from './data/tags-changed';
 import { useOpenSettings } from './shell/use-open-settings';
-import { Palette } from './palette/Palette';
 import { useNotesFeed } from './data/use-notes-feed';
 import { useNotesExport } from './data/use-export';
 
-/** 主窗 v2:侧栏(标签)+ 标签页栏 + 单列流(Composer + FilterBar + NoteStream)+ 命令面板浮层 */
+/** 主窗 v2:侧栏(标签)+ 标签页栏 + 单列流(统一输入框 + 条件栏 + NoteStream);候选下拉在输入框内 */
 export function App(): ReactNode {
   // 标签页真源(S7):当前活动页的条件就是唯一条件对象,查询/筛选栏/侧栏选中态都从它派生
   const tabs = useTabs();
@@ -111,12 +110,13 @@ export function App(): ReactNode {
     setError,
   });
 
-  // 主区容器 = 浮层关闭时的焦点归位锚点(tabIndex=-1 才可聚焦;可见焦点环见 className)
+  // 主区容器 = 候选下拉关闭时的焦点归位锚点(tabIndex=-1 才可聚焦;可见焦点环见 className)
   const anchorRef = useRef<HTMLDivElement>(null);
-  const { controller, decorations } = useMainPalette({
+  const { controller, decorations, unified } = useMainPalette({
     anchorRef,
     registry: commands.registry,
     executeCommand: commands.execute,
+    beforePrefill: () => setView('stream'),
     tagsVersion,
     tabCount: tabs.tabs.length,
     sidebarVisible: sidebar.visible,
@@ -186,13 +186,12 @@ export function App(): ReactNode {
           tagsVersion={tagsVersion}
           onSaved={refresh}
           onRunCommand={commands.execute}
+          unifiedRef={unified}
         />
         {view === 'settings' && (
           <SettingsView themeMode={theme.mode} onThemeChange={theme.setMode} />
         )}
       </div>
-      {/* 浮层挂在 shell 层(fixed 覆盖内容,不进布局),不塞进内容区 */}
-      <Palette controller={controller} decorations={decorations} />
       <CommandStatusPill status={commands.status} />
     </div>
   );

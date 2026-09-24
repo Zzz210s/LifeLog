@@ -1,6 +1,6 @@
 /**
- * 浮层接线(shell 层,设计 §4.2 数据流):快捷键 -> 浮层 -> provider -> 命令 run / 笔记跳转 / 标签筛选。
- *
+ * 主窗候选体系的接线(shell 层,设计 §4.2 数据流):前缀 -> 候选 -> 命令 run / 笔记跳转 / 标签筛选。
+ * Task 7 起唯一的驱动方是统一输入框(浮层外壳已删),这里只保留候选与采纳。
  * 三件事在这里汇合:
  * 1. **候选**:三个 provider(命令/笔记/标签)注册进本 hook 私有的注册表;输入变化由
  *    `useProviderItems` 取回(带序号守卫,旧回包丢弃)。prefix/query 通过 `onFilterChange`
@@ -169,7 +169,7 @@ export function useAppPalette(options: AppPaletteOptions): AppPalette {
       if (prefix === '>') {
         settings?.mruCommands.touch(row.item.id);
         saveMruSoon();
-        // note.new 会把焦点交给 Composer:即便 Alt+Enter(keepOpen)也必须关掉,否则浮层键盘全哑
+        // note.new 会把焦点交给统一输入框:即便 Alt+Enter(keepOpen)也必须关掉下拉,否则键盘全哑
         void latest.current.executeCommand(row.item.id).then(() => {
           if (row.item.id === 'note.new') controller.close();
         });

@@ -25,14 +25,14 @@ const ROWS: AppHotkeyRow[] = [
     kind: 'quickOpen',
     key: APP_HOTKEY_KEYS.quickOpen,
     label: '快速打开笔记',
-    hint: '应用内快捷键:主窗按一下打开笔记浮层,输入关键词即搜',
+    hint: '应用内快捷键:主窗按一下聚焦输入框并预填 @,输入关键词即搜笔记',
     ariaLabel: '录制快捷键:快速打开笔记',
   },
   {
     kind: 'palette',
     key: APP_HOTKEY_KEYS.palette,
     label: '命令面板',
-    hint: '应用内快捷键:主窗按一下打开命令面板(带 > 前缀执行命令)',
+    hint: '应用内快捷键:主窗按一下聚焦输入框并预填 >,输入命令名即执行',
     ariaLabel: '录制快捷键:命令面板',
   },
 ];

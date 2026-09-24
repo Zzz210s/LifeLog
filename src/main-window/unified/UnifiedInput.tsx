@@ -164,7 +164,7 @@ export function UnifiedInput(p: UnifiedInputProps): ReactNode {
           }}
           onKeyDown={routeKey}
           style={{ maxHeight: MAX_HEIGHT, overflowY: 'auto' }}
-          className="block min-w-0 flex-1 resize-none rounded-sm border border-border-strong bg-raised px-2.5 py-1.5 text-ui text-text outline-none"
+          className="block h-8 min-w-0 flex-1 resize-none rounded-sm border border-border-strong bg-raised px-2.5 py-1.5 text-ui text-text outline-none"
         />
         <button
           onClick={() => void save()}

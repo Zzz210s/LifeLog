@@ -4,7 +4,7 @@ import { shouldAutoRefresh } from '../stream/notes-list';
 import { notifyTagsChanged } from './tags-changed';
 
 /**
- * 订阅后端 note-created(输入栏/Composer 保存成功):
+ * 订阅后端 note-created(输入栏/统一输入框保存成功):
  * - **标签新鲜度无条件通知**(T6 修复轮 I2):保存可能带来新标签,而标签通知与"列表是否自动刷新"
  *   是两件事 —— 已翻页/编辑中时只该跳过回首页重查,绝不能连标签一起跳过(否则浮层 `#` 陈旧无上界);
  * - 满足 shouldAutoRefresh 时额外回首页重查。

@@ -84,8 +84,6 @@ ${HELPERS}
     chipAccentText: chips.filter((c) => cs(c).color === tokens['--color-accent-text']).length,
     iconButton: read(document.querySelector('#root header button')),
     composer: read(document.querySelector('#root [data-testid="unified-input"]')),
-    searchInput: read(document.querySelector('#root input[aria-label="搜索笔记与标签"]')),
-    palette: read(document.querySelector('#root [role=dialog]')),
     tabActive: read(tabActive),
     tabInactive: tablist ? read([...tablist.children].find((t) => parseFloat(cs(t).borderTopWidth) === 0)) : null,
     contrast: body ? { fg: cs(body).color, bg: effBg(body), ratio: ratio(cs(body).color, effBg(body)), fontSize: cs(body).fontSize } : null,

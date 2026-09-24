@@ -95,15 +95,12 @@ r.record('chip = 4px', light.chipBadRadius === 0, `${light.chipCount} 个,圆角
 r.record('按钮 = 6px', light.iconButton?.radius === '6px', `图标按钮 ${light.iconButton?.h}×${light.iconButton?.w} 圆角 ${light.iconButton?.radius}`);
 r.record(
   '输入框 = 6px',
-  light.composer?.radius === '6px' && light.searchInput?.radius === '6px',
-  `统一输入框 ${light.composer?.h}px/${light.composer?.radius},搜索框 ${light.searchInput?.h}px/${light.searchInput?.radius}`,
+  light.composer?.radius === '6px',
+  `统一输入框 ${light.composer?.h}px/${light.composer?.radius}`,
 );
 r.record('标签页 = 6/6/0/0 且高 32', light.tabActive?.radius === '6px 6px 0px 0px' && light.tabActive?.h === 32, `活动页 ${light.tabActive?.h}px/${light.tabActive?.radius},非活动底 ${light.tabInactive?.bg}`);
-r.record(
-  '浮层(命令面板)= 12px + 阴影',
-  light.palette?.radius === '12px' && light.palette?.shadow !== 'none',
-  `圆角 ${light.palette?.radius},阴影 ${String(light.palette?.shadow).slice(0, 34)}`,
-);
+// 浮层（命令面板）读数已随浮层外壳删除（Task 7）；统一输入框下拉的 6px + 阴影由
+// unified-dropdown.dom.test.ts 钉住，模态浮层的 12px + 阴影由上面的菜单/对话框两条覆盖。
 
 // 7) 卡片三态:hover / focus-within 用 CDP 强制伪类读计算样式差;对照卡片避开真实鼠标悬停的那张
 await cdp.send('DOM.enable');

@@ -17,7 +17,6 @@ const ROOT = 'src/main-window';
 
 /** V5 改动到的文件(相对 src/main-window) */
 const FILES = [
-  'palette/Palette.tsx',
   'palette/PaletteRow.tsx',
   'filter/ExprDialog.tsx',
   'filter/ExprSyntaxHint.tsx',
@@ -48,7 +47,6 @@ const FILES = [
 
 /** 浮层容器(需 rounded-lg + 阴影或遮罩):文件 -> 期望的容器类名片段 */
 const FLOATS: Array<[string, string]> = [
-  ['palette/Palette.tsx', 'overlay-scrim'],
   ['filter/ExprDialog.tsx', 'role="dialog"'],
   ['filter/TagPickDialog.tsx', 'role="dialog"'],
   ['filter/AddConditionMenu.tsx', 'role="menu"'],
@@ -57,7 +55,6 @@ const FLOATS: Array<[string, string]> = [
 
 /** 有模态遮罩的文件(浮层外壳 bg-overlay 或纯 CSS 的 overlay-scrim) */
 const SCRIMS: Array<[string, string]> = [
-  ['palette/Palette.tsx', 'overlay-scrim'],
   ['filter/ExprDialog.tsx', 'bg-overlay'],
   ['filter/TagPickDialog.tsx', 'bg-overlay'],
 ];

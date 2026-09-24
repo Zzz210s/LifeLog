@@ -6,7 +6,7 @@
  * `effectFor`(可单测),执行(滚到笔记 / 打条件补丁 / 跑既有命令 + MRU 记账)都在本容器里。
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
+import type { ReactNode, RefObject } from 'react';
 import type { Note } from '../../shared/types';
 import type { FilterConditions } from '../../shared/filter-conditions';
 import type { InputMode } from '../../shared/input-prefix';
@@ -14,6 +14,7 @@ import type { RowDecoration } from '../palette/PaletteRow';
 import type { PaletteController } from '../palette/use-palette';
 import { usePaletteSettings } from '../palette/use-palette-settings';
 import { UnifiedInput } from '../unified/UnifiedInput';
+import type { UnifiedController } from '../unified/use-unified-input';
 import { effectFor } from '../unified/unified-accept';
 import { NoteStream } from '../stream/NoteStream';
 import { scrollIntoViewIfNeeded } from '../stream/scroll-to-note';
@@ -62,6 +63,8 @@ export interface StreamViewProps {
   onSaved: () => void;
   /** `>` 采纳后执行既有命令(use-app-commands 的 execute:先 flush 编辑态,失败落错误条) */
   onRunCommand: (id: string) => void;
+  /** 统一输入框控制器上抛口(快捷键要 `prefill`):App 持有的 ref,这里只写不读 */
+  unifiedRef: RefObject<UnifiedController | null>;
 }
 
 /** `/` 实时筛选的防抖窗口(与旧 FilterBar 同口径) */
@@ -142,6 +145,7 @@ export function StreamView(p: StreamViewProps): ReactNode {
         stat={stat}
         onStateChange={onState}
         onAccept={acceptAt}
+        onController={(c) => { p.unifiedRef.current = c; }}
         candidates={{ palette: p.palette, decorations: p.decorations, refreshKey: p.tagsVersion, onError: p.onLinkError }}
       />
       <FilterBar
