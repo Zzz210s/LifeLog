@@ -1,6 +1,7 @@
 /**
- * 11 条命令的副作用逐条落地(T6 brief 要求「11 条命令逐一接线证据」)。
+ * 14 条命令的副作用逐条落地(T6 brief 要求「11 条命令逐一接线证据」;Task 1 补排序 ×2 + 添加条件)。
  * 覆盖:新建笔记聚焦统一输入框、标签页切换、设置页、主题循环、侧栏、专注模式、
+ * 排序两条(写回 onPatch)、添加条件上抛信号、
  * 导出/重建索引的进行中状态、改全局热键跳设置并聚焦录制器、退出带确认。
  */
 // @vitest-environment jsdom
@@ -47,9 +48,9 @@ const add = (tag: string, attrs: Record<string, string>): HTMLElement => {
   return el;
 };
 
-describe('命令副作用:注册表门禁与 11 条', () => {
-  it('registry 由 withRuns 构造,11 条全在且 run 都不是占位', async () => {
-    expect(h.commands().registry.all).toHaveLength(11);
+describe('命令副作用:注册表门禁与 14 条', () => {
+  it('registry 由 withRuns 构造,14 条全在且 run 都不是占位', async () => {
+    expect(h.commands().registry.all).toHaveLength(14);
     for (const cmd of h.commands().registry.all) await expect(callRun(h, cmd.id)).resolves.toBeUndefined();
   });
 });

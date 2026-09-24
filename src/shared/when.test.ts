@@ -123,8 +123,10 @@ describe('when:RawContextKey 与键声明表', () => {
 
   it('键字符串非空、唯一,导出对象冻结,键实例与字符串一一对应', () => {
     const names = Object.values(KEYS);
-    expect(names.length).toBe(5);
+    expect(names.length).toBe(7);
     expect(names).toContain('tab.multiple');
+    expect(names).toContain('sortNewest');
+    expect(names).toContain('sortOldest');
     expect(names).not.toContain('note.selected');
     expect(new Set(names).size).toBe(names.length);
     for (const name of names) expect(name.length).toBeGreaterThan(0);

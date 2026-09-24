@@ -45,6 +45,17 @@ export interface MainPalette {
   unified: RefObject<UnifiedController | null>;
 }
 
+/**
+ * 条件对象的排序 -> 命令上下文两键(与 sidebar 同处映射)。
+ * 抽成纯函数:排序命令的勾选态靠它驱动,必须可单独测试。
+ */
+export function sortContextKeys(sort: FilterConditions['sort']): {
+  sortNewest: boolean;
+  sortOldest: boolean;
+} {
+  return { sortNewest: sort === 'newest', sortOldest: sort === 'oldest' };
+}
+
 export function useMainPalette(o: MainPaletteOptions): MainPalette {
   /** 上下文键快照(when / 勾选态都从这里求值;组件不裸写键名) */
   const getContext = useCallback(
@@ -54,8 +65,9 @@ export function useMainPalette(o: MainPaletteOptions): MainPalette {
       [KEYS.paletteOpen]: false, // 浮层自己的开合不影响任何命令的 when(避免自引用)
       [KEYS.tabCount]: o.tabCount,
       [KEYS.tabMultiple]: o.tabCount > 1,
+      ...sortContextKeys(o.conditions.sort),
     }),
-    [o.sidebarVisible, o.editingId, o.tabCount],
+    [o.sidebarVisible, o.editingId, o.tabCount, o.conditions.sort],
   );
 
   const palette = useAppPalette({

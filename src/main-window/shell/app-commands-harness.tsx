@@ -22,6 +22,7 @@ export interface AppCommandsHarness {
   sidebar: { visible: boolean; setVisible: ReturnType<typeof vi.fn> };
   theme: { mode: ThemeMode; setMode: ReturnType<typeof vi.fn> };
   setView: ReturnType<typeof vi.fn>;
+  onPatch: ReturnType<typeof vi.fn>;
   exportAll: ReturnType<typeof vi.fn>;
   setError: ReturnType<typeof vi.fn>;
   unmount: () => void;
@@ -43,6 +44,7 @@ export function mountAppCommands(over: HarnessOverrides = {}): AppCommandsHarnes
   const sidebar = { visible: true, setVisible: vi.fn(), ...over.sidebar };
   const theme = { mode: 'system' as ThemeMode, setMode: vi.fn(), ...over.theme };
   const setView = vi.fn();
+  const onPatch = vi.fn();
   const exportAll = vi.fn(async () => {});
   const setError = vi.fn();
   const statusLog: string[] = [];
@@ -50,7 +52,7 @@ export function mountAppCommands(over: HarnessOverrides = {}): AppCommandsHarnes
   act(() =>
     root.render(
       createElement(function Host(): ReactNode {
-        box.c = useAppCommands({ tabs, sidebar, theme, setView, exportAll, setError });
+        box.c = useAppCommands({ tabs, sidebar, theme, setView, onPatch, exportAll, setError });
         const text = box.c.status?.text ?? '';
         if (text !== '' && statusLog[statusLog.length - 1] !== text) statusLog.push(text);
         return null;
@@ -66,6 +68,7 @@ export function mountAppCommands(over: HarnessOverrides = {}): AppCommandsHarnes
     sidebar,
     theme,
     setView,
+    onPatch,
     exportAll,
     setError,
     unmount: () => {

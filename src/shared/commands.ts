@@ -90,7 +90,7 @@ export function withRuns(registry: CommandRegistry, runs: CommandRuns): CommandR
   return defineCommands(registry.all.map((c) => ({ ...c, run: runs[c.id] })));
 }
 
-/** 命令清单(设计 §3.7;11 条)。id/title/aliases/when/toggled/danger 定型,T5/T6 依赖。 */
+/** 命令清单(设计 §3.7;14 条 = 原 11 条 + 排序 ×2 + 添加条件)。id/title/aliases/when/toggled/danger 定型,T5/T6 依赖。 */
 export const COMMANDS: CommandRegistry = defineCommands([
   { id: 'note.new', title: '新建笔记', aliases: ['new', 'create', '写'] },
   { id: 'tab.next', title: '切换标签页(下一个)', aliases: ['tab', 'next'], when: CONTEXT.tabMultiple.equals(true) },
@@ -99,6 +99,9 @@ export const COMMANDS: CommandRegistry = defineCommands([
   { id: 'theme.cycle', title: '切换主题', aliases: ['theme', 'dark', '暗色'] },
   { id: 'sidebar.toggle', title: '隐藏侧栏 / 显示侧栏', aliases: ['sidebar'], toggled: CONTEXT.sidebar.equals(true) },
   { id: 'focus.mode', title: '专注模式', aliases: ['zen', '专注'] },
+  { id: 'sort.newest', title: '最新在前', aliases: ['最新', 'sort'], toggled: CONTEXT.sortNewest.equals(true) },
+  { id: 'sort.oldest', title: '最早在前', aliases: ['最早'], toggled: CONTEXT.sortOldest.equals(true) },
+  { id: 'filter.addCondition', title: '添加条件', aliases: ['筛选', '条件'] },
   { id: 'export.all', title: '导出整库', aliases: ['export', 'xlsx'], danger: true },
   { id: 'search.reindex', title: '重建搜索索引', aliases: ['reindex', 'fts'], danger: true },
   { id: 'hotkey.edit', title: '改全局热键', aliases: ['hotkey'] },

@@ -15,13 +15,13 @@ const wired = (): CommandRegistry => withRuns(COMMANDS, Object.fromEntries(COMMA
 const byte = (over: Partial<Context> = {}): Context => ({ ...defaultContext(), ...over });
 
 describe('commands provider:when 过滤与条数', () => {
-  it('单标签页时不出现 tab.next / tab.prev;多标签时 11 条全在', () => {
+  it('单标签页时不出现 tab.next / tab.prev;多标签时 14 条全在', () => {
     const reg = wired();
     const single = commandItems(reg, byte(), '');
     expect(single.map((i) => i.id)).not.toContain('tab.next');
-    expect(single).toHaveLength(9);
+    expect(single).toHaveLength(12);
     const many = commandItems(reg, byte({ 'tab.multiple': true }), '');
-    expect(many).toHaveLength(11);
+    expect(many).toHaveLength(14);
     expect(many.map((i) => i.id)).toEqual(COMMANDS.all.map((c) => c.id));
   });
 

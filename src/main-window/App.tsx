@@ -100,12 +100,13 @@ export function App(): ReactNode {
     clearError,
   });
 
-  // 命令副作用(11 条):注册表在构造期校验「全部接线」,漏一条即抛
+  // 命令副作用(14 条):注册表在构造期校验「全部接线」,漏一条即抛
   const commands = useAppCommands({
     tabs: { count: tabs.tabs.length, activeIndex: tabs.activeIndex, activate: tabs.activate },
     sidebar: { visible: sidebar.visible, setVisible: sidebar.setVisible },
     theme: { mode: theme.mode, setMode: theme.setMode },
     setView,
+    onPatch: patch,
     exportAll: onExport,
     setError,
   });

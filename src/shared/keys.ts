@@ -19,6 +19,8 @@ export const KEYS = Object.freeze({
   paletteOpen: 'palette.open',
   tabCount: 'tab.count',
   tabMultiple: 'tab.multiple',
+  sortNewest: 'sortNewest',
+  sortOldest: 'sortOldest',
 } as const);
 
 export type ContextKeyName = keyof typeof KEYS;
@@ -30,6 +32,9 @@ export const CONTEXT = Object.freeze({
   paletteOpen: new RawContextKey<boolean>(KEYS.paletteOpen, false),
   tabCount: new RawContextKey<number>(KEYS.tabCount, 1),
   tabMultiple: new RawContextKey<boolean>(KEYS.tabMultiple, false),
+  /** 排序态(条件栏的"最新/最早"由这两个键驱动命令勾选态);默认最新在前 */
+  sortNewest: new RawContextKey<boolean>(KEYS.sortNewest, true),
+  sortOldest: new RawContextKey<boolean>(KEYS.sortOldest, false),
 });
 
 /** 铺满声明默认值的上下文:首帧求值与测试共用(空上下文等价于全部取默认) */

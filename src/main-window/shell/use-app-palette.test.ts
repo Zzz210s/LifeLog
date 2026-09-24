@@ -58,10 +58,10 @@ describe('浮层接线:三个 provider', () => {
     expect(h.controller().rows[0].ranges.length).toBeGreaterThan(0); // 高亮来自打分器
   });
 
-  it('`>` = 命令:11 条(多标签时),输入「导」→ 导出整库排第一且带高亮', async () => {
+  it('`>` = 命令:14 条(多标签时),输入「导」→ 导出整库排第一且带高亮', async () => {
     h.setNotes([note(1, 'a')]);
     await h.open('>');
-    expect(labels()).toHaveLength(9); // 单标签页时 tab.next/prev 不出现
+    expect(labels()).toHaveLength(12); // 单标签页时 tab.next/prev 不出现
     await h.type('导');
     expect(labels()[0]).toBe('导出整库');
     expect(h.decorations()['export.all'].danger).toBe(true);

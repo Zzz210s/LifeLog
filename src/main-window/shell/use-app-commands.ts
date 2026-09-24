@@ -1,7 +1,7 @@
 /**
- * 命令面板的副作用接线(设计 §3.7 的 11 条;T3 审查 Important 1 的门禁入口)。
+ * 命令面板的副作用接线(设计 §3.7 的 14 条;T3 审查 Important 1 的门禁入口)。
  *
- * - `withRuns(COMMANDS, runs)` 在构造期校验「11 条都有 run」,缺一条即抛中文错误(测试期就红),
+ * - `withRuns(COMMANDS, runs)` 在构造期校验「14 条都有 run」,缺一条即抛中文错误(测试期就红),
  *   不会退化成 `notWired` 的静默占位。
  * - 所有 run 统一:**先 flush 编辑态再执行**(`execute` 里做),失败走主窗错误条,绝不静默。
  * - runs 与 registry 的身份必须永久稳定(`latest` ref 取最新状态):否则每次 render 都会重建注册表,
@@ -11,6 +11,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { confirm } from '@tauri-apps/plugin-dialog';
 import { COMMANDS, withRuns } from '../../shared/commands';
 import type { CommandRegistry, CommandRuns } from '../../shared/commands';
+import type { FilterConditions } from '../../shared/filter-conditions';
 import { api } from '../../shared/api';
 import type { ThemeMode } from '../../shared/theme-mode';
 import { flushEditing } from '../editor/edit-flush';
@@ -34,6 +35,8 @@ export interface AppCommandsOptions {
   sidebar: { visible: boolean; setVisible: (visible: boolean) => void };
   theme: { mode: ThemeMode; setMode: (mode: ThemeMode) => void };
   setView: (view: MainView) => void;
+  /** 条件对象的局部更新(排序命令写回当前标签页的条件;真源在 useTabs) */
+  onPatch: (value: Partial<FilterConditions>) => void;
   /** 整库导出(既有 useNotesExport.onExport;失败已在它内部落错误条) */
   exportAll: () => Promise<void>;
   setError: (kind: ErrorKind, message: string) => void;
@@ -42,6 +45,12 @@ export interface AppCommandsOptions {
 export interface AppCommands {
   registry: CommandRegistry;
   status: CommandStatus | null;
+  /**
+   * 「添加条件」命令的上抛信号:为真表示条件栏/顶栏菜单应打开菜单。
+   * 消费方(Task 2 的条件栏)打开后调 consumeAddCondition 复位,避免下次重复弹出。
+   */
+  addConditionOpen: boolean;
+  consumeAddCondition: () => void;
   /** 执行一条命令:先 flush 编辑态,再 run;失败落错误条 */
   execute: (id: string) => Promise<void>;
 }
@@ -57,6 +66,7 @@ export function useAppCommands(options: AppCommandsOptions): AppCommands {
   const latest = useRef(options);
   latest.current = options;
   const [status, setStatus] = useState<CommandStatus | null>(null);
+  const [addConditionOpen, setAddConditionOpen] = useState(false);
   const focusSnapshot = useRef<boolean | null>(null);
 
   const runs = useMemo((): CommandRuns => {
@@ -90,6 +100,10 @@ export function useAppCommands(options: AppCommandsOptions): AppCommands {
         sidebar.setVisible(focusSnapshot.current);
         focusSnapshot.current = null;
       },
+      'sort.newest': () => latest.current.onPatch({ sort: 'newest' }),
+      'sort.oldest': () => latest.current.onPatch({ sort: 'oldest' }),
+      // 状态上抛给条件栏/顶栏菜单(Task 2 消费;本任务只发信号)
+      'filter.addCondition': () => setAddConditionOpen(true),
       'export.all': async () => {
         setStatus({ kind: 'running', text: '正在导出整库…' });
         try {
@@ -153,5 +167,5 @@ export function useAppCommands(options: AppCommandsOptions): AppCommands {
     [registry],
   );
 
-  return { registry, status, execute };
+  return { registry, status, addConditionOpen, consumeAddCondition: () => setAddConditionOpen(false), execute };
 }
