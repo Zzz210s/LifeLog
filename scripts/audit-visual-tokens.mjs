@@ -96,7 +96,7 @@ r.record('按钮 = 6px', light.iconButton?.radius === '6px', `图标按钮 ${lig
 r.record(
   '输入框 = 6px',
   light.composer?.radius === '6px' && light.searchInput?.radius === '6px',
-  `Composer ${light.composer?.h}px/${light.composer?.radius},搜索框 ${light.searchInput?.h}px/${light.searchInput?.radius}`,
+  `统一输入框 ${light.composer?.h}px/${light.composer?.radius},搜索框 ${light.searchInput?.h}px/${light.searchInput?.radius}`,
 );
 r.record('标签页 = 6/6/0/0 且高 32', light.tabActive?.radius === '6px 6px 0px 0px' && light.tabActive?.h === 32, `活动页 ${light.tabActive?.h}px/${light.tabActive?.radius},非活动底 ${light.tabInactive?.bg}`);
 r.record(

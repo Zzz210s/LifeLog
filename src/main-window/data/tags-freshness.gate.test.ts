@@ -46,7 +46,7 @@ const WRITE_CALLS: readonly WriteCall[] = [
   },
   {
     call: 'api.saveInputNote(',
-    allowed: ['input-bar/InputBar.tsx', 'main-window/stream/Composer.tsx'],
+    allowed: ['input-bar/InputBar.tsx', 'main-window/stream/Composer.tsx', 'main-window/unified/UnifiedInput.tsx'],
     why: '跨窗写入:Rust 落库后 emit note-created,主窗 use-note-created 订阅后通知出口',
   },
 ];

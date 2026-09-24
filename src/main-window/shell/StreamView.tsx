@@ -5,7 +5,7 @@
 import type { ReactNode } from 'react';
 import type { Note } from '../../shared/types';
 import type { FilterConditions } from '../../shared/filter-conditions';
-import { Composer } from '../stream/Composer';
+import { UnifiedInput } from '../unified/UnifiedInput';
 import { NoteStream } from '../stream/NoteStream';
 import { FilterBar } from '../filter/FilterBar';
 import { ErrorBars } from './ErrorBars';
@@ -42,7 +42,7 @@ export interface StreamViewProps {
   onEditCancel: () => void;
   onToggleTask: (note: Note, index: number) => void;
   onLinkError: (message: string) => void;
-  /** Composer 保存成功后刷新(回第一页 + 重读标签) */
+  /** 统一输入框保存成功后刷新(回第一页 + 重读标签) */
   onSaved: () => void;
 }
 
@@ -60,7 +60,7 @@ export function StreamView(p: StreamViewProps): ReactNode {
         onPreset={t.addPreset}
         onAddCurrent={t.addFromCurrent}
       />
-      <Composer onSaved={p.onSaved} disabled={p.editingId !== null} />
+      <UnifiedInput onSaved={p.onSaved} editing={p.editingId !== null} />
       <FilterBar
         conditions={p.conditions}
         onPatch={p.onPatch}
