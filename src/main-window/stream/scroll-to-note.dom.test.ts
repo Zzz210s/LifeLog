@@ -7,11 +7,19 @@ afterEach(() => {
   document.body.innerHTML = '';
 });
 
-/** 造一条带 data-note-body 的行(NoteItem 的既有属性) */
+/** 造一条带 data-note-body 的行(NoteItem 的既有属性);不给容器时直接挂 body */
 const row = (id: number): HTMLElement => {
   const el = document.createElement('div');
   el.setAttribute('data-note-body', String(id));
   document.body.append(el);
+  return el;
+};
+
+/** 造信息流的滚动槽(`.scroll-gutter`,NoteStream 的既有容器):窗口矩形可指定 */
+const gutter = (rect: { top: number; bottom: number }): HTMLElement => {
+  const el = document.createElement('div');
+  el.className = 'scroll-gutter';
+  el.getBoundingClientRect = () => rect as DOMRect;
   return el;
 };
 
@@ -46,5 +54,29 @@ describe('滚到笔记(采纳 `@` 的落地)', () => {
     el.scrollIntoView = spy;
     expect(visibleOrScroll(el)).toBe(true);
     expect(spy).toHaveBeenCalledWith({ block: 'center' });
+  });
+
+  it('刚好滚出滚动容器上沿(窗口里却还在视口内):判为不可见,滚回中间', () => {
+    const box = gutter({ top: 100, bottom: 700 });
+    const el = row(7);
+    box.append(el); // 顶栏/输入框/筛选栏吃掉的上方空间:窗口坐标里可见,容器里已滚出
+    document.body.append(box);
+    el.getBoundingClientRect = () => ({ top: 40, bottom: 100 }) as DOMRect;
+    const spy = vi.fn();
+    el.scrollIntoView = spy;
+    expect(visibleOrScroll(el)).toBe(true);
+    expect(spy).toHaveBeenCalledWith({ block: 'center' });
+  });
+
+  it('元素在滚动容器内:不动(不产生多余滚动)', () => {
+    const box = gutter({ top: 100, bottom: 700 });
+    const el = row(7);
+    box.append(el);
+    document.body.append(box);
+    el.getBoundingClientRect = () => ({ top: 120, bottom: 180 }) as DOMRect;
+    const spy = vi.fn();
+    el.scrollIntoView = spy;
+    expect(visibleOrScroll(el)).toBe(true);
+    expect(spy).not.toHaveBeenCalled();
   });
 });

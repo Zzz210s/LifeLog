@@ -7,6 +7,10 @@
  *
  * `#` 的补丁走 `applyTagPick`(与侧栏点标签同一套去重规则):已在条件里的同名标签原样返回,
  * 此时给 `none` —— 不能改成"再点一次就取消",那与侧栏的加标签语义不一致。
+ *
+ * 跨侧去重(修复轮):同一路径已在**排除侧**时,采纳的语义是"移到包含侧" —— 结果恒 0 条的
+ * 条件(⊢ #X 与 排除 #X 并存)没有任何意义,仓库不变量见 sidebar/tag-tree.ts::toggleTagPick。
+ * 这种补丁必须**两侧都给**:容器只 patch `tags` 的话,排除项会留在原地。
  */
 import type { FilterConditions } from '../../shared/filter-conditions';
 import type { InputMode } from '../../shared/input-prefix';
@@ -37,6 +41,14 @@ export function effectFor(mode: InputMode, row: AcceptRow, conditions: FilterCon
   if (mode === 'command') return { kind: 'run-command', id };
   if (mode !== 'tag') return { kind: 'none' }; // 记录模式 / 实时筛选模式没有采纳副作用
   const next = applyTagPick(conditions, id, { exclude: false, includeChildren: true });
-  // 引用相等即"这条标签已在条件里"(applyTagPick 的去重出口):原样返回,不产生空补丁
-  return next === conditions ? { kind: 'none' } : { kind: 'filter-patch', patch: { tags: next.tags } };
+  // 排除侧已有同一路径:这次采纳把它移到包含侧(补丁两侧都给,见文件头)
+  const excluded = conditions.excludeTags.some((t) => t.path === id);
+  if (next === conditions && !excluded) return { kind: 'none' }; // 该标签已在包含侧(同侧去重的引用相等出口)
+  return {
+    kind: 'filter-patch',
+    patch: {
+      tags: next.tags,
+      excludeTags: excluded ? conditions.excludeTags.filter((t) => t.path !== id) : conditions.excludeTags,
+    },
+  };
 }

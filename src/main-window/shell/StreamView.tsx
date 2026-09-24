@@ -108,7 +108,7 @@ export function StreamView(p: StreamViewProps): ReactNode {
     if (effect.kind === 'filter-patch') {
       settings?.mruTags.touch(row.item.id);
       saveMruSoon();
-      p.onPatch(effect.patch);
+      p.onPatch(effect.patch); // 补丁整个透传:`#` 跨侧去重会带 excludeTags,只取 tags 会丢掉那次移除
       return;
     }
     if (effect.kind === 'scroll-to-note') {
