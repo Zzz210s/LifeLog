@@ -7,3 +7,4 @@ pub mod input_scale;
 pub mod main_window;
 pub mod startup;
 pub mod tray;
+pub mod main_window_alive;

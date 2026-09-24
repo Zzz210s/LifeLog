@@ -1,7 +1,10 @@
 //! 主窗(窗口标签 main)按需创建:冷启动只建输入栏,主窗 webview 延后到首次真正需要时。
 //! 入口只有托盘「打开主窗口」/「设置」。窗口已存在则只显示,不再重复创建。
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Instant;
 use tauri::{AppHandle, Emitter, Manager, WebviewWindow, WindowEvent};
+
+use super::main_window_alive as alive;
 
 /// 主窗标签(与 tauri.conf.json 迁移前的声明、前端 getCurrentWindow 语义一致)
 pub const MAIN_LABEL: &str = "main";
@@ -53,12 +56,25 @@ pub fn reset_pending() {
 
 /// 显示主窗:存在则只显示+聚焦,不存在才构建(构建参数见 build_config)。
 /// 新建的窗口会把「关闭 = 退到托盘」的行为一起挂上(迁移前挂在 setup 的 events::register)。
+///
+/// **陈旧句柄自愈**(待办 #36):页面里 `window.close()` 会绕过 CloseRequested 销毁 webview,
+/// 而句柄仍在 —— 此时 show()/set_focus() 都是空操作、返回 Ok,窗口再也唤不回来。
+/// 所以拿到既有句柄时先做一次活性探针(注入脚本 + 等页面回执),无响应就销毁重建。
 pub fn open(app: &AppHandle) -> tauri::Result<()> {
     if let Some(w) = app.get_webview_window(MAIN_LABEL) {
         w.show()?;
         w.set_focus()?;
+        let now = Instant::now();
+        if alive::should_probe(now, alive::last_build()) {
+            alive::schedule(app.clone(), MAIN_LABEL, build_and_show);
+        }
         return Ok(());
     }
+    build_and_show(app)
+}
+
+/// 建窗 + 挂事件 + 显示聚焦(首次创建与陈旧句柄重建**共用同一条路径**,避免两套行为漂移)
+fn build_and_show(app: &AppHandle) -> tauri::Result<()> {
     let c = build_config();
     let mut builder =
         tauri::WebviewWindowBuilder::new(app, MAIN_LABEL, tauri::WebviewUrl::App(c.url.into()))
@@ -72,9 +88,19 @@ pub fn open(app: &AppHandle) -> tauri::Result<()> {
     let w = builder.build()?;
     attach_close_to_tray(&w);
     attach_blur_save(&w);
+    alive::note_built(Instant::now());
     w.show()?;
     w.set_focus()?;
     Ok(())
+}
+
+/// 隐藏主窗(与标题栏 X、托盘同一语义)。页面发起的 `window.close()` 已由前端守卫改走这里,
+/// 这样 webview 不会被销毁(待办 #36)—— 保持「关闭 = 退到托盘,不丢页面状态」。
+pub fn hide(app: &AppHandle) -> tauri::Result<()> {
+    match app.get_webview_window(MAIN_LABEL) {
+        Some(w) => w.hide(),
+        None => Ok(()),
+    }
 }
 
 /// 「切到设置页」意图的两条投递通道(纯决策,便于单测):返回 (置 pending, 发事件)。

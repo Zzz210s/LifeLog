@@ -5,14 +5,12 @@
 //      隐藏视图(设置页等)由 V5 的源码门禁测试覆盖,不在这里重复。
 //   2) 排除 `.md-body` 子树 —— markdown 内部是 em 相对字号(h1 = 1.4em、code = 0.9em),属内容而非 chrome 刻度。
 //   3) 颜色断言用「亮暗两态令牌值的并集」,故在哪个主题下跑都能识别另一态的值。
-
 /** theme.css 里全部 --color-* 令牌(改名/漏定义会让审计报「令牌缺失」而不是静默放过) */
 export const TOKEN_NAMES = (
   'canvas chrome chrome-alt raised hover selected accent accent-text accent-soft border border-strong ' +
   'text muted faint app panel tag active danger danger-soft danger-hover accent-hover on-accent ' +
   'on-danger knob overlay success warn warn-soft'
 ).split(' ').map((n) => `--color-${n}`);
-
 /** 页面侧小工具:可见判定 / 令牌解析 / 取值计数 / WCAG 对比度 */
 const HELPERS = `
   const root = document.documentElement;
@@ -123,14 +121,21 @@ ${HELPERS}
   if (!btn) return null;
   btn.focus();
   const c = cs(btn);
-  return { focused: document.activeElement === btn, outlineStyle: c.outlineStyle, outlineColor: c.outlineColor,
+  // 环规则是否在样式表里(无 OS 焦点时 Chromium 不匹配 :focus-visible,只读实时 outline 会假阴性)
+  let ruleOk = false;
+  for (const sheet of document.styleSheets) {
+    let rules; try { rules = sheet.cssRules; } catch (e) { continue; }
+    for (const r of rules) if (r.selectorText && r.selectorText.includes(':focus-visible') && /1px/.test(r.style.outlineWidth || r.style.outline || '')) ruleOk = true;
+  }
+  return { focused: document.activeElement === btn, docFocused: document.hasFocus(), ruleOk,
+    outlineStyle: c.outlineStyle, outlineColor: c.outlineColor,
     outlineWidth: c.outlineWidth, position: c.position, clipPath: c.clipPath, textDecoration: c.textDecorationLine,
     cardBg: cs(li).backgroundColor, accent: norm(cs(root).getPropertyValue('--color-accent').trim()) };
 })()`;
 
 export const BLUR_JS = `(() => { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); return true; })()`;
 
-/** 打开「添加条件」菜单并读浮层容器(保留给单点调试用;门禁用 MENU_SCAN_JS) */
+/** 添加条件菜单(调试用;门禁用 MENU_SCAN_JS) */
 export const OPEN_MENU_JS = `(async () => {
 ${HELPERS}
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

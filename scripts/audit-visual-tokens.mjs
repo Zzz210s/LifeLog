@@ -3,9 +3,8 @@
  * 视觉令牌审计门禁(设计 §5-1 / D11)。CDP 连**运行中的主窗**,用计算样式断言:
  *   1) 字号只取 7 档   2) 圆角只取 4/6/8/12 且按组件对档   3) gap 只取刻度表
  *   4) 颜色必须来自 theme.css 令牌   5) 笔记卡片有 hover 与 focus 态   6) 正文对比度 >= 4.5:1
- * 并打印「改前(基线 audit.json)→ 改后(实时)」分布对照表。
- * 用法:pnpm audit:visual(需应用已在 9222 上;见 scripts/cdp-lib.mjs 的启动说明)
- * 退出码:0 通过 / 1 断言失败 / 2 跳过(应用不在 9222,或主窗不在信息流视图)
+ * 并打印「改前(基线 audit.json)→ 改后(实时)」分布对照表。用法:pnpm audit:visual
+ * 退出码:0 通过 / 1 失败 / 2 跳过(应用不在 9222 或主窗不在信息流)
  */
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -15,7 +14,6 @@ import {
   BLUR_JS, CARD_STATE_JS, CLOSE_DIALOG_JS, MENU_SCAN_JS, OPEN_DIALOG_JS, PICK_CARDS_JS,
   REAL_FOCUS_JS, SCAN_JS, TOKEN_NAMES,
 } from './audit-visual-scan.mjs';
-
 const SIZES = [11, 12, 13, 14, 15, 16, 20]; // 7 档类型刻度
 const RADII = [4, 6, 8, 12]; // 圆角 4 档(0 只作标签页下两角,见断言)
 const GAPS = [4, 6, 8, 12, 16, 24, 32]; // 间距刻度(设计 §3.3;2px 未用)
@@ -136,10 +134,12 @@ r.record(
   !!hover && hover.bg === hover.hoverToken && ref?.bg === ref.raisedToken,
   `静止卡 ${ref?.bg}(= --color-raised ${ref?.raisedToken}) -> 强制 hover ${hover?.bg}(= --color-hover ${hover?.hoverToken})`,
 );
+// 环:规则必须在(与 OS 焦点无关);窗口有焦点时再核对实时值
+const ringLive = realFocus?.outlineStyle === 'solid' && realFocus?.outlineColor === realFocus?.accent;
 r.record(
   '卡片 focus 态(键盘通道显形 + accent 环)',
-  !!focus && focus.actionOpacity === '1' && ref?.actionOpacity === '0' && realFocus?.outlineStyle === 'solid' && realFocus?.outlineColor === realFocus?.accent,
-  `操作行 opacity 对照卡 ${ref?.actionOpacity} -> focus-within ${focus?.actionOpacity};真实聚焦环 ${realFocus?.outlineWidth} ${realFocus?.outlineColor},按钮 position ${realFocus?.position},下划线 ${realFocus?.textDecoration}`,
+  !!focus && focus.actionOpacity === '1' && ref?.actionOpacity === '0' && realFocus?.ruleOk === true && (!realFocus?.docFocused || ringLive),
+  `操作行 opacity 对照卡 ${ref?.actionOpacity} -> focus-within ${focus?.actionOpacity};环规则 ${realFocus?.ruleOk ? '在' : '缺失'}${realFocus?.docFocused ? `(窗口有焦点,实时 ${realFocus?.outlineWidth} ${realFocus?.outlineColor})` : '(窗口无 OS 焦点,只校规则)'}`,
 );
 
 // 8) 正文对比度(亮暗两态)

@@ -75,6 +75,8 @@ pub fn run() {
             commands::tags::add_tag_alias,
             commands::tags::remove_tag_alias,
             commands::windowing::hide_input_bar,
+            commands::windowing::hide_main_window,
+            commands::windowing::webview_ack,
             commands::windowing::show_input_bar,
             commands::windowing::take_pending_open_settings,
             commands::windowing::set_input_size,

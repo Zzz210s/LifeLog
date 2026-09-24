@@ -57,3 +57,15 @@ pub fn take_pending_open_settings() -> bool {
 pub fn end_input_drag() {
     windowing::input::end_drag_session();
 }
+
+/// 隐藏主窗(页面发起的 window.close() 走这里;见 src/main-window/shell/close-guard.ts)
+#[tauri::command]
+pub fn hide_main_window(app: AppHandle) -> Result<(), String> {
+    windowing::main_window::hide(&app).map_err(|e| e.to_string())
+}
+
+/// 活性回执:主窗探针注入脚本后由页面调回,证明 webview 还能执行脚本(待办 #36)
+#[tauri::command]
+pub fn webview_ack(token: String) {
+    windowing::main_window_alive::record_ack(&token);
+}
