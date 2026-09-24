@@ -39,6 +39,13 @@ describe('唯一输入框(设计 §3/§4)', () => {
     expect(box(host).getAttribute('aria-label')).toBe('统一输入框');
   });
 
+  it('形态:保存按钮与输入框同一行(设计 §3 两行图)', async () => {
+    const host = await mount();
+    const btn = host.querySelector('button') as HTMLButtonElement;
+    expect(btn.textContent).toBe('保存');
+    expect(btn.parentElement).toBe(box(host).parentElement);
+  });
+
   it('记录模式 Ctrl+Enter 保存并清空', async () => {
     const host = await mount();
     await type(host, '买牛奶');

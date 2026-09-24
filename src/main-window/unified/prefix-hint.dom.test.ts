@@ -49,4 +49,16 @@ describe('前缀提示行(设计 §3.1)', () => {
     expect(host.textContent).toContain('编辑中');
     expect(host.querySelectorAll('[data-prefix]').length).toBe(0);
   });
+
+  it('错误态:整行换成错误文案,优先级高于编辑只读', async () => {
+    const host = await mount({
+      mode: 'note',
+      readonly: true,
+      error: '保存失败: 库锁住了',
+      onPickPrefix: () => {},
+    });
+    expect(host.textContent).toContain('保存失败: 库锁住了');
+    expect(host.textContent).not.toContain('编辑中');
+    expect(host.querySelectorAll('[data-prefix]').length).toBe(0);
+  });
 });

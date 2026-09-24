@@ -16,7 +16,7 @@ beforeEach(() => {
   vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => (cb(0), 0));
   document.body.innerHTML = '';
   const box = document.createElement('textarea');
-  box.setAttribute('aria-label', '记点什么');
+  box.setAttribute('data-testid', 'unified-input');
   document.body.appendChild(box);
   h = mountAppCommands();
 });
@@ -47,7 +47,7 @@ describe('execute:先 flush 再 run', () => {
       order.push('flush');
       return { ok: false, message: '内容不能为空' };
     });
-    // 用真实 registry:note.new 会聚焦 Composer 文本域,若被执行则 activeElement 会变
+    // 用真实 registry:note.new 会聚焦统一输入框,若被执行则 activeElement 会变
     const before = document.activeElement;
     await runCommand(h, 'note.new');
     expect(order).toEqual(['flush']);

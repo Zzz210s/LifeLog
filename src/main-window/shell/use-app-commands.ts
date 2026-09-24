@@ -18,8 +18,8 @@ import type { ErrorKind } from './ErrorBar';
 import type { MainView } from '../settings/settings-model';
 import { focusWhenPresent } from './focus-when-present';
 
-/** Composer 的文本域(既有 aria-label,不新增约定) */
-export const COMPOSER_SELECTOR = 'textarea[aria-label="记点什么"]';
+/** 主窗唯一输入框(统一输入框):命令「新建笔记」把焦点交给它 */
+export const UNIFIED_INPUT_SELECTOR = '[data-testid="unified-input"]';
 /** 设置页的全局快捷键录制器(T7 会加应用内两行,选择器不变) */
 export const HOTKEY_RECORDER_SELECTOR = 'button[aria-label="录制快捷键"]';
 
@@ -61,7 +61,7 @@ export function useAppCommands(options: AppCommandsOptions): AppCommands {
 
   const runs = useMemo((): CommandRuns => {
     return {
-      'note.new': () => focusWhenPresent(COMPOSER_SELECTOR),
+      'note.new': () => focusWhenPresent(UNIFIED_INPUT_SELECTOR),
       'tab.next': () => {
         const { tabs } = latest.current;
         if (tabs.count > 0) tabs.activate((tabs.activeIndex + 1) % tabs.count);

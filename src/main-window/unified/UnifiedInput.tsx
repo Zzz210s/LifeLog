@@ -4,8 +4,9 @@
  * 状态全在 `useUnifiedInput` 的纯状态机里,本组件只做三件事:
  *  1) 接线:自动增高、焦点请求(`focusSignal`)、受控值;
  *  2) 保存:Ctrl+Enter / 按钮 -> `prepareForSave` -> `api.saveInputNote`;
- *  3) 渲染:输入框 + 错误行/保存按钮 + 小字提示行 + 可选下拉行。
+ *  3) 渲染:输入框 + 保存按钮(同一行)+ 小字提示行(错误/编辑说明复用该行)。
  *
+ * 形态照设计 §3 的图:输入框行 + 提示行,共两行(顶区预算 <= 210)。
  * 下拉行是占位(Task 5 接真候选):只在**有前缀**的模式下渲染,记录模式恒不渲染(D6)。
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -97,44 +98,38 @@ export function UnifiedInput(p: UnifiedInputProps): ReactNode {
 
   return (
     <div className="border-b border-border px-4 py-2">
-      <textarea
-        ref={ref}
-        data-testid="unified-input"
-        aria-label="统一输入框"
-        rows={1}
-        value={c.state.raw}
-        disabled={p.editing}
-        placeholder={PLACEHOLDER}
-        onChange={(e) => {
-          const raw = e.target.value;
-          c.setRaw(raw);
-          resize();
-          // 模式/query 由新值现算:setRaw 是异步 state 更新,这里读 state 会慢一拍
-          const parsed = parseInput(raw);
-          p.onStateChange?.({ mode: parsed.mode, query: parsed.query, prefix: parsed.prefix });
-        }}
-        onKeyDown={(e) => {
-          if (e.ctrlKey && e.key === 'Enter') {
-            e.preventDefault();
-            void save();
-            return;
-          }
-          if (e.key === 'Escape') {
-            e.preventDefault();
-            c.esc();
-          }
-        }}
-        style={{ maxHeight: MAX_HEIGHT, overflowY: 'auto' }}
-        className="block w-full resize-none rounded-sm border border-border-strong bg-raised px-2.5 py-1.5 text-ui text-text outline-none"
-      />
-      <div className="mt-2 flex items-center justify-between">
-        <span className="text-xs text-danger">
-          {error
-            ? '保存失败: ' + error
-            : p.editing
-              ? '正在编辑笔记,完成后可继续记录'
-              : ''}
-        </span>
+      {/* 输入框与保存按钮同一行(items-start:自动增高时按钮留顶部) */}
+      <div className="flex items-start gap-2">
+        <textarea
+          ref={ref}
+          data-testid="unified-input"
+          aria-label="统一输入框"
+          rows={1}
+          value={c.state.raw}
+          disabled={p.editing}
+          placeholder={PLACEHOLDER}
+          onChange={(e) => {
+            const raw = e.target.value;
+            c.setRaw(raw);
+            resize();
+            // 模式/query 由新值现算:setRaw 是异步 state 更新,这里读 state 会慢一拍
+            const parsed = parseInput(raw);
+            p.onStateChange?.({ mode: parsed.mode, query: parsed.query, prefix: parsed.prefix });
+          }}
+          onKeyDown={(e) => {
+            if (e.ctrlKey && e.key === 'Enter') {
+              e.preventDefault();
+              void save();
+              return;
+            }
+            if (e.key === 'Escape') {
+              e.preventDefault();
+              c.esc();
+            }
+          }}
+          style={{ maxHeight: MAX_HEIGHT, overflowY: 'auto' }}
+          className="block min-w-0 flex-1 resize-none rounded-sm border border-border-strong bg-raised px-2.5 py-1.5 text-ui text-text outline-none"
+        />
         <button
           onClick={() => void save()}
           disabled={p.editing || !c.state.raw.trim() || saving}
@@ -143,10 +138,12 @@ export function UnifiedInput(p: UnifiedInputProps): ReactNode {
           保存
         </button>
       </div>
+      {/* 提示行:错误 > 编辑中 > 正常前缀提示,恒为一行 */}
       <PrefixHint
         mode={c.state.mode}
         stat={p.stat}
         readonly={p.editing}
+        error={error ? '保存失败: ' + error : undefined}
         onPickPrefix={c.pickPrefix}
       />
       {c.state.dropdownOpen && c.state.mode !== 'note' ? p.dropdown : null}

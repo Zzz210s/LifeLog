@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act } from 'react';
 import { callRun, mountAppCommands } from './app-commands-harness';
 import type { AppCommandsHarness } from './app-commands-harness';
-import { COMPOSER_SELECTOR, HOTKEY_RECORDER_SELECTOR, nextThemeMode } from './use-app-commands';
+import { HOTKEY_RECORDER_SELECTOR, UNIFIED_INPUT_SELECTOR, nextThemeMode } from './use-app-commands';
 
 const { rebuildSearchIndex, quitApp } = vi.hoisted(() => ({
   rebuildSearchIndex: vi.fn(async () => 2),
@@ -55,10 +55,18 @@ describe('命令副作用:注册表门禁与 11 条', () => {
 });
 
 describe('命令副作用:视图与焦点', () => {
-  it('note.new 聚焦 Composer 文本域', async () => {
-    const box = add('textarea', { 'aria-label': '记点什么' });
+  it('note.new 聚焦统一输入框', async () => {
+    const box = add('textarea', { 'data-testid': 'unified-input' });
     await callRun(h, 'note.new');
     expect(document.activeElement).toBe(box);
+  });
+
+  it('note.new 不再认旧 Composer 的 aria-label(选择器回归防护)', async () => {
+    const legacy = add('textarea', { 'aria-label': '记点什么' });
+    const box = add('textarea', { 'data-testid': 'unified-input' });
+    await callRun(h, 'note.new');
+    expect(document.activeElement).toBe(box);
+    expect(document.activeElement).not.toBe(legacy);
   });
 
   it('settings.open 切设置页;hotkey.edit 切设置页并聚焦录制器', async () => {
@@ -70,7 +78,7 @@ describe('命令副作用:视图与焦点', () => {
     expect(h.setView).toHaveBeenCalledTimes(2);
     expect(document.activeElement).toBe(rec);
     expect(HOTKEY_RECORDER_SELECTOR).toBe('button[aria-label="录制快捷键"]');
-    expect(COMPOSER_SELECTOR).toBe('textarea[aria-label="记点什么"]');
+    expect(UNIFIED_INPUT_SELECTOR).toBe('[data-testid="unified-input"]');
   });
 
   it('tab.next / tab.prev 按当前活动页循环(读最新状态,不是闭包旧值)', async () => {
