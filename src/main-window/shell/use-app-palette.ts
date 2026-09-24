@@ -31,6 +31,7 @@ import { noteDecorationsFor } from '../palette/providers/notes';
 import { tagDecorations } from '../palette/providers/tags';
 import { usePalette } from '../palette/use-palette';
 import type { PaletteController } from '../palette/use-palette';
+import { paletteBinding } from '../palette/palette-binding';
 import { useProviderItems } from '../palette/use-provider-items';
 import { useQuickOpen } from '../palette/use-quick-open';
 
@@ -97,13 +98,16 @@ export function useAppPalette(options: AppPaletteOptions): AppPalette {
 
   // 每次打开作废候选缓存(刚保存的笔记也要能搜到)。必须在 useProviderItems 的 effect 之前声明:
   // 同一次提交里 effect 按声明顺序执行,先清缓存、再取候选,否则取到的还是上一次的旧缓存。
+  // `@`(统一输入框的「打开笔记」)也走这一支:它没有"打开浮层"那一刻,进这个模式就是它的打开。
   useEffect(() => {
-    if (filter.open) pool.refresh();
-  }, [filter.open, pool]);
+    if (filter.open || filter.prefix === '@') pool.refresh();
+  }, [filter.open, filter.prefix, pool]);
 
   const items = useProviderItems({
     registry: providers,
-    isOpen: filter.open,
+    // 常驻驱动(任务 5):统一输入框把前缀写进控制器时并没有打开浮层,
+    // 所以"有前缀"也要取候选 —— 否则下拉永远拿不到数据
+    isOpen: filter.open || filter.prefix !== '',
     prefix: filter.prefix,
     query: filter.query,
     // 只有 `#` 的候选与标签数据版本有关;其余前缀传常量,版本变化不重跑
@@ -138,24 +142,28 @@ export function useAppPalette(options: AppPaletteOptions): AppPalette {
     );
   }, []);
 
-  // 固定项/最近用过**按 provider 分开**:笔记 id 是数字、命令 id 是点分 ASCII、标签是路径,
-  // 三者的 id 空间不同 —— 串着传会让"标签名恰好等于某条笔记 id"这类巧合改变列表顺序。
-  const pinned = filter.prefix === '#' ? (settings?.pinnedTags ?? []) : [];
-  const mru =
-    filter.prefix === '>' ? settings?.mruCommands.entries() : filter.prefix === '' ? settings?.mruNotes.entries() : [];
+  // 固定项/最近用过**按 provider 分开**,推导见 palette-binding.ts
+
+  // 前缀实时驱动(Task 5 起统一输入框也用它当"常驻驱动"的入口):身份必须稳定 ——
+  // usePalette 的 setQuery 依赖本函数,一变就换新 -> 依赖它的 effect 每渲染重跑
+  // (setQuery 内部会把高亮行按回第一行,表现为候选方向键选不动)。
+  const splitPrefix = useCallback((raw: string) => {
+    const match = providers.resolve(raw);
+    if (match === undefined || match.provider.prefix === '') return null;
+    return { prefix: match.provider.prefix, query: match.query };
+  }, [providers]);
+
+  // 固定项/最近用过/上限的推导在 palette-binding.ts(按前缀分派,三个 id 空间不串)
+  const binding = paletteBinding(filter.prefix, settings);
 
   const controller = usePalette({
     items,
-    pinned,
-    mru,
-    limit: settings?.limit,
+    pinned: binding.pinned,
+    mru: binding.mru,
+    limit: binding.limit,
     anchorRef: options.anchorRef,
     onFilterChange,
-    splitPrefix: (raw) => {
-      const match = providers.resolve(raw);
-      if (match === undefined || match.provider.prefix === '') return null;
-      return { prefix: match.provider.prefix, query: match.query };
-    },
+    splitPrefix,
     onAccept: (row, keepOpen) => {
       const prefix = filter.prefix;
       if (prefix === '>') {

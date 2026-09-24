@@ -144,13 +144,13 @@ if (inputConn) {
   record('A6a/A6b/A6c 输入栏补全', false, '连不上 input 页面');
 }
 
-// ---- A7 焦点归位 ----
-await main.eval(`document.querySelector('textarea[aria-label="记点什么"]').focus()`);
+// ---- A7 焦点归位 ----(输入框已换成统一输入框:选择器与 aria-label 同步改)
+await main.eval(`document.querySelector('[data-testid="unified-input"]').focus()`);
 const focusBefore = await main.eval(`document.activeElement?.getAttribute('aria-label')`);
 await h.palette('palette'); await h.esc();
 const focusAfter = await main.eval(`document.activeElement?.getAttribute('aria-label')`);
-record('A7 焦点归位:打开前焦点在 Composer -> Esc 后焦点回 Composer',
-  focusBefore === '记点什么' && focusAfter === '记点什么', `${focusBefore} -> ${focusAfter}`);
+record('A7 焦点归位:打开前焦点在统一输入框 -> Esc 后焦点回统一输入框',
+  focusBefore === '统一输入框' && focusAfter === '统一输入框', `${focusBefore} -> ${focusAfter}`);
 
 // ---- A8 编辑态保护 ----
 const MARK = 'T9编辑态落库标记' + STAMP;

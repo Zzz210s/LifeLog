@@ -5,6 +5,8 @@
 import type { ReactNode } from 'react';
 import type { Note } from '../../shared/types';
 import type { FilterConditions } from '../../shared/filter-conditions';
+import type { RowDecoration } from '../palette/PaletteRow';
+import type { PaletteController } from '../palette/use-palette';
 import { UnifiedInput } from '../unified/UnifiedInput';
 import { NoteStream } from '../stream/NoteStream';
 import { FilterBar } from '../filter/FilterBar';
@@ -42,6 +44,12 @@ export interface StreamViewProps {
   onEditCancel: () => void;
   onToggleTask: (note: Note, index: number) => void;
   onLinkError: (message: string) => void;
+  /** 浮层控制器:统一输入框的候选/高亮/采纳状态与它共用(浮层本任务保持不打开) */
+  palette: PaletteController;
+  /** 候选行装饰(命令快捷键/标签计数/笔记日期) */
+  decorations: Readonly<Record<string, RowDecoration>>;
+  /** 标签数据版本(`#` 候选池作废键,与 useAppPalette 同值) */
+  tagsVersion: number;
   /** 统一输入框保存成功后刷新(回第一页 + 重读标签) */
   onSaved: () => void;
 }
@@ -60,7 +68,11 @@ export function StreamView(p: StreamViewProps): ReactNode {
         onPreset={t.addPreset}
         onAddCurrent={t.addFromCurrent}
       />
-      <UnifiedInput onSaved={p.onSaved} editing={p.editingId !== null} />
+      <UnifiedInput
+        onSaved={p.onSaved}
+        editing={p.editingId !== null}
+        candidates={{ palette: p.palette, decorations: p.decorations, refreshKey: p.tagsVersion, onError: p.onLinkError }}
+      />
       <FilterBar
         conditions={p.conditions}
         onPatch={p.onPatch}

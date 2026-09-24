@@ -19,7 +19,8 @@ import type { NoteCandidates } from '../note-candidates';
 import { searchConditions } from '../note-candidates';
 import type { TagCandidates } from '../tag-candidates';
 import { createCommandProvider } from './commands';
-import { createNoteProvider } from './notes';
+import { createNoteProvider, NOTES_OPEN_PREFIX } from './notes';
+import type { NoteProviderOptions } from './notes';
 import { createTagProvider } from './tags';
 
 export interface AppProvidersOptions {
@@ -53,19 +54,21 @@ export function buildAppProviders(o: AppProvidersOptions): ProviderRegistry {
       },
     }),
   );
-  registry.register(
-    createNoteProvider({
-      getCandidates: async () => {
-        const rows = await o.pool.current();
-        for (const note of rows) o.noteIndex.current.set(note.id, note);
-        return rows;
-      },
-      search: async (query) => {
-        const rows = await api.queryNotes(searchConditions(query), 0);
-        for (const note of rows) o.noteIndex.current.set(note.id, note);
-        return rows;
-      },
-    }),
-  );
+  // 笔记 provider 的取数只写一份:`''` 给浮层默认档,`@` 给统一输入框的「打开笔记」
+  // (注册表前缀前缀不重复,两个条目共用一个候选池与同一份 noteIndex)
+  const noteOptions: NoteProviderOptions = {
+    getCandidates: async () => {
+      const rows = await o.pool.current();
+      for (const note of rows) o.noteIndex.current.set(note.id, note);
+      return rows;
+    },
+    search: async (query) => {
+      const rows = await api.queryNotes(searchConditions(query), 0);
+      for (const note of rows) o.noteIndex.current.set(note.id, note);
+      return rows;
+    },
+  };
+  registry.register(createNoteProvider(noteOptions));
+  registry.register(createNoteProvider({ ...noteOptions, prefix: NOTES_OPEN_PREFIX }));
   return registry;
 }

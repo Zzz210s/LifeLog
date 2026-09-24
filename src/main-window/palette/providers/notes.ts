@@ -96,7 +96,13 @@ export interface NoteProviderOptions {
   getCandidates: () => Promise<readonly Note[]>;
   /** FTS 追加查询(host 注入 `query_notes(keyword)`;失败原样抛) */
   search: (query: string) => Promise<readonly Note[]>;
+  /** 注册前缀:缺省 `''`(浮层默认 provider),`'@'` 给统一输入框的「打开笔记」 */
+  prefix?: string;
 }
+
+/** 统一输入框 `@`(打开笔记)的注册前缀:同一份笔记候选、另一个前缀入口 */
+export const NOTES_OPEN_PREFIX = '@';
+export const NOTES_OPEN_PROVIDER_ID = 'notes-open';
 
 /** 注册表条目(空前缀 = 默认 provider) */
 export function createNoteProvider(options: NoteProviderOptions) {
@@ -112,5 +118,10 @@ export function createNoteProvider(options: NoteProviderOptions) {
     const merged = [...candidates, ...extra.filter((n) => !seen.has(n.id))];
     return noteItems(merged, query);
   };
-  return { prefix: NOTES_PREFIX, id: NOTES_PROVIDER_ID, getItems };
+  const prefix = options.prefix ?? NOTES_PREFIX;
+  return {
+    prefix,
+    id: prefix === NOTES_PREFIX ? NOTES_PROVIDER_ID : NOTES_OPEN_PROVIDER_ID,
+    getItems,
+  };
 }

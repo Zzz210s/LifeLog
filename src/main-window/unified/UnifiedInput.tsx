@@ -1,21 +1,26 @@
 /**
  * 唯一输入框(设计 2026-09-24 §3/§4):主窗顶部常驻,先只接管「记笔记」。
  *
- * 状态全在 `useUnifiedInput` 的纯状态机里,本组件只做三件事:
- *  1) 接线:自动增高、焦点请求(`focusSignal`)、受控值;
- *  2) 保存:Ctrl+Enter / 按钮 -> `prepareForSave` -> `api.saveInputNote`;
- *  3) 渲染:输入框 + 保存按钮(同一行)+ 小字提示行(错误/编辑说明复用该行)。
+ * 状态全在 `useUnifiedInput` 的纯状态机里,本组件做四件事:接线(自动增高/焦点请求/受控值)、
+ * 保存(Ctrl+Enter/按钮 -> `api.saveInputNote`)、渲染(输入框 + 保存按钮 + 提示行)、
+ * 以及候选下拉的模式门控与键盘路由。
  *
- * 形态照设计 §3 的图:输入框行 + 提示行,共两行(顶区预算 <= 210)。
- * 下拉行是占位(Task 5 接真候选):只在**有前缀**的模式下渲染,记录模式恒不渲染(D6)。
+ * 候选下拉(Task 5):候选数据由 `useUnifiedCandidates` 从既有 provider 体系经浮层控制器取回
+ * (驱动也在那个 hook 里),高亮行直接复用浮层控制器的 `activeIndex`;只在**有前缀**且不是
+ * 实时筛选模式且浮层没开时渲染(记录模式恒不渲染 D6;`/` 只做实时筛选,§4)。键盘与浮层同口径:
+ * ↓/↑ 移动 -> Tab 采纳 -> Enter 采纳(有行时)-> Esc 交给状态机(有下拉先关下拉)->
+ * Ctrl+Enter **永远**保存。
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
+import type { KeyboardEvent, ReactNode } from 'react';
 import { api } from '../../shared/api';
 import { prepareForSave } from '../../shared/note-source';
 import { parseInput, type InputMode } from '../../shared/input-prefix';
 import { BTN_PRIMARY } from '../shell/button-classes';
 import { PrefixHint } from './PrefixHint';
+import { UnifiedDropdownSlot } from './UnifiedDropdown';
+import { routeUnifiedKey } from './unified-keys';
+import { useUnifiedCandidates, type UnifiedCandidateWiring } from './use-unified-candidates';
 import { useUnifiedInput, type UnifiedController } from './use-unified-input';
 
 export interface UnifiedInputProps {
@@ -23,8 +28,12 @@ export interface UnifiedInputProps {
   onSaved: () => void;
   /** 正在编辑某条笔记时该框只读(与今天 Composer 一致) */
   editing: boolean;
-  /** 下拉行(本计划 Task 5 接入;先留可选,未接时不渲染) */
+  /** 下拉节点覆盖位(给定节点/测试用;缺省时按 `candidates` 渲染内置下拉) */
   dropdown?: ReactNode | null;
+  /** 候选接线(控制器 + 装饰 + 作废键 + 错误出口);不给 = 没有任何下拉 */
+  candidates?: UnifiedCandidateWiring | null;
+  /** 采纳回调(索引):本任务只关下拉,副作用在 Task 6 接 */
+  onAccept?: (index: number) => void;
   /** 模式/统计文案(父组件按需给,用于提示行) */
   stat?: string;
   /** 控制器上抛:父组件(快捷键、验收脚本)需要 setRaw/prefill */
@@ -42,6 +51,15 @@ export function UnifiedInput(p: UnifiedInputProps): ReactNode {
   const ref = useRef<HTMLTextAreaElement>(null);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  // 候选:三类前缀由 hook 驱动浮层控制器取回(记录/筛选模式返回空)
+  const wiring = p.candidates ?? null;
+  const cands = useUnifiedCandidates({
+    mode: c.state.mode,
+    query: c.state.query,
+    refreshKey: wiring?.refreshKey ?? 0,
+    onError: wiring?.onError ?? (() => {}),
+    controller: wiring?.palette ?? null,
+  });
 
   // controller 对象每次渲染都是新的:直接上报会让把它存进 state 的父组件死循环。
   // 方法本身是 useCallback 稳定身份,状态用 getter 读最新一份,外壳只建一次。
@@ -96,6 +114,32 @@ export function UnifiedInput(p: UnifiedInputProps): ReactNode {
     }
   };
 
+  // 候选:记录模式与实时筛选模式没有下拉(D6 / §4);浮层开着时让位给浮层(两个候选 UI 互斥)
+  const pal = wiring?.palette ?? null;
+  const showDropdown =
+    c.state.dropdownOpen && c.state.mode !== 'note' && c.state.mode !== 'filter' && !(pal?.isOpen ?? false);
+
+  /** 采纳:先关下拉(状态机保留模式),再把索引交给 Task 6 的副作用出口 */
+  const accept = (index: number) => {
+    c.closeDropdown();
+    p.onAccept?.(index);
+  };
+
+  // 键盘路由(与浮层同口径):↓/↑ 移动 -> Tab 采纳 -> Enter 采纳(有行时)-> Esc -> Ctrl+Enter 保存
+  const routeKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    const action = routeUnifiedKey(e, {
+      dropdownShown: showDropdown,
+      activeIndex: pal?.activeIndex ?? 0,
+      count: cands.rows.length,
+    });
+    if (action.type === 'ignore') return;
+    e.preventDefault();
+    if (action.type === 'save') void save();
+    else if (action.type === 'esc') c.esc(); // 两级:有下拉先关下拉(模式/内容不动),没下拉才退模式
+    else if (action.type === 'highlight') pal?.setActiveIndex(action.index);
+    else accept(action.index);
+  };
+
   return (
     <div className="border-b border-border px-4 py-2">
       {/* 输入框与保存按钮同一行(items-start:自动增高时按钮留顶部) */}
@@ -111,22 +155,13 @@ export function UnifiedInput(p: UnifiedInputProps): ReactNode {
           onChange={(e) => {
             const raw = e.target.value;
             c.setRaw(raw);
+            setError(''); // 一有输入就收起保存失败提示,否则它会长期占着提示行
             resize();
             // 模式/query 由新值现算:setRaw 是异步 state 更新,这里读 state 会慢一拍
             const parsed = parseInput(raw);
             p.onStateChange?.({ mode: parsed.mode, query: parsed.query, prefix: parsed.prefix });
           }}
-          onKeyDown={(e) => {
-            if (e.ctrlKey && e.key === 'Enter') {
-              e.preventDefault();
-              void save();
-              return;
-            }
-            if (e.key === 'Escape') {
-              e.preventDefault();
-              c.esc();
-            }
-          }}
+          onKeyDown={routeKey}
           style={{ maxHeight: MAX_HEIGHT, overflowY: 'auto' }}
           className="block min-w-0 flex-1 resize-none rounded-sm border border-border-strong bg-raised px-2.5 py-1.5 text-ui text-text outline-none"
         />
@@ -146,7 +181,18 @@ export function UnifiedInput(p: UnifiedInputProps): ReactNode {
         error={error ? '保存失败: ' + error : undefined}
         onPickPrefix={c.pickPrefix}
       />
-      {c.state.dropdownOpen && c.state.mode !== 'note' ? p.dropdown : null}
+      {showDropdown && pal !== null
+        ? (p.dropdown ?? (
+            <UnifiedDropdownSlot
+              rows={cands.rows}
+              total={cands.total}
+              truncated={cands.truncated}
+              palette={pal}
+              decorations={wiring?.decorations}
+              onAccept={accept}
+            />
+          ))
+        : null}
     </div>
   );
 }

@@ -181,6 +181,9 @@ export function App(): ReactNode {
           onEditCancel={() => setEditingId(null)}
           onToggleTask={toggleTask}
           onLinkError={(m) => setError('action', m)}
+          palette={controller}
+          decorations={decorations}
+          tagsVersion={tagsVersion}
           onSaved={refresh}
         />
         {view === 'settings' && (
