@@ -1,0 +1,19 @@
+{
+  "note": "前缀解析的共享向量:raw -> {mode, query}。前缀只在首字符生效;前缀后空格忽略。",
+  "cases": [
+    { "raw": "", "mode": "note", "query": "" },
+    { "raw": "买牛奶", "mode": "note", "query": "买牛奶" },
+    { "raw": "买了牛奶 #生活/购物", "mode": "note", "query": "买了牛奶 #生活/购物" },
+    { "raw": "/", "mode": "filter", "query": "" },
+    { "raw": "/牛奶", "mode": "filter", "query": "牛奶" },
+    { "raw": "/ 牛奶", "mode": "filter", "query": "牛奶" },
+    { "raw": "#", "mode": "tag", "query": "" },
+    { "raw": "#购物", "mode": "tag", "query": "购物" },
+    { "raw": ">", "mode": "command", "query": "" },
+    { "raw": ">导出", "mode": "command", "query": "导出" },
+    { "raw": "@", "mode": "open", "query": "" },
+    { "raw": "@夏天", "mode": "open", "query": "夏天" },
+    { "raw": "a#b", "mode": "note", "query": "a#b" },
+    { "raw": " ", "mode": "note", "query": " " }
+  ]
+}
