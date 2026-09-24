@@ -4,7 +4,7 @@
 // scripts/lifelog-db-readings.py 比对。动作件在 scripts/unified-accept-lib.mjs(供计划 2/3、3/3 复用)。
 import { ensureMain, recorder, sleep, waitFor } from './cdp-lib.mjs';
 import {
-  BOX, COMMAND_IDS, EMPTY, FIXTURE_TAG, FIXTURES, HINT, RECORD_TEXT, SIDEBAR, STAT, TAB_GATED, driver,
+  BOX, COMMAND_IDS, FIXTURE_TAG, HINT, RECORD_TEXT, SIDEBAR, STAT, TAB_GATED, cleanupFixtures, createFixtures, driver,
 } from './unified-accept-lib.mjs';
 
 const r = recorder();
@@ -18,16 +18,7 @@ async function main() {
   const sidebarBefore = await d.sidebar();
 
   // --- 夹具:三条笔记(两条带 UI测试 标签),走真实保存路径 ---
-  for (const text of FIXTURES) {
-    await d.clearBox();
-    await d.type(text);
-    await d.ctrlEnter();
-    await sleep(600);
-  }
-  const fixtures = await d.call('query_notes', { conditions: { ...EMPTY, keyword: 'UI测试夹具' }, offset: 0 });
-  r.record('夹具就绪', fixtures.length === 3, `UI测试夹具* 笔记 ${fixtures.length} 条,id=${JSON.stringify(fixtures.map((n) => n.id))}`);
-  if (fixtures.length !== 3) throw new Error('夹具笔记未创建成功,中止');
-  const target = fixtures[0]; // 最新一条(流里在最前)
+  const { target } = await createFixtures(d, r);
 
   // --- ① 布局:可见 input/textarea 只有统一输入框;侧栏没有输入框 ---
   const inputs = await d.visibleInputs();
@@ -111,7 +102,26 @@ async function main() {
     `查询 @${target.content.trim()};首行 ${openRows?.[0]?.id}(期望 ${target.id});滚到底 scrollTop=${scrolled};` +
       `滚前 inView=${before6.inView} 滚后 inView=${after6.inView}(scrollTop=${after6.scrollTop})`);
 
-  // --- ⑦ 提示行:空闲四段;带前缀该段 data-active + 统计;点 `#` 段写进输入框 ---
+  // --- ⑥b 负面读数:目标被筛掉时 `@` 采纳不再静默(清筛选 + 中文提示) ---
+  await d.clearChips();
+  await d.clearBox();
+  await d.type('/UI测试夹具二'); // 只留夹具二,夹具三(被测目标)被筛掉
+  await sleep(700);
+  const stream6b = await d.streamCount();
+  const before6b = await d.noteInView(target.id);
+  await d.clearBox();
+  await d.type(`@${target.content.trim()}`);
+  await waitFor(async () => ((await d.rows()).length > 0 ? true : false), 12, 250);
+  await d.enter();
+  await sleep(1100);
+  const hint6b = await d.alertText();
+  const after6b = await d.noteInView(target.id);
+  r.record('⑥b `@` 目标被筛掉 -> 不再静默',
+    stream6b < expect3 && before6b.found === false && (hint6b ?? '').includes('已清除筛选') && after6b.inView === true,
+    `筛选后流条数=${stream6b}(目标 ${target.id} 不在流);提示="${hint6b}";清筛选后 inView=${after6b.inView}`);
+  await d.ev(`document.querySelector('[aria-label="关闭操作错误提示"]')?.click()`);
+
+  // --- ⑦ 提示行:空闲四段;带前缀该段 data-active + 统计;点 `#` 段写进输入框且焦点回框 ---
   await d.clearBox();
   await sleep(250);
   const idleSegs = await d.hintSegs();
@@ -120,11 +130,12 @@ async function main() {
   const activeSeg = (await d.hintSegs()).find((s) => s.prefix === '/');
   const hasStat = await d.ev(`!!document.querySelector('${STAT}')`);
   await d.clearBox();
-  await d.ev(`document.querySelector('${HINT} [data-prefix="#"]').click()`);
+  await d.clickHint('#');
   await sleep(300);
   const clicked = await d.boxValue();
-  r.record('⑦ 提示行', idleSegs.length === 4 && idleText.includes('记点什么') && activeSeg?.active === 'true' && hasStat && clicked.startsWith('#'),
-    `空闲四段=${JSON.stringify(idleSegs.map((s) => s.prefix))};/ 段 active=${activeSeg?.active} 有统计=${hasStat};点 # 段后输入框="${clicked}"`);
+  const focused7 = await d.boxFocused();
+  r.record('⑦ 提示行', idleSegs.length === 4 && idleText.includes('记点什么') && activeSeg?.active === 'true' && hasStat && clicked.startsWith('#') && focused7,
+    `空闲四段=${JSON.stringify(idleSegs.map((s) => s.prefix))};/ 段 active=${activeSeg?.active} 有统计=${hasStat};点 # 段后输入框="${clicked}" 焦点在框=${focused7}`);
 
   // --- ⑧ Esc 两级:第一下只关下拉(模式/内容不变),再一下回记录模式 ---
   await d.clearBox();
@@ -155,19 +166,25 @@ async function main() {
   r.record('⑨ 快捷键聚焦预填', hot1.value === '>' && hot1.focused === true && hot2.value === '@' && hot2.focused === true,
     `Ctrl+Shift+P -> "${hot1.value}"(焦点=${hot1.focused});Ctrl+P -> "${hot2.value}"(焦点=${hot2.focused})`);
 
-  // --- 清理:输入/条件/夹具笔记与标签 ---
-  await d.clearBox();
-  await d.esc();
+  // --- ⑩ combobox aria:开下拉时四属性自洽、无 role=list 中间层、计数播报随候选数 ---
   await d.clearChips();
-  const leftovers = await d.call('query_notes', { conditions: { ...EMPTY, keyword: 'UI测试' }, offset: 0 });
-  for (const n of leftovers) await d.call('delete_note', { id: n.id });
-  const leftoverTags = (await d.call('list_tags')).filter((t) => t.path === FIXTURE_TAG || t.path.startsWith(FIXTURE_TAG + '/'));
-  for (const t of leftoverTags) await d.call('delete_tag', { tagId: t.id });
-  await sleep(600);
-  const gone = await d.hits('UI测试');
-  const tagLeft = (await d.call('list_tags')).filter((t) => t.path.startsWith(FIXTURE_TAG)).length;
-  r.record('夹具清理', gone === 0 && tagLeft === 0,
-    `剩余夹具笔记 ${gone} 条、夹具标签 ${tagLeft} 个(删除标签 ${JSON.stringify(leftoverTags.map((t) => t.path))})`);
+  await d.clearBox();
+  await d.type(`#${FIXTURE_TAG}`);
+  const ariaRows = await waitFor(async () => { const rs = await d.rows(); return rs.length > 0 ? rs : null; }, 12, 250);
+  const a = await d.aria();
+  const ariaOk = a.role === 'combobox' && a.expanded === 'true' && a.controls === a.listboxId && a.optExists === true &&
+    a.hasInnerList === false && (a.childRoles ?? []).every((x) => x === 'presentation' || x === 'option' || x === 'group') &&
+    a.live === `${ariaRows?.length ?? -1} 个候选`;
+  r.record('⑩ combobox aria', ariaOk, `role=${a.role} expanded=${a.expanded} controls=${a.controls}/${a.listboxId} ` +
+    `activedescendant=${a.activedescendant}(存在=${a.optExists}) 子 role=${JSON.stringify(a.childRoles)} live="${a.live}"`);
+  await d.esc();
+  await sleep(250);
+  const off = await d.aria();
+  r.record('⑩b 收起后 aria', off.expanded === 'false' && off.controls === null && off.activedescendant === null,
+    `expanded=${off.expanded} controls=${off.controls} activedescendant=${off.activedescendant}`);
+
+  // --- 清理:输入/条件/夹具笔记与标签 ---
+  await cleanupFixtures(d, r);
 
   r.finish();
   conn.close();
@@ -175,5 +192,5 @@ async function main() {
 
 main().catch((e) => {
   console.error('FAIL 脚本异常:', e?.message ?? e);
-  process.exitCode = 1;
+  process.exit(1); // 连接未关时事件循环不退出,异常路径必须硬退出(否则挂到超时)
 });

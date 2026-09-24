@@ -59,7 +59,7 @@ export function useProviderItems(options: ProviderItemsOptions): readonly QuickP
       .catch((e) => {
         if (id !== seq.current) return;
         setItems([]);
-        latestOnError.current('浮层加载失败: ' + String(e));
+        latestOnError.current('候选加载失败: ' + String(e));
       });
   }, [registry, isOpen, prefix, query, refreshKey]);
 

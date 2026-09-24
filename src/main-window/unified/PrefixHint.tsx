@@ -50,6 +50,7 @@ export function PrefixHint(p: PrefixHintProps): ReactNode {
             type="button"
             data-prefix={spec.prefix}
             data-active={isActive ? 'true' : undefined}
+            aria-current={isActive ? 'true' : undefined}
             title={`${spec.label}(${spec.prefix} 开头)`}
             onClick={() => p.onPickPrefix(spec.prefix)}
             className={isActive ? `${SEG_CLASS} text-accent-text` : `${SEG_CLASS} hover:text-accent-text`}

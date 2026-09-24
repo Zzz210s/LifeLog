@@ -9,6 +9,7 @@ import { act } from 'react';
 import type { FilterConditions } from '../../shared/filter-conditions';
 import { EMPTY_FILTER } from '../../shared/filter-conditions';
 import { NOTE, installGeometryStubs, mountStreamView, row } from './stream-view-harness';
+import { QUICK_OPEN_CLEARED_TEXT } from '../palette/quick-open';
 
 const { getSetting, setSetting, saveInputNote } = vi.hoisted(() => ({
   getSetting: vi.fn(async (_key: string): Promise<string | null> => null),
@@ -66,6 +67,20 @@ describe('采纳副作用(StreamView 执行)', () => {
     await m.type('@UI测试');
     await m.press('Enter');
     expect(scrollSpy).toHaveBeenCalledWith({ block: 'center' });
+  });
+
+  it('`@` 选一条被筛选掉的笔记 -> 清筛选 + 中文提示(不再静默无反应)', async () => {
+    const onLinkError = vi.fn();
+    const onClearFilters = vi.fn();
+    const filtered: FilterConditions = { ...EMPTY_FILTER, keyword: '别的关键词' };
+    // 候选行还在(候选池是全库),但流里没有这条 -> 旧实现 querySelector 落空、什么都不发生
+    const m = await mountStreamView({
+      rows: [row('3')], notes: [], conditions: filtered, onLinkError, onClearFilters,
+    });
+    await m.type('@UI测试');
+    await m.press('Enter');
+    expect(onClearFilters).toHaveBeenCalledTimes(1);
+    expect(onLinkError).toHaveBeenCalledWith(QUICK_OPEN_CLEARED_TEXT);
   });
 
   it('`>` 选命令 -> 交给既有命令的 execute(不在这里重写命令)', async () => {

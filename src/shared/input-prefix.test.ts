@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { NOTE_PREFIX, PREFIXES, parseInput, withPrefix } from './input-prefix';
 
-const fx = JSON.parse(readFileSync('fixtures/input-prefix.json', 'utf-8')) as {
+const fx = JSON.parse(readFileSync(new URL('../../fixtures/input-prefix.json', import.meta.url), 'utf-8')) as {
   cases: { raw: string; mode: string; query: string }[];
 };
 

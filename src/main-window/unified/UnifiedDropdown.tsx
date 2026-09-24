@@ -20,6 +20,9 @@ import type { PaletteController } from '../palette/use-palette';
 /** 行渲染上限(防御性:候选源已自带上限,这里只保证 DOM 不被一次画爆) */
 export const MAX_RENDER_ROWS = 90;
 
+/** 下拉容器(listbox)的 DOM id:输入框的 `aria-controls` 指向它 */
+export const UNIFIED_LISTBOX_ID = 'unified-listbox';
+
 export interface UnifiedDropdownProps {
   /** 视图行 = 列表模型的 `ListRow` 经 `rowFromListRow(row, decoration)` 投影(含装饰) */
   rows: readonly PaletteRowData[];
@@ -34,37 +37,44 @@ export interface UnifiedDropdownProps {
 export function UnifiedDropdown(p: UnifiedDropdownProps): ReactNode {
   const rows = p.rows.slice(0, MAX_RENDER_ROWS);
   return (
-    <div
-      data-testid="unified-dropdown"
-      role="listbox"
-      aria-label="候选列表"
-      style={{ maxHeight: suggestListHeightCss(COMPLETE_LIMIT) }}
-      className="mt-1 overflow-y-auto rounded-md border border-border bg-raised shadow-lg"
-    >
-      {rows.length === 0 ? (
-        <p className="px-3 py-3 text-ui text-muted">无匹配结果</p>
-      ) : (
-        <ul>
-          {rows.map((row, index) => (
-            <PaletteRow
-              key={row.id}
-              id={`unified-opt-${index}`}
-              row={row}
-              selected={index === p.activeIndex}
-              onHover={() => p.onHover(index)}
-              onSelect={() => p.onAccept(index)}
-            />
-          ))}
-        </ul>
-      )}
-      {/* 截断提示:控制器给 truncated,本地再按渲染上限兜底 —— 命中 91..200 时控制器 limit 是 200、
-          列表模型不报截断,UI 只画 90 行,只信 truncated 会静默丢行 */}
-      {(p.truncated || p.rows.length > MAX_RENDER_ROWS) && (
-        <p className="border-t border-border px-3 py-1 text-micro text-muted">
-          还有更多,继续输入以缩小范围(命中 {p.total} 项)
-        </p>
-      )}
-    </div>
+    <>
+      <div
+        id={UNIFIED_LISTBOX_ID}
+        data-testid="unified-dropdown"
+        role="listbox"
+        aria-label="候选列表"
+        style={{ maxHeight: suggestListHeightCss(COMPLETE_LIMIT) }}
+        className="mt-1 overflow-y-auto rounded-md border border-border bg-raised shadow-lg"
+      >
+        {rows.length === 0 ? (
+          <p role="presentation" className="px-3 py-3 text-ui text-muted">无匹配结果</p>
+        ) : (
+          // 这层 <ul> 只是列表语义的壳:listbox 的直接子元素必须是 option/group,
+          // 留着 role="list" 会插出一层无效中间层(旧浮层没这层)
+          <ul role="presentation">
+            {rows.map((row, index) => (
+              <PaletteRow
+                key={row.id}
+                id={`unified-opt-${index}`}
+                row={row}
+                selected={index === p.activeIndex}
+                onHover={() => p.onHover(index)}
+                onSelect={() => p.onAccept(index)}
+              />
+            ))}
+          </ul>
+        )}
+        {/* 截断提示:控制器给 truncated,本地再按渲染上限兜底 —— 命中 91..200 时控制器 limit 是 200、
+            列表模型不报截断,UI 只画 90 行,只信 truncated 会静默丢行 */}
+        {(p.truncated || p.rows.length > MAX_RENDER_ROWS) && (
+          <p role="presentation" className="border-t border-border px-3 py-1 text-micro text-muted">
+            还有更多,继续输入以缩小范围(命中 {p.total} 项)
+          </p>
+        )}
+      </div>
+      {/* 计数播报:listbox 内只允许 option/group,故 live 区放在容器同级(sr-only 不占位) */}
+      <p className="sr-only" aria-live="polite">{`${p.total} 个候选`}</p>
+    </>
   );
 }
 

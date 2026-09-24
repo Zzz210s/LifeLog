@@ -16,7 +16,8 @@ import { prepareForSave } from '../../shared/note-source';
 import type { InputMode } from '../../shared/input-prefix';
 import { BTN_PRIMARY } from '../shell/button-classes';
 import { PrefixHint } from './PrefixHint';
-import { UnifiedDropdownSlot } from './UnifiedDropdown';
+import { UNIFIED_LISTBOX_ID, UnifiedDropdownSlot } from './UnifiedDropdown';
+import { UnifiedTextarea } from './UnifiedTextarea';
 import { useUnifiedCandidates, type UnifiedCandidateWiring } from './use-unified-candidates';
 import { useUnifiedKeys } from './use-unified-keys';
 import { useUnifiedInput, type UnifiedController } from './use-unified-input';
@@ -144,23 +145,21 @@ export function UnifiedInput(p: UnifiedInputProps): ReactNode {
     <div className="border-b border-border px-4 py-2">
       {/* 输入框与保存按钮同一行(items-start:自动增高时按钮留顶部) */}
       <div className="flex items-start gap-2">
-        <textarea
-          ref={ref}
-          data-testid="unified-input"
-          aria-label="统一输入框"
-          rows={1}
+        <UnifiedTextarea
+          textareaRef={ref}
           value={c.state.raw}
           disabled={p.editing}
+          maxHeight={MAX_HEIGHT}
           placeholder={PLACEHOLDER}
-          onChange={(e) => {
-            const raw = e.target.value;
+          dropdownShown={showDropdown}
+          dropdownId={UNIFIED_LISTBOX_ID}
+          activeOptionId={cands.rows.length > 0 ? `unified-opt-${pal?.activeIndex ?? 0}` : null}
+          onKeyDown={routeKey}
+          onChange={(raw) => {
             c.setRaw(raw);
             setError(''); // 一有输入就收起保存失败提示,否则它会长期占着提示行
             resize();
           }}
-          onKeyDown={routeKey}
-          style={{ maxHeight: MAX_HEIGHT, overflowY: 'auto' }}
-          className="block h-8 min-w-0 flex-1 resize-none rounded-sm border border-border-strong bg-raised px-2.5 py-1.5 text-ui text-text outline-none"
         />
         <button
           onClick={() => void save()}
@@ -176,7 +175,9 @@ export function UnifiedInput(p: UnifiedInputProps): ReactNode {
         stat={p.stat}
         readonly={p.editing}
         error={error ? '保存失败: ' + error : undefined}
-        onPickPrefix={c.pickPrefix}
+        // prefill 与 pickPrefix 状态迁移一致,只多“抢回焦点”:否则点完按钮焦点落在 <button> 上,
+        // 框里出现前缀但继续打字无效、Enter 会重复触发该按钮
+        onPickPrefix={c.prefill}
       />
       {showDropdown && pal !== null
         ? (p.dropdown ?? (

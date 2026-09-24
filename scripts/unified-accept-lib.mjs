@@ -94,5 +94,59 @@ export function driver(cdp) {
     hintSegs: () =>
       ev(`Array.from(document.querySelectorAll('${HINT} [data-prefix]')).map((b) => ({ prefix: b.getAttribute('data-prefix'),
         active: b.getAttribute('data-active'), text: b.textContent.trim() }))`),
+    /** 点提示行某个前缀段 */
+    clickHint: (prefix) => ev(`document.querySelector(${JSON.stringify(`${HINT} [data-prefix="${prefix}"]`)}).click()`),
+    /** 焦点是否在统一输入框 */
+    boxFocused: () => ev(`document.activeElement === document.querySelector('${BOX}')`),
+    /** 当前错误条文案(如「不在当前筛选结果中…」),无则 null */
+    alertText: () => ev(`document.querySelector('[role="alert"]')?.textContent ?? null`),
+    /** combobox aria + 下拉容器结构与计数播报(一条读数取全) */
+    aria: () =>
+      ev(`(() => {
+        const box = document.querySelector('${BOX}');
+        const list = document.querySelector('[role="listbox"]');
+        const opt = box?.getAttribute('aria-activedescendant');
+        return {
+          role: box?.getAttribute('role') ?? null,
+          expanded: box?.getAttribute('aria-expanded') ?? null,
+          controls: box?.getAttribute('aria-controls') ?? null,
+          activedescendant: opt ?? null,
+          optExists: opt ? !!document.getElementById(opt) : false,
+          listboxId: list?.id ?? null,
+          childRoles: list ? Array.from(list.children).map((el) => el.getAttribute('role')) : null,
+          hasInnerList: !!list?.querySelector('[role="list"]'),
+          live: document.querySelector('[aria-live="polite"]')?.textContent ?? null,
+        };
+      })()`),
   };
+}
+
+/** 夹具:三条笔记(两条带 UI测试 标签),走真实保存路径;返回最新一条作为被测目标 */
+export async function createFixtures(d, r) {
+  for (const text of FIXTURES) {
+    await d.clearBox();
+    await d.type(text);
+    await d.ctrlEnter();
+    await sleep(600);
+  }
+  const fixtures = await d.call('query_notes', { conditions: { ...EMPTY, keyword: 'UI测试夹具' }, offset: 0 });
+  r.record('夹具就绪', fixtures.length === 3, `UI测试夹具* 笔记 ${fixtures.length} 条,id=${JSON.stringify(fixtures.map((n) => n.id))}`);
+  if (fixtures.length !== 3) throw new Error('夹具笔记未创建成功,中止');
+  return { fixtures, target: fixtures[0] }; // 最新一条(流里在最前)
+}
+
+/** 清理:输入/条件/夹具笔记与标签(读数写回 r) */
+export async function cleanupFixtures(d, r) {
+  await d.clearBox();
+  await d.esc();
+  await d.clearChips();
+  const leftovers = await d.call('query_notes', { conditions: { ...EMPTY, keyword: 'UI测试' }, offset: 0 });
+  for (const n of leftovers) await d.call('delete_note', { id: n.id });
+  const leftoverTags = (await d.call('list_tags')).filter((t) => t.path === FIXTURE_TAG || t.path.startsWith(FIXTURE_TAG + '/'));
+  for (const t of leftoverTags) await d.call('delete_tag', { tagId: t.id });
+  await sleep(600);
+  const gone = await d.hits('UI测试');
+  const tagLeft = (await d.call('list_tags')).filter((t) => t.path.startsWith(FIXTURE_TAG)).length;
+  r.record('夹具清理', gone === 0 && tagLeft === 0,
+    `剩余夹具笔记 ${gone} 条、夹具标签 ${tagLeft} 个(删除标签 ${JSON.stringify(leftoverTags.map((t) => t.path))})`);
 }

@@ -16,8 +16,8 @@ import { usePaletteSettings } from '../palette/use-palette-settings';
 import { UnifiedInput } from '../unified/UnifiedInput';
 import type { UnifiedController } from '../unified/use-unified-input';
 import { effectFor } from '../unified/unified-accept';
+import { useQuickOpen } from '../palette/use-quick-open';
 import { NoteStream } from '../stream/NoteStream';
-import { scrollIntoViewIfNeeded } from '../stream/scroll-to-note';
 import { FilterBar } from '../filter/FilterBar';
 import { ErrorBars } from './ErrorBars';
 import { TabsBar } from '../tabs/TabsBar';
@@ -82,6 +82,21 @@ export function StreamView(p: StreamViewProps): ReactNode {
   // MRU 记账与浮层同一套设置装配(只在此处标脏,空闲/退出才落盘)
   const { settings, saveMruSoon } = usePaletteSettings();
 
+  // 统一错误出口:useQuickOpen 只按 'action' 来源上报,这里透传给主窗错误条
+  const reportAction = useCallback(
+    (_kind: ErrorKind, message: string) => latest.current.onLinkError(message),
+    [],
+  );
+  // `@` 采纳的落地:候选池是全库最近 200 条,而流里只有当前条件的第一页 —— 目标常在 DOM 之外。
+  // 复用浮层既有的快速打开:命中就滚;不在结果里且有筛选则先清筛选 + 中文提示(不许静默)。
+  const openNote = useQuickOpen({
+    notes: p.notes,
+    loading: p.loading,
+    conditions: p.conditions,
+    clearFilters: p.onClearFilters,
+    setError: reportAction,
+  });
+
   /** 模式/query 变化:更新本视图状态;`/` 模式下 300ms 防抖后写 keyword(旧 FilterBar 的定时器写法) */
   const onState = useCallback((s: { mode: InputMode; query: string }) => {
     setU((prev) => (prev.mode === s.mode && prev.query === s.query ? prev : s));
@@ -117,7 +132,7 @@ export function StreamView(p: StreamViewProps): ReactNode {
     if (effect.kind === 'scroll-to-note') {
       settings?.mruNotes.touch(row.item.id);
       saveMruSoon();
-      scrollIntoViewIfNeeded(effect.id);
+      openNote(effect.id);
       return;
     }
     if (effect.kind === 'run-command') {

@@ -60,6 +60,10 @@ export interface MountOptions {
   conditions?: FilterConditions;
   onPatch?: (value: Partial<FilterConditions>) => void;
   onRunCommand?: (id: string) => void;
+  /** 统一错误条出口(`@` 采纳的兜底提示走这里) */
+  onLinkError?: (message: string) => void;
+  /** 清筛选出口(`@` 目标不在当前结果里时被调) */
+  onClearFilters?: () => void;
 }
 
 export interface Mounted {
@@ -86,9 +90,9 @@ export async function mountStreamView(o: MountOptions = {}): Promise<Mounted> {
     editingId: null, hasMore: false, loading: false, queryFailed: false, filterEmpty: true,
     exporting: false, exported: false, errors: {}, onPatch: o.onPatch ?? (() => {}),
     onToggleTag: () => {}, onExport: () => {}, onRetry: () => {}, onDismissError: () => {},
-    onClearFilters: () => {}, onShowInput: () => {}, onLoadMore: () => {}, onEdit: () => {},
+    onClearFilters: o.onClearFilters ?? (() => {}), onShowInput: () => {}, onLoadMore: () => {}, onEdit: () => {},
     onSwitchEdit: () => {}, onDelete: () => {}, onEditSaved: () => {}, onEditCancel: () => {},
-    onToggleTask: () => {}, onLinkError: () => {}, palette, decorations: {}, tagsVersion: 0,
+    onToggleTask: () => {}, onLinkError: o.onLinkError ?? (() => {}), palette, decorations: {}, tagsVersion: 0,
     onSaved: () => {}, onRunCommand: o.onRunCommand ?? (() => {}),
     unifiedRef: { current: null },
   };
