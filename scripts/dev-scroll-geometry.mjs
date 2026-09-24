@@ -19,7 +19,8 @@ const OUT = `.superpowers/sdd/2026-09-21-scroll/readings/geometry-${TAG}.json`;
 const R = { 标签: TAG, exe: EXE };
 const STREAM = '[data-probe="stream"]';
 const TAGLIST = '[data-testid="tag-list"]';
-const SEARCH = 'input[aria-label="搜索笔记与标签"]';
+// 关键词筛选入口 = 统一输入框的 `/` 模式(侧栏搜索框已随统一输入框 1/3 删除,旧的 aria-label 选择器恒不命中)
+const BOX = '[data-testid="unified-input"]';
 
 // ---------- 启动(本机 bash 吞掉 VAR=x 前缀,故由 Node spawn 带 env) ----------
 spawnSync('taskkill', ['/F', '/IM', 'LifeLog.exe'], { encoding: 'utf8' });
@@ -106,6 +107,9 @@ async function column(sel) {
 }
 
 const wheel = async (x, y, dy) => cdp.send('Input.dispatchMouseEvent', { type: 'mouseWheel', x, y, deltaX: 0, deltaY: dy, pointerType: 'mouse' });
+/** IPC 首页条数(与界面 liCount 同口径对账):R3 的「不溢出态」必须短但非空,命中 0 会静默退化成空列表 */
+const IPC首页条数 = async (keyword) => ev(`(async () => (await window.__TAURI_INTERNALS__.invoke('query_notes',
+  ${JSON.stringify({ conditions: { keyword, tags: [], excludeTags: [], tagPresence: null, sort: 'newest', expr: null }, offset: 0 })})).length)()`);
 const box = (sel) => ev(`(() => { const el = document.querySelector(${JSON.stringify(sel)}); if (!el) return null;
   const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; })()`);
 const theme = async (dark) => { await ev(`document.documentElement.classList.toggle('dark', ${dark})`); await sleep(300); };
@@ -116,7 +120,7 @@ const zoom = async (z) => { if (z === 1) await cdp.send('Emulation.clearDeviceMe
 
 // ---------- A. 容器画像 ----------
 R.A容器画像 = { 流: await ev(`window.__g.info('${STREAM}')`), 标签区: await ev(`window.__g.info('${TAGLIST}')`),
-  搜索框: await ev(`window.__g.info('${SEARCH}')`), 条目数: await ev('window.__g.count()') };
+  统一输入框: await ev(`window.__g.info('${BOX}')`), 条目数: await ev('window.__g.count()') };
 
 // ---------- R2. 滚动条外观(亮/暗 x 顶部/中段/悬停) ----------
 const boxNow = await box(STREAM);
@@ -162,13 +166,17 @@ const snap = async () => ({ 流cw: (await ev(`window.__g.info('${STREAM}')`)).cw
   首条右边缘: await ev('window.__g.firstLiRight()'), 条数: await ev('window.__g.count()'), gutter: await ev(`getComputedStyle(document.querySelector('${STREAM}')).scrollbarGutter`) });
 R.R3滚动条槽 = { 溢出态: await snap() };
 // 不溢出态必须是“短但非空”:清空列表时首条卡片不存在(首条右边缘 = null)无法与溢出态对比。
-// 「好忙啊」在真实库命中 3 条(trigram FTS 实测),够短(不溢出)且有卡片。
-await ev(`window.__g.setValue('${SEARCH}', '好忙啊')`);
+// 筛选入口改走统一输入框的 `/` 模式(侧栏关键词框已删);命中数一并落盘 —— 命中 0 时
+// 「不溢出态」会静默退化成空列表(与上一轮把两种状态读成同一状态的失真同类,读数里必须看得出来)。
+await ev(`window.__g.setValue(${JSON.stringify(BOX)}, '/好忙啊')`);
 await sleep(1600);
-R.R3滚动条槽.不溢出态 = await snap();
-await ev(`window.__g.setValue('${SEARCH}', '')`);
+R.R3滚动条槽.不溢出态 = { IPC首页条数: await IPC首页条数('好忙啊'), ...(await snap()) };
+// 清关键词必须留在 `/` 模式下提交空查询:直接把框清空会回记录模式并取消挂起的防抖,关键词清不掉
+await ev(`window.__g.setValue(${JSON.stringify(BOX)}, '/')`);
 await sleep(1600);
-R.R3滚动条槽.恢复后 = await snap();
+R.R3滚动条槽.恢复后 = { IPC首页条数: await IPC首页条数(null), ...(await snap()) };
+await ev(`window.__g.setValue(${JSON.stringify(BOX)}, '')`); // 收尾:框回记录模式
+await sleep(400);
 
 mkdirSync('.superpowers/sdd/2026-09-21-scroll/readings', { recursive: true });
 writeFileSync(OUT, JSON.stringify(R, null, 2));

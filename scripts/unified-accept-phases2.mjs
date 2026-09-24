@@ -133,9 +133,12 @@ async function topBarExport(d, r) {
   const closed = !(await menuOpen(d));
   const pill = await waitFor(async () => (await statusText(d)) ?? null, 10, 250);
   const pid = os.pidOf();
-  const dlg = await waitFor(async () => os.wins(pid).find((w) => w.cls === '#32770' && w.visible) ?? null, 16, 300);
+  // 只看标题含「另存为」的可见对话框:进程里可能留有其他/已完成但未关闭的 #32770 窗口
+  // (与 dev-cdp-accept-regress2.mjs 的门径一致),否则会把窗口看成一个别的东西而误判。
+  const saveDlg = () => os.wins(pid).find((w) => w.cls === '#32770' && w.visible && String(w.title).includes('另存为'));
+  const dlg = await waitFor(async () => saveDlg() ?? null, 16, 300);
   const cancel = dlg ? os.closeDialog(pid) : { found: false, closed: false };
-  const gone = await waitFor(async () => (os.wins(pid).some((w) => w.cls === '#32770' && w.visible) ? null : true), 14, 300);
+  const gone = await waitFor(async () => (saveDlg() ? null : true), 14, 300);
   const pillGone = await waitFor(async () => ((await statusText(d)) === null ? true : null), 14, 300);
   r.record('⑭ 顶栏「导出整库」',
     clicked && closed && (pill ?? '').includes('导出整库') && dlg !== null && cancel.closed === true && gone === true && pillGone === true,

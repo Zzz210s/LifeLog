@@ -138,9 +138,10 @@ export async function createFixtures(d, r) {
 
 /** 清理:输入/条件/夹具笔记与标签(读数写回 r) */
 export async function cleanupFixtures(d, r) {
-  await d.clearBox();
-  await d.esc();
-  await d.clearChips();
+  // 界面态可能是坏的(异常退出路径):清框/清条件尽力而为,夹具删除靠下面的 IPC(不依赖界面)
+  await d.clearBox().catch(() => {});
+  await d.esc().catch(() => {});
+  await d.clearChips().catch(() => {});
   const leftovers = await d.call('query_notes', { conditions: { ...EMPTY, keyword: 'UI测试' }, offset: 0 });
   for (const n of leftovers) await d.call('delete_note', { id: n.id });
   const leftoverTags = (await d.call('list_tags')).filter((t) => t.path === FIXTURE_TAG || t.path.startsWith(FIXTURE_TAG + '/'));
@@ -150,4 +151,22 @@ export async function cleanupFixtures(d, r) {
   const tagLeft = (await d.call('list_tags')).filter((t) => t.path.startsWith(FIXTURE_TAG)).length;
   r.record('夹具清理', gone === 0 && tagLeft === 0,
     `剩余夹具笔记 ${gone} 条、夹具标签 ${tagLeft} 个(删除标签 ${JSON.stringify(leftoverTags.map((t) => t.path))})`);
+}
+
+/**
+ * 退出兜底(任何退出路径都跑到):先清夹具再汇总读数 —— 中途断言抛出曾把 UI测试* 留在真实库。
+ * 清理失败时打印需手动处理的明确提示,不让脚本无声退出。
+ */
+export async function finalizeRun({ ctx, r, err }) {
+  if (ctx?.d) {
+    try {
+      await cleanupFixtures(ctx.d, r);
+    } catch (e) {
+      console.error('需手动清理真实库:UI测试* 笔记与 UI测试 标签(自动清理失败:' + (e?.message ?? e) + ')');
+    }
+  }
+  ctx?.conn?.close();
+  if (err) console.error('FAIL 脚本异常:', err?.message ?? err);
+  r.finish(); // 汇总读数;err 时把退出码置 1(连接已关,无需硬退)
+  if (err) process.exitCode = 1;
 }

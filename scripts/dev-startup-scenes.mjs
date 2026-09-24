@@ -3,6 +3,7 @@
 // 口径:窗口可见性一律用 user32 IsWindowVisible(CDP 的 visibilityState 对已隐藏窗口仍报 visible)。
 // 计数口径:信息流一页 50 条(与后端 PAGE 一致),界面条数按 min(50, 命中数) 断言。
 import { sleep, waitFor } from './cdp-lib.mjs';
+import { bindDom } from './cdp-dom.mjs';
 import { os } from './cdp-os.mjs';
 import { EMPTY_FILTER, TEST_NOTE } from './dev-startup-clean.mjs';
 
@@ -48,14 +49,16 @@ export const clickBack = (cdp) => cdp.eval(`(() => {
   return false;
 })()`);
 
-/** 筛选栏关键词(受控输入必须走原生 setter + input 事件) */
-export const setKeyword = (cdp, v) => cdp.eval(`(() => {
-  const i = document.querySelector('input[aria-label="搜索笔记与标签"]');
-  if (!i) return null;
-  Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(i, ${JSON.stringify(v)});
-  i.dispatchEvent(new Event('input', { bubbles: true }));
-  return i.value;
-})()`);
+/**
+ * 关键词筛选:入口已随统一输入框 1/3 从侧栏搬进统一输入框的 `/` 模式(侧栏关键词框已删)。
+ * 受控输入走原生 setter + input 事件(见 cdp-dom.mjs setBox);返回框内实际值,调用点按 `'/' + 关键词` 断言。
+ * 传 '' 时**留在 `/` 模式**提交空查询:若把框清空回到记录模式,use-unified-filter-sync 会取消挂起的
+ * 那次防抖,已写进条件的关键词留在 chip 上,那就清不掉了(方案 A:走新入口,不删读数)。
+ */
+export const setKeyword = async (cdp, v) => {
+  if (!(await bindDom(cdp).setBox('/' + v))) return null;
+  return cdp.eval(`document.querySelector('[data-testid="unified-input"]').value`);
+};
 
 /**
  * 主题镜像场景:设置里切暗色 -> 两窗镜像回写 -> 重载输入栏并按「系统偏好 x 镜像值」读首帧 class。
@@ -161,13 +164,14 @@ export async function runRegressScenes({ pid, mp, ipa, call, liCount, base, kw, 
   // 关键词有 300ms 防抖,先算出 IPC 命中数再等界面收敛到同一数字(首页上限 50 条)
   const ipcHits = (await call('query_notes', { conditions: { ...JSON.parse(EMPTY_FILTER), keyword: kw }, offset: 0 })).length;
   const uiHit = await waitFor(async () => ((await liCount()) === firstPage(ipcHits) ? true : null), 24, 300);
-  record('G4 筛选栏关键词生效(界面条数 = min(50, IPC 命中数))',
-    setKw === kw && ipcHits >= 1 && uiHit === true,
+  record('G4 统一输入框 `/` 关键词生效(界面条数 = min(50, IPC 命中数))',
+    setKw === '/' + kw && ipcHits >= 1 && uiHit === true,
     j({ kw, setKw, ipcHits, li: await liCount() }));
 
   // G5 清空关键词:回到首页全量(原 G5「保存为视图」随迁移 014 视图体系删除而作废)
   await setKeyword(mp.cdp, '');
   const clearedKw = await waitFor(async () => ((await liCount()) === firstPage(base.notes + 1) ? true : null), 24, 300);
   record('G5 清空关键词后回到首页全量', clearedKw === true, j({ li: await liCount(), want: firstPage(base.notes + 1) }));
+  await bindDom(mp.cdp).setBox(''); // 收尾:框回记录模式(关键词已清,不会只剩一个 chip)
   return { noteId: savedNote && savedNote.id };
 }

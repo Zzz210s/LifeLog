@@ -3,15 +3,18 @@
 // UI测试 标签)自建自清,前后 notes/tags/tag_links/FTS 计数在外层用 lifelog-db-readings.py 比对。
 import { ensureMain, recorder, sleep, waitFor } from './cdp-lib.mjs';
 import {
-  BOX, COMMAND_IDS, FIXTURE_TAG, HINT, RECORD_TEXT, SIDEBAR, STAT, TAB_GATED, cleanupFixtures, createFixtures, driver,
+  BOX, COMMAND_IDS, FIXTURE_TAG, HINT, RECORD_TEXT, SIDEBAR, STAT, TAB_GATED, cleanupFixtures, createFixtures,
+  driver, finalizeRun,
 } from './unified-accept-lib.mjs';
 import { phaseB } from './unified-accept-phases2.mjs';
 
 const r = recorder();
 
-async function main() {
+async function main(ctx) {
   const conn = await ensureMain();
   const d = driver(conn.cdp);
+  ctx.conn = conn; // 夹具清收(fail 路径也要跑到)靠这两个
+  ctx.d = d;
   await conn.cdp.send('Page.reload');
   await waitFor(() => d.ev(`!!document.querySelector('${BOX}')`).catch(() => false), 60, 500);
   await sleep(1200);
@@ -60,7 +63,8 @@ async function main() {
     `候选 ${tagRows?.length ?? 0} 行(首行 ${tagRows?.[0]?.label ?? '-'});chip=${JSON.stringify(chipTexts)}`);
 
   // --- ⑤ `>` 命令:候选行数 == 可用命令数;`>侧栏` 勾选态换边 ---
-  // 注:命令表当前没有排序命令(`>最新` 属计划 2/3),这里用带勾选态的 sidebar.toggle 驱动。
+  // 注:命令表已含两条排序命令(`COMMAND_IDS` 里的 sort.newest/sort.oldest,候选数与勾选态另由 ⑫ 实测),
+  // 这里仍用带勾选态的 sidebar.toggle 驱动换边。
   await d.clearChips();
   await d.clearBox();
   await d.type('>');
@@ -184,15 +188,9 @@ async function main() {
     `expanded=${off.expanded} controls=${off.controls} activedescendant=${off.activedescendant}`);
 
   await phaseB(d, r); // 第二批 5 条:条件栏瘦身 / 排序命令 / 顶栏溢出菜单 / 侧栏筛选标签
-
-  // --- 清理:输入/条件/夹具笔记与标签 ---
-  await cleanupFixtures(d, r);
-
-  r.finish();
-  conn.close();
 }
 
-main().catch((e) => {
-  console.error('FAIL 脚本异常:', e?.message ?? e);
-  process.exit(1); // 连接未关时事件循环不退出,异常路径必须硬退出(否则挂到超时)
-});
+// 夹具清理由 finalizeRun 统一做(正常路径的读数顺序不变,「夹具清理」仍是最后一条):
+// 中途抛错也保证 UI测试* 夹具不留在真实库。用 .then(ok, err) 两个分支而不是 try/finally,主体不必整体缩进。
+const ctx = {};
+main(ctx).then(() => finalizeRun({ ctx, r, err: null }), (err) => finalizeRun({ ctx, r, err }));
