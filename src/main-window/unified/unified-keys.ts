@@ -3,7 +3,8 @@
  *
  * 与浮层的 `resolveKeyAction` 同口径,只是多两条本框特有的语义:
  *  - `Ctrl+Enter` **永远**保存(下拉开着也一样,浮层那侧是"忽略"交给别人);
- *  - `Tab` = 采纳(不让焦点跑出输入框),不是浮层的"关闭"。
+ *  - `Tab` = 采纳(不让焦点跑出输入框),不是浮层的"关闭";零候选时不采纳(与 Enter 同守卫,
+ *    否则调用方按索引取行会拿到 undefined)。
  * 顺序即优先级:保存 -> Esc -> (没下拉就放行给光标) -> 移动 -> Tab -> Enter(有行才采纳)。
  * 取模复用浮层的 `wrapIndex`(边界循环,空列表恒 0),不另写一套。
  */
@@ -35,7 +36,7 @@ export function routeUnifiedKey(e: KeyLike, ctx: UnifiedKeyContext): UnifiedKeyA
   if (!ctx.dropdownShown) return { type: 'ignore' };
   if (e.key === 'ArrowDown') return { type: 'highlight', index: wrapIndex(ctx.activeIndex, 1, ctx.count) };
   if (e.key === 'ArrowUp') return { type: 'highlight', index: wrapIndex(ctx.activeIndex, -1, ctx.count) };
-  if (e.key === 'Tab') return { type: 'accept', index: ctx.activeIndex };
+  if (e.key === 'Tab' && ctx.count > 0) return { type: 'accept', index: ctx.activeIndex };
   if (e.key === 'Enter' && ctx.count > 0) return { type: 'accept', index: ctx.activeIndex };
   return { type: 'ignore' };
 }

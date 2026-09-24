@@ -5,7 +5,8 @@
  * action 都先把 raw 写成目标形态再一次性解析,避免三份值互相漂移。
  *
  * 三条容易搞错的语义(设计里定死的):
- *  - `dropdownOpen` 只在**有前缀**时为真(记录模式恒 false,D6);
+ *  - `dropdownOpen` 只在**有前缀**时为真(记录模式恒 false,D6);`/` 实时筛选**没有下拉**(§4),
+ *    它的位也恒 false —— 否则第一下 Esc 会去关一个看不见的下拉(死键);
  *  - `esc` 两级:有下拉先关下拉(内容与模式不动),没下拉才退模式并清空;记录模式无动作;
  *  - `accept` 只关下拉、**保留模式**(筛完还能接着筛)。
  */
@@ -29,11 +30,16 @@ export type UnifiedAction =
   | { type: 'closeDropdown' }
   | { type: 'clear' };
 
+/** 这个模式有没有下拉:有前缀、且不是 `/` 实时筛选(它没有候选,§4) */
+function hasDropdown(mode: InputMode, prefix: string): boolean {
+  return prefix !== '' && mode !== 'filter';
+}
+
 /** 由 raw 派生整份状态(唯一入口:不许别处再拼 mode/query/prefix) */
 export function derive(raw: string): UnifiedState {
   const p = parseInput(raw);
   // 有前缀才开下拉:记录模式不显示候选(D6)
-  return { raw, mode: p.mode, query: p.query, prefix: p.prefix, dropdownOpen: p.prefix !== '' };
+  return { raw, mode: p.mode, query: p.query, prefix: p.prefix, dropdownOpen: hasDropdown(p.mode, p.prefix) };
 }
 
 export function initialUnified(raw = ''): UnifiedState {
@@ -54,8 +60,8 @@ export function reduceUnified(state: UnifiedState, action: UnifiedAction): Unifi
       // 采纳后只关下拉:模式留着,用户可以接着筛/接着找
       return { ...state, dropdownOpen: false };
     case 'openDropdown':
-      // 只有有前缀的模式才有下拉可开(记录模式没有候选,D6)
-      return { ...state, dropdownOpen: state.prefix !== '' };
+      // 只有有下拉的模式才有下拉可开(记录模式 D6;`/` 是实时筛选,§4)
+      return { ...state, dropdownOpen: hasDropdown(state.mode, state.prefix) };
     case 'closeDropdown':
       return { ...state, dropdownOpen: false };
     case 'clear':

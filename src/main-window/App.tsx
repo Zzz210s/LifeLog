@@ -185,6 +185,7 @@ export function App(): ReactNode {
           decorations={decorations}
           tagsVersion={tagsVersion}
           onSaved={refresh}
+          onRunCommand={commands.execute}
         />
         {view === 'settings' && (
           <SettingsView themeMode={theme.mode} onThemeChange={theme.setMode} />

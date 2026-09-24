@@ -57,7 +57,9 @@ export function UnifiedDropdown(p: UnifiedDropdownProps): ReactNode {
           ))}
         </ul>
       )}
-      {p.truncated && (
+      {/* 截断提示:控制器给 truncated,本地再按渲染上限兜底 —— 命中 91..200 时控制器 limit 是 200、
+          列表模型不报截断,UI 只画 90 行,只信 truncated 会静默丢行 */}
+      {(p.truncated || p.rows.length > MAX_RENDER_ROWS) && (
         <p className="border-t border-border px-3 py-1 text-micro text-muted">
           还有更多,继续输入以缩小范围(命中 {p.total} 项)
         </p>

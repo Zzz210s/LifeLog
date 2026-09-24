@@ -2,20 +2,18 @@
  * 唯一输入框(设计 2026-09-24 §3/§4):主窗顶部常驻,先只接管「记笔记」。
  *
  * 状态全在 `useUnifiedInput` 的纯状态机里,本组件做四件事:接线(自动增高/焦点请求/受控值)、
- * 保存(Ctrl+Enter/按钮 -> `api.saveInputNote`)、渲染(输入框 + 保存按钮 + 提示行)、
- * 以及候选下拉的模式门控与键盘路由。
+ * 保存(Ctrl+Enter/按钮 -> `api.saveInputNote`)、渲染(输入框 + 保存按钮 + 提示行)、以及候选下拉的模式门控与键盘路由。
  *
- * 候选下拉(Task 5):候选数据由 `useUnifiedCandidates` 从既有 provider 体系经浮层控制器取回
- * (驱动也在那个 hook 里),高亮行直接复用浮层控制器的 `activeIndex`;只在**有前缀**且不是
- * 实时筛选模式且浮层没开时渲染(记录模式恒不渲染 D6;`/` 只做实时筛选,§4)。键盘与浮层同口径:
- * ↓/↑ 移动 -> Tab 采纳 -> Enter 采纳(有行时)-> Esc 交给状态机(有下拉先关下拉)->
- * Ctrl+Enter **永远**保存。
+ * 候选下拉(Task 5):候选由 `useUnifiedCandidates` 经浮层控制器取回(驱动也在那个 hook 里),高亮行
+ * 直接复用控制器的 `activeIndex`;只在有前缀且不是实时筛选模式且浮层没开时渲染(记录模式恒不渲染
+ * D6;`/` 只做实时筛选,§4)。键盘与浮层同口径:↓/↑ -> Tab/Enter 采纳 -> Esc 交状态机 ->
+ * Ctrl+Enter **永远**保存;采纳只交出索引,三类前缀的副作用由容器 `StreamView` 决策并执行(Task 6)。
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent, ReactNode } from 'react';
 import { api } from '../../shared/api';
 import { prepareForSave } from '../../shared/note-source';
-import { parseInput, type InputMode } from '../../shared/input-prefix';
+import type { InputMode } from '../../shared/input-prefix';
 import { BTN_PRIMARY } from '../shell/button-classes';
 import { PrefixHint } from './PrefixHint';
 import { UnifiedDropdownSlot } from './UnifiedDropdown';
@@ -38,7 +36,7 @@ export interface UnifiedInputProps {
   stat?: string;
   /** 控制器上抛:父组件(快捷键、验收脚本)需要 setRaw/prefill */
   onController?: (c: UnifiedController) => void;
-  /** 正在写内容时的模式变化上报(父组件据此驱动筛选/候选) */
+  /** 正在写内容时的模式变化上报(父组件据此驱动筛选/候选/采纳决策) */
   onStateChange?: (s: { mode: InputMode; query: string; prefix: string }) => void;
 }
 
@@ -61,8 +59,8 @@ export function UnifiedInput(p: UnifiedInputProps): ReactNode {
     controller: wiring?.palette ?? null,
   });
 
-  // controller 对象每次渲染都是新的:直接上报会让把它存进 state 的父组件死循环。
-  // 方法本身是 useCallback 稳定身份,状态用 getter 读最新一份,外壳只建一次。
+  // controller 对象每次渲染都是新的(方法本身是 useCallback 稳定身份):直接上报会让把它存进 state
+  // 的父组件死循环,故状态用 getter 读最新一份、外壳只建一次。
   const latest = useRef(c);
   latest.current = c;
   const stable = useMemo<UnifiedController>(
@@ -89,6 +87,12 @@ export function UnifiedInput(p: UnifiedInputProps): ReactNode {
     ref.current?.focus({ preventScroll: true });
   }, [c.focusSignal]);
 
+  // 模式/query 上报:统一发状态机的**派生值**(不在 onChange 里现算 raw)——
+  // 除了输入,esc/clear 也会换模式,父组件据此取消挂起的筛选防抖
+  useEffect(() => {
+    p.onStateChange?.({ mode: c.state.mode, query: c.state.query, prefix: c.state.prefix });
+  }, [p.onStateChange, c.state.mode, c.state.query, c.state.prefix]);
+
   /** 自动增高:先归零再按内容撑开,超上限转内部滚动 */
   const resize = () => {
     const el = ref.current;
@@ -114,10 +118,10 @@ export function UnifiedInput(p: UnifiedInputProps): ReactNode {
     }
   };
 
-  // 候选:记录模式与实时筛选模式没有下拉(D6 / §4);浮层开着时让位给浮层(两个候选 UI 互斥)
+  // 候选:记录模式与实时筛选模式没有下拉(状态机已保证这两个模式的 dropdownOpen 恒假,D6/§4);
+  // 浮层开着时让位给浮层(两个候选 UI 互斥)
   const pal = wiring?.palette ?? null;
-  const showDropdown =
-    c.state.dropdownOpen && c.state.mode !== 'note' && c.state.mode !== 'filter' && !(pal?.isOpen ?? false);
+  const showDropdown = c.state.dropdownOpen && !(pal?.isOpen ?? false);
 
   /** 采纳:先关下拉(状态机保留模式),再把索引交给 Task 6 的副作用出口 */
   const accept = (index: number) => {
@@ -157,9 +161,6 @@ export function UnifiedInput(p: UnifiedInputProps): ReactNode {
             c.setRaw(raw);
             setError(''); // 一有输入就收起保存失败提示,否则它会长期占着提示行
             resize();
-            // 模式/query 由新值现算:setRaw 是异步 state 更新,这里读 state 会慢一拍
-            const parsed = parseInput(raw);
-            p.onStateChange?.({ mode: parsed.mode, query: parsed.query, prefix: parsed.prefix });
           }}
           onKeyDown={routeKey}
           style={{ maxHeight: MAX_HEIGHT, overflowY: 'auto' }}

@@ -41,6 +41,13 @@ describe('统一输入框的下拉(复用浮层列表)', () => {
     expect(host.textContent).toContain('还有更多');
   });
 
+  it('控制器没报截断但行数超渲染上限时也给提示(本地兜底,不静默丢行)', async () => {
+    const many = Array.from({ length: 91 }, (_, i) => ({ id: `t${i}`, label: `标签${i}`, ranges: [] }));
+    const host = await mount({ rows: many as never, activeIndex: 0, total: 91, truncated: false, onHover: () => {}, onAccept: () => {} });
+    expect(host.textContent).toContain('还有更多');
+    expect(host.querySelectorAll('li[role="option"]').length).toBe(90); // 渲染上限仍是 90
+  });
+
   it('无匹配时给空态文案,且不渲染行', async () => {
     const host = await mount({ rows: [] as never, activeIndex: 0, total: 0, truncated: false, onHover: () => {}, onAccept: () => {} });
     expect(host.textContent).toContain('无匹配结果');
