@@ -1,12 +1,8 @@
-//! 迁移序列与前置钩子。
-//! 钩子:008/013/014 的日志钩子在 `db::migration_hooks`(只读不改库);
-//! 016 要把旧多页条件搬进单份条件,取值只能在 Rust 做,故它的钩子(`carry_over_filter_current`)在本文件,
-//! 迁移体(`migrations/016_filter_current.sql`)只负责删旧键。
+//! 迁移序列。所有前置钩子(含 016 的键搬迁)都在 `db::migration_hooks`;
+//! 016 的迁移体(`migrations/016_filter_current.sql`)只负责删旧键。
 use rusqlite::Connection;
 
 use super::migration_hooks;
-use crate::db::repos::notes::FilterConditions;
-use crate::db::repos::settings::{self, FILTER_CURRENT_KEY};
 
 /// 迁移序列:数组顺序即版本号(1 起);新增迁移只能追加在末尾
 const MIGRATIONS: &[&str] = &[
@@ -41,66 +37,6 @@ fn notes_has_column(conn: &Connection, column: &str) -> rusqlite::Result<bool> {
         |r| r.get(0),
     )?;
     Ok(n > 0)
-}
-
-/// 016 之前把 tabs_state 的活动页条件搬进 filter_current
-const FILTER_CURRENT_VERSION: i64 = 16;
-
-/// 迁移 016 读的历史键(键名真源已迁到 settings::FILTER_CURRENT_KEY)
-const LEGACY_TABS_STATE_KEY: &str = "tabs_state";
-
-/// 迁移专用最小结构体:只关心 tabs[].conditions 与 activeIndex,不复用运行时结构
-#[derive(serde::Deserialize)]
-struct LegacyTabs {
-    #[serde(default)]
-    tabs: Vec<LegacyTab>,
-    #[serde(default, rename = "activeIndex")]
-    active_index: usize,
-}
-
-#[derive(serde::Deserialize)]
-struct LegacyTab {
-    #[serde(default)]
-    conditions: Option<serde_json::Value>,
-}
-
-/// 016 之前:沿用旧 tabs_state 当前活动页的条件(已存在 filter_current 时**不覆盖**)。
-/// 容错口径:**activeIndex 越界 → 取第一页**(与前端 `parseTabsState` 的夹取一致,那里 `idx` 非法也落回 0);
-/// 活动页存在但没有 `conditions`(或越界且第一页也没有)→ 空条件;坏 JSON / 缺 tabs → 空条件。
-/// 注:迁移体的 SQL 与 `user_version` 在同一事务里,但本钩子写在事务外(见 `run` 的调用顺序),
-/// 失败时可能留下"filter_current 已写、tabs_state 未删、版本未推进"的中间态 —— 下次启动重跑即收敛
-/// (新键已存在则不覆盖,旧键继续删),不会丢条件。
-/// 取值只能在 Rust 做(SQL 解析不了 JSON),迁移体只负责删旧键。
-fn carry_over_filter_current(conn: &Connection) -> rusqlite::Result<()> {
-    let Some(raw) = settings::get(conn, LEGACY_TABS_STATE_KEY)? else {
-        return Ok(()); // 没落过旧状态:无可迁移,也不创建 filter_current
-    };
-    if settings::get(conn, FILTER_CURRENT_KEY)?.is_some() {
-        eprintln!("迁移 016:filter_current 已有值,不覆盖(旧键 tabs_state 仍会删除)");
-        return Ok(());
-    }
-    let (conds, how) = match serde_json::from_str::<LegacyTabs>(&raw) {
-        Ok(state) => match state.tabs.get(state.active_index).and_then(|t| t.conditions.clone()) {
-            Some(v) => match serde_json::from_value::<FilterConditions>(v) {
-                Ok(c) => (c, "沿用旧活动页条件"),
-                Err(_) => (FilterConditions::default(), "旧条件对象无法解析,退化为空条件"),
-            },
-            // 越界(或活动页没有 conditions):取第一页 —— 与前端 parseTabsState 同口径,别把筛选丢掉
-            None => match state.tabs.first().and_then(|t| t.conditions.clone()) {
-                Some(v) => match serde_json::from_value::<FilterConditions>(v) {
-                    Ok(c) => (c, "活动页越界,沿用第一页条件"),
-                    Err(_) => (FilterConditions::default(), "第一页条件对象无法解析,退化为空条件"),
-                },
-                None => (FilterConditions::default(), "旧值里没有可用条目,退化为空条件"),
-            },
-        },
-        Err(_) => (FilterConditions::default(), "旧值不是合法 JSON,退化为空条件"),
-    };
-    let json = serde_json::to_string(&conds)
-        .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
-    settings::set(conn, FILTER_CURRENT_KEY, &json)?;
-    eprintln!("迁移 016:当前筛选条件从 tabs_state 迁移({how})");
-    Ok(())
 }
 
 /// 需要临时关闭外键约束的迁移:重建仍被 tag_links 引用的父表时,外键 ON 会让
@@ -138,8 +74,8 @@ pub fn run(conn: &Connection) -> rusqlite::Result<()> {
         if v == migration_hooks::DROP_SAVED_VIEWS_VERSION {
             migration_hooks::warn_drop_saved_views(conn)?;
         }
-        if v == FILTER_CURRENT_VERSION {
-            carry_over_filter_current(conn)?;
+        if v == migration_hooks::FILTER_CURRENT_VERSION {
+            migration_hooks::carry_over_filter_current(conn)?;
         }
         let fk_off = FK_OFF_VERSIONS.contains(&v);
         if fk_off {
