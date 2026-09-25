@@ -24,7 +24,8 @@ const arg = (k, d) => (process.argv.find((a) => a.startsWith(`--${k}=`)) || `--$
 const label = arg('label', 'baseline');
 const runs = Number(arg('runs', '5'));
 const exe = arg('exe', 'E:/0-cargo-target/LifeLog/release/LifeLog.exe');
-const DEBUG_ENV = { WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: '--remote-debugging-port=9222' };
+const CDP_PORT = Number(process.env.LIFELOG_CDP_PORT ?? 9222);
+const DEBUG_ENV = { WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${CDP_PORT}` };
 const SAMPLE_US = 50; // Profiler 采样间隔(微秒),越小越准但样本越贵
 
 /** 导航前注入:document start 标记 + longtask 累加 + #root 首次提交打点 */
@@ -94,7 +95,7 @@ async function bootApp() {
 const { mainWin, pick } = await bootApp();
 console.log('INFO 主窗已开', JSON.stringify({ openMs: mainWin.at - pick.invoked_at, pid: mainWin.pid }));
 const mp = await open('main');
-const target = (await (await fetch('http://127.0.0.1:9222/json/list')).json()).filter((p) => p.type === 'page')
+const target = (await (await fetch(`http://127.0.0.1:${CDP_PORT}/json/list`)).json()).filter((p) => p.type === 'page')
   .find((p) => !p.url.includes('input.html'));
 const pageUrl = target.url.split('#')[0];
 await mp.cdp.send('Page.enable');

@@ -32,6 +32,10 @@ export function useInputWheel(opts: {
     // `#` 补全列表按设计**没有**内部滚动(候选上限 = 列表最大行数,见 SUGGEST_MAX_ROWS),
     // 故它不会命中这条分支:滚轮落在列表上仍然缩放输入栏,这是既有 spec,不是缺陷。
     const inScrollable = (t: EventTarget | null): boolean => {
+      // 目标不是元素时直接判定"不在可滚容器内":合成事件(验收脚本/程序化派发)的 target 可能是
+      // window,而 `getComputedStyle(window)` 会抛 TypeError,一旦抛出就会把整个滚轮处理器打断
+      // (缩放静默失效)。真实鼠标滚轮的 target 总是元素,这条只是不给合成事件留坑。
+      if (!(t instanceof Element)) return false;
       for (let el = t as HTMLElement | null; el && el !== document.body; el = el.parentElement) {
         const cs = getComputedStyle(el);
         if (canScrollOnWheel(cs.overflowY, el.scrollHeight, el.clientHeight)) return true;

@@ -1,7 +1,7 @@
 // 浏览器级 CDP 客户端(任务 E 的主窗「首开」插桩用):dev-perf-firstopen.mjs 靠它做
 // Target.setAutoAttach + waitForDebuggerOnStart,在页面导航前插打点脚本与 Profiler。
 // 与 cdp-lib.mjs 的 Cdp 区别:Cdp 面向单个页面 socket,这里面向浏览器 socket 且要带 sessionId。
-export const BASE = 'http://127.0.0.1:9222';
+export const BASE = `http://127.0.0.1:${Number(process.env.LIFELOG_CDP_PORT ?? 9222)}`;
 
 export class BrowserCdp {
   static id = 0;

@@ -26,13 +26,13 @@ const BOX = '[data-testid="unified-input"]';
 spawnSync('taskkill', ['/F', '/IM', 'LifeLog.exe'], { encoding: 'utf8' });
 await sleep(1200);
 spawn(EXE, [], { detached: true, stdio: 'ignore',
-  env: { ...process.env, WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: '--remote-debugging-port=9222' } }).unref();
+  env: { ...process.env, WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${Number(process.env.LIFELOG_CDP_PORT ?? 9222)}` } }).unref();
 let up = false;
 for (let i = 0; i < 30 && !up; i++) {
   await sleep(500);
-  up = await fetch('http://127.0.0.1:9222/json/version').then((r) => r.ok).catch(() => false);
+  up = await fetch(`http://127.0.0.1:${Number(process.env.LIFELOG_CDP_PORT ?? 9222)}/json/version`).then((r) => r.ok).catch(() => false);
 }
-if (!up) throw new Error('9222 未就绪(先确认没有别的 LifeLog 实例占着单实例锁)');
+if (!up) throw new Error('调试端口未就绪(先确认没有别的 LifeLog 实例占着单实例锁,或设 LIFELOG_CDP_PORT 换端口)');
 const { cdp, close } = await ensureMain();
 const ev = (e) => cdp.eval(e);
 

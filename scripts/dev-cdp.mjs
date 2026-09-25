@@ -9,7 +9,8 @@ const pageSel = args.includes('--page') ? args[args.indexOf('--page') + 1] : 'in
 const expr = args.filter((a, i) => a !== '--page' && args[i - 1] !== '--page').join(' ');
 if (!expr) { console.error('usage: dev-cdp.mjs <expression> [--page input|main]'); process.exit(2); }
 
-const list = await (await fetch('http://127.0.0.1:9222/json/list')).json();
+const port = Number(process.env.LIFELOG_CDP_PORT ?? 9222);
+const list = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
 const want = pageSel === 'main' ? (t) => !t.url.includes('input.html') : (t) => t.url.includes('input.html');
 const target = list.find((t) => t.type === 'page' && want(t));
 if (!target) { console.error('no target found; pages: ' + list.map((t) => t.url).join(', ')); process.exit(3); }
