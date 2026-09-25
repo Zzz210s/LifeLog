@@ -19,6 +19,7 @@ import { PrefixHint } from './PrefixHint';
 import { activeOptionRowId, UNIFIED_LISTBOX_ID, UnifiedDropdownSlot } from './UnifiedDropdown';
 import { renderRowCount } from '../palette/palette-limits';
 import { UnifiedTextarea } from './UnifiedTextarea';
+import { useCloseOnFocusOut } from './use-close-on-focus-out';
 import { useUnifiedCandidates, type UnifiedCandidateWiring } from './use-unified-candidates';
 import { useUnifiedKeys } from './use-unified-keys';
 import { useUnifiedInput, type UnifiedController } from './use-unified-input';
@@ -118,6 +119,8 @@ export function UnifiedInput(p: UnifiedInputProps): ReactNode {
   // 候选:记录/筛选模式没有下拉(状态机保证这两个模式的 dropdownOpen 恒假,D6/§4)
   const pal = wiring?.palette ?? null;
   const showDropdown = c.state.dropdownOpen;
+  // 焦点离开整个输入区就关下拉:不加这条,点顶栏溢出菜单会让下拉与菜单同屏叠着
+  const focusOut = useCloseOnFocusOut(showDropdown, c.closeDropdown);
 
   /** 采纳:先关下拉(状态机保留模式),再把索引交给 Task 6 的副作用出口 */
   const accept = (index: number) => {
@@ -137,7 +140,7 @@ export function UnifiedInput(p: UnifiedInputProps): ReactNode {
   });
 
   return (
-    <div className="border-b border-border px-4 py-2">
+    <div ref={focusOut.ref} onBlur={focusOut.onBlur} className="border-b border-border px-4 py-2">
       {/* 输入框与保存按钮同一行(items-start:自动增高时按钮留顶部) */}
       <div className="flex items-start gap-2">
         <UnifiedTextarea
