@@ -90,10 +90,10 @@ describe('when:求值', () => {
   });
 
   it('equals:数字键宽松匹配数字与字符串,未命中为假', () => {
-    expect(evaluate(equals('tab.count', 2), { 'tab.count': 2 })).toBe(true);
-    expect(evaluate(equals('tab.count', 2), { 'tab.count': '2' })).toBe(true);
-    expect(evaluate(equals('tab.count', 2), { 'tab.count': 3 })).toBe(false);
-    expect(evaluate(equals('tab.count', 2), {})).toBe(false);
+    expect(evaluate(equals('n', 2), { n: 2 })).toBe(true);
+    expect(evaluate(equals('n', 2), { n: '2' })).toBe(true);
+    expect(evaluate(equals('n', 2), { n: 3 })).toBe(false);
+    expect(evaluate(equals('n', 2), {})).toBe(false);
     expect(evaluate(equals('sidebar', true), { sidebar: 'true' })).toBe(true);
     expect(evaluate(equals('sidebar', false), { sidebar: false })).toBe(true);
     expect(evaluate(equals('k', null), { k: null })).toBe(true);
@@ -101,9 +101,9 @@ describe('when:求值', () => {
   });
 
   it('逻辑组合按上下文求值', () => {
-    const ctx: Context = { sidebar: true, editing: false, 'tab.count': 3 };
+    const ctx: Context = { sidebar: true, editing: false, n: 3 };
     expect(evaluate(and(defined('sidebar'), not(equals('editing', true))), ctx)).toBe(true);
-    expect(evaluate(or(equals('tab.count', 1), equals('tab.count', 3)), ctx)).toBe(true);
+    expect(evaluate(or(equals('n', 1), equals('n', 3)), ctx)).toBe(true);
   });
 });
 
@@ -123,8 +123,8 @@ describe('when:RawContextKey 与键声明表', () => {
 
   it('键字符串非空、唯一,导出对象冻结,键实例与字符串一一对应', () => {
     const names = Object.values(KEYS);
-    expect(names.length).toBe(7);
-    expect(names).toContain('tab.multiple');
+    expect(names.length).toBe(5);
+    expect(names).toContain('palette.open');
     expect(names).toContain('sortNewest');
     expect(names).toContain('sortOldest');
     expect(names).not.toContain('note.selected');
@@ -141,7 +141,7 @@ describe('when:RawContextKey 与键声明表', () => {
   it('defaultContext 铺满全部键的声明默认值', () => {
     const ctx = defaultContext();
     for (const key of Object.values(CONTEXT)) expect(ctx[key.key]).toBe(key.defaultValue);
-    expect(evaluate(defined('tab.count'), ctx)).toBe(true);
+    expect(evaluate(defined('sortNewest'), ctx)).toBe(true);
     expect(evaluate(CONTEXT.sidebar.notEquals(false), ctx)).toBe(true);
     expect(CONTEXT.paletteOpen.getOrDefault({})).toBe(false);
   });
@@ -183,12 +183,11 @@ describe('when:I2 布尔键纪律(T1 审查遗留)', () => {
 });
 
 describe('when:I3 键表范围(T1 审查遗留)', () => {
-  it('note.selected 已删除;tab.multiple 是派生布尔键(默认 false)', () => {
+  it('键表就是这 5 个:note.selected 与标签页时代的两键都已下线', () => {
     expect(KEYS).not.toHaveProperty('noteSelected');
     expect(CONTEXT).not.toHaveProperty('noteSelected');
-    expect(CONTEXT.tabMultiple.key).toBe('tab.multiple');
-    expect(CONTEXT.tabMultiple.defaultValue).toBe(false);
-    expect(evaluate(CONTEXT.tabMultiple.equals(true), defaultContext())).toBe(false);
-    expect(evaluate(CONTEXT.tabMultiple.equals(true), { 'tab.multiple': true })).toBe(true);
+    const keys = ['sidebar', 'editing', 'palette.open', 'sortNewest', 'sortOldest'];
+    expect(Object.values(KEYS)).toEqual(keys);
+    expect(Object.keys(CONTEXT)).toEqual(['sidebar', 'editing', 'paletteOpen', 'sortNewest', 'sortOldest']);
   });
 });

@@ -14,7 +14,6 @@ import type { FilterConditions } from '../../../shared/filter-conditions';
 import type { Note } from '../../../shared/types';
 import type { ListRow } from '../../../shared/quickpick/model';
 import type { PaletteController } from '../../palette/use-palette';
-import type { TabsApi } from '../../tabs/use-tabs';
 import { StreamView } from '../StreamView';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -33,14 +32,6 @@ export const NOTE: Note = { id: 3, content: 'UI测试笔记', created_at: '2026-
 /** 一行候选(列表模型的行:id 在 item.id) */
 export const row = (id: string): ListRow =>
   ({ item: { id, label: id }, score: 1, ranges: [], positions: [], pinned: false, mruCount: 0 }) as ListRow;
-
-const tabsStub = (): TabsApi => ({
-  tabs: [{ title: '全部', conditions: EMPTY_FILTER }],
-  activeIndex: 0,
-  conditions: EMPTY_FILTER,
-  activate: () => {}, addPreset: () => {}, addFromCurrent: () => {}, close: () => {}, move: () => {},
-  rename: () => {}, patch: () => {}, toggleTag: () => {}, reload: () => {},
-});
 
 /**
  * 几何桩:信息流滚动槽 `.scroll-gutter` 视口为 [0,500],其余元素一律在其**下方**
@@ -85,7 +76,7 @@ export async function mountStreamView(o: MountOptions = {}): Promise<Mounted> {
     setQuery: () => {}, setPrefix: () => {}, setActiveIndex: () => {},
   };
   const props: Parameters<typeof StreamView>[0] = {
-    visible: true, tabs: tabsStub(), conditions: initial, notes: o.notes ?? [],
+    visible: true, conditions: initial, notes: o.notes ?? [],
     editingId: null, hasMore: false, loading: false, queryFailed: false, filterEmpty: true,
     errors: {}, onPatch: o.onPatch ?? (() => {}),
     onToggleTag: () => {}, onRetry: () => {}, onDismissError: () => {},

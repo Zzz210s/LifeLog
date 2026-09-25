@@ -1,7 +1,7 @@
 /**
  * 单份筛选条件的持久化(spec 2026-09-25 §2):settings 键 `filter_current`。
  * 键名真源在 Rust `db/repos/settings.rs` 的 `FILTER_CURRENT_KEY`,这里是它的镜像常量
- * (与标签页时代的 TABS_KEY 同一约定:真源在 Rust,前端只是同名字符串)。
+ * (与其它 settings 键同一约定:真源在 Rust,前端只是同名字符串)。
  * 落库形状就是一个 `FilterConditions` 对象的 JSON,与 Rust `notes_filter.rs` 的
  * Serialize 同构(六个 camelCase 字段)。
  * 本文件只有纯函数(便于单测);读写 settings 的副作用在 use-filter-state.ts。
@@ -44,7 +44,7 @@ export function serializeFilterState(c: FilterConditions): string {
 /**
  * 标签选中开关:未选中则加入(默认"含子级"),已选中则移除;
  * 排除侧已有该路径时**移到包含侧** —— 与侧栏 toggleTagPick、统一输入框 `#` 同一口径
- * (从 tabs-model.toggleActiveTag 原样搬来,只少了"当前页"那层状态机外壳)。
+ * (沿用了标签页时代 toggleActiveTag 的语义,只少了"当前页"那层状态机外壳)。
  */
 export function toggleFilterTag(c: FilterConditions, path: string): FilterConditions {
   if (c.excludeTags.some((t) => t.path === path)) {

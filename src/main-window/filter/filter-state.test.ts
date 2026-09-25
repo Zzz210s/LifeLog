@@ -71,7 +71,7 @@ describe('filter-state 默认值与退化(单份条件)', () => {
   });
 });
 
-describe('filter-state toggleFilterTag(与 tabs-model.toggleActiveTag 同口径)', () => {
+describe('filter-state toggleFilterTag(与侧栏点标签同口径)', () => {
   it('未选中则加入(默认含子级),已选中则移除', () => {
     const on = toggleFilterTag(EMPTY_FILTER, '健康');
     expect(on.tags).toEqual([{ path: '健康', includeChildren: true }]);

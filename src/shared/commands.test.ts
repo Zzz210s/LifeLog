@@ -1,9 +1,9 @@
 /**
- * 命令注册表:声明校验(重复 id / 缺标题)、when 过滤、别名命中、14 条命令的定型字段。
- * 命令清单见设计 §3.7(原 11 行 + 排序 ×2 + 添加条件;副作用由 T6/Task1 接线,此处只断言占位可识别)。
+ * 命令注册表:声明校验(重复 id / 缺标题)、when 过滤、别名命中、12 条命令的定型字段。
+ * 命令清单见设计 §3.7(原 11 行 + 排序 ×2 + 添加条件 − 标签页 ×2;副作用由 T6/Task1 接线,此处只断言占位可识别)。
  */
 import { describe, expect, it } from 'vitest';
-import { CONTEXT, defaultContext } from './keys';
+import { CONTEXT, KEYS, defaultContext } from './keys';
 import {
   COMMANDS,
   defineCommands,
@@ -12,8 +12,7 @@ import {
   withRuns,
   type CommandDef,
 } from './commands';
-import { serialize } from './when';
-import type { Context } from './when';
+import type { ContextKeyExpr } from './when';
 
 const def = (id: string, extra: Partial<CommandDef> = {}): CommandDef => ({
   id,
@@ -24,8 +23,6 @@ const def = (id: string, extra: Partial<CommandDef> = {}): CommandDef => ({
 /** 设计 §3.7 的定型表:id / 标题 / 别名(声明顺序即列表顺序) */
 const EXPECTED: ReadonlyArray<{ id: string; title: string; aliases: string[] }> = [
   { id: 'note.new', title: '新建笔记', aliases: ['new', 'create', '写'] },
-  { id: 'tab.next', title: '切换标签页(下一个)', aliases: ['tab', 'next'] },
-  { id: 'tab.prev', title: '切换标签页(上一个)', aliases: ['tab', 'prev'] },
   { id: 'settings.open', title: '打开设置', aliases: ['settings', '偏好'] },
   { id: 'theme.cycle', title: '切换主题', aliases: ['theme', 'dark', '暗色'] },
   { id: 'sidebar.toggle', title: '隐藏侧栏 / 显示侧栏', aliases: ['sidebar'] },
@@ -39,7 +36,7 @@ const EXPECTED: ReadonlyArray<{ id: string; title: string; aliases: string[] }> 
   { id: 'app.quit', title: '退出', aliases: ['quit', 'exit'] },
 ];
 
-describe('commands:14 条命令的定型字段', () => {
+describe('commands:12 条命令的定型字段', () => {
   it('id 顺序即声明顺序,标题与别名逐条一致', () => {
     expect(COMMANDS.all.map((c) => c.id)).toEqual(EXPECTED.map((e) => e.id));
     for (const [i, want] of EXPECTED.entries()) {
@@ -49,15 +46,8 @@ describe('commands:14 条命令的定型字段', () => {
     }
   });
 
-  it('恒真命令默认全部可见;tab.next / tab.prev 只在多标签时出现', () => {
-    const single = listCommands(defaultContext()).map((c) => c.id);
-    expect(single).toEqual(EXPECTED.map((e) => e.id).filter((id) => !id.startsWith('tab.')));
-    const many: Context = { ...defaultContext(), 'tab.multiple': true };
-    const ids = listCommands(many).map((c) => c.id);
-    expect(ids).toContain('tab.next');
-    expect(ids).toContain('tab.prev');
-    expect(findCommand('tab.next')?.when).toEqual(CONTEXT.tabMultiple.equals(true));
-    expect(findCommand('tab.prev')?.when).toEqual(CONTEXT.tabMultiple.equals(true));
+  it('when 缺省即恒真:默认上下文里 12 条全部可见,顺序即声明顺序', () => {
+    expect(listCommands(defaultContext()).map((c) => c.id)).toEqual(EXPECTED.map((e) => e.id));
   });
 
   it('sidebar.toggle:勾选态由 sidebar 键驱动(equals,非裸键);danger 只有三条副作用命令', () => {
@@ -71,10 +61,21 @@ describe('commands:14 条命令的定型字段', () => {
     }
   });
 
-  it('tab.count 只作数据:任何命令的 when/toggled 都不得引用它', () => {
+  it('when / toggled 只引用键表里声明的键(标签页两键下线后无残留引用)', () => {
+    const declared = new Set<string>(Object.values(KEYS));
+    const exprKeys = (e: ContextKeyExpr): string[] =>
+      e.type === 'defined' || e.type === 'equals'
+        ? [e.key]
+        : e.type === 'not'
+          ? exprKeys(e.expr)
+          : e.exprs.flatMap(exprKeys);
     for (const cmd of COMMANDS.all) {
-      expect(serialize(cmd.when), cmd.id).not.toContain('tab.count');
-      if (cmd.toggled) expect(serialize(cmd.toggled), cmd.id).not.toContain('tab.count');
+      for (const expr of [cmd.when, cmd.toggled]) {
+        if (expr === undefined) continue;
+        for (const key of exprKeys(expr)) {
+          expect(declared.has(key), `命令 ${cmd.id} 引用了未声明的键 ${key}`).toBe(true);
+        }
+      }
     }
   });
 
@@ -124,7 +125,7 @@ describe('commands:defineCommands 校验', () => {
 });
 
 describe('commands:withRuns 接线门禁(T6,T3 审查 Important 1)', () => {
-  /** 把 14 条命令全部接上(可逐条替换实现,便于断言注入的就是这份) */
+  /** 把 12 条命令全部接上(可逐条替换实现,便于断言注入的就是这份) */
   const fullRuns = (over: Record<string, () => void> = {}): Record<string, () => void> =>
     Object.fromEntries(COMMANDS.all.map((c) => [c.id, over[c.id] ?? (() => {})]));
 

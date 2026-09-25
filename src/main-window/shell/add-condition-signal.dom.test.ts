@@ -39,7 +39,6 @@ function mount(): void {
     root.render(
       createElement(function Harness(): ReactNode {
         const commands = useAppCommands({
-          tabs: { count: 1, activeIndex: 0, activate: vi.fn() },
           sidebar: { visible: true, setVisible: vi.fn() },
           theme: { mode: 'system', setMode: vi.fn() },
           setView: vi.fn(),

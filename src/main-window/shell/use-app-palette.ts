@@ -33,7 +33,7 @@ import { useProviderItems } from '../palette/use-provider-items';
 export interface AppPaletteOptions {
   /** 已接线的命令注册表(use-app-commands) */
   registry: CommandRegistry;
-  /** 现读上下文键(sidebar / editing / tab.multiple) */
+  /** 现读上下文键(sidebar / editing / palette.open / 排序) */
   getContext: () => Context;
   /** 标签数据版本(主窗 loadTags 成功时递增):`#` 候选池据此作废缓存 */
   tagsVersion: number;

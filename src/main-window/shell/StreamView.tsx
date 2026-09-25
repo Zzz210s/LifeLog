@@ -21,14 +21,11 @@ import { useQuickOpen } from '../palette/use-quick-open';
 import { NoteStream } from '../stream/NoteStream';
 import { ConditionBar } from '../filter/ConditionBar';
 import { ErrorBars } from './ErrorBars';
-import { TabsBar } from '../tabs/TabsBar';
-import type { TabsApi } from '../tabs/use-tabs';
 import type { ErrorKind } from './ErrorBar';
 import type { ErrorMap } from './errors';
 
 export interface StreamViewProps {
   visible: boolean;
-  tabs: TabsApi;
   conditions: FilterConditions;
   notes: Note[];
   editingId: number | null;
@@ -67,7 +64,6 @@ export interface StreamViewProps {
 }
 
 export function StreamView(p: StreamViewProps): ReactNode {
-  const t = p.tabs;
   // 统一输入框的模式(query 的防抖写条件在 hook 里):采纳决策与提示行都从这里取
   const { mode, onStateChange } = useUnifiedFilterSync(p.onPatch);
   // props 现读:采纳回调可能在很久以后才跑,不能闭包住旧 props
@@ -123,16 +119,6 @@ export function StreamView(p: StreamViewProps): ReactNode {
 
   return (
     <div className={p.visible ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}>
-      <TabsBar
-        tabs={t.tabs}
-        activeIndex={t.activeIndex}
-        onActivate={t.activate}
-        onClose={t.close}
-        onMove={t.move}
-        onRename={t.rename}
-        onPreset={t.addPreset}
-        onAddCurrent={t.addFromCurrent}
-      />
       <UnifiedInput
         onSaved={p.onSaved}
         editing={p.editingId !== null}

@@ -22,7 +22,7 @@ function patterns(key: string): RegExp[] {
   const k = escapeRe(key);
   return [
     new RegExp(`\\w+\\(\\s*['"\`]${k}['"\`]`), // 函数实参:equals('sidebar', true)
-    new RegExp(`[\\w\\)\\]]\\s*\\[\\s*['"\`]${k}['"\`]\\s*\\]`), // 属性访问:ctx['tab.count']
+    new RegExp(`[\\w\\)\\]]\\s*\\[\\s*['"\`]${k}['"\`]\\s*\\]`), // 属性访问:ctx['palette.open']
     new RegExp(`['"\`]${k}['"\`]\\s*:`), // 对象键:{ 'palette.open': true }
     new RegExp(`=\\s*['"\`]${k}['"\`]\\s*[;,)]`), // 赋值/声明:const k = 'sidebar';
   ];
@@ -46,10 +46,10 @@ describe('keys:裸字符串键名扫描(I4/T1 审查遗留)', () => {
   it('正控:扫描器真的会命中违规片段', () => {
     const bad = [
       "expect(evaluate(equals('sidebar', true))).toBe(true)",
-      "const key = 'tab.count';",
+      "const key = 'sortNewest';",
       "const v = ctx['palette.open'];",
       "{ 'editing': true }",
-      'defined("tab.multiple")',
+      'defined("sortOldest")',
     ];
     for (const line of bad) expect(offendingKey(line), line).not.toBeNull();
   });

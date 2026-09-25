@@ -6,8 +6,6 @@
  * 1) **布尔键一律 `.equals(true)` / `.equals(false)`,禁止裸键** —— 裸键是 `defined`,
  *    对 `false` 也为真,而 defaultContext() 会铺满全部键,裸键会让命令/菜单项永不隐藏。
  *    裸键只用来表达「键是否存在」(非布尔键)。
- * 2) `tab.count` 只作数据(如界面显示),**不得入 when**;「是否多标签」用派生布尔键
- *    `tab.multiple`(真源 `tabs.tabs.length > 1`),因为标签数恒 >= 1,比较运算符无法表达。
  */
 import { RawContextKey } from './when';
 import type { Context, ContextValue } from './when';
@@ -17,8 +15,6 @@ export const KEYS = Object.freeze({
   sidebar: 'sidebar',
   editing: 'editing',
   paletteOpen: 'palette.open',
-  tabCount: 'tab.count',
-  tabMultiple: 'tab.multiple',
   sortNewest: 'sortNewest',
   sortOldest: 'sortOldest',
 } as const);
@@ -30,8 +26,6 @@ export const CONTEXT = Object.freeze({
   sidebar: new RawContextKey<boolean>(KEYS.sidebar, true),
   editing: new RawContextKey<boolean>(KEYS.editing, false),
   paletteOpen: new RawContextKey<boolean>(KEYS.paletteOpen, false),
-  tabCount: new RawContextKey<number>(KEYS.tabCount, 1),
-  tabMultiple: new RawContextKey<boolean>(KEYS.tabMultiple, false),
   /** 排序态(条件栏的"最新/最早"由这两个键驱动命令勾选态);默认最新在前 */
   sortNewest: new RawContextKey<boolean>(KEYS.sortNewest, true),
   sortOldest: new RawContextKey<boolean>(KEYS.sortOldest, false),

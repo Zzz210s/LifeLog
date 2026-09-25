@@ -15,14 +15,12 @@ const wired = (): CommandRegistry => withRuns(COMMANDS, Object.fromEntries(COMMA
 const byte = (over: Partial<Context> = {}): Context => ({ ...defaultContext(), ...over });
 
 describe('commands provider:when 过滤与条数', () => {
-  it('单标签页时不出现 tab.next / tab.prev;多标签时 14 条全在', () => {
+  it('12 条命令全在:顺序即声明顺序;已删的标签页命令不再出现', () => {
     const reg = wired();
-    const single = commandItems(reg, byte(), '');
-    expect(single.map((i) => i.id)).not.toContain('tab.next');
-    expect(single).toHaveLength(12);
-    const many = commandItems(reg, byte({ 'tab.multiple': true }), '');
-    expect(many).toHaveLength(14);
-    expect(many.map((i) => i.id)).toEqual(COMMANDS.all.map((c) => c.id));
+    const items = commandItems(reg, byte(), '');
+    expect(items).toHaveLength(12);
+    expect(items.map((i) => i.id)).toEqual(COMMANDS.all.map((c) => c.id));
+    expect(items.some((i) => i.id.startsWith('tab.'))).toBe(false);
   });
 
   it('空查询不预置分数(交给列表模型走「固定 -> 最近 -> 全量」)', () => {

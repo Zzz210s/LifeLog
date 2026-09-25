@@ -1,5 +1,5 @@
 /**
- * 持久化文本解析:filter_current(及历史上 tabs_state 里的条件)等外部来源都要先过这里;
+ * 持久化文本解析:filter_current 等外部来源(settings 键、Migrate 结果、IPC 入参)都要先过这里;
  * 结构非法一律回退 EMPTY_FILTER,绝不把半成品对象放进状态机。
  */
 import { EMPTY_FILTER, validateFilter } from './filter-conditions';

@@ -18,7 +18,6 @@ export interface AppCommandsHarness {
   status: () => CommandStatus | null;
   /** 每次渲染记录到的状态文本(按变化追加):用于断言"进行中状态"真的渲染过 */
   statusLog: string[];
-  tabs: { count: number; activeIndex: number; activate: ReturnType<typeof vi.fn> };
   sidebar: { visible: boolean; setVisible: ReturnType<typeof vi.fn> };
   theme: { mode: ThemeMode; setMode: ReturnType<typeof vi.fn> };
   setView: ReturnType<typeof vi.fn>;
@@ -30,7 +29,6 @@ export interface AppCommandsHarness {
 
 /** 可覆写的初始状态(函数桩一律用夹具自己的 vi.fn,不外部注入) */
 export interface HarnessOverrides {
-  tabs?: { count?: number; activeIndex?: number };
   sidebar?: { visible?: boolean };
   theme?: { mode?: ThemeMode };
 }
@@ -40,7 +38,6 @@ export function mountAppCommands(over: HarnessOverrides = {}): AppCommandsHarnes
   document.body.appendChild(host);
   const root: Root = createRoot(host);
   const box: { c: AppCommands | null } = { c: null };
-  const tabs = { count: 3, activeIndex: 1, activate: vi.fn(), ...over.tabs };
   const sidebar = { visible: true, setVisible: vi.fn(), ...over.sidebar };
   const theme = { mode: 'system' as ThemeMode, setMode: vi.fn(), ...over.theme };
   const setView = vi.fn();
@@ -52,7 +49,7 @@ export function mountAppCommands(over: HarnessOverrides = {}): AppCommandsHarnes
   act(() =>
     root.render(
       createElement(function Host(): ReactNode {
-        box.c = useAppCommands({ tabs, sidebar, theme, setView, onPatch, exportAll, setError });
+        box.c = useAppCommands({ sidebar, theme, setView, onPatch, exportAll, setError });
         const text = box.c.status?.text ?? '';
         if (text !== '' && statusLog[statusLog.length - 1] !== text) statusLog.push(text);
         return null;
@@ -64,7 +61,6 @@ export function mountAppCommands(over: HarnessOverrides = {}): AppCommandsHarnes
     commands: () => box.c as AppCommands,
     status: () => (box.c as AppCommands).status,
     statusLog,
-    tabs,
     sidebar,
     theme,
     setView,

@@ -25,7 +25,6 @@ export interface MainPaletteOptions {
   tagsVersion: number;
   /** 当前条件(排序 -> 命令上下文键的勾选态) */
   conditions: FilterConditions;
-  tabCount: number;
   sidebarVisible: boolean;
   editingId: number | null;
   setError: (kind: ErrorKind, message: string) => void;
@@ -60,11 +59,9 @@ export function useMainPalette(o: MainPaletteOptions): MainPalette {
       sidebar: o.sidebarVisible,
       editing: o.editingId !== null,
       [KEYS.paletteOpen]: false, // 候选下拉没有开合态(随前缀显隐):键恒假,命令 when 不自引用
-      [KEYS.tabCount]: o.tabCount,
-      [KEYS.tabMultiple]: o.tabCount > 1,
       ...sortContextKeys(o.conditions.sort),
     }),
-    [o.sidebarVisible, o.editingId, o.tabCount, o.conditions.sort],
+    [o.sidebarVisible, o.editingId, o.conditions.sort],
   );
 
   const palette = useAppPalette({

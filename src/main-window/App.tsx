@@ -9,7 +9,7 @@ import { Sidebar } from './sidebar/Sidebar';
 import { useSidebarState } from './sidebar/use-sidebar-state';
 import { StreamView } from './shell/StreamView';
 import { contentColumnClass } from './shell/content-column';
-import { useTabs } from './tabs/use-tabs';
+import { useFilterState } from './filter/use-filter-state';
 import { TopBar } from './shell/TopBar';
 import { topBarMenuItems } from './shell/TopBarMenu';
 import { useAppErrors } from './shell/use-app-errors';
@@ -28,11 +28,10 @@ import { useStreamActions } from './shell/use-stream-actions';
 import { TutorialLayer } from './tutorial/TutorialLayer';
 import { useTutorialEntry } from './tutorial/use-tutorial-entry';
 
-/** 主窗 v2:侧栏(标签)+ 标签页栏 + 单列流(统一输入框 + 条件栏 + NoteStream);候选下拉在输入框内 */
+/** 主窗 v2:侧栏(标签)+ 单列流(统一输入框 + 条件栏 + NoteStream);候选下拉在输入框内 */
 export function App(): ReactNode {
-  // 标签页真源(S7):当前活动页的条件就是唯一条件对象,查询/筛选栏/侧栏选中态都从它派生
-  const tabs = useTabs();
-  const { conditions, patch, toggleTag, reload: reloadTabs } = tabs;
+  // 筛选条件真源(单份,库键 filter_current):查询/条件栏/侧栏选中态都从它派生
+  const { conditions, patch, toggleTag, reload: reloadFilter } = useFilterState();
   const sidebar = useSidebarState();
   const { errors, setError, clearError } = useAppErrors();
   // 标签树数据与版本号(版本号是 `#` 候选池的作废键;重载只由 tags-changed 唯一出口驱动)
@@ -46,7 +45,7 @@ export function App(): ReactNode {
   const { notes, setNotes, hasMore, loading, queryFailed, fetchPage, loadMore, retry } =
     useNotesFeed(conditions, setError, clearError);
 
-  // 条件变化(含切换标签页):退出编辑态(列表重查由 useNotesFeed 负责)
+  // 条件变化:退出编辑态(列表重查由 useNotesFeed 负责)
   useEffect(() => {
     setEditingId(null);
   }, [conditions]);
@@ -85,14 +84,13 @@ export function App(): ReactNode {
     setNotes,
     setEditingId,
     reloadTags: notifyTagsChanged,
-    reloadTabs,
+    reloadFilter,
     setError,
     clearError,
   });
 
-  // 命令副作用(14 条):注册表在构造期校验「全部接线」,漏一条即抛
+  // 命令副作用(12 条):注册表在构造期校验「全部接线」,漏一条即抛
   const commands = useAppCommands({
-    tabs: { count: tabs.tabs.length, activeIndex: tabs.activeIndex, activate: tabs.activate },
     sidebar: { visible: sidebar.visible, setVisible: sidebar.setVisible },
     theme: { mode: theme.mode, setMode: theme.setMode },
     setView,
@@ -111,7 +109,6 @@ export function App(): ReactNode {
     beforePrefill: () => setView('stream'),
     tagsVersion,
     conditions,
-    tabCount: tabs.tabs.length,
     sidebarVisible: sidebar.visible,
     editingId,
     setError,
@@ -145,7 +142,6 @@ export function App(): ReactNode {
         />
         <StreamView
           visible={view === 'stream'}
-          tabs={tabs}
           conditions={conditions}
           notes={notes}
           editingId={editingId}

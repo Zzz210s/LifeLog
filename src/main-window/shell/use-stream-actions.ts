@@ -23,7 +23,7 @@ export interface StreamActions {
   refresh: () => void;
   /** 空库引导:显示(不切换)输入栏;失败走既有错误条 */
   showInput: () => void;
-  /** 空库引导:清空当前标签页的全部筛选条件(排序也回默认) */
+  /** 空库引导:清空当前筛选的全部条件(排序也回默认) */
   clearFilters: () => void;
 }
 

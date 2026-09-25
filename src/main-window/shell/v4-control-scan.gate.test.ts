@@ -5,7 +5,7 @@
  * - 文本控件:h-8 + rounded-sm + border-border-strong + text-ui
  * - main.css 里指定「由 V4 统一移除」的 focus:border-accent 在主窗组件内不再出现
  *
- * SKIP_* 里逐条写明「归谁」:标签页/chip 归 V3,浮层/对话框/侧栏行/设置行归 V5,
+ * SKIP_* 里逐条写明「归谁」:chip 归 V3,浮层/对话框/侧栏行/设置行归 V5,
  * 开关(role=switch)、键盘专用的 sr-only 按钮与正文源码框不是「操作按钮」语义。
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs';
@@ -24,8 +24,6 @@ const SKIP_BUTTONS: Array<[string, string]> = [
   ['shell/TopBarMenu.tsx', '顶栏下拉浮层菜单项(与 AddConditionMenu 同口径):归 V5'],
   ['filter/FilterChips.tsx', '条件 chip 与其单删 ×:归 V3'],
   ['stream/NoteChips.tsx', '笔记 chip 与 +N 展开:归 V3'],
-  ['tabs/TabItem.tsx', '标签页与其关闭 ×:归 V3'],
-  ['tabs/TabAddMenu.tsx', '标签页「+」:归 V3'],
   ['sidebar/TagMenu', '标签右键菜单(对话框):归 V5'],
   ['sidebar/TagRow.tsx', '标签树行(列表行,高 24→V5 定 26):归 V5'],
   ['settings/controls.tsx', '开关 role=switch、百分比/下拉由输入框扫描覆盖'],
@@ -39,7 +37,6 @@ const SKIP_INPUTS: Array<[string, string]> = [
   ['sidebar/TagMenu', '对话框:归 V5'],
   ['editor/EditPanel.tsx', '正文源码框:任务明确例外,保持正文编辑口径'],
   ['settings/AppearanceSection.tsx', '主题三选一是原生 radio,不按文本输入改'],
-  ['tabs/TabItem.tsx', '标签页改名框(顶角 6/6/0/0):归 V3'],
 ];
 
 const walk = (dir: string): string[] =>

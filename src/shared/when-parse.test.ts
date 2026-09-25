@@ -29,7 +29,7 @@ describe('when:文本解析与序列化', () => {
   });
 
   it('往返稳定:serialize -> deserialize -> serialize 不变', () => {
-    const texts = ['a', '!a', 'a && b || c', 'a && (b || c)', '!(a || b)', 'tab.count == 2'];
+    const texts = ['a', '!a', 'a && b || c', 'a && (b || c)', '!(a || b)', 'n == 2'];
     for (const text of texts) {
       const once = serialize(deserialize(text));
       expect(serialize(deserialize(once))).toBe(once);

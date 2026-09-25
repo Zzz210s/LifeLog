@@ -39,7 +39,7 @@ export interface CommandRegistry {
 
 /** T6 之前的占位副作用:调用即抛,界面会显示中文错误条 */
 function notWired(id: string): () => never {
-  // TODO(T6): 接入真实副作用(新建笔记/切标签/导出/重建索引/退出等)
+  // TODO(T6): 接入真实副作用(新建笔记/导出/重建索引/退出等)
   return () => {
     throw new Error(`命令「${id}」尚未接线(T6)`);
   };
@@ -90,11 +90,9 @@ export function withRuns(registry: CommandRegistry, runs: CommandRuns): CommandR
   return defineCommands(registry.all.map((c) => ({ ...c, run: runs[c.id] })));
 }
 
-/** 命令清单(设计 §3.7;14 条 = 原 11 条 + 排序 ×2 + 添加条件)。id/title/aliases/when/toggled/danger 定型,T5/T6 依赖。 */
+/** 命令清单(设计 §3.7;12 条 = 原 11 条 + 排序 ×2 + 添加条件 − 标签页 ×2)。id/title/aliases/when/toggled/danger 定型,T5/T6 依赖。 */
 export const COMMANDS: CommandRegistry = defineCommands([
   { id: 'note.new', title: '新建笔记', aliases: ['new', 'create', '写'] },
-  { id: 'tab.next', title: '切换标签页(下一个)', aliases: ['tab', 'next'], when: CONTEXT.tabMultiple.equals(true) },
-  { id: 'tab.prev', title: '切换标签页(上一个)', aliases: ['tab', 'prev'], when: CONTEXT.tabMultiple.equals(true) },
   { id: 'settings.open', title: '打开设置', aliases: ['settings', '偏好'] },
   { id: 'theme.cycle', title: '切换主题', aliases: ['theme', 'dark', '暗色'] },
   { id: 'sidebar.toggle', title: '隐藏侧栏 / 显示侧栏', aliases: ['sidebar'], toggled: CONTEXT.sidebar.equals(true) },
