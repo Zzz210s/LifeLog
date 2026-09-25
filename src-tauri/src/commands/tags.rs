@@ -83,7 +83,7 @@ pub fn tag_impact(app: AppHandle, tag_id: i64) -> Result<TagImpact, String> {
 }
 
 /// 合并标签(G2):把 source 的笔记链接转移给 target,可选把 source 旧路径登记为 target 的别名,
-/// 并级联改写标签页条件;返回转移读数(前端 G3 用它刷新树与筛选条件)。整事务,失败零变化。
+/// 并级联改写当前筛选条件;返回转移读数(前端 G3 用它刷新树与筛选条件)。整事务,失败零变化。
 #[tauri::command]
 pub fn merge_tags(
     app: AppHandle,

@@ -1,11 +1,11 @@
 //! 时间标签降级为普通标签后的结构操作(spec 2026-09-17 D3):
 //! `时间排序` 及其后代可以在侧栏改名 / 移动 / 删除(旧的时间子树守卫已删除),
-//! 且 FTS 与标签页条件随路径重写一起更新。
+//! 且 FTS 与当前筛选条件随路径重写一起更新。
 use super::*;
 use crate::db::migrate;
 use crate::db::repos::notes;
 use crate::db::repos::tags::invariants_tests::{
-    assert_fts_matches_tags, assert_no_orphan_tags, assert_tabs_paths_exist,
+    assert_fts_matches_tags, assert_no_orphan_tags, assert_filter_paths_exist,
 };
 use rusqlite::Connection;
 
@@ -58,7 +58,7 @@ fn time_root_can_be_renamed_and_fts_follows() {
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='工作'"), 1);
     assert_fts_matches_tags(&c);
     assert_no_orphan_tags(&c);
-    assert_tabs_paths_exist(&c);
+    assert_filter_paths_exist(&c);
 }
 
 /// 改名后新建笔记仍按模板生成:模板还指 `时间排序` 就再建一个同名根(D5 的可配置行为)
@@ -100,7 +100,7 @@ fn time_node_can_be_moved_under_a_normal_tag() {
     );
     assert_fts_matches_tags(&c);
     assert_no_orphan_tags(&c);
-    assert_tabs_paths_exist(&c);
+    assert_filter_paths_exist(&c);
 }
 
 /// 删除:时间子树可整棵删除,笔记自身不消失,其它标签保留

@@ -3,6 +3,7 @@ pub mod backup_warning;
 pub mod data_dir_copy;
 pub mod data_dir_migration;
 pub mod migrate;
+mod migration_hooks;
 pub mod repos;
 
 use rusqlite::Connection;

@@ -4,7 +4,7 @@
 //! 谓词模板(标签/关键词)抽到 [`filter_predicates`],与表达式编译器
 //! [`crate::expr::compile`] 共用同一批实现 —— 两套输入,一套语义。
 //! 日期范围筛选已整体取消(spec 2026-09-17 D2):条件对象里不再有 from/to。
-//! Serialize 派生供标签页把条件落库为 JSON(settings.tabs_state),查询语义不变。
+//! Serialize 派生供当前筛选条件落库为 JSON(settings.filter_current),查询语义不变。
 use rusqlite::types::Value;
 use serde::{Deserialize, Serialize};
 
@@ -25,7 +25,7 @@ pub struct TagCond {
 /// `expr` 是附加的高级表达式条件(spec 3.3,默认 null):与结构化条件 AND 组合。
 /// 文本非法时**整条查询失败**(与命令层 `validate_conditions` 同一条规则,不再有
 /// 「恒假降级」的第二套语义;见 2026-09-21 回看 I3)。
-/// Serialize 供标签页把条件对象落库为 JSON(settings.tabs_state),反序列化路径与语义不变。
+/// Serialize 供当前筛选条件落库为 JSON(settings.filter_current),反序列化路径与语义不变。
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(default, rename_all = "camelCase")]
 pub struct FilterConditions {

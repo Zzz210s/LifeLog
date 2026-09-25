@@ -4,15 +4,15 @@
 //! 为什么 FTS 必须显式重写:tag_links 自迁移 003 起只有 INSERT/DELETE 触发器,
 //! `UPDATE tag_links SET tag_id` 不会触发 → 漏写就静默漂移(按新名搜不到、旧名仍命中)。
 use super::tree::{gc_orphans, refresh_fts};
-use crate::db::repos::tabs_rewrite;
+use crate::db::repos::filter_rewrite;
 use rusqlite::Connection;
 
 /// 标签写入的收尾输入(见 [`finish`])。调用方按自己的语义填:仅改名可 `gc: false`、
-/// 删除传 `path_change: None`(删除按设计不改写标签页条件)。
+/// 删除传 `path_change: None`(删除按设计不改写筛选条件)。
 pub(crate) struct PostWrite<'a> {
     /// 受影响笔记(需重写 FTS 标签列);空切片表示无需刷新
     pub notes: &'a [i64],
-    /// 路径变化(旧, 新):Some 时级联改写 settings.tabs_state 里的引用;None 表示路径没变
+    /// 路径变化(旧, 新):Some 时级联改写 settings.filter_current 里的引用;None 表示路径没变
     pub path_change: Option<(&'a str, &'a str)>,
     /// 是否回收孤儿标签(无链接且无子节点)。删除/移动/合并/替换链接后应为 true;仅改名可 false
     pub gc: bool,
@@ -24,7 +24,7 @@ pub(crate) struct PostWrite<'a> {
 /// 错误原样上抛,由调用方 `.map_err(|e| e.to_string())` 转中文报错。
 pub(crate) fn finish(conn: &Connection, p: PostWrite<'_>) -> rusqlite::Result<()> {
     if let Some((old, new)) = p.path_change {
-        tabs_rewrite::rewrite_prefix(conn, old, new)?;
+        filter_rewrite::rewrite_filter_paths(conn, old, new)?;
     }
     if !p.notes.is_empty() {
         refresh_fts(conn, p.notes)?;

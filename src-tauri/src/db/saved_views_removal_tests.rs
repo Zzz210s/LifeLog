@@ -3,7 +3,7 @@
 //! 拆出来既守住单文件 200 行,也让"表被删"与"表曾被 011 清洗"两组读数各自独立。
 use super::{apply, latest_version, run, MIGRATIONS};
 use crate::db::repos::notes::FilterConditions;
-use crate::db::repos::settings;
+use crate::db::repos::settings::{self, FILTER_CURRENT_KEY};
 use rusqlite::Connection;
 
 /// 把迁移序列应用到 version 为止(SQL 与 user_version 同步推进;已应用的版本跳过,
@@ -46,14 +46,14 @@ fn migration_014_drops_saved_views_table_on_fresh_db() {
     );
 }
 
-/// ② 升级路径(v13 旧库):存量视图随表删除,标签页状态与既有笔记/标签数据原样保留
+/// ② 升级路径(v13 旧库):存量视图随表删除,当前筛选条件与既有笔记/标签数据原样保留
+/// (只跑到 014:015/016 与本用例无关 —— 016 删除旧 tabs_state 键的行为见
+/// filter_current_migration_tests.rs)
 #[test]
-fn migration_014_removes_views_and_keeps_tabs_state() {
+fn migration_014_removes_views_and_keeps_other_settings() {
     let conn = Connection::open_in_memory().unwrap();
     run_up_to(&conn, 13);
-    let tabs = "{\"tabs\":[{\"title\":\"\",\"conditions\":{\"keyword\":null,\"tags\":[],\
-                \"excludeTags\":[],\"tagPresence\":null,\"sort\":\"newest\",\"expr\":null}}],\
-                \"activeIndex\":0}";
+    let kept = "{\"keyword\":\"复盘\",\"tags\":[{\"path\":\"工作\",\"includeChildren\":true}],\"excludeTags\":[],\"tagPresence\":null,\"sort\":\"newest\",\"expr\":null}";
     conn.execute_batch(
         "INSERT INTO saved_views(title, conditions, sort_order) VALUES('旧视图', '{}', 0);
          INSERT INTO saved_views(title, conditions, sort_order) VALUES('旧视图二', '{}', 1);
@@ -61,14 +61,14 @@ fn migration_014_removes_views_and_keeps_tabs_state() {
     )
     .unwrap();
     settings::set(&conn, "filter_last", "{\"keyword\":\"旧\"}").unwrap();
-    settings::set(&conn, "tabs_state", tabs).unwrap();
+    settings::set(&conn, FILTER_CURRENT_KEY, kept).unwrap();
 
-    run(&conn).unwrap();
+    run_up_to(&conn, 14);
 
-    assert_eq!(count(&conn, "PRAGMA user_version"), latest_version());
+    assert_eq!(count(&conn, "PRAGMA user_version"), 14);
     assert_eq!(count(&conn, "SELECT COUNT(*) FROM sqlite_master WHERE name='saved_views'"), 0);
     assert_eq!(settings::get(&conn, "filter_last").unwrap(), None);
-    assert_eq!(settings::get(&conn, "tabs_state").unwrap().unwrap(), tabs);
+    assert_eq!(settings::get(&conn, FILTER_CURRENT_KEY).unwrap().unwrap(), kept);
     assert_eq!(count(&conn, "SELECT COUNT(*) FROM notes"), 1);
     assert_eq!(text(&conn, "SELECT content FROM notes WHERE id = 1"), "迁移前笔记");
     assert_eq!(count(&conn, "SELECT COUNT(*) FROM tag_links"), 0);
@@ -79,11 +79,12 @@ fn migration_014_removes_views_and_keeps_tabs_state() {
 fn migration_014_is_idempotent() {
     let conn = Connection::open_in_memory().unwrap();
     run(&conn).unwrap();
-    settings::set(&conn, "tabs_state", "{\"tabs\":[],\"activeIndex\":0}").unwrap();
+    let kept = "{\"keyword\":\"保留\",\"tags\":[],\"excludeTags\":[],\"tagPresence\":null,\"sort\":\"newest\",\"expr\":null}";
+    settings::set(&conn, FILTER_CURRENT_KEY, kept).unwrap();
     let snapshot = || {
         (
             count(&conn, "PRAGMA user_version"),
-            settings::get(&conn, "tabs_state").unwrap(),
+            settings::get(&conn, FILTER_CURRENT_KEY).unwrap(),
             settings::get(&conn, "filter_last").unwrap(),
         )
     };

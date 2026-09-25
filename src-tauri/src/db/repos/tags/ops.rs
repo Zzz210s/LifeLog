@@ -1,5 +1,5 @@
 //! 标签树结构变更(自 tags_tree.rs 拆出以守 200 行上限):改名 / 移动 / 删除子树。
-//! 写操作各自整事务提交,任一步失败整体回滚(path 重写、标签页条件级联与 FTS 刷新同事务)。
+//! 写操作各自整事务提交,任一步失败整体回滚(path 重写、筛选条件级联与 FTS 刷新同事务)。
 //! 时间标签已是普通标签(D3):不再有"时间子树不可改名/移动/删除"的守卫。
 //! 底层 SQL 动作见 tags_tree_ops_sql。
 use super::ops_sql::{
@@ -159,7 +159,7 @@ pub fn delete_subtree(conn: &mut Connection, tag_id: i64) -> Result<(), String> 
     // tag_links 触发器已按"链接移除后"的聚合重写 FTS,此处再显式重写一次兜底
     tx.execute(&format!("DELETE FROM tags WHERE id IN ({marks})"), args())
         .map_err(|e| e.to_string())?;
-    // 删除标签**不**重写 tabs_state 条件(S7):已删路径的标签页自然筛不出笔记,由用户自行调整。
+    // 删除标签**不**重写 filter_current 条件(S7):已删路径自然筛不出笔记,由用户自行调整。
     finish(&tx, PostWrite { notes: &notes, path_change: None, gc: true })
         .map_err(|e| e.to_string())?;
     tx.commit().map_err(|e| e.to_string())

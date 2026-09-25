@@ -1,4 +1,4 @@
+pub mod filter_rewrite;
 pub mod notes;
 pub mod settings;
-pub mod tabs_rewrite;
 pub mod tags;

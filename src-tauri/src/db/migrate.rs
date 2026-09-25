@@ -1,5 +1,14 @@
+//! 迁移序列与前置钩子。
+//! 钩子:008/013/014 的日志钩子在 `db::migration_hooks`(只读不改库);
+//! 016 要把旧多页条件搬进单份条件,取值只能在 Rust 做,故它的钩子(`carry_over_filter_current`)在本文件,
+//! 迁移体(`migrations/016_filter_current.sql`)只负责删旧键。
 use rusqlite::Connection;
 
+use super::migration_hooks;
+use crate::db::repos::notes::FilterConditions;
+use crate::db::repos::settings::{self, FILTER_CURRENT_KEY};
+
+/// 迁移序列:数组顺序即版本号(1 起);新增迁移只能追加在末尾
 const MIGRATIONS: &[&str] = &[
     include_str!("migrations/001_init.sql"),
     include_str!("migrations/002_diary.sql"),
@@ -16,6 +25,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("migrations/013_drop_done_doing_tags.sql"),
     include_str!("migrations/014_drop_saved_views.sql"),
     include_str!("migrations/015_tag_aliases.sql"),
+    include_str!("migrations/016_filter_current.sql"),
 ];
 
 /// 012 的位次(1 起)与它删除的列名:SQLite 没有 `DROP COLUMN IF EXISTS`,
@@ -33,77 +43,52 @@ fn notes_has_column(conn: &Connection, column: &str) -> rusqlite::Result<bool> {
     Ok(n > 0)
 }
 
-/// 008 回填时间标签:created_at 无法解析且尚无时间标签的笔记会被跳过。SQL 迁移里写不了日志,
-/// 故在应用该迁移前先把被跳过的清单打到 stderr(迁移日志的一部分,见模块下方)。
-const TIME_TAG_VERSION: i64 = 8;
+/// 016 之前把 tabs_state 的活动页条件搬进 filter_current
+const FILTER_CURRENT_VERSION: i64 = 16;
 
-/// 008 真正会跳过、且确实因此缺时间标签的笔记(id, created_at)。
-/// 已有时间标签的笔记不在此列 —— 它们本来就不需要回填,报成"created_at 无法解析"是误导排障。
-fn backfill_skips(conn: &Connection) -> rusqlite::Result<Vec<(i64, String)>> {
-    let mut stmt = conn.prepare(
-        "SELECT n.id, n.created_at FROM notes n
-         WHERE date(n.created_at) IS NULL
-           AND NOT EXISTS (SELECT 1 FROM tag_links l JOIN tags t ON t.id = l.tag_id
-                           WHERE l.target_type = 'note' AND l.target_id = n.id
-                             AND (t.path = '时间排序'
-                                  OR substr(t.path, 1, length('时间排序') + 1) = '时间排序/'))
-         ORDER BY n.id",
-    )?;
-    let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?;
-    rows.collect()
+/// 迁移 016 读的历史键(键名真源已迁到 settings::FILTER_CURRENT_KEY)
+const LEGACY_TABS_STATE_KEY: &str = "tabs_state";
+
+/// 迁移专用最小结构体:只关心 tabs[].conditions 与 activeIndex,不复用运行时结构
+#[derive(serde::Deserialize)]
+struct LegacyTabs {
+    #[serde(default)]
+    tabs: Vec<LegacyTab>,
+    #[serde(default, rename = "activeIndex")]
+    active_index: usize,
 }
 
-/// 008 之前提示:列出既解析不出日期、又没有时间标签的笔记(它们拿不到时间标签)
-fn warn_skipped_backfill(conn: &Connection) -> rusqlite::Result<()> {
-    for (id, created_at) in backfill_skips(conn)? {
-        eprintln!(
-            "迁移 008:笔记 {id} 的 created_at 无法解析且当前没有时间标签,跳过时间标签回填:{created_at}"
-        );
-    }
-    Ok(())
+#[derive(serde::Deserialize)]
+struct LegacyTab {
+    #[serde(default)]
+    conditions: Option<serde_json::Value>,
 }
 
-/// 013 删除 done/doing 标签子树(S5):SQL 迁移里写不了日志,故在应用前把影响面打到 stderr
-/// (与 008 的 warn_skipped_backfill 同一做法),给真实库升级留下可排障的读数。
-const DROP_DONE_DOING_VERSION: i64 = 13;
-
-/// done/doing 子树判定(与 013_drop_done_doing_tags.sql 逐字一致):根节点本身 + 其子孙
-const DONE_DOING_PREDICATE: &str = "path = 'done' OR substr(path, 1, 5) = 'done/' \
-     OR path = 'doing' OR substr(path, 1, 6) = 'doing/'";
-
-/// 013 之前提示:将要删除的标签节点数、链接数与受影响笔记数(无命中则不打印)
-fn warn_drop_done_doing(conn: &Connection) -> rusqlite::Result<()> {
-    let sql = format!(
-        "SELECT (SELECT COUNT(*) FROM tags WHERE {p}),
-                (SELECT COUNT(*) FROM tag_links WHERE tag_id IN (SELECT id FROM tags WHERE {p})),
-                (SELECT COUNT(DISTINCT target_id) FROM tag_links WHERE tag_id IN (SELECT id FROM tags WHERE {p}))",
-        p = DONE_DOING_PREDICATE
-    );
-    let (tags, links, notes): (i64, i64, i64) =
-        conn.query_row(&sql, [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
-    if tags > 0 || links > 0 {
-        eprintln!(
-            "迁移 013:删除 done/doing 标签子树 —— 标签 {tags} 个节点、链接 {links} 条,涉及 {notes} 条笔记(正文不动)"
-        );
+/// 016 之前:沿用旧 tabs_state 当前活动页的条件(已存在 filter_current 时**不覆盖**);
+/// 越界 / 缺 tabs / 坏 JSON 一律退化到默认空条件(与前端 parseTabsState 的兜底一致)。
+/// 取值只能在 Rust 做(SQL 解析不了 JSON),迁移体只负责删旧键。
+fn carry_over_filter_current(conn: &Connection) -> rusqlite::Result<()> {
+    let Some(raw) = settings::get(conn, LEGACY_TABS_STATE_KEY)? else {
+        return Ok(()); // 没落过旧状态:无可迁移,也不创建 filter_current
+    };
+    if settings::get(conn, FILTER_CURRENT_KEY)?.is_some() {
+        eprintln!("迁移 016:filter_current 已有值,不覆盖(旧键 tabs_state 仍会删除)");
+        return Ok(());
     }
-    Ok(())
-}
-
-/// 014 删除视图模块(S6):SQL 迁移里写不了日志,故在应用前把影响面打到 stderr
-/// (与 008/013 的 warn 钩子同一做法),给真实库升级留下可排障的读数。
-const DROP_SAVED_VIEWS_VERSION: i64 = 14;
-
-/// 014 之前提示:存量自建视图数与被清掉的设置键(两者都没有则不打印)
-fn warn_drop_saved_views(conn: &Connection) -> rusqlite::Result<()> {
-    let views: i64 = conn
-        .query_row("SELECT COUNT(*) FROM saved_views", [], |r| r.get(0))
-        .unwrap_or(0);
-    let legacy = crate::db::repos::settings::get(conn, "filter_last")?.is_some();
-    if views > 0 || legacy {
-        eprintln!(
-            "迁移 014:删除视图模块 —— 自建视图 {views} 个,清理已被标签页取代的设置键 filter_last(状态改存 tabs_state)"
-        );
-    }
+    let (conds, how) = match serde_json::from_str::<LegacyTabs>(&raw) {
+        Ok(state) => match state.tabs.get(state.active_index).and_then(|t| t.conditions.clone()) {
+            Some(v) => match serde_json::from_value::<FilterConditions>(v) {
+                Ok(c) => (c, "沿用旧活动页条件"),
+                Err(_) => (FilterConditions::default(), "旧条件对象无法解析,退化为空条件"),
+            },
+            None => (FilterConditions::default(), "活动页越界或缺 conditions,退化为空条件"),
+        },
+        Err(_) => (FilterConditions::default(), "旧值不是合法 JSON,退化为空条件"),
+    };
+    let json = serde_json::to_string(&conds)
+        .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+    settings::set(conn, FILTER_CURRENT_KEY, &json)?;
+    eprintln!("迁移 016:当前筛选条件从 tabs_state 迁移({how})");
     Ok(())
 }
 
@@ -133,14 +118,17 @@ pub fn run(conn: &Connection) -> rusqlite::Result<()> {
         if v <= current {
             continue;
         }
-        if v == TIME_TAG_VERSION {
-            warn_skipped_backfill(conn)?;
+        if v == migration_hooks::TIME_TAG_VERSION {
+            migration_hooks::warn_skipped_backfill(conn)?;
         }
-        if v == DROP_DONE_DOING_VERSION {
-            warn_drop_done_doing(conn)?;
+        if v == migration_hooks::DROP_DONE_DOING_VERSION {
+            migration_hooks::warn_drop_done_doing(conn)?;
         }
-        if v == DROP_SAVED_VIEWS_VERSION {
-            warn_drop_saved_views(conn)?;
+        if v == migration_hooks::DROP_SAVED_VIEWS_VERSION {
+            migration_hooks::warn_drop_saved_views(conn)?;
+        }
+        if v == FILTER_CURRENT_VERSION {
+            carry_over_filter_current(conn)?;
         }
         let fk_off = FK_OFF_VERSIONS.contains(&v);
         if fk_off {
@@ -190,6 +178,10 @@ mod drop_updated_at_tests;
 #[cfg(test)]
 #[path = "migrate_tests.rs"]
 mod migrate_tests;
+
+#[cfg(test)]
+#[path = "filter_current_migration_tests.rs"]
+mod filter_current_migration_tests;
 
 #[cfg(test)]
 #[path = "time_tag_demotion_tests.rs"]

@@ -5,9 +5,10 @@ use rusqlite::{params, Connection};
 pub const AUTO_TIME_TAG_KEY: &str = "auto_time_tag";
 /// 时间标签模板(D5):缺失或空串回退默认模板
 pub const TIME_TAG_TEMPLATE_KEY: &str = "time_tag_template";
-/// 标签页状态(S7):JSON `{tabs:[{title,conditions}],activeIndex}`;缺失/损坏时前端退化为单个「全部」页。
-/// 键名真源在此 —— Rust 侧的标签改名/移动级联重写(tabs_rewrite)与前端 use-tabs 共用它。
-pub const TABS_STATE_KEY: &str = "tabs_state";
+/// 当前筛选条件(S7):JSON 单份条件对象(与前端 `FilterConditions` / [`super::notes::FilterConditions`]
+/// 同构);缺失/损坏时前端退化为「全部笔记」。键名真源在此 —— Rust 侧的标签改名/移动级联重写
+/// (filter_rewrite)与前端 use-filter-state 共用它。
+pub const FILTER_CURRENT_KEY: &str = "filter_current";
 
 /// 自动时间标签配置(设置页与创建路径共用一份读法)
 #[derive(Debug, PartialEq)]

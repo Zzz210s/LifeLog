@@ -4,7 +4,7 @@ use super::*;
 use crate::db::migrate;
 use crate::db::repos::notes::{self, notes_filter::*, query};
 use crate::db::repos::tags::invariants_tests::{
-    assert_fts_matches_tags, assert_no_orphan_tags, assert_tabs_paths_exist,
+    assert_fts_matches_tags, assert_no_orphan_tags, assert_filter_paths_exist,
 };
 use rusqlite::Connection;
 
@@ -77,7 +77,7 @@ fn rename_updates_whole_subtree_paths_and_fts() {
     assert_eq!(hits(&c, "工作/项目A"), 0);
     assert_fts_matches_tags(&c);
     assert_no_orphan_tags(&c);
-    assert_tabs_paths_exist(&c);
+    assert_filter_paths_exist(&c);
 }
 
 /// ④ 移动:父子关系、path、depth 同步更新(含移回根级)
@@ -102,7 +102,7 @@ fn move_to_reparents_and_rewrites_paths() {
     assert_eq!(hits(&c, "项目A"), 1);
     assert_fts_matches_tags(&c);
     assert_no_orphan_tags(&c);
-    assert_tabs_paths_exist(&c);
+    assert_filter_paths_exist(&c);
 }
 
 /// ⑤+⑩ 移动到自身/自身子树被拒绝,失败路径整事务回滚(结构逐行不变)
@@ -180,7 +180,7 @@ fn delete_subtree_removes_tags_keeps_notes() {
     assert_eq!(count(&c, "SELECT COUNT(*) FROM notes"), 1);
     assert_eq!(hits(&c, "项目A"), 0);
     assert_eq!(hits(&c, "纪要"), 1);
-    // 删除不改写 tabs_state(S7),故只断言 FTS 与孤儿两项
+    // 删除不改写 filter_current(S7),故只断言 FTS 与孤儿两项
     assert_fts_matches_tags(&c);
     assert_no_orphan_tags(&c);
 }

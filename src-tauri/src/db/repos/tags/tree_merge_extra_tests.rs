@@ -1,11 +1,11 @@
 //! 标签合并补充测试(核心用例见 tags_tree_merge_tests.rs):
-//! FTS 标签列改写、标签页条件级联(D7)、孤儿容器回收。
+//! FTS 标签列改写、筛选条件级联(D7)、孤儿容器回收。
 use super::*;
 use crate::db::migrate;
 use crate::db::repos::notes::{self, notes_filter::*, query};
-use crate::db::repos::settings::{self, TABS_STATE_KEY};
+use crate::db::repos::settings::{self, FILTER_CURRENT_KEY};
 use crate::db::repos::tags::invariants_tests::{
-    assert_fts_matches_tags, assert_no_orphan_tags, assert_tabs_paths_exist,
+    assert_fts_matches_tags, assert_no_orphan_tags, assert_filter_paths_exist,
 };
 use rusqlite::{params, Connection};
 use serde_json::{json, Value};
@@ -58,43 +58,35 @@ fn merge_rewrites_fts_tag_column() {
     assert_no_orphan_tags(&c);
 }
 
-/// ⑩ 级联(D7):tabs_state 的 tags[] / excludeTags[] / expr token 改写成目标路径,其余字段原样
+/// ⑩ 级联(D7):filter_current 的 tags[] / excludeTags[] / expr token 改写成目标路径,其余字段原样
 #[test]
-fn merge_rewrites_tab_conditions_and_expr_tokens() {
+fn merge_rewrites_filter_conditions_and_expr_tokens() {
     let mut c = db();
     notes::create_plain(&mut c, "a #工作/项目A").unwrap();
     notes::create_plain(&mut c, "b #事业").unwrap();
     let (src, dst) = (id_at(&c, "工作/项目A"), id_at(&c, "事业"));
     let seeded = json!({
-        "tabs": [{
-            "title": "页",
-            "conditions": {
-                "keyword": null,
-                "tags": [{"path": "工作/项目A", "includeChildren": true}],
-                "excludeTags": [{"path": "工作/项目A", "includeChildren": false}],
-                "tagPresence": null,
-                "sort": "newest",
-                "expr": "#工作/项目A AND NOT #=工作/项目A"
-            }
-        }],
-        "activeIndex": 0
+        "keyword": null,
+        "tags": [{"path": "工作/项目A", "includeChildren": true}],
+        "excludeTags": [{"path": "工作/项目A", "includeChildren": false}],
+        "tagPresence": null,
+        "sort": "newest",
+        "expr": "#工作/项目A AND NOT #=工作/项目A"
     });
-    settings::set(&c, TABS_STATE_KEY, &seeded.to_string()).unwrap();
+    settings::set(&c, FILTER_CURRENT_KEY, &seeded.to_string()).unwrap();
 
     merge_tags(&mut c, src, dst, false).unwrap();
 
-    let raw = settings::get(&c, TABS_STATE_KEY).unwrap().unwrap();
-    let root: Value = serde_json::from_str(&raw).unwrap();
-    let conds = &root["tabs"][0]["conditions"];
+    let raw = settings::get(&c, FILTER_CURRENT_KEY).unwrap().unwrap();
+    let conds: Value = serde_json::from_str(&raw).unwrap();
     assert_eq!(conds["tags"][0]["path"], "事业");
     assert_eq!(conds["excludeTags"][0]["path"], "事业");
     assert_eq!(conds["expr"], "#事业 AND NOT #=事业");
     assert_eq!(conds["tags"][0]["includeChildren"], true, "其余条件字段原样保留");
-    assert_eq!(root["tabs"][0]["title"], "页");
-    assert_eq!(root["activeIndex"], 0);
+    assert_eq!(conds["sort"], "newest");
     assert_fts_matches_tags(&c);
     assert_no_orphan_tags(&c);
-    assert_tabs_paths_exist(&c);
+    assert_filter_paths_exist(&c);
 }
 
 /// ⑪ 孤儿回收:源是父容器的唯一子节点 -> 合并后父容器也消失(整条空链回收到根)
@@ -118,7 +110,7 @@ fn merge_gcs_emptied_parent_container() {
 }
 
 /// 回归(当初漏掉的那条):合并后不变量①必须成立 —— FTS 标签列与 tag_links 聚合逐笔记一致。
-/// 另附②③:源的父容器被回收、tabs_state 引用的路径在级联后真实存在。
+/// 另附②③:源的父容器被回收、filter_current 引用的路径在级联后真实存在。
 #[test]
 fn merge_keeps_all_tag_invariants() {
     let mut c = db();
@@ -126,22 +118,16 @@ fn merge_keeps_all_tag_invariants() {
     notes::create_plain(&mut c, "乙 #工作/项目A #职业生涯").unwrap();
     notes::create_plain(&mut c, "丙 #职业生涯").unwrap();
     let seeded = json!({
-        "tabs": [{
-            "title": "页",
-            "conditions": {
-                "tags": [{"path": "工作/项目A", "includeChildren": true}],
-                "excludeTags": [],
-                "expr": "#工作/项目A"
-            }
-        }],
-        "activeIndex": 0
+        "tags": [{"path": "工作/项目A", "includeChildren": true}],
+        "excludeTags": [],
+        "expr": "#工作/项目A"
     });
-    settings::set(&c, TABS_STATE_KEY, &seeded.to_string()).unwrap();
+    settings::set(&c, FILTER_CURRENT_KEY, &seeded.to_string()).unwrap();
     let (src, dst) = (id_at(&c, "工作/项目A"), id_at(&c, "职业生涯"));
 
     merge_tags(&mut c, src, dst, true).unwrap();
 
     assert_fts_matches_tags(&c);
     assert_no_orphan_tags(&c);
-    assert_tabs_paths_exist(&c);
+    assert_filter_paths_exist(&c);
 }

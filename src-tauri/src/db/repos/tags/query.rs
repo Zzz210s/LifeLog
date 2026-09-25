@@ -15,7 +15,7 @@ mod tree_complete_fuzzy_tests;
 
 /// 标签树节点计数(供标签面板):id 供侧栏右键管理(rename/move/delete/tag_impact 都按 id 寻址);
 /// self_count 为本级**去重笔记数**,subtree_count 含全部子孙的**去重笔记数**(两者同一口径,
-/// 与标签筛选/标签页计数一致 —— 一条笔记同时链了子树内的多个节点时只算一条);
+/// 与标签筛选口径一致 —— 一条笔记同时链了子树内的多个节点时只算一条);
 /// sort_order 供前端同层次序(S8):兄弟展示序 = (sort_order, path),与后端写入口径一致
 #[derive(Serialize, Debug, PartialEq)]
 pub struct TagCount {

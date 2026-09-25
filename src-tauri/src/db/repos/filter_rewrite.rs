@@ -1,12 +1,13 @@
-//! 标签页条件级联(取代已删的 saved_views_rewrite;spec 2026-09-17 S6/S7):
-//! 标签改名/移动时,同一事务里同步重写 `settings.tabs_state` 里每个标签页的条件 JSON ——
+//! 当前筛选条件的路径级联(取代已删的 saved_views_rewrite 与标签页时代的 tabs_rewrite;
+//! spec 2026-09-17 S6/S7,2026-09-25 改单份条件):
+//! 标签改名/移动时,同一事务里同步重写 `settings.filter_current` 这一份条件对象 ——
 //! 按前缀规则重写 tags[] / exclude_tags[] 与表达式里的标签 token(与 tags 表的子树路径
 //! 重写同款口径:段边界由显式 `/` 保证,`工作X` 不会被 `工作` 误伤)。
-//! 删除标签**不**改写(数据源换成 settings 后,已删路径的标签页自然筛不出笔记,由用户自行调整)。
-//! 坏 JSON / 坏条件对象跳过(不动、不失败);调用方(tags_tree_ops)把本模块收进结构变更事务内,
+//! 删除标签**不**改写(已删路径自然筛不出笔记,由用户自行调整)。
+//! 键缺失 / 坏 JSON 跳过(不动、不失败);调用方(tags_write::finish)把本模块收进结构变更事务内,
 //! 任一步失败整体回滚。
 use super::notes::FilterConditions;
-use super::settings::{self, TABS_STATE_KEY};
+use super::settings::{self, FILTER_CURRENT_KEY};
 use crate::expr::lexer::{lex_spans, Token};
 use rusqlite::Connection;
 
@@ -19,8 +20,8 @@ fn rewrite_path(path: &str, old: &str, new: &str) -> Option<String> {
     path.strip_prefix(&sep).map(|rest| format!("{new}/{rest}"))
 }
 
-/// 单个条件对象按前缀规则改写:两侧标签列表 + 表达式文本;有变化返回 true
-/// (include_children 等其余字段原样保留)
+/// 条件对象按前缀规则改写:两侧标签列表 + 表达式文本;有变化返回 true
+/// (include_children / keyword / sort 等其余字段原样保留)
 fn rewrite_conditions(c: &mut FilterConditions, old: &str, new: &str) -> bool {
     let mut changed = false;
     for list in [&mut c.tags, &mut c.exclude_tags] {
@@ -70,48 +71,37 @@ pub fn rewrite_expr_paths(text: &str, old: &str, new: &str) -> String {
     out
 }
 
-/// 逐标签页处理 tabs_state:解析每个 conditions 交给闭包,返回 true 表示有变化需整行回写;
-/// 解析失败的条件跳过(不动、不失败)。先收齐再改写,避免遍历与回写交叉。
-fn map_tabs<F>(conn: &Connection, f: F) -> rusqlite::Result<()>
+/// 就地改写 filter_current 的那一份条件:解析失败跳过(不动、不失败),
+/// 有变化才整串回写(没命中路径时原串逐字保留,避免无谓改写);未知字段被忽略,
+/// 因此旧多页形状不会解析出错,只是没有任何路径命中 -> 同样保持原文。
+fn map_conditions<F>(conn: &Connection, f: F) -> rusqlite::Result<()>
 where
     F: Fn(&mut FilterConditions) -> bool,
 {
-    let Some(raw) = settings::get(conn, TABS_STATE_KEY)? else {
-        return Ok(()); // 键缺失:还没开过标签页,无级联可言
+    let Some(raw) = settings::get(conn, FILTER_CURRENT_KEY)? else {
+        return Ok(()); // 键缺失:还没有筛选条件落库,无级联可言
     };
-    let Ok(mut root) = serde_json::from_str::<serde_json::Value>(&raw) else {
-        return Ok(()); // 坏 JSON:不动、不失败(与旧 saved_views 口径一致)
+    let Ok(mut c) = serde_json::from_str::<FilterConditions>(&raw) else {
+        return Ok(()); // 坏 JSON / 字段类型不符:不动、不失败(与旧 saved_views 口径一致)
     };
-    let Some(tabs) = root.get_mut("tabs").and_then(|t| t.as_array_mut()) else {
+    if !f(&mut c) {
         return Ok(());
-    };
-    let mut changed = false;
-    for tab in tabs.iter_mut() {
-        let Some(conds) = tab.get("conditions") else {
-            continue;
-        };
-        let Ok(mut c) = serde_json::from_value::<FilterConditions>(conds.clone()) else {
-            continue; // 坏条件对象:跳过该页
-        };
-        if !f(&mut c) {
-            continue;
-        }
-        tab["conditions"] = serde_json::to_value(&c)
-            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
-        changed = true;
     }
-    if changed {
-        settings::set(conn, TABS_STATE_KEY, &root.to_string())?;
-    }
-    Ok(())
+    let out = serde_json::to_string(&c)
+        .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+    settings::set(conn, FILTER_CURRENT_KEY, &out)
 }
 
-/// 改名/移动后级联:tabs_state 全部标签页的 tags[] / exclude_tags[] / expr 按前缀规则改写;
-/// 有变化的页整行回写,title / activeIndex / include_children 等其余字段原样保留。
-pub(crate) fn rewrite_prefix(conn: &Connection, old: &str, new: &str) -> rusqlite::Result<()> {
-    map_tabs(conn, |c| rewrite_conditions(c, old, new))
+/// 改名/移动后级联:filter_current 的 tags[] / exclude_tags[] / expr 按前缀规则改写;
+/// 有变化才回写,其余字段(keyword / sort / tag_presence / include_children)原样保留。
+pub(crate) fn rewrite_filter_paths(
+    conn: &Connection,
+    old: &str,
+    new: &str,
+) -> rusqlite::Result<()> {
+    map_conditions(conn, |c| rewrite_conditions(c, old, new))
 }
 
 #[cfg(test)]
-#[path = "tabs_rewrite_tests.rs"]
+#[path = "filter_rewrite_tests.rs"]
 mod tests;

@@ -4,10 +4,10 @@
 //!    聚合口径必须与迁移 011 重建的触发器一致:`group_concat(t.path, ' ' ORDER BY t.path)`,
 //!    无链接为空串 —— 违反即"按新名搜不到、旧名仍命中"的静默漂移。
 //! ② [`assert_no_orphan_tags`]:无孤儿标签(既无 tag_links 又无子节点)。
-//! ③ [`assert_tabs_paths_exist`]:settings.tabs_state 引用的每个标签路径(结构化 tags[] /
+//! ③ [`assert_filter_paths_exist`]:settings.filter_current 引用的每个标签路径(结构化 tags[] /
 //!    excludeTags[] 与 expr token)都真实存在。只对"路径变化"类操作断言:删除按设计不改写
 //!    条件(S7),留下已删路径是允许的。
-use crate::db::repos::settings::{self, TABS_STATE_KEY};
+use crate::db::repos::settings::{self, FILTER_CURRENT_KEY};
 use crate::expr::lexer::{lex_spans, Token};
 use rusqlite::{params, Connection, OptionalExtension};
 
@@ -69,33 +69,28 @@ pub(crate) fn assert_no_orphan_tags(conn: &Connection) {
     assert!(found.is_empty(), "存在孤儿标签(无链接且无子节点): {found:?}");
 }
 
-/// ③ tabs_state 里引用的每个标签路径都必须存在;失败信息列出全部悬空路径。
-/// 键缺失 / 坏 JSON / 坏条件对象一律跳过(与 tabs_rewrite 的容错口径一致,不自作修复)。
-pub(crate) fn assert_tabs_paths_exist(conn: &Connection) {
-    let Some(raw) = settings::get(conn, TABS_STATE_KEY).unwrap() else {
+/// ③ filter_current 里引用的每个标签路径都必须存在;失败信息列出全部悬空路径。
+/// 键缺失 / 坏 JSON / 坏条件对象一律跳过(与 filter_rewrite 的容错口径一致,不自作修复)。
+pub(crate) fn assert_filter_paths_exist(conn: &Connection) {
+    let Some(raw) = settings::get(conn, FILTER_CURRENT_KEY).unwrap() else {
         return;
     };
-    let Ok(root) = serde_json::from_str::<serde_json::Value>(&raw) else {
+    let Ok(conds) = serde_json::from_str::<serde_json::Value>(&raw) else {
         return;
     };
     let mut refs: Vec<String> = Vec::new();
-    for tab in root["tabs"].as_array().into_iter().flatten() {
-        let Some(conds) = tab.get("conditions") else {
-            continue;
-        };
-        for key in ["tags", "excludeTags"] {
-            for t in conds[key].as_array().into_iter().flatten() {
-                if let Some(p) = t["path"].as_str() {
-                    refs.push(p.to_string());
-                }
+    for key in ["tags", "excludeTags"] {
+        for t in conds[key].as_array().into_iter().flatten() {
+            if let Some(p) = t["path"].as_str() {
+                refs.push(p.to_string());
             }
         }
-        if let Some(expr) = conds["expr"].as_str() {
-            if let Ok(spans) = lex_spans(expr) {
-                for (token, _, _) in spans {
-                    if let Token::Tag { path, .. } = token {
-                        refs.push(path);
-                    }
+    }
+    if let Some(expr) = conds["expr"].as_str() {
+        if let Ok(spans) = lex_spans(expr) {
+            for (token, _, _) in spans {
+                if let Token::Tag { path, .. } = token {
+                    refs.push(path);
                 }
             }
         }
@@ -110,26 +105,26 @@ pub(crate) fn assert_tabs_paths_exist(conn: &Connection) {
                 == 0
         })
         .collect();
-    assert!(missing.is_empty(), "tabs_state 引用了不存在的标签路径: {missing:?}");
+    assert!(missing.is_empty(), "filter_current 引用了不存在的标签路径: {missing:?}");
 }
 
-/// 路径变化类操作(改名)必须级联改写 tabs_state,且改写后的引用真实存在(不变量③)。
+/// 路径变化类操作(改名)必须级联改写 filter_current,且改写后的引用真实存在(不变量③)。
 #[test]
-fn rename_cascades_tabs_and_keeps_invariants() {
+fn rename_cascades_filter_and_keeps_invariants() {
     let mut c = Connection::open_in_memory().unwrap();
     crate::db::migrate::run(&c).unwrap();
     crate::db::repos::notes::create_plain(&mut c, "会议记录 #工作/项目A").unwrap();
-    let tabs = r##"{"tabs":[{"title":"页","conditions":{"tags":[{"path":"工作/项目A","includeChildren":true}],"excludeTags":[{"path":"工作","includeChildren":false}],"expr":"#工作/项目A"}}],"activeIndex":0}"##;
-    crate::db::repos::settings::set(&c, TABS_STATE_KEY, tabs).unwrap();
+    let filter = r##"{"keyword":null,"tags":[{"path":"工作/项目A","includeChildren":true}],"excludeTags":[{"path":"工作","includeChildren":false}],"tagPresence":null,"sort":"newest","expr":"#工作/项目A"}"##;
+    crate::db::repos::settings::set(&c, FILTER_CURRENT_KEY, filter).unwrap();
     let root = id_at(&c, "工作");
 
     crate::db::repos::tags::rename(&mut c, root, "事业").unwrap();
 
-    let raw = crate::db::repos::settings::get(&c, TABS_STATE_KEY).unwrap().unwrap();
+    let raw = crate::db::repos::settings::get(&c, FILTER_CURRENT_KEY).unwrap().unwrap();
     assert!(raw.contains("事业/项目A") && !raw.contains("工作"), "条件未级联: {raw}");
     assert_fts_matches_tags(&c);
     assert_no_orphan_tags(&c);
-    assert_tabs_paths_exist(&c);
+    assert_filter_paths_exist(&c);
 }
 
 /// 变异法可证伪:直接 `UPDATE tag_links SET tag_id` 制造漂移(tag_links 自 003 起没有

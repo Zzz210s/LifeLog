@@ -1,6 +1,7 @@
 //! 迁移序列的基础回归(自 migrate.rs 拆出以守 200 行上限):
 //! 建表 / 版本号推进 / 幂等 / 003 的 FTS 与 004 的回填。
 use super::*;
+use crate::db::migration_hooks::backfill_skips;
 
 fn db() -> Connection {
     let conn = Connection::open_in_memory().unwrap();
@@ -114,7 +115,7 @@ fn insert_note(conn: &Connection, content: &str, created_at: &str) -> i64 {
 }
 
 /// 必修4.3:008 的钩子日志只报"确实因此拿不到时间标签"的笔记 ——
-/// created_at 无法解析但已有时间标签的笔记不在此列(否则排障被误导)
+/// created_at 无法解析但已有时间标签的笔记不在此列(否则排障被误导)。钩子在 db::migration_hooks。
 #[test]
 fn backfill_hook_reports_only_notes_missing_time_tags() {
     let conn = db();
