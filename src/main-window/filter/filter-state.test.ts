@@ -102,4 +102,13 @@ describe('filter-state toggleFilterTag(与 tabs-model.toggleActiveTag 同口径)
     expect(on.sort).toBe('oldest');
     expect(on.expr).toBe('a>1');
   });
+
+  it('退化时返回的是副本,不是共享的 EMPTY_FILTER 常量(别名风险)', () => {
+    const a = parseFilterState(null);
+    const b = parseFilterState('坏 JSON');
+    expect(a).not.toBe(EMPTY_FILTER);
+    expect(b).not.toBe(EMPTY_FILTER);
+    expect(a).not.toBe(b);
+    expect(a).toEqual(EMPTY_FILTER);
+  });
 });

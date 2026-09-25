@@ -79,6 +79,13 @@ export function useFilterState(): FilterStateApi {
     []
   );
 
+  /**
+   * 从库重读(标签改名/移动后 Rust 已在同一事务里改写该键,前端不重复实现重写)。
+   *
+   * 已知窗口(继承自旧 `useTabs.reload`,非本层引入):reload 期间 `ready=false` 且挂起的写回被清掉,
+   * 若用户在 IPC 往返窗口内改条件,那次改动既不落盘也不再排程(键缺失路径下更明显)。
+   * 触发面:`use-edit-flow` 在标签路径变更时调它,可能与用户 500ms 内的点选重叠。
+   */
   const reload = useCallback(() => {
     if (timer.current !== null) {
       clearTimeout(timer.current); // 取消待写的旧值,别覆盖 Rust 刚改写的结果

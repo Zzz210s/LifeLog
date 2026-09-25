@@ -22,9 +22,11 @@ export function defaultFilterState(): FilterConditions {
 /**
  * 解析持久化的 filter_current:空串/坏 JSON/非法条件一律退化为空条件 ——
  * 解析与归一完全复用 shared 的 parseFilterJson,不在这里维护第二套口径。
+ * **返回副本**:parseFilterJson 在退化路径上会直接返回模块级的 `EMPTY_FILTER` 常量本身,
+ * 而本函数的产物会长期存在状态里(持有共享对象 = 潜在的别名改写风险,见评审 M3)。
  */
 export function parseFilterState(raw: string | null): FilterConditions {
-  return parseFilterJson(raw);
+  return { ...parseFilterJson(raw) };
 }
 
 /** 序列化为落库文本:只写约定的六个字段,未知字段一律不落地(前向兼容) */
