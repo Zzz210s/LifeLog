@@ -7,7 +7,8 @@
  * 匹配与取数,也不自带键盘(键盘路由在 `UnifiedInput` 的 textarea 上,与浮层口径一致)。
  *
  * 高度:`suggestListHeightCss(COMPLETE_LIMIT)` = 输入栏补全列表的同一上限(8 行);
- * 超出滚动。行数再按 `MAX_ROWS` 兜底截断(渲染保护,不参与计数 —— 计数与截断提示来自列表模型)。
+ * 超出滚动。渲染行数由 `renderRowCount`(palette-limits)统一给:它**同时**是键盘取模窗口与高亮
+ * 夹紧上限 —— 三处共用一份算式,避免“渲染 90 行、高亮能到第 199 行”这类口径分叉。
  */
 import type { ReactNode } from 'react';
 import { COMPLETE_LIMIT } from '../../shared/quickpick/model';
@@ -15,7 +16,7 @@ import type { ListRow } from '../../shared/quickpick/model';
 import { suggestListHeightCss } from '../../shared/input-geometry';
 import { PaletteRow, rowFromListRow } from '../palette/PaletteRow';
 import type { PaletteRowData, RowDecoration } from '../palette/PaletteRow';
-import { MAX_RENDER_ROWS } from '../palette/palette-limits';
+import { renderRowCount } from '../palette/palette-limits';
 import type { PaletteController } from '../palette/use-palette';
 
 /** 下拉容器(listbox)的 DOM id:输入框的 `aria-controls` 指向它 */
@@ -28,7 +29,8 @@ export const UNIFIED_LISTBOX_ID = 'unified-listbox';
  * 无候选行时同样不给 —— 这一条与下面渲染时的 `selected` 夹紧是同一个口径。
  */
 export function activeOptionRowId(rowCount: number, activeIndex: number): string | null {
-  if (rowCount === 0 || activeIndex < 0 || activeIndex >= MAX_RENDER_ROWS) return null;
+  // 空候选时 `renderRowCount(0) = 0`,任给索引都取不到行 —— 不必再单列一条 rowCount === 0
+  if (activeIndex < 0 || activeIndex >= renderRowCount(rowCount)) return null;
   return `unified-opt-${activeIndex}`;
 }
 
@@ -44,7 +46,8 @@ export interface UnifiedDropdownProps {
 }
 
 export function UnifiedDropdown(p: UnifiedDropdownProps): ReactNode {
-  const rows = p.rows.slice(0, MAX_RENDER_ROWS);
+  const renderCount = renderRowCount(p.rows.length);
+  const rows = p.rows.slice(0, renderCount);
   // 高亮索引同样钳在渲染范围内:范围外的索引没有对应行,不给任何行加选中态
   // (与输入框的 aria-activedescendant 同口径:要么指向真在的行,要么都不指)
   const active = p.activeIndex >= 0 && p.activeIndex < rows.length ? p.activeIndex : -1;
@@ -78,7 +81,7 @@ export function UnifiedDropdown(p: UnifiedDropdownProps): ReactNode {
         )}
         {/* 截断提示:控制器给 truncated,本地再按渲染上限兜底 —— 命中 91..200 时控制器 limit 是 200、
             列表模型不报截断,UI 只画 90 行,只信 truncated 会静默丢行 */}
-        {(p.truncated || p.rows.length > MAX_RENDER_ROWS) && (
+        {(p.truncated || p.rows.length > renderCount) && (
           <p role="presentation" className="border-t border-border px-3 py-1 text-micro text-muted">
             还有更多,继续输入以缩小范围(命中 {p.total} 项)
           </p>

@@ -37,7 +37,7 @@ export interface PaletteController {
   rows: readonly ListRow[];
   total: number;
   truncated: boolean;
-  /** 高亮行(已被 rows 长度夹紧) */
+  /** 高亮行(已被 rows 长度与渲染上限夹紧,见 clampActiveIndex) */
   activeIndex: number;
   setQuery: (next: string) => void;
   /** 直接切前缀(前缀实时驱动与「打开即带前缀」共用同一入口) */

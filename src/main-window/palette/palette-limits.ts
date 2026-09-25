@@ -7,9 +7,14 @@
  */
 export const MAX_RENDER_ROWS = 90;
 
+/** 真正会被画出来的行数(渲染窗口;键盘取模与高亮夹紧都用它,避免三处各写一份算式) */
+export function renderRowCount(rowCount: number): number {
+  return Math.min(Math.max(0, rowCount), MAX_RENDER_ROWS);
+}
+
 /** 把高亮夹进"既在候选范围内、又在渲染范围内"的区间(空列表回 0) */
 export function clampActiveIndex(raw: number, rowCount: number): number {
-  const max = Math.min(rowCount, MAX_RENDER_ROWS) - 1;
+  const max = renderRowCount(rowCount) - 1;
   if (max < 0) return 0;
   return Math.max(0, Math.min(raw, max));
 }

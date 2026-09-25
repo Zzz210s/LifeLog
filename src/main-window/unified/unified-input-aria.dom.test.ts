@@ -143,6 +143,17 @@ describe('统一输入框 aria', () => {
     // ↓ 从末行回到首行(计数按渲染窗口 90 取模,不是按候选 200)
     await key(host, 'ArrowDown');
     expect(activeDescendant(host)).toBe('unified-opt-0');
+
+    // 中段落点:再 ↓ 两次就是 2 —— 只断言两端的话,里面拄成另一套算法也看不出来
+    await key(host, 'ArrowDown');
+    await key(host, 'ArrowDown');
+    expect(activeDescendant(host)).toBe('unified-opt-2');
+  });
+
+  it('空候选时不给 aria-activedescendant(空态不指一个不存在的行)', async () => {
+    const host = await mount(stubPalette({ rows: [], total: 0 }));
+    await type(host, '#购');
+    expect(activeDescendant(host)).toBeNull();
   });
 
   it('listbox 里没有 role=list 的中间层,直接子元素是 presentation/option', async () => {
