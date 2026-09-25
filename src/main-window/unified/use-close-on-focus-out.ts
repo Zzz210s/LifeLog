@@ -15,7 +15,11 @@ export function useCloseOnFocusOut(
   const ref = useRef<HTMLDivElement>(null);
   const onBlur = useCallback(
     (e: FocusEvent<HTMLDivElement>) => {
-      if (open && !ref.current?.contains(e.relatedTarget)) close();
+      if (!open || ref.current?.contains(e.relatedTarget)) return;
+      // **推迟到下一帧再关**:下拉在文档流里,关掉会让下方内容(条件栏、笔记流)整体上移;
+      // 若在 mousedown 阶段就关,鼠标抬起时目标已经移位 -> 浏览器把 click 派发到两次命中的共同
+      // 祖先,用户会觉得“第一次点击被吞了”。等一帧后 click 已经派发完毕,再关就不影响它。
+      requestAnimationFrame(close);
     },
     [open, close]
   );

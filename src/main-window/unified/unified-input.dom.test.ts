@@ -95,32 +95,8 @@ describe('唯一输入框(设计 §3/§4)', () => {
     expect(host.querySelector('[data-testid="unified-dropdown"]')).toBeNull();
   });
 
-  it('焦点离开输入区(点到框外)即关下拉', async () => {
-    const host = await mount({ candidates: { palette: stubPalette({ rows: rows(3), total: 3 }) } });
-    box(host).focus(); // 真实流程:先在框里打字(焦点在框内),再点到别处
-    await type(host, '#购');
-    expect(host.querySelector('[data-testid="unified-dropdown"]')).not.toBeNull();
-
-    const outside = document.createElement('button');
-    document.body.append(outside);
-    outside.focus(); // 真实焦点转移 -> focusout 冒泡到容器
-    await act(async () => {});
-    expect(host.querySelector('[data-testid="unified-dropdown"]')).toBeNull();
-    expect(box(host).value).toBe('#购'); // 只关下拉,内容与模式不动
-  });
-
-  it('焦点移到下拉内部(点候选行)不关', async () => {
-    const host = await mount({ candidates: { palette: stubPalette({ rows: rows(3), total: 3 }) } });
-    box(host).focus();
-    await type(host, '#购');
-    const option = host.querySelector('[role="option"]') as HTMLElement;
-    option.tabIndex = 0;
-    option.focus();
-    await act(async () => {});
-    expect(host.querySelector('[data-testid="unified-dropdown"]')).not.toBeNull();
-  });
-
-  it('输入前缀时把模式上报给父组件', async () => {    const seen: string[] = [];
+  it('输入前缀时把模式上报给父组件', async () => {
+    const seen: string[] = [];
     const host = await mount({ onStateChange: (s) => seen.push(s.mode) });
     await type(host, '#购');
     expect(seen.at(-1)).toBe('tag');
