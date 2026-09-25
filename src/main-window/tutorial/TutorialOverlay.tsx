@@ -31,8 +31,14 @@ export function TutorialOverlay({ hole }: { hole: Rect | null }): ReactNode {
   return (
     <div data-testid="tutorial-root" className="absolute inset-0 z-40">
       {/* 透明底板:盖住洞口那块空白,吃掉落在引导上的所有点击/滚轮(不放行到下层)。
-          点它不退出(防误触):退出只有完成 / 跳过 / Esc 三条用户动作。 */}
-      <div className="absolute inset-0" onClick={(e) => e.stopPropagation()} />
+          点它不退出(防误触):退出只有完成 / 跳过 / Esc 三条用户动作。
+          `onMouseDown` preventDefault:点它不会把焦点丢给 body(focusin 拓不回来)。 */}
+      <div
+        data-testid="tutorial-scrim"
+        className="absolute inset-0"
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={(e) => e.stopPropagation()}
+      />
       {hole === null ? <div className={DIM + ' inset-0'} /> : <Bands hole={hole} />}
     </div>
   );

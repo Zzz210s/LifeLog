@@ -110,6 +110,26 @@ describe('引导层:渲染与回退链', () => {
   });
 });
 
+describe('引导层:前置动作(侧栏隐藏时的第 3 步)', () => {
+  it('锚点因侧栏隐藏而缺失时,先执行 onShowSidebar 再解析 —— 不把该步跳过', async () => {
+    const onShowSidebar = vi.fn(() => {
+      // 前置动作真的把侧栏显示出来(真实实现里 sidebar.setVisible(true) 的效果)
+      anchorOf('tags');
+    });
+    anchorOf('input'); // 只放第 1 步的锚点:第 2/3 步都要靠回退/前置动作才出现
+    anchorOf('tabs');
+    anchorOf('topbar');
+    mount({ onShowSidebar });
+    await settle();
+    // 第 1 步在场 -> 先看第 1 步;推进后第 2 步(prefix-hint)缺、第 3 步(标签)靠前置动作补齐
+    expect(stepText()).toContain('第 1 / 5 步');
+    await click('tutorial-next'); // -> 第 3 步(第 2 步锚点缺失被跳过)
+    await settle();
+    expect(onShowSidebar).toHaveBeenCalled();
+    expect(stepText()).toContain('第 3 / 5 步');
+  });
+});
+
 describe('引导层:两个出口的语义', () => {
   it('Esc 退出并调 onExit 一次', async () => {
     anchorOf('input');
@@ -128,6 +148,30 @@ describe('引导层:两个出口的语义', () => {
     await click('tutorial-root');
     expect(onExit).not.toHaveBeenCalled();
     expect($('tutorial-root')).not.toBeNull();
+  });
+
+  it('透明底板盖住整屏(含洞口)且吃掉点击:模态不放行到下层', async () => {
+    anchorOf('input');
+    // 外层是"下层应用"的替身:它挂在引导层**外面**,若事件不被吞就会命中它的 onClick
+    const outerClick = vi.fn();
+    act(() =>
+      root.render(
+        createElement(
+          'div',
+          { onClick: outerClick },
+          createElement(TutorialLayer, { open: true, onExit })
+        )
+      )
+    );
+    await settle();
+    const scrim = $('tutorial-scrim') as HTMLElement;
+    expect(scrim).not.toBeNull();
+    // 底板是整屏的:洞口那块空白也在它覆盖范围内(所以洞口内点击不会落到下层输入框)
+    expect(scrim.className).toContain('inset-0');
+    act(() => scrim.click());
+    await settle();
+    expect(outerClick).not.toHaveBeenCalled(); // 被吞:到不了下层
+    expect(onExit).not.toHaveBeenCalled();     // 也不退出
   });
 
   it('末步按钮文案是「完成」,点它调 onExit', async () => {

@@ -63,6 +63,11 @@ export function useTutorial(open: boolean, handlers: TutorialHandlers = {}): Tut
   const [rect, setRect] = useState<Rect | null>(null);
   /** 「确实显示过至少一步」:只有它为真,全缺才算走完;否则是"还没渲染出来" */
   const shown = useRef(false);
+  /** 已经执行过前置动作的步骤 id(同一会话只做一次,别把侧栏反复开关) */
+  const didBefore = useRef<Set<string>>(new Set());
+  /** 解析时读最新状态(avoid 在 setState 更新器里做副作用) */
+  const stateRef = useRef(state);
+  stateRef.current = state;
   /** 回调放进 ref:调用方常传内联函数,直接进依赖会让解析 effect 每次渲染重跑 */
   const cb = useRef<TutorialHandlers>({});
   const step = TUTORIAL_STEPS[state.index];
@@ -75,27 +80,51 @@ export function useTutorial(open: boolean, handlers: TutorialHandlers = {}): Tut
   useEffect(() => {
     if (!open) return;
     let alive = true;
-    const attempt = (left: number): void => {
+    let left = ANCHOR_RETRIES;
+    /**
+     * 下一个“能靠前置动作救回来”的步骤:从当前步往后扫,先遇到**已可显示**的就返回 null
+     * (那一步才是落点,不需要前置);先遇到带未执行 `before` 的步就返回它。
+     * 为什么不能只看“当前步”:第 3 步的锚点会因侧栏隐藏而缺失,而当前步可能是第 2 步 ——
+     * 只看当前步的话,第 3 步会被 dropMissing 直接跳过、前置动作永不执行(验收 ⑥ 会红)。
+     */
+    const pendingBefore = (): TutorialStep | null => {
+      for (let i = stateRef.current.index; i < TUTORIAL_STEPS.length; i++) {
+        const st = TUTORIAL_STEPS[i];
+        if (anchorFound(st)) return null;
+        if (st.before === 'show-sidebar' && !didBefore.current.has(st.id)) return st;
+      }
+      return null;
+    };
+    const attempt = (): void => {
       if (!alive) return;
-      const fixed = dropMissing(state, TUTORIAL_STEPS, anchorFound);
+      // **前置动作要在解析之前跑**:第 3 步的两个锚点(tag-list / sidebar)正是侧栏隐藏时
+      // 从 DOM 消失的那两个。这里不消耗重试预算。
+      const need = pendingBefore();
+      if (need !== null) {
+        didBefore.current.add(need.id);
+        cb.current.onShowSidebar?.();
+        requestAnimationFrame(attempt);
+        return;
+      }
+      const fixed = dropMissing(stateRef.current, TUTORIAL_STEPS, anchorFound);
       if (fixed.open) {
         shown.current = true;
-        if (TUTORIAL_STEPS[fixed.index].before === 'show-sidebar') cb.current.onShowSidebar?.();
         setState((s) => (s.open === fixed.open && s.index === fixed.index ? s : fixed));
         return;
       }
       // 从当前步往后一步都解析不出锚点
       if (shown.current) {
-        if (state.open) setState(exitTutorial()); // 显示过至少一步 => 算走完(调用方写标记)
+        if (stateRef.current.open) setState(exitTutorial()); // 显示过至少一步 => 算走完(调用方写标记)
         return;
       }
       if (left > 0) {
-        requestAnimationFrame(() => attempt(left - 1));
+        left -= 1;
+        requestAnimationFrame(attempt);
         return;
       }
       cb.current.onUnavailable?.(); // 一步都没显示过:只关闭,不写标记
     };
-    attempt(ANCHOR_RETRIES);
+    attempt();
     return () => {
       alive = false;
     };
