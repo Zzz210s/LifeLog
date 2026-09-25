@@ -149,4 +149,12 @@ describe('tabs-model 增删切重排改名', () => {
     const off = toggleActiveTag(on, '健康');
     expect(off.tabs[0].conditions.tags).toEqual([]);
   });
+
+  it('toggleActiveTag 与侧栏/统一输入框同口径:排除侧命中就移到包含侧', () => {
+    const s = addTab(defaultTabs(), cond({ excludeTags: [{ path: '健康', includeChildren: false }] }));
+    const moved = toggleActiveTag(activateTab(s, 1), '健康');
+    expect(moved.tabs[1].conditions.tags).toEqual([{ path: '健康', includeChildren: true }]);
+    expect(moved.tabs[1].conditions.excludeTags).toEqual([]);
+    expect(moved.tabs[0].conditions.tags).toEqual([]); // 只改当前页
+  });
 });

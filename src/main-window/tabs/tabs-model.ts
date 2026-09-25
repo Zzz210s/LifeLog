@@ -133,9 +133,16 @@ export function patchActive(s: TabsState, value: Partial<FilterConditions>): Tab
   return { ...s, tabs };
 }
 
-/** 当前页标签选中开关:未选中则加入(默认"含子级"),已选中则移除 */
+/** 当前页标签选中开关:未选中则加入(默认"含子级"),已选中则移除;
+ *  排除侧已有该路径时**移到包含侧** —— 与侧栏 toggleTagPick、统一输入框 `#` 同一口径 */
 export function toggleActiveTag(s: TabsState, path: string): TabsState {
   const current = activeConditions(s);
+  if (current.excludeTags.some((t) => t.path === path)) {
+    return patchActive(s, {
+      excludeTags: current.excludeTags.filter((t) => t.path !== path),
+      tags: [...current.tags, { path, includeChildren: true }],
+    });
+  }
   const has = current.tags.some((t) => t.path === path);
   const tags = has
     ? current.tags.filter((t) => t.path !== path)
