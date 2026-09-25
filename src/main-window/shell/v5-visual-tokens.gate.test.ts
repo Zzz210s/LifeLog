@@ -44,6 +44,7 @@ const FILES = [
   'settings/GeneralSection.tsx',
   'settings/HotkeyRecorder.tsx',
   'shell/button-classes.ts',
+  'tutorial/TutorialBubble.tsx',
 ] as const;
 
 /** 浮层容器(需 rounded-lg + 阴影或遮罩):文件 -> 期望的容器类名片段 */
@@ -53,12 +54,14 @@ const FLOATS: Array<[string, string]> = [
   ['filter/AddConditionMenu.tsx', 'role="menu"'],
   ['shell/TopBarMenu.tsx', 'role="menu"'],
   ['sidebar/TagMenu.tsx', 'role="menu"'],
+  ['tutorial/TutorialBubble.tsx', 'role="dialog"'],
 ];
 
 /** 有模态遮罩的文件(对话框的 bg-overlay;2/3 Task 5 已删零使用者的 .overlay-scrim) */
 const SCRIMS: Array<[string, string]> = [
   ['filter/ExprDialog.tsx', 'bg-overlay'],
   ['filter/TagPickDialog.tsx', 'bg-overlay'],
+  ['tutorial/TutorialOverlay.tsx', 'bg-overlay'],
 ];
 
 const src = (file: string): string => readFileSync(`${ROOT}/${file}`, 'utf8');

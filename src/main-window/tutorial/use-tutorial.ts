@@ -18,6 +18,8 @@ import type { Rect } from './tutorial-layout';
 
 /** 首次测量全缺时的重试帧数(两帧,设计 3.4) */
 export const ANCHOR_RETRIES = 2;
+/** 前置动作(显示侧栏)后等锚点出现的帧数:React 状态变更要过一两帧 DOM 才提交 */
+const BEFORE_FRAMES = 8;
 
 export interface TutorialHandlers {
   /** 重试后一步都显示不出来:调用方**只关闭、不写标记** */
@@ -95,6 +97,15 @@ export function useTutorial(open: boolean, handlers: TutorialHandlers = {}): Tut
       }
       return null;
     };
+    /** 前置动作后等这一步的锚点出现(最多 left 帧);超时就交回常规解析 */
+    const waitForStep = (target: TutorialStep, left: number): void => {
+      if (!alive) return;
+      if (anchorFound(target) || left <= 0) {
+        attempt();
+        return;
+      }
+      requestAnimationFrame(() => waitForStep(target, left - 1));
+    };
     const attempt = (): void => {
       if (!alive) return;
       // **前置动作要在解析之前跑**:第 3 步的两个锚点(tag-list / sidebar)正是侧栏隐藏时
@@ -103,7 +114,9 @@ export function useTutorial(open: boolean, handlers: TutorialHandlers = {}): Tut
       if (need !== null) {
         didBefore.current.add(need.id);
         cb.current.onShowSidebar?.();
-        requestAnimationFrame(attempt);
+        // 等**这一步自己的锚点**真的可测量再继续:侧栏是 React 状态变更,
+        // 下一帧 DOM 可能还没提交(实测:只等一帧时 tag-list 矩形仍为 0,该步被误跳过)
+        waitForStep(need, BEFORE_FRAMES);
         return;
       }
       const fixed = dropMissing(stateRef.current, TUTORIAL_STEPS, anchorFound);

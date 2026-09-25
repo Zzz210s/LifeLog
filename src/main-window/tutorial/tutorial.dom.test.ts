@@ -75,6 +75,35 @@ describe('引导层:前置动作(侧栏隐藏时的第 3 步)', () => {
   });
 });
 
+describe('引导层:前置动作后要等锚点真的可测量', () => {
+  it('侧栏要过几帧才渲染出来:该步不被误跳过(实测踩过的坑)', async () => {
+    const frames: FrameRequestCallback[] = [];
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => frames.push(cb));
+    const onShowSidebar = vi.fn(); // 只"开始显示侧栏",锚点要过几帧才出现
+    anchorOf('input');
+    anchorOf('tabs');
+    anchorOf('topbar');
+    h.mount({ onShowSidebar });
+    await h.settle();
+    await h.click('tutorial-next'); // -> 第 2 步锚点缺失 -> 解析到第 3 步:触发前置动作
+    // 前置动作刚跑完的这几帧里侧栏还没提交:锚点仍缺,此刻**不能**把第 3 步判成跳过
+    for (let i = 0; i < 3; i++) {
+      act(() => {
+        (frames.shift() as FrameRequestCallback | undefined)?.(0);
+      });
+      await h.settle();
+    }
+    expect(onShowSidebar).toHaveBeenCalledTimes(1);
+    expect(h.stepText()).not.toContain('第 4 / 5 步'); // 跳到第 4 步 = 第 3 步被误跳过
+    anchorOf('tags'); // 侧栏渲染出来了
+    act(() => {
+      while (frames.length > 0) (frames.shift() as FrameRequestCallback)(0);
+    });
+    await h.settle();
+    expect(h.stepText()).toContain('第 3 / 5 步');
+  });
+});
+
 describe('引导层:两个出口的语义', () => {
   it('Esc 退出并调 onExit 一次', async () => {
     anchorOf('input');

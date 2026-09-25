@@ -42,6 +42,19 @@ pub fn apply(app: &AppHandle, autostart_launch: bool) {
         // 仅托盘:不显示任何窗口,进程驻留托盘等待唤起点
         StartupAction::TrayOnly => {}
     }
+    // 首次使用引导:没看过 `ui.tutorial_seen` 就在**这里**把主窗叫起来。
+    // 为什么不在 IPC 命令里建:从输入栏页面 invoke 建窗会把主线程卡死
+    // (实测:窗口停在 about:blank、后续 IPC 永不返回),而这条路径与托盘「打开主窗口」同一实现。
+    if !tutorial_seen(app) {
+        if let Err(e) = open_main_window(app) {
+            eprintln!("首次引导打开主窗口失败(下次启动会再试):{e}");
+        }
+    }
+}
+
+/// 引导标记:只有 "1" 算看过(空串/缺失/读不到都算没看过),与前端 isSeen 同一口径。
+fn tutorial_seen(app: &AppHandle) -> bool {
+    windowing::input_geom::get_str(app, "ui.tutorial_seen").as_deref() == Some("1")
 }
 
 /// 显示主窗口(托盘「打开主窗口」/「设置」共用):窗口存在则只显示,不存在才按需构建

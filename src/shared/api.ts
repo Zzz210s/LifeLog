@@ -47,8 +47,6 @@ export const api = {
   hideInputBar: () => invoke<void>('hide_input_bar'),
   /** 隐藏主窗(与标题栏 X、托盘同一语义;页面发起的 window.close() 走这条 —— 待办 #36) */
   hideMainWindow: () => invoke<void>('hide_main_window'),
-  /** 显示主窗(输入栏首次启动放新手引导时调用;与托盘「打开主窗口」同一实现) */
-  openMainWindow: () => invoke<void>('open_main_window'),
   /** 设置输入栏唤起快捷键:成功返回规范化后的生效值;失败返回中文原因且旧键仍可用 */
   setInputHotkey: (accelerator: string) => invoke<string>('set_input_hotkey', { accelerator }),
   /** 运行时实际生效的快捷键(null = 当前没有热键在生效);界面显示用它而非库值 */

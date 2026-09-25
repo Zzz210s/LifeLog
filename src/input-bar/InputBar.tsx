@@ -15,7 +15,6 @@ import { suggestListHeightCss } from '../shared/input-geometry';
 import { useInputSettings } from './use-input-settings';
 import { useInputWheel } from './use-input-wheel';
 import { usePaletteSettings } from '../main-window/palette/use-palette-settings';
-import { useTutorialOpenRequest } from './use-tutorial-open-request';
 
 export function InputBar() {
   const [content, setContent] = useState('');
@@ -35,8 +34,8 @@ export function InputBar() {
     setContent(next);
   }, []);
   const { settings, lock, error, setError, unlock } = useInputSettings();
-  // 首次使用:未看过引导则把主窗叫起来(只有输入栏负责开窗,见 use-tutorial-open-request)
-  useTutorialOpenRequest();
+  // 首次使用引导的开窗不在前端做:由 Rust 启动路径读 `ui.tutorial_seen` 后自己开主窗
+  // (从 IPC 命令里建窗会把主线程卡死,见 windowing/startup.rs 的注释)
   // 主题:输入栏不写库,只跟随主窗广播(见 shared/use-theme-mode);窗口保持透明
   useThemeMode({ follow: true, onError: setError });
   const editing = canEdit(lock);

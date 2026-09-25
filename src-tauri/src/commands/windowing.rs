@@ -64,13 +64,6 @@ pub fn hide_main_window(app: AppHandle) -> Result<(), String> {
     windowing::main_window::hide(&app).map_err(|e| e.to_string())
 }
 
-/// 显示主窗:输入栏首次启动要放新手引导时调用(主窗是覆盖层的唯一承载界面)。
-/// 薄封装 tray「打开主窗口」同一实现:窗口已在时只显示并自愈陈旧句柄,不新增窗口逻辑
-#[tauri::command]
-pub fn open_main_window(app: AppHandle) -> Result<(), String> {
-    windowing::startup::open_main_window(&app).map_err(|e| e.to_string())
-}
-
 /// 活性回执:主窗探针注入脚本后由页面调回,证明 webview 还能执行脚本(待办 #36)
 #[tauri::command]
 pub fn webview_ack(token: String) {
