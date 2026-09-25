@@ -17,6 +17,7 @@ import type { InputMode } from '../../shared/input-prefix';
 import { BTN_PRIMARY } from '../shell/button-classes';
 import { PrefixHint } from './PrefixHint';
 import { activeOptionRowId, UNIFIED_LISTBOX_ID, UnifiedDropdownSlot } from './UnifiedDropdown';
+import { MAX_RENDER_ROWS } from '../palette/palette-limits';
 import { UnifiedTextarea } from './UnifiedTextarea';
 import { useUnifiedCandidates, type UnifiedCandidateWiring } from './use-unified-candidates';
 import { useUnifiedKeys } from './use-unified-keys';
@@ -128,7 +129,7 @@ export function UnifiedInput(p: UnifiedInputProps): ReactNode {
   const routeKey = useUnifiedKeys({
     dropdownShown: showDropdown,
     activeIndex: pal?.activeIndex ?? 0,
-    count: cands.rows.length,
+    count: Math.min(cands.rows.length, MAX_RENDER_ROWS),
     save: () => void save(),
     esc: () => c.esc(), // 两级:有下拉先关下拉(模式/内容不动),没下拉才退模式
     highlight: (index) => pal?.setActiveIndex(index),

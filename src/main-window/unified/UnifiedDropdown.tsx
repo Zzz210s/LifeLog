@@ -15,10 +15,8 @@ import type { ListRow } from '../../shared/quickpick/model';
 import { suggestListHeightCss } from '../../shared/input-geometry';
 import { PaletteRow, rowFromListRow } from '../palette/PaletteRow';
 import type { PaletteRowData, RowDecoration } from '../palette/PaletteRow';
+import { MAX_RENDER_ROWS } from '../palette/palette-limits';
 import type { PaletteController } from '../palette/use-palette';
-
-/** 行渲染上限(防御性:候选源已自带上限,这里只保证 DOM 不被一次画爆) */
-export const MAX_RENDER_ROWS = 90;
 
 /** 下拉容器(listbox)的 DOM id:输入框的 `aria-controls` 指向它 */
 export const UNIFIED_LISTBOX_ID = 'unified-listbox';

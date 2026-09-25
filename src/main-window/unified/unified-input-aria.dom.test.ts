@@ -6,9 +6,11 @@
  * 另含「点提示行前缀段后焦点回到输入框」的接线用例(必修 2)。
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { act, createElement } from 'react';
+import { act, createElement, useState } from 'react';
+import type { ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { UnifiedInput } from './UnifiedInput';
+import { MAX_RENDER_ROWS, clampActiveIndex } from '../palette/palette-limits';
 import type { PaletteController } from '../palette/use-palette';
 import type { ListRow } from '../../shared/quickpick/model';
 
@@ -47,6 +49,31 @@ const rerender = async (palette: PaletteController): Promise<void> => {
 
 const box = (host: HTMLElement) => host.querySelector('[data-testid="unified-input"]') as HTMLTextAreaElement;
 const live = (host: HTMLElement) => host.querySelector('[aria-live="polite"]')?.textContent ?? null;
+/** 输入框当前指向的候选行 id(没有属性时 null) */
+const activeDescendant = (host: HTMLElement) =>
+  host.querySelector('[aria-activedescendant]')?.getAttribute('aria-activedescendant') ?? null;
+
+/**
+ * 有状态候选宿主:高亮口径与真控制器相同(`clampActiveIndex`),只是候选直接喂进去,
+ * 用来在 DOM 上观测键盘把高亮推到哪一行。
+ */
+function ClampedHost({ rowCount }: { rowCount: number }): ReactNode {
+  const [rawActive, setRawActive] = useState(0);
+  const palette: PaletteController = {
+    prefix: '', query: '', rows: rows(rowCount), total: rowCount, truncated: false,
+    activeIndex: clampActiveIndex(rawActive, rowCount),
+    setQuery: () => {}, setPrefix: () => {}, setActiveIndex: setRawActive,
+  };
+  return createElement(UnifiedInput, { onSaved: () => {}, editing: false, candidates: { palette } });
+}
+
+const mountClamped = async (rowCount: number): Promise<HTMLElement> => {
+  const el = document.createElement('div');
+  document.body.append(el);
+  root = createRoot(el);
+  await act(async () => root!.render(createElement(ClampedHost, { rowCount })));
+  return el;
+};
 
 const type = async (host: HTMLElement, text: string) => {
   const el = box(host);
@@ -98,6 +125,24 @@ describe('统一输入框 aria', () => {
     await rerender(stubPalette({ rows: rows(200), total: 200, activeIndex: 89 }));
     expect(el.getAttribute('aria-activedescendant')).toBe('unified-opt-89');
     expect(host.querySelector('#unified-opt-89')).not.toBeNull();
+  });
+
+  it('200 条候选时高亮夹在渲染范围内:键盘只在渲染窗口里取模', async () => {
+    // 夹具的高亮口径与真控制器一致(clampActiveIndex);下拉只画 90 行
+    const host = await mountClamped(200);
+    await type(host, '@');
+    expect(host.querySelectorAll('li[role="option"]').length).toBe(MAX_RENDER_ROWS);
+
+    // ↑ 从首行循环到渲染窗口的最后一行:不是候选的第 199 行
+    await key(host, 'ArrowUp');
+    expect(activeDescendant(host)).toMatch(/^unified-opt-(?:[0-8]?\d)$/);
+    expect(activeDescendant(host)).toBe(`unified-opt-${MAX_RENDER_ROWS - 1}`);
+    expect(host.querySelector(`#unified-opt-${MAX_RENDER_ROWS - 1}`)).not.toBeNull();
+    expect(host.querySelectorAll('[aria-selected="true"]').length).toBe(1);
+
+    // ↓ 从末行回到首行(计数按渲染窗口 90 取模,不是按候选 200)
+    await key(host, 'ArrowDown');
+    expect(activeDescendant(host)).toBe('unified-opt-0');
   });
 
   it('listbox 里没有 role=list 的中间层,直接子元素是 presentation/option', async () => {

@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { buildList } from '../../shared/quickpick/model';
 import type { ListRow, MruEntry, QuickPickItem } from '../../shared/quickpick/model';
+import { clampActiveIndex } from './palette-limits';
 
 export interface UsePaletteOptions {
   /** 候选(由 useAppPalette 的 provider 体系取回) */
@@ -55,8 +56,9 @@ export function usePalette(options: UsePaletteOptions): PaletteController {
     [items, query, pinned, mru, limit],
   );
   const rows = list.rows;
-  // 候选变化后夹紧当前行:过滤掉了正在高亮的那行也不能停在空行上
-  const activeIndex = rows.length === 0 ? 0 : Math.min(rawActive, rows.length - 1);
+  // 候选变化后夹紧当前行:过滤掉了正在高亮的那行也不能停在空行上;
+  // 上限同时收敛到渲染范围(下拉只画前 MAX_RENDER_ROWS 行,超出就没有对应 DOM 行)
+  const activeIndex = clampActiveIndex(rawActive, rows.length);
 
   // 过滤条件上报(host 取候选用):变化即通知,回调身份由 host 用稳定函数传
   useEffect(() => {
