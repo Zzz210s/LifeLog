@@ -64,8 +64,12 @@ struct LegacyTab {
     conditions: Option<serde_json::Value>,
 }
 
-/// 016 之前:沿用旧 tabs_state 当前活动页的条件(已存在 filter_current 时**不覆盖**);
-/// 越界 / 缺 tabs / 坏 JSON 一律退化到默认空条件(与前端 parseTabsState 的兜底一致)。
+/// 016 之前:沿用旧 tabs_state 当前活动页的条件(已存在 filter_current 时**不覆盖**)。
+/// 容错口径:**activeIndex 越界 → 取第一页**(与前端 `parseTabsState` 的夹取一致,那里 `idx` 非法也落回 0);
+/// 活动页存在但没有 `conditions`(或越界且第一页也没有)→ 空条件;坏 JSON / 缺 tabs → 空条件。
+/// 注:迁移体的 SQL 与 `user_version` 在同一事务里,但本钩子写在事务外(见 `run` 的调用顺序),
+/// 失败时可能留下"filter_current 已写、tabs_state 未删、版本未推进"的中间态 —— 下次启动重跑即收敛
+/// (新键已存在则不覆盖,旧键继续删),不会丢条件。
 /// 取值只能在 Rust 做(SQL 解析不了 JSON),迁移体只负责删旧键。
 fn carry_over_filter_current(conn: &Connection) -> rusqlite::Result<()> {
     let Some(raw) = settings::get(conn, LEGACY_TABS_STATE_KEY)? else {
@@ -81,7 +85,7 @@ fn carry_over_filter_current(conn: &Connection) -> rusqlite::Result<()> {
                 Ok(c) => (c, "沿用旧活动页条件"),
                 Err(_) => (FilterConditions::default(), "旧条件对象无法解析,退化为空条件"),
             },
-            // 越界:取第一页(与前端 parseTabsState 同口径,别把用户的筛选丢掉)
+            // 越界(或活动页没有 conditions):取第一页 —— 与前端 parseTabsState 同口径,别把筛选丢掉
             None => match state.tabs.first().and_then(|t| t.conditions.clone()) {
                 Some(v) => match serde_json::from_value::<FilterConditions>(v) {
                     Ok(c) => (c, "活动页越界,沿用第一页条件"),
