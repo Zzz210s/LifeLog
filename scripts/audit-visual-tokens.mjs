@@ -27,7 +27,7 @@ const values = (list) => [...new Set((list || []).map(([v]) => String(px(v))))].
 try {
   await fetch(`${BASE}/json/version`, { signal: AbortSignal.timeout(2500) });
 } catch {
-  console.log('跳过视觉令牌审计:应用未在 9222 上运行(先以 --remote-debugging-port=9222 启动应用)');
+  console.log(`跳过视觉令牌审计:应用未在 ${BASE} 上运行(先以 --remote-debugging-port=${BASE.split(':').pop()} 启动应用,或用 LIFELOG_CDP_PORT 换端口)`);
   process.exit(2);
 }
 
