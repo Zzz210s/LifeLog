@@ -140,7 +140,7 @@ export function UnifiedInput(p: UnifiedInputProps): ReactNode {
   });
 
   return (
-    <div ref={focusOut.ref} onBlur={focusOut.onBlur} className="border-b border-border px-4 py-2">
+    <div ref={focusOut.ref} onBlur={focusOut.onBlur} onFocus={focusOut.onFocus} className="border-b border-border px-4 py-2">
       {/* 输入框与保存按钮同一行(items-start:自动增高时按钮留顶部) */}
       <div className="flex items-start gap-2">
         <UnifiedTextarea

@@ -103,6 +103,17 @@ describe('候选下拉的焦点手势', () => {
     expect(ev.defaultPrevented).toBe(true);
   });
 
+  it('焦点在同一帧内回到输入区 -> 撤销挂起的关闭(刚开的下拉不被上一帧的 blur 关掉)', async () => {
+    const host = await openWithDropdown();
+    const outside = document.createElement('button');
+    document.body.append(outside);
+    await act(async () => outside.focus()); // 挂起一次关闭
+    const box = host.querySelector('[data-testid="unified-input"]') as HTMLTextAreaElement;
+    await act(async () => box.focus()); // 焦点又回来(真实场景:点「筛选标签」把 # 预填进来)
+    await nextFrame();
+    expect(dropdown(host)).not.toBeNull();
+  });
+
   it('关闭被推迟到下一帧:同一帧内不会因为位移而吞掉点击', async () => {
     const host = await openWithDropdown();
     const outside = document.createElement('button');

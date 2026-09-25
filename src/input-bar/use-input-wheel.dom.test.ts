@@ -6,10 +6,10 @@
  * `window`/`document` —— Chromium 下 `getComputedStyle(window)` 抛 TypeError,把整个处理器
  * 打断,缩放静默失效(实测:验收 I4 从"生效"变成"zoom 不变")。
  *
- * 注意本文件**不能**复现那次 TypeError(jsdom 的 getComputedStyle 对 document 不抛),
- * 所以它钉的是契约而不是那条 guard:合成事件(非元素 target)落在 window/document 上时,
- * 缩放仍要生效。这条契约正是当时被打破的东西 —— 谁再加一句"target 不是元素就 return"
- * 都会让它变红。guard 本身的实机判别见台账 task-6 报告(dev CDP:input_zoom 0.80 -> 0.90)。
+ * jsdom 也会抛同一个 TypeError(它按规范走 `Element.convert`,document/window 都不是 Element),
+ * 所以这条用例对 guard 本身也有判别力:删掉 `use-input-wheel.ts` 里的 `instanceof Element`
+ * 那一行,它会立刻变红(实测)。它同时钉住契约:合成事件(非元素 target)落在 window/document 上
+ * 时缩放仍要生效 —— 谁再加一句"target 不是元素就 return"也会让它变红。
  */
 // @vitest-environment jsdom
 import { act, createElement } from 'react';
@@ -42,11 +42,9 @@ vi.mock('../shared/api', () => ({
 
 let host: HTMLDivElement;
 let root: Root;
-let wheel: ((e: WheelEvent) => boolean) | null;
 
 beforeEach(() => {
   for (const fn of [getSetting, setSetting, setInputScale, setInputSize, setInputHeight, setInputHeightOverlay, hideInputBar]) fn.mockClear();
-  wheel = null;
   host = document.createElement('div');
   document.body.appendChild(host);
   root = createRoot(host);
@@ -58,12 +56,8 @@ afterEach(() => {
 });
 
 function Harness(): ReactNode {
-  const api = useInputWheel({
-    settings: INPUT_DEFAULTS,
-    onResized: () => {},
-    onError: () => {},
-  });
-  wheel = (e: WheelEvent) => api.onMiddleDown(e) === false;
+  // 只挂 hook:本文件测的是 window 上的 wheel 接线,中键那条路径由 CDP 读数 I6 覆盖
+  useInputWheel({ settings: INPUT_DEFAULTS, onResized: () => {}, onError: () => {} });
   return null;
 }
 
@@ -71,9 +65,8 @@ function Harness(): ReactNode {
 const zoomWrites = () => setSetting.mock.calls.filter((c) => c[0] === 'input_zoom').length;
 
 describe('输入栏滚轮接线', () => {
-  it('普通滚轮(目标为 window 的合成事件)不抛错,仍走缩放', async () => {
+  it('普通滚轮(非元素 target 的合成事件)不抛错,仍走缩放', async () => {
     await act(async () => root.render(createElement(Harness)));
-    expect(wheel).not.toBeNull();
     await act(async () => {
       document.dispatchEvent(new WheelEvent('wheel', { deltaY: -100, bubbles: true, cancelable: true }));
     });

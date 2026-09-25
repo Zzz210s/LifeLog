@@ -1,7 +1,8 @@
 /**
  * 标签 provider(设计 §3.4):`#` = 跳标签。列表 = list_tags 全量,label 就是标签完整路径,
  * 命中位置来自共享 `fuzzy-score`(与命令/笔记同引擎),右侧副文本是**含子级**计数。
- * 行 id = 路径:Enter 直接把它加进筛选(toggleActiveTag 默认 includeChildren=true,含子级)。
+ * 行 id = 路径:Enter 走 `unified/unified-accept.ts` 的 `effectFor` -> `applyTagPick`(默认含子级);
+ * 已在排除侧时会被移到包含侧,与侧栏点标签同一口径。
  */
 import { PATH_BOOST, scoreFuzzy } from '../../../shared/fuzzy-score';
 import type { QuickPickItem } from '../../../shared/quickpick/model';
