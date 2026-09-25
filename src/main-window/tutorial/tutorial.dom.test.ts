@@ -37,7 +37,8 @@ let onExit: ReturnType<typeof vi.fn>;
 const $ = (testid: string): HTMLElement | null => host.querySelector(`[data-testid="${testid}"]`);
 const stepText = (): string => $('tutorial-step')?.textContent ?? '';
 const mount = (props: Record<string, unknown> = {}): void => {
-  act(() => root.render(createElement(TutorialLayer, { open: true, onExit, ...props })));
+  // onUnavailable 必填(类型强制):默认给一个空实现,要断言它的用例自己传
+  act(() => root.render(createElement(TutorialLayer, { open: true, onExit, onUnavailable: () => {}, ...props })));
 };
 /** 等 effect/渲染链跑完(act 内的微任务排空) */
 const settle = async (): Promise<void> => {
@@ -49,9 +50,11 @@ const click = async (testid: string): Promise<void> => {
   act(() => ($(testid) as HTMLElement).click());
   await settle();
 };
-const press = (key: string, shift = false): void => {
-  const e = new KeyboardEvent('keydown', { key, shiftKey: shift, bubbles: true, cancelable: true });
-  act(() => window.dispatchEvent(e));
+/** 真实按键的 target 是**当前聚焦元素**(不是 window);派发到 window 会让"同节点同相位"绕过闸门 */
+const press = (key: string, shift = false, mod: KeyboardEventInit = {}): void => {
+  const e = new KeyboardEvent('keydown', { key, shiftKey: shift, bubbles: true, cancelable: true, ...mod });
+  const target = (document.activeElement as HTMLElement | null) ?? document.body;
+  act(() => target.dispatchEvent(e));
 };
 
 beforeEach(() => {
@@ -110,6 +113,33 @@ describe('引导层:渲染与回退链', () => {
   });
 });
 
+describe('引导层:模态键盘闸门', () => {
+  it('引导开着时,落在引导之外的按键不放行给应用(窗口级快捷键被拦)', async () => {
+    anchorOf('input');
+    const appHotkey = vi.fn(); // 替身:应用挂在 window 上的快捷键监听(bubble 阶段)
+    window.addEventListener('keydown', appHotkey);
+    document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'p', ctrlKey: true, bubbles: true }));
+    expect(appHotkey).toHaveBeenCalledTimes(1); // 自检:监听器本身工作
+    appHotkey.mockClear();
+    mount();
+    await settle();
+    // 焦点在气泡内(挂载即聚焦),此时按键不该被拦
+    expect(document.activeElement?.getAttribute('data-testid')).toBe('tutorial-bubble');
+    press('p', false, { ctrlKey: true });
+    expect(appHotkey).toHaveBeenCalledTimes(1);
+    appHotkey.mockClear();
+    // 焦点被挪到引导之外(body)-> 按键被闸门吞掉,应用收不到
+    act(() => (document.activeElement as HTMLElement | null)?.blur());
+    press('p', false, { ctrlKey: true });
+    expect(appHotkey).not.toHaveBeenCalled();
+    // Esc 仍能退出(闸门给它放行)
+    press('Escape');
+    await settle();
+    expect(onExit).toHaveBeenCalledTimes(1);
+    window.removeEventListener('keydown', appHotkey);
+  });
+});
+
 describe('引导层:前置动作(侧栏隐藏时的第 3 步)', () => {
   it('锚点因侧栏隐藏而缺失时,先执行 onShowSidebar 再解析 —— 不把该步跳过', async () => {
     const onShowSidebar = vi.fn(() => {
@@ -159,7 +189,7 @@ describe('引导层:两个出口的语义', () => {
         createElement(
           'div',
           { onClick: outerClick },
-          createElement(TutorialLayer, { open: true, onExit })
+          createElement(TutorialLayer, { open: true, onExit, onUnavailable: () => {} })
         )
       )
     );

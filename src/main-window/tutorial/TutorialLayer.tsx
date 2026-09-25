@@ -16,8 +16,9 @@ export interface TutorialLayerProps {
   open: boolean;
   /** 用户动作(完成 / 跳过 / Esc)结束:调用方写 `ui.tutorial_seen` 并关闭 */
   onExit: () => void;
-  /** 重试后一步都显示不出来:调用方只关闭、不写标记,下次启动再试 */
-  onUnavailable?: () => void;
+  /** 重试后一步都显示不出来:调用方只关闭、不写标记,下次启动再试。
+   *  **必填**:不传的话该路径会变成"永久遮挡主窗、用户什么也没看到"(Task 2 评审 Important-2)。 */
+  onUnavailable: () => void;
   /** 第 3 步的前置动作:走「显示侧栏」同一处状态入口 */
   onShowSidebar?: () => void;
 }
@@ -52,6 +53,29 @@ export function TutorialLayer(p: TutorialLayerProps): ReactNode {
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
   }, [live, exit]);
+
+  // 模态的键盘闸门:引导开着时,落在引导**之外**的按键不放行给应用(窗口级快捷键
+  // Ctrl+P / Ctrl+Shift+P 由 use-palette-hotkeys 挂在 window 上、与焦点无关 —— 不拦的话
+  // 引导期间按一下就会预填输入框并切视图)。Esc / Tab 留给本层自己处理。
+  useEffect(() => {
+    if (!live) return;
+    const gate = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape' || e.key === 'Tab' || e.isComposing) return;
+      // 引导自己的两块 DOM(覆盖层 + 气泡)是**兄弟**,不在同一子树里 —— 两边都要算"引导内"
+      const own = ['[data-testid="tutorial-root"]', '[data-testid="tutorial-bubble"]'];
+      const target = e.target;
+      const inside =
+        target instanceof Node &&
+        own.some((sel) => {
+          const el = document.querySelector(sel);
+          return el !== null && el.contains(target);
+        });
+      if (inside) return; // 气泡/覆盖层内的按键照常(按钮的 Enter/Space 等)
+      e.stopPropagation();
+    };
+    window.addEventListener('keydown', gate, true);
+    return () => window.removeEventListener('keydown', gate, true);
+  }, [live]);
 
   // 焦点锁在气泡内:进门聚焦,Tab 循环,焦点被抢走就拉回来 —— 引导期间打字不进输入框
   useEffect(() => {
