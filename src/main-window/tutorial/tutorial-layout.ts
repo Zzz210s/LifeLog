@@ -18,7 +18,8 @@ export function placeBubble(
 ): { top: number; left: number } {
   const below = hole.top + hole.height + gap;
   const above = hole.top - gap - bubble.height;
-  const top = below + bubble.height + EDGE <= viewport.height ? below : Math.max(EDGE, above);
+  const fits = below + bubble.height + EDGE <= viewport.height;
+  const top = fits ? Math.max(EDGE, below) : Math.max(EDGE, above);
   const centered = hole.left + hole.width / 2 - bubble.width / 2;
   const left = Math.min(Math.max(EDGE, centered), Math.max(EDGE, viewport.width - EDGE - bubble.width));
   return { top, left };
