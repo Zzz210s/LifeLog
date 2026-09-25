@@ -12,9 +12,11 @@ import { StartupSection } from './StartupSection';
 export interface SettingsViewProps {
   themeMode: ThemeMode;
   onThemeChange: (mode: ThemeMode) => void;
+  /** 重看新手引导(设计 D6);未传则该行按钮不做事 */
+  onReplayTutorial?: () => void;
 }
 
-export function SettingsView({ themeMode, onThemeChange }: SettingsViewProps): ReactNode {
+export function SettingsView({ themeMode, onThemeChange, onReplayTutorial }: SettingsViewProps): ReactNode {
   return (
     <div className="scroll-gutter flex-1 overflow-y-auto bg-panel">
       <div className="mx-auto flex max-w-2xl flex-col gap-6 px-4 py-6">
@@ -24,7 +26,7 @@ export function SettingsView({ themeMode, onThemeChange }: SettingsViewProps): R
         <AppHotkeySection />
         <NotesSection />
         <StartupSection />
-        <GeneralSection />
+        <GeneralSection onReplayTutorial={onReplayTutorial} />
       </div>
     </div>
   );

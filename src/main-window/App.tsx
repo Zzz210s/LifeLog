@@ -25,6 +25,8 @@ import { useOpenSettings } from './shell/use-open-settings';
 import { useNotesFeed } from './data/use-notes-feed';
 import { useNotesExport } from './data/use-export';
 import { useStreamActions } from './shell/use-stream-actions';
+import { TutorialLayer } from './tutorial/TutorialLayer';
+import { useTutorialEntry } from './tutorial/use-tutorial-entry';
 
 /** 主窗 v2:侧栏(标签)+ 标签页栏 + 单列流(统一输入框 + 条件栏 + NoteStream);候选下拉在输入框内 */
 export function App(): ReactNode {
@@ -66,6 +68,8 @@ export function App(): ReactNode {
   const openSettings = useCallback(() => setView('settings'), []);
   const reportSettingsError = useCallback((m: string) => setError('action', m), [setError]);
   useOpenSettings(openSettings, reportSettingsError);
+  // 首次使用引导:自己读一次标记(输入栏只管开窗),用户动作写标记、「重新观看」先回信息流
+  const tutorial = useTutorialEntry(() => setView('stream'));
 
   const { remove, onEditSaved, toggleTask, requestEdit, switchEdit, handleTagsMutated } = useEditFlow({
     conditions,
@@ -165,10 +169,23 @@ export function App(): ReactNode {
           unifiedRef={unified}
         />
         {view === 'settings' && (
-          <SettingsView themeMode={theme.mode} onThemeChange={theme.setMode} />
+          <SettingsView
+            themeMode={theme.mode}
+            onThemeChange={theme.setMode}
+            onReplayTutorial={tutorial.onReplay}
+          />
         )}
       </div>
       <CommandStatusPill status={commands.status} />
+      {/* 条件挂载:重看时重新挂载,引导层内部状态(当前步/已执行的前置动作)自然复位 */}
+      {tutorial.open && (
+        <TutorialLayer
+          open
+          onExit={tutorial.onExit}
+          onUnavailable={tutorial.onUnavailable}
+          onShowSidebar={() => sidebar.setVisible(true)}
+        />
+      )}
     </div>
   );
 }

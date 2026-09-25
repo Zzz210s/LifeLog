@@ -8,7 +8,12 @@ import { SettingsRow } from './controls';
 import { appVersion } from './settings-model';
 import { BTN_SECONDARY } from '../shell/button-classes';
 
-export function GeneralSection(): ReactNode {
+export interface GeneralSectionProps {
+  /** 重看新手引导(App 负责先回信息流视图再开层);未传时按钮不做事 */
+  onReplayTutorial?: () => void;
+}
+
+export function GeneralSection({ onReplayTutorial }: GeneralSectionProps): ReactNode {
   const [info, setInfo] = useState<DbInfo | null>(null);
   const [error, setError] = useState('');
 
@@ -59,6 +64,11 @@ export function GeneralSection(): ReactNode {
         </div>
       )}
       <div className="px-4">
+        <SettingsRow label="新手引导" hint="随时重看第一步的操作说明">
+          <button type="button" onClick={onReplayTutorial} className={BTN_SECONDARY}>
+            重新观看
+          </button>
+        </SettingsRow>
         <SettingsRow label="版本号" hint="当前应用版本,构建时写入">
           <span className="text-ui text-muted">{appVersion()}</span>
         </SettingsRow>
