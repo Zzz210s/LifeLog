@@ -26,7 +26,6 @@ export type UnifiedAction =
   | { type: 'pickPrefix'; prefix: string }
   | { type: 'esc' }
   | { type: 'accept' }
-  | { type: 'openDropdown' }
   | { type: 'closeDropdown' }
   | { type: 'clear' };
 
@@ -59,9 +58,6 @@ export function reduceUnified(state: UnifiedState, action: UnifiedAction): Unifi
     case 'accept':
       // 采纳后只关下拉:模式留着,用户可以接着筛/接着找
       return { ...state, dropdownOpen: false };
-    case 'openDropdown':
-      // 只有有下拉的模式才有下拉可开(记录模式 D6;`/` 是实时筛选,§4)
-      return { ...state, dropdownOpen: hasDropdown(state.mode, state.prefix) };
     case 'closeDropdown':
       return { ...state, dropdownOpen: false };
     case 'clear':

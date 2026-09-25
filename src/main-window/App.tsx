@@ -158,7 +158,6 @@ export function App(): ReactNode {
           onLinkError={(m) => setError('action', m)}
           palette={controller}
           decorations={decorations}
-          tagsVersion={tagsVersion}
           onSaved={refresh}
           onRunCommand={commands.execute}
           addConditionOpen={addCondition.open}

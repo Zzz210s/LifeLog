@@ -89,9 +89,10 @@ describe('唯一输入框(设计 §3/§4)', () => {
   });
 
   it('记录模式不渲染下拉(设计 D6)', async () => {
-    const host = await mount({ dropdown: createElement('div', { 'data-testid': 'fake-dropdown' }) });
+    // 真实路径:接上候选控制器(有行)仍不出下拉 —— 记录模式的状态位恒假
+    const host = await mount({ candidates: { palette: stubPalette({ rows: rows(2), total: 2 }) } });
     await type(host, '买牛奶');
-    expect(host.querySelector('[data-testid="fake-dropdown"]')).toBeNull();
+    expect(host.querySelector('[data-testid="unified-dropdown"]')).toBeNull();
   });
 
   it('输入前缀时把模式上报给父组件', async () => {

@@ -10,8 +10,8 @@
  *     (前缀, query),于是复用同一套 provider 解析。
  *  2) **投影**:三类前缀返回控制器的 `rows/total/truncated`,其余返回空列表。
  *
- * `refreshKey` / `onError` 与 `useAppPalette` 的取候选参数同值(标签数据版本、主窗错误条),
- * 取候选就发生在那一侧,这里保留字段只为对齐 Task 5 的接口 —— 不重复上报、不重复作废。
+ * 候选池作废(`refreshKey`)与取回失败的出口都发生在 `useAppPalette` 那一侧(取候选就发生在那里),
+ * 本 hook 只驱动 + 投影,不接受也不需要这两个参数。
  */
 import { useEffect, useRef } from 'react';
 import type { InputMode } from '../../shared/input-prefix';
@@ -32,10 +32,6 @@ export interface UnifiedCandidateOptions {
   mode: InputMode;
   /** 前缀之后的查询(已按 input-prefix 剥掉前缀与紧邻空格) */
   query: string;
-  /** 候选数据源的作废键(标签数据版本) */
-  refreshKey: number;
-  /** 取回失败的中文原因出口 */
-  onError: (message: string) => void;
   /** 候选控制器(宿主没接时为 null:本 hook 退化为空列表,不驱动) */
   controller: PaletteController | null;
 }
@@ -52,10 +48,6 @@ export interface UnifiedCandidateWiring {
   palette: PaletteController;
   /** 行装饰(命令快捷键/标签计数/笔记日期),按行 id 索引 */
   decorations?: Readonly<Record<string, RowDecoration>>;
-  /** 候选数据源的作废键(标签数据版本),与 useAppPalette 同值 */
-  refreshKey?: number;
-  /** 候选取回失败的中文原因出口,与 useAppPalette 同值 */
-  onError?: (message: string) => void;
 }
 
 const EMPTY: UnifiedCandidates = { rows: [], total: 0, truncated: false };

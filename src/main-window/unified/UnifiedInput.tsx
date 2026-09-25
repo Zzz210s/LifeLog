@@ -27,9 +27,7 @@ export interface UnifiedInputProps {
   onSaved: () => void;
   /** 正在编辑某条笔记时该框只读(与今天 Composer 一致) */
   editing: boolean;
-  /** 下拉节点覆盖位(给定节点/测试用;缺省时按 `candidates` 渲染内置下拉) */
-  dropdown?: ReactNode | null;
-  /** 候选接线(控制器 + 装饰 + 作废键 + 错误出口);不给 = 没有任何下拉 */
+  /** 候选接线(控制器 + 装饰);不给 = 没有任何下拉 */
   candidates?: UnifiedCandidateWiring | null;
   /** 采纳回调(索引):本任务只关下拉,副作用在 Task 6 接 */
   onAccept?: (index: number) => void;
@@ -55,8 +53,6 @@ export function UnifiedInput(p: UnifiedInputProps): ReactNode {
   const cands = useUnifiedCandidates({
     mode: c.state.mode,
     query: c.state.query,
-    refreshKey: wiring?.refreshKey ?? 0,
-    onError: wiring?.onError ?? (() => {}),
     controller: wiring?.palette ?? null,
   });
 
@@ -73,7 +69,6 @@ export function UnifiedInput(p: UnifiedInputProps): ReactNode {
       prefill: (prefix: string) => latest.current.prefill(prefix),
       esc: () => latest.current.esc(),
       clear: () => latest.current.clear(),
-      openDropdown: () => latest.current.openDropdown(),
       closeDropdown: () => latest.current.closeDropdown(),
     }),
     [],
@@ -178,18 +173,16 @@ export function UnifiedInput(p: UnifiedInputProps): ReactNode {
         // 框里出现前缀但继续打字无效、Enter 会重复触发该按钮
         onPickPrefix={c.prefill}
       />
-      {showDropdown && pal !== null
-        ? (p.dropdown ?? (
-            <UnifiedDropdownSlot
-              rows={cands.rows}
-              total={cands.total}
-              truncated={cands.truncated}
-              palette={pal}
-              decorations={wiring?.decorations}
-              onAccept={accept}
-            />
-          ))
-        : null}
+      {showDropdown && pal !== null ? (
+        <UnifiedDropdownSlot
+          rows={cands.rows}
+          total={cands.total}
+          truncated={cands.truncated}
+          palette={pal}
+          decorations={wiring?.decorations}
+          onAccept={accept}
+        />
+      ) : null}
     </div>
   );
 }

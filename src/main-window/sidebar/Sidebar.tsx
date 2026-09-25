@@ -8,6 +8,7 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import type { FilterConditions } from '../../shared/filter-conditions';
+import { PREFIXES } from '../../shared/input-prefix';
 import type { TagCount } from '../../shared/types';
 import { TagsSection } from './TagsSection';
 import { BTN_ICON } from '../shell/button-classes';
@@ -28,6 +29,9 @@ export interface SidebarProps {
    */
   onPrefill: (prefix: string) => void;
 }
+
+/** 「筛选标签」按钮预填的前缀:取自前缀表(唯一真源),不在别处再写一份字面量 */
+const TAG_PREFIX = PREFIXES.find((s) => s.mode === 'tag')!.prefix;
 
 /** 拖宽热区:右缘 4px(w-1),光标与悬停高亮提示可拖 */
 export function Sidebar(p: SidebarProps): ReactNode {
@@ -83,7 +87,7 @@ export function Sidebar(p: SidebarProps): ReactNode {
         mode={p.sidebar.mode}
         onModeChange={p.sidebar.setMode}
         onTagsMutated={p.onTagsMutated}
-        onFilterTags={() => p.onPrefill('#')}
+        onFilterTags={() => p.onPrefill(TAG_PREFIX)}
       />
       {/* 右缘拖宽热区:悬停高亮,拖动中抑制选中文本 */}
       <div

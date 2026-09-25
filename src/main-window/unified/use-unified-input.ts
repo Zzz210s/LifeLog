@@ -21,7 +21,6 @@ export interface UnifiedController {
   /** Esc 两级:有下拉先关下拉,否则退模式(记录模式无动作) */
   esc: () => void;
   clear: () => void;
-  openDropdown: () => void;
   closeDropdown: () => void;
 }
 
@@ -35,7 +34,6 @@ export function useUnifiedInput(initialRaw = ''): UnifiedController {
   const pickPrefix = useCallback((prefix: string) => dispatch({ type: 'pickPrefix', prefix }), []);
   const esc = useCallback(() => dispatch({ type: 'esc' }), []);
   const clear = useCallback(() => dispatch({ type: 'clear' }), []);
-  const openDropdown = useCallback(() => dispatch({ type: 'openDropdown' }), []);
   const closeDropdown = useCallback(() => dispatch({ type: 'closeDropdown' }), []);
 
   // prefill 与 pickPrefix 的区别只在"顺带把焦点抢回来",状态迁移完全一样
@@ -52,7 +50,6 @@ export function useUnifiedInput(initialRaw = ''): UnifiedController {
     prefill,
     esc,
     clear,
-    openDropdown,
     closeDropdown,
   };
 }

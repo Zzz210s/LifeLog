@@ -54,8 +54,6 @@ function Host(): ReactNode {
       candidates: {
         palette: palette.controller,
         decorations: palette.decorations,
-        refreshKey: tagsVersion,
-        onError: () => {},
       },
     }),
   );

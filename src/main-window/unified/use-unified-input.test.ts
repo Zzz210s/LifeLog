@@ -62,17 +62,6 @@ describe('统一输入框状态机(设计 §4)', () => {
     expect(reduceUnified(s, { type: 'esc' })).toMatchObject({ mode: 'note', raw: '' });
   });
 
-  it('`/` 模式 openDropdown 也开不出下拉(实时筛选没候选)', () => {
-    expect(reduceUnified(derive('/牛奶'), { type: 'openDropdown' }).dropdownOpen).toBe(false);
-  });
-
-  it('openDropdown:有前缀才开;记录模式保持关(评审 M2)', () => {
-    const closed = { ...derive('#购'), dropdownOpen: false };
-    expect(reduceUnified(closed, { type: 'openDropdown' })).toMatchObject({ dropdownOpen: true, raw: '#购' });
-    const note = derive('草稿');
-    expect(reduceUnified(note, { type: 'openDropdown' }).dropdownOpen).toBe(false);
-  });
-
   it('closeDropdown:关下拉且内容与模式都不动', () => {
     const s = reduceUnified({ ...init('/牛奶'), mode: 'filter', prefix: '/', query: '牛奶', dropdownOpen: true },
       { type: 'closeDropdown' });

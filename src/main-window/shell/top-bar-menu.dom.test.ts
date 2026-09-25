@@ -10,6 +10,7 @@ import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { findCommand } from '../../shared/commands';
+import { TopBar } from './TopBar';
 import { ExportNotice, TopBarMenu, topBarMenuItems } from './TopBarMenu';
 import type { TopBarMenuItem } from './TopBarMenu';
 
@@ -145,5 +146,19 @@ describe('导出反馈:菜单外的顶栏提示', () => {
     expect(host.textContent).toBe('正在导出…');
     render(createElement(ExportNotice, { exporting: false, exported: true }));
     expect(host.textContent).toBe('已导出');
+  });
+
+  it('App 的 exporting/exported 经 TopBar 真透到提示上(两态都渲染得出)', () => {
+    const bar = (exporting: boolean, exported: boolean) =>
+      createElement(TopBar, {
+        view: 'stream', sidebarVisible: true, menuItems: [], exporting, exported,
+        onToggleSidebar: () => {}, onOpenSettings: () => {}, onBack: () => {},
+      });
+    render(bar(true, false));
+    expect(host.textContent).toContain('正在导出…');
+    render(bar(false, true));
+    expect(host.textContent).toContain('已导出');
+    render(bar(false, false));
+    expect(host.textContent).not.toContain('导出');
   });
 });

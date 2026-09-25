@@ -55,8 +55,6 @@ export interface StreamViewProps {
   palette: PaletteController;
   /** 候选行装饰(命令快捷键/标签计数/笔记日期) */
   decorations: Readonly<Record<string, RowDecoration>>;
-  /** 标签数据版本(`#` 候选池作废键,与 useAppPalette 同值) */
-  tagsVersion: number;
   /** 统一输入框保存成功后刷新(回第一页 + 重读标签) */
   onSaved: () => void;
   /** `>` 采纳后执行既有命令(use-app-commands 的 execute:先 flush 编辑态,失败落错误条) */
@@ -142,7 +140,7 @@ export function StreamView(p: StreamViewProps): ReactNode {
         onStateChange={onStateChange}
         onAccept={acceptAt}
         onController={(c) => { p.unifiedRef.current = c; }}
-        candidates={{ palette: p.palette, decorations: p.decorations, refreshKey: p.tagsVersion, onError: p.onLinkError }}
+        candidates={{ palette: p.palette, decorations: p.decorations }}
       />
       <ConditionBar
         conditions={p.conditions}
