@@ -47,7 +47,7 @@ describe('两行元数据', () => {
     const labels = rows.map((r) => r.ariaLabel);
     expect(new Set(labels).size).toBe(2);
     expect(labels).not.toContain('录制快捷键'); // 全局那行的名字留给命令 hotkey.edit 定位
-    expect(rows.map((r) => r.label)).toEqual(['快速打开笔记', '命令面板']);
+    expect(rows.map((r) => r.label)).toEqual(['快速打开笔记', '命令']);
   });
 });
 

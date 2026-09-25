@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 /**
  * Task 6 的容器证据(实时筛选侧):`/` 的 300ms 防抖与提示行。
- * 装配在 `stream-view-harness.ts`(与采纳副作用的用例文件共用);采纳的用例在
+ * 装配在 `__fixtures__/stream-view-harness.ts`(与采纳副作用的用例文件共用);采纳的用例在
  * stream-view-accept.dom.test.ts。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act } from 'react';
-import { installGeometryStubs, mountStreamView } from './stream-view-harness';
+import { installGeometryStubs, mountStreamView } from './__fixtures__/stream-view-harness';
 
 const { getSetting, setSetting, saveInputNote } = vi.hoisted(() => ({
   getSetting: vi.fn(async (_key: string): Promise<string | null> => null),

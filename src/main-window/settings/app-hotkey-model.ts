@@ -31,7 +31,7 @@ const ROWS: AppHotkeyRow[] = [
   {
     kind: 'palette',
     key: APP_HOTKEY_KEYS.palette,
-    label: '命令面板',
+    label: '命令',
     hint: '应用内快捷键:主窗按一下聚焦输入框并预填 >,输入命令名即执行',
     ariaLabel: '录制快捷键:命令面板',
   },

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * Task 3(统一输入框 2/3):顶栏溢出菜单(排序 / 导出全部 / 添加条件)。
+ * Task 3(统一输入框 2/3):顶栏溢出菜单(排序 / 导出整库 / 添加条件)。
  * 覆盖 brief 的六条:点 ⋯ 出现菜单、条目顺序 = 传入顺序、checked 带勾选标记、
  * 点条目回调并关闭、Esc 关闭、点外部关闭。
  * 另钉两条同文件的接线:条目构造(标题/勾选态取自命令表)与导出反馈(菜单点完即关,
@@ -109,7 +109,7 @@ describe('条目构造:标题与勾选态取自命令表', () => {
   const built = (sort: 'newest' | 'oldest', exporting = false) =>
     topBarMenuItems({ sort, exporting, run: () => {} });
 
-  it('顺序固定为 排序 ×2 / 导出全部 / 添加条件,标题与 danger 来自命令表', () => {
+  it('顺序固定为 排序 ×2 / 导出整库 / 添加条件,标题与 danger 来自命令表', () => {
     const items = built('newest');
     expect(items.map((i) => i.id)).toEqual(['sort.newest', 'sort.oldest', 'export.all', 'filter.addCondition']);
     expect(items.map((i) => i.label)).toEqual(

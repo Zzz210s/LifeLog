@@ -27,7 +27,7 @@ const inv0 = await inventory();
 console.log('验收前库存:', JSON.stringify({ notes: inv0.notes, theme: inv0.theme, tagPaths: inv0.paths.length }));
 
 // ---------- E1 界面导出:顶栏 `⋯` 菜单 -> 原生保存对话框出现并可取消 ----------
-// 条件栏的「导出全部」按钮已随统一输入框 2/3 Task 2 搬走:鼠标入口在顶栏溢出菜单里
+// 条件栏的「导出整库」按钮已随统一输入框 2/3 Task 2 搬走:鼠标入口在顶栏溢出菜单里
 const menuPicked = await openTopBarMenu('导出整库');
 // 只看目标标题的**可见**对话框:进程里可能留有其他/已完成但未关闭的 #32770 窗口
 const SAVE_DLG = '另存为';

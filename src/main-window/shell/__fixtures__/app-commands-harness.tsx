@@ -7,9 +7,9 @@ import { act, createElement } from 'react';
 import type { ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { vi } from 'vitest';
-import type { ThemeMode } from '../../shared/theme-mode';
-import { useAppCommands } from './use-app-commands';
-import type { AppCommands, CommandStatus } from './use-app-commands';
+import type { ThemeMode } from '../../../shared/theme-mode';
+import { useAppCommands } from '../use-app-commands';
+import type { AppCommands, CommandStatus } from '../use-app-commands';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 

@@ -10,10 +10,10 @@ import { act, createElement, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { vi } from 'vitest';
-import { bandHalves } from './drag-resolve';
-import type { BandSideRef } from './drag-resolve';
-import type { TagNode } from './tag-tree';
-import { useTagDrag } from './use-tag-drag';
+import { bandHalves } from '../drag-resolve';
+import type { BandSideRef } from '../drag-resolve';
+import type { TagNode } from '../tag-tree';
+import { useTagDrag } from '../use-tag-drag';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 

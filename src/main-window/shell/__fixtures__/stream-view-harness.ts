@@ -9,13 +9,13 @@
 import { act, createElement, useState } from 'react';
 import type { ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { EMPTY_FILTER } from '../../shared/filter-conditions';
-import type { FilterConditions } from '../../shared/filter-conditions';
-import type { Note } from '../../shared/types';
-import type { ListRow } from '../../shared/quickpick/model';
-import type { PaletteController } from '../palette/use-palette';
-import type { TabsApi } from '../tabs/use-tabs';
-import { StreamView } from './StreamView';
+import { EMPTY_FILTER } from '../../../shared/filter-conditions';
+import type { FilterConditions } from '../../../shared/filter-conditions';
+import type { Note } from '../../../shared/types';
+import type { ListRow } from '../../../shared/quickpick/model';
+import type { PaletteController } from '../../palette/use-palette';
+import type { TabsApi } from '../../tabs/use-tabs';
+import { StreamView } from '../StreamView';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 

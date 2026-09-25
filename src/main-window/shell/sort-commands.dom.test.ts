@@ -4,8 +4,8 @@
  */
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { callRun, mountAppCommands } from './app-commands-harness';
-import type { AppCommandsHarness } from './app-commands-harness';
+import { callRun, mountAppCommands } from './__fixtures__/app-commands-harness';
+import type { AppCommandsHarness } from './__fixtures__/app-commands-harness';
 import { findCommand } from '../../shared/commands';
 import { CONTEXT, defaultContext } from '../../shared/keys';
 import { evaluate } from '../../shared/when';

@@ -7,8 +7,8 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act } from 'react';
-import { callRun, mountAppCommands } from './app-commands-harness';
-import type { AppCommandsHarness } from './app-commands-harness';
+import { callRun, mountAppCommands } from './__fixtures__/app-commands-harness';
+import type { AppCommandsHarness } from './__fixtures__/app-commands-harness';
 import { HOTKEY_RECORDER_SELECTOR, UNIFIED_INPUT_SELECTOR, nextThemeMode } from './use-app-commands';
 
 const { rebuildSearchIndex, quitApp } = vi.hoisted(() => ({

@@ -4,8 +4,8 @@
  * 夹具与事件合成手法见 drag-harness.tsx(页面内合成 DragEvent,不碰 OS 鼠标)。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { mountDrag } from './drag-harness';
-import type { MountedDrag } from './drag-harness';
+import { mountDrag } from './__fixtures__/drag-harness';
+import type { MountedDrag } from './__fixtures__/drag-harness';
 
 const { moveTag, moveTagBeside } = vi.hoisted(() => ({ moveTag: vi.fn(), moveTagBeside: vi.fn() }));
 vi.mock('../../shared/api', () => ({ api: { moveTag, moveTagBeside } }));

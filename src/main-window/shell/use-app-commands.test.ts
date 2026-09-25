@@ -5,8 +5,8 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { registerEditFlush } from '../editor/edit-flush';
-import { mountAppCommands, runCommand } from './app-commands-harness';
-import type { AppCommandsHarness } from './app-commands-harness';
+import { mountAppCommands, runCommand } from './__fixtures__/app-commands-harness';
+import type { AppCommandsHarness } from './__fixtures__/app-commands-harness';
 
 vi.mock('../../shared/api', () => ({ api: { rebuildSearchIndex: vi.fn(), quitApp: vi.fn() } }));
 vi.mock('@tauri-apps/plugin-dialog', () => ({ confirm: vi.fn(async () => true) }));

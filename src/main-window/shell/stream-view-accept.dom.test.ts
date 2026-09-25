@@ -1,14 +1,14 @@
 // @vitest-environment jsdom
 /**
  * Task 6 的容器证据(采纳侧):三类前缀的采纳副作用在 `StreamView` 里落地。
- * 装配在 `stream-view-harness.ts`(与 `/` 实时筛选的用例文件共用,守单文件 200 行红线);
+ * 装配在 `__fixtures__/stream-view-harness.ts`(与 `/` 实时筛选的用例文件共用,守单文件 200 行红线);
  * 决策本身(纯函数)的用例在 unified/unified-accept.test.ts;这里只钉执行与接线。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act } from 'react';
 import type { FilterConditions } from '../../shared/filter-conditions';
 import { EMPTY_FILTER } from '../../shared/filter-conditions';
-import { NOTE, installGeometryStubs, mountStreamView, row } from './stream-view-harness';
+import { NOTE, installGeometryStubs, mountStreamView, row } from './__fixtures__/stream-view-harness';
 import { QUICK_OPEN_CLEARED_TEXT } from '../palette/quick-open';
 
 const { getSetting, setSetting, saveInputNote } = vi.hoisted(() => ({

@@ -1,5 +1,5 @@
 /**
- * 顶栏溢出菜单(Task 3):把「排序 / 导出全部 / 添加条件」的可见兜底收在 `⋯` 里 ——
+ * 顶栏溢出菜单(Task 3):把「排序 / 导出整库 / 添加条件」的可见兜底收在 `⋯` 里 ——
  * 这三条动作的命令与执行通道早已在 `>` 里就绪(use-app-commands),这里只是鼠标入口 + 勾选态显示。
  *
  * 条目由调用方(App)用 `topBarMenuItems` 从**命令表**构造:标题、danger、勾选态(命令自己的
@@ -29,7 +29,7 @@ export interface TopBarMenuItem {
 // 视觉口径(V5 收口):rounded-xs(4px)+ text-ui(13/18)+ 中性 hover
 const ITEM_CLASS = 'block w-full rounded-xs px-2 py-1.5 text-left text-ui hover:bg-hover';
 
-/** 溢出菜单里的四条,按用户可见顺序:排序 ×2 -> 导出全部 -> 添加条件 */
+/** 溢出菜单里的四条,按用户可见顺序:排序 ×2 -> 导出整库 -> 添加条件 */
 const MENU_IDS = ['sort.newest', 'sort.oldest', 'export.all', 'filter.addCondition'] as const;
 
 export interface TopBarMenuOptions {

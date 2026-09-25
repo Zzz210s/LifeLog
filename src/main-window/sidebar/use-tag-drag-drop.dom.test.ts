@@ -5,8 +5,8 @@
  * 各分区 → move_tag / move_tag_beside 的参数与「新路径」回执。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { mountDrag } from './drag-harness';
-import type { MountedDrag } from './drag-harness';
+import { mountDrag } from './__fixtures__/drag-harness';
+import type { MountedDrag } from './__fixtures__/drag-harness';
 
 const { moveTag, moveTagBeside } = vi.hoisted(() => ({ moveTag: vi.fn(), moveTagBeside: vi.fn() }));
 vi.mock('../../shared/api', () => ({ api: { moveTag, moveTagBeside } }));
