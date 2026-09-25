@@ -50,7 +50,8 @@ export async function timeTagRoot(call) {
 /**
  * 绑定主窗页面的常用动作:验收脚本都只用主窗做 IPC 断言/库存对照。
  * call 走真实 IPC;inventory 是库存快照:笔记数 + `id|首行` 清单(逐页取全,不是首页 50 条)+ 全部标签路径
- * + `tabs_state` 原文 + `theme` 原文(基线洁净断言与运行清单断言都基于它;保存视图与 `filter_last` 已删)。
+ * + `filter_current` 原文 + `theme` 原文(基线洁净断言与运行清单断言都基于它;
+ * 保存视图与 `filter_last` 已随迁移 014 删除,多页筛选快照随迁移 016 迁成单份 `filter_current`)。
  * liCount 数信息流里渲染出的笔记条数(条目根为 li 且内含 .md-body)。
  */
 export function bindMain(cdp) {
@@ -68,13 +69,13 @@ export function bindMain(cdp) {
         let all = [], off = 0, page;
         do { page = await T('query_notes', { conditions: C, offset: off }); all = all.concat(page); off += 50; } while (page.length === 50);
         const tags = await T('list_tags');
-        const tabsState = await T('get_setting', { key: 'tabs_state' });
+        const filterCurrent = await T('get_setting', { key: 'filter_current' });
         const theme = await T('get_setting', { key: 'theme' });
         return {
           notes: all.length,
           ids: all.map((n) => n.id + '|' + n.content.split(String.fromCharCode(10))[0]).sort(),
           paths: tags.map((t) => t.path).sort(),
-          tabsState: tabsState === undefined ? null : tabsState,
+          filterCurrent: filterCurrent === undefined ? null : filterCurrent,
           theme: theme === undefined ? null : theme,
         };
       })()`),

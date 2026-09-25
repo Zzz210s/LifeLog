@@ -3,7 +3,7 @@
 // UI测试 标签)自建自清,前后 notes/tags/tag_links/FTS 计数在外层用 lifelog-db-readings.py 比对。
 import { ensureMain, recorder, sleep, waitFor } from './cdp-lib.mjs';
 import {
-  BOX, COMMAND_IDS, FIXTURE_TAG, HINT, RECORD_TEXT, SIDEBAR, STAT, TAB_GATED, cleanupFixtures, createFixtures,
+  BOX, COMMAND_IDS, FIXTURE_TAG, HINT, RECORD_TEXT, SIDEBAR, STAT, cleanupFixtures, createFixtures,
   driver, finalizeRun,
 } from './unified-accept-lib.mjs';
 import { phaseB } from './unified-accept-phases2.mjs';
@@ -62,15 +62,14 @@ async function main(ctx) {
   r.record('④ `#` 采纳 -> 条件 chip', (chipTexts[0] ?? '').startsWith('⊢') && (chipTexts[0] ?? '').includes(`#${FIXTURE_TAG}`),
     `候选 ${tagRows?.length ?? 0} 行(首行 ${tagRows?.[0]?.label ?? '-'});chip=${JSON.stringify(chipTexts)}`);
 
-  // --- ⑤ `>` 命令:候选行数 == 可用命令数;`>侧栏` 勾选态换边 ---
+  // --- ⑤ `>` 命令:候选行数 == 可用命令数(12 条);`>侧栏` 勾选态换边 ---
   // 注:命令表已含两条排序命令(`COMMAND_IDS` 里的 sort.newest/sort.oldest,候选数与勾选态另由 ⑫ 实测),
   // 这里仍用带勾选态的 sidebar.toggle 驱动换边。
   await d.clearChips();
   await d.clearBox();
   await d.type('>');
   const cmdRows = await d.rows();
-  const tabCount = Number(await d.ev(`document.querySelector('[role="tablist"]')?.dataset.tabsCount ?? 0`));
-  const expectCmds = COMMAND_IDS.length - (tabCount > 1 ? 0 : TAB_GATED.length);
+  const expectCmds = COMMAND_IDS.length;
   const unknown = cmdRows.filter((x) => !COMMAND_IDS.includes(x.id));
   await d.clearBox();
   await d.type('>侧栏');
@@ -86,7 +85,7 @@ async function main(ctx) {
   const restored = await d.sidebar();
   const flipped = beforeRow?.label !== afterRow?.label && beforeRow?.checked !== afterRow?.checked;
   r.record('⑤ `>` 候选与勾选态', cmdRows.length === expectCmds && unknown.length === 0 && flipped && restored === sidebarBefore,
-    `候选 ${cmdRows.length} 行(期望 ${expectCmds},标签页 ${tabCount} 个);未知 id ${unknown.length};` +
+    `候选 ${cmdRows.length} 行(期望 ${expectCmds});未知 id ${unknown.length};` +
       `侧栏 ${beforeRow?.label}(checked=${beforeRow?.checked}) -> ${afterRow?.label}(checked=${afterRow?.checked});` +
       `可见 ${sidebarBefore}->${hidden}->${restored}`);
 

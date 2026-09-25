@@ -17,8 +17,8 @@ const domHeads = () =>
     .map((e) => (e.textContent || '').split(String.fromCharCode(10))[0].replace(/\\s+/g, '').slice(0, 6))`);
 
 const root = await timeTagRoot(call);
-// 筛选状态是落库的(settings.tabs_state):收尾要把它还原为验收前的原文
-const tabsBefore = await call('get_setting', { key: 'tabs_state' });
+// 筛选状态是落库的(settings.filter_current):收尾要把它还原为验收前的原文
+const filterBefore = await call('get_setting', { key: 'filter_current' });
 if (!root) {
   console.error('取不到时间标签根名(time_tag_template 为空或以 { 开头),中止');
   process.exit(2);
@@ -71,15 +71,15 @@ r.record(
   `DOM 前 ${back.length} 条正文首行=${JSON.stringify(dom)} 后端同条件=${JSON.stringify(back)}(共 ${expected.length} 条 = self_count ${tag.self_count},一页上限 ${PAGE}) 条件区出现该根名=${chipShown} 每条笔记都带该标签=${chipsOk}`
 );
 
-// 收尾还原:点掉本次点选产生的条件 chip,并等 tabs_state 节流写回后与验收前原文对照
+// 收尾还原:点掉本次点选产生的条件 chip,并等 filter_current 节流写回后与验收前原文对照
 for (let i = 0; i < 8; i++) {
   const more = await main.eval(`(() => { const b = document.querySelector('[aria-label^="移除条件"]'); if (b) { b.click(); return true; } return false; })()`);
   if (!more) break;
   await sleep(400);
 }
 await sleep(1200);
-const tabsAfter = await call('get_setting', { key: 'tabs_state' });
-r.record('D2 收尾:清掉本次筛选条件,tabs_state 回到验收前原文(不留下筛选残留)',
-  tabsAfter === tabsBefore, `before=${tabsBefore} after=${tabsAfter}`);
+const filterAfter = await call('get_setting', { key: 'filter_current' });
+r.record('D2 收尾:清掉本次筛选条件,filter_current 回到验收前原文(不留下筛选残留)',
+  filterAfter === filterBefore, `before=${filterBefore} after=${filterAfter}`);
 r.finish();
 close();

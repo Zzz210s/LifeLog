@@ -120,7 +120,7 @@ R.cleanup = {
   dbSame: dbBefore.notes === dbAfter.notes && dbBefore.tags === dbAfter.tags && dbBefore.links === dbAfter.links,
   rootsSame: same(dbBefore.roots, dbAfter.roots),
   invSame: same(invBefore.ids, invAfter.ids) && same(invBefore.paths, invAfter.paths) &&
-    invBefore.notes === invAfter.notes && invBefore.tabsState === invAfter.tabsState && invBefore.theme === invAfter.theme,
+    invBefore.notes === invAfter.notes && invBefore.filterCurrent === invAfter.filterCurrent && invBefore.theme === invAfter.theme,
   notes: `${invAfter.notes}/${invBefore.notes}`, tags: `${invAfter.paths.length}/${invBefore.paths.length}`,
 };
 console.log('收尾:', J(R.cleanup));

@@ -26,16 +26,16 @@ r.record(
   tags.length > 0 && !!root && tags.some((t) => t.path === root),
   `标签数=${tags.length} 根名=${root} 根节点=${JSON.stringify(tags.find((t) => t.path === root) ?? null)}`
 );
-const [auto, tpl, tabsState] = await Promise.all([
+const [auto, tpl, filterCurrent] = await Promise.all([
   call('get_setting', { key: 'auto_time_tag' }),
   call('get_setting', { key: 'time_tag_template' }),
-  call('get_setting', { key: 'tabs_state' }),
+  call('get_setting', { key: 'filter_current' }),
 ]);
 r.record(
-  'R4 设置读得到(自动时间标签开关 + 模板 + tabs_state 落库形态)',
+  'R4 设置读得到(自动时间标签开关 + 模板 + 当前筛选条件落库形态)',
   (auto === 'true' || auto === 'false') && typeof tpl === 'string' && tpl.includes('{y}') && !!root &&
-    typeof tabsState === 'string' && Array.isArray(JSON.parse(tabsState).tabs),
-  `auto_time_tag=${auto} time_tag_template=${tpl} tabs_state tabs 数=${JSON.parse(tabsState || '{}').tabs?.length}`
+    typeof filterCurrent === 'string' && typeof JSON.parse(filterCurrent) === 'object' && !Array.isArray(JSON.parse(filterCurrent)),
+  `auto_time_tag=${auto} time_tag_template=${tpl} filter_current 条件键=[${Object.keys(JSON.parse(filterCurrent || '{}')).join(',')}]`
 );
 
 const dom = await waitFor(

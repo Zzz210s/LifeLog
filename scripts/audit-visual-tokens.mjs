@@ -16,7 +16,7 @@ import {
   REAL_FOCUS_JS, SCAN_JS, TOKEN_NAMES,
 } from './audit-visual-scan.mjs';
 const SIZES = [11, 12, 13, 14, 15, 16, 20]; // 7 档类型刻度
-const RADII = [4, 6, 8, 12]; // 圆角 4 档(0 只作标签页下两角,见断言)
+const RADII = [4, 6, 8, 12]; // 圆角 4 档(0 允许作单角:卡片/浮层的定位修饰)
 const GAPS = [4, 6, 8, 12, 16, 24, 32]; // 间距刻度(设计 §3.3;2px 未用)
 const TRANSPARENT = ['rgba(0, 0, 0, 0)', 'transparent'];
 const px = (v) => parseFloat(String(v));
@@ -67,12 +67,12 @@ r.record('令牌齐全(theme.css 全部 --color-*)', missing.length === 0, missi
 const badFs = scans.flatMap((s) => s.fontSize.filter(([v]) => !SIZES.includes(px(v))).map(([v, c]) => `${s.theme} ${v}×${c}`));
 r.record('字号只在 7 档(11-16/20)', badFs.length === 0, badFs.join(' ') || `改后 ${fmt(light.fontSize)}`);
 
-// 3) 圆角:四角都取刻度值(0 只允许作标签页下两角),且至少一角非零
+// 3) 圆角:四角都取刻度值(0 可作卡片/浮层的单角),且至少一角非零
 const badRad = scans.flatMap((s) => s.radius.filter(([v]) => {
   const c = corners(v);
   return c.some((x) => ![0, ...RADII].includes(x)) || !c.some((x) => RADII.includes(x));
 }).map(([v, c]) => `${s.theme} ${v}×${c}`));
-r.record('圆角只在 4 档(4/6/8/12;0 仅标签页下两角)', badRad.length === 0, badRad.join(' ') || `改后 ${fmt(light.radius)}`);
+r.record('圆角只在 4 档(4/6/8/12,允许 0 作单角)', badRad.length === 0, badRad.join(' ') || `改后 ${fmt(light.radius)}`);
 
 // 4) gap 只在刻度表
 const badGap = scans.flatMap((s) => s.gap.filter(([v]) => !GAPS.includes(px(v))).map(([v, c]) => `${s.theme} ${v}×${c}`));
@@ -99,7 +99,6 @@ r.record(
   light.composer?.radius === '6px',
   `统一输入框 ${light.composer?.h}px/${light.composer?.radius}`,
 );
-r.record('标签页 = 6/6/0/0 且高 32', light.tabActive?.radius === '6px 6px 0px 0px' && light.tabActive?.h === 32, `活动页 ${light.tabActive?.h}px/${light.tabActive?.radius},非活动底 ${light.tabInactive?.bg}`);
 // 浮层（命令面板）读数已随浮层外壳删除（Task 7）；统一输入框下拉的 6px + 阴影由
 // unified-dropdown.dom.test.ts 钉住，模态浮层的 12px + 阴影由上面的菜单/对话框两条覆盖。
 

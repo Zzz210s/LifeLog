@@ -172,9 +172,9 @@ await sleep(700);
 await call('hide_input_bar');
 const inv1 = await inventory();
 record(
-  'I8 库存前后一致(笔记 id 清单 / 标签路径 / tabs_state / theme)+ 窗口尺寸与位置还原',
-  inv1.notes === inv0.notes && inv1.tabsState === inv0.tabsState && inv1.theme === inv0.theme && JSON.stringify(inv1.paths) === JSON.stringify(inv0.paths) && (await getSetting('input_w')) === width0 && (await getSetting('input_h')) === height0 && (await getSetting('input_x')) === x0 && (await getSetting('input_y')) === y0,
-  `notes ${inv1.notes}/${inv0.notes} tabs_state同=${inv1.tabsState === inv0.tabsState} theme ${inv1.theme}/${inv0.theme} input_w ${await getSetting('input_w')}/${width0} input_h ${await getSetting('input_h')}/${height0} input_x ${await getSetting('input_x')}/${x0} input_y ${await getSetting('input_y')}/${y0} 移动=${JSON.stringify(moved)} 宽 ${rectOf()[2] - rectOf()[0]}`
+  'I8 库存前后一致(笔记 id 清单 / 标签路径 / filter_current / theme)+ 窗口尺寸与位置还原',
+  inv1.notes === inv0.notes && inv1.filterCurrent === inv0.filterCurrent && inv1.theme === inv0.theme && JSON.stringify(inv1.paths) === JSON.stringify(inv0.paths) && (await getSetting('input_w')) === width0 && (await getSetting('input_h')) === height0 && (await getSetting('input_x')) === x0 && (await getSetting('input_y')) === y0,
+  `notes ${inv1.notes}/${inv0.notes} filter_current同=${inv1.filterCurrent === inv0.filterCurrent} theme ${inv1.theme}/${inv0.theme} input_w ${await getSetting('input_w')}/${width0} input_h ${await getSetting('input_h')}/${height0} input_x ${await getSetting('input_x')}/${x0} input_y ${await getSetting('input_y')}/${y0} 移动=${JSON.stringify(moved)} 宽 ${rectOf()[2] - rectOf()[0]}`
 );
 
 finish();

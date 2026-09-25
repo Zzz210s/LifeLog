@@ -47,8 +47,6 @@ ${HELPERS}
   const listUl = [...document.querySelectorAll('#root ul')].find((u) => u.querySelector('li'));
   const header = document.querySelector('#root header');
   const chips = [...document.querySelectorAll('#root ul li button[aria-pressed]')];
-  const tablist = document.querySelector('#root [role=tablist]');
-  const tabActive = tablist ? [...tablist.children].find((t) => parseFloat(cs(t).borderTopWidth) > 0) : null;
   const body = cards[0] ? cards[0].querySelector('.md-body') : null;
   const muted = [...document.querySelectorAll('#root *')].find((el) => vis(el) && cs(el).color === norm(tokens['--color-muted']));
   const column = [...document.querySelectorAll('#root div')].find((d) => /(^|\\s)mx-auto(\\s|$)/.test(String(d.className)) && String(d.className).includes('flex-1'));
@@ -84,8 +82,6 @@ ${HELPERS}
     chipAccentText: chips.filter((c) => cs(c).color === tokens['--color-accent-text']).length,
     iconButton: read(document.querySelector('#root header button')),
     composer: read(document.querySelector('#root [data-testid="unified-input"]')),
-    tabActive: read(tabActive),
-    tabInactive: tablist ? read([...tablist.children].find((t) => parseFloat(cs(t).borderTopWidth) === 0)) : null,
     contrast: body ? { fg: cs(body).color, bg: effBg(body), ratio: ratio(cs(body).color, effBg(body)), fontSize: cs(body).fontSize } : null,
     contrastMuted: muted ? { fg: cs(muted).color, bg: effBg(muted), ratio: ratio(cs(muted).color, effBg(muted)) } : null,
   };

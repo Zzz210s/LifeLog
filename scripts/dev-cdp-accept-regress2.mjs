@@ -110,9 +110,9 @@ try {
   const inv1 = await inventory();
   const leftovers = inv1.ids.filter((x) => !inv0.ids.includes(x));
   record(
-    'S2 测试数据删净 + 库存前后一致(笔记 id 清单 / 标签路径 / tabs_state / theme)',
-    inv1.notes === inv0.notes && inv1.tabsState === inv0.tabsState && inv1.theme === inv0.theme && JSON.stringify(inv1.paths) === JSON.stringify(inv0.paths) && leftovers.length === 0,
-    `notes ${inv1.notes}/${inv0.notes} tabs_state同=${inv1.tabsState === inv0.tabsState} theme ${inv1.theme}/${inv0.theme} 残留=${JSON.stringify(leftovers)} paths同=${JSON.stringify(inv1.paths) === JSON.stringify(inv0.paths)}`
+    'S2 测试数据删净 + 库存前后一致(笔记 id 清单 / 标签路径 / filter_current / theme)',
+    inv1.notes === inv0.notes && inv1.filterCurrent === inv0.filterCurrent && inv1.theme === inv0.theme && JSON.stringify(inv1.paths) === JSON.stringify(inv0.paths) && leftovers.length === 0,
+    `notes ${inv1.notes}/${inv0.notes} filter_current同=${inv1.filterCurrent === inv0.filterCurrent} theme ${inv1.theme}/${inv0.theme} 残留=${JSON.stringify(leftovers)} paths同=${JSON.stringify(inv1.paths) === JSON.stringify(inv0.paths)}`
   );
 }
 

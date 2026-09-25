@@ -149,7 +149,7 @@ const dbBefore = db(); const invBefore = await inventory();
 // 先清上一轮残留夹具(崩溃重跑):本脚本的任何删除都只针对夹具笔记/DND测试子树
 const stale = await call('query_notes', { conditions: { keyword: 'DND夹具', tags: [], excludeTags: [], tagPresence: null, sort: 'newest', expr: null }, offset: 0 }); for (const n of stale) await call('delete_note', { id: n.id });
 if (stale.length) console.log('清掉上一轮残留夹具笔记:', stale.map((n) => n.id).join(','));
-R.meta = { dbBefore, notes: invBefore.notes, tagPaths: invBefore.paths.length, tabsState: invBefore.tabsState, theme: invBefore.theme,
+R.meta = { dbBefore, notes: invBefore.notes, tagPaths: invBefore.paths.length, filterCurrent: invBefore.filterCurrent, theme: invBefore.theme,
   listGeometry: await ev('({ box: __DND__.box(document.querySelector(\'[data-testid="tag-list"]\')), rows: document.querySelectorAll("[data-tag-path]").length, scrollTop: document.querySelector(\'[data-testid="tag-list"]\').scrollTop, scrollHeight: document.querySelector(\'[data-testid="tag-list"]\').scrollHeight })') };
 console.log('库存基线 notes=', dbBefore.notes, 'tags=', dbBefore.tags, 'links=', dbBefore.links, '| IPC tags=', invBefore.paths.length);
 
@@ -189,7 +189,7 @@ await sleep(600); list = await call('list_tags');
 const invAfter = await inventory(); const dbAfter = db();
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 R.cleanup = { noteId: fix.id, leftovers: list.filter((t) => t.path === ROOT || t.path.startsWith(ROOT + '/')).map((t) => t.path),
-  invSame: same(invBefore.ids, invAfter.ids) && same(invBefore.paths, invAfter.paths) && invBefore.notes === invAfter.notes && invBefore.tabsState === invAfter.tabsState && invBefore.theme === invAfter.theme,
+  invSame: same(invBefore.ids, invAfter.ids) && same(invBefore.paths, invAfter.paths) && invBefore.notes === invAfter.notes && invBefore.filterCurrent === invAfter.filterCurrent && invBefore.theme === invAfter.theme,
   dbBefore, dbAfter, dbSame: dbBefore.notes === dbAfter.notes && dbBefore.tags === dbAfter.tags && dbBefore.links === dbAfter.links && same(dbBefore.roots, dbAfter.roots),
   notes: `${invAfter.notes}/${invBefore.notes}`, tags: `${invAfter.paths.length}/${invBefore.paths.length}` };
 console.log('收尾:', JSON.stringify(R.cleanup));

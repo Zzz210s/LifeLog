@@ -3,7 +3,7 @@
  * 本批次新能力的 CDP 端到端验收:时间标签自动挂载(P3)/ 改名与数据目录迁移(P2)。
  * 标签拖拽(P1)单独在 scripts/dev-cdp-accept-drag.mjs;主题(P4)在 scripts/dev-cdp-accept-theme.mjs。
  * 用法: node scripts/dev-cdp-accept-batch.mjs   (先以 9222 调试端口启动 pnpm tauri dev;冷启动即可 —— 主窗由 ensureMain 前置自动打开)
- * 自建自删测试数据:末尾用「库存前后对照」(笔记 id 清单 + 全部标签路径 + tabs_state + theme)+
+ * 自建自删测试数据:末尾用「库存前后对照」(笔记 id 清单 + 全部标签路径 + filter_current + theme)+
  * 旧数据目录逐文件 sha256 证明真实库与旧目录均被还原。
  * 时间标签根名不写死:从设置 `time_tag_template` 推导(见 cdp-lib 的 timeTagRoot);
  * 侧栏独立「时间」分区已随时间标签降级删除,行内「改期」入口也已删(日期不可改),
@@ -90,10 +90,10 @@ await call('delete_note', { id: note.id });
 await sleep(800);
 const inv1 = await inventory();
 record(
-  'D1 测试数据删净 + 库存前后一致(笔记 id 清单 / 标签路径 / tabs_state / theme)',
+  'D1 测试数据删净 + 库存前后一致(笔记 id 清单 / 标签路径 / filter_current / theme)',
   inv1.notes === inv0.notes && samePaths(inv1.ids, inv0.ids) && samePaths(inv1.paths, inv0.paths) &&
-    inv1.tabsState === inv0.tabsState && inv1.theme === inv0.theme,
-  `notes ${inv1.notes}/${inv0.notes} ids同=${samePaths(inv1.ids, inv0.ids)} paths同=${samePaths(inv1.paths, inv0.paths)} tabs_state同=${inv1.tabsState === inv0.tabsState} theme ${inv1.theme}/${inv0.theme}`
+    inv1.filterCurrent === inv0.filterCurrent && inv1.theme === inv0.theme,
+  `notes ${inv1.notes}/${inv0.notes} ids同=${samePaths(inv1.ids, inv0.ids)} paths同=${samePaths(inv1.paths, inv0.paths)} filter_current同=${inv1.filterCurrent === inv0.filterCurrent} theme ${inv1.theme}/${inv0.theme}`
 );
 record('D2 旧数据目录仍与验收前逐文件一致', snapshot(OLD_DIR) === oldBefore, `文件数=${readdirSync(OLD_DIR).length}`);
 

@@ -3,7 +3,7 @@
  * 既有功能零回归(一):筛选条件(chips/添加条件/有无标签/排序)+ 设置页。
  * 用法: node scripts/dev-cdp-accept-regress.mjs   (先以 9222 调试端口启动 pnpm tauri dev;冷启动即可 —— 主窗由 ensureMain 前置自动打开)
  * 所有断言都对照真实 IPC 读数(Rust 查询)与库内既有数据,自建数据自删。
- * 注:保存视图/视图徽标随迁移 014 删除(视图体系已被标签页取代),原先的 R8-R11 视图用例已作废;
+ * 注:保存视图/视图徽标随迁移 014 删除(视图体系已删),原先的 R8-R11 视图用例已作废;
  * 「日期范围」入口随日期键 D2 删除,原先的日期范围用例已作废(菜单项改为断言现有五项)。
  * 计数口径:信息流一页 50 条(与后端 PAGE 一致),故界面条数按 min(50, 笔记数) 断言。
  */
@@ -20,7 +20,7 @@ const inv0 = await inventory();
 const firstPage = Math.min(PAGE, inv0.notes); // 一屏能渲染出来的条数(库有上千条时只渲染首页)
 // 起点归零:整页重载,清掉上一次运行/手工调试残留的界面状态(对话框、重命名态、筛选条件)
 await reloadPage();
-console.log('验收前库存:', JSON.stringify({ notes: inv0.notes, theme: inv0.theme, tagPaths: inv0.paths.length, tabsState: inv0.tabsState !== null }),
+console.log('验收前库存:', JSON.stringify({ notes: inv0.notes, theme: inv0.theme, tagPaths: inv0.paths.length, filterCurrent: inv0.filterCurrent !== null }),
   '首页条数', firstPage, '起始 chips', JSON.stringify(await chips()), '残留对话框', JSON.stringify(await dialogLabels()));
 
 // ---------- 1 关键词筛选与 chip(旧筛选栏关键词输入框已随统一输入框 1/3 删除:改走 `/` 模式) ----------
@@ -50,11 +50,11 @@ record('R4 「标签」打开标签选择对话框', dlg === '添加标签', `di
 await dlgClick('添加标签', '关闭');
 await sleep(400);
 
-// 有无标签 -> 无自定义标签(所有笔记都有标签,应为 0 条 + 「没有匹配的记录」空态)
+// 有无标签 -> 无标签(所有笔记都有标签,应为 0 条 + 「没有匹配的记录」空态)
 await openAddCondition();
 await menuPick('有无标签');
 await sleep(300);
-await menuPick('无自定义标签');
+await menuPick('无标签');
 const noneState = await waitFor(async () => {
   const t = await evalIn(`document.body.innerText`);
   return t.includes('没有匹配的记录') && !t.includes('还没有记录') ? t : null;
@@ -62,7 +62,7 @@ const noneState = await waitFor(async () => {
 const noneCount = await liCount();
 const noneExpect = await hits({ tagPresence: 'none' });
 record(
-  'R5 「无自定义标签」筛选:0 命中且显示无匹配空态',
+  'R5 「无标签」筛选:0 命中且显示无匹配空态',
   noneCount === 0 && noneExpect === 0 && noneState !== null,
   `界面 ${noneCount} 后端 ${noneExpect} 空态=${noneState !== null} chips=${JSON.stringify(await chips())}`
 );
@@ -118,11 +118,11 @@ record('R8 返回信息流(设置页隐藏、列表仍是首页条数)', backOk.
 
 const inv1 = await inventory();
 record(
-  'R9 库存前后一致(笔记 id 清单 / 标签路径 / tabs_state / theme)',
+  'R9 库存前后一致(笔记 id 清单 / 标签路径 / filter_current / theme)',
   inv1.notes === inv0.notes && JSON.stringify(inv1.ids) === JSON.stringify(inv0.ids) &&
     JSON.stringify(inv1.paths) === JSON.stringify(inv0.paths) &&
-    inv1.tabsState === inv0.tabsState && inv1.theme === inv0.theme,
-  `notes ${inv1.notes}/${inv0.notes} tabs_state同=${inv1.tabsState === inv0.tabsState} theme ${inv1.theme}/${inv0.theme}`
+    inv1.filterCurrent === inv0.filterCurrent && inv1.theme === inv0.theme,
+  `notes ${inv1.notes}/${inv0.notes} filter_current同=${inv1.filterCurrent === inv0.filterCurrent} theme ${inv1.theme}/${inv0.theme}`
 );
 
 finish();

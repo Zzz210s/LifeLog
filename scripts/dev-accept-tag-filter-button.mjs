@@ -1,4 +1,4 @@
-// 侧栏「筛选标签」按钮的实机验收(统一输入框 2/3 · Task 4):
+// 侧栏「筛选标签」按钮的实机验收(统一输入框 2/3 · Task 4;按钮已图标化,按 aria-label 定位):
 //   点击 → 统一输入框的值以 `#` 开头且是 activeElement(与快捷键共用同一条 prefill 通道);
 //   侧栏里 0 个输入控件,点击也不会冒出来;在统一输入框里打字不改变侧栏标签行数(树不再按关键词过滤)。
 // 前置:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9222 pnpm tauri dev
@@ -8,7 +8,7 @@ import { ensureMain, recorder, waitFor } from './cdp-lib.mjs';
 const SNAP = `(() => {
   const box = document.querySelector('[data-testid="unified-input"]');
   const aside = document.querySelector('aside');
-  const btn = [...document.querySelectorAll('aside button')].find((b) => b.textContent.trim() === '筛选标签');
+  const btn = document.querySelector('aside button[aria-label="筛选标签"]');
   return {
     sidebar: !!aside,
     button: !!btn,
@@ -20,7 +20,7 @@ const SNAP = `(() => {
 })()`;
 
 const CLICK_FILTER = `(() => {
-  const b = [...document.querySelectorAll('aside button')].find((x) => x.textContent.trim() === '筛选标签');
+  const b = document.querySelector('aside button[aria-label="筛选标签"]');
   if (!b) return false;
   b.click();
   return true;
@@ -44,20 +44,22 @@ const { cdp, close } = await ensureMain({});
 // 先 eval 到旧按钮 = true,紧接着快照却在重载空白期(第一条就假失败)。
 const origin = await cdp.eval('performance.timeOrigin');
 await cdp.send('Page.reload');
+// 新文档接管 + 侧栏与标签行都渲染完(行数异步到位,只等 aside 会读到 0 行的中间态)
 const fresh = await waitFor(async () => {
   const s = await cdp
-    .eval(`(() => ({ t: performance.timeOrigin, has: !!document.querySelector('aside') }))()`)
+    .eval(`(() => ({ t: performance.timeOrigin, has: !!document.querySelector('aside'),
+      rows: document.querySelectorAll('aside [data-tag-path]').length }))()`)
     .catch(() => null);
-  return s && s.t !== origin && s.has ? s : null;
+  return s && s.t !== origin && s.has && s.rows > 0 ? s : null;
 }, 40, 250);
 if (!fresh) throw new Error('重载后侧栏未在超时内出现(侧栏可能被设置隐藏)');
 
 const before = await cdp.eval(SNAP);
-r.record('侧栏在,按钮文案为「筛选标签」', before.sidebar === true && before.button === true, JSON.stringify(before));
+r.record('侧栏在,按钮为「筛选标签」图标(aria-label 定位)', before.sidebar === true && before.button === true, JSON.stringify(before));
 r.record('初始:侧栏 0 个输入控件', before.asideInputs === 0, `aside 输入控件 ${before.asideInputs} 个`);
 r.record('初始:标签行已渲染', before.rows > 0, `${before.rows} 行`);
 
-r.record('点「筛选标签」', (await cdp.eval(CLICK_FILTER)) === true);
+r.record('点「筛选标签」图标', (await cdp.eval(CLICK_FILTER)) === true);
 
 const after = (await waitFor(async () => {
   const s = await cdp.eval(SNAP);

@@ -3,7 +3,7 @@
  * 标签拖拽(P1)CDP 端到端验收:拖成子级 / 还原原路径 / 自身子树被拒。
  * 用法: node scripts/dev-cdp-accept-drag.mjs   (先以 9222 调试端口启动 pnpm tauri dev;冷启动即可 —— 主窗由 ensureMain 前置自动打开)
  * 夹具自建自删:在「验收拖拽/甲」「验收拖拽/乙」两个自建标签间来回搬动,结束时删净夹具,
- * 末尾用 list_tags 全量路径 + 笔记 id 清单 + tabs_state / theme 做库存前后对照。
+ * 末尾用 list_tags 全量路径 + 笔记 id 清单 + filter_current / theme 做库存前后对照。
  * 两条已作废用例(不再保留):
  *   - 「时间子树不可拖也不作目标」:侧栏独立时间分区已随时间标签降级删除,时间标签现在是普通标签(可拖、可作目标)
  *   - 「拖到分区空白=拖回根级」:移到根级会调 move_tag -> apply_sibling_order 给**真实根层重排 sort_order**
@@ -60,7 +60,7 @@ async function drag(from, to) {
 
 const inv0 = await inventory();
 const p0 = await paths();
-console.log('验收前库存:', JSON.stringify({ notes: inv0.notes, theme: inv0.theme, tagPaths: inv0.paths.length, tabsState: inv0.tabsState !== null }));
+console.log('验收前库存:', JSON.stringify({ notes: inv0.notes, theme: inv0.theme, tagPaths: inv0.paths.length, filterCurrent: inv0.filterCurrent !== null }));
 
 // 夹具:两条自建笔记带 验收拖拽/甲、验收拖拽/乙 两个标签(链接数用于证明拖动不丢笔记)
 const noteA = await call('save_input_note', { content: `#${A} ${NOTE_A}` });
@@ -120,12 +120,12 @@ await sleep(400);
 list = await call('list_tags');
 const inv1 = await inventory();
 record(
-  'D1 夹具删净 + 库存前后一致(笔记 id 清单 / 标签路径 / tabs_state / theme)',
+  'D1 夹具删净 + 库存前后一致(笔记 id 清单 / 标签路径 / filter_current / theme)',
   inv1.notes === inv0.notes && same(inv1.ids, inv0.ids) && same(inv1.paths, inv0.paths) &&
     !list.some((t) => t.path === ROOT || t.path.startsWith(ROOT + '/')) &&
-    inv1.tabsState === inv0.tabsState && inv1.theme === inv0.theme,
+    inv1.filterCurrent === inv0.filterCurrent && inv1.theme === inv0.theme,
   `notes ${inv1.notes}/${inv0.notes} ids同=${same(inv1.ids, inv0.ids)} paths同=${same(inv1.paths, inv0.paths)} ` +
-    `tabs_state同=${inv1.tabsState === inv0.tabsState} theme ${inv1.theme}/${inv0.theme}`
+    `filter_current同=${inv1.filterCurrent === inv0.filterCurrent} theme ${inv1.theme}/${inv0.theme}`
 );
 
 finish();

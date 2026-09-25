@@ -73,15 +73,15 @@ export function createReadings(ctx) {
     return chips;
   }
 
-  /** 读数 3b:非法表达式不写库 —— 「确定」被拒、对话框不关闭、tabs_state / 条件 chips 快照前后一致 */
+  /** 读数 3b:非法表达式不写库 —— 「确定」被拒、对话框不关闭、filter_current / 条件 chips 快照前后一致 */
   async function read3b(chipsBefore) {
     // 先等读数 3 的合法条件落盘(500ms 节流窗口):否则拿 null 基线去比,
     // 会把读数 3 自己的迟到写入误判成"非法表达式写库"
     const settled = await waitFor(async () => {
-      const v = await call('get_setting', { key: 'tabs_state' });
+      const v = await call('get_setting', { key: 'filter_current' });
       return v && String(v).includes(E3) ? { v } : null;
     }, 16, 250);
-    const t0 = settled ? settled.v : await call('get_setting', { key: 'tabs_state' });
+    const t0 = settled ? settled.v : await call('get_setting', { key: 'filter_current' });
     await x('openExpr()');
     await x('fillExpr(' + j(BAD) + ')');
     await waitX('status()', (v) => v && v.kind === 'err');
@@ -90,9 +90,9 @@ export function createReadings(ctx) {
     await x('esc()');
     await waitX('exprValue()', (v) => v === null, 8);
     await sleep(700); // 超过 500ms 写库节流窗口:若真有写库这里必然落盘
-    const t1 = await call('get_setting', { key: 'tabs_state' });
+    const t1 = await call('get_setting', { key: 'filter_current' });
     const chipsSame = same(await x('chips()'), chipsBefore);
-    record('读数3b 非法表达式不写库:「确定」被拒 + tabs_state / 条件 chips 快照前后一致',
+    record('读数3b 非法表达式不写库:「确定」被拒 + filter_current / 条件 chips 快照前后一致',
       refused === false && stillOpen && !!settled && t0 === t1 && chipsSame,
       j({ refused, stillOpen, settled: !!settled, before: t0, after: t1, chipsSame }));
   }
@@ -115,13 +115,13 @@ export function createReadings(ctx) {
       opened === E3 && closed === null && kept && reopen === E3 && gone === false, j({ opened, closed, kept, reopen, gone }));
   }
 
-  /** 读数 6:重启后表达式条件仍在(tabs_state 读回 -> 条件 chips 复原) */
+  /** 读数 6:重启后表达式条件仍在(filter_current 读回 -> 条件 chips 复原) */
   async function readRestart() {
     const chips = await waitX('chips()', (c) => c && has(c, (y) => y.label.startsWith('表达式:')), 16);
-    const raw = await call('get_setting', { key: 'tabs_state' });
-    record('读数6 重启后表达式条件仍在(tabs_state 持久化读回)',
+    const raw = await call('get_setting', { key: 'filter_current' });
+    record('读数6 重启后表达式条件仍在(filter_current 持久化读回)',
       !!chips && has(chips, (y) => y.label === '表达式:' + trunc(E3)) && String(raw).includes(E3),
-      j({ chips: chips && chips.map((c) => c.label), tabsState: raw }));
+      j({ chips: chips && chips.map((c) => c.label), filterCurrent: raw }));
   }
 
   return { read12, read3, read3b, read4, readRestart };

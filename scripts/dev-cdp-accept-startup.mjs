@@ -7,7 +7,7 @@
  * 用法: node scripts/dev-cdp-accept-startup.mjs --phase=main|cleanup
  *   main    = 基线洁净审计(不干净即中止)-> A 冷启动状态 / B-C 设置意图三条通道 /
  *             D 主题镜像与首帧插桩 / G 既有功能回归 -> 落运行清单
- *   cleanup = 按清单删净自建数据 + 还原 tabs_state/theme/镜像 + 收尾断言
+ *   cleanup = 按清单删净自建数据 + 还原 filter_current/theme/镜像 + 收尾断言
  * 场景库(窗口/托盘取证件 + D/G 场景)在 scripts/dev-startup-scenes.mjs,
  * 数据安全件(库存/审计/清单/清收)在 scripts/dev-startup-clean.mjs(拆分只为满足 200 行规则)。
  */
@@ -36,7 +36,7 @@ async function runMain() {
     j(w0.map((w) => w.title + ':' + w.visible)));
   const base = dbInventory();
   const problems = auditBaseline(base);
-  record('A3 基线洁净审计(笔记首行/标签路径/tabs_state 引用无 AI 残留)',
+  record('A3 基线洁净审计(笔记首行/标签路径/filter_current 引用无 AI 残留)',
     problems.length === 0, j({ problems, notes: base.notes, theme: base.theme }));
   if (problems.length > 0) {
     console.log('基线不干净,中止(拒绝把污染当基线)');
@@ -87,10 +87,10 @@ async function runMain() {
   const mid = await inventory();
   writeJson('run-manifest.json', {
     noteIds: [made.noteId].filter(Boolean),
-    pathsBefore: base.paths, tabsStateBefore: base.tabsState, themeBefore: base.theme,
+    pathsBefore: base.paths, filterBefore: base.filterCurrent, themeBefore: base.theme,
   });
   console.log('INFO 运行清单已落盘', j({ noteIds: [made.noteId], themeBefore: base.theme }));
-  console.log('INFO 场景结束后库存', j({ notes: mid.notes, tabsState: mid.tabsState, theme: mid.theme }));
+  console.log('INFO 场景结束后库存', j({ notes: mid.notes, filterCurrent: mid.filterCurrent, theme: mid.theme }));
   mp.close();
   ipa.close();
 }
@@ -100,7 +100,7 @@ async function runCleanup() {
   const { cdp, close } = await ensureMain();
   const { call } = bindMain(cdp);
   await setKeyword(cdp, '');
-  await sleep(1600); // 先等界面侧关键词防抖(300ms)+ tabs_state 节流(500ms)落定,之后恢复才是最后写者
+  await sleep(1600); // 先等界面侧关键词防抖(300ms)+ filter_current 节流(500ms)落定,之后恢复才是最后写者
   const after = await cleanupRun({ call, record, j });
   const rewrite = `(() => { localStorage.setItem(${j(KEY)}, ${j(after.theme)}); return localStorage.getItem(${j(KEY)}); })()`;
   const mainMirror = await cdp.eval(rewrite);
@@ -114,7 +114,7 @@ async function runCleanup() {
   }
   record('清收5:两窗主题镜像回写为还原后的库内值(不留运行期残留)',
     mainMirror === after.theme && inputMirror === after.theme, j({ mainMirror, inputMirror, theme: after.theme }));
-  console.log('INFO 清收后库存', j({ notes: after.notes, theme: after.theme, tabsState: after.tabsState, pid }));
+  console.log('INFO 清收后库存', j({ notes: after.notes, theme: after.theme, filterCurrent: after.filterCurrent, pid }));
   close();
 }
 

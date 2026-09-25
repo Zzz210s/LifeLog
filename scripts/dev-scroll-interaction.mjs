@@ -2,8 +2,9 @@
 //   C1 补 流滚到最底时的链式滚动(根是否被带走)
 //   C5 输入栏:输入框上滚是否缩放、补全列表上滚是否被缩放吞掉
 //   C6 编辑面板 textarea 独立滚动 + 根滚动的可见后果(顶栏是否被带走)
-//   C7 切筛选 / 切标签页后的流向位置
 //   A3 小视口(Emulation 页面级 400x300)下表达式/标签两个弹层是否被裁、关键按钮是否可达
+// 注:C7「切筛选后的流向位置」已作废(切页入口随多页筛选一并删除,
+// 排序按钮也已从条件栏搬进顶栏 ⋯ 菜单),整段读数一并删掉。
 // 输入全部走 CDP 合成(滚轮/键盘/指针)与页面内 DOM 动作,不用 OS 鼠标;仅 Emulation 改页面级视口。
 // 用法:node scripts/dev-scroll-interaction.mjs [exe路径]   默认 E:/1-LifeLog/LifeLog.exe
 // 输出:.superpowers/sdd/2026-09-21-scroll/readings/interaction.json(gitignored)
@@ -127,50 +128,10 @@ await js(cdp, `document.scrollingElement.scrollTop = 0`);
 await clickByText(cdp, '取消');
 await sleep(400);
 
-// ---- C7 切筛选 / 切标签页后的流向位置 ----
-await js(cdp, `(() => { const el = (${STREAM}); el.scrollTop = 1500; return true; })()`);
-await sleep(300);
-const st7 = await streamTop(cdp);
-const sortBefore = await js(cdp, `Array.from(document.querySelectorAll('button')).find((b) => b.textContent.trim().startsWith('排序'))?.textContent.trim()`);
-await clickByText(cdp, '排序');
-await sleep(1500);
-R.C7_改筛选条件 = { 前流top: st7, 前排序按钮: sortBefore, 后流top: await streamTop(cdp), 后排序按钮: await js(cdp, `Array.from(document.querySelectorAll('button')).find((b) => b.textContent.trim().startsWith('排序'))?.textContent.trim()`), 条数: await js(cdp, `document.querySelectorAll('li .md-body').length`) };
-// 新建第二个标签页(把当前筛选开成新页),再在两页之间来回切
-await js(cdp, `document.querySelector('button[aria-label="新建标签页"]').click()`);
-await sleep(300);
-await js(cdp, `(() => { const b = Array.from(document.querySelectorAll('[role="menuitem"]')).find((x) => x.textContent.trim() === '把当前筛选开成新标签页'); if (b) b.click(); return !!b; })()`);
-await sleep(1500);
-const tabsCount = () => js(cdp, `document.querySelector('[role="tablist"]')?.dataset.tabsCount`);
-R.C7_标签页 = { 建前条数: 1, 建后条数: await tabsCount() };
-await js(cdp, `(() => { const el = (${STREAM}); el.scrollTop = 1300; return true; })()`);
-await sleep(300);
-R.C7_标签页.切前流top = await streamTop(cdp);
-await js(cdp, `document.querySelectorAll('[role="tab"]')[0].click()`);
-await sleep(1500);
-R.C7_标签页.切到第1页后流top = await streamTop(cdp);
-await js(cdp, `(() => { const el = (${STREAM}); el.scrollTop = 900; return true; })()`);
-await sleep(300);
-await js(cdp, `document.querySelectorAll('[role="tab"]')[1].click()`);
-await sleep(1500);
-R.C7_标签页.切到第2页后流top = await streamTop(cdp);
-// 关闭第二页 + 还原排序(把库里的 tabs_state 还原成基线)
-await js(cdp, `(() => { const t = document.querySelectorAll('[role="tab"]')[1]; const b = t.querySelector('button[aria-label^="关闭标签页"]'); if (b) b.click(); return true; })()`);
-await sleep(1200);
-if ((await js(cdp, `Array.from(document.querySelectorAll('button')).find((b) => b.textContent.trim().startsWith('排序'))?.textContent.trim()`)) !== sortBefore) {
-  await clickByText(cdp, '排序');
-  await sleep(1200);
-}
-R.C7_收尾 = {
-  标签页条数: await tabsCount(),
-  排序按钮: await js(cdp, `Array.from(document.querySelectorAll('button')).find((b) => b.textContent.trim().startsWith('排序'))?.textContent.trim()`),
-  tabs_state: await call(cdp, 'get_setting', { key: 'tabs_state' }),
-  排序后再流top: await streamTop(cdp),
-};
-
 // ---- A3 小视口下弹层的裁剪与可滚性(节模块 dev-scroll-dialogs.mjs,Emulation 页面级视口 400x300) ----
 await dialogSections(R, cdp);
 
 writeFileSync(OUT, JSON.stringify(R, null, 2));
-dump('C5-C7', R);
+dump('C5-C6', R);
 console.log('\n写入', OUT);
 close();

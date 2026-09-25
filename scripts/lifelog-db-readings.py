@@ -85,7 +85,7 @@ def readings(db):
             conn, "SELECT COUNT(*) FROM notes WHERE content LIKE '%测试验收%'"
         )
         out["integrity_check"] = scalar(conn, "PRAGMA integrity_check")
-        for key in ("auto_time_tag", "time_tag_template", "tabs_state", "theme"):
+        for key in ("auto_time_tag", "time_tag_template", "filter_current", "theme"):
             row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
             out[f"settings.{key}"] = "<缺失>" if row is None else row[0]
         rows = conn.execute("SELECT key, value FROM settings ORDER BY key").fetchall()
