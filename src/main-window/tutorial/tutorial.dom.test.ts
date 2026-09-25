@@ -1,85 +1,28 @@
 // @vitest-environment jsdom
 /**
- * Task 2 的容器证据:覆盖层 / 气泡 / 引导层(渲染、回退跳步、模态焦点锁、两个出口)。
- * jsdom 的 getBoundingClientRect 恒为 0,而 `findAnchor` 要求**非零矩形** —— 锚点桩自带矩形;
- * 几何(洞口外扩、气泡翻转/钳位)已在 Task 1 的纯函数单测里钉死,这里只测渲染与交互。
- * 锚点一律按 `steps.ts` 的**真实选择器**造,选择器改了这里当场红。
+ * 引导层的容器证据之一:**渲染与回退链 + 两个出口的语义**(模态部分见 tutorial-modal.dom.test.ts)。
+ * 几何(洞口外扩、气泡翻转/钳位)在 Task 1 的纯函数单测里钉死,这里只测渲染与交互。
  */
 import { act, createElement } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { TUTORIAL_STEPS } from './steps';
 import { TutorialLayer } from './TutorialLayer';
+import { RECT, anchorOf, createHarness, destroyHarness, stubSyncFrames, type Harness } from './__fixtures__/tutorial-harness';
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
-
-const RECT = {
-  x: 200, y: 100, top: 100, left: 200, width: 300, height: 40, right: 500, bottom: 140,
-  toJSON: () => ({}),
-} as DOMRect;
-
-/** 按某一步的首选选择器造一个"真的能显示"的锚点(非零矩形 + 可聚焦的节点类型) */
-function anchorOf(id: string, tag = 'div'): HTMLElement {
-  const step = TUTORIAL_STEPS.find((s) => s.id === id);
-  const m = step === undefined ? null : /\[([\w-]+)="([^"]+)"\]/.exec(step.selectors[0]);
-  if (step === undefined || m === null) throw new Error(`锚点取不到: ${id}`);
-  const el = document.createElement(tag);
-  el.setAttribute(m[1], m[2]);
-  el.getBoundingClientRect = () => RECT;
-  document.body.appendChild(el);
-  return el;
-}
-
-let root: Root;
-let host: HTMLDivElement;
-let onExit: ReturnType<typeof vi.fn>;
-
-const $ = (testid: string): HTMLElement | null => host.querySelector(`[data-testid="${testid}"]`);
-const stepText = (): string => $('tutorial-step')?.textContent ?? '';
-const mount = (props: Record<string, unknown> = {}): void => {
-  // onUnavailable 必填(类型强制):默认给一个空实现,要断言它的用例自己传
-  act(() => root.render(createElement(TutorialLayer, { open: true, onExit, onUnavailable: () => {}, ...props })));
-};
-/** 等 effect/渲染链跑完(act 内的微任务排空) */
-const settle = async (): Promise<void> => {
-  await act(async () => {
-    for (let i = 0; i < 4; i++) await Promise.resolve();
-  });
-};
-const click = async (testid: string): Promise<void> => {
-  act(() => ($(testid) as HTMLElement).click());
-  await settle();
-};
-/** 真实按键的 target 是**当前聚焦元素**(不是 window);派发到 window 会让"同节点同相位"绕过闸门 */
-const press = (key: string, shift = false, mod: KeyboardEventInit = {}): void => {
-  const e = new KeyboardEvent('keydown', { key, shiftKey: shift, bubbles: true, cancelable: true, ...mod });
-  const target = (document.activeElement as HTMLElement | null) ?? document.body;
-  act(() => target.dispatchEvent(e));
-};
+let h: Harness;
 
 beforeEach(() => {
-  // 两帧 rAF 用同步桩:重试与测量都在 act 里一次跑完,断言不必等真实帧
-  vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => (cb(0), 0));
-  vi.stubGlobal('cancelAnimationFrame', () => {});
-  onExit = vi.fn();
-  host = document.createElement('div');
-  document.body.appendChild(host);
-  root = createRoot(host);
+  stubSyncFrames();
+  h = createHarness();
 });
 
-afterEach(() => {
-  act(() => root.unmount());
-  host.remove();
-  document.body.innerHTML = '';
-  vi.unstubAllGlobals();
-});
+afterEach(() => destroyHarness(h));
 
 describe('引导层:渲染与回退链', () => {
   it('按锚点渲染当前步:标题、步序、对话框语义(role/aria-modal/aria-labelledby)', async () => {
     anchorOf('input');
-    mount();
-    await settle();
-    const bubble = $('tutorial-bubble') as HTMLElement;
+    h.mount();
+    await h.settle();
+    const bubble = h.$('tutorial-bubble') as HTMLElement;
     expect(bubble.getAttribute('role')).toBe('dialog');
     expect(bubble.getAttribute('aria-modal')).toBe('true');
     const labelled = bubble.getAttribute('aria-labelledby') as string;
@@ -87,18 +30,18 @@ describe('引导层:渲染与回退链', () => {
     expect(labelled).toBeTruthy();
     expect(h2.id).toBe(labelled);
     expect(h2.textContent).toBe('在这里记下一切');
-    expect(stepText()).toContain('第 1 / 5 步');
+    expect(h.stepText()).toContain('第 1 / 5 步');
   });
 
   it('推进时跳过锚点缺失的步骤(第 1 步 -> 直接到第 5 步)', async () => {
     anchorOf('input');
     anchorOf('topbar'); // 2/3/4 步的锚点都不在场
-    mount();
-    await settle();
-    expect(stepText()).toContain('第 1 / 5 步');
-    await click('tutorial-next');
-    expect(stepText()).toContain('第 5 / 5 步');
-    expect(host.textContent).toContain('还有这些');
+    h.mount();
+    await h.settle();
+    expect(h.stepText()).toContain('第 1 / 5 步');
+    await h.click('tutorial-next');
+    expect(h.stepText()).toContain('第 5 / 5 步');
+    expect(h.host.textContent).toContain('还有这些');
   });
 
   it('节点在场但矩形为 0(display:none / 未渲染)不算命中:跳过该步', async () => {
@@ -107,36 +50,9 @@ describe('引导层:渲染与回退链', () => {
     ghost.getBoundingClientRect = () => ({ ...RECT, width: 0, height: 0 } as DOMRect);
     document.body.appendChild(ghost);
     anchorOf('topbar');
-    mount();
-    await settle();
-    expect(stepText()).toContain('第 5 / 5 步');
-  });
-});
-
-describe('引导层:模态键盘闸门', () => {
-  it('引导开着时,落在引导之外的按键不放行给应用(窗口级快捷键被拦)', async () => {
-    anchorOf('input');
-    const appHotkey = vi.fn(); // 替身:应用挂在 window 上的快捷键监听(bubble 阶段)
-    window.addEventListener('keydown', appHotkey);
-    document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'p', ctrlKey: true, bubbles: true }));
-    expect(appHotkey).toHaveBeenCalledTimes(1); // 自检:监听器本身工作
-    appHotkey.mockClear();
-    mount();
-    await settle();
-    // 焦点在气泡内(挂载即聚焦),此时按键不该被拦
-    expect(document.activeElement?.getAttribute('data-testid')).toBe('tutorial-bubble');
-    press('p', false, { ctrlKey: true });
-    expect(appHotkey).toHaveBeenCalledTimes(1);
-    appHotkey.mockClear();
-    // 焦点被挪到引导之外(body)-> 按键被闸门吞掉,应用收不到
-    act(() => (document.activeElement as HTMLElement | null)?.blur());
-    press('p', false, { ctrlKey: true });
-    expect(appHotkey).not.toHaveBeenCalled();
-    // Esc 仍能退出(闸门给它放行)
-    press('Escape');
-    await settle();
-    expect(onExit).toHaveBeenCalledTimes(1);
-    window.removeEventListener('keydown', appHotkey);
+    h.mount();
+    await h.settle();
+    expect(h.stepText()).toContain('第 5 / 5 步');
   });
 });
 
@@ -146,80 +62,76 @@ describe('引导层:前置动作(侧栏隐藏时的第 3 步)', () => {
       // 前置动作真的把侧栏显示出来(真实实现里 sidebar.setVisible(true) 的效果)
       anchorOf('tags');
     });
-    anchorOf('input'); // 只放第 1 步的锚点:第 2/3 步都要靠回退/前置动作才出现
+    anchorOf('input'); // 第 2 步(prefix-hint)锚点缺失,靠回退跳过
     anchorOf('tabs');
     anchorOf('topbar');
-    mount({ onShowSidebar });
-    await settle();
-    // 第 1 步在场 -> 先看第 1 步;推进后第 2 步(prefix-hint)缺、第 3 步(标签)靠前置动作补齐
-    expect(stepText()).toContain('第 1 / 5 步');
-    await click('tutorial-next'); // -> 第 3 步(第 2 步锚点缺失被跳过)
-    await settle();
+    h.mount({ onShowSidebar });
+    await h.settle();
+    expect(h.stepText()).toContain('第 1 / 5 步');
+    await h.click('tutorial-next'); // -> 第 3 步(第 2 步锚点缺失被跳过)
+    await h.settle();
     expect(onShowSidebar).toHaveBeenCalled();
-    expect(stepText()).toContain('第 3 / 5 步');
+    expect(h.stepText()).toContain('第 3 / 5 步');
   });
 });
 
 describe('引导层:两个出口的语义', () => {
   it('Esc 退出并调 onExit 一次', async () => {
     anchorOf('input');
-    mount();
-    await settle();
-    press('Escape');
-    await settle();
-    expect(onExit).toHaveBeenCalledTimes(1);
-    expect($('tutorial-bubble')).toBeNull();
+    h.mount();
+    await h.settle();
+    h.press('Escape');
+    await h.settle();
+    expect(h.onExit).toHaveBeenCalledTimes(1);
+    expect(h.$('tutorial-bubble')).toBeNull();
   });
 
   it('点覆盖层不退出(防误触)', async () => {
     anchorOf('input');
-    mount();
-    await settle();
-    await click('tutorial-root');
-    expect(onExit).not.toHaveBeenCalled();
-    expect($('tutorial-root')).not.toBeNull();
+    h.mount();
+    await h.settle();
+    await h.click('tutorial-root');
+    expect(h.onExit).not.toHaveBeenCalled();
+    expect(h.$('tutorial-root')).not.toBeNull();
   });
 
   it('透明底板盖住整屏(含洞口)且吃掉点击:模态不放行到下层', async () => {
     anchorOf('input');
     // 外层是"下层应用"的替身:它挂在引导层**外面**,若事件不被吞就会命中它的 onClick
     const outerClick = vi.fn();
-    act(() =>
-      root.render(
-        createElement(
-          'div',
-          { onClick: outerClick },
-          createElement(TutorialLayer, { open: true, onExit, onUnavailable: () => {} })
-        )
+    h.root.render(
+      createElement(
+        'div',
+        { onClick: outerClick },
+        createElement(TutorialLayer, { open: true, onExit: h.onExit, onUnavailable: () => {} })
       )
     );
-    await settle();
-    const scrim = $('tutorial-scrim') as HTMLElement;
+    await h.settle();
+    const scrim = h.$('tutorial-scrim') as HTMLElement;
     expect(scrim).not.toBeNull();
     // 底板是整屏的:洞口那块空白也在它覆盖范围内(所以洞口内点击不会落到下层输入框)
     expect(scrim.className).toContain('inset-0');
-    act(() => scrim.click());
-    await settle();
+    await h.click('tutorial-scrim');
     expect(outerClick).not.toHaveBeenCalled(); // 被吞:到不了下层
-    expect(onExit).not.toHaveBeenCalled();     // 也不退出
+    expect(h.onExit).not.toHaveBeenCalled();   // 也不退出
   });
 
   it('末步按钮文案是「完成」,点它调 onExit', async () => {
     anchorOf('topbar'); // 只放最后一个锚点:初始即落到末步
-    mount();
-    await settle();
-    const next = $('tutorial-next') as HTMLElement;
+    h.mount();
+    await h.settle();
+    const next = h.$('tutorial-next') as HTMLElement;
     expect(next.textContent).toBe('完成');
-    await click('tutorial-next');
-    expect(onExit).toHaveBeenCalledTimes(1);
+    await h.click('tutorial-next');
+    expect(h.onExit).toHaveBeenCalledTimes(1);
   });
 
   it('一步都显示不出来(重试两帧后):调 onUnavailable,不调 onExit', async () => {
     const onUnavailable = vi.fn();
-    mount({ onUnavailable });
-    await settle();
+    h.mount({ onUnavailable });
+    await h.settle();
     expect(onUnavailable).toHaveBeenCalledTimes(1);
-    expect(onExit).not.toHaveBeenCalled();
+    expect(h.onExit).not.toHaveBeenCalled();
   });
 
   it('重试窗口内锚点就位:不当成「不可用」,更不写标记', async () => {
@@ -227,43 +139,17 @@ describe('引导层:两个出口的语义', () => {
     // 这个用例要的是**真实时序**:帧回调排队,由我们在锚点就位后手动推进
     vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => frames.push(cb));
     const onUnavailable = vi.fn();
-    mount({ onUnavailable });
-    await settle();
+    h.mount({ onUnavailable });
+    await h.settle();
     expect(onUnavailable).not.toHaveBeenCalled(); // 重试还没走完:别急着判「一步都显示不出来」
-    expect(onExit).not.toHaveBeenCalled();
+    expect(h.onExit).not.toHaveBeenCalled();
     anchorOf('input'); // 布局稳定期结束,锚点渲染出来
     act(() => {
       while (frames.length > 0) (frames.shift() as FrameRequestCallback)(0);
     });
-    await settle();
+    await h.settle();
     expect(onUnavailable).not.toHaveBeenCalled();
-    expect(onExit).not.toHaveBeenCalled(); // 只有用户动作才写标记
-    expect(stepText()).toContain('第 1 / 5 步');
-  });
-});
-
-describe('引导层:模态(焦点锁在气泡内)', () => {
-  it('进门聚焦气泡;输入框抢到焦点会被拉回(打字进不去)', async () => {
-    const input = anchorOf('input', 'textarea') as HTMLTextAreaElement;
-    mount();
-    await settle();
-    const bubble = $('tutorial-bubble') as HTMLElement;
-    expect(document.activeElement).toBe(bubble);
-    act(() => input.focus());
-    expect(document.activeElement).toBe(bubble);
-  });
-
-  it('Tab 在气泡内循环(跳过 <-> 下一步)', async () => {
-    anchorOf('input');
-    mount();
-    await settle();
-    press('Tab');
-    expect(document.activeElement).toBe($('tutorial-skip'));
-    press('Tab');
-    expect(document.activeElement).toBe($('tutorial-next'));
-    press('Tab');
-    expect(document.activeElement).toBe($('tutorial-skip'));
-    press('Tab', true);
-    expect(document.activeElement).toBe($('tutorial-next'));
+    expect(h.onExit).not.toHaveBeenCalled(); // 只有用户动作才写标记
+    expect(h.stepText()).toContain('第 1 / 5 步');
   });
 });
