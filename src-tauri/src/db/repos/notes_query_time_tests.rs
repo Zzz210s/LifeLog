@@ -111,7 +111,7 @@ fn note_with_two_time_tags_keeps_both() {
     assert_eq!(contents(&query(&c, &f(&["时间排序/2020/05/06"]), 0).unwrap()), vec!["回填旧日期"]);
 }
 
-/// 无标签判定不看时间标签:时间标签也是标签(D3,与内置「无自定义标签」口径一致)
+/// 无标签判定不看时间标签:时间标签也是标签(D3,与条件栏「无标签」口径一致)
 #[test]
 fn tag_presence_counts_time_tags() {
     let mut c = db();

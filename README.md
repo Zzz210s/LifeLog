@@ -81,11 +81,12 @@ The window *is* the input box: no frame, no title bar, no buttons, transparent s
 
 **Main window**
 
-- A single column: the tab bar, the unified input box, a condition bar (chips plus a one-line summary)
-  and the note stream
-- Filtering by keyword, by tag (click a `#tag` chip or a tag in a note), and ordering
-  newest-first or oldest-first (one command each, reachable from `>` or from the top bar's `⋯` menu),
-  paged 50 notes at a time; there is no date-range filter
+- A single column: the unified input box, a condition bar (chips plus a one-line summary) and the note stream
+- Filtering is one set of conditions whichever the entry point: pick tags in the sidebar (or click a
+  `#tag` chip inside a note), add conditions in the condition bar, or type a `/` keyword in the input
+  box; it survives a restart. Ordering newest-first or oldest-first takes one command each (reachable
+  from `>` or from the top bar's `⋯` menu); the stream pages 50 notes at a time and there is no
+  date-range filter
 - Time tags are ordinary tags: `时间排序/YYYY/MM/DD` lives in the tag tree like any other tag, so
   browsing a day means clicking that day's tag (rename, move or delete it freely)
 - The tag tree can be reorganised by dragging (tree and flat mode alike): dropping on the
@@ -96,7 +97,7 @@ The window *is* the input box: no frame, no title bar, no buttons, transparent s
 - The tag context menu offers rename / move / **alias** / **merge**. An alias records which tag a name
   points at (old names and short forms normalise automatically, so writing `#old-name` still lands on the
   renamed tag; aliases can be added and removed in the menu). Merge folds tag A into tag B: links move over,
-  the old name is kept as an alias by default, and tag-page filters are rewritten — only leaf tags can merge
+  the old name is kept as an alias by default, and the current filter is rewritten — only leaf tags can merge
 - **Parent tags are clickable**: clicking `电影`, `信息` or `日期/2026` filters every descendant (a child
   implies its parent, so notes do not need redundant parent tags)
 - Note cards split chips into two rows: **topic** (domain / genre / region) and **attribute** (status / origin /
@@ -127,8 +128,8 @@ The window *is* the input box: no frame, no title bar, no buttons, transparent s
 - A command's visibility and its checked state are data (`when` / `toggled`), not component
   branches: a hidden command is absent from the DOM, and `隐藏侧栏` becomes `显示侧栏` while the
   sidebar is hidden
-- Fourteen commands: new note, next/previous tab, open settings, cycle the theme, hide the sidebar,
-  focus mode, newest first, oldest first, add a condition, export everything, rebuild the search
+- Twelve commands: new note, open settings, cycle the theme, hide the sidebar, focus mode,
+  newest first, oldest first, add a condition, export everything, rebuild the search
   index, edit the global hotkey, quit
 - Sorting, exporting and adding a condition also have a mouse entry: the `⋯` menu in the top bar,
   which marks the active sort with a check mark and shows the export feedback next to it. The
@@ -148,11 +149,8 @@ The window *is* the input box: no frame, no title bar, no buttons, transparent s
   `done`/`doing` tags and no per-note inline checkbox
 - The note stream shows no time at all: the only time-like information is the ordinary
   `时间排序/YYYY/MM/DD` tag tree
-- Tabs replace the old saved views: the `+` menu at the end of the tab bar offers three presets —
-  全部 (everything), 待办 (the `待办` tag, children included) and 无标签 (notes with no tags at all) —
-  plus one entry that turns the current filter into a new tab. Every tab keeps its own filter
-  snapshot; tabs are renamed by double-click, reordered by dragging, closed with `x` (closing the
-  last one leaves a fresh 全部 tab), and restored on the next launch
+- There are no saved views and no multiple filter snapshots: classification is done with tags alone,
+  and the current filter is a single piece of state
 
 **Export**
 
@@ -184,8 +182,8 @@ Artifacts:
 
 ## Usage
 
-1. On the very first launch a five-step **tour** runs on the main window (input box, prefix hint,
-   tag tree, tabs, top bar menu); the main window opens by itself for it. Finish or skip it and it
+1. On the very first launch a four-step **tour** runs on the main window (input box, prefix hint,
+   tag tree, top bar menu); the main window opens by itself for it. Finish or skip it and it
    never comes back - replay it any time from Settings -> General -> "watch again".
    After that, launching the app shows only the input bar; open the main window from the tray icon's
    right-click menu. The tray icon appears next to the clock.
@@ -203,9 +201,8 @@ Artifacts:
 4. Press `Ctrl+Enter`. The note is stored, the input clears, `已保存 HH:MM` flashes and the main
    window refreshes.
 5. In the main window, search by keyword, click a tag chip to filter, switch the ordering, edit a
-   note in the split pane, or export everything to Excel. The tab bar above the composer holds one
-   filter snapshot per tab: use `+` for the presets, double-click a tab to rename it and drag it to
-   reorder.
+   note in the split pane, or export everything to Excel. The filter is a single set of conditions
+   and survives a restart.
 
 Tray menu (right click): open the input bar, open the main window, settings, quit. A left click on
 the tray icon opens the main window (same as the menu item); the input bar is still surfaced by the
@@ -231,10 +228,9 @@ All state lives in SQLite; the frontend never talks to the database directly.
     backend event that refreshes the list after a save from the input bar;
     `NoteStream`/`NoteItem`/`EditPanel`
     render, filter and edit notes.
-  - `src/main-window/tabs/` — the tab pages that replaced saved views: `tabs-model.ts` (pure tab
-    state, at least one 全部 page), `auto-title.ts` (title generated from the filter conditions),
-    `tab-presets.ts` (the three `+` menu presets and "current filter"), `use-tabs.ts` (the
-    `settings.tabs_state` round trip, throttled writes).
+  - `src/main-window/filter/` — the single filter state: `use-filter-state.ts` reads and writes the
+    `settings.filter_current` key (throttled), `filter-state.ts` is the pure parse/serialise layer,
+    and `ConditionBar.tsx` renders the active chips plus the summary line.
   - `src/input-bar/` — `InputBar.tsx` (a single textarea filling the window) and its
     behaviour hooks: `use-drag-band` (move / double-click), `use-width-drag` (edge resize),
     `use-auto-height` (1–5 line growth), `use-input-wheel` + `use-input-view-store` (zoom, opacity

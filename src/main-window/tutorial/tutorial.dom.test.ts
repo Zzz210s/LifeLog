@@ -30,17 +30,17 @@ describe('引导层:渲染与回退链', () => {
     expect(labelled).toBeTruthy();
     expect(h2.id).toBe(labelled);
     expect(h2.textContent).toBe('在这里记下一切');
-    expect(h.stepText()).toContain('第 1 / 5 步');
+    expect(h.stepText()).toContain('第 1 / 4 步');
   });
 
-  it('推进时跳过锚点缺失的步骤(第 1 步 -> 直接到第 5 步)', async () => {
+  it('推进时跳过锚点缺失的步骤(第 1 步 -> 直接到第 4 步)', async () => {
     anchorOf('input');
-    anchorOf('topbar'); // 2/3/4 步的锚点都不在场
+    anchorOf('topbar'); // 2/3 步的锚点都不在场
     h.mount();
     await h.settle();
-    expect(h.stepText()).toContain('第 1 / 5 步');
+    expect(h.stepText()).toContain('第 1 / 4 步');
     await h.click('tutorial-next');
-    expect(h.stepText()).toContain('第 5 / 5 步');
+    expect(h.stepText()).toContain('第 4 / 4 步');
     expect(h.host.textContent).toContain('还有这些');
   });
 
@@ -52,7 +52,7 @@ describe('引导层:渲染与回退链', () => {
     anchorOf('topbar');
     h.mount();
     await h.settle();
-    expect(h.stepText()).toContain('第 5 / 5 步');
+    expect(h.stepText()).toContain('第 4 / 4 步');
   });
 });
 
@@ -63,15 +63,14 @@ describe('引导层:前置动作(侧栏隐藏时的第 3 步)', () => {
       anchorOf('tags');
     });
     anchorOf('input'); // 第 2 步(prefix-hint)锚点缺失,靠回退跳过
-    anchorOf('tabs');
     anchorOf('topbar');
     h.mount({ onShowSidebar });
     await h.settle();
-    expect(h.stepText()).toContain('第 1 / 5 步');
+    expect(h.stepText()).toContain('第 1 / 4 步');
     await h.click('tutorial-next'); // -> 第 3 步(第 2 步锚点缺失被跳过)
     await h.settle();
     expect(onShowSidebar).toHaveBeenCalled();
-    expect(h.stepText()).toContain('第 3 / 5 步');
+    expect(h.stepText()).toContain('第 3 / 4 步');
   });
 });
 
@@ -81,7 +80,6 @@ describe('引导层:前置动作后要等锚点真的可测量', () => {
     vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => frames.push(cb));
     const onShowSidebar = vi.fn(); // 只"开始显示侧栏",锚点要过几帧才出现
     anchorOf('input');
-    anchorOf('tabs');
     anchorOf('topbar');
     h.mount({ onShowSidebar });
     await h.settle();
@@ -94,13 +92,13 @@ describe('引导层:前置动作后要等锚点真的可测量', () => {
       await h.settle();
     }
     expect(onShowSidebar).toHaveBeenCalledTimes(1);
-    expect(h.stepText()).not.toContain('第 4 / 5 步'); // 跳到第 4 步 = 第 3 步被误跳过
+    expect(h.stepText()).not.toContain('第 4 / 4 步'); // 跳到第 4 步 = 第 3 步被误跳过
     anchorOf('tags'); // 侧栏渲染出来了
     act(() => {
       while (frames.length > 0) (frames.shift() as FrameRequestCallback)(0);
     });
     await h.settle();
-    expect(h.stepText()).toContain('第 3 / 5 步');
+    expect(h.stepText()).toContain('第 3 / 4 步');
   });
 });
 

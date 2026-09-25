@@ -1,5 +1,5 @@
 /**
- * 下拉浮层的关闭手势(点外部 / Esc),自 AddConditionMenu、TabAddMenu 的同款写法抽出。
+ * 下拉浮层的关闭手势(点外部 / Esc),自 AddConditionMenu、TopBarMenu 的同款写法抽出。
  *
  * Esc 在**捕获阶段**拦下并 stopPropagation:不能让它冒泡到窗口级(那会隐藏输入栏);
  * 回调走 ref 现读 —— 浮层可能开着很久,不能闭包住旧的 props(内联箭头每次渲染都换身份)。

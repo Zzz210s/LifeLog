@@ -31,12 +31,6 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     before: 'show-sidebar',
   },
   {
-    id: 'tabs',
-    selectors: ['[role="tablist"]'],
-    title: '把当前筛选存成一个页',
-    body: '标签页是一套筛选条件的快照。+ 里有全部、待办、无标签三个预设,也能把当前筛选开成新页;可拖动排序、双击改名。',
-  },
-  {
     id: 'topbar',
     // 注意锚点是**触发按钮**不是菜单面板:`[data-testid="topbar-menu"]` 只在菜单展开时进 DOM,
     // 而引导是模态的、点覆盖层会把菜单关掉 —— 高亮面板既拿不到也留不住

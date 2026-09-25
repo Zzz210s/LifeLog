@@ -41,7 +41,7 @@ const appeared = await waitFor(async () => ((await mainTarget()) ? true : null),
 record('① 未看过时主窗自己出现(不经托盘)', appeared === true, `等待 ${appeared ? '到位' : '超时'}`);
 await waitFor(async () => ((await readMain())?.open ? true : null), 60, 500);
 const s1 = await readMain();
-record('①b 教程停在第 1 步', s1 != null && s1.open === true && (s1.step ?? '').includes('1 / 5'), JSON.stringify({ step: s1?.step, title: s1?.title }));
+record('①b 教程停在第 1 步', s1 != null && s1.open === true && (s1.step ?? '').includes('1 / 4'), JSON.stringify({ step: s1?.step, title: s1?.title }));
 
 // ---------- ② 洞口 = 锚点外扩 4px ----------
 const anchor = s1?.anchorRect ?? null;
@@ -61,14 +61,14 @@ record('⑦ 洞口/气泡不被输入栏窗口盖住', inputWin != null && cover
 const before = await inventory();
 const sidebarVisibleBefore = await call('get_setting', { key: 'sidebar_visible' });
 
-// ---------- ③ 走完 -> 写标记 ----------
-for (let i = 0; i < 4; i++) await click('tutorial-next');
+// ---------- ③ 走完 -> 写标记(4 步:从第 1 步连点 3 次到末步) ----------
+for (let i = 0; i < 3; i++) await click('tutorial-next');
 const lastBtn = await withTimeout(
   page.cdp.eval(`(() => { const b = document.querySelector('[data-testid="tutorial-next"]'); return b === null ? null : b.textContent; })()`),
   8000
 );
 const atLast = await readMain();
-record('③a 末步按钮是「完成」', lastBtn === '完成' && (atLast?.step ?? '').includes('5 / 5'), JSON.stringify({ step: atLast?.step, btn: lastBtn }));
+record('③a 末步按钮是「完成」', lastBtn === '完成' && (atLast?.step ?? '').includes('4 / 4'), JSON.stringify({ step: atLast?.step, btn: lastBtn }));
 await click('tutorial-next');
 await sleep(700);
 const after = await readMain();
@@ -100,7 +100,7 @@ await sleep(900);
 const replay = await clickBy('text', '重新观看');
 await sleep(1400);
 const s5 = await readMain();
-record('⑤ 设置页「重新观看」-> 引导回来且在第 1 步', replay === true && s5 != null && s5.open === true && (s5.step ?? '').includes('1 / 5'), JSON.stringify({ replay, step: s5?.step }));
+record('⑤ 设置页「重新观看」-> 引导回来且在第 1 步', replay === true && s5 != null && s5.open === true && (s5.step ?? '').includes('1 / 4'), JSON.stringify({ replay, step: s5?.step }));
 
 // ---------- ⑥ 侧栏隐藏时的第 3 步 ----------
 await clickBy('label', '隐藏侧栏');
@@ -117,7 +117,7 @@ await click('tutorial-next'); // -> 第 3 步(标签;锚点因侧栏隐藏而缺
 const s6 = await readMain();
 record(
   '⑥ 侧栏隐藏后重看:前置动作把侧栏显示出来并停在第 3 步',
-  hidden != null && hidden.sidebarVisible === false && s6 != null && s6.sidebarVisible === true && (s6.step ?? '').includes('3 / 5'),
+  hidden != null && hidden.sidebarVisible === false && s6 != null && s6.sidebarVisible === true && (s6.step ?? '').includes('3 / 4'),
   JSON.stringify({ beforeHide: hidden?.sidebarVisible, after: s6?.sidebarVisible, step: s6?.step })
 );
 

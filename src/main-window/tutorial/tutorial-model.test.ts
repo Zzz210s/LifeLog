@@ -2,12 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { isSeen, nextStep, exitTutorial, initialTutorial, dropMissing, TUTORIAL_STEPS } from './tutorial-model';
 
 describe('tutorial-model', () => {
-  it('5 步的锚点选择器是**字面快照**:改错选择器当场红(第 5 步曾把菜单面板当锚点)', () => {
+  it('4 步的锚点选择器是**字面快照**:改错选择器当场红(末步曾把菜单面板当锚点)', () => {
     expect(TUTORIAL_STEPS.map((s) => [s.id, s.selectors])).toEqual([
       ['input', ['[data-testid="unified-input"]']],
       ['prefix', ['[data-testid="prefix-hint"]']],
       ['tags', ['[data-testid="tag-list"]', '[data-testid="sidebar"]']],
-      ['tabs', ['[role="tablist"]']],
       ['topbar', ['[aria-label="更多操作"]']], // 溢出菜单的**触发按钮**:面板只在展开时存在
     ]);
   });
@@ -44,9 +43,9 @@ describe('tutorial-model', () => {
   });
 
   it('dropMissing 从**当前位置往后**找,不回退到已看过的步', () => {
-    // 可显示的是下标 1 与 4;当前位置 2 -> 必须往后落到 4,而不是被倒回 1
-    const later = (s: { id: string }) => s.id === TUTORIAL_STEPS[1].id || s.id === TUTORIAL_STEPS[4].id;
-    expect(dropMissing({ open: true, index: 2 }, TUTORIAL_STEPS, later)).toEqual({ open: true, index: 4 });
+    // 可显示的是下标 1 与 3;当前位置 2 -> 必须往后落到 3,而不是被倒回 1
+    const later = (s: { id: string }) => s.id === TUTORIAL_STEPS[1].id || s.id === TUTORIAL_STEPS[3].id;
+    expect(dropMissing({ open: true, index: 2 }, TUTORIAL_STEPS, later)).toEqual({ open: true, index: 3 });
     // 当前位置之后确实一个都不剩时才关闭(且 index 不回退)
     expect(dropMissing({ open: true, index: 2 }, TUTORIAL_STEPS, (s) => s.id === TUTORIAL_STEPS[1].id))
       .toEqual({ open: false, index: 2 });

@@ -53,6 +53,6 @@ describe('引导层:锚点重试与「不可用」', () => {
     await h.settle();
     expect(onUnavailable).not.toHaveBeenCalled();
     expect(h.onExit).not.toHaveBeenCalled(); // 只有用户动作才写标记
-    expect(h.stepText()).toContain('第 1 / 5 步');
+    expect(h.stepText()).toContain('第 1 / 4 步');
   });
 });
