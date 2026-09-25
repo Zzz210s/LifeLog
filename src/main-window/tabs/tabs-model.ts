@@ -8,6 +8,7 @@
 import { EMPTY_FILTER, filterKey } from '../../shared/filter-conditions';
 import { parseFilterJson } from '../../shared/filter-conditions-parse';
 import type { FilterConditions } from '../../shared/filter-conditions';
+import { applyTagPick } from '../filter/filter-chips';
 import { autoTitle } from './auto-title';
 
 /** settings 键(真源在 Rust `db/repos/settings.rs` 的 TABS_STATE_KEY) */
@@ -138,15 +139,19 @@ export function patchActive(s: TabsState, value: Partial<FilterConditions>): Tab
 export function toggleActiveTag(s: TabsState, path: string): TabsState {
   const current = activeConditions(s);
   if (current.excludeTags.some((t) => t.path === path)) {
-    return patchActive(s, {
-      excludeTags: current.excludeTags.filter((t) => t.path !== path),
-      tags: [...current.tags, { path, includeChildren: true }],
-    });
+    // 走 applyTagPick 而不是裸 spread:与侧栏/统一输入框共用去重(遗留数据里万一两侧同路径,
+    // 结果也不会出现重复的 tags 项)
+    const moved = applyTagPick(
+      { ...current, excludeTags: current.excludeTags.filter((t) => t.path !== path) },
+      path,
+      { exclude: false, includeChildren: true }
+    );
+    return patchActive(s, { tags: moved.tags, excludeTags: moved.excludeTags });
   }
   const has = current.tags.some((t) => t.path === path);
   const tags = has
     ? current.tags.filter((t) => t.path !== path)
-    : [...current.tags, { path, includeChildren: true }];
+    : applyTagPick(current, path, { exclude: false, includeChildren: true }).tags;
   return patchActive(s, { tags });
 }
 

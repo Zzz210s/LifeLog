@@ -157,4 +157,14 @@ describe('tabs-model 增删切重排改名', () => {
     expect(moved.tabs[1].conditions.excludeTags).toEqual([]);
     expect(moved.tabs[0].conditions.tags).toEqual([]); // 只改当前页
   });
+
+  it('遗留数据里两侧同路径时不会造出重复的 tags 项(与侧栏去重口径一致)', () => {
+    const s = addTab(
+      defaultTabs(),
+      cond({ tags: [{ path: '健康', includeChildren: false }], excludeTags: [{ path: '健康', includeChildren: false }] })
+    );
+    const moved = toggleActiveTag(activateTab(s, 1), '健康');
+    expect(moved.tabs[1].conditions.tags).toEqual([{ path: '健康', includeChildren: false }]);
+    expect(moved.tabs[1].conditions.excludeTags).toEqual([]);
+  });
 });
