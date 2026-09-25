@@ -64,7 +64,7 @@ export function chipsOf(c: FilterConditions): Chip[] {
   if (c.tagPresence !== null) {
     chips.push({
       kind: 'presence',
-      label: c.tagPresence === 'none' ? '无自定义标签' : '有标签',
+      label: c.tagPresence === 'none' ? '无标签' : '有标签',
       remove: { ...c, tagPresence: null },
     });
   }
@@ -83,7 +83,7 @@ export function chipsOf(c: FilterConditions): Chip[] {
   return chips;
 }
 
-/** 中文一句话摘要:'关键词「电影」;标签 工作;无自定义标签;最早在前';空条件为空串(含子级不进摘要) */
+/** 中文一句话摘要:'关键词「电影」;标签 工作;无标签;最早在前';空条件为空串(含子级不进摘要) */
 export function summaryOf(c: FilterConditions): string {
   return summaryParts(c, true).join(';');
 }
@@ -101,7 +101,7 @@ function summaryParts(c: FilterConditions, truncate: boolean): string[] {
   if (c.tags.length > 0) parts.push(`标签 ${c.tags.map((t) => t.path).join('、')}`);
   if (c.excludeTags.length > 0) parts.push(`排除 ${c.excludeTags.map((t) => t.path).join('、')}`);
   if (hasExpr(c)) parts.push(exprLabel(c.expr ?? '', truncate));
-  if (c.tagPresence !== null) parts.push(c.tagPresence === 'none' ? '无自定义标签' : '有标签');
+  if (c.tagPresence !== null) parts.push(c.tagPresence === 'none' ? '无标签' : '有标签');
   if (c.sort === 'oldest') parts.push(SORT_CHIP_LABEL);
   return parts;
 }
