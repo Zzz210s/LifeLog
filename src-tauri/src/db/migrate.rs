@@ -81,7 +81,14 @@ fn carry_over_filter_current(conn: &Connection) -> rusqlite::Result<()> {
                 Ok(c) => (c, "沿用旧活动页条件"),
                 Err(_) => (FilterConditions::default(), "旧条件对象无法解析,退化为空条件"),
             },
-            None => (FilterConditions::default(), "活动页越界或缺 conditions,退化为空条件"),
+            // 越界:取第一页(与前端 parseTabsState 同口径,别把用户的筛选丢掉)
+            None => match state.tabs.first().and_then(|t| t.conditions.clone()) {
+                Some(v) => match serde_json::from_value::<FilterConditions>(v) {
+                    Ok(c) => (c, "活动页越界,沿用第一页条件"),
+                    Err(_) => (FilterConditions::default(), "第一页条件对象无法解析,退化为空条件"),
+                },
+                None => (FilterConditions::default(), "旧值里没有可用条目,退化为空条件"),
+            },
         },
         Err(_) => (FilterConditions::default(), "旧值不是合法 JSON,退化为空条件"),
     };

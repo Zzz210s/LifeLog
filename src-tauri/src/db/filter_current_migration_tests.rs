@@ -73,13 +73,15 @@ fn migration_016_with_bad_legacy_json_falls_back_to_empty() {
     assert_eq!(settings::get(&conn, "tabs_state").unwrap(), None);
 }
 
-/// ③b activeIndex 越界 / 缺 conditions -> 同样退化到空条件(口径见 brief:不取第一页)
+/// ③b activeIndex 越界 -> **取第一页**(与前端 parseTabsState 的夹取口径一致);
+/// 缺 conditions / 没有可用条目 -> 退化空条件
 #[test]
-fn migration_016_out_of_range_index_falls_back_to_empty() {
+fn migration_016_out_of_range_index_uses_first_page() {
     let out_of_range = r#"{"tabs":[{"conditions":{"keyword":"甲"}}],"activeIndex":7}"#;
     let conn = legacy_db(Some(out_of_range));
     run(&conn).unwrap();
-    assert_eq!(filter_current(&conn).unwrap(), default_json());
+    let got = filter_current(&conn).unwrap();
+    assert!(got.contains("甲"), "越界应沿用第一页条件,实得 {got}");
 
     let no_conditions = r#"{"tabs":[{"title":"空"}],"activeIndex":0}"#;
     let conn = legacy_db(Some(no_conditions));
