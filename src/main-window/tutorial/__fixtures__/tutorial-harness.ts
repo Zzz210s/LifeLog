@@ -6,6 +6,7 @@
  * 锚点一律按 `steps.ts` 的**真实选择器**造,选择器改了这里当场红。
  */
 import { act, createElement } from 'react';
+import type { ReactElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { vi } from 'vitest';
 import { TUTORIAL_STEPS } from '../steps';
@@ -43,6 +44,8 @@ export interface Harness {
   $: (testid: string) => HTMLElement | null;
   stepText: () => string;
   mount: (props?: Record<string, unknown>) => void;
+  /** 自定义渲染(已包 act):给需要在外层套"下层应用替身"的用例用 */
+  render: (node: ReactElement) => void;
   settle: () => Promise<void>;
   click: (testid: string) => Promise<void>;
   press: (key: string, shift?: boolean, mod?: KeyboardEventInit) => void;
@@ -71,6 +74,9 @@ export function createHarness(): Harness {
     $,
     stepText: () => $('tutorial-step')?.textContent ?? '',
     mount,
+    render: (node: ReactElement) => {
+      act(() => root.render(node));
+    },
     settle,
     click: async (testid: string) => {
       act(() => ($(testid) as HTMLElement).click());

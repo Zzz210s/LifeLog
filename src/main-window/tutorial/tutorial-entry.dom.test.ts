@@ -96,14 +96,15 @@ describe('主窗的引导入口', () => {
     expect(h.setSetting).not.toHaveBeenCalled();
   });
 
-  it('设置页「重新观看」:先回信息流视图再开层,且不受标记限制', async () => {
+  it('设置页「重新观看」:回信息流视图 + 挂上层,且不受标记限制', async () => {
     h.seen = '1'; // 已看过(正常情况):重看仍然要开
-    await mount(() => order.push('view'));
+    let view = 'settings';
+    await mount(() => { view = 'stream'; }); // 替身:App 的 setView('stream')
     expect(rendered()).toBe(false);
-    order = [];
     act(() => latest.onReplay());
-    // 视图先归位(锚点都在信息流上),随后才发生带开层的那次渲染
-    expect(order).toEqual(['view', 'render:true']);
+    // 断言"真的回到信息流":回看回调执行后视图必须已归位(锚点都在信息流视图上,
+    // 停在设置页会让锚点全是零矩形 -> 引导落到第 3 步甚至不可用)
+    expect(view).toBe('stream');
     expect(rendered()).toBe(true);
     expect(h.setSetting).not.toHaveBeenCalled();
   });

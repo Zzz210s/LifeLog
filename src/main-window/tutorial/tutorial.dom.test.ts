@@ -99,7 +99,7 @@ describe('引导层:两个出口的语义', () => {
     anchorOf('input');
     // 外层是"下层应用"的替身:它挂在引导层**外面**,若事件不被吞就会命中它的 onClick
     const outerClick = vi.fn();
-    h.root.render(
+    h.render(
       createElement(
         'div',
         { onClick: outerClick },

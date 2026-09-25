@@ -69,7 +69,9 @@ export function App(): ReactNode {
   const reportSettingsError = useCallback((m: string) => setError('action', m), [setError]);
   useOpenSettings(openSettings, reportSettingsError);
   // 首次使用引导:自己读一次标记(输入栏只管开窗),用户动作写标记、「重新观看」先回信息流
-  const tutorial = useTutorialEntry(() => setView('stream'));
+  // 回调身份要稳(重看入口把它透传到设置页;每渲染换新会让下游 props 每次变)
+  const backToStream = useCallback(() => setView('stream'), []);
+  const tutorial = useTutorialEntry(backToStream);
 
   const { remove, onEditSaved, toggleTask, requestEdit, switchEdit, handleTagsMutated } = useEditFlow({
     conditions,
