@@ -1,4 +1,4 @@
-//! 应用内快捷键(命令面板 / 快速打开笔记)的纯逻辑:用途元数据、语法校验与冲突判定。
+//! 应用内快捷键(命令 / 快速打开笔记)的纯逻辑:用途元数据、语法校验与冲突判定。
 //!
 //! 与系统级热键(`crate::hotkey`)的区别:这两个**不注册系统热键**,只落 settings 供主窗
 //! keydown 匹配,所以没有「注册失败」这条路径;但落库值仍必须经 `hotkey_spec` 规范化
@@ -18,7 +18,7 @@ pub struct Kind {
 pub const KINDS: [Kind; 2] = [
     Kind {
         kind: "palette",
-        label: "命令面板",
+        label: "命令",
         setting_key: "main_palette_hotkey",
         default: "ctrl+shift+p",
     },

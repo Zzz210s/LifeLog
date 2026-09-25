@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
  * 拖拽状态机证据(T3/T4/T7/T2):落点解析、指示线条数、防抖、悬停自动展开。
- * 夹具与事件合成手法见 drag-harness.tsx(页面内合成 DragEvent,不碰 OS 鼠标)。
+ * 夹具与事件合成手法见 __fixtures__/drag-harness.tsx(页面内合成 DragEvent,不碰 OS 鼠标)。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mountDrag } from './__fixtures__/drag-harness';

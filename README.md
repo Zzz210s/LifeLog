@@ -156,7 +156,7 @@ The window *is* the input box: no frame, no title bar, no buttons, transparent s
 
 **Export**
 
-- "Export all" writes the entire database to one `.xlsx` sheet with exactly two columns: body and
+- "Export the whole library" writes the entire database to one `.xlsx` sheet with exactly two columns: body and
   tags
 
 ## Install

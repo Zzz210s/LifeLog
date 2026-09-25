@@ -11,7 +11,7 @@ fn kind_metadata_matches_frontend_contract() {
     assert_eq!(of("quickOpen").unwrap().setting_key, "main_quick_open_hotkey");
     assert_eq!(of("palette").unwrap().default, "ctrl+shift+p");
     assert_eq!(of("quickOpen").unwrap().default, "ctrl+p");
-    assert_eq!(of("palette").unwrap().label, "命令面板");
+    assert_eq!(of("palette").unwrap().label, "命令");
     assert_eq!(of("quickOpen").unwrap().label, "快速打开笔记");
     assert!(of("nope").unwrap_err().contains("未知的快捷键用途"));
     assert!(is_setting_key("main_palette_hotkey") && is_setting_key("main_quick_open_hotkey"));
@@ -39,7 +39,7 @@ fn conflict_between_the_two_app_hotkeys() {
     assert!(msg.contains("快速打开笔记"), "{msg}");
     // 另一个键没设置过时用的是它的**默认键**,同样算冲突
     let msg = decide("quickOpen", "ctrl+shift+p", None, None).unwrap_err();
-    assert!(msg.contains("命令面板"), "{msg}");
+    assert!(msg.contains("命令"), "{msg}");
     // 两个键各自都没被占用时不误报
     assert_eq!(decide("quickOpen", "ctrl+alt+k", None, None).unwrap(), "ctrl+alt+k");
 }
