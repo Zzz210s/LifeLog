@@ -30,3 +30,13 @@ fn setting_whitelist_falls_back_to_input_bar() {
     assert!(show_input_from_setting(Some("TRAY-ONLY")));
     assert!(!show_input_from_setting(Some("tray-only")));
 }
+
+#[test]
+fn tutorial_seen_only_accepts_1() {
+    // 只有 "1" 算看过;空串(清标记重看)、缺失、其它值都算未看过
+    assert!(seen_from_setting(Some("1")));
+    assert!(!seen_from_setting(Some("")));
+    assert!(!seen_from_setting(None));
+    assert!(!seen_from_setting(Some("0")));
+    assert!(!seen_from_setting(Some("true")));
+}

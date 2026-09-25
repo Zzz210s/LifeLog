@@ -93,7 +93,10 @@ export function useTutorial(open: boolean, handlers: TutorialHandlers = {}): Tut
       for (let i = stateRef.current.index; i < TUTORIAL_STEPS.length; i++) {
         const st = TUTORIAL_STEPS[i];
         if (anchorFound(st)) return null;
-        if (st.before === 'show-sidebar' && !didBefore.current.has(st.id)) return st;
+        // 调用方没给前置动作的回调时不算"能救回来":否则会白白等 BEFORE_FRAMES 帧
+        if (st.before === 'show-sidebar' && cb.current.onShowSidebar && !didBefore.current.has(st.id)) {
+          return st;
+        }
       }
       return null;
     };

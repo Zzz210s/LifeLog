@@ -68,10 +68,16 @@ export function App(): ReactNode {
   const openSettings = useCallback(() => setView('settings'), []);
   const reportSettingsError = useCallback((m: string) => setError('action', m), [setError]);
   useOpenSettings(openSettings, reportSettingsError);
-  // 首次使用引导:自己读一次标记(输入栏只管开窗),用户动作写标记、「重新观看」先回信息流
+  // 首次使用引导:主窗自己读标记决定挂不挂层(开窗在 Rust 启动路径);用户动作写标记、「重新观看」先回信息流
   // 回调身份要稳(重看入口把它透传到设置页;每渲染换新会让下游 props 每次变)
   const backToStream = useCallback(() => setView('stream'), []);
   const tutorial = useTutorialEntry(backToStream);
+
+  // 引导开着时切到设置页(托盘「设置」是 OS 级通道,拦不住键盘闸门)会把锚点全藏起来 ——
+  // 覆盖层会变成"全屏压暗 + 气泡悬空"。这时按"不可用"处理:**只关层、不写标记**,下次启动再弹。
+  useEffect(() => {
+    if (view === 'settings' && tutorial.open) tutorial.onUnavailable();
+  }, [view, tutorial]);
 
   const { remove, onEditSaved, toggleTask, requestEdit, switchEdit, handleTagsMutated } = useEditFlow({
     conditions,

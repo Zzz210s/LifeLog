@@ -1,9 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import {
-  isSeen, nextStep, exitTutorial, initialTutorial, dropMissing, hasDisplayable, TUTORIAL_STEPS,
-} from './tutorial-model';
+import { isSeen, nextStep, exitTutorial, initialTutorial, dropMissing, TUTORIAL_STEPS } from './tutorial-model';
 
 describe('tutorial-model', () => {
+  it('5 步的锚点选择器是**字面快照**:改错选择器当场红(第 5 步曾把菜单面板当锚点)', () => {
+    expect(TUTORIAL_STEPS.map((s) => [s.id, s.selectors])).toEqual([
+      ['input', ['[data-testid="unified-input"]']],
+      ['prefix', ['[data-testid="prefix-hint"]']],
+      ['tags', ['[data-testid="tag-list"]', '[data-testid="sidebar"]']],
+      ['tabs', ['[role="tablist"]']],
+      ['topbar', ['[aria-label="更多操作"]']], // 溢出菜单的**触发按钮**:面板只在展开时存在
+    ]);
+  });
+
   it('无标记 -> 未看过;有 "1" -> 已看过;空串 -> 未看过', () => {
     expect(isSeen(null)).toBe(false);
     expect(isSeen('')).toBe(false);
@@ -42,11 +50,6 @@ describe('tutorial-model', () => {
     // 当前位置之后确实一个都不剩时才关闭(且 index 不回退)
     expect(dropMissing({ open: true, index: 2 }, TUTORIAL_STEPS, (s) => s.id === TUTORIAL_STEPS[1].id))
       .toEqual({ open: false, index: 2 });
-  });
-
-  it('hasDisplayable:区分「走完了」与「一步都显示不出来」', () => {
-    expect(hasDisplayable(TUTORIAL_STEPS, () => false)).toBe(false);
-    expect(hasDisplayable(TUTORIAL_STEPS, (s) => s.id === TUTORIAL_STEPS[3].id)).toBe(true);
   });
 
   it('锚点全缺的步骤被跳过;全缺时直接关闭', () => {

@@ -1,6 +1,7 @@
 // 启动动作的唯一决策点(前端镜像;真机执行在 Rust 侧 windowing/startup.rs,两侧同构同测)。
 // 语义见 spec 3.1:手动启动与开机自启一致,动作只由设置「启动时显示」决定;
-// 主窗口在任何情况下都不自动显示(关闭 = 退到托盘)。
+// 主窗口只在**首次使用引导未看过**时由 Rust 启动路径自动打开(见 windowing/startup.rs);
+// 其余情况都不自动显示(关闭 = 退到托盘)。
 import type { StartupSettings } from './startup-settings';
 
 /** 启动后做什么:唤起输入栏,或只驻留托盘(不显示任何窗口) */

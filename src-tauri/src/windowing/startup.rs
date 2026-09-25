@@ -1,7 +1,7 @@
 //! 启动动作决策与托盘窗口入口。
 //! 决策纯逻辑与前端 src/shared/startup-action.ts 同构(两侧各有单测钉住同一真值表):
 //! 动作只由设置「启动时显示」input_startup_show 决定,手动启动与开机自启一致(spec 3.1);
-//! 主窗口在任何情况下都不自动显示(关闭 = 退到托盘)。
+//! 主窗口只在**首次使用引导未看过**时自动打开(见 `apply` 末尾);其余情况都不自动显示(关闭 = 退到托盘)。
 use crate::windowing;
 use tauri::AppHandle;
 
@@ -28,7 +28,7 @@ pub fn resolve_startup_action(show_input: bool, _autostart_launch: bool) -> Star
     }
 }
 
-/// setup 末尾调用:读设置 -> 执行启动动作。主窗口永不自动显示。
+/// setup 末尾调用:读设置 -> 执行启动动作;首次使用(未看过引导)时顺带把主窗叫起来。
 pub fn apply(app: &AppHandle, autostart_launch: bool) {
     let raw = windowing::input_geom::get_str(app, "input_startup_show");
     let show_input = show_input_from_setting(raw.as_deref());
@@ -54,7 +54,12 @@ pub fn apply(app: &AppHandle, autostart_launch: bool) {
 
 /// 引导标记:只有 "1" 算看过(空串/缺失/读不到都算没看过),与前端 isSeen 同一口径。
 fn tutorial_seen(app: &AppHandle) -> bool {
-    windowing::input_geom::get_str(app, "ui.tutorial_seen").as_deref() == Some("1")
+    seen_from_setting(windowing::input_geom::get_str(app, "ui.tutorial_seen").as_deref())
+}
+
+/// 纯函数部分(可单测):空串 = 未看过,让「清标记重看」不必删行
+pub fn seen_from_setting(raw: Option<&str>) -> bool {
+    raw == Some("1")
 }
 
 /// 显示主窗口(托盘「打开主窗口」/「设置」共用):窗口存在则只显示,不存在才按需构建

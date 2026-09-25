@@ -184,8 +184,11 @@ Artifacts:
 
 ## Usage
 
-1. Launch the app. The input bar appears and the main window does not open automatically — open the
-   main window from the tray icon's right-click menu. The tray icon appears next to the clock.
+1. On the very first launch a five-step **tour** runs on the main window (input box, prefix hint,
+   tag tree, tabs, top bar menu); the main window opens by itself for it. Finish or skip it and it
+   never comes back - replay it any time from Settings -> General -> "watch again".
+   After that, launching the app shows only the input bar; open the main window from the tray icon's
+   right-click menu. The tray icon appears next to the clock.
 2. Press `Ctrl+Shift+Q` anywhere to open the input bar. It can be moved by dragging any
    edge, resized in width from its left or right edge, zoomed with the wheel, and hidden with `Esc`
    or a double-click on an edge.
