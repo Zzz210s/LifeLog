@@ -173,6 +173,17 @@ describe('条件栏:添加条件菜单受控', () => {
     expect(items()).toEqual(['标签', '排除标签', '有无标签', '排序', '表达式(高级)']);
   });
 
+  it('有无标签子面板:文案是「无标签」,不再叫「无自定义标签」', () => {
+    const items = (): string[] =>
+      [...(menu() as HTMLElement).querySelectorAll('button[role="menuitem"]')].map((b) => b.textContent ?? '');
+    render(FULL, true);
+    const pane = [...(menu() as HTMLElement).querySelectorAll<HTMLButtonElement>('button[role="menuitem"]')].find(
+      (b) => b.textContent === '有无标签'
+    ) as HTMLButtonElement;
+    act(() => pane.click());
+    expect(items()).toEqual(['不限', '有标签', '无标签']);
+  });
+
   it('菜单自身只通过 onAddConditionOpenChange 关闭(受控,不自持状态)', () => {
     render(FULL, true);
     act(() => {

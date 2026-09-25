@@ -128,7 +128,7 @@ describe('V4 错误条:文字动作按钮走 28 档', () => {
   });
 });
 
-describe('V4 标签分区头部:动作按钮 28 档', () => {
+describe('V4 标签分区头部:图标按钮 28 档', () => {
   const header = (over: Record<string, unknown> = {}) =>
     createElement(TagsHeader, {
       flash: null,
@@ -138,12 +138,13 @@ describe('V4 标签分区头部:动作按钮 28 档', () => {
       ...over,
     });
 
-  it('树/扁平与筛选标签按钮都是 h-7 / rounded-sm / text-ui', async () => {
+  it('树/扁平与筛选标签改成图标档按钮(28×28 / rounded-sm),按钮里无文字', async () => {
     await render(header());
     const buttons = [...host.querySelectorAll('button')] as HTMLElement[];
-    expect(buttons.map((b) => b.textContent)).toEqual(['树', '筛选标签']);
+    expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual(['切换为扁平列表', '筛选标签']);
     for (const btn of buttons) {
-      for (const token of ['h-7', 'rounded-sm', 'text-ui']) expect(tokens(btn)).toContain(token);
+      expect(btn.textContent).toBe('');
+      for (const token of ['h-7', 'w-7', 'rounded-sm', 'text-muted']) expect(tokens(btn)).toContain(token);
       expect(tokens(btn)).not.toContain('text-xs');
     }
   });

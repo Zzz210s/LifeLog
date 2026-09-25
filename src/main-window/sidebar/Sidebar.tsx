@@ -1,6 +1,6 @@
 /**
  * 侧栏容器(spec 6.1):标签分区;
- * 右缘 4px 热区拖宽(180-420,松手才落库),收起/展开入口在顶栏。
+ * 右缘 4px 热区拖宽(180-420,松手才落库),收起/展开入口只在顶栏(Task 4 删了侧栏内重复的那个)。
  * 时间分区已删除(spec 2026-09-17 D3):时间标签降级为普通标签,就在标签分区里。
  * 「筛选标签」按钮不带输入框(Task 4):点击经 onPrefill 把 `#` 交给统一输入框。
  * 窄窗口保护:内容区 min-w 在 App 侧声明,本栏允许被压缩(不设 shrink-0)。
@@ -11,7 +11,6 @@ import type { FilterConditions } from '../../shared/filter-conditions';
 import { PREFIXES } from '../../shared/input-prefix';
 import type { TagCount } from '../../shared/types';
 import { TagsSection } from './TagsSection';
-import { BTN_ICON } from '../shell/button-classes';
 import { clampSidebarWidth } from './use-sidebar-state';
 import type { SidebarStateApi } from './use-sidebar-state';
 
@@ -67,19 +66,6 @@ export function Sidebar(p: SidebarProps): ReactNode {
       className="relative flex h-full flex-col border-r border-border bg-panel"
       style={{ width }}
     >
-      <div className="flex h-8 shrink-0 items-center justify-end px-1">
-        <button
-          type="button"
-          title="隐藏侧栏(顶栏可重新显示)"
-          aria-label="隐藏侧栏"
-          onClick={() => p.sidebar.setVisible(false)}
-          className={BTN_ICON}
-        >
-          <svg viewBox="0 0 16 16" aria-hidden="true" className="h-3.5 w-3.5">
-            <path d="M10 4l-4 4 4 4" fill="none" stroke="currentColor" strokeWidth="1.5" />
-          </svg>
-        </button>
-      </div>
       <TagsSection
         conditions={p.conditions}
         onPatch={p.onPatch}

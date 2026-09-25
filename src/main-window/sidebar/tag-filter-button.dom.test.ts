@@ -3,6 +3,8 @@
  * 侧栏「筛选标签」按钮(2026-09-24 统一输入框 2/3 Task 4)的证据:
  * 按钮不再自带输入框(侧栏里 0 个 input,点了也不会冒出来),点击 = 把 `#` 交给统一输入框的
  * `prefill` 通道(与快捷键同一条);标签树不再按关键词过滤,全量行都在。
+ * 精简批次 Task 4:按钮改成图标后按 `aria-label` 定位(文案已不在 button 里);
+ * 侧栏内自己那行「隐藏侧栏」按钮已删,收起入口只剩顶栏(Task 4 R4)。
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, createElement } from 'react';
@@ -55,11 +57,11 @@ async function render(onPrefill: (prefix: string) => void, rows: TagCount[] = ta
   );
 }
 
-/** 按文本找按钮:文案就是它的可见语义,类名/结构变了也不该破坏这条断言 */
-const buttonByText = (text: string): HTMLElement => {
-  const btn = [...host.querySelectorAll('button')].find((b) => b.textContent === text);
-  if (!btn) throw new Error(`侧栏没有文案为「${text}」的按钮`);
-  return btn;
+/** 按 aria-label 找按钮:按钮图标化后它才是可见语义(验收脚本也按 aria-label 定位) */
+const buttonByLabel = (label: string): HTMLElement => {
+  const btn = host.querySelector(`aside [aria-label="${label}"]`);
+  if (!btn) throw new Error(`侧栏没有 aria-label 为「${label}」的按钮`);
+  return btn as HTMLElement;
 };
 
 afterEach(() => {
@@ -71,15 +73,22 @@ describe('侧栏「筛选标签」按钮', () => {
   it('侧栏里 0 个 input,点按钮也不冒出输入框', async () => {
     await render(() => {});
     expect(host.querySelectorAll('aside input').length).toBe(0);
-    await act(async () => buttonByText('筛选标签').click());
+    await act(async () => buttonByLabel('筛选标签').click());
     expect(host.querySelectorAll('aside input').length).toBe(0);
   });
 
   it('点击把 `#` 交给统一输入框的 prefill(只调一次)', async () => {
     const prefill = vi.fn();
     await render(prefill);
-    await act(async () => buttonByText('筛选标签').click());
+    await act(async () => buttonByLabel('筛选标签').click());
     expect(prefill.mock.calls).toEqual([['#']]);
+  });
+
+  it('侧栏内没有收起按钮:隐藏侧栏只剩顶栏一个入口', async () => {
+    await render(() => {});
+    expect(buttonByLabel('筛选标签')).toBeTruthy(); // 先确认侧栏真渲染了(不是空 host 的假绿)
+    expect(host.querySelector('aside [aria-label="隐藏侧栏"]')).toBeNull();
+    expect(host.querySelector('aside [aria-label="显示侧栏"]')).toBeNull();
   });
 
   it('762 个标签全量渲染,不按关键词过滤', async () => {

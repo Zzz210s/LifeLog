@@ -6,6 +6,8 @@
  * 下拉是条件渲染的,留着就是悬空引用。
  *
  * 自动增高、保存、键盘路由都留在宿主 `UnifiedInput`,这里只渲染输入域。
+ * 空输入时不显示占位文案(Task 4):提示由下方提示行(PrefixHint)承担,
+ * 框里不放文案就不必跟提示行的文案两头维护。
  */
 import type { KeyboardEventHandler, ReactNode, RefObject } from 'react';
 
@@ -15,7 +17,6 @@ export interface UnifiedTextareaProps {
   disabled: boolean;
   /** 自动增高上限(px),超过转框内滚动 */
   maxHeight: number;
-  placeholder: string;
   /** 下拉是否显示(combobox 的 aria-expanded) */
   dropdownShown: boolean;
   /** 下拉容器 id(aria-controls;仅在显示下拉时有意义) */
@@ -40,7 +41,6 @@ export function UnifiedTextarea(p: UnifiedTextareaProps): ReactNode {
       rows={1}
       value={p.value}
       disabled={p.disabled}
-      placeholder={p.placeholder}
       onChange={(e) => p.onChange(e.target.value)}
       onKeyDown={p.onKeyDown}
       style={{ maxHeight: p.maxHeight, overflowY: 'auto' }}

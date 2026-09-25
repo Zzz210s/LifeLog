@@ -43,7 +43,6 @@ export interface UnifiedInputProps {
 
 /** 自动增高上限(约 10 行):超过后转框内滚动 */
 const MAX_HEIGHT = 280;
-const PLACEHOLDER = '记点什么… #标签 自动归类 · Ctrl+Enter 保存';
 
 export function UnifiedInput(p: UnifiedInputProps): ReactNode {
   const c = useUnifiedInput();
@@ -148,7 +147,6 @@ export function UnifiedInput(p: UnifiedInputProps): ReactNode {
           value={c.state.raw}
           disabled={p.editing}
           maxHeight={MAX_HEIGHT}
-          placeholder={PLACEHOLDER}
           dropdownShown={showDropdown}
           dropdownId={UNIFIED_LISTBOX_ID}
           activeOptionId={pal === null ? null : activeOptionRowId(cands.rows.length, pal.activeIndex)}
