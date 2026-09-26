@@ -22,7 +22,7 @@ function KindBadge(p: { kind: 'alias' | 'similar'; path: string }): ReactNode {
   return (
     <span
       className="ml-2 shrink-0 rounded border border-border px-1 text-[10px] leading-4 text-faint"
-      title={badge.hint + p.path}
+      title={badge.hint + tagLabelPlain(p.path)}
     >
       {badge.text}
     </span>
