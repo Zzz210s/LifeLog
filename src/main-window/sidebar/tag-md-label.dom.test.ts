@@ -1,0 +1,133 @@
+// @vitest-environment jsdom
+/**
+ * 标签名行内 md(T1)在侧栏与标签菜单的接线证据:显示位是**预览态**(`[郴](chēn)州市` -> 郴州市,
+ * 悬浮 title=chēn),而 data 属性 / 回调 / 确认文案里的路径都是**去掉语法后的纯文本**(或原始路径)。
+ */
+import { act, createElement } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { TagRow } from './TagRow';
+import { TagMenuDeletePane } from './TagMenuDeletePane';
+import { TagMenuMainPane } from './TagMenuMainPane';
+import { TagMenuMergePane } from './TagMenuMergePane';
+import { buildTree } from './tag-tree';
+import type { TagNode } from './tag-tree';
+
+(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+/** 原始路径(带 md 语法)与它去掉语法后的可见文本 */
+const RAW = '地点/[郴](chēn)州市';
+const PLAIN = '地点/郴州市';
+
+const NODE: TagNode = buildTree([
+  { id: 1, path: RAW, depth: 2, self_count: 1, subtree_count: 1 },
+] as never)[0].children[0];
+
+let host: HTMLDivElement;
+let root: Root;
+
+beforeEach(() => {
+  host = document.createElement('div');
+  document.body.appendChild(host);
+  root = createRoot(host);
+});
+
+afterEach(() => {
+  act(() => root.unmount());
+  host.remove();
+});
+
+function mount(el: ReturnType<typeof createElement>): void {
+  act(() => root.render(el));
+}
+
+function renderRow(flat: boolean, onToggle = (): void => undefined): HTMLElement {
+  mount(
+    createElement(TagRow, {
+      node: NODE,
+      flat,
+      selected: false,
+      excluded: false,
+      expanded: false,
+      onToggle,
+      onToggleExpand: () => {},
+      onContextMenu: () => {},
+      dragSource: false,
+      dropZone: null,
+      dragActive: false,
+      onDragStart: () => {},
+      onDragEnd: () => {},
+      onDragOver: () => {},
+      onDrop: () => {},
+      onDragLeave: () => {},
+    })
+  );
+  return host.querySelector('button[data-tag-path]') as HTMLElement;
+}
+
+describe('T1 侧栏树行:预览态 + 原始路径寻址', () => {
+  it('树模式显示末级预览文本,data-tag-path 与点击回传仍是原始路径', () => {
+    const onToggle = vi.fn();
+    const row = renderRow(false, onToggle);
+    const label = row.querySelector('span.truncate') as HTMLElement;
+    expect(label.textContent).toBe('郴州市');
+    expect(row.getAttribute('data-tag-path')).toBe(RAW);
+    expect(row.getAttribute('title')).toBe(`${PLAIN}(本级 1 / 含子级 1)`);
+    expect(row.querySelector('span[title="chēn"]')?.textContent).toBe('郴');
+    expect(row.querySelector('a')).toBeNull();
+    act(() => row.click());
+    expect(onToggle).toHaveBeenCalledWith(expect.objectContaining({ path: RAW }));
+  });
+
+  it('扁平模式显示完整路径的预览文本', () => {
+    expect((renderRow(true).querySelector('span.truncate') as HTMLElement).textContent).toBe(PLAIN);
+  });
+});
+
+describe('T1 标签菜单:标题渲染态,确认文案纯文本', () => {
+  it('主面板标题显示预览文本(悬浮仍是纯文本全路径)', () => {
+    mount(createElement(TagMenuMainPane, { path: RAW, onPick: () => {} }));
+    const title = host.querySelector('p') as HTMLElement;
+    expect(title.textContent).toBe(PLAIN);
+    expect(title.getAttribute('title')).toBe(PLAIN);
+    expect(host.querySelector('a')).toBeNull();
+  });
+
+  it('删除确认文案用纯文本,不把语法原样摆给用户', () => {
+    mount(
+      createElement(TagMenuDeletePane, {
+        path: RAW,
+        impact: { tags: 0, notes: 1 },
+        error: '',
+        busy: false,
+        onCancel: () => {},
+        onConfirm: () => {},
+      })
+    );
+    const first = host.querySelector('p') as HTMLElement;
+    expect(first.textContent).toBe(`删除「${PLAIN}」?`);
+    expect(host.textContent).not.toContain('[郴]');
+  });
+
+  it('合并面板标题与候选行:文案纯文本、候选行渲染态、确认仍回传原始路径', () => {
+    const onConfirm = vi.fn();
+    const target = { id: 2, path: RAW, depth: 1, sort_order: 0, self_count: 1, subtree_count: 1 };
+    mount(
+      createElement(TagMenuMergePane, {
+        path: '工作/会议',
+        candidates: [target],
+        hasChildren: false,
+        impact: { tags: 0, notes: 2 },
+        error: '',
+        busy: false,
+        onCancel: () => {},
+        onConfirm,
+      })
+    );
+    expect(host.querySelector('p')?.textContent).toBe('合并『工作/会议』到');
+    const row = host.querySelector('button[title]') as HTMLElement;
+    expect(row.textContent).toContain(PLAIN);
+    expect(row.getAttribute('title')).toBe(PLAIN);
+    expect(host.querySelector('a')).toBeNull();
+  });
+});

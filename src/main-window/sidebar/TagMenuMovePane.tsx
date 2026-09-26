@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { renderTagLabel, tagLabelPlain } from '../../shared/tag-label';
 import type { TagCount } from '../../shared/types';
 import { BTN_GHOST, ITEM_CLASS } from './tag-menu-ui';
 
@@ -22,7 +23,7 @@ export interface TagMenuMovePaneProps {
 export function TagMenuMovePane(p: TagMenuMovePaneProps): ReactNode {
   return (
     <div className="p-1">
-      <p className="mb-1 px-1 text-label text-muted">移动「{p.nodeName}」到</p>
+      <p className="mb-1 px-1 text-label text-muted">移动「{tagLabelPlain(p.nodeName)}」到</p>
       <button
         type="button"
         onClick={() => p.onMove(null, p.nodeName)}
@@ -34,13 +35,13 @@ export function TagMenuMovePane(p: TagMenuMovePaneProps): ReactNode {
         <button
           key={r.path}
           type="button"
-          title={r.path}
+          title={tagLabelPlain(r.path)}
           disabled={p.busy}
           onClick={() => p.onMove(r.id, r.path + '/' + p.nodeName)}
           style={{ paddingLeft: 10 + r.depth * 12 }}
           className={ITEM_CLASS + (r.path === p.currentParent ? ' bg-accent-soft text-accent-text' : '')}
         >
-          {r.path}
+          {renderTagLabel(r.path)}
           {r.path === p.currentParent ? ' - 当前' : ''}
         </button>
       ))}

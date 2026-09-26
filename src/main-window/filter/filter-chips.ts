@@ -2,9 +2,11 @@
  * 条件对象 -> 可单删 chip 与中文摘要的纯函数(spec 6.2):
  * 每个收窄来源一个 chip,chip 自带「删掉我之后的完整条件对象」;
  * 摘要为中文一句话,空条件返回空串。
+ * 标签路径都是**字符串位**(chip label / 中文摘要),故一律走 tagLabelPlain 的显示口径。
  */
 import { hasExpr } from '../../shared/filter-conditions';
 import type { FilterConditions, TagCond } from '../../shared/filter-conditions';
+import { tagLabelPlain } from '../../shared/tag-label';
 
 /** chip 种类与文案一一对应;remove 是删掉该 chip 后的条件对象(完整替换用) */
 export type Chip = {
@@ -18,8 +20,9 @@ export type Chip = {
 /** 含子级 chip 的前缀标记(仅本级不加标记,靠 title 说明) */
 const CHILD_MARK = '⊢ ';
 
-/** chip 上的标签文案:'⊢ #工作'(含子级)/ '#工作'(仅本级) */
-const chipTag = (t: TagCond): string => `${t.includeChildren ? CHILD_MARK : ''}#${t.path}`;
+/** chip 上的标签文案:'⊢ #工作'(含子级)/ '#工作'(仅本级);显示口径 = tagLabelPlain(去掉行内 md 语法) */
+const chipTag = (t: TagCond): string =>
+  `${t.includeChildren ? CHILD_MARK : ''}#${tagLabelPlain(t.path)}`;
 
 /** 标签 chip 的悬浮提示:含子级 / 仅本级 */
 const tagTitle = (t: TagCond): string => (t.includeChildren ? '含子级' : '仅本级');
@@ -98,8 +101,8 @@ function summaryParts(c: FilterConditions, truncate: boolean): string[] {
   const parts: string[] = [];
   const kw = (c.keyword ?? '').trim();
   if (kw !== '') parts.push(`关键词「${kw}」`);
-  if (c.tags.length > 0) parts.push(`标签 ${c.tags.map((t) => t.path).join('、')}`);
-  if (c.excludeTags.length > 0) parts.push(`排除 ${c.excludeTags.map((t) => t.path).join('、')}`);
+  if (c.tags.length > 0) parts.push(`标签 ${c.tags.map((t) => tagLabelPlain(t.path)).join('、')}`);
+  if (c.excludeTags.length > 0) parts.push(`排除 ${c.excludeTags.map((t) => tagLabelPlain(t.path)).join('、')}`);
   if (hasExpr(c)) parts.push(exprLabel(c.expr ?? '', truncate));
   if (c.tagPresence !== null) parts.push(c.tagPresence === 'none' ? '无标签' : '有标签');
   if (c.sort === 'oldest') parts.push(SORT_CHIP_LABEL);

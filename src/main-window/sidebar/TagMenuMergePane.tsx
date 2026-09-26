@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
+import { renderTagLabel, tagLabelPlain } from '../../shared/tag-label';
 import type { TagCount } from '../../shared/types';
 import { mergeImpactText } from './tag-menu-pure';
 import { BTN_PRIMARY } from '../shell/button-classes';
@@ -34,8 +35,8 @@ export function TagMenuMergePane(p: TagMenuMergePaneProps): ReactNode {
 
   return (
     <div className="p-1">
-      <p className="mb-1 truncate px-1 text-label text-muted" title={p.path}>
-        {p.hasChildren ? '合并『' + p.path + '』' : '合并『' + p.path + '』到'}
+      <p className="mb-1 truncate px-1 text-label text-muted" title={tagLabelPlain(p.path)}>
+        {`合并『${tagLabelPlain(p.path)}』${p.hasChildren ? '' : '到'}`}
       </p>
       {p.hasChildren ? (
         <p className="px-1 py-1 text-label text-warn">该标签还有子标签,请先移走或合并子标签</p>
@@ -44,13 +45,13 @@ export function TagMenuMergePane(p: TagMenuMergePaneProps): ReactNode {
           <button
             key={r.path}
             type="button"
-            title={r.path}
+            title={tagLabelPlain(r.path)}
             disabled={p.busy}
             onClick={() => setTarget(r)}
             style={{ paddingLeft: 10 + r.depth * 12 }}
             className={ITEM_CLASS + (r.path === target?.path ? ' bg-accent-soft text-accent-text' : '')}
           >
-            {r.path}
+            {renderTagLabel(r.path)}
             {r.path === target?.path ? ' - 已选' : ''}
           </button>
         ))

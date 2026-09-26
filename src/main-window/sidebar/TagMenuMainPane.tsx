@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { renderTagLabel, tagLabelPlain } from '../../shared/tag-label';
 import { ITEM_CLASS } from './tag-menu-ui';
 import type { Pane } from './tag-menu-ui';
 
@@ -9,12 +10,12 @@ export interface TagMenuMainPaneProps {
   onPick: (pane: Pane) => void;
 }
 
-/** 主面板:重命名 / 移动 / 别名 / 合并 / 删除五个入口 */
+/** 主面板:重命名 / 移动 / 别名 / 合并 / 删除五个入口;标题的标签名走行内 md 预览态(T1) */
 export function TagMenuMainPane(p: TagMenuMainPaneProps): ReactNode {
   return (
     <>
-      <p className="truncate px-2.5 py-1 text-label font-medium text-muted" title={p.path}>
-        {p.path}
+      <p className="truncate px-2.5 py-1 text-label font-medium text-muted" title={tagLabelPlain(p.path)}>
+        {renderTagLabel(p.path)}
       </p>
       <button type="button" role="menuitem" className={ITEM_CLASS} onClick={() => p.onPick('rename')}>
         重命名

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { tagLabelPlain } from '../../shared/tag-label';
 import { BTN_DANGER } from '../shell/button-classes';
 import { BTN_GHOST } from './tag-menu-ui';
 
@@ -15,11 +16,11 @@ export interface TagMenuDeletePaneProps {
   onConfirm: () => void;
 }
 
-/** 删除面板:影响面读数 + 二次确认(读数未回前不能删) */
+/** 删除面板:影响面读数 + 二次确认(读数未回前不能删);确认文案是字符串位,标签名走 tagLabelPlain */
 export function TagMenuDeletePane(p: TagMenuDeletePaneProps): ReactNode {
   return (
     <div className="p-1">
-      <p className="px-1 text-label text-muted">删除「{p.path}」?</p>
+      <p className="px-1 text-label text-muted">删除「{tagLabelPlain(p.path)}」?</p>
       <p className="mt-1 px-1 text-label text-muted">
         {p.impact === null
           ? '计算影响面…'

@@ -3,6 +3,9 @@
  * 扁平模式不缩进、显示完整路径。选中态与条件对象同源(由上层派生传入)。
  * 结构节点(含子级计数 0)只可展开不可选,行点击交给 onToggleExpand。
  *
+ * 标签名的行内 md(T1):显示位走 renderTagLabel(预览态),title / 其它字符串位走 tagLabelPlain;
+ * data-tag-path 与所有回调仍传**原始路径**(语法不参与寻址)。
+ *
  * 拖拽(T3/T5,2026-09-21 重做):真实标签行(id 非 null)draggable;
  * - **整行 = 成为其子级**:悬停即整行背景高亮(主题 token,无边框/色带);
  * - 同级插入的 1px 指示线由 TagDropBand 画;本行只兜底画"冒泡到这里"的同级线(before/after),
@@ -10,6 +13,7 @@
  * - 源行不再改透明度(VS Code 源行没有任何半透明处理),拖拽中抑制 hover 高亮。
  */
 import type { CSSProperties, ReactNode } from 'react';
+import { renderTagLabel, tagLabelPlain } from '../../shared/tag-label';
 import type { TagNode } from './tag-tree';
 import { isSelectable } from './tag-tree';
 import type { DropZone } from './drag-check';
@@ -80,7 +84,7 @@ export function TagRow(p: TagRowProps): ReactNode {
       data-drop-target={p.dropZone ?? undefined}
       draggable={p.node.id !== null}
       aria-pressed={selectable ? p.selected : undefined}
-      title={`${p.node.path}(本级 ${p.node.selfCount} / 含子级 ${p.node.subtreeCount})`}
+      title={`${tagLabelPlain(p.node.path)}(本级 ${p.node.selfCount} / 含子级 ${p.node.subtreeCount})`}
       className={rowClass}
       style={
         {
@@ -126,7 +130,7 @@ export function TagRow(p: TagRowProps): ReactNode {
         </svg>
       )}
       {!p.flat && !hasChildren && <span className="w-3 shrink-0" />}
-      <span className="min-w-0 truncate">{label}</span>
+      <span className="min-w-0 truncate">{renderTagLabel(label)}</span>
       {p.excluded && (
         <span className="shrink-0 rounded-xs bg-danger-soft px-1 text-micro text-danger">已排除</span>
       )}

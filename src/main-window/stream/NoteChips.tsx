@@ -3,9 +3,11 @@
  * 主题行沿用现有样式,属性行更小、底色弱化;超出阈值显示 `+N`,点击只展开**该排**
  * (只折叠不隐藏)。悬浮 title 仍是完整路径,点击仍走 onTagClick(与筛选同一入口)。
  * 时间标签已降级为普通标签(D3),这里不做任何特殊过滤。
+ * chip 文案的行内 md(T1):显示走 renderTagLabel 的预览态,title 用 tagLabelPlain;点击仍回传原始路径。
  */
 import { useState } from 'react';
 import type { ReactNode } from 'react';
+import { renderTagLabel, tagLabelPlain } from '../../shared/tag-label';
 import { tagDisplayName } from '../editor/tag-display';
 import { ATTR_MAX, TOPIC_MAX, collapseAncestors, collapseChips, groupChips } from './note-chips';
 
@@ -55,10 +57,10 @@ function ChipRow(p: ChipRowProps): ReactNode {
             key={t}
             onClick={() => p.onTagClick(t)}
             aria-pressed={active}
-            title={t}
+            title={tagLabelPlain(t)}
             className={chipClass(active)}
           >
-            #{tagDisplayName(t)}
+            #{renderTagLabel(tagDisplayName(t))}
           </button>
         );
       })}
