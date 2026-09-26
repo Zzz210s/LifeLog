@@ -56,8 +56,10 @@ fn rebuild_is_idempotent_and_keeps_rows_searchable() {
 }
 
 /// T6 复审 m1:DELETE 与 INSERT 必须同一事务 —— 中途失败不得留下空索引。
-/// 用「聚合口径引用的 tags 表不在」制造 INSERT 阶段的失败:DELETE 已经跑过,
+/// 用「聚合口径引用的表不在」制造 INSERT 阶段的失败:DELETE 已经跑过,
 /// 若两条各自 autocommit,此时 notes_fts 就空了;包进事务则整体回滚,原索引原样保留。
+/// 拿掉的是 tag_aliases(017 起聚合还要读别名表):改去 DROP tag_links/tags 会踩到
+/// 删除 tags 的外键级联 —— 级联删 tag_aliases 时触发 tag_aliases_ad,而它要读已不在的 tag_links。
 #[test]
 fn rebuild_is_atomic_failed_rebuild_keeps_index_intact() {
     let mut c = db();
@@ -66,8 +68,7 @@ fn rebuild_is_atomic_failed_rebuild_keeps_index_intact() {
     let before = fts_rows(&c);
     assert_eq!(before.len(), 2);
 
-    c.execute("DROP TABLE tag_links", []).unwrap();
-    c.execute("DROP TABLE tags", []).unwrap();
+    c.execute("DROP TABLE tag_aliases", []).unwrap();
 
     assert!(rebuild(&c).is_err(), "缺表时重建必须报错,而不是静默写坏索引");
     assert_eq!(

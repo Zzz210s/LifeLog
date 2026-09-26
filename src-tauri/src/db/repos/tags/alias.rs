@@ -1,5 +1,6 @@
-//! 标签别名仓库层(spec 2026-09-20 §3.2):别名不是节点 —— 不进树、不计入计数、
-//! 不参与 FTS 标签列;删除目标标签时由 tag_aliases 的 ON DELETE CASCADE 清理
+//! 标签别名仓库层(spec 2026-09-20 §3.2):别名不是节点 —— 不进树、不计入计数,
+//! 但**参与 FTS 标签列**(2026-09-26 T4:让 md 标签的显示文本与旧名可搜);
+//! 删除目标标签时由 tag_aliases 的 ON DELETE CASCADE 清理
 //! (db::open 已开 foreign_keys=ON)。
 //! 解析必须可预测(D2):只有别名表里登记过的**原样字符串**才会被归一,不做模糊猜测。
 use rusqlite::{params, Connection, OptionalExtension};
@@ -117,10 +118,14 @@ fn check_alias(alias: &str) -> rusqlite::Result<()> {
     Ok(())
 }
 
-/// 写入别名行(不做语义判定):INSERT OR REPLACE 即"重复登记更新指向"
+/// 写入别名行(不做语义判定):冲突即"重复登记更新指向"。
+/// 必须用 upsert 而不是 `INSERT OR REPLACE`:REPLACE 的隐式删除默认不触发 DELETE 触发器
+/// (recursive_triggers 关闭,实测只触发 INSERT),别名改指向时 FTS 标签列里的旧名会残留;
+/// upsert 走 UPDATE 触发器,旧/新两侧都会被重写(迁移 017 的 tag_aliases_au)。
 fn put(conn: &Connection, alias: &str, tag_id: i64) -> rusqlite::Result<()> {
     conn.execute(
-        "INSERT OR REPLACE INTO tag_aliases(alias, tag_id) VALUES(?1, ?2)",
+        "INSERT INTO tag_aliases(alias, tag_id) VALUES(?1, ?2)
+         ON CONFLICT(alias) DO UPDATE SET tag_id = excluded.tag_id",
         params![alias, tag_id],
     )?;
     Ok(())

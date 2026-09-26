@@ -1,13 +1,14 @@
 //! 标签写入不变量测试台(spec 2026-09-21 D:标签写入路径收敛)。
 //! 三组判据,供既有与后续所有标签写入测试复用:
-//! ① [`assert_fts_matches_tags`]:逐笔记比对 FTS 标签列与"按 tag_links 聚合的完整路径"。
-//!    聚合口径必须与迁移 011 重建的触发器一致:`group_concat(t.path, ' ' ORDER BY t.path)`,
-//!    无链接为空串 —— 违反即"按新名搜不到、旧名仍命中"的静默漂移。
+//! ① [`assert_fts_matches_tags`]:逐笔记比对 FTS 标签列与"按 tag_links 聚合的标签路径 + 别名"。
+//!    聚合口径必须与迁移 017 重建的触发器一致,唯一真源是 [`super::fts_tags::TAGS_AGG`],
+//!    本文件不再另写一份:违反即"按显示文本搜不到、旧名仍命中"的静默漂移。
 //! ② [`assert_no_orphan_tags`]:无孤儿标签(既无 tag_links 又无子节点)。
 //! ③ [`assert_filter_paths_exist`]:settings.filter_current 引用的每个标签路径(结构化 tags[] /
 //!    excludeTags[] 与 expr token)都真实存在。只对"路径变化"类操作断言:删除按设计不改写
 //!    条件(S7),留下已删路径是允许的。
 use crate::db::repos::settings::{self, FILTER_CURRENT_KEY};
+use crate::db::repos::tags::fts_tags::TAGS_AGG;
 use crate::expr::lexer::{lex_spans, Token};
 use rusqlite::{params, Connection, OptionalExtension};
 
@@ -22,9 +23,9 @@ pub(crate) fn assert_fts_matches_tags(conn: &Connection) {
     for id in ids {
         let expected: String = conn
             .query_row(
-                "SELECT COALESCE(group_concat(t.path, ' ' ORDER BY t.path), '')
-                   FROM tags t JOIN tag_links l ON l.tag_id = t.id
-                  WHERE l.target_type = 'note' AND l.target_id = ?1",
+                &format!(
+                    "SELECT {TAGS_AGG} FROM notes n WHERE n.id = ?1"
+                ),
                 params![id],
                 |r| r.get(0),
             )
@@ -36,7 +37,7 @@ pub(crate) fn assert_fts_matches_tags(conn: &Connection) {
         assert_eq!(
             actual.as_deref(),
             Some(expected.as_str()),
-            "笔记 {id} 的 FTS 标签列与 tag_links 聚合不一致(FTS 实值 vs 按链接重算)"
+            "笔记 {id} 的 FTS 标签列与 tag_links 聚合(路径+别名)不一致(FTS 实值 vs 按链接重算)"
         );
     }
     let stale: Vec<i64> = {

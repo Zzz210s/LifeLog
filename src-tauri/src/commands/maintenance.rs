@@ -1,7 +1,8 @@
 //! 维护类 IPC(命令面板的两条副作用,设计 §3.7):
 //! `rebuild_search_index`(重建全文索引)与 `quit_app`(退出应用)。
 //! 两条都复用既有实现,不在前端另造一套:退出走 `windowing::events::quit`(与托盘「退出」同路径),
-//! 重建走与迁移 011 完全相同的聚合口径(见 `rebuild` 注释)。
+//! 重建走与迁移 017 完全相同的聚合口径(见 `rebuild` 注释)。
+use crate::db::repos::tags::fts_tags::TAGS_AGG;
 use crate::db::Db;
 use crate::windowing;
 use tauri::{AppHandle, Manager, State};
@@ -22,9 +23,10 @@ pub fn quit_app(app: AppHandle) {
 
 /// 幂等整体重建:DELETE 起手,再由 notes 整表回填。
 ///
-/// 聚合口径必须与迁移 011 重建的触发器逐字一致 —— `group_concat(t.path, ' ' ORDER BY t.path)`,
-/// 无链接为空串(用 `path` 而非 `name`:树语义下真源是完整路径)。触发器已覆盖日常增删改,
-/// 本命令是「索引与正文疑似不一致」时的自愈入口(见 `notes_fts` 为普通 FTS5 表的设计说明)。
+/// 聚合口径的唯一真源是 `db::repos::tags::fts_tags::TAGS_AGG`(标签完整路径 + 别名),
+/// 与迁移 017 重建的触发器、结构变更后的 `tags::refresh_fts` 逐字一致。触发器已覆盖
+/// 日常增删改,本命令是「索引与正文疑似不一致」时的自愈入口(见 `notes_fts` 为普通 FTS5
+/// 表的设计说明)。
 ///
 /// 两条语句必须在同一事务内(与 `migrate::apply` 同口径的 `unchecked_transaction`):
 /// 进程死在两条之间会留下空 `notes_fts`,3 字以上关键词会静默搜不到。
@@ -32,12 +34,10 @@ pub fn rebuild(conn: &rusqlite::Connection) -> rusqlite::Result<usize> {
     let tx = conn.unchecked_transaction()?;
     tx.execute("DELETE FROM notes_fts", [])?;
     let written = tx.execute(
-        "INSERT INTO notes_fts(rowid, content, tags)
-         SELECT n.id, n.content,
-                COALESCE((SELECT group_concat(t.path, ' ' ORDER BY t.path)
-                          FROM tags t JOIN tag_links l ON l.tag_id = t.id
-                          WHERE l.target_type = 'note' AND l.target_id = n.id), '')
-         FROM notes n",
+        &format!(
+            "INSERT INTO notes_fts(rowid, content, tags)
+             SELECT n.id, n.content, {TAGS_AGG} FROM notes n"
+        ),
         [],
     )?;
     tx.commit()?;

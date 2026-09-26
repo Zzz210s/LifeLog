@@ -5,6 +5,8 @@
 //! 路径 -> id 的解析漏斗与链接替换已拆到 link.rs(replace::replace_links),本文件只留树本身。
 use rusqlite::{params, Connection};
 
+use super::fts_tags::TAGS_AGG;
+
 /// 前缀补全返回上限:前缀过短时不一次吐全库
 const COMPLETE_LIMIT: i64 = 50;
 
@@ -36,17 +38,16 @@ pub(crate) fn linked_notes(conn: &Connection, tag_ids: &[i64]) -> rusqlite::Resu
 }
 
 /// 结构变更(改名/移动/删除树)不经过 tag_links 触发器,需按当前链接聚合显式重写 FTS 行。
-/// 聚合口径必须与迁移 011 重建的触发器一致:收**全部**标签的完整路径
-/// (时间标签已是普通标签,与其它标签同权,见 D3)。
+/// 聚合口径的唯一真源是 [`super::fts_tags::TAGS_AGG`](路径 + 别名;时间标签已是普通标签,
+/// 与其它标签同权,见 D3),与迁移 017 重建的触发器、维护命令的 rebuild 逐字一致。
 pub(crate) fn refresh_fts(conn: &Connection, note_ids: &[i64]) -> rusqlite::Result<()> {
     for id in note_ids {
         conn.execute("DELETE FROM notes_fts WHERE rowid = ?1", params![id])?;
         conn.execute(
-            "INSERT INTO notes_fts(rowid, content, tags)
-             SELECT n.id, n.content, COALESCE((SELECT group_concat(t.path, ' ' ORDER BY t.path)
-               FROM tags t JOIN tag_links l ON l.tag_id = t.id
-               WHERE l.target_type = 'note' AND l.target_id = n.id), '')
-             FROM notes n WHERE n.id = ?1",
+            &format!(
+                "INSERT INTO notes_fts(rowid, content, tags)
+                 SELECT n.id, n.content, {TAGS_AGG} FROM notes n WHERE n.id = ?1"
+            ),
             params![id],
         )?;
     }

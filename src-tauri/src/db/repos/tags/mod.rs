@@ -9,12 +9,18 @@
 pub mod alias;
 pub mod merge;
 pub mod tree;
+pub(crate) mod fts_tags;
 pub(crate) mod write;
 
 /// 标签写入不变量测试台(E 组判据),随本模块收敛进 tags/。
 #[cfg(test)]
 #[path = "invariants_tests.rs"]
 pub(crate) mod invariants_tests;
+
+/// T4 守卫与行为读数:notes_fts.tags 列 = 路径聚合 + 别名聚合。
+#[cfg(test)]
+#[path = "fts_tags_tests.rs"]
+mod fts_tags_tests;
 
 pub use alias::*;
 pub use merge::*;
