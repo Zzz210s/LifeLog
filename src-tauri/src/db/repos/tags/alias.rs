@@ -61,10 +61,33 @@ pub fn register_rename(
     put(conn, old_path, new_tag_id)?;
     // 旧叶子名:根标签的叶子名 == 完整路径,上面已登记过,不重复登记
     if let Some(leaf) = old_path.rsplit('/').next().filter(|l| *l != old_path) {
-        if leaf_available(conn, leaf, new_tag_id)? {
+        if available(conn, leaf, new_tag_id)? {
             put(conn, leaf, new_tag_id)?;
             registered.push(leaf.to_string());
         }
+    }
+    Ok(registered)
+}
+
+/// 批量登记候选别名(T2:md 标签名的纯文本形态):逐个走与叶子名同一套可用性判定,
+/// **冲突即跳过而不是报错** —— 别名桥接是锦上添花,不该让改名本身失败,
+/// 也不该把真实标签/别人的别名抢过来。返回实际登记的候选(入参顺序,已去重)。
+pub fn register_candidates(
+    conn: &Connection,
+    candidates: &[String],
+    tag_id: i64,
+) -> rusqlite::Result<Vec<String>> {
+    let mut registered: Vec<String> = Vec::new();
+    for candidate in candidates {
+        let candidate = candidate.trim();
+        if candidate.is_empty() || registered.iter().any(|r| r == candidate) {
+            continue;
+        }
+        if !available(conn, candidate, tag_id)? {
+            continue;
+        }
+        put(conn, candidate, tag_id)?;
+        registered.push(candidate.to_string());
     }
     Ok(registered)
 }
@@ -113,20 +136,21 @@ fn tag_path_exists(conn: &Connection, path: &str) -> rusqlite::Result<bool> {
     Ok(n > 0)
 }
 
-/// 叶子名可否登记给 new_tag_id:名字合法、不与现有标签路径同名、且未被**别的**标签占用。
+/// 名字可否登记给 tag_id:合法、不与现有标签路径同名、且未被**别的**标签占用。
 /// 已登记给自己视为可用:重复登记让它留在返回列表里,对外读数一致(改名幂等)。
-fn leaf_available(conn: &Connection, leaf: &str, new_tag_id: i64) -> rusqlite::Result<bool> {
-    if check_alias(leaf).is_err() || tag_path_exists(conn, leaf)? {
+/// 旧叶子名与 T2 的纯文本形态共用这一条判定(两者都是"可能被抢"的候选名)。
+fn available(conn: &Connection, name: &str, tag_id: i64) -> rusqlite::Result<bool> {
+    if check_alias(name).is_err() || tag_path_exists(conn, name)? {
         return Ok(false);
     }
     let owner: Option<i64> = conn
         .query_row(
             "SELECT tag_id FROM tag_aliases WHERE alias = ?1",
-            params![leaf],
+            params![name],
             |r| r.get(0),
         )
         .optional()?;
-    Ok(owner.is_none() || owner == Some(new_tag_id))
+    Ok(owner.is_none() || owner == Some(tag_id))
 }
 
 /// 仓库层中文报错(与 tags_tree 既有非法参数报错同一类型)

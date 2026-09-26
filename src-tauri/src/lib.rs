@@ -23,6 +23,9 @@ mod filter_fixtures_tests;
 #[path = "hotkey_fixtures_tests.rs"]
 mod hotkey_fixtures_tests;
 
+// 标签名的行内 md 纯文本形态(label_plain)与界面改名校验(validate_label):
+// 经 tags 上浮为 tags::label_plain / tags::validate_label,与正文语法 parse_tag_path 并列
+mod tag_label;
 mod tags;
 mod timetag;
 mod windowing;

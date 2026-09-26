@@ -1,0 +1,58 @@
+//! 路径 -> 标签 id 的解析漏斗(自 tree.rs 拆出以守 200 行上限):
+//! **真实标签优先,其次别名,最后新建**,解析结果交给 replace::replace_links 落库。
+//! 别名只是"这个字符串指向哪个标签"(spec D2),不建节点、不改名。
+use super::ensure_path;
+use super::replace;
+use crate::db::repos::tags::alias;
+use rusqlite::{params, Connection};
+
+/// 按路径精确取标签 id(不存在返回 None);用于"真实标签优先于别名"的判定。
+/// **只认结构自洽的节点**:path 里含 `/` 时必须有父节点 —— 006 之前的存量平铺标签
+/// 可能是"name=path=a/b 但 parent_id 为空"的幻影层级(见 tags_tree_path::child_path 的说明),
+/// 那种节点不该抢走 `#a/b` 的解析,否则永远修不成两层结构。
+fn existing_id(conn: &Connection, path: &str) -> rusqlite::Result<Option<i64>> {
+    use rusqlite::OptionalExtension;
+    conn.query_row(
+        "SELECT id FROM tags WHERE path = ?1 AND (parent_id IS NOT NULL OR instr(path, '/') = 0)",
+        params![path],
+        |r| r.get(0),
+    )
+    .optional()
+}
+
+/// 笔记维度的链接替换(增量):只删不再需要的、只补缺失的,未变化的链接保持原样
+/// (节点 id 与触发器行为稳定)。路径经 parse_tag_path 校验后走 ensure_path 自动建父级。
+/// 解析顺序(spec D2/D3,保存漏斗唯一解析点):**真实标签优先,其次别名,最后新建**。
+/// ① 该路径已是存在的标签 -> 用它(用户确实能创建/保留同名标签,别名不该把它挡住)
+/// ② 否则查别名表,命中即用目标标签本身(目标必然已存在:别名有外键、删除级联)
+/// ③ 都没有 -> 原样解析并自动建树。
+pub(crate) fn link_paths(conn: &Connection, note_id: i64, paths: &[String]) -> rusqlite::Result<()> {
+    let mut desired: Vec<i64> = Vec::new();
+    for path in paths {
+        if let Some(id) = existing_id(conn, path.trim())? {
+            if !desired.contains(&id) {
+                desired.push(id);
+            }
+            continue;
+        }
+        let canonical = alias::resolve(conn, path)?;
+        // 别名命中:直接取目标 id,不再拿目标路径回走 parse_tag_path —— T2 起标签名
+        // 可以含行内 md(`[郴](chēn)州市`),那些字符不在正文语法的名称字符集里,
+        // 拿路径回解析会把自己刚桥接好的别名误判成"非法标签路径"。
+        if let Some(id) = canonical.as_deref().map(|p| existing_id(conn, p)).transpose()?.flatten() {
+            if !desired.contains(&id) {
+                desired.push(id);
+            }
+            continue;
+        }
+        let target = canonical.as_deref().unwrap_or(path.as_str());
+        let segs = crate::tags::parse_tag_path(target).ok_or_else(|| {
+            rusqlite::Error::InvalidParameterName(format!("非法标签路径: {path}"))
+        })?;
+        let id = ensure_path(conn, &segs)?;
+        if !desired.contains(&id) {
+            desired.push(id);
+        }
+    }
+    replace::replace_links(conn, note_id, &desired)
+}

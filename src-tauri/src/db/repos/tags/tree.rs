@@ -2,7 +2,7 @@
 //! 树真源是 parent_id,path 为冗余但受唯一索引约束,结构变更必须同步维护 path/depth;
 //! 路径前缀比较一律用 substr 而非 LIKE(存量标签名可能含 % 或 _),ensure_path/link_note 收在调用方事务里。
 //! 空标签回收策略:既无 tag_links 又无子节点的容器才回收(link_paths 与 delete_subtree 一致)。
-use super::alias;
+//! 路径 -> id 的解析漏斗与链接替换已拆到 link.rs(replace::replace_links),本文件只留树本身。
 use rusqlite::{params, Connection};
 
 /// 前缀补全返回上限:前缀过短时不一次吐全库
@@ -63,47 +63,6 @@ pub fn link_note(conn: &Connection, note_id: i64, tag_id: i64) -> rusqlite::Resu
     Ok(())
 }
 
-/// 笔记维度的链接替换(增量):只删不再需要的、只补缺失的,未变化的链接保持原样
-/// (节点 id 与触发器行为稳定)。路径经 parse_tag_path 校验后走 ensure_path 自动建父级。
-/// 按路径精确取标签 id(不存在返回 None);用于"真实标签优先于别名"的判定。
-/// **只认结构自洽的节点**:path 里含 `/` 时必须有父节点 —— 006 之前的存量平铺标签
-/// 可能是"name=path=a/b 但 parent_id 为空"的幻影层级(见 tags_tree_path::child_path 的说明),
-/// 那种节点不该抢走 `#a/b` 的解析,否则永远修不成两层结构。
-fn existing_id(conn: &Connection, path: &str) -> rusqlite::Result<Option<i64>> {
-    use rusqlite::OptionalExtension;
-    conn.query_row(
-        "SELECT id FROM tags WHERE path = ?1 AND (parent_id IS NOT NULL OR instr(path, '/') = 0)",
-        params![path],
-        |r| r.get(0),
-    )
-    .optional()
-}
-/// 解析顺序(spec D2/D3,保存漏斗唯一解析点):**真实标签优先,其次别名,最后新建**。
-/// ① 该路径已是存在的标签 -> 用它(用户确实能创建/保留同名标签,别名不该把它挡住)
-/// ② 否则查别名表,命中即改用目标标签的**当前路径**(目标必然已存在,ensure_path 幂等命中它)
-/// ③ 都没有 -> 原样解析并自动建树。
-pub(crate) fn link_paths(conn: &Connection, note_id: i64, paths: &[String]) -> rusqlite::Result<()> {
-    let mut desired: Vec<i64> = Vec::new();
-    for path in paths {
-        if let Some(id) = existing_id(conn, path.trim())? {
-            if !desired.contains(&id) {
-                desired.push(id);
-            }
-            continue;
-        }
-        let canonical = alias::resolve(conn, path)?;
-        let target = canonical.as_deref().unwrap_or(path.as_str());
-        let segs = crate::tags::parse_tag_path(target).ok_or_else(|| {
-            rusqlite::Error::InvalidParameterName(format!("非法标签路径: {path}"))
-        })?;
-        let id = ensure_path(conn, &segs)?;
-        if !desired.contains(&id) {
-            desired.push(id);
-        }
-    }
-    replace::replace_links(conn, note_id, &desired)
-}
-
 /// 精确回收孤儿标签:既无 tag_links 又无子节点(父节点天生没有链接,不得当孤儿删)。
 /// 循环删除以覆盖"整条链都成孤儿"的情形(深度上限 5,循环次数有界)。
 pub(crate) fn gc_orphans(conn: &Connection) -> rusqlite::Result<()> {
@@ -123,6 +82,8 @@ pub(crate) fn gc_orphans(conn: &Connection) -> rusqlite::Result<()> {
 // Task 4 命令层已接入:结构化/查询接口均有生产调用方,不再需要 allow(dead_code)
 #[path = "ensure.rs"]
 mod ensure;
+#[path = "link.rs"]
+mod link;
 #[path = "ops.rs"]
 mod ops;
 #[path = "ops_sql.rs"]
@@ -137,6 +98,8 @@ mod replace;
 mod similar;
 pub use ensure::ensure_path;
 pub use ops::{delete_subtree, move_beside, move_to, rename};
+// 路径 -> id 的解析漏斗:解析顺序与别名优先级的唯一实现(见 link.rs)
+pub(crate) use link::link_paths;
 // `complete`(纯标签路径补全)现在只被 complete_with_aliases 与仓库层测试使用,不再向命令层导出;
 // 测试用的导出放进 cfg(test),避免非测试构建报 unused_imports
 #[cfg(test)]

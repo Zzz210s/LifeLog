@@ -47,6 +47,14 @@ pub fn max_depth() -> usize {
     MAX_DEPTH
 }
 
+// 界面改名的名称放宽 + md 纯文本形态(T2):实现在 tag_label.rs(本文件已近 200 行红线),
+// 经这里上浮成 `tags::label_plain` / `tags::validate_label` / `tags::MAX_LABEL_CHARS`。
+// 注意与 parse_tag_path 的分工:正文 `#` 语法保持严格,放开的只是界面改名。
+pub use crate::tag_label::{label_plain, validate_label};
+// 上限常量只被两侧的测试读(前端有同名口径);非测试构建引用会报未用导入,与 tree::complete 同理
+#[cfg(test)]
+pub use crate::tag_label::MAX_LABEL_CHARS;
+
 /// 校验并切分标签路径:空串、非法字符、空段、首尾或连续斜杠、超过深度都返回 None
 pub fn parse_tag_path(raw: &str) -> Option<Vec<String>> {
     let parts: Vec<&str> = raw.split('/').collect();

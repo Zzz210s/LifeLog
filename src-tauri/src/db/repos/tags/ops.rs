@@ -11,14 +11,14 @@ use crate::db::repos::tags::alias;
 use crate::db::repos::tags::{finish, PostWrite};
 use rusqlite::{params, Connection, OptionalExtension};
 
-/// 改标签名:校验 -> 同级重名 -> 子树 path 前缀重写 -> 受影响笔记 FTS 重写 ->
-/// 自动登记旧名(D4,旧完整路径 + 冲突则跳过的旧叶子名)。整事务。
-/// 返回实际登记为别名的旧名列表(供命令层回报界面);无变化时返回空列表。
+/// 改标签名:校验(界面口径,允许行内 md)-> 同级重名 -> 子树 path 前缀重写 -> 受影响笔记 FTS 重写 ->
+/// 自动登记旧名(D4,旧完整路径 + 冲突则跳过的旧叶子名)+ md 名字的纯文本形态(T2)。整事务。
+/// 返回实际登记为别名的旧名/纯文本候选列表(供命令层回报界面);无变化时返回空列表。
 pub fn rename(conn: &mut Connection, tag_id: i64, new_name: &str) -> Result<Vec<String>, String> {
-    let segs = crate::tags::parse_tag_path(new_name)
-        .filter(|s| s.len() == 1)
-        .ok_or_else(|| format!("标签名不合法: {new_name}"))?;
-    let new_name = segs[0].clone();
+    // T2:改名走"界面名称"校验(允许 md 符号);正文 `#` 语法仍走 parse_tag_path,不放宽
+    let new_name = new_name.trim();
+    crate::tags::validate_label(new_name)?;
+    let new_name = new_name.to_string();
     let tx = conn.transaction().map_err(|e| e.to_string())?;
     let node = load(&tx, tag_id)?;
     if node.name == new_name {
@@ -43,7 +43,19 @@ pub fn rename(conn: &mut Connection, tag_id: i64, new_name: &str) -> Result<Vec<
     .map_err(|e| e.to_string())?;
     // 旧名自动登记为别名(D4):与结构变更同事务 —— 任一步失败,别名也不落地;
     // 必须在路径重写之后调:此时 old_path 已无对应标签,登记的是"旧名"本身
-    let aliases = alias::register_rename(&tx, &node.path, tag_id).map_err(|e| e.to_string())?;
+    let mut aliases = alias::register_rename(&tx, &node.path, tag_id).map_err(|e| e.to_string())?;
+    // T2:md 名字的**纯文本形态**也登记为别名(正文里写 `#郴州市` 照样命中 `[郴](chēn)州市`)。
+    // 只在名字**真含 md 语法**时补:否则会凭空多出"新叶子名"的别名,与旧行为不一致。
+    // 候选 = 新名的纯文本 + 其叶子名(单段名两者相同);冲突即跳过,不影响改名成败。
+    let plain = crate::tags::label_plain(&new_path);
+    if crate::tags::label_plain(&new_name) != new_name {
+        let leaf = plain.rsplit('/').next().unwrap_or(plain.as_str()).to_string();
+        let candidates: Vec<String> =
+            [plain, leaf].into_iter().filter(|c| !aliases.contains(c)).collect();
+        aliases.extend(
+            alias::register_candidates(&tx, &candidates, tag_id).map_err(|e| e.to_string())?,
+        );
+    }
     tx.commit()
         .map_err(|e| super::path::unique_conflict(e, "已存在同名标签"))?;
     Ok(aliases)
@@ -164,3 +176,7 @@ pub fn delete_subtree(conn: &mut Connection, tag_id: i64) -> Result<(), String> 
         .map_err(|e| e.to_string())?;
     tx.commit().map_err(|e| e.to_string())
 }
+
+#[cfg(test)]
+#[path = "rename_md_tests.rs"]
+mod rename_md_tests;

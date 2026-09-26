@@ -1,0 +1,78 @@
+//! T2:`label_plain` 与前端的同源证明 —— 逐条读共享向量 `fixtures/tag-label.json`
+//! (前端 `src/shared/tag-label.test.ts` 读同一份文件),外加界面改名校验的边界。
+//! 两侧任何一方改了 md 语法,这个测试与前端那条会同时红。
+use super::{label_plain, parse_label, validate_label, LabelToken, MAX_LABEL_CHARS};
+use serde::Deserialize;
+
+const TAG_LABEL: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../fixtures/tag-label.json"
+));
+
+/// 一条向量(raw -> plain;`why` / `html` 是前端用的文档字段,断言不读)
+#[derive(Deserialize)]
+struct LabelCase {
+    raw: String,
+    plain: String,
+}
+
+fn cases() -> Vec<LabelCase> {
+    serde_json::from_str(TAG_LABEL).expect("fixtures/tag-label.json 必须是合法 JSON 数组")
+}
+
+/// fixture 结构本身:条数达标,且确实有"真去语法"的条目(否则断言没有意义)
+#[test]
+fn fixture_tag_label_is_well_formed() {
+    let cases = cases();
+    assert!(cases.len() >= 20, "共享向量至少 20 条,实际 {}", cases.len());
+    assert!(
+        cases.iter().any(|c| c.raw != c.plain),
+        "向量里得有条目 raw != plain,否则纯文本算法没被验到"
+    );
+}
+
+/// 逐条:label_plain 必须等于前端声明的纯文本
+#[test]
+fn label_plain_matches_shared_fixture() {
+    for (i, c) in cases().iter().enumerate() {
+        assert_eq!(label_plain(&c.raw), c.plain, "第 {i} 条纯文本不一致,raw={:?}", c.raw);
+    }
+}
+
+/// 无语法名走"单文本 token"退化(与前端 renderTagLabel 直接返回字符串同口径)
+#[test]
+fn plain_text_name_is_a_single_text_token() {
+    assert_eq!(parse_label("纯中文"), vec![LabelToken::Text("纯中文".to_string())]);
+    assert_eq!(label_plain("地点/美国"), "地点/美国");
+    assert!(parse_label("").is_empty(), "空串无 token");
+}
+
+/// 界面改名校验:md 符号放行;空 / 含 `/` / 控制字符 / 空白 / `#` / 超长一律拒
+#[test]
+fn validate_label_allows_md_and_rejects_unusable_names() {
+    for ok in ["[郴](chēn)州市", "**重点**", "*斜体*", "`代码`", "工作", "项目A", "v1.0"] {
+        assert!(validate_label(ok).is_ok(), "应通过:{ok}");
+    }
+    assert!(validate_label("").is_err(), "空名");
+    assert!(validate_label("a/b").unwrap_err().contains('/'), "路径分隔符必须拒");
+    assert!(validate_label("a\nb").is_err(), "控制字符(换行)");
+    assert!(validate_label("a\u{7}b").is_err(), "控制字符(BEL)");
+    assert!(validate_label("a b").is_err(), "空白:正文语法永远到不了这种名字");
+    assert!(validate_label("a#b").is_err(), "#:正文里会截断,名字不可引用");
+    let max = "长".repeat(MAX_LABEL_CHARS);
+    assert!(validate_label(&max).is_ok(), "恰好到上限应通过");
+    let err = validate_label(&"长".repeat(MAX_LABEL_CHARS + 1)).unwrap_err();
+    assert!(err.contains(&MAX_LABEL_CHARS.to_string()), "{err}");
+}
+
+/// T2 硬约束:正文 `#` 语法**一个字不改** —— 同一个 md 名字,界面能改,正文抽不到
+#[test]
+fn body_syntax_stays_strict_for_md_names() {
+    for raw in ["[郴](chēn)州市", "**重点**", "`代码`", "a[b](c)d"] {
+        assert!(crate::tags::parse_tag_path(raw).is_none(), "正文语法不得放宽:{raw}");
+        assert!(validate_label(raw).is_ok(), "界面改名应接受:{raw}");
+    }
+    // 两侧都接受的普通单段名照旧
+    assert_eq!(crate::tags::parse_tag_path("工作"), Some(vec!["工作".to_string()]));
+    assert!(validate_label("工作").is_ok());
+}
