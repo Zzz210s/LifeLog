@@ -111,4 +111,22 @@ describe('filter-state toggleFilterTag(与侧栏点标签同口径)', () => {
     expect(a).not.toBe(b);
     expect(a).toEqual(EMPTY_FILTER);
   });
+
+  it('Rust 写出的形状(含 sort:null)必须被接受,非空条件不被吞成空条件', () => {
+    // 真源:Rust `FilterConditions` 的 Serialize —— 未设 sort 时**会写出 null**;
+    // 这条串就是迁移 016 落库的形状(真机备份里逐字节同形)。
+    const fromRust = JSON.stringify({
+      keyword: '电影',
+      tags: [{ path: '书籍/小说', includeChildren: true }],
+      excludeTags: [],
+      tagPresence: null,
+      sort: null,
+      expr: null,
+    });
+    const c = parseFilterState(fromRust);
+    expect(c.keyword).toBe('电影');
+    expect(c.tags).toEqual([{ path: '书籍/小说', includeChildren: true }]);
+    expect(c.sort).toBe('newest'); // null 归一成默认,不是整串退化
+    expect(filterKey(c)).toBe(filterKey({ ...EMPTY_FILTER, keyword: '电影', tags: [{ path: '书籍/小说', includeChildren: true }] }));
+  });
 });

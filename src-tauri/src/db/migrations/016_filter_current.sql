@@ -4,3 +4,7 @@
 -- 本迁移体只删旧键;旧键此时已无消费者(前端 use-tabs 随标签页模块一起删)。
 -- 幂等:DELETE 可重放;单事务由 migrate::run 保证(SQL 与 user_version 同批提交,失败整批回滚)。
 DELETE FROM settings WHERE key = 'tabs_state';
+
+-- 降级提示:旧版 exe(≤15)打开已迁到 16 的库不会崩(版本闸门跳过全部迁移,本迁移也不改 schema),
+-- 但旧版会把筛选状态重新写回 tabs_state;再升级回来时本迁移已被闸门挡住不会重跑 -> 那段筛选成为死键。
+-- 即:降级期间不要改筛选。
