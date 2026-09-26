@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react';
 import { api } from '../shared/api';
 import type { MruEntry } from '../shared/quickpick/model';
-import { completeMatch, sameList, tokenAt } from './tag-complete';
+import { completeMatch, tokenAt } from './tag-complete';
+import { useCandidateList } from './use-candidate-list';
 import type { CompleteRow } from './tag-complete';
 
 /** 固定项 / 标签 MRU / 落盘调度的注入面(结构类型):由 `usePaletteSettings` 提供,
@@ -53,37 +54,13 @@ export interface TagCompleteState {
  *   词元一变(继续打字或换词)就重新求候选。
  */
 export function useTagComplete(opts: TagCompleteOptions): TagCompleteState {
-  const [items, setItems] = useState<CompleteRow[]>([]);
-  const [activeIndex, setActiveIndex] = useState(0);
+  const { items, activeIndex, setActiveIndex, setList, clear, itemsRef } = useCandidateList();
   // 被 Esc 关掉的词元(词元变了就失效);用 ref 是因为重算里要即时读到最新值
   const dismissedToken = useRef<string | null>(null);
   const seq = useRef(0);
   // 设置是异步读回来的,而监听器只挂一次:用 ref 现读,免得闭包里拿的是挂载时的旧值
   const settings = useRef(opts.settings);
   settings.current = opts.settings;
-
-  /** 候选列表的镜像:重算路径要现读"列表是否真变了"(见 setList),不靠渲染期闭包 */
-  const itemsRef = useRef<CompleteRow[]>([]);
-
-  /**
-   * 候选列表的**唯一写入点**:列表没变就什么都不做(不重渲染、**不归零高亮**),
-   * 变了才换列表并把高亮归零(新一批候选应该从第一行开始)。
-   *
-   * 为什么不能无条件归零:↓/↑ 的 keyup 会触发重算,回包里的"归零"会把刚移动的高亮打回第一行 ——
-   * 症状就是"上下箭头选不动"(实测 2026-09-26)。
-   */
-  const setList = useCallback((next: CompleteRow[]) => {
-    if (sameList(itemsRef.current, next)) return;
-    itemsRef.current = next;
-    setItems(next);
-    setActiveIndex(0);
-  }, []);
-
-  const clear = useCallback(() => {
-    if (itemsRef.current.length === 0) return; // 未变不产生新引用:避免无谓重渲染
-    itemsRef.current = [];
-    setItems([]);
-  }, []);
 
   // 受控值变化(如保存后清空)不会触发 input 事件:渲染后若光标前已无 # 词元则关闭下拉
   useEffect(() => {
