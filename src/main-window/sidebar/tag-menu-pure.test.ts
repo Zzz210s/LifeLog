@@ -33,9 +33,14 @@ describe('validateAliasInput', () => {
     expect(validateAliasInput('日#漫')).toBe('别名不能包含 #');
   });
   it('其余非法字符与非法路径形态拒', () => {
-    expect(validateAliasInput('日漫!')).toBe('别名不合法(仅限文字、数字、_ - . ·,层级用 /)');
-    expect(validateAliasInput('日//漫')).toBe('别名不合法(仅限文字、数字、_ - . ·,层级用 /)');
-    expect(validateAliasInput('a/b/c/d/e/f')).toBe('别名不合法(仅限文字、数字、_ - . ·,层级用 /)');
+    const why = '别名不合法(可用行内 md 语法;层级用 /,不能含空白或 #)';
+    expect(validateAliasInput('日//漫')).toBe(why);
+    expect(validateAliasInput('a/b/c/d/e/f')).toBe(why);
+  });
+  it('T3 放宽:段内行内 md 与标点不再被拦(与仓库层 check_alias 对齐)', () => {
+    expect(validateAliasInput('日漫!')).toBeNull();
+    expect(validateAliasInput('[郴](chēn)州市')).toBeNull();
+    expect(validateAliasInput('地点/[郴](chēn)州市')).toBeNull();
   });
 });
 

@@ -129,7 +129,9 @@ pub fn validate(c: &FilterConditions) -> Result<(), String> {
         return Err(format!("排除标签最多 {MAX_TAG_ITEMS} 项"));
     }
     for t in c.tags.iter().chain(c.exclude_tags.iter()) {
-        if crate::tags::parse_tag_path(&t.path).is_none() {
+        // T3:界面口径(md 友好),与 TagMenu 改名门 / 前端 isValidTagPath 同一份口径；
+        // 正文 `#` 语法仍走 parse_tag_path，不放宽
+        if crate::tags::validate_tag_path(&t.path).is_err() {
             return Err(format!("标签路径不合法: {}", t.path));
         }
     }
@@ -151,3 +153,7 @@ pub fn validate(c: &FilterConditions) -> Result<(), String> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "notes_filter_md_tests.rs"]
+mod notes_filter_md_tests;

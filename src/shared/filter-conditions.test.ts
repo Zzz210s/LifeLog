@@ -78,21 +78,22 @@ describe('表达式字段', () => {
 });
 
 describe('isValidTagPath', () => {
-  it('合法路径:中文、层级、内部点号', () => {
+  // md 友好口径(T3):完整向量在 fixtures/tag-path-valid.json,这里只钉基本形态
+  it('合法路径:中文、层级、md 段', () => {
     expect(isValidTagPath('工作')).toBe(true);
     expect(isValidTagPath('工作/项目A/会议')).toBe(true);
     expect(isValidTagPath('v1.0')).toBe(true);
     expect(isValidTagPath('a-b_c')).toBe(true);
+    expect(isValidTagPath('地点/[郴](chēn)州市')).toBe(true);
   });
 
-  it('非法路径:空段、首尾/连续斜杠、空白、超深', () => {
+  it('非法路径:空段、首尾/连续斜杠、空白、#、超深', () => {
     expect(isValidTagPath('')).toBe(false);
     expect(isValidTagPath('a//b')).toBe(false);
     expect(isValidTagPath('a/')).toBe(false);
     expect(isValidTagPath('/a')).toBe(false);
     expect(isValidTagPath('a b')).toBe(false);
-    expect(isValidTagPath('a..b')).toBe(false);
-    expect(isValidTagPath('.a')).toBe(false);
+    expect(isValidTagPath('a#b')).toBe(false);
     expect(isValidTagPath('a/b/c/d/e/f')).toBe(false);
   });
 });

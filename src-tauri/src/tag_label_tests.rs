@@ -1,12 +1,21 @@
 //! T2:`label_plain` 与前端的同源证明 —— 逐条读共享向量 `fixtures/tag-label.json`
 //! (前端 `src/shared/tag-label.test.ts` 读同一份文件),外加界面改名校验的边界。
 //! 两侧任何一方改了 md 语法,这个测试与前端那条会同时红。
-use super::{label_plain, parse_label, validate_label, LabelToken, MAX_LABEL_CHARS};
+use super::{
+    label_plain, parse_label, validate_label, validate_tag_path, LabelToken, MAX_LABEL_CHARS,
+};
 use serde::Deserialize;
 
 const TAG_LABEL: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../fixtures/tag-label.json"
+));
+
+/// T3 共享向量:整条标签路径的界面口径合法性(前端 `src/shared/tag-path-valid.test.ts`
+/// 读同一份文件喂给 `isValidTagPath`)。两侧任何一方改了路径口径,两条测试同时红。
+const TAG_PATH_VALID: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../fixtures/tag-path-valid.json"
 ));
 
 /// 一条向量(raw -> plain;`why` / `html` 是前端用的文档字段,断言不读)
@@ -37,6 +46,55 @@ fn label_plain_matches_shared_fixture() {
     for (i, c) in cases().iter().enumerate() {
         assert_eq!(label_plain(&c.raw), c.plain, "第 {i} 条纯文本不一致,raw={:?}", c.raw);
     }
+}
+
+/// 一条路径向量(`why` 是文档字段,断言不读)
+#[derive(Deserialize)]
+struct PathCase {
+    path: String,
+    valid: bool,
+}
+
+fn path_cases() -> Vec<PathCase> {
+    serde_json::from_str(TAG_PATH_VALID).expect("fixtures/tag-path-valid.json 必须是合法 JSON 数组")
+}
+
+/// fixture 结构:条数达标,且确实有"md 名合法"的条目(否则放宽没被验到)
+#[test]
+fn fixture_tag_path_valid_is_well_formed() {
+    let cases = path_cases();
+    assert!(cases.len() >= 20, "共享向量至少 20 条,实际 {}", cases.len());
+    assert!(
+        cases.iter().any(|c| c.valid && c.path.contains("[郴]")),
+        "向量里得有 md 名字合法的条目,否则放宽点没被验证"
+    );
+    assert!(cases.iter().any(|c| !c.valid), "也必须有非法条目");
+}
+
+/// T3 逐条:validate_tag_path(界面口径:筛选条件 + 改名门)与向量一致
+#[test]
+fn validate_tag_path_matches_shared_fixture() {
+    for (i, c) in path_cases().iter().enumerate() {
+        assert_eq!(
+            validate_tag_path(&c.path).is_ok(),
+            c.valid,
+            "第 {i} 条路径判定不一致:{:?}",
+            c.path
+        );
+    }
+}
+
+/// T3 与正文语法的分工:md 友好口径确实比 parse_tag_path 宽(放宽生效),
+/// 但正文语法一个字未改(同一批名字 parse_tag_path 照样拒)。
+#[test]
+fn ui_path_syntax_is_relaxed_but_body_syntax_is_not() {
+    for relaxed in ["地点/[郴](chēn)州市", "工作.", "日漫!"] {
+        assert!(validate_tag_path(relaxed).is_ok(), "界面口径应放行:{relaxed}");
+        assert!(crate::tags::parse_tag_path(relaxed).is_none(), "正文语法不得放宽:{relaxed}");
+    }
+    // 两份口径的公共部分:普通多级路径两边都收
+    assert!(validate_tag_path("工作/项目A/会议").is_ok());
+    assert!(crate::tags::parse_tag_path("工作/项目A/会议").is_some());
 }
 
 /// 无语法名走"单文本 token"退化(与前端 renderTagLabel 直接返回字符串同口径)

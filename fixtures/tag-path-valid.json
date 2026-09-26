@@ -1,0 +1,127 @@
+[
+  {
+    "why": "T3 主场景:侧栏点一个 md 标签(链接语法在段内),整条路径必须算合法",
+    "path": "地点/[郴](chēn)州市",
+    "valid": true
+  },
+  {
+    "why": "单段 md 链接名:改名门(t.includes('/') 之外)要放行的最小值",
+    "path": "[郴](chēn)州市",
+    "valid": true
+  },
+  {
+    "why": "粗体名",
+    "path": "**重点**",
+    "valid": true
+  },
+  {
+    "why": "斜体名",
+    "path": "*斜体*",
+    "valid": true
+  },
+  {
+    "why": "行内代码名",
+    "path": "`代码`",
+    "valid": true
+  },
+  {
+    "why": "md 与普通段混排:md 只影响到自己那一段",
+    "path": "a[b](c)d/工作",
+    "valid": true
+  },
+  {
+    "why": "普通多级路径原样(回归:不得因放宽误伤)",
+    "path": "工作/项目A/会议",
+    "valid": true
+  },
+  {
+    "why": "版本号里的点号仍是普通字符",
+    "path": "v1.0",
+    "valid": true
+  },
+  {
+    "why": "恰好 5 层(深度上限,含 md 段)",
+    "path": "a/b/c/[d](x)/e",
+    "valid": true
+  },
+  {
+    "why": "句尾点:md 口径下点号无语法含义(与正文语法的分别就在这里)",
+    "path": "工作.",
+    "valid": true
+  },
+  {
+    "why": "点开头同理",
+    "path": ".工作",
+    "valid": true
+  },
+  {
+    "why": "连续点号同理",
+    "path": "a..b",
+    "valid": true
+  },
+  {
+    "why": "标点不再是结构问题(与仓库层 check_alias 的口径一致)",
+    "path": "日漫!",
+    "valid": true
+  },
+  {
+    "why": "段长恰好到上限 100 字符",
+    "path": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "valid": true
+  },
+  {
+    "why": "空路径:唯一一段是空段",
+    "path": "",
+    "valid": false
+  },
+  {
+    "why": "连续斜杠:空段",
+    "path": "a//b",
+    "valid": false
+  },
+  {
+    "why": "尾斜杠:空段",
+    "path": "a/",
+    "valid": false
+  },
+  {
+    "why": "首斜杠:空段",
+    "path": "/a",
+    "valid": false
+  },
+  {
+    "why": "md 名后跟尾斜杠,同样有空段",
+    "path": "[郴](chēn)州市/",
+    "valid": false
+  },
+  {
+    "why": "6 层超深度上限",
+    "path": "a/b/c/d/e/f",
+    "valid": false
+  },
+  {
+    "why": "含空格(空白字符落库后正文永远引用不到)",
+    "path": "工作 项目",
+    "valid": false
+  },
+  {
+    "why": "含制表符,同空白口径",
+    "path": "工作\t项目",
+    "valid": false
+  },
+  {
+    "why": "含 #:正文里会被截断,条件也筛不到",
+    "path": "工作#项目",
+    "valid": false
+  },
+  {
+    "why": "控制字符(BEL)",
+    "path": "工作\u0007项目",
+    "valid": false
+  },
+  {
+    "why": "段长 101 字符,超上限 1 个",
+    "path": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "valid": false
+  }
+]

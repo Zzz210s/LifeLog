@@ -72,13 +72,34 @@ export function filterKey(c: FilterConditions): string {
   ]);
 }
 
-/** 单段标签名:名称字符 + 内部 `.`/`·`(须夹在名称字符之间),与后端 valid_segment 同构 */
-const TAG_SEGMENT = /^[\p{L}\p{N}_-]+(?:[.·][\p{L}\p{N}_-]+)*$/u;
+/** 单段标签名长度上限(与 Rust `tag_label::MAX_LABEL_CHARS` 一致) */
+const MAX_TAG_LABEL_CHARS = 100;
+/** 名字里不允许的字符:空白(Unicode White_Space,与 Rust `char::is_whitespace` 同集)与控制字符 */
+const NAME_FORBIDDEN = /[\p{White_Space}\p{Cc}]/u;
 
-/** 标签路径是否合法(空段、首尾/连续斜杠、非法字符、超深一律非法) */
+/**
+ * 单段标签名是否合法(T3 界面口径,与 Rust `tag_label::validate_label` 同规则):
+ * 非空、无 `/`(单段)、无空白/控制字符、无 `#`、不超长 ——
+ * 段内的行内 md 符号([ ] ( ) * 等)**全部放行**(T1/T2 允许标签名含行内 md)。
+ */
+function isValidTagLabel(name: string): boolean {
+  return (
+    name !== '' &&
+    !NAME_FORBIDDEN.test(name) &&
+    !name.includes('#') &&
+    [...name].length <= MAX_TAG_LABEL_CHARS
+  );
+}
+
+/**
+ * 标签路径是否合法(T3:md 友好口径,与 Rust `tags::validate_tag_path` 同规则):
+ * 按 `/` 分段、段数 ≤ `MAX_TAG_DEPTH`、每段走 isValidTagLabel。
+ * 与正文 `#` 语法无关(那仍是严格名称字符集,前端也不镜像);
+ * 共享向量 `fixtures/tag-path-valid.json` 两侧同源读。
+ */
 export function isValidTagPath(path: string): boolean {
   const parts = path.split('/');
-  return parts.length <= MAX_TAG_DEPTH && parts.every((p) => TAG_SEGMENT.test(p));
+  return parts.length <= MAX_TAG_DEPTH && parts.every(isValidTagLabel);
 }
 
 /** 校验条件:返回中文提示,合法返回 null(后端仍是唯一权威) */

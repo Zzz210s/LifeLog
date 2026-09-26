@@ -8,13 +8,14 @@ import type { TagCount } from '../../shared/types';
 /**
  * 别名输入校验:合法返回 null,非法给中文提示。
  * 口径与仓库层 check_alias 一致(非空、无任何空白、无 `#`),并额外要求路径形态合法
- * (别名可以是**完整路径**,故层级分隔 `/` 允许);仓库层仍是唯一权威,这里只做就地提示。
+ * (别名可以是**完整路径**,故层级分隔 `/` 允许;T3 起段内行内 md 符号也允许);
+ * 仓库层仍是唯一权威,这里只做就地提示。
  */
 export function validateAliasInput(text: string): string | null {
   if (text === '') return '别名不能为空';
   if (/\s/.test(text)) return '别名不能包含空白字符';
   if (text.includes('#')) return '别名不能包含 #';
-  if (!isValidTagPath(text)) return '别名不合法(仅限文字、数字、_ - . ·,层级用 /)';
+  if (!isValidTagPath(text)) return '别名不合法(可用行内 md 语法;层级用 /,不能含空白或 #)';
   return null;
 }
 

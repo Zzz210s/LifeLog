@@ -4,9 +4,12 @@
  * - `tag-grammar.json`:前端**不实现**标签语法(再写一份等于把漂移固化),解析一律走
  *   后端命令 `parse_note_source`。这里只做契约断言:fixture 结构合法 + 前端确实接线该命令。
  *   **若将来前端要镜像语法,必须让本文件的断言真正跑一遍镜像实现**,而不是只断言结构。
- * - `filter-conditions.json`:每条喂给前端**真实的**校验/归一函数(isValidTagPath /
- *   parseFilterJson / applyTagPick / localExprError);Rust 侧读同一份文件断言后端真源
+ * - `filter-conditions.json`:每条喂给前端**真实的**校验/归一函数(parseFilterJson /
+ *   applyTagPick / localExprError);Rust 侧读同一份文件断言后端真源
  *   (见 src-tauri/src/filter_fixtures_tests.rs),同一份向量两边各跑一遍才能发现漂移。
+ *   其中 `tagPath` 向量是**正文严格语法**(Rust `parse_tag_path`)—— T3 起前端的
+ *   `isValidTagPath` 是界面口径(md 友好),不再镜像严格语法,故那边只断言放宽的单调性;
+ *   界面口径的完整向量在 `fixtures/tag-path-valid.json`(见 tag-path-valid.test.ts)。
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
@@ -103,9 +106,19 @@ describe('fixtures/filter-conditions.json(前端真实校验函数)', () => {
     }
   });
 
-  it('tagPath:isValidTagPath 与声明一致', () => {
+  // `tagPath` 是正文严格语法向量,前端侧只验「放宽不误伤」:严格合法的必须仍合法。
+  it('tagPath:严格合法的路径在 md 友好口径下仍合法', () => {
     for (const c of ofKind<TagPathCase>('tagPath')) {
-      expect(isValidTagPath(c.path), `${c.path}:${c.why}`).toBe(c.valid);
+      if (!c.valid) continue;
+      expect(isValidTagPath(c.path), `${c.path}:${c.why}`).toBe(true);
+    }
+  });
+
+  // 放宽的边界:只放到「段内标点/行内 md」,**结构类非法**(空段/首尾斜杠/空白/#/超深)
+  // 在两侧口径下都不合法(向量里 `工作.`、`.工作` 是严格口径独有的拒法,md 口径接受)
+  it('tagPath:结构类非法在 md 友好口径下仍非法', () => {
+    for (const p of ['', 'a//b', 'a/', '/a', '工作 项目', '工作#项目', 'a/b/c/d/e/f']) {
+      expect(isValidTagPath(p), p).toBe(false);
     }
   });
 

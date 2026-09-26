@@ -75,7 +75,9 @@ export function TagMenu(p: TagMenuProps): ReactNode {
   const doRename = (): void => {
     const t = newName.trim();
     if (t === '') return setError('标签名不能为空');
-    if (t.includes('/') || !isValidTagPath(t)) return setError('标签名不合法(仅限文字、数字、_ - 等)');
+    if (t.includes('/') || !isValidTagPath(t)) {
+      return setError('标签名不合法(可用行内 md 语法;不能含空白、# 或 /)');
+    }
     if (t === p.node.name) return p.onClose();
     setBusy(true);
     void api

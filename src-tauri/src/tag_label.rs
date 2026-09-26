@@ -160,6 +160,22 @@ pub fn validate_label(name: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// 整条标签路径的**界面口径**校验(md 友好):按 `/` 切段、段数 ≤ `tags::max_depth()`,
+/// 逐段走 [`validate_label`] —— 允许段内 md 符号(`地点/[郴](chēn)州市`),结构规则不变。
+/// **正文 `#` 语法不受影响**:那里仍走 `tags::parse_tag_path`,一个字不改。
+/// 筛选条件里的标签路径(点侧栏标签加条件)与界面改名共用这一份口径。
+pub fn validate_tag_path(path: &str) -> Result<(), String> {
+    let depth = crate::tags::max_depth();
+    let parts: Vec<&str> = path.split('/').collect();
+    if parts.len() > depth {
+        return Err(format!("标签层级最多 {depth} 层"));
+    }
+    for seg in parts {
+        validate_label(seg)?;
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 #[path = "tag_label_tests.rs"]
 mod tag_label_tests;
