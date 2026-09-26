@@ -8,6 +8,13 @@ pub fn hide_input_bar(app: AppHandle) -> Result<(), String> {
     windowing::input::hide(&app).map_err(|e| e.to_string())
 }
 
+/// 输入栏当前是否可见(新手引导要"临时收起、结束后按原状恢复",所以得先问一次;
+/// 以系统实际可见性为准,不靠前端缓存 —— 缓存失同步是踩过的坑)
+#[tauri::command]
+pub fn input_bar_visible(app: AppHandle) -> bool {
+    windowing::input::is_visible(&app)
+}
+
 /// 显示(不切换)输入栏:主窗空库引导用,语义与二次启动一致(show,不把眼前的窗口隐藏)
 #[tauri::command]
 pub fn show_input_bar(app: AppHandle) -> Result<(), String> {

@@ -22,6 +22,10 @@ vi.mock('../../shared/api', () => ({
   api: {
     getSetting: (key: string) => Promise.resolve(key === 'ui.tutorial_seen' ? h.seen : null),
     setSetting: h.setSetting,
+    // 引导会临时收起输入栏(见 use-tutorial-input-bar):这里给最小桩,单独的行为由它自己的测试覆盖
+    inputBarVisible: async () => false,
+    hideInputBar: async () => undefined,
+    showInputWindow: async () => undefined,
   },
 }));
 

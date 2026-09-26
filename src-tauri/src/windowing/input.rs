@@ -106,6 +106,11 @@ pub fn toggle(app: &AppHandle) -> tauri::Result<()> {
     }
 }
 
+/// 输入栏当前是否真的可见(系统口径,不看任何缓存)
+pub fn is_visible(app: &AppHandle) -> bool {
+    win(app).and_then(|w| w.is_visible().ok()).unwrap_or(false)
+}
+
 pub fn show(app: &AppHandle) -> tauri::Result<()> {
     if let Some(w) = win(app) {
         // 恢复记忆的几何

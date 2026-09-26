@@ -8,6 +8,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from '../../shared/api';
 import { TUTORIAL_SEEN_KEY } from './steps';
 import { isSeen } from './tutorial-model';
+import { useTutorialInputBar } from './use-tutorial-input-bar';
 
 export interface TutorialEntry {
   /** 是否已经挂上引导(渲染门控由调用方 `open && <TutorialLayer/>` 做) */
@@ -41,6 +42,9 @@ export function useTutorialEntry(beforeReplay: () => void): TutorialEntry {
     setOpen(false);
     void api.setSetting(TUTORIAL_SEEN_KEY, '1').catch(() => {}); // 写失败也不卡住用户
   }, []);
+
+  // 引导开着时临时收起输入栏(alwaysOnTop 会盖住气泡),结束时按原状恢复
+  useTutorialInputBar(open);
 
   const onUnavailable = useCallback(() => setOpen(false), []);
 

@@ -62,8 +62,27 @@ export function useTagComplete(opts: TagCompleteOptions): TagCompleteState {
   const settings = useRef(opts.settings);
   settings.current = opts.settings;
 
+  /** 候选列表的镜像:重算路径要现读"列表是否真变了"(见 setList),不靠渲染期闭包 */
+  const itemsRef = useRef<CompleteRow[]>([]);
+
+  /**
+   * 候选列表的**唯一写入点**:列表没变就什么都不做(不重渲染、**不归零高亮**),
+   * 变了才换列表并把高亮归零(新一批候选应该从第一行开始)。
+   *
+   * 为什么不能无条件归零:↓/↑ 的 keyup 会触发重算,回包里的"归零"会把刚移动的高亮打回第一行 ——
+   * 症状就是"上下箭头选不动"(实测 2026-09-26)。
+   */
+  const setList = useCallback((next: CompleteRow[]) => {
+    if (sameList(itemsRef.current, next)) return;
+    itemsRef.current = next;
+    setItems(next);
+    setActiveIndex(0);
+  }, []);
+
   const clear = useCallback(() => {
-    setItems((prev) => (prev.length === 0 ? prev : [])); // 未变不产生新引用:避免无谓重渲染
+    if (itemsRef.current.length === 0) return; // 未变不产生新引用:避免无谓重渲染
+    itemsRef.current = [];
+    setItems([]);
   }, []);
 
   // 受控值变化(如保存后清空)不会触发 input 事件:渲染后若光标前已无 # 词元则关闭下拉
@@ -101,23 +120,29 @@ export function useTagComplete(opts: TagCompleteOptions): TagCompleteState {
             pinned: current?.pinnedTags ?? [],
             mru: current?.mruTags.entries() ?? [],
           });
-          setItems((prev) => (sameList(prev, next) ? prev : next));
-          setActiveIndex((prev) => (prev === 0 ? prev : 0));
+          setList(next);
         })
         .catch(() => {
           // 失败静默:退回普通输入(同样不产生无谓重渲染)
           if (id === seq.current) clear();
         });
     };
+    /** keyup:光标移动(方向键)/松键后重算;但下拉开着时的 ↑/↓ 已被 keydown 消费 —— 光标没动、
+     *  候选也不可能变,重算只会白跑一次 IPC(高亮另有 setList 的"没变不归零"兜住) */
+    const onKeyUp = (e: KeyboardEvent): void => {
+      const arrows = e.key === 'ArrowUp' || e.key === 'ArrowDown';
+      if (arrows && itemsRef.current.length > 0) return;
+      recompute();
+    };
     el.addEventListener('input', recompute);
-    el.addEventListener('keyup', recompute); // 光标移动(方向键)
+    el.addEventListener('keyup', onKeyUp);
     el.addEventListener('click', recompute); // 点击换位
     return () => {
       el.removeEventListener('input', recompute);
-      el.removeEventListener('keyup', recompute);
+      el.removeEventListener('keyup', onKeyUp);
       el.removeEventListener('click', recompute);
     };
-  }, [opts.textareaRef, clear]);
+  }, [opts.textareaRef, clear, setList]);
 
   /** 采纳:把光标前的 # 词元替换为 #路径+空格,光标落在空格后 */
   const adopt = useCallback(

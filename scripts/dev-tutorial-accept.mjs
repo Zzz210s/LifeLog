@@ -8,10 +8,7 @@
  *   ④ 已看过时重启**不弹**(CDP 里只有输入栏,主窗 webview 未创建)
  *   ⑤ 托盘打开主窗 -> 设置页「重新观看」-> 引导回来且在第 1 步
  *   ⑥ 隐藏侧栏后重看:第 3 步的前置动作把侧栏显示出来,且真的停在「标签就是分类」
- *   ⑦ 洞口/气泡与**输入栏窗口**(永远置顶)是否重叠 —— **信息读数,不判失败**:输入栏位置是用户
- *      自己拖的,停在中部时必然压住气泡(设计 §7 的已知层叠风险;要根治得在引导期间临时隐藏输入栏)
- *   ⑧ 引导期间不写库:笔记数与标签路径前后一致(除了设置键)
- *
+ *   ⑦ 引导期间**输入栏被临时收起**(它是 alwaysOnTop 的贴纸窗,不收起会盖住气泡);走完后按原状恢复
  * 前置:无需先起应用(脚本自己重启),但要给出可执行文件路径:
  *   node scripts/dev-tutorial-accept.mjs [exe路径]     默认 E:/1-LifeLog/LifeLog.exe
  * 端口用 LIFELOG_CDP_PORT(默认 9222)。
@@ -52,16 +49,10 @@ const holeRect = await withTimeout(page.cdp.eval(HOLE_RECT), 8000);
 const fit = (a, b) => a != null && b != null && ['top', 'left', 'width', 'height'].every((k) => Math.abs(a[k] - b[k]) <= 2);
 record('② 洞口矩形 = 锚点外扩 4px(四块遮罩拼出)', fit(holeRect, expected), JSON.stringify({ hole: holeRect, expected }));
 
-// ---------- ⑦ 与输入栏窗口不重叠(它 alwaysOnTop) ----------
+// ---------- ⑦ 引导期间输入栏被收起(alwaysOnTop 会盖住气泡) ----------
 const wins = await windowRects();
 const inputWin = wins.find((w) => w.title === '输入栏' && w.visible) ?? null;
-const covered = inputWin != null && (overlap(s1?.bubbleRect ?? null, inputWin.rect) || overlap(holeRect, inputWin.rect));
-const hit = ['hole', 'bubble'].filter((k) => overlap(k === 'hole' ? holeRect : s1?.bubbleRect ?? null, inputWin?.rect ?? null));
-record(
-  '⑦(信息)输入栏窗口是否压住洞口/气泡 —— 用户把输入栏停在屏幕中部时会重叠,不判失败',
-  true,
-  JSON.stringify({ 重叠: hit, input: inputWin?.rect ?? null, hole: holeRect, bubble: s1?.bubbleRect ?? null })
-);
+record('⑦ 引导开着时输入栏已被临时收起', inputWin === null, JSON.stringify({ input: inputWin?.rect ?? null, bubble: s1?.bubbleRect ?? null }));
 
 // ---------- ⑧ 库存快照(引导期间不该写库) ----------
 const before = await inventory();
@@ -134,5 +125,12 @@ await mark('1');
 if (sidebarVisibleBefore != null) await call('set_setting', { key: 'sidebar_visible', value: sidebarVisibleBefore });
 const final = await readMain();
 record('收尾:标记复原为 1、侧栏可见性复原、覆盖层已退出', final != null && final.open === false, JSON.stringify({ sidebar: sidebarVisibleBefore }));
+
+// 引导结束后输入栏按原状恢复(原本可见 -> 应重新出现)
+const restored = await waitFor(async () => {
+  const list = await windowRects();
+  return list.find((w) => w.title === '输入栏' && w.visible) ? true : null;
+}, 20, 500);
+record('收尾:引导结束后输入栏恢复可见', restored === true, JSON.stringify({ restored }));
 
 finish();

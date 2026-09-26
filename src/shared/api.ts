@@ -57,6 +57,8 @@ export const api = {
   setAppHotkey: (kind: AppHotkeyKind, accelerator: string) =>
     invoke<string>('set_app_hotkey', { kind, accelerator }),
   /** 显示(不切换)输入栏:主窗空库引导用 */
+  /** 输入栏当前是否可见(新手引导临时收起前的问询;系统口径) */
+  inputBarVisible: () => invoke<boolean>('input_bar_visible'),
   showInputWindow: () => invoke<void>('show_input_bar'),
   /** 取一次「迁移前自动备份失败」提示(取值即清空;无提示时返回 null) */
   takeBackupWarning: () => invoke<string | null>('take_backup_warning'),
