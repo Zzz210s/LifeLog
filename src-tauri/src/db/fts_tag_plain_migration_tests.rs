@@ -69,7 +69,7 @@ fn v17_index_has_no_plain_path() {
 fn upgrade_to_18_backfills_plain_paths() {
     let mut c = db_at_017();
     seed(&c);
-    run(&mut c).unwrap();
+    run(&c).unwrap();
     let version: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
     assert_eq!(version, super::latest_version(), "升级后应停在最新版本");
     assert!(fts(&c).contains("地点/中国大陆/湖南省/郴州市/宜章县"), "回填纯文本路径:{}", fts(&c));
