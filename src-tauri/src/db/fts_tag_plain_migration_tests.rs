@@ -67,7 +67,7 @@ fn v17_index_has_no_plain_path() {
 /// 升级到 18:回填后按显示文本命中;版本号 / 触发器 / 不变量都对齐
 #[test]
 fn upgrade_to_18_backfills_plain_paths() {
-    let mut c = db_at_017();
+    let c = db_at_017();
     seed(&c);
     run(&c).unwrap();
     let version: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
