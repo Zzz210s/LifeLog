@@ -91,7 +91,8 @@ pub(crate) struct TagSpan {
     pub path: String,
 }
 
-/// 提取标签:返回完整路径字符串,去重并保持出现顺序
+/// 严格提取(不带库内兜底):只有测试与共享向量断言用它;生产路径一律走 `parse_saved`。
+#[cfg(test)]
 pub fn extract_tags(content: &str) -> Vec<String> {
     extract_tags_known(content, &[])
 }
