@@ -102,6 +102,15 @@ describe('统一输入框 -> 候选控制器 -> 候选下拉(常驻驱动)', () 
     expect(drop()!.textContent).toContain('工作/项目A');
   });
 
+  it('md 形态的标签路径在 `#` 候选里只摆纯文本,高亮落在纯文本上(Important-1 的端到端)', async () => {
+    listTags.mockResolvedValue([tag('地点/[郴](chēn)州市', 1)]);
+    await type('#郴');
+    const row = drop()!.querySelector('li[role="option"]') as HTMLElement;
+    expect(row.querySelector('span')!.textContent).toBe('地点/郴州市');
+    expect(row.querySelector('mark')?.textContent).toBe('郴');
+    expect(row.textContent).not.toContain('[');
+  });
+
   it('`@` 输入后下拉出现笔记候选(走 @ 前缀的笔记 provider)', async () => {
     await type('@牛奶');
     expect(queryNotes).toHaveBeenCalled();
