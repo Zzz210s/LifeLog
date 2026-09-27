@@ -7,7 +7,7 @@ import type { CommandStatus } from './use-app-commands';
 
 export function CommandStatusPill({ status }: { status: CommandStatus | null }): ReactNode {
   if (status === null) return null;
-  const tone = status.kind === 'done' ? 'border-accent/50 text-accent-text' : 'border-border text-muted';
+  const tone = status.kind === 'done' ? 'border-accent text-accent-text' : 'border-border text-muted';
   return (
     <div
       role="status"

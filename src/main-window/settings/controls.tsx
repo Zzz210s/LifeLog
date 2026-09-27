@@ -44,7 +44,8 @@ export function Toggle({ checked, label, onChange }: ToggleProps): ReactNode {
       onClick={() => onChange(!checked)}
       className={
         'relative h-6 w-11 rounded-full transition-colors ' +
-        (checked ? 'bg-accent' : 'bg-text/20')
+        // 关态的轨道底色用中性实体令牌(bg-text/20 这类 alpha 变体不在令牌表里,会过不了视觉审计)
+        (checked ? 'bg-accent' : 'bg-border-strong')
       }
     >
       <span

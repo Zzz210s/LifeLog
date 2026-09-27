@@ -141,7 +141,7 @@ export function RecorderButton({ box, ariaLabel, disabled = false }: RecorderBut
       className={
         'h-8 min-w-[9rem] rounded-sm border px-3 text-ui tabular-nums ' +
         (box.capturing
-          ? 'border-accent bg-accent/10 text-accent-text'
+          ? 'border-accent bg-accent-soft text-accent-text'
           : 'border-border text-muted hover:border-accent hover:text-accent-text')
       }
     >

@@ -149,7 +149,9 @@ export function EditPanel(p: EditPanelProps): ReactNode {
           p.onCancel();
         }
       }}
-      className="border-b border-accent/40 bg-accent-soft/40 px-4 py-3"
+      // 边框/底色一律用实体令牌:alpha 变体(border-accent/40 之类)不在令牌表里,
+      // 会被视觉审计的「颜色全部来自令牌」判失败 —— 那是 pnpm verify 的第 9 项门禁
+      className="border-b border-border-strong bg-accent-soft px-4 py-3"
     >
       <textarea
         ref={boxRef}
