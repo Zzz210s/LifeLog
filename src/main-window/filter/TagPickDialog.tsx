@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { api } from '../../shared/api';
+import { renderTagLabel, tagLabelPlain } from '../../shared/tag-label';
 import type { TagCount } from '../../shared/types';
 import { BTN_ICON } from '../shell/button-classes';
 
@@ -18,6 +19,8 @@ export interface TagPickDialogProps {
  * 数据源用 list_tags(标签树全量)而不是仅直接链接的计数(旧标签板口径,已随标签板移除):
  * 父级标签本级往往没有链接,选不到父级则「含子级」开关形同虚设;
  * 计数随开关切换 —— 仅本级显示 self_count,含子级显示 subtree_count(即实际会命中的笔记数)。
+ * 显示口径是**纯文本形态**(tag-label-md T6):md 名字只显示可见文本(`[郴](chēn)州市` -> `郴州市`),
+ * 但回传的 data/onPick 仍是原始路径(写入与筛选都用路径)。
  */
 export function TagPickDialog(p: TagPickDialogProps): ReactNode {
   const [includeChildren, setIncludeChildren] = useState(true);
@@ -104,11 +107,11 @@ export function TagPickDialog(p: TagPickDialogProps): ReactNode {
                     type="button"
                     disabled={picked}
                     onClick={() => p.onPick(row.path, includeChildren)}
-                    title={row.path}
+                    title={tagLabelPlain(row.path)}
                     className="flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left text-ui text-muted hover:bg-accent-soft hover:text-accent-text disabled:cursor-default disabled:text-faint disabled:line-through disabled:hover:bg-transparent disabled:hover:text-faint"
                     style={{ paddingLeft: 10 + row.depth * 12 }}
                   >
-                    <span className="truncate">{row.path}</span>
+                    <span className="truncate">{renderTagLabel(row.path)}</span>
                     {picked ? (
                       <span className="shrink-0 text-label text-muted">已添加</span>
                     ) : (

@@ -28,9 +28,11 @@ describe('notes provider:标题提取与详情', () => {
     expect(noteTitle('   ')).toBe('');
   });
 
-  it('详情 = 日期 + 最多 3 个标签;无标签只有日期', () => {
+  it('详情 = 日期 + 最多 3 个标签;无标签只有日期;标签名走纯文本形态', () => {
     expect(noteDetail(note(1, 'a', ['工作', '生活', 'x', 'y']))).toBe('2026-09-22 · #工作 #生活 #x');
     expect(noteDetail(note(1, 'a'))).toBe('2026-09-22');
+    // md 名字(tag-label-md T6):副文本是给人看的,只显示可见文本
+    expect(noteDetail(note(1, 'a', ['地点/[郴](chēn)州市']))).toBe('2026-09-22 · #地点/郴州市');
   });
 });
 

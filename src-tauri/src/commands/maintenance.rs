@@ -1,7 +1,7 @@
 //! 维护类 IPC(命令面板的两条副作用,设计 §3.7):
 //! `rebuild_search_index`(重建全文索引)与 `quit_app`(退出应用)。
 //! 两条都复用既有实现,不在前端另造一套:退出走 `windowing::events::quit`(与托盘「退出」同路径),
-//! 重建走与迁移 017 完全相同的聚合口径(见 `rebuild` 注释)。
+//! 重建走与迁移 018 完全相同的聚合口径(见 `rebuild` 注释)。
 use crate::db::repos::tags::fts_tags::TAGS_AGG;
 use crate::db::Db;
 use crate::windowing;
@@ -23,8 +23,8 @@ pub fn quit_app(app: AppHandle) {
 
 /// 幂等整体重建:DELETE 起手,再由 notes 整表回填。
 ///
-/// 聚合口径的唯一真源是 `db::repos::tags::fts_tags::TAGS_AGG`(标签完整路径 + 别名),
-/// 与迁移 017 重建的触发器、结构变更后的 `tags::refresh_fts` 逐字一致。触发器已覆盖
+/// 聚合口径的唯一真源是 `db::repos::tags::fts_tags::TAGS_AGG`(标签完整路径 + 纯文本路径 + 别名),
+/// 与迁移 018 重建的触发器、结构变更后的 `tags::refresh_fts` 逐字一致。触发器已覆盖
 /// 日常增删改,本命令是「索引与正文疑似不一致」时的自愈入口(见 `notes_fts` 为普通 FTS5
 /// 表的设计说明)。
 ///

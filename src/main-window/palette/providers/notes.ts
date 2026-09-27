@@ -10,6 +10,7 @@
  */
 import { LABEL_MATCH_BOOST, LABEL_PREFIX_BOOST, PATH_BOOST, scoreFuzzy } from '../../../shared/fuzzy-score';
 import type { QuickPickItem } from '../../../shared/quickpick/model';
+import { tagLabelPlain } from '../../../shared/tag-label';
 import type { Note } from '../../../shared/types';
 import type { RowDecoration } from '../PaletteRow';
 
@@ -26,10 +27,12 @@ export function noteTitle(content: string): string {
   return (line ?? '').trim();
 }
 
-/** 行右侧副文本:创建日期 + 最多 3 个标签(设计 §3.3) */
+/** 行右侧副文本:创建日期 + 最多 3 个标签(设计 §3.3)。
+ * 标签走**纯文本形态**(tag-label-md T6):副文本是给人看的,md 源码(`[郴](chēn)州市`)
+ * 不该出现;打分仍用原始路径(见 scoreNote,命中口径不动)。 */
 export function noteDetail(note: Note): string {
   const date = note.created_at.slice(0, 10);
-  const tags = note.tags.slice(0, 3).map((t) => `#${t}`).join(' ');
+  const tags = note.tags.slice(0, 3).map((t) => `#${tagLabelPlain(t)}`).join(' ');
   return tags === '' ? date : `${date} · ${tags}`;
 }
 

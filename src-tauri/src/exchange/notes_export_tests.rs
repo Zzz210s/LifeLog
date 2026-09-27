@@ -4,6 +4,7 @@
 use super::*;
 use crate::db::migrate;
 use crate::db::repos::notes::{create_on, create_plain};
+use crate::db::repos::tags::rename;
 use rusqlite::Connection;
 
 fn db() -> Connection {
@@ -72,6 +73,20 @@ fn nested_tags_export_as_full_paths() {
     assert_eq!(rows[0].tags, "#工作 #工作/项目A #时间排序/2026/09/01");
     assert_eq!(rows[1].tags, "#时间排序/2026/09/02 #生活/会议");
     assert_eq!(rows[2].tags, "#工作/项目A/会议 #时间排序/2026/09/03");
+}
+
+#[test]
+fn md_tag_name_exports_as_plain_text() {
+    // 导出是给人看的文件:md 名字写可见文本,不把 `[郴](chēn)州市` 原样写进单元格
+    let mut c = db();
+    create_plain(&mut c, "莽山栈道 #地点/郴chen州市/宜章县").unwrap();
+    let id: i64 = c
+        .query_row("SELECT id FROM tags WHERE path='地点/郴chen州市'", [], |r| r.get(0))
+        .unwrap();
+    rename(&mut c, id, "[郴](chēn)州市").unwrap();
+
+    let rows = rows(&c).unwrap();
+    assert_eq!(rows[0].tags, "#地点/郴州市/宜章县");
 }
 
 #[test]

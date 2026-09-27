@@ -1,7 +1,7 @@
 //! 标签写入不变量测试台(spec 2026-09-21 D:标签写入路径收敛)。
 //! 三组判据,供既有与后续所有标签写入测试复用:
 //! ① [`assert_fts_matches_tags`]:逐笔记比对 FTS 标签列与"按 tag_links 聚合的标签路径 + 别名"。
-//!    聚合口径必须与迁移 017 重建的触发器一致,唯一真源是 [`super::fts_tags::TAGS_AGG`],
+//!    聚合口径必须与迁移 018 重建的触发器一致,唯一真源是 [`super::fts_tags::TAGS_AGG`],
 //!    本文件不再另写一份:违反即"按显示文本搜不到、旧名仍命中"的静默漂移。
 //! ② [`assert_no_orphan_tags`]:无孤儿标签(既无 tag_links 又无子节点)。
 //! ③ [`assert_filter_paths_exist`]:settings.filter_current 引用的每个标签路径(结构化 tags[] /

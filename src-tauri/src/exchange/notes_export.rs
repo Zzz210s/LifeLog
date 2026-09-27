@@ -27,6 +27,8 @@ pub fn fit_cell(content: &str) -> String {
 /// 笔记标签按条目聚合:id -> "#a #b"(完整路径升序,空格分隔)
 /// 聚合真源是 t.path 而非 t.name:嵌套标签只留末级名会丢层级,
 /// 且不同父级下的同名末级(如 工作/会议 与 生活/会议)无法区分。
+/// 显示口径是**纯文本形态**(tag-label-md T6):导出是给人看的文件,
+/// md 名字只写可见文本(`[郴](chēn)州市` -> `郴州市`),不把 md 源码写进去。
 fn note_tags(conn: &Connection) -> Result<HashMap<i64, String>, String> {
     let mut stmt = conn
         .prepare(
@@ -46,7 +48,7 @@ fn note_tags(conn: &Connection) -> Result<HashMap<i64, String>, String> {
             cell.push(' ');
         }
         cell.push('#');
-        cell.push_str(&name);
+        cell.push_str(&crate::tag_label::label_plain(&name));
     }
     Ok(map)
 }

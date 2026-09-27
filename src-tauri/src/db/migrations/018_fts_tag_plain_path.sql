@@ -11,13 +11,15 @@
 --   都引用它);本文件里的表达式副本由守卫用例 fts_tags_tests 逐条比对(写 FTS 的语句条数
 --   必须等于表达式出现次数),分叉即红。SQLite 无法在 .sql 与 Rust 之间共享字符串字面量。
 -- 新增 tag_plain(路径):连接级标量函数,复用 tag_label::label_plain,在 db::open_with 与
---   migrate::run / apply 注册(db/sql_functions.rs)。缺它 => 本迁移与触发器报 no such function。
+--   migrate::run / apply 注册(db/sql_functions.rs)。**本迁移的回填与它重建的六个触发器都
+--   依赖宿主已注册这个函数**:自建连接直接 execute_batch 这段 SQL 会报 `no such function`
+--   (测试夹具要自己 sql_functions::register,或走 migrate::run / apply)。
 -- 每段用 COALESCE(' ' || ..., '') 拼:空段整段消失,不会留下多余空格(trim 只兜两端),
 --   故无 md/无别名的普通标签索引串与 017 逐字节一致。
--- 幂等:DROP TRIGGER IF EXISTS + 重建;回填 DELETE 起手整体重建(与 004/009/011/017 同款)。
+-- 幂等:DROP TRIGGER IF EXISTS + 重建;回填 DELETE 起手整体重建(与 004/009/011 同款)。
 -- 表别名固定为 `n`(notes):共享表达式只引用 `n.id`,调用方负责把 notes 行别名写成 n。
 
--- ①-1 正文更新:整行重写(与 017 同款,仅聚合口径多一段纯文本路径)
+-- ①-1 正文更新:整行重写(与旧触发器等款,仅聚合口径多一段纯文本路径)
 DROP TRIGGER IF EXISTS notes_au;
 CREATE TRIGGER notes_au AFTER UPDATE ON notes BEGIN
   DELETE FROM notes_fts WHERE rowid = old.id;

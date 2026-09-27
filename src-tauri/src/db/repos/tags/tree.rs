@@ -38,8 +38,8 @@ pub(crate) fn linked_notes(conn: &Connection, tag_ids: &[i64]) -> rusqlite::Resu
 }
 
 /// 结构变更(改名/移动/删除树)不经过 tag_links 触发器,需按当前链接聚合显式重写 FTS 行。
-/// 聚合口径的唯一真源是 [`super::fts_tags::TAGS_AGG`](路径 + 别名;时间标签已是普通标签,
-/// 与其它标签同权,见 D3),与迁移 017 重建的触发器、维护命令的 rebuild 逐字一致。
+/// 聚合口径的唯一真源是 [`super::fts_tags::TAGS_AGG`](路径 + 纯文本路径 + 别名;时间标签已是普通标签,
+/// 与其它标签同权,见 D3),与迁移 018 重建的触发器、维护命令的 rebuild 逐字一致。
 pub(crate) fn refresh_fts(conn: &Connection, note_ids: &[i64]) -> rusqlite::Result<()> {
     for id in note_ids {
         conn.execute("DELETE FROM notes_fts WHERE rowid = ?1", params![id])?;

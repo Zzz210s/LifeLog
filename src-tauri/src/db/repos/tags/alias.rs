@@ -121,7 +121,7 @@ fn check_alias(alias: &str) -> rusqlite::Result<()> {
 /// 写入别名行(不做语义判定):冲突即"重复登记更新指向"。
 /// 必须用 upsert 而不是 `INSERT OR REPLACE`:REPLACE 的隐式删除默认不触发 DELETE 触发器
 /// (recursive_triggers 关闭,实测只触发 INSERT),别名改指向时 FTS 标签列里的旧名会残留;
-/// upsert 走 UPDATE 触发器,旧/新两侧都会被重写(迁移 017 的 tag_aliases_au)。
+/// upsert 走 UPDATE 触发器,旧/新两侧都会被重写(迁移 018 的 tag_aliases_au)。
 fn put(conn: &Connection, alias: &str, tag_id: i64) -> rusqlite::Result<()> {
     conn.execute(
         "INSERT INTO tag_aliases(alias, tag_id) VALUES(?1, ?2)
