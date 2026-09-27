@@ -34,6 +34,29 @@ describe('tags provider:打分与排序', () => {
   });
 });
 
+describe('tags provider:行内 md 标签名(T1 收尾)', () => {
+  const RAW = '地点/[郴](chēn)州市';
+
+  it('有查询:行文案是纯文本,高亮下标重定位到纯文本,id 仍是原始路径', () => {
+    const items = tagItems([tag(RAW, 1)], '郴');
+    expect(items).toHaveLength(1);
+    expect(items[0].label).toBe('地点/郴州市');
+    expect(items[0].positions).toEqual([3]);
+    expect(items[0].id).toBe(RAW);
+  });
+
+  it('空查询同样只摆纯文本文案(候选里不出现 md 源码)', () => {
+    expect(tagItems([tag(RAW, 1)], '')[0].label).toBe('地点/郴州市');
+  });
+
+  it('命中落在被去掉的语法符号上时 positions 退化为空(不高亮,不标错位)', () => {
+    const items = tagItems([tag(RAW, 1)], '[');
+    expect(items).toHaveLength(1);
+    expect(items[0].label).toBe('地点/郴州市');
+    expect(items[0].positions).toEqual([]);
+  });
+});
+
 describe('tags provider:计数装饰', () => {
   it('右侧副文本是含子级计数', () => {
     const deco = tagDecorations([tag('工作', 4), tag('生活', 1)]);

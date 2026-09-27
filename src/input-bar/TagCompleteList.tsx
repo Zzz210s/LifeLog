@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import type { MatchRange } from '../shared/fuzzy-score';
 import { tagLabelPlain } from '../shared/tag-label';
+import { remapRanges } from '../shared/tag-label-highlight';
 import { SUGGEST_MAX_ROWS, SUGGEST_PAD_CSS, SUGGEST_ROW_CSS } from '../shared/input-geometry';
 import type { CompleteRow } from './tag-complete';
 
@@ -64,26 +65,6 @@ export function pathPieces(path: string, ranges: readonly MatchRange[]): PathPie
   return pieces;
 }
 
-/**
- * 原始路径上的高亮段 -> 纯文本上的高亮段(T1):标签名里的行内 md 语法会被显示层丢掉,
- * 打分器给的原始下标因此整体错位。逐段把原文切片在 plain 里按顺序找回落点;
- * 任一段找不到(命中跨过被去掉的语法符号)就整条退化为「不细分高亮」—— 宁可少标,不可标错位。
- * 无 md 语法时 plain === raw,直接原样透传(现有行为不变)。
- */
-function remapRanges(raw: string, plain: string, ranges: readonly MatchRange[]): MatchRange[] {
-  if (plain === raw) return [...ranges];
-  const out: MatchRange[] = [];
-  let from = 0;
-  for (const r of ranges) {
-    const slice = raw.slice(r.start, r.end);
-    const at = slice === '' ? -1 : plain.indexOf(slice, from);
-    if (at < 0) return [];
-    out.push({ start: at, end: at + slice.length });
-    from = at + slice.length;
-  }
-  return out;
-}
-
 /** 片段 -> 节点:命中段是 `<mark>`(类名与主窗浮层的 PaletteRow 逐字一致),其余按父/末级上样式 */
 function Piece(p: { piece: PathPiece }): ReactNode {
   const { text, hit, bold } = p.piece;
@@ -106,7 +87,8 @@ function Piece(p: { piece: PathPiece }): ReactNode {
  * 命中高亮段(T8)一律来自打分器(`completeMatch` 的 ranges),渲染见 `pathPieces`
  * (纪律 1:UI 不另写 matcher);别名/近义项匹配的是别名串而非展示的路径,
  * 因此恒无高亮段。标签名的行内 md(T1)在显示位先取 tagLabelPlain,高亮下标经 remapRanges
- * 重新定位(定位不到就退化为无高亮);标题与行 `title` 同样用 plain,采纳仍写回原始路径。
+ * (shared/tag-label-highlight.ts,与统一输入框 `#` 档共用同一实现)重新定位,
+ * 定位不到就退化为无高亮;标题与行 `title` 同样用 plain,采纳仍写回原始路径。
  * 固定项带 `data-pinned` 标记(空词元时排最前)。
  * 行高固定 SUGGEST_ROW_CSS,前端按它算窗口高度,所以这里不再用 py 之类的可变内边距。
  * onMouseDown + preventDefault 保住 textarea 焦点与光标(采纳要读光标位置)。
