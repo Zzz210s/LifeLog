@@ -14,10 +14,12 @@ export interface FilterChipsProps {
 /** chip 底色按种类区分(设计 §4-2 中性化):默认 chrome 底 + border + muted 文字;
  * accent 只给**已生效的收窄条件**(关键词/标签/表达式 = 已选中),排除走 danger 语义色。 */
 function chipClass(kind: Chip['kind']): string {
-  if (kind === 'excludeTag') return 'border-danger/40 bg-danger-soft text-danger hover:border-danger';
+  // 边框一律用实体令牌:alpha 变体(border-accent/40 之类)不在令牌表里,
+  // 会被视觉审计的「颜色全部来自令牌」判失败 —— 那是 pnpm verify 的第 9 项门禁
+  if (kind === 'excludeTag') return 'border-border-strong bg-danger-soft text-danger hover:border-danger';
   if (kind === 'sort' || kind === 'presence')
     return 'border-border bg-chrome text-muted hover:border-accent';
-  return 'border-accent/40 bg-accent-soft text-accent-text hover:border-accent';
+  return 'border-border-strong bg-accent-soft text-accent-text hover:border-accent';
 }
 
 /** 统一条件 chips(可单删):空数组时不渲染(空条件时芯片区隐藏,spec 6.2) */
