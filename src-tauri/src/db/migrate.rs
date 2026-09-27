@@ -23,6 +23,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("migrations/015_tag_aliases.sql"),
     include_str!("migrations/016_filter_current.sql"),
     include_str!("migrations/017_fts_tag_aliases.sql"),
+    include_str!("migrations/018_fts_tag_plain_path.sql"),
 ];
 
 /// 012 的位次(1 起)与它删除的列名:SQLite 没有 `DROP COLUMN IF EXISTS`,
@@ -50,16 +51,22 @@ pub fn latest_version() -> i64 {
     MIGRATIONS.len() as i64
 }
 
-/// 单条迁移的执行边界:SQL 与 user_version 在同一事务内提交,失败整批回滚
+/// 单条迁移的执行边界:SQL 与 user_version 在同一事务内提交,失败整批回滚。
+/// 执行前先挂上连接级标量函数:迁移 018 的回填与其重建的触发器会调用 `tag_plain`,
+/// 而测试夹具常常直接调本函数重放单条迁移(不走 [`run`]),两处都得有。
 fn apply(conn: &Connection, sql: &str, version: i64) -> rusqlite::Result<()> {
+    super::sql_functions::register(conn)?;
     let tx = conn.unchecked_transaction()?;
     tx.execute_batch(sql)?;
     tx.pragma_update(None, "user_version", version)?;
     tx.commit()
 }
 
-/// 按 PRAGMA user_version 顺序执行未应用的迁移
+/// 按 PRAGMA user_version 顺序执行未应用的迁移。
+/// 无论本次有没有迁移要跑,入口先挂上连接级标量函数:库已是最新版本时触发器仍在用
+/// `tag_plain`,漏挂就是运行时写笔记直接报 `no such function`。
 pub fn run(conn: &Connection) -> rusqlite::Result<()> {
+    super::sql_functions::register(conn)?;
     let current: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
     for (i, sql) in MIGRATIONS.iter().enumerate() {
         let v = (i + 1) as i64;
@@ -138,3 +145,7 @@ mod time_tag_demotion_tests;
 #[cfg(test)]
 #[path = "done_doing_migration_tests.rs"]
 mod done_doing_migration_tests;
+
+#[cfg(test)]
+#[path = "fts_tag_plain_migration_tests.rs"]
+mod fts_tag_plain_migration_tests;

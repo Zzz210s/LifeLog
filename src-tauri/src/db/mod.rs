@@ -5,6 +5,7 @@ pub mod data_dir_migration;
 pub mod migrate;
 mod migration_hooks;
 pub mod repos;
+pub mod sql_functions;
 
 use rusqlite::Connection;
 use std::path::{Path, PathBuf};
@@ -51,6 +52,9 @@ pub fn open(path: &Path) -> Result<OpenReport, OpenFailure> {
 fn open_with(path: &Path, backup_fn: &BackupFn) -> Result<OpenReport, OpenFailure> {
     let conn =
         Connection::open(path).map_err(|e| OpenFailure::new(format!("打开数据库文件失败: {e}")))?;
+    // 标量函数必须在任何迁移/触发器之前挂上:迁移 018 的回填与其触发器会调用 tag_plain
+    sql_functions::register(&conn)
+        .map_err(|e| OpenFailure::new(format!("注册数据库函数失败: {e}")))?;
     let pragma = |e: rusqlite::Error| OpenFailure::new(format!("设置数据库参数失败: {e}"));
     conn.pragma_update(None, "journal_mode", "WAL")
         .map_err(pragma)?;

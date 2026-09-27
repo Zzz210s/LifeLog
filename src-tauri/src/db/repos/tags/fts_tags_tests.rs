@@ -1,12 +1,13 @@
-//! T4 守卫与行为读数:`notes_fts.tags` 列 = 路径聚合 + 别名聚合。
-//! ① 迁移 017 里的表达式副本必须与共享常量逐字一致(否则"两边都写了一份"迟早分叉);
+//! T4/T5 守卫与行为读数:`notes_fts.tags` 列 = 路径聚合 + 纯文本路径聚合 + 别名聚合。
+//! ① 迁移 018 里的表达式副本必须与共享常量逐字一致(否则"两边都写了一份"迟早分叉);
 //! ② md 改名后,用**显示文本**与**旧名**都能搜到同一篇笔记;
-//! ③ 普通标签的索引串不受影响(无别名即纯路径,且无尾随空格);
+//! ③ 普通标签的索引串不受影响(无 md、无别名即纯路径,且无尾随空格 —— 与 T4 逐字节一致);
 //! ④ 别名的登记/改指向/删除都要立刻反映到索引(改指向靠 upsert 走 UPDATE 触发器);
-//! ⑤ 迁移 017 可重放(幂等:重放后索引串、版本号、触发器集合都不变)。
-use crate::db::repos::tags::fts_tags::{MIGRATION_017_SQL, TAGS_AGG};
+//! ⑤ 迁移 018 可重放(幂等:重放后索引串、版本号、触发器集合都不变)。
+//! T5 的核心场景(祖先段带 md + 笔记链叶子)见 `fts_tag_plain_tests`。
 use crate::db::migrate;
 use crate::db::repos::notes::{create_plain, notes_filter::empty, query, FilterConditions};
+use crate::db::repos::tags::fts_tags::{MIGRATION_018_SQL, TAGS_AGG};
 use crate::db::repos::tags::invariants_tests::assert_fts_matches_tags;
 use crate::db::repos::tags::{alias, rename};
 use rusqlite::{params, Connection};
@@ -38,13 +39,13 @@ fn squash(s: &str) -> String {
     s.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
-/// ① 守卫:017 里每条写 FTS 的语句都必须用共享表达式,一条都不许分批口径
+/// ① 守卫:018 里每条写 FTS 的语句都必须用共享表达式,一条都不许分批口径
 #[test]
-fn migration_017_uses_the_shared_expression() {
-    let sql = squash(MIGRATION_017_SQL);
+fn migration_018_uses_the_shared_expression() {
+    let sql = squash(MIGRATION_018_SQL);
     let expr = squash(TAGS_AGG);
     let writes = sql.matches("INSERT INTO notes_fts(rowid, content, tags)").count();
-    assert_eq!(writes, 7, "017 = 六个触发器 + 一次回填");
+    assert_eq!(writes, 7, "018 = 六个触发器 + 一次回填");
     assert_eq!(sql.matches(&expr).count(), writes, "有语句没走共享表达式(旧口径残留)");
 }
 
@@ -65,12 +66,12 @@ fn md_rename_is_searchable_by_display_text_and_old_name() {
     assert_fts_matches_tags(&c);
 }
 
-/// ③ 普通标签:无别名时索引串就是路径本身(trim 后无尾随空格),检索照旧
+/// ③ 普通标签:无 md、无别名时索引串就是路径本身(trim 后无尾随空格),检索照旧
 #[test]
 fn plain_tags_keep_a_path_only_index() {
     let mut c = db();
     let n = create_plain(&mut c, "买牛奶 #生活").unwrap();
-    assert_eq!(fts_tags(&c, n.id), "生活", "无别名时不该多出空格或杂质");
+    assert_eq!(fts_tags(&c, n.id), "生活", "无别名时不该多出空格或杂质(与 T4 逐字节一致)");
     assert_eq!(hits(&c, "买牛奶"), vec![n.id]);
     assert_eq!(hits(&c, "生活"), vec![n.id]);
 }
@@ -110,18 +111,18 @@ fn snapshot(c: &Connection) -> String {
     format!("{fts}|v{version}|{triggers}|{aliases}")
 }
 
-/// ⑤ 直接重放 017 的 SQL(绕开版本闸门)必须是空操作
+/// ⑤ 直接重放 018 的 SQL(绕开版本闸门)必须是空操作
 #[test]
-fn migration_017_replay_is_a_noop() {
+fn migration_018_replay_is_a_noop() {
     let mut c = db();
-    create_plain(&mut c, "甲 #郴chen州市").unwrap();
-    let old = id_at(&c, "郴chen州市");
+    create_plain(&mut c, "甲 #地点/郴chen州市/宜章县").unwrap();
+    let old = id_at(&c, "地点/郴chen州市");
     rename(&mut c, old, "[郴](chēn)州市").unwrap();
     let once = snapshot(&c);
-    assert!(once.contains("郴州市"), "回填后索引串里必须有纯文本别名:{once}");
+    assert!(once.contains("郴州市"), "回填后索引串里必须有纯文本路径或别名:{once}");
 
-    c.execute_batch(MIGRATION_017_SQL).unwrap();
-    assert_eq!(snapshot(&c), once, "重放 017 必须不改库");
+    c.execute_batch(MIGRATION_018_SQL).unwrap();
+    assert_eq!(snapshot(&c), once, "重放 018 必须不改库");
     migrate::run(&c).unwrap();
-    assert_eq!(snapshot(&c), once, "版本闸门已到 17,再跑迁移也是空操作");
+    assert_eq!(snapshot(&c), once, "版本闸门已到 18,再跑迁移也是空操作");
 }

@@ -17,10 +17,15 @@ pub(crate) mod write;
 #[path = "invariants_tests.rs"]
 pub(crate) mod invariants_tests;
 
-/// T4 守卫与行为读数:notes_fts.tags 列 = 路径聚合 + 别名聚合。
+/// T4 守卫与行为读数:notes_fts.tags 列 = 路径聚合 + 纯文本路径聚合 + 别名聚合。
 #[cfg(test)]
 #[path = "fts_tags_tests.rs"]
 mod fts_tags_tests;
+
+/// T5 核心读数:祖先段带 md、笔记链叶子时的显示文本/旧名检索。
+#[cfg(test)]
+#[path = "fts_tag_plain_tests.rs"]
+mod fts_tag_plain_tests;
 
 pub use alias::*;
 pub use merge::*;
