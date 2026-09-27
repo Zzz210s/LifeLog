@@ -2,7 +2,7 @@
 //! 链接为增量替换(未变化的标签链不动),收尾由 tags_tree 精确回收孤儿。
 //! 时间标签已是普通标签(D3):不再有"系统添加必须保留"的特例 —— 编辑界面把标签
 //! 回显为 `#tag` 文本,正文里带回来的标签就是最终集合(想去/改时间就改那段文本)。
-use super::{read_full, strip_tags};
+use super::read_full;
 use rusqlite::{params, Connection};
 
 /// 替换笔记标签集合(事务内):路径经校验后建/复用节点并做增量链接,最后收窄回收孤儿。
@@ -14,8 +14,8 @@ fn set_tags(tx: &rusqlite::Transaction<'_>, id: i64, paths: &[String]) -> rusqli
 /// 更新笔记正文(事务):剥离/提取标签后整条重存,链接为替换语义。
 /// id 不存在返回 None;成功返回含全量标签的最新笔记。
 pub fn update(conn: &mut Connection, id: i64, content: &str) -> rusqlite::Result<Option<super::Note>> {
-    let names = crate::tags::extract_tags(content);
-    let text = strip_tags(content);
+    // 解析入口与 create 同一处:严格语法优先,严格失败处按库内已有路径兜底
+    let (names, text) = super::parse_saved(conn, content)?;
     let tx = conn.transaction()?;
     let rows = tx.execute(
         "UPDATE notes SET content=?1 WHERE id=?2",

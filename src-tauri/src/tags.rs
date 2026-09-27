@@ -93,8 +93,13 @@ pub(crate) struct TagSpan {
 
 /// 提取标签:返回完整路径字符串,去重并保持出现顺序
 pub fn extract_tags(content: &str) -> Vec<String> {
+    extract_tags_known(content, &[])
+}
+
+/// 同 [`extract_tags`],但带上"库内已存在的标签路径"做兜底(create/update 的保存路径专用)
+pub(crate) fn extract_tags_known(content: &str, known: &[String]) -> Vec<String> {
     let mut out: Vec<String> = Vec::new();
-    for span in tag_spans(content) {
+    for span in tag_spans_known(content, known) {
         if !out.contains(&span.path) {
             out.push(span.path);
         }
@@ -102,8 +107,9 @@ pub fn extract_tags(content: &str) -> Vec<String> {
     out
 }
 
-/// 扫描全文,返回所有确认合法的标签区间;剥离方(strip_tags)据此只删标签本身
-pub(crate) fn tag_spans(content: &str) -> Vec<TagSpan> {
+/// 扫描全文,返回所有确认合法的标签区间;剥离方(strip_tags)据此只删标签本身。
+/// `known`(库内已存在的标签路径)用于**严格扫描失败**的位置做兜底(见 crate::tag_fallback)
+pub(crate) fn tag_spans_known(content: &str, known: &[String]) -> Vec<TagSpan> {
     let mut spans = Vec::new();
     let mut fence: Option<&str> = None;
     let mut offset = 0usize;
@@ -120,7 +126,7 @@ pub(crate) fn tag_spans(content: &str) -> Vec<TagSpan> {
             }
             None if trimmed.starts_with("```") => fence = Some("```"),
             None if trimmed.starts_with("~~~") => fence = Some("~~~"),
-            None => scan_line(content, offset, line, &mut spans),
+            None => scan_line(content, offset, line, known, &mut spans),
         }
         offset += raw_line.len();
     }
@@ -128,7 +134,7 @@ pub(crate) fn tag_spans(content: &str) -> Vec<TagSpan> {
 }
 
 /// 单行扫描:维护行内代码状态与转义,遇到可能的 '#' 起点交给 try_tag
-fn scan_line(content: &str, base: usize, line: &str, out: &mut Vec<TagSpan>) {
+fn scan_line(content: &str, base: usize, line: &str, known: &[String], out: &mut Vec<TagSpan>) {
     let mut in_code = false;
     let mut chars = line.char_indices().peekable();
     while let Some((i, c)) = chars.next() {
@@ -137,7 +143,7 @@ fn scan_line(content: &str, base: usize, line: &str, out: &mut Vec<TagSpan>) {
                 chars.next(); // 转义:反斜杠后的字符不作标签起点
             }
             '`' => in_code = !in_code,
-            '#' if !in_code => try_tag(content, base, i, &mut chars, out),
+            '#' if !in_code => try_tag(content, base, i, &mut chars, known, out),
             _ => {}
         }
     }
@@ -150,6 +156,7 @@ fn try_tag(
     base: usize,
     hash: usize,
     chars: &mut Peekable<CharIndices<'_>>,
+    known: &[String],
     out: &mut Vec<TagSpan>,
 ) {
     // 前导字符规则:'#' 前若是 ASCII 字母数字或 '#'/'&',不视为标签(C#、URL 片段、HTML 实体)
@@ -166,8 +173,11 @@ fn try_tag(
         _ => {}
     }
     let rest: Vec<char> = chars.clone().map(|(_, c)| c).collect();
-    let Some((raw, consumed)) = scan_tag_path(&rest, 0) else {
-        return; // 整串不合法:整串丢弃,不做部分提取,也不剥离字符
+    // 严格语法优先;只有它在这里失败,才按"库内已存在的标签路径"兜底最长匹配
+    // (兜底只认已存在的路径,不放宽语法、不新建节点,见 crate::tag_fallback)
+    let hit = scan_tag_path(&rest, 0).or_else(|| crate::tag_fallback::longest_known(&rest, 0, known));
+    let Some((raw, consumed)) = hit else {
+        return; // 整串不合法且无可兜底的已存在路径:整串丢弃,不做部分提取,也不剥离字符
     };
     // 同步推进共享的字符迭代器,并按字节算出区间终点
     let mut end = base + hash + 1;

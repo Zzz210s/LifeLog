@@ -31,10 +31,16 @@ fn collapse_line(line: &str) -> String {
 /// 最后逐行归一空白并保留行结构与行首缩进(多行笔记的换行、空行、嵌套列表缩进原样保留;
 /// 标签折叠进 tags/tag_links,原文保留会双重展示)
 pub(crate) fn strip_tags(content: &str) -> String {
+    strip_tags_known(content, &[])
+}
+
+/// 同 [`strip_tags`],但带上"库内已存在的标签路径"做兜底(create/update 的保存路径专用):
+/// 严格扫描失败的 `#` 处按最长匹配剥离 —— 不剥的话那行 md 源码会留在正文里变成死文本。
+pub(crate) fn strip_tags_known(content: &str, known: &[String]) -> String {
     let content = content.replace("\r\n", "\n"); // 统一换行,防 Windows 端混入 \r
     let mut out = String::new();
     let mut cursor = 0usize;
-    for span in crate::tags::tag_spans(&content) {
+    for span in crate::tags::tag_spans_known(&content, known) {
         out.push_str(&content[cursor..span.start]);
         // 仅当标签起始于行首或紧跟空白之后,才吞掉其后的连续空格/制表符:
         // 行首标签剥离后不留残余空白被误当缩进;
@@ -51,6 +57,27 @@ pub(crate) fn strip_tags(content: &str) -> String {
     }
     out.push_str(&content[cursor..]);
     out.split('\n').map(collapse_line).collect::<Vec<_>>().join("\n")
+}
+
+/// 保存路径(create / update)的**唯一解析入口**:正文 -> (标签路径, 剥净正文)。
+/// 严格正文语法优先;只有严格失败的位置按**库内已存在的标签路径**做最长匹配兜底 ——
+/// UI 编辑态回显的是原始路径(`#[郴](chēn)州市`),md 名字里的 `[` 不在正文名称字符集里,
+/// 没有这一步就会静默丢标签、并把 md 源码写进正文(复现见 notes_save_fallback_tests)。
+pub(crate) fn parse_saved(
+    conn: &Connection,
+    content: &str,
+) -> rusqlite::Result<(Vec<String>, String)> {
+    let known = known_tag_paths(conn)?;
+    Ok((crate::tags::extract_tags_known(content, &known), strip_tags_known(content, &known)))
+}
+
+/// 兜底候选:库内**结构自洽**的标签路径(与 `tags::link::existing_id` 同一过滤 ——
+/// 006 之前的"name 含 / 但无父节点"的幻影层级不参与,否则兜底会剥出一段没人链的文本)
+fn known_tag_paths(conn: &Connection) -> rusqlite::Result<Vec<String>> {
+    let mut stmt = conn
+        .prepare("SELECT path FROM tags WHERE parent_id IS NOT NULL OR instr(path, '/') = 0")?;
+    let rows = stmt.query_map([], |r| r.get(0))?;
+    rows.collect()
 }
 
 /// 新建笔记(事务):剥离/提取正文标签,再把自动时间标签一并写入(D4/D5)。
@@ -82,8 +109,7 @@ fn create_with(
     content: &str,
     time_tag: Option<&str>,
 ) -> rusqlite::Result<Note> {
-    let mut names = crate::tags::extract_tags(content);
-    let text = strip_tags(content);
+    let (mut names, text) = parse_saved(conn, content)?;
     if let Some(p) = time_tag.filter(|p| !names.iter().any(|n| n == *p)) {
         names.push(p.to_string());
     }
@@ -134,3 +160,7 @@ mod notes_time_tests;
 #[cfg(test)]
 #[path = "notes_strip_tests.rs"]
 mod notes_strip_tests;
+
+#[cfg(test)]
+#[path = "notes_save_fallback_tests.rs"]
+mod notes_save_fallback_tests;
