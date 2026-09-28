@@ -8,7 +8,7 @@ import { tagCountHint, tagCountLabel } from './edit-tag-count';
 import { editRows } from './textarea-rows';
 import { useSourceTagCount } from './use-source-tags';
 import { registerEditFlush } from './edit-flush';
-import { useLeaveSave } from './use-leave-save';
+import { commitAndExit, useLeaveSave } from './use-leave-save';
 import { useSaveOnUnmount } from './use-save-on-unmount';
 
 export interface EditPanelProps {
@@ -32,7 +32,7 @@ type CommitResult =
 
 /** 编辑态:点正文即就地变源码框(形态 A,2026-09-21;分屏实时预览已退场)。
  *  提交判定(2026-09-21 二次修订):点区块内 = 继续编辑;点区块外 / 点到程序窗口外 / 切到另一条笔记 = 保存
- *  (未变则不写库直接退出);Esc = 取消(与取消按钮同义);**键盘保存(Ctrl+Enter)已按用户要求删除**。
+ *  (未变则不写库直接退出);Esc = 取消(与取消按钮同义);Ctrl/Cmd+Enter = 保存并回到预览态(用户 2026-09-28 要求恢复)。
  *
  *  源码框是**非受控**的:真实输入法(中文 IME)组合期间受控 `value` 的 React state 不会跟上,
  *  "点区块外保存"会拿旧 state 与初值比较、判成"未变"而静默丢弃刚打的字(2026-09-21 实测)。
@@ -142,11 +142,18 @@ export function EditPanel(p: EditPanelProps): ReactNode {
     <li
       ref={panelRef}
       data-testid="edit-panel"
-      // Esc = 取消(与取消按钮同义):焦点在源码框或本面板任一按钮上都能收起编辑
+      // Esc = 取消;Ctrl/Cmd+Enter = 保存并回到预览态(与「点区块外」同一条保存通道)。
+      // 输入法组合中的回车不算快捷键:中文上屏那一下 e.key 也是 Enter(keyCode 229 同义)。
       onKeyDown={(e) => {
+        if (e.nativeEvent.isComposing || e.keyCode === 229) return;
         if (e.key === 'Escape') {
           e.preventDefault();
           p.onCancel();
+          return;
+        }
+        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+          e.preventDefault();
+          commitAndExit(flush, { onCancel: p.onCancel, onErrorFallback: p.onErrorFallback });
         }
       }}
       // 边框/底色一律用实体令牌:alpha 变体(border-accent/40 之类)不在令牌表里,
@@ -169,11 +176,15 @@ export function EditPanel(p: EditPanelProps): ReactNode {
         }}
         className="scroll-gutter w-full resize-y rounded-md border border-border-strong bg-raised p-2 font-mono text-body"
       />
-      {/* 保存/取消按钮与「点其他位置即保存」提示已按用户要求删除:离开区块(点别处/切条目/失焦)即保存,Esc 取消 */}
+      {/* 保存/取消按钮与「点其他位置即保存」提示已按用户要求删除:离开区块(点别处/切条目/失焦)即保存,Esc 取消;
+          Ctrl+Enter 是「保存并回到预览」的快捷键,提示就放在这一行小字里 */}
       <div className="mt-2 flex items-center gap-3">
         <span className="text-xs text-muted" data-testid="edit-tag-count">
           {tagCountLabel(tagCount)}
           {hint !== null && <span className="ml-2 text-faint">{hint}</span>}
+        </span>
+        <span className="text-xs text-faint" data-testid="edit-save-hint">
+          Ctrl+Enter 保存
         </span>
         {error !== '' && <span className="text-xs text-danger">{error}</span>}
       </div>

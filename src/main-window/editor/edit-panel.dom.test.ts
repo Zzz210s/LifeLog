@@ -161,19 +161,7 @@ describe('R4 进编辑不改动滚动位置', () => {
     focus.mockRestore();
   });
 
-  it('键盘保存已删除:Ctrl+Enter 不再写库(用户 2026-09-21 明确要求)', async () => {
-    updateNote.mockResolvedValue(note('改后的正文', []));
-    await mount(note('正文'));
-    expect(document.activeElement).toBe(textarea());
-    await setValue(textarea(), '改后的正文');
-    await act(async () => {
-      textarea().dispatchEvent(
-        new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true, cancelable: true })
-      );
-    });
-    expect(updateNote).not.toHaveBeenCalled();
-    expect(host.querySelector('textarea')).not.toBeNull(); // 仍在编辑态
-  });
+
 });
 
 describe('EditPanel 标签数实时提示', () => {

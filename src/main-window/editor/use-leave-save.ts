@@ -28,6 +28,26 @@ export interface UseLeaveSaveArgs {
 /** 与 Rust 侧 main_window::BLUR_SAVE_EVENT 同值(改一处要同步另一处) */
 export const BLUR_SAVE_EVENT = 'main-window-blur';
 
+/**
+ * 「保存并退出编辑」的唯一实现(离开区块与 Ctrl+Enter 共用):
+ * - 写库成功:退出编辑由 `onSaved` 负责(commit 里已调)
+ * - 内容未变(没写库):这里补一次 `onCancel` 退出
+ * - 失败(含空内容/上一次保存还在飞):留在编辑态,面板还活着就地显示,卸载了就转主窗错误条
+ */
+export function commitAndExit(
+  flush: () => Promise<LeaveFlushResult>,
+  hooks: { onCancel: () => void; onErrorFallback?: (message: string) => void },
+): void {
+  void flush().then((r) => {
+    if (!r.ok) {
+      if (r.busy) return; // 上一次保存还在飞:这次不参与决策
+      if (!r.inline) hooks.onErrorFallback?.(r.message);
+      return;
+    }
+    if (!r.changed) hooks.onCancel();
+  });
+}
+
 export function useLeaveSave(args: UseLeaveSaveArgs): void {
   const { panelRef, flush, onSwitchNote, onCancel, onErrorFallback, shouldEnterEdit } = args;
   useEffect(() => {
