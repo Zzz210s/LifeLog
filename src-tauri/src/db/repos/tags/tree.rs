@@ -65,7 +65,7 @@ pub fn link_note(conn: &Connection, note_id: i64, tag_id: i64) -> rusqlite::Resu
 }
 
 /// 精确回收孤儿标签:既无 tag_links 又无子节点(父节点天生没有链接,不得当孤儿删)。
-/// 循环删除以覆盖"整条链都成孤儿"的情形(深度上限 5,循环次数有界)。
+/// 循环删除以覆盖"整条链都成孤儿"的情形(链有多长就循环多少次)。
 pub(crate) fn gc_orphans(conn: &Connection) -> rusqlite::Result<()> {
     loop {
         let n = conn.execute(

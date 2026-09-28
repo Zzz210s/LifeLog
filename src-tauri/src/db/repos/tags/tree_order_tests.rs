@@ -1,6 +1,6 @@
 //! 同级插入(S8):move_beside 的三种落点语义与拒绝路径。
 //! 口径:兄弟序 = (sort_order, path);插到锚点前/后后整层重写 0..n-1,
-//! 未动的兄弟相对次序不变;锚点=自身无操作;环检测与深度上限沿用 move_to。
+//! 未动的兄弟相对次序不变;锚点=自身无操作;环检测沿用 move_to。
 use super::order_support::{dump, id_at, orders, seed, siblings, db};
 use super::*;
 

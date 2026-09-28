@@ -85,16 +85,18 @@ describe('isValidTagPath', () => {
     expect(isValidTagPath('v1.0')).toBe(true);
     expect(isValidTagPath('a-b_c')).toBe(true);
     expect(isValidTagPath('地点/[郴](chēn)州市')).toBe(true);
+    // 2026-09-28 起层级深度不设上限
+    expect(isValidTagPath('a/b/c/d/e/f')).toBe(true);
+    expect(isValidTagPath('a/b/c/d/e/f/g/h')).toBe(true);
   });
 
-  it('非法路径:空段、首尾/连续斜杠、空白、#、超深', () => {
+  it('非法路径:空段、首尾/连续斜杠、空白、#', () => {
     expect(isValidTagPath('')).toBe(false);
     expect(isValidTagPath('a//b')).toBe(false);
     expect(isValidTagPath('a/')).toBe(false);
     expect(isValidTagPath('/a')).toBe(false);
     expect(isValidTagPath('a b')).toBe(false);
     expect(isValidTagPath('a#b')).toBe(false);
-    expect(isValidTagPath('a/b/c/d/e/f')).toBe(false);
   });
 });
 

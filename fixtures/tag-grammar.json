@@ -126,13 +126,13 @@
     "tags": []
   },
   {
-    "why": "6 层超过深度上限 5:整串当文本",
+    "why": "6 层不再受深度限制:整串成标签(2026-09-28 取消上限)",
     "source": "#a/b/c/d/e/f 深",
-    "content": "#a/b/c/d/e/f 深",
-    "tags": []
+    "content": "深",
+    "tags": ["a/b/c/d/e/f"]
   },
   {
-    "why": "5 层正好在上限内",
+    "why": "5 层多层路径",
     "source": "#a/b/c/d/e 底",
     "content": "底",
     "tags": ["a/b/c/d/e"]

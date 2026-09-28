@@ -18,6 +18,8 @@ describe('validateAliasInput', () => {
     expect(validateAliasInput('追番/日漫')).toBeNull();
     expect(validateAliasInput('v1.0')).toBeNull();
     expect(validateAliasInput('a-b_c')).toBeNull();
+    // 层级深度不设上限(2026-09-28):6 层路径也是合法别名
+    expect(validateAliasInput('a/b/c/d/e/f')).toBeNull();
   });
   it('空与纯空白', () => {
     expect(validateAliasInput('')).toBe('别名不能为空');
@@ -35,7 +37,7 @@ describe('validateAliasInput', () => {
   it('其余非法字符与非法路径形态拒', () => {
     const why = '别名不合法(可用行内 md 语法;层级用 /,不能含空白或 #)';
     expect(validateAliasInput('日//漫')).toBe(why);
-    expect(validateAliasInput('a/b/c/d/e/f')).toBe(why);
+    expect(validateAliasInput('a//b')).toBe(why);
   });
   it('T3 放宽:段内行内 md 与标点不再被拦(与仓库层 check_alias 对齐)', () => {
     expect(validateAliasInput('日漫!')).toBeNull();

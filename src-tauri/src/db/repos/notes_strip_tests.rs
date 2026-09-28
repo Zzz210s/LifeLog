@@ -29,7 +29,6 @@ fn invalid_tag_syntax_is_not_stripped() {
     assert_eq!(strip_tags("#/工作 正文"), "#/工作 正文");
     assert_eq!(strip_tags("#a//b 正文"), "#a//b 正文");
     assert_eq!(strip_tags("#a/ 结束"), "#a/ 结束");
-    assert_eq!(strip_tags("#a/b/c/d/e/f 深"), "#a/b/c/d/e/f 深");
     assert_eq!(strip_tags("##标题"), "##标题");
     assert_eq!(strip_tags("`#工作` 是代码"), "`#工作` 是代码");
     assert_eq!(strip_tags("\\#工作 不是标签"), "\\#工作 不是标签");
@@ -40,6 +39,8 @@ fn nested_path_is_stripped_at_clean_boundary() {
     // 行尾/换行是干净边界:多层标签正常剥离
     assert_eq!(strip_tags("#工作/项目A/会议"), "");
     assert_eq!(strip_tags("#工作/项目A/会议\n记录"), "\n记录");
+    // 6 层同上(2026-09-28 取消层级深度上限)
+    assert_eq!(strip_tags("#a/b/c/d/e/f 深"), "深");
     assert_eq!(strip_tags("记录 备注\n#工作/项目A/会议"), "记录 备注\n");
 }
 

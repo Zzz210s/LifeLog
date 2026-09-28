@@ -28,8 +28,6 @@ export interface FilterConditions {
 export const MAX_FILTER_TAG_ITEMS = 20;
 /** 关键词长度上限(字符数) */
 export const MAX_FILTER_KEYWORD_CHARS = 200;
-/** 标签层级深度上限(与 tags.rs 的 MAX_DEPTH 一致) */
-const MAX_TAG_DEPTH = 5;
 /** 表达式长度上限(字符数,与 Rust expr::MAX_LEN 一致) */
 export const MAX_EXPR_CHARS = 500;
 
@@ -93,13 +91,12 @@ function isValidTagLabel(name: string): boolean {
 
 /**
  * 标签路径是否合法(T3:md 友好口径,与 Rust `tags::validate_tag_path` 同规则):
- * 按 `/` 分段、段数 ≤ `MAX_TAG_DEPTH`、每段走 isValidTagLabel。
+ * 按 `/` 分段、每段走 isValidTagLabel(层级深度不设上限)。
  * 与正文 `#` 语法无关(那仍是严格名称字符集,前端也不镜像);
  * 共享向量 `fixtures/tag-path-valid.json` 两侧同源读。
  */
 export function isValidTagPath(path: string): boolean {
-  const parts = path.split('/');
-  return parts.length <= MAX_TAG_DEPTH && parts.every(isValidTagLabel);
+  return path.split('/').every(isValidTagLabel);
 }
 
 /** 校验条件:返回中文提示,合法返回 null(后端仍是唯一权威) */

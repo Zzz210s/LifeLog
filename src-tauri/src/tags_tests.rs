@@ -80,8 +80,10 @@ fn trailing_slash_invalid() {
 }
 
 #[test]
-fn too_deep_invalid() {
-    assert!(extract_tags("#a/b/c/d/e/f").is_empty());
+fn deep_path_is_valid() {
+    // 2026-09-28 取消层级深度上限:6 层与 8 层都是合法标签
+    assert_eq!(extract_tags("#a/b/c/d/e/f"), vec!["a/b/c/d/e/f"]);
+    assert_eq!(extract_tags("#a/b/c/d/e/f/g/h"), vec!["a/b/c/d/e/f/g/h"]);
 }
 
 #[test]
@@ -103,13 +105,12 @@ fn punctuation_terminates_nested_path() {
 
 #[test]
 fn structurally_invalid_paths_are_void() {
-    // 仅结构非法才整串丢弃:斜杠后无名称字符(段未闭合)、空段、深度超限
+    // 仅结构非法才整串丢弃:斜杠后无名称字符(段未闭合)、空段
     assert!(extract_tags("#工作/").is_empty());
     assert!(extract_tags("#工作/ 结束").is_empty());
     assert!(extract_tags("#工作/项目/").is_empty());
     assert!(extract_tags("#/工作").is_empty());
     assert!(extract_tags("#a//b").is_empty());
-    assert!(extract_tags("#a/b/c/d/e/f").is_empty());
 }
 
 #[test]
@@ -161,15 +162,16 @@ fn nested_path_may_be_followed_by_another_tag_or_line_end() {
 }
 
 #[test]
-fn parse_tag_path_validates_segments_and_depth() {
+fn parse_tag_path_validates_segments_only() {
     assert_eq!(parse_tag_path("工作"), Some(vec!["工作".to_string()]));
-    assert_eq!(max_depth(), 5);
     assert!(parse_tag_path("").is_none());
     assert!(parse_tag_path("/a").is_none());
     assert!(parse_tag_path("a/").is_none());
     assert!(parse_tag_path("a//b").is_none());
     assert!(parse_tag_path("a/b/c/d/e").is_some());
-    assert!(parse_tag_path("a/b/c/d/e/f").is_none());
+    // 层级深度不设上限(2026-09-28):6 层、8 层都合法
+    assert!(parse_tag_path("a/b/c/d/e/f").is_some());
+    assert_eq!(parse_tag_path("a/b/c/d/e/f/g/h").map(|v| v.len()), Some(8));
     assert!(parse_tag_path("a b").is_none());
     // 小账 A:内部点可解析;首尾点/连续点仍非法
     assert_eq!(parse_tag_path("a.b"), Some(vec!["a.b".to_string()]));

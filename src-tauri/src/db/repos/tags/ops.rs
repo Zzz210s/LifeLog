@@ -66,7 +66,7 @@ pub fn move_to(conn: &mut Connection, tag_id: i64, new_parent: Option<i64>) -> R
     move_to_ordered(conn, tag_id, new_parent, None)
 }
 
-/// 移动标签到新父级(None 为根级):环检测 + 深度上限 + 同级重名,全部通过才写。
+/// 移动标签到新父级(None 为根级):环检测 + 同级重名,全部通过才写。
 /// 末尾与 delete_subtree/link_paths 一致地回收空容器:移走最后的子节点后,旧父级会
 /// 变成"无链接且无子节点"的空标签,不回收就会在标签面板里残留。
 /// anchor 为同理插入位置(S8):Some 时插到指定兄弟的前/后,None 时追加到末层末尾。
@@ -98,19 +98,6 @@ pub fn move_to_ordered(
         }
     };
     let delta = new_depth - node.depth;
-    let max_sub: i64 = tx
-        .query_row(
-            "WITH RECURSIVE sub(id, depth) AS (
-               SELECT id, depth FROM tags WHERE id = ?1
-               UNION ALL SELECT t.id, t.depth FROM tags t JOIN sub s ON t.parent_id = s.id
-             ) SELECT COALESCE(MAX(depth), 0) FROM sub",
-            params![tag_id],
-            |r| r.get(0),
-        )
-        .map_err(|e| e.to_string())?;
-    if max_sub + delta > crate::tags::max_depth() as i64 {
-        return Err(format!("层级过深:最多 {} 级", crate::tags::max_depth()));
-    }
     ensure_sibling_free(&tx, new_parent, &node.name, tag_id)?;
     let new_path = super::path::child_path(&tx, new_parent, &node.name).map_err(|e| e.to_string())?;
     let notes = linked_notes(&tx, &ids).map_err(|e| e.to_string())?;

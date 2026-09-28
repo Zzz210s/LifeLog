@@ -122,22 +122,6 @@ fn move_into_own_subtree_rejected_and_db_untouched() {
     assert_eq!(count(&c, "SELECT COUNT(*) FROM notes_fts"), 1);
 }
 
-/// ⑩ 超过深度上限的移动被拒绝且不改库(与解析器 MAX_DEPTH 同一不变量)
-#[test]
-fn move_beyond_max_depth_rejected_and_db_untouched() {
-    let mut c = db();
-    ensure_path(&c, &segs(&["a1", "a2", "a3", "a4", "a5"])).unwrap();
-    ensure_path(&c, &segs(&["x"])).unwrap();
-    let before = dump(&c);
-
-    let a1 = id_at(&c, "a1");
-    let x = id_at(&c, "x");
-    assert!(move_to(&mut c, a1, Some(x)).is_err());
-
-    assert_eq!(dump(&c), before);
-    assert_eq!(crate::tags::max_depth(), 5);
-}
-
 /// ⑥ 同级重名:改名与移动都要拒绝,且原标签保持可用
 #[test]
 fn same_level_duplicate_rejected() {

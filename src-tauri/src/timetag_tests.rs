@@ -26,7 +26,11 @@ fn auto_time_path_rejects_bad_dates_and_bad_templates() {
     assert_eq!(auto_time_path(DEFAULT_TEMPLATE, "2026-13-01"), None, "日期非法");
     assert_eq!(auto_time_path("时间排序/{y}/{m}", "2026-09-15"), None, "缺 {{d}}");
     assert_eq!(auto_time_path("时间/{y}/{m}/{d}!", "2026-09-15"), None, "生成结果不是合法标签路径");
-    assert_eq!(auto_time_path("x/{y}/{m}/{d}/{y}/z", "2026-09-15"), None, "超过深度上限");
+    // 5 段模板:层级深度不设上限(2026-09-28),照样生成
+    assert_eq!(
+        auto_time_path("x/{y}/{m}/{d}/{y}/z", "2026-09-15").as_deref(),
+        Some("x/2026/09/15/2026/z")
+    );
 }
 
 #[test]
@@ -43,8 +47,8 @@ fn validate_template_reports_chinese_reasons() {
     assert_eq!(validate_template("时间排序/{y}/{m}").unwrap_err(), "模板必须包含 {d}");
     let bad = validate_template("时间排序/{y}/{m}/{d}!").unwrap_err();
     assert!(bad.contains("不合法"), "{bad}");
-    let deep = validate_template("{y}/{m}/{d}/a/b/c").unwrap_err();
-    assert!(deep.contains("不合法"), "{deep}");
+    // 6 段模板:2026-09-28 取消深度上限后不再报错
+    assert!(validate_template("{y}/{m}/{d}/a/b/c").is_ok(), "层级不设上限");
 }
 
 #[test]

@@ -62,9 +62,24 @@ fn md_tag_path_passes_validation_and_queries_notes() {
 #[test]
 fn structurally_invalid_paths_are_still_rejected() {
     // 放宽的只是段内 md 符号:结构类非法在后端权威校验里照旧拦下(中文原因不变)
-    for bad in ["", "a//b", "a/", "/a", "工作 项目", "工作#项目", "a/b/c/d/e/f"] {
+    for bad in ["", "a//b", "a/", "/a", "工作 项目", "工作#项目"] {
         let conditions = FilterConditions { tags: vec![cond(bad, true)], ..empty() };
         let err = validate(&conditions).expect_err(&format!("{bad:?} 必须被拦下"));
         assert!(err.starts_with("标签路径不合法"), "{bad:?} 的中文原因:{err}");
     }
+}
+
+#[test]
+fn deep_tag_path_passes_validation_and_queries_notes() {
+    // 2026-09-28 起取消层级深度上限:6 层路径在库级端到端同样可用
+    let mut c = db();
+    create_plain(&mut c, "深处 #a1/a2/a3/a4/a5/a6").unwrap();
+    let conditions = FilterConditions {
+        tags: vec![cond("a1/a2/a3/a4/a5/a6", true)],
+        ..empty()
+    };
+    validate(&conditions).expect("6 层路径必须通过条件校验");
+    let notes = query(&c, &conditions, 0).expect("query_notes 不得报错");
+    assert_eq!(notes.len(), 1, "6 层标签应命中该篇笔记");
+    assert_eq!(notes[0].content, "深处");
 }

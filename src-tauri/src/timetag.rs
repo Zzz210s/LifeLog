@@ -2,7 +2,7 @@
 //! 本模块不再有任何"时间子树"判定、SQL 片段或结构守卫 —— 只提供纯函数:
 //! 模板校验与"模板 + 日期 -> 标签路径"的生成。
 //! 默认模板 `时间排序/{y}/{m}/{d}`;生成结果的合法性以 `tags::parse_tag_path` 为唯一真源
-//! (字符集、深度上限与正文抽标签同源),本模块不维护第二套标签语法。
+//! (字符集与正文抽标签同源),本模块不维护第二套标签语法。
 use rusqlite::Connection;
 
 /// 默认模板(设置键 `time_tag_template` 的初值与缺失回退值)
@@ -57,8 +57,7 @@ pub fn validate_template(template: &str) -> Result<(), String> {
     }
     if crate::tags::parse_tag_path(&render(template, "2026-01-02")).is_none() {
         return Err(format!(
-            "模板生成的标签路径不合法(名称可用中文/字母/数字/下划线/连字符,用 / 分层,最多 {} 级):{template}",
-            crate::tags::max_depth()
+            "模板生成的标签路径不合法(名称可用中文/字母/数字/下划线/连字符,用 / 分层):{template}"
         ));
     }
     Ok(())

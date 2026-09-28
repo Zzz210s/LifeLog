@@ -1,12 +1,9 @@
 //! 标签语法解析(spec 3.3.1):严格名称字符集 + Markdown 感知 + 整串判定。
 //! 终止规则:空白与标点一律正常终止标签(标签有效、后随字符留在正文);
-//! 只有结构非法(空段/首尾或连续斜杠/深度超限/# 后无名称字符)才整串丢弃。
-//! 不符合语法的一律当普通文本原样保留 —— 不建标签,也不剥离任何字符。
+//! 只有结构非法(空段/首尾或连续斜杠/# 后无名称字符)才整串丢弃。
+//! 层级深度**不设上限**(2026-09-28 起取消 5 层上限):段数只按结构判定。
 use std::iter::Peekable;
 use std::str::CharIndices;
-
-/// 层级深度上限(节点数)
-const MAX_DEPTH: usize = 5;
 
 /// 标签名允许的字符:中文、字母、数字、下划线、连字符;
 /// `/` 仅作层级分隔,其它标点、空白与 emoji 都不算名称字符
@@ -42,11 +39,6 @@ fn valid_segment(seg: &str) -> bool {
     true
 }
 
-/// 深度上限(供调用方与测试读取)
-pub fn max_depth() -> usize {
-    MAX_DEPTH
-}
-
 // 界面改名与筛选条件的名称放宽 + md 纯文本形态(T2/T3):实现在 tag_label.rs(本文件已近 200 行红线),
 // 经这里上浮成 `tags::label_plain` / `tags::validate_label` / `tags::validate_tag_path`。
 // 注意与 parse_tag_path 的分工:正文 `#` 语法保持严格,放开的只是界面改名。
@@ -55,10 +47,10 @@ pub use crate::tag_label::{label_plain, validate_label, validate_tag_path};
 #[cfg(test)]
 pub use crate::tag_label::MAX_LABEL_CHARS;
 
-/// 校验并切分标签路径:空串、非法字符、空段、首尾或连续斜杠、超过深度都返回 None
+/// 校验并切分标签路径:空串、非法字符、空段、首尾或连续斜杠都返回 None(层级深度不设上限)
 pub fn parse_tag_path(raw: &str) -> Option<Vec<String>> {
     let parts: Vec<&str> = raw.split('/').collect();
-    if parts.len() > max_depth() || parts.iter().any(|p| !valid_segment(p)) {
+    if parts.iter().any(|p| !valid_segment(p)) {
         return None;
     }
     Some(parts.into_iter().map(str::to_string).collect())
@@ -67,7 +59,7 @@ pub fn parse_tag_path(raw: &str) -> Option<Vec<String>> {
 /// 扫描 `#` 之后的标签路径候选(`input` 是字符流,`start` 指向 `#` 之后的首字符):
 /// 返回 `(路径, 结束下标)`。名称字符与内嵌标点规则是本文件的:`/` 只作分层,
 /// `.`/`·` 只有后随名称字符时才并入名称(`v1.0` 的句点是名称,`工作.` 的句点终止);
-/// 整串不合法(空段/首尾标点/深度超限)返回 None。表达式词法(#/`#=`)与正文抽标签
+/// 整串不合法(空段/首尾标点)返回 None。表达式词法(#/`#=`)与正文抽标签
 /// 共用这一个扫描器,不各自维护第二套字符集。
 pub(crate) fn scan_tag_path(input: &[char], start: usize) -> Option<(String, usize)> {
     let mut i = start;

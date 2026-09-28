@@ -40,7 +40,7 @@
     "valid": true
   },
   {
-    "why": "恰好 5 层(深度上限,含 md 段)",
+    "why": "5 层多层路径(含 md 段)",
     "path": "a/b/c/[d](x)/e",
     "valid": true
   },
@@ -95,9 +95,14 @@
     "valid": false
   },
   {
-    "why": "6 层超深度上限",
+    "why": "6 层:2026-09-28 起取消层级深度上限,仍是合法路径",
     "path": "a/b/c/d/e/f",
-    "valid": false
+    "valid": true
+  },
+  {
+    "why": "8 层:深度不设上限,只按段结构判定",
+    "path": "a/b/c/d/e/f/g/h",
+    "valid": true
   },
   {
     "why": "含空格(空白字符落库后正文永远引用不到)",

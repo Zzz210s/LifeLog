@@ -1,9 +1,11 @@
 //! 结构操作补充测试(自 tags_tree_ops_tests.rs 拆出以守 200 行上限):
-//! 小账 B(impact 去重笔记数)与小账 D(move_to 回收空容器)。
+//! 小账 B(impact 去重笔记数)、小账 D(move_to 回收空容器)与小账 E(深层移动被允许)。
 use super::*;
 use crate::db::migrate;
 use crate::db::repos::notes;
-use crate::db::repos::tags::invariants_tests::{assert_fts_matches_tags, assert_no_orphan_tags};
+use crate::db::repos::tags::invariants_tests::{
+    assert_filter_paths_exist, assert_fts_matches_tags, assert_no_orphan_tags,
+};
 use rusqlite::Connection;
 
 fn db() -> Connection {
@@ -47,4 +49,29 @@ fn move_out_last_child_recycles_emptied_parent() {
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tag_links WHERE tag_id=(SELECT id FROM tags WHERE path='项目A')"), 1);
     assert_fts_matches_tags(&c);
     assert_no_orphan_tags(&c);
+}
+
+/// 小账 E:深层移动被允许 —— 2026-09-28 取消层级深度上限,原子树整体顺延(路径/深度/FTS 一致)
+#[test]
+fn move_beyond_former_max_depth_is_allowed() {
+    let mut c = db();
+    notes::create_plain(&mut c, "深处 #a1/a2/a3/a4/a5").unwrap();
+    let x = ensure_path(&c, &["x".to_string()]).unwrap();
+    let deepest = id_at(&c, "a1/a2/a3/a4/a5");
+
+    let a1 = id_at(&c, "a1");
+    move_to(&mut c, a1, Some(x)).unwrap();
+
+    // 原 5 层子树整体下移一层:最深节点变成第 6 层(旧上限恰好是 5)
+    assert_eq!(id_at(&c, "x/a1/a2/a3/a4/a5"), deepest);
+    let deep = "path='x/a1/a2/a3/a4/a5'";
+    assert_eq!(count(&c, &format!("SELECT depth FROM tags WHERE {deep}")), 6);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='a1'"), 0, "旧根路径不残留");
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags"), 6);
+    // FTS 跟着新路径走
+    let fts: String = c.query_row("SELECT tags FROM notes_fts", [], |r| r.get(0)).unwrap();
+    assert!(fts.contains("x/a1/a2/a3/a4/a5"), "FTS 未跟上新路径:{fts}");
+    assert_fts_matches_tags(&c);
+    assert_no_orphan_tags(&c);
+    assert_filter_paths_exist(&c);
 }

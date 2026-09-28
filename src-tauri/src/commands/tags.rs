@@ -48,7 +48,7 @@ pub fn rename_tag(app: AppHandle, tag_id: i64, new_name: String) -> Result<Renam
     })
 }
 
-/// 移动标签(含环检测与深度上限);new_parent_id 为 null 表示移到根级
+/// 移动标签(含环检测);new_parent_id 为 null 表示移到根级
 #[tauri::command]
 pub fn move_tag(app: AppHandle, tag_id: i64, new_parent_id: Option<i64>) -> Result<(), String> {
     with_conn(&app, |c| tags::move_to(c, tag_id, new_parent_id))

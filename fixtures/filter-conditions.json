@@ -13,15 +13,15 @@
   },
   {
     "kind": "tagPath",
-    "why": "正好 5 层(上限内)",
+    "why": "正好 5 层(上限已取消,仍是合法路径)",
     "path": "a/b/c/d/e",
     "valid": true
   },
   {
     "kind": "tagPath",
-    "why": "6 层超过深度上限 5",
+    "why": "6 层:2026-09-28 起取消深度上限",
     "path": "a/b/c/d/e/f",
-    "valid": false
+    "valid": true
   },
   {
     "kind": "tagPath",
@@ -427,9 +427,9 @@
   },
   {
     "kind": "expr",
-    "why": "超深",
+    "why": "6 层:深度上限已取消,表达式里同样合法",
     "src": "#a/b/c/d/e/f",
-    "valid": false
+    "valid": true
   },
   {
     "kind": "expr",
