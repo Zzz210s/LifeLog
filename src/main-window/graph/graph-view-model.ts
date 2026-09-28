@@ -10,9 +10,11 @@ export function visibleGraph(
 ): { nodes: GraphNode[]; edges: GraphEdge[] } {
   const hidden = new Set<number>();
   for (const root of opts.collapsedRoots) {
+    // 防御性:调用方若传入不存在的路径则静默跳过(而非抛错)。
     const node = data.nodes.find((n) => n.path === root);
     if (!node) continue;
     for (const n of data.nodes) {
+      // `${root}/` 已排除根自身,`n.id !== node.id` 只是防御性兜底(同前缀同 id 的重复节点)。
       if (n.id !== node.id && n.path.startsWith(`${root}/`)) hidden.add(n.id);
     }
   }
