@@ -78,6 +78,7 @@ pub fn run() {
             commands::tags::tag_impact,
             commands::tags::complete_tags,
             commands::tags::merge_tags,
+            commands::graph::graph_data,
             commands::tags::list_tag_aliases,
             commands::tags::add_tag_alias,
             commands::tags::remove_tag_alias,
