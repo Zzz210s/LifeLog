@@ -77,6 +77,33 @@ export interface ParseResult {
   tags: string[];
 }
 
+/**
+ * 关系图节点(IPC `graph_data`,字段与 Rust `GraphNodeDto` 逐字一致)。
+ * `depth` 是标签树深度(根级 = 1),`parent` 是父标签 id(根级为 null),
+ * `notes` 是**含子孙**的去重笔记数(与侧栏 subtree_count 同源)。
+ */
+export interface GraphNode {
+  id: number;
+  path: string;
+  depth: number;
+  parent: number | null;
+  notes: number;
+}
+
+/** 关系图的边(IPC `graph_data`):`tree` 父子边 / `co` 共现边,`weight` 是两端共现笔记数 */
+export interface GraphEdge {
+  a: number;
+  b: number;
+  kind: 'tree' | 'co';
+  weight: number;
+}
+
+/** 一次拉全的关系图数据:节点 + 父子边 + 共现边 */
+export interface GraphData {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+}
+
 /** 筛选条件对象与前端默认值统一从 `filter-conditions.ts` 取(避免两处定义漂移) */
 export type { FilterConditions, TagCond } from './filter-conditions';
 export { EMPTY_FILTER } from './filter-conditions';
