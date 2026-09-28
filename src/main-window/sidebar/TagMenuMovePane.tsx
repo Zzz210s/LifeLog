@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { renderTagLabel, tagLabelPlain } from '../../shared/tag-label';
+import { hoverTitle } from '../../shared/truncate-title';
 import type { TagCount } from '../../shared/types';
 import { BTN_GHOST, ITEM_CLASS } from './tag-menu-ui';
 
@@ -35,7 +36,7 @@ export function TagMenuMovePane(p: TagMenuMovePaneProps): ReactNode {
         <button
           key={r.path}
           type="button"
-          title={tagLabelPlain(r.path)}
+          onMouseEnter={hoverTitle(tagLabelPlain(r.path))}
           disabled={p.busy}
           onClick={() => p.onMove(r.id, r.path + '/' + p.nodeName)}
           style={{ paddingLeft: 10 + r.depth * 12 }}

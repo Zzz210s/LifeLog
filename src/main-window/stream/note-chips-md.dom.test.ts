@@ -9,6 +9,12 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { NoteChips } from './NoteChips';
 
+/** 让元素看起来"被 CSS 截断"(jsdom 里 scrollWidth/clientWidth 恒 0):随后触发 React 的 onMouseEnter */
+function markTruncated(el: HTMLElement): void {
+  Object.defineProperty(el, 'scrollWidth', { value: 999, configurable: true });
+  Object.defineProperty(el, 'clientWidth', { value: 100, configurable: true });
+}
+
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const RAW = '地点/[郴](chēn)州市';
@@ -43,6 +49,10 @@ describe('T1 笔记 chip:完整路径的预览态 + 悬浮备注', () => {
   it('chip 显示 #地点/郴州市,悬浮 title 是纯文本,「郴」上挂 title=chēn', async () => {
     const [chip] = await render([RAW]);
     expect(chip.textContent).toBe(`#${PLAIN}`);
+    // 未截断时不挂 title(冗余提示已移除);截断时才给完整纯文本
+    expect(chip.getAttribute('title')).toBeNull();
+    markTruncated(chip);
+    chip.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
     expect(chip.getAttribute('title')).toBe(PLAIN);
     expect(chip.querySelector('span[title="chēn"]')?.textContent).toBe('郴');
     expect(chip.querySelector('a')).toBeNull();

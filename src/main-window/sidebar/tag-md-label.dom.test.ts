@@ -4,6 +4,21 @@
  * 悬浮 title=chēn),而 data 属性 / 回调 / 确认文案里的路径都是**去掉语法后的纯文本**(或原始路径)。
  */
 import { act, createElement } from 'react';
+
+/** 让元素看起来"被 CSS 截断"(jsdom 里 scrollWidth/clientWidth 恒 0):随后触发 React 的 onMouseEnter */
+function markTruncated(el: HTMLElement): void {
+  Object.defineProperty(el, 'scrollWidth', { value: 999, configurable: true });
+  Object.defineProperty(el, 'clientWidth', { value: 100, configurable: true });
+}
+
+/** 未截断时不挂 title;截断后悬浮才给完整文本 */
+function expectHoverTitle(el: HTMLElement, text: string): void {
+  expect(el.getAttribute('title')).toBeNull();
+  markTruncated(el);
+  el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+  expect(el.getAttribute('title')).toBe(text);
+}
+
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TagRow } from './TagRow';
@@ -89,7 +104,7 @@ describe('T1 标签菜单:标题渲染态,确认文案纯文本', () => {
     mount(createElement(TagMenuMainPane, { path: RAW, onPick: () => {} }));
     const title = host.querySelector('p') as HTMLElement;
     expect(title.textContent).toBe(PLAIN);
-    expect(title.getAttribute('title')).toBe(PLAIN);
+    expectHoverTitle(title, PLAIN);
     expect(host.querySelector('a')).toBeNull();
   });
 
@@ -125,9 +140,9 @@ describe('T1 标签菜单:标题渲染态,确认文案纯文本', () => {
       })
     );
     expect(host.querySelector('p')?.textContent).toBe('合并『工作/会议』到');
-    const row = host.querySelector('button[title]') as HTMLElement;
+    const row = host.querySelector('button') as HTMLElement;
     expect(row.textContent).toContain(PLAIN);
-    expect(row.getAttribute('title')).toBe(PLAIN);
+    expectHoverTitle(row, PLAIN);
     expect(host.querySelector('a')).toBeNull();
   });
 });

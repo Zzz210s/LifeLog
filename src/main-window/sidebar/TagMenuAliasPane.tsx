@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { renderTagLabel, tagLabelPlain } from '../../shared/tag-label';
+import { hoverTitle } from '../../shared/truncate-title';
 import { BTN_PRIMARY, BTN_TEXT } from '../shell/button-classes';
 import { BTN_GHOST } from './tag-menu-ui';
 
@@ -27,7 +28,7 @@ export interface TagMenuAliasPaneProps {
 export function TagMenuAliasPane(p: TagMenuAliasPaneProps): ReactNode {
   return (
     <div className="p-1">
-      <p className="truncate px-1 py-0.5 text-label font-medium text-muted" title={tagLabelPlain(p.path)}>
+      <p className="truncate px-1 py-0.5 text-label font-medium text-muted" onMouseEnter={hoverTitle(tagLabelPlain(p.path))}>
         别名:{renderTagLabel(p.path)}
       </p>
       {p.aliases === null && <p className="px-1 py-1 text-label text-muted">加载中…</p>}
@@ -37,7 +38,7 @@ export function TagMenuAliasPane(p: TagMenuAliasPaneProps): ReactNode {
       {p.aliases !== null &&
         p.aliases.map((a) => (
           <div key={a} className="flex items-center gap-1">
-            <span className="min-w-0 flex-1 truncate px-1 py-1 text-label text-muted" title={a}>
+            <span className="min-w-0 flex-1 truncate px-1 py-1 text-label text-muted" onMouseEnter={hoverTitle(a)}>
               {a}
             </span>
             <button

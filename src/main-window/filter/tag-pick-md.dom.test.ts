@@ -5,6 +5,21 @@
  * 视觉口径在 v5-dialog-style.dom.test.ts(那份已到 199 行,故本用例独立成文件)。
  */
 import { act, createElement } from 'react';
+
+/** 让元素看起来"被 CSS 截断"(jsdom 里 scrollWidth/clientWidth 恒 0):随后触发 React 的 onMouseEnter */
+function markTruncated(el: HTMLElement): void {
+  Object.defineProperty(el, 'scrollWidth', { value: 999, configurable: true });
+  Object.defineProperty(el, 'clientWidth', { value: 100, configurable: true });
+}
+
+/** 未截断时不挂 title;截断后悬浮才给完整文本 */
+function expectHoverTitle(el: HTMLElement, text: string): void {
+  expect(el.getAttribute('title')).toBeNull();
+  markTruncated(el);
+  el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+  expect(el.getAttribute('title')).toBe(text);
+}
+
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TagPickDialog } from './TagPickDialog';
@@ -59,7 +74,7 @@ describe('标签选择对话框:md 名字走纯文本形态', () => {
     const md = rows[1];
     expect(md.textContent).toContain('地点/郴州市');
     expect(md.textContent).not.toContain('[郴](chēn)州市');
-    expect(md.getAttribute('title')).toBe('地点/郴州市');
+    expectHoverTitle(md, '地点/郴州市');
   });
 
   it('点行回传的仍是原始路径(显示口径不污染数据)', async () => {

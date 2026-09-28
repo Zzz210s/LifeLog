@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { renderTagLabel, tagLabelPlain } from '../../shared/tag-label';
+import { hoverTitle } from '../../shared/truncate-title';
 import type { TagCount } from '../../shared/types';
 import { mergeImpactText } from './tag-menu-pure';
 import { BTN_PRIMARY } from '../shell/button-classes';
@@ -35,7 +36,7 @@ export function TagMenuMergePane(p: TagMenuMergePaneProps): ReactNode {
 
   return (
     <div className="p-1">
-      <p className="mb-1 truncate px-1 text-label text-muted" title={tagLabelPlain(p.path)}>
+      <p className="mb-1 truncate px-1 text-label text-muted" onMouseEnter={hoverTitle(tagLabelPlain(p.path))}>
         {`合并『${tagLabelPlain(p.path)}』${p.hasChildren ? '' : '到'}`}
       </p>
       {p.hasChildren ? (
@@ -45,7 +46,7 @@ export function TagMenuMergePane(p: TagMenuMergePaneProps): ReactNode {
           <button
             key={r.path}
             type="button"
-            title={tagLabelPlain(r.path)}
+            onMouseEnter={hoverTitle(tagLabelPlain(r.path))}
             disabled={p.busy}
             onClick={() => setTarget(r)}
             style={{ paddingLeft: 10 + r.depth * 12 }}

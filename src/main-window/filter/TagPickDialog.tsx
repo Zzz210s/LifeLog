@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { api } from '../../shared/api';
 import { renderTagLabel, tagLabelPlain } from '../../shared/tag-label';
+import { hoverTitle } from '../../shared/truncate-title';
 import type { TagCount } from '../../shared/types';
 import { BTN_ICON } from '../shell/button-classes';
 
@@ -107,7 +108,7 @@ export function TagPickDialog(p: TagPickDialogProps): ReactNode {
                     type="button"
                     disabled={picked}
                     onClick={() => p.onPick(row.path, includeChildren)}
-                    title={tagLabelPlain(row.path)}
+                    onMouseEnter={hoverTitle(tagLabelPlain(row.path))}
                     className="flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left text-ui text-muted hover:bg-accent-soft hover:text-accent-text disabled:cursor-default disabled:text-faint disabled:line-through disabled:hover:bg-transparent disabled:hover:text-faint"
                     style={{ paddingLeft: 10 + row.depth * 12 }}
                   >

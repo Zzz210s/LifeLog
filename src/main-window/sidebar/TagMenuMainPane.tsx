@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { renderTagLabel, tagLabelPlain } from '../../shared/tag-label';
+import { hoverTitle } from '../../shared/truncate-title';
 import { ITEM_CLASS } from './tag-menu-ui';
 import type { Pane } from './tag-menu-ui';
 
@@ -14,7 +15,7 @@ export interface TagMenuMainPaneProps {
 export function TagMenuMainPane(p: TagMenuMainPaneProps): ReactNode {
   return (
     <>
-      <p className="truncate px-2.5 py-1 text-label font-medium text-muted" title={tagLabelPlain(p.path)}>
+      <p className="truncate px-2.5 py-1 text-label font-medium text-muted" onMouseEnter={hoverTitle(tagLabelPlain(p.path))}>
         {renderTagLabel(p.path)}
       </p>
       <button type="button" role="menuitem" className={ITEM_CLASS} onClick={() => p.onPick('rename')}>
