@@ -25,6 +25,7 @@ import { useOpenSettings } from './shell/use-open-settings';
 import { useNotesFeed } from './data/use-notes-feed';
 import { useNotesExport } from './data/use-export';
 import { useStreamActions } from './shell/use-stream-actions';
+import { HoverTip } from './shell/HoverTip';
 import { TutorialLayer } from './tutorial/TutorialLayer';
 import { useTutorialEntry } from './tutorial/use-tutorial-entry';
 
@@ -181,6 +182,8 @@ export function App(): ReactNode {
         )}
       </div>
       <CommandStatusPill status={commands.status} />
+      {/* 瞬时悬浮提示(标签名里的备注字):原生 title 延迟约 1 秒,这里走 data-tip 事件委托 */}
+      <HoverTip />
       {/* 条件挂载:重看时重新挂载,引导层内部状态(当前步/已执行的前置动作)自然复位 */}
       {tutorial.open && (
         <TutorialLayer

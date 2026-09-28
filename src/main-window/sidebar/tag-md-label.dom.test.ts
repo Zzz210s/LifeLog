@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
  * 标签名行内 md(T1)在侧栏与标签菜单的接线证据:显示位是**预览态**(`[郴](chēn)州市` -> 郴州市,
- * 悬浮 title=chēn),而 data 属性 / 回调 / 确认文案里的路径都是**去掉语法后的纯文本**(或原始路径)。
+ * 悬浮 data-tip=chēn),而 data 属性 / 回调 / 确认文案里的路径都是**去掉语法后的纯文本**(或原始路径)。
  */
 import { act, createElement } from 'react';
 
@@ -88,7 +88,7 @@ describe('T1 侧栏树行:预览态 + 原始路径寻址', () => {
     expect(label.textContent).toBe('郴州市');
     expect(row.getAttribute('data-tag-path')).toBe(RAW);
     expect(row.getAttribute('title')).toBe(`${PLAIN}(本级 1 / 含子级 1)`);
-    expect(row.querySelector('span[title="chēn"]')?.textContent).toBe('郴');
+    expect(row.querySelector('span[data-tip="chēn"]')?.textContent).toBe('郴');
     expect(row.querySelector('a')).toBeNull();
     act(() => row.click());
     expect(onToggle).toHaveBeenCalledWith(expect.objectContaining({ path: RAW }));

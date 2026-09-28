@@ -97,14 +97,15 @@ ${HELPERS}
     hoverToken: norm(cs(root).getPropertyValue('--color-hover').trim()), raisedToken: norm(cs(root).getPropertyValue('--color-raised').trim()) };
 })()`;
 
-/** 选两张可见卡片:target = 第一张;ref = 当前未被真实鼠标悬停的那张(作对照基准) */
+/** 选两张可见卡片:target = 第一张"常态底"的卡;ref = 第二张(对照基准)。
+ *  必须排除**已选中**的卡:选中态底色是 accent-soft,既不会因强制 hover 变色(断言 hover 底失败),
+ *  也不是 --color-raised(断言静止底失败)——用户点过任何一条笔记后,旧写法就会假失败(实测)。 */
 export const PICK_CARDS_JS = `(() => {
 ${HELPERS}
-  const hoverColor = norm(cs(root).getPropertyValue('--color-hover').trim());
+  const raised = norm(cs(root).getPropertyValue('--color-raised').trim());
   const all = [...document.querySelectorAll('#root ul li')];
-  const target = all.findIndex(vis);
-  const ref = all.findIndex((el, i) => i !== target && vis(el) && cs(el).backgroundColor !== hoverColor);
-  return { target, ref };
+  const normal = all.map((el, i) => (vis(el) && cs(el).backgroundColor === raised ? i : -1)).filter((i) => i >= 0);
+  return { target: normal.length > 0 ? normal[0] : -1, ref: normal.length > 1 ? normal[1] : -1 };
 })()`;
 
 /** 真实聚焦卡片内的键盘通道按钮(全局 :focus-visible 环 + sr-only 显形) */

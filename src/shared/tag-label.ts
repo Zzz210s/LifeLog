@@ -37,7 +37,9 @@ function tokenNode(t: TagLabelToken, key: number): ReactNode {
       // 备注为空则不加类,保持与本体一致的样式。
       // 备注为空:退化成纯文本(不留空壳 span,视觉与 DOM 都与本体一致)
       if (t.title === '') return t.text;
-      return createElement('span', { key, title: t.title, className: 'tag-note' }, t.text);
+      // 备注走 `data-tip`:由 HoverTip 组件渲染**瞬时**气泡(原生 title 有约 1 秒延迟且不可配置,
+      // 用户 2026-09-28 反馈"悬停到显示备注的停顿过长")。仍不用 <a> —— 标签不是链接。
+      return createElement('span', { key, 'data-tip': t.title, className: 'tag-note' }, t.text);
   }
 }
 

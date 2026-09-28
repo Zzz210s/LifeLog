@@ -77,14 +77,14 @@ describe('fixtures/tag-label.json:结构与两侧一致', () => {
 });
 
 describe('renderTagLabel:链接 = 纯文本 span + title', () => {
-  it('备注夹在中间:整体可见文本是 郴州市,「郴」上挂着 title=chēn', () => {
+  it('备注夹在中间:整体可见文本是 郴州市,「郴」上挂着 data-tip=chēn(HoverTip 读它出瞬时气泡)', () => {
     const box = render('[郴](chēn)州市');
     expect(box.textContent).toBe('郴州市');
     const span = box.querySelector('span');
     expect(span).not.toBeNull();
     expect(span?.tagName).toBe('SPAN');
     expect(span?.textContent).toBe('郴');
-    expect(span?.getAttribute('title')).toBe('chēn');
+    expect(span?.getAttribute('data-tip')).toBe('chēn');
     expect(box.querySelector('a')).toBeNull();
   });
 

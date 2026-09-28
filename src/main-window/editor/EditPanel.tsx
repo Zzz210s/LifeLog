@@ -174,7 +174,9 @@ export function EditPanel(p: EditPanelProps): ReactNode {
           domText.current = (e.target as HTMLTextAreaElement).value;
           setSource(domText.current);
         }}
-        className="scroll-gutter w-full resize-y rounded-md border border-border-strong bg-raised p-2 font-mono text-body"
+        // 字体与快捷输入一致(用户 2026-09-28:以输入栏为准):同一族(系统 UI 字)与同一档字号/行高,
+        // 不用 font-mono —— 之前等宽 + 15px 与输入栏的 13px 无衬线看着像两个应用
+        className="scroll-gutter w-full resize-y rounded-md border border-border-strong bg-raised p-2 text-sm leading-relaxed text-text"
       />
       {/* 保存/取消按钮与「点其他位置即保存」提示已按用户要求删除:离开区块(点别处/切条目/失焦)即保存,Esc 取消;
           Ctrl+Enter 是「保存并回到预览」的快捷键,提示就放在这一行小字里 */}
