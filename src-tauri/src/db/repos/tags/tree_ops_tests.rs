@@ -23,10 +23,6 @@ fn id_at(c: &Connection, path: &str) -> i64 {
         .unwrap()
 }
 
-fn segs(v: &[&str]) -> Vec<String> {
-    v.iter().map(|s| s.to_string()).collect()
-}
-
 /// 标签表全量快照(按 id 排序),用于"不改库"断言
 fn dump(c: &Connection) -> Vec<String> {
     let mut stmt = c
