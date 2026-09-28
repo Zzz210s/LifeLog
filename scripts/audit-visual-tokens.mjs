@@ -106,6 +106,17 @@ r.record(
 await cdp.send('DOM.enable');
 await cdp.send('CSS.enable');
 const pick = await js(PICK_CARDS_JS);
+// 少于两张可见卡片时无法对照:判失败并跳过强制伪类(nodeId 取到 undefined 会让 CDP 调用崩)
+const canPick = pick.target >= 0 && pick.ref >= 0;
+if (!canPick) {
+  r.record(
+    '卡片 hover 态(背景变化)',
+    false,
+    `需要至少两张可见卡片(target=${pick.target} ref=${pick.ref})——当前筛选把信息流收得太窄时无法对照`,
+  );
+  r.record('卡片 focus 态(键盘通道显形 + accent 环)', false, '同上:没有可对照的第二张卡片');
+}
+if (canPick) {
 // 每次强制前重取 nodeId:HMR/重渲会让上一次的 nodeId 失效(失效时伪类作用在旧节点上,读数为假阴性)
 const force = async (list) => {
   const d = await cdp.send('DOM.getDocument', { depth: 1 });
@@ -128,7 +139,7 @@ const realFocus = await js(REAL_FOCUS_JS(pick.target));
 await js(BLUR_JS);
 r.record(
   '卡片 hover 态(背景变化)',
-  !!hover && hover.bg === hover.hoverToken && ref?.bg === ref.raisedToken,
+  !!hover && hover.bg === hover.hoverToken && ref?.bg === ref?.raisedToken,
   `静止卡 ${ref?.bg}(= --color-raised ${ref?.raisedToken}) -> 强制 hover ${hover?.bg}(= --color-hover ${hover?.hoverToken})`,
 );
 // 环:规则必须在(与 OS 焦点无关);窗口有焦点时再核对实时值
@@ -138,6 +149,7 @@ r.record(
   !!focus && focus.actionOpacity === '1' && ref?.actionOpacity === '0' && realFocus?.ruleOk === true && (!realFocus?.docFocused || ringLive),
   `操作行 opacity 对照卡 ${ref?.actionOpacity} -> focus-within ${focus?.actionOpacity};环规则 ${realFocus?.ruleOk ? '在' : '缺失'}${realFocus?.docFocused ? `(窗口有焦点,实时 ${realFocus?.outlineWidth} ${realFocus?.outlineColor})` : '(窗口无 OS 焦点,只校规则)'}`,
 );
+}
 
 // 8) 正文对比度(亮暗两态)
 const badContrast = scans.filter((s) => !s.contrast || s.contrast.ratio < 4.5).map((s) => `${s.theme} ${s.contrast?.ratio}`);
