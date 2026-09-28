@@ -44,6 +44,19 @@ body {
   background-size: var(--tag-guide, 0) 100%;
 }
 
+/* 带备注的标签字(`[文本](备注)` 语法里的「文本」):下划点线 + 帮助光标,提示「悬停有说明」。
+   刻意不用蓝色/实线 —— 那会被读成可点链接(标签不是链接);无备注的字不套这个类,保持本体样式。 */
+.tag-note {
+  text-decoration: underline dotted;
+  text-decoration-color: var(--color-muted);
+  text-underline-offset: 2px;
+  cursor: help;
+}
+
+.tag-note:hover {
+  text-decoration-color: var(--color-accent-text);
+}
+
 /* 系统开启「减少动效」时关掉过渡与动画(设计 §3.3;对应 VS Code 的 reduceMotion 开关) */
 @media (prefers-reduced-motion: reduce) {
   *,

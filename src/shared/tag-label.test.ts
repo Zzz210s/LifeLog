@@ -95,6 +95,15 @@ describe('renderTagLabel:链接 = 纯文本 span + title', () => {
     expect(box.textContent).toContain('地点/');
   });
 
+  it('带备注的字加 .tag-note(下划点线),无备注的字保持本体样式', () => {
+    const withNote = render('[郴](chēn)州市');
+    expect(withNote.querySelector('span')?.className).toBe('tag-note');
+    expect(withNote.textContent).toBe('郴州市');
+    const noNote = render('[郴]()州市');
+    expect(noNote.textContent).toBe('郴州市');
+    expect(noNote.querySelector('span')).toBeNull();
+  });
+
   it('普通路径不产生任何元素(退回纯文本)', () => {
     expect(renderTagLabel('地点/美国')).toBe('地点/美国');
     expect(render('地点/美国').children).toHaveLength(0);

@@ -130,8 +130,12 @@ function tokenNode(t: TagLabelToken, key: number): ReactNode {
     case 'code':
       return createElement('code', { key, className: CODE_CLASS }, t.text);
     case 'link':
-      // 纯文本 + title:永不渲染成 <a>(标签不该看起来像可点链接)
-      return createElement('span', t.title === '' ? { key } : { key, title: t.title }, t.text);
+      // 纯文本 + title:永不渲染成 <a>(标签不该看起来像可点链接)。
+      // 带备注的字加 .tag-note(下划点线 + 帮助光标),让人一眼看出「这里悬停有说明」;
+      // 备注为空则不加类,保持与本体一致的样式。
+      // 备注为空:退化成纯文本(不留空壳 span,视觉与 DOM 都与本体一致)
+      if (t.title === '') return t.text;
+      return createElement('span', { key, title: t.title, className: 'tag-note' }, t.text);
   }
 }
 
