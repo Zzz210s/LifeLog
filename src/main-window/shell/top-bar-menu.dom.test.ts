@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * Task 3(统一输入框 2/3):顶栏溢出菜单(排序 / 导出整库 / 添加条件)。
+ * Task 3(统一输入框 2/3):顶栏溢出菜单(排序 / 关系图 / 导出整库 / 添加条件)。
  * 覆盖 brief 的六条:点 ⋯ 出现菜单、条目顺序 = 传入顺序、checked 带勾选标记、
  * 点条目回调并关闭、Esc 关闭、点外部关闭。
  * 另钉两条同文件的接线:条目构造(标题/勾选态取自命令表)与导出反馈(菜单点完即关,
@@ -20,10 +20,11 @@ let root: Root;
 let host: HTMLDivElement;
 let ran: string[];
 
-/** 四条与生产同序的条目(条目构造由 topBarMenuItems 测,这里只喂形状) */
+/** 五条与生产同序的条目(条目构造由 topBarMenuItems 测,这里只喂形状) */
 const items = (): TopBarMenuItem[] => [
   { id: 'sort.newest', label: '最新在前', checked: true, run: () => ran.push('sort.newest') },
   { id: 'sort.oldest', label: '最早在前', checked: false, run: () => ran.push('sort.oldest') },
+  { id: 'graph.open', label: '关系图', run: () => ran.push('graph.open') },
   { id: 'export.all', label: '导出整库', danger: true, run: () => ran.push('export.all') },
   { id: 'filter.addCondition', label: '添加条件', run: () => ran.push('filter.addCondition') },
 ];
@@ -63,7 +64,7 @@ describe('顶栏溢出菜单:开关与条目', () => {
 
   it('条目顺序 = 传入顺序', () => {
     open();
-    expect(rows().map((r) => r.textContent)).toEqual(['最新在前', '最早在前', '导出整库', '添加条件']);
+    expect(rows().map((r) => r.textContent)).toEqual(['最新在前', '最早在前', '关系图', '导出整库', '添加条件']);
   });
 
   it('checked 条目带勾选标记,未 checked 的排序项不带', () => {
@@ -109,29 +110,28 @@ describe('条目构造:标题与勾选态取自命令表', () => {
   const built = (sort: 'newest' | 'oldest', exporting = false) =>
     topBarMenuItems({ sort, exporting, run: () => {} });
 
-  it('顺序固定为 排序 ×2 / 导出整库 / 添加条件,标题与 danger 来自命令表', () => {
+  it('顺序固定为 排序 ×2 / 关系图 / 导出整库 / 添加条件,标题与 danger 来自命令表', () => {
     const items = built('newest');
-    expect(items.map((i) => i.id)).toEqual(['sort.newest', 'sort.oldest', 'export.all', 'filter.addCondition']);
-    expect(items.map((i) => i.label)).toEqual(
-      ['sort.newest', 'sort.oldest', 'export.all', 'filter.addCondition'].map((id) => findCommand(id)!.title),
-    );
-    expect(items.map((i) => i.danger)).toEqual([false, false, true, false]);
+    const ids = ['sort.newest', 'sort.oldest', 'graph.open', 'export.all', 'filter.addCondition'];
+    expect(items.map((i) => i.id)).toEqual(ids);
+    expect(items.map((i) => i.label)).toEqual(ids.map((id) => findCommand(id)!.title));
+    expect(items.map((i) => i.danger)).toEqual([false, false, false, true, false]);
   });
 
   it('勾选态由命令自身的 toggled 求值,随 conditions.sort 翻转', () => {
-    expect(built('newest').map((i) => i.checked)).toEqual([true, false, undefined, undefined]);
-    expect(built('oldest').map((i) => i.checked)).toEqual([false, true, undefined, undefined]);
+    expect(built('newest').map((i) => i.checked)).toEqual([true, false, undefined, undefined, undefined]);
+    expect(built('oldest').map((i) => i.checked)).toEqual([false, true, undefined, undefined, undefined]);
   });
 
   it('导出中:导出项文案换成「导出中…」,其余不动', () => {
-    expect(built('newest', true).map((i) => i.label)).toEqual(['最新在前', '最早在前', '导出中…', '添加条件']);
+    expect(built('newest', true).map((i) => i.label)).toEqual(['最新在前', '最早在前', '关系图', '导出中…', '添加条件']);
   });
 
   it('点条目回传命令 id(执行通道仍是 commands.execute)', () => {
     const seen: string[] = [];
     const items = topBarMenuItems({ sort: 'newest', exporting: false, run: (id) => seen.push(id) });
     for (const item of items) item.run();
-    expect(seen).toEqual(['sort.newest', 'sort.oldest', 'export.all', 'filter.addCondition']);
+    expect(seen).toEqual(['sort.newest', 'sort.oldest', 'graph.open', 'export.all', 'filter.addCondition']);
   });
 });
 

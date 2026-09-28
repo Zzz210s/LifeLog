@@ -1,7 +1,7 @@
 /**
- * 12 条命令的副作用逐条落地(T6 brief 要求「11 条命令逐一接线证据」;Task 1 补排序 ×2 + 添加条件,
- * 删标签页时去掉了两条切换命令)。
- * 覆盖:新建笔记聚焦统一输入框、设置页、主题循环、侧栏、专注模式、
+ * 13 条命令的副作用逐条落地(T6 brief 要求「11 条命令逐一接线证据」;Task 1 补排序 ×2 + 添加条件,
+ * 删标签页时去掉了两条切换命令;关系图 G1 Task 5 补 graph.open)。
+ * 覆盖:新建笔记聚焦统一输入框、设置页、关系图、主题循环、侧栏、专注模式、
  * 排序两条(写回 onPatch)、添加条件上抛信号、
  * 导出/重建索引的进行中状态、改全局热键跳设置并聚焦录制器、退出带确认。
  */
@@ -49,9 +49,9 @@ const add = (tag: string, attrs: Record<string, string>): HTMLElement => {
   return el;
 };
 
-describe('命令副作用:注册表门禁与 12 条', () => {
-  it('registry 由 withRuns 构造,12 条全在且 run 都不是占位', async () => {
-    expect(h.commands().registry.all).toHaveLength(12);
+describe('命令副作用:注册表门禁与 13 条', () => {
+  it('registry 由 withRuns 构造,13 条全在且 run 都不是占位', async () => {
+    expect(h.commands().registry.all).toHaveLength(13);
     for (const cmd of h.commands().registry.all) await expect(callRun(h, cmd.id)).resolves.toBeUndefined();
   });
 });
@@ -71,13 +71,16 @@ describe('命令副作用:视图与焦点', () => {
     expect(document.activeElement).not.toBe(legacy);
   });
 
-  it('settings.open 切设置页;hotkey.edit 切设置页并聚焦录制器', async () => {
+  it('settings.open 切设置页;graph.open 切关系图;hotkey.edit 切设置页并聚焦录制器', async () => {
     await callRun(h, 'settings.open');
     expect(h.setView).toHaveBeenCalledWith('settings');
 
+    await callRun(h, 'graph.open');
+    expect(h.setView).toHaveBeenCalledWith('graph');
+
     const rec = add('button', { 'aria-label': '录制快捷键' });
     await callRun(h, 'hotkey.edit');
-    expect(h.setView).toHaveBeenCalledTimes(2);
+    expect(h.setView).toHaveBeenCalledTimes(3);
     expect(document.activeElement).toBe(rec);
     expect(HOTKEY_RECORDER_SELECTOR).toBe('button[aria-label="录制快捷键"]');
     expect(UNIFIED_INPUT_SELECTOR).toBe('[data-testid="unified-input"]');

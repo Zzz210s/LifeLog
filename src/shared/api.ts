@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { CompleteItem, DbInfo, ExprCheck, MergeReport, Note, ParseResult, TagCount, TagImpact } from './types';
+import type { CompleteItem, DbInfo, ExprCheck, GraphData, MergeReport, Note, ParseResult, TagCount, TagImpact } from './types';
 import type { FilterConditions } from './filter-conditions';
 import type { AppHotkeyKind } from './hotkey-match';
 
@@ -93,4 +93,6 @@ export const api = {
   rebuildSearchIndex: () => invoke<number>('rebuild_search_index'),
   /** 命令面板「退出」:与托盘「退出」同路径(先落库输入栏位置再退出进程) */
   quitApp: () => invoke<void>('quit_app'),
+  /** 关系图数据(只读):节点(含子级笔记数)+ 父子/共现边,进入视图时拉一次 */
+  graphData: () => invoke<GraphData>('graph_data'),
 };

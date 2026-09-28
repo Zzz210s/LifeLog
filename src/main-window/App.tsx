@@ -5,6 +5,7 @@ import { useThemeMode } from '../shared/use-theme-mode';
 import { CommandStatusPill } from './shell/CommandStatusPill';
 import type { MainView } from './settings/settings-model';
 import { SettingsView } from './settings/SettingsView';
+import { GraphView } from './graph/GraphView';
 import { Sidebar } from './sidebar/Sidebar';
 import { useSidebarState } from './sidebar/use-sidebar-state';
 import { StreamView } from './shell/StreamView';
@@ -90,7 +91,7 @@ export function App(): ReactNode {
     clearError,
   });
 
-  // 命令副作用(12 条):注册表在构造期校验「全部接线」,漏一条即抛
+  // 命令副作用(13 条):注册表在构造期校验「全部接线」,漏一条即抛
   const commands = useAppCommands({
     sidebar: { visible: sidebar.visible, setVisible: sidebar.setVisible },
     theme: { mode: theme.mode, setMode: theme.setMode },
@@ -101,7 +102,7 @@ export function App(): ReactNode {
   });
   // 「添加条件」命令的一次性信号 -> 条件栏菜单开关(打开即复位)
   const addCondition = useAddConditionMenu(commands);
-  // 顶栏溢出菜单四条:标题与勾选态取自命令表,执行走同一条 commands.execute(与 `>` 一致)
+  // 顶栏溢出菜单五条:标题与勾选态取自命令表,执行走同一条 commands.execute(与 `>` 一致)
   const menuItems = topBarMenuItems({ sort: conditions.sort, exporting, run: (id) => void commands.execute(id) });
 
   // 候选控制器/装饰 + 快捷键接线(prefill 是唯一入口;采纳副作用在 StreamView)
@@ -180,6 +181,7 @@ export function App(): ReactNode {
             onReplayTutorial={tutorial.onReplay}
           />
         )}
+        {view === 'graph' && <GraphView onExit={backToStream} />}
       </div>
       <CommandStatusPill status={commands.status} />
       {/* 瞬时悬浮提示(标签名里的备注字):原生 title 延迟约 1 秒,这里走 data-tip 事件委托 */}

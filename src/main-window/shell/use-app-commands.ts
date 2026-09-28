@@ -1,7 +1,7 @@
 /**
- * 命令面板的副作用接线(设计 §3.7 的 12 条;T3 审查 Important 1 的门禁入口)。
+ * 命令面板的副作用接线(设计 §3.7 的 13 条;T3 审查 Important 1 的门禁入口)。
  *
- * - `withRuns(COMMANDS, runs)` 在构造期校验「12 条都有 run」,缺一条即抛中文错误(测试期就红),
+ * - `withRuns(COMMANDS, runs)` 在构造期校验「全部都有 run」,缺一条即抛中文错误(测试期就红),
  *   不会退化成 `notWired` 的静默占位。
  * - 所有 run 统一:**先 flush 编辑态再执行**(`execute` 里做),失败走主窗错误条,绝不静默。
  * - runs 与 registry 的身份必须永久稳定(`latest` ref 取最新状态):否则每次 render 都会重建注册表,
@@ -72,6 +72,7 @@ export function useAppCommands(options: AppCommandsOptions): AppCommands {
     return {
       'note.new': () => focusWhenPresent(UNIFIED_INPUT_SELECTOR),
       'settings.open': () => latest.current.setView('settings'),
+      'graph.open': () => latest.current.setView('graph'),
       'theme.cycle': () => {
         const { theme } = latest.current;
         theme.setMode(nextThemeMode(theme.mode));

@@ -41,8 +41,8 @@ export function startupRows(): StartupRow[] {
   return STARTUP_ROWS.map((row) => ({ ...row, options: row.options?.map((o) => ({ ...o })) }));
 }
 
-/** 主窗的两个整页视图:信息流与设置 */
-export type MainView = 'stream' | 'settings';
+/** 主窗的三个整页视图:信息流、设置与关系图 */
+export type MainView = 'stream' | 'settings' | 'graph';
 
 /** 数值行的合法区间:与输入栏读取时的钳制共用同一真源(input-scale) */
 export interface RowRange {

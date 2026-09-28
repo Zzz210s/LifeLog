@@ -59,9 +59,9 @@ describe('候选接线:三个 provider', () => {
     expect(h.controller().rows[0].ranges.length).toBeGreaterThan(0); // 高亮来自打分器
   });
 
-  it('`>` = 命令:12 条,输入「导」→ 导出整库排第一且带高亮', async () => {
+  it('`>` = 命令:13 条,输入「导」→ 导出整库排第一且带高亮', async () => {
     await h.type('>');
-    expect(labels()).toHaveLength(12); // 已无标签页命令,与声明表等长
+    expect(labels()).toHaveLength(13); // 已无标签页命令,与声明表等长
     await h.type('导');
     expect(labels()[0]).toBe('导出整库');
     expect(h.decorations()['export.all'].danger).toBe(true);

@@ -15,10 +15,10 @@ const wired = (): CommandRegistry => withRuns(COMMANDS, Object.fromEntries(COMMA
 const byte = (over: Partial<Context> = {}): Context => ({ ...defaultContext(), ...over });
 
 describe('commands provider:when 过滤与条数', () => {
-  it('12 条命令全在:顺序即声明顺序;已删的标签页命令不再出现', () => {
+  it('13 条命令全在:顺序即声明顺序;已删的标签页命令不再出现', () => {
     const reg = wired();
     const items = commandItems(reg, byte(), '');
-    expect(items).toHaveLength(12);
+    expect(items).toHaveLength(13);
     expect(items.map((i) => i.id)).toEqual(COMMANDS.all.map((c) => c.id));
     expect(items.some((i) => i.id.startsWith('tab.'))).toBe(false);
   });

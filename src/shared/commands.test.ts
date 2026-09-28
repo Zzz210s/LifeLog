@@ -1,6 +1,6 @@
 /**
- * 命令注册表:声明校验(重复 id / 缺标题)、when 过滤、别名命中、12 条命令的定型字段。
- * 命令清单见设计 §3.7(原 11 行 + 排序 ×2 + 添加条件 − 标签页 ×2;副作用由 T6/Task1 接线,此处只断言占位可识别)。
+ * 命令注册表:声明校验(重复 id / 缺标题)、when 过滤、别名命中、13 条命令的定型字段。
+ * 命令清单见设计 §3.7(原 11 行 + 排序 ×2 + 添加条件 − 标签页 ×2 + 关系图;副作用由 T6/Task1 接线,此处只断言占位可识别)。
  */
 import { describe, expect, it } from 'vitest';
 import { CONTEXT, KEYS, defaultContext } from './keys';
@@ -24,6 +24,7 @@ const def = (id: string, extra: Partial<CommandDef> = {}): CommandDef => ({
 const EXPECTED: ReadonlyArray<{ id: string; title: string; aliases: string[] }> = [
   { id: 'note.new', title: '新建笔记', aliases: ['new', 'create', '写'] },
   { id: 'settings.open', title: '打开设置', aliases: ['settings', '偏好'] },
+  { id: 'graph.open', title: '关系图', aliases: ['graph', '关系图', '图谱'] },
   { id: 'theme.cycle', title: '切换主题', aliases: ['theme', 'dark', '暗色'] },
   { id: 'sidebar.toggle', title: '隐藏侧栏 / 显示侧栏', aliases: ['sidebar'] },
   { id: 'focus.mode', title: '专注模式', aliases: ['zen', '专注'] },
@@ -36,7 +37,7 @@ const EXPECTED: ReadonlyArray<{ id: string; title: string; aliases: string[] }> 
   { id: 'app.quit', title: '退出', aliases: ['quit', 'exit'] },
 ];
 
-describe('commands:12 条命令的定型字段', () => {
+describe('commands:13 条命令的定型字段', () => {
   it('id 顺序即声明顺序,标题与别名逐条一致', () => {
     expect(COMMANDS.all.map((c) => c.id)).toEqual(EXPECTED.map((e) => e.id));
     for (const [i, want] of EXPECTED.entries()) {
@@ -46,7 +47,7 @@ describe('commands:12 条命令的定型字段', () => {
     }
   });
 
-  it('when 缺省即恒真:默认上下文里 12 条全部可见,顺序即声明顺序', () => {
+  it('when 缺省即恒真:默认上下文里 13 条全部可见,顺序即声明顺序', () => {
     expect(listCommands(defaultContext()).map((c) => c.id)).toEqual(EXPECTED.map((e) => e.id));
   });
 
@@ -125,7 +126,7 @@ describe('commands:defineCommands 校验', () => {
 });
 
 describe('commands:withRuns 接线门禁(T6,T3 审查 Important 1)', () => {
-  /** 把 12 条命令全部接上(可逐条替换实现,便于断言注入的就是这份) */
+  /** 把 13 条命令全部接上(可逐条替换实现,便于断言注入的就是这份) */
   const fullRuns = (over: Record<string, () => void> = {}): Record<string, () => void> =>
     Object.fromEntries(COMMANDS.all.map((c) => [c.id, over[c.id] ?? (() => {})]));
 

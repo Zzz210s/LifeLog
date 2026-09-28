@@ -9,11 +9,7 @@
 import { useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import type { DrawPlan, Segment } from './graph-draw-plan';
-
-/** 读主题令牌(亮暗切换后值会变,故颜色是"画的时候"读的);令牌缺失时退回 transparent */
-function token(name: string): string {
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || 'transparent';
-}
+import { token } from './token';
 
 function strokeAll(
   ctx: CanvasRenderingContext2D,

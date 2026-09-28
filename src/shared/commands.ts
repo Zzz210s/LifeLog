@@ -90,10 +90,11 @@ export function withRuns(registry: CommandRegistry, runs: CommandRuns): CommandR
   return defineCommands(registry.all.map((c) => ({ ...c, run: runs[c.id] })));
 }
 
-/** 命令清单(设计 §3.7;12 条 = 原 11 条 + 排序 ×2 + 添加条件 − 标签页 ×2)。id/title/aliases/when/toggled/danger 定型,T5/T6 依赖。 */
+/** 命令清单(设计 §3.7;13 条 = 原 11 条 + 排序 ×2 + 添加条件 − 标签页 ×2 + 关系图)。id/title/aliases/when/toggled/danger 定型,T5/T6 依赖。 */
 export const COMMANDS: CommandRegistry = defineCommands([
   { id: 'note.new', title: '新建笔记', aliases: ['new', 'create', '写'] },
   { id: 'settings.open', title: '打开设置', aliases: ['settings', '偏好'] },
+  { id: 'graph.open', title: '关系图', aliases: ['graph', '关系图', '图谱'] },
   { id: 'theme.cycle', title: '切换主题', aliases: ['theme', 'dark', '暗色'] },
   { id: 'sidebar.toggle', title: '隐藏侧栏 / 显示侧栏', aliases: ['sidebar'], toggled: CONTEXT.sidebar.equals(true) },
   { id: 'focus.mode', title: '专注模式', aliases: ['zen', '专注'] },
