@@ -1,9 +1,8 @@
 //! T2:`label_plain` 与前端的同源证明 —— 逐条读共享向量 `fixtures/tag-label.json`
 //! (前端 `src/shared/tag-label.test.ts` 读同一份文件),外加界面改名校验的边界。
 //! 两侧任何一方改了 md 语法,这个测试与前端那条会同时红。
-use super::{
-    label_plain, parse_label, validate_label, validate_tag_path, LabelToken, MAX_LABEL_CHARS,
-};
+use super::{label_plain, validate_label, validate_tag_path, MAX_LABEL_CHARS};
+use crate::tag_label_plain::{parse_label, LabelToken};
 use serde::Deserialize;
 
 const TAG_LABEL: &str = include_str!(concat!(
@@ -97,6 +96,33 @@ fn ui_path_syntax_is_relaxed_but_body_syntax_is_not() {
     assert!(crate::tags::parse_tag_path("工作/项目A/会议").is_some());
 }
 
+/// T1:删除线 / 下划线强调 / 反斜杠转义的 token 形态。
+/// 纯文本口径由共享向量逐条把关,这里钉住确实产出了对应 kind
+/// (否则前端渲染 `<del>` / `<em>` 那一侧就没有镜像可对)。
+#[test]
+fn inline_extensions_produce_expected_tokens() {
+    assert_eq!(parse_label("~~删除线~~"), vec![LabelToken::Del("删除线".into())]);
+    assert_eq!(parse_label("_斜体_"), vec![LabelToken::Em("斜体".into())]);
+    assert_eq!(parse_label("__粗体__"), vec![LabelToken::Strong("粗体".into())]);
+    // flanking 守卫:词内下划线不得被吃掉(否则真实标签名全遭殃)
+    assert_eq!(parse_label("a_b_c"), vec![LabelToken::Text("a_b_c".into())]);
+    assert_eq!(parse_label("snake_case"), vec![LabelToken::Text("snake_case".into())]);
+    assert_eq!(parse_label("工作__重点__"), vec![LabelToken::Text("工作__重点__".into())]);
+    // 删除线没有 flanking 约束(与正文 GFM 一致:词内也生效)
+    assert_eq!(
+        parse_label("x~~y~~z"),
+        vec![
+            LabelToken::Text("x".into()),
+            LabelToken::Del("y".into()),
+            LabelToken::Text("z".into()),
+        ]
+    );
+    // 反斜杠转义:去反斜杠,且被转义的定界符不再生效
+    assert_eq!(parse_label("\\*"), vec![LabelToken::Text("*".into())]);
+    assert_eq!(parse_label("\\_斜体\\_"), vec![LabelToken::Text("_斜体_".into())]);
+    assert_eq!(parse_label("\\"), vec![LabelToken::Text("\\".into())]);
+}
+
 /// 无语法名走"单文本 token"退化(与前端 renderTagLabel 直接返回字符串同口径)
 #[test]
 fn plain_text_name_is_a_single_text_token() {
@@ -108,7 +134,18 @@ fn plain_text_name_is_a_single_text_token() {
 /// 界面改名校验:md 符号放行;空 / 含 `/` / 控制字符 / 空白 / `#` / 超长一律拒
 #[test]
 fn validate_label_allows_md_and_rejects_unusable_names() {
-    for ok in ["[郴](chēn)州市", "**重点**", "*斜体*", "`代码`", "工作", "项目A", "v1.0"] {
+    for ok in [
+        "[郴](chēn)州市",
+        "**重点**",
+        "*斜体*",
+        "`代码`",
+        "~~删除线~~",
+        "_斜体_",
+        "\\*字面星号",
+        "工作",
+        "项目A",
+        "v1.0",
+    ] {
         assert!(validate_label(ok).is_ok(), "应通过:{ok}");
     }
     assert!(validate_label("").is_err(), "空名");
