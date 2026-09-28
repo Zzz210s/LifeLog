@@ -10,10 +10,10 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { BASE, ensureMain, recorder, sleep } from './cdp-lib.mjs';
+import { auditCardStates } from './audit-visual-card.mjs';
 import { recordTopBarMenu } from './audit-visual-menu.mjs';
 import {
-  BLUR_JS, CARD_STATE_JS, CLOSE_DIALOG_JS, MENU_SCAN_JS, OPEN_DIALOG_JS, PICK_CARDS_JS,
-  REAL_FOCUS_JS, SCAN_JS, TOKEN_NAMES,
+  CLOSE_DIALOG_JS, MENU_SCAN_JS, OPEN_DIALOG_JS, SCAN_JS, TOKEN_NAMES,
 } from './audit-visual-scan.mjs';
 const SIZES = [11, 12, 13, 14, 15, 16, 20]; // 7 档类型刻度
 const RADII = [4, 6, 8, 12]; // 圆角 4 档(0 允许作单角:卡片/浮层的定位修饰)
@@ -102,54 +102,8 @@ r.record(
 // 浮层（命令面板）读数已随浮层外壳删除（Task 7）；统一输入框下拉的 6px + 阴影由
 // unified-dropdown.dom.test.ts 钉住，模态浮层的 12px + 阴影由上面的菜单/对话框两条覆盖。
 
-// 7) 卡片三态:hover / focus-within 用 CDP 强制伪类读计算样式差;对照卡片避开真实鼠标悬停的那张
-await cdp.send('DOM.enable');
-await cdp.send('CSS.enable');
-const pick = await js(PICK_CARDS_JS);
-// 少于两张可见卡片时无法对照:判失败并跳过强制伪类(nodeId 取到 undefined 会让 CDP 调用崩)
-const canPick = pick.target >= 0 && pick.ref >= 0;
-if (!canPick) {
-  r.record(
-    '卡片 hover 态(背景变化)',
-    false,
-    `需要至少两张可见卡片(target=${pick.target} ref=${pick.ref})——当前筛选把信息流收得太窄时无法对照`,
-  );
-  r.record('卡片 focus 态(键盘通道显形 + accent 环)', false, '同上:没有可对照的第二张卡片');
-}
-if (canPick) {
-// 每次强制前重取 nodeId:HMR/重渲会让上一次的 nodeId 失效(失效时伪类作用在旧节点上,读数为假阴性)
-const force = async (list) => {
-  const d = await cdp.send('DOM.getDocument', { depth: 1 });
-  const ids = (await cdp.send('DOM.querySelectorAll', { nodeId: d.root.nodeId, selector: '#root ul li' })).nodeIds;
-  await cdp.send('CSS.forcePseudoState', { nodeId: ids[pick.target], forcedPseudoClasses: list });
-  await sleep(320);
-};
-const base = await js(CARD_STATE_JS(pick.target));
-const ref = await js(CARD_STATE_JS(pick.ref));
-await force(['hover']);
-const hover = await js(CARD_STATE_JS(pick.target));
-await force(['focus-within']);
-let focus = await js(CARD_STATE_JS(pick.target));
-if (focus?.actionOpacity !== '1') {
-  await force(['focus-within']);
-  focus = await js(CARD_STATE_JS(pick.target));
-}
-await force([]);
-const realFocus = await js(REAL_FOCUS_JS(pick.target));
-await js(BLUR_JS);
-r.record(
-  '卡片 hover 态(背景变化)',
-  !!hover && hover.bg === hover.hoverToken && ref?.bg === ref?.raisedToken,
-  `静止卡 ${ref?.bg}(= --color-raised ${ref?.raisedToken}) -> 强制 hover ${hover?.bg}(= --color-hover ${hover?.hoverToken})`,
-);
-// 环:规则必须在(与 OS 焦点无关);窗口有焦点时再核对实时值
-const ringLive = realFocus?.outlineStyle === 'solid' && realFocus?.outlineColor === realFocus?.accent;
-r.record(
-  '卡片 focus 态(键盘通道显形 + accent 环)',
-  !!focus && focus.actionOpacity === '1' && ref?.actionOpacity === '0' && realFocus?.ruleOk === true && (!realFocus?.docFocused || ringLive),
-  `操作行 opacity 对照卡 ${ref?.actionOpacity} -> focus-within ${focus?.actionOpacity};环规则 ${realFocus?.ruleOk ? '在' : '缺失'}${realFocus?.docFocused ? `(窗口有焦点,实时 ${realFocus?.outlineWidth} ${realFocus?.outlineColor})` : '(窗口无 OS 焦点,只校规则)'}`,
-);
-}
+// 7) 卡片三态(实现抽到 audit-visual-card.mjs:本文件已顶 200 行红线)
+await auditCardStates({ cdp, js, sleep, r });
 
 // 8) 正文对比度(亮暗两态)
 const badContrast = scans.filter((s) => !s.contrast || s.contrast.ratio < 4.5).map((s) => `${s.theme} ${s.contrast?.ratio}`);
