@@ -131,3 +131,31 @@ describe('renderTagLabel:强调与行内代码', () => {
     expect(render('`').textContent).toBe('`');
   });
 });
+
+describe('renderTagLabel:删除线 / 下划线强调 / 反斜杠转义(T1)', () => {
+  it('~~ 出 <del>,词内也生效(与正文 GFM 一致)', () => {
+    expect(render('~~删除线~~').querySelector('del')?.textContent).toBe('删除线');
+    expect(render('x~~y~~z').textContent).toBe('xyz');
+    expect(render('~~未闭合').children).toHaveLength(0);
+  });
+
+  it('_ / __ 出 <em> / <strong>,但带 flanking 守卫', () => {
+    expect(render('_斜体_').querySelector('em')?.textContent).toBe('斜体');
+    expect(render('__粗体__').querySelector('strong')?.textContent).toBe('粗体');
+    expect(render('地点/_斜体_').textContent).toBe('地点/斜体');
+    // 词内 / 单侧定界符一律字面(否则 snake_case 这类真实标签名会被吃掉)
+    for (const literal of ['a_b_c', 'snake_case', '工作__重点__', '_斜体_州市', '_前置', '后置_']) {
+      expect(render(literal).children, literal).toHaveLength(0);
+      expect(render(literal).textContent, literal).toBe(literal);
+    }
+  });
+
+  it('反斜杠转义:去反斜杠、字面显示,且不产元素', () => {
+    expect(render('\\*').textContent).toBe('*');
+    expect(render('\\*').children).toHaveLength(0);
+    // 转义掉的下划线不再是定界符
+    expect(render('\\_斜体\\_').textContent).toBe('_斜体_');
+    expect(render('\\_斜体\\_').querySelector('em')).toBeNull();
+    expect(render('\\').textContent).toBe('\\');
+  });
+});

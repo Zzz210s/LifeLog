@@ -26,6 +26,8 @@ mod hotkey_fixtures_tests;
 // 标签名的行内 md 纯文本形态(label_plain)与界面改名校验(validate_label):
 // 经 tags 上浮为 tags::label_plain / tags::validate_label,与正文语法 parse_tag_path 并列
 mod tag_label;
+// 解析口径(tokenizer + label_plain)自 tag_label 拆出以守 200 行红线,由 tag_label 再导出
+mod tag_label_plain;
 // 正文抽标签的兜底解析(严格语法失败处按库内已有路径最长匹配;唯一调用点是 tags::try_tag)
 mod tag_fallback;
 mod tags;
