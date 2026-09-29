@@ -74,10 +74,10 @@ export function App(): ReactNode {
   const backToStream = useCallback(() => setView('stream'), []);
   const tutorial = useTutorialEntry(backToStream);
 
-  // 引导开着时切到设置页(托盘「设置」是 OS 级通道,拦不住键盘闸门)会把锚点全藏起来 ——
+  // 引导开着时切到非信息流视图(设置页 / 关系图;托盘与命令都拦不住键盘闸门)会把锚点全藏起来 ——
   // 覆盖层会变成"全屏压暗 + 气泡悬空"。这时按"不可用"处理:**只关层、不写标记**,下次启动再弹。
   useEffect(() => {
-    if (view === 'settings' && tutorial.open) tutorial.onUnavailable();
+    if (view !== 'stream' && tutorial.open) tutorial.onUnavailable();
   }, [view, tutorial]);
 
   const { remove, onEditSaved, toggleTask, requestEdit, switchEdit, handleTagsMutated } = useEditFlow({

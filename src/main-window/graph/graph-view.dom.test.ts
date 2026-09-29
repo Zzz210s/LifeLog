@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const { graphData } = vi.hoisted(() => ({
+const { graphData, getSetting, setSetting } = vi.hoisted(() => ({
   graphData: vi.fn(async () => ({
     nodes: [
       { id: 1, path: '时间', depth: 1, parent: null, notes: 1177 },
@@ -19,8 +19,11 @@ const { graphData } = vi.hoisted(() => ({
     ],
     edges: [{ a: 1, b: 2, kind: 'tree' as const, weight: 1 }],
   })),
+  getSetting: vi.fn(async (): Promise<string | null> => null),
+  setSetting: vi.fn(async () => undefined),
 }));
-vi.mock('../../shared/api', () => ({ api: { graphData } }));
+// getSetting 是相机 hook 读位置记忆的入口(G2 起才会写回)
+vi.mock('../../shared/api', () => ({ api: { graphData, getSetting, setSetting } }));
 
 import { GraphView } from './GraphView';
 
