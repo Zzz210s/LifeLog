@@ -130,3 +130,33 @@ describe('GraphView:尺寸变化重建几何', () => {
     }
   });
 });
+
+describe('GraphView:纯 DPR 变化(尺寸量不出差别)', () => {
+  it('CSS 尺寸一点没变、只有 devicePixelRatio 变:仍然重建几何并重设后备缓冲', async () => {
+    const getContext = vi
+      .spyOn(HTMLCanvasElement.prototype, 'getContext')
+      .mockImplementation(() => ctxStub as unknown as CanvasRenderingContext2D);
+    Object.defineProperty(HTMLDivElement.prototype, 'clientWidth', { get: () => 400, configurable: true });
+    Object.defineProperty(HTMLDivElement.prototype, 'clientHeight', { get: () => 300, configurable: true });
+    // 400 这个读数量化后在 1.25 与 1.5 下相同(400×1.25 与 400×1.5 都是整数)-> size 对象身份不变
+    const original = Object.getOwnPropertyDescriptor(window, 'devicePixelRatio');
+    let dpr = 1.25;
+    Object.defineProperty(window, 'devicePixelRatio', { get: () => dpr, configurable: true });
+    try {
+      await mount(() => {});
+      const canvas = host.querySelector('canvas');
+      expect([canvas?.width, canvas?.height]).toEqual([500, 375]);
+      const calls = getContext.mock.calls.length;
+      dpr = 1.5;
+      await act(async () => {
+        window.dispatchEvent(new Event('resize'));
+      });
+      expect([canvas?.width, canvas?.height]).toEqual([600, 450]);
+      expect(getContext.mock.calls.length).toBe(calls + 1);
+    } finally {
+      delete (HTMLDivElement.prototype as { clientWidth?: unknown }).clientWidth;
+      delete (HTMLDivElement.prototype as { clientHeight?: unknown }).clientHeight;
+      if (original !== undefined) Object.defineProperty(window, 'devicePixelRatio', original);
+    }
+  });
+});

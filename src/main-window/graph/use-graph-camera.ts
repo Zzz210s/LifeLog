@@ -1,8 +1,9 @@
 /**
- * 相机状态 + 交互(G1):滚轮以光标为中心缩放、拖空白平移、`0` 复位。
+ * 相机状态 + 交互(G1):滚轮以光标为中心缩放、拖空白平移、`0` 复位、`+`/`-` 以画布中心缩放。
  * 位置记忆:进视图读一次 settings `graph_positions`(只含被拖过的节点),叠加在布局结果之上;
  * 写回只发生在 savePositions 被调用时(G1 不做节点拖拽,G2 接)。
- * 键盘监听与视图外壳的 `Esc` 退出是两条独立监听:这里只管 `0`,不 stopPropagation,互不吞。
+ * 键盘监听与视图外壳的 `Esc` 退出是两条独立监听:这里只管缩放三键,不 stopPropagation,互不吞。
+ * 键盘缩放按设计 §5 的 `+` `-` `0`:画布没有"光标位置"可用,锚点取画布中心(`=` 是 `+` 的无 Shift 键位)。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../../shared/api';
@@ -96,15 +97,24 @@ export function useGraphCamera(opts: {
     setCamera(fitToView([...points.values()], opts.width, opts.height));
   }, [points, opts.width, opts.height]);
 
+  const zoomBy = useCallback(
+    (factor: number): void => {
+      setCamera((cam) => zoomAt(cam, factor, { x: opts.width / 2, y: opts.height / 2 }));
+    },
+    [opts.width, opts.height],
+  );
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
-      // 带修饰键的 0(Ctrl+0 等)留给宿主,不抢
-      if (e.key !== '0' || e.ctrlKey || e.metaKey || e.altKey) return;
-      reset();
+      // 带修饰键的按键(Ctrl+0 等)留给宿主,不抢
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key === '0') reset();
+      else if (e.key === '+' || e.key === '=') zoomBy(ZOOM_STEP);
+      else if (e.key === '-') zoomBy(1 / ZOOM_STEP);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [reset]);
+  }, [reset, zoomBy]);
 
   const onWheel = useCallback((e: WheelEvent): void => {
     e.preventDefault();

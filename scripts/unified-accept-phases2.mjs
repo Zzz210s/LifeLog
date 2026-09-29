@@ -3,6 +3,7 @@
 // 由 dev-unified-input-accept.mjs 在夹具就绪后调用一次,共用同一个 recorder(读数口径不变)。
 import { os } from './cdp-os.mjs';
 import { sleep, waitFor } from './cdp-lib.mjs';
+import { MENU_ITEMS, MENU_LABELS } from './command-table.mjs';
 import { FIXTURE_TAG, SIDEBAR } from './unified-accept-lib.mjs';
 
 const BAR = '[data-testid="condition-bar"]';
@@ -11,8 +12,6 @@ const MORE = '#root button[aria-label="更多操作"]';
 const STATUS = '[data-testid="command-status"]';
 /** Task 2 搬到 `>`/顶栏菜单的三样动作:条件栏里不该再出现这些按钮文案 */
 const BANNED = ['排序', '导出', '添加条件'];
-/** 顶栏溢出菜单四条(顺序即用户可见顺序;标题来自命令表,不在组件里重写) */
-const MENU_LABELS = ['最新在前', '最早在前', '导出整库', '添加条件'];
 
 const menuOpen = (d) => d.ev(`!!document.querySelector('${MENU}')`);
 const statusText = (d) => d.ev(`document.querySelector('${STATUS}')?.textContent ?? null`);
@@ -102,24 +101,29 @@ async function sortCommands(d, r) {
       `翻转后 最新=${after.newest}/最早=${after.oldest}(首条 ${afterFirst});复位后首条 ${restored}`);
 }
 
-/** ⑬ 顶栏 `⋯` 菜单:四条条目与勾选态 -> 点「添加条件」关菜单并开出条件栏菜单 */
+/** ⑬ 顶栏 `⋯` 菜单:条目清单由命令表派生 -> 逐条核对 -> 点「添加条件」关菜单并开出条件栏菜单 */
 async function topBarMenu(d, r) {
   await d.esc();
   await sleep(250);
   await clickMore(d);
   await waitFor(async () => ((await menuOpen(d)) ? true : null), 8, 200);
   const items = await menuItems(d);
-  const shape = items.length === 4 && items.map((i) => i.label).join('|') === MENU_LABELS.join('|') &&
-    items[0].role === 'menuitemradio' && items[0].checked === 'true' && items[0].check === true &&
-    items[1].role === 'menuitemradio' && items[1].checked === 'false' && items[1].check === false &&
-    items[2].role === 'menuitem' && items[3].role === 'menuitem';
-  const clicked = await clickMenuItem(d, MENU_LABELS[3]);
+  // 勾选态条目(两条排序)是 menuitemradio,其余是 menuitem:按条目自带的 toggled 判定档位,
+  // 不按位置写死 —— 菜单里插一条新命令(如关系图)不该让这条读数假红
+  const radios = items.filter((i) => i.role === 'menuitemradio');
+  const shape = items.length === MENU_ITEMS.length &&
+    items.every((i, k) => i.label === MENU_ITEMS[k].label && i.role === (MENU_ITEMS[k].toggled ? 'menuitemradio' : 'menuitem')) &&
+    radios.every((i) => i.checked === String(i.check)) &&
+    radios.filter((i) => i.checked === 'true').length === 1;
+  const add = MENU_ITEMS.find((m) => m.id === 'filter.addCondition');
+  if (add === undefined) throw new Error('顶栏菜单里没有 filter.addCondition');
+  const clicked = await clickMenuItem(d, add.label);
   const closed = !(await menuOpen(d));
   const addOpen = await waitFor(async () => ((await d.ev(`!!document.querySelector('${BAR} [role="menu"]')`)) ? true : null), 10, 250);
   const addItems = await d.ev(`Array.from(document.querySelectorAll('${BAR} [role="menu"] [role="menuitem"]')).map((b) => b.textContent.trim())`);
   r.record('⑬ 顶栏 `⋯` 菜单', shape && clicked && closed && addOpen === true,
-    `条目 ${JSON.stringify(items)};点「${MENU_LABELS[3]}」命中=${clicked};溢出菜单已关=${closed};` +
-      `条件栏菜单=${addOpen === true ? JSON.stringify(addItems) : '未出现'}`);
+    `条目 ${JSON.stringify(items)};期望清单 ${JSON.stringify(MENU_LABELS)};点「${add.label}」命中=${clicked};` +
+      `溢出菜单已关=${closed};条件栏菜单=${addOpen === true ? JSON.stringify(addItems) : '未出现'}`);
   await d.esc();
   await sleep(250);
 }

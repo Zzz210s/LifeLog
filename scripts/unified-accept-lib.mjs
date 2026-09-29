@@ -11,12 +11,11 @@ export const SIDEBAR = 'aside[data-testid="sidebar"]';
 export const FIXTURE_TAG = 'UI测试';
 export const RECORD_TEXT = 'UI测试·记录';
 export const FIXTURES = [`UI测试夹具一 #${FIXTURE_TAG}`, `UI测试夹具二 #${FIXTURE_TAG}`, 'UI测试夹具三'];
-/** 12 条命令(shared/commands.ts 声明);tab.next/tab.prev 两条已删 */
-export const COMMAND_IDS = [
-  'note.new', 'settings.open', 'theme.cycle', 'sidebar.toggle',
-  'focus.mode', 'sort.newest', 'sort.oldest', 'filter.addCondition',
-  'export.all', 'search.reindex', 'hotkey.edit', 'app.quit',
-];
+/**
+ * 命令表(shared/commands.ts 声明)从源码派生,不再复制一份清单:
+ * 清单写死时,命令表加一条就让读数 ⑤ 假红(加关系图那批已踩)。
+ */
+export { COMMAND_IDS } from './command-table.mjs';
 export const EMPTY = { keyword: null, tags: [], excludeTags: [], tagPresence: null, sort: 'newest', expr: null };
 const VK = { enter: 13, esc: 27, a: 65, backspace: 8 };
 const CTRL = 2;

@@ -4,7 +4,7 @@
  *
  *   1 首帧可见 ≤150ms(命令执行 -> 首个有内容的画布绘制;另报 DOM 挂载时刻)
  *   2 graph_data ≤40ms,并报节点/边数与 JSON 载荷
- *   3 径向布局耗时(开发构建下 import 源码模块对纯函数计时;生产构建无源码路径时只打 INFO)
+ *   3 径向布局耗时 ≤10ms(开发构建下 import 源码模块对纯函数计时;生产构建无源码路径时只打 INFO)
  *   4 静止 3 秒:画布绘制调用 0 次 + 内容签名(着墨数/列桶/指纹)不变(设计 §3.3「静止不重绘」)
  *   5 缩放/平移/按 0 复位:200 帧帧间隔中位 ≤18ms;着墨质心随平移走(Δ≥拖拽量一半)、
  *     再按 0 回到原位(±8 设备像素)。判据用质心而不是像素指纹:进视图后的首次栅格与
@@ -120,7 +120,7 @@ record('2 graph_data ≤40ms', load.ms <= 40, `${load.ms}ms / ${load.kb}KB(${loa
 // 3) 布局耗时(开发构建才有源码模块路径)
 const layout = await layoutMs(conn.cdp);
 if (layout === null) console.log('INFO  3 布局耗时:生产构建没有源码模块路径,本次不单独计时');
-else record('3 径向布局耗时', layout.ms >= 0, `${layout.ms}ms(${layout.nodes} 节点 = 视图真实布局点集;graph_data 原始 ${layout.raw} 条,折叠「时间」根后由 visibleGraph 给出;${layout.runs} 次取中位)`);
+else record('3 径向布局耗时 ≤10ms', layout.ms <= 10, `${layout.ms}ms(${layout.nodes} 节点 = 视图真实布局点集;graph_data 原始 ${layout.raw} 条,折叠「时间」根后由 visibleGraph 给出;${layout.runs} 次取中位)`);
 
 // 4) 先等画布安静,再量严格 3 秒:绘制调用与内容签名都不该动。
 // 首次数位读回会触发一次重栅格化(AA 级差异、零绘制调用),故第一步先丢弃一次读数。

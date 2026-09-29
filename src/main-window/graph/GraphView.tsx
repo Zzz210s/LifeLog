@@ -2,8 +2,9 @@
  * 关系图视图外壳(G1):打开时拉一次图数据 -> 折叠时间轴 -> 径向布局 -> 画布。
  * 数据只在进入本视图时拉取,信息流与输入栏的启动路径不受影响(设计 §2.1)。
  * 画布尺寸按容器实测:窗口 resize / DPR 变化都要重建几何(设计 §6-3),
- * 故 `plan` 的 memo 依赖必须含 `size`(尺寸变而 plan 未变 -> 位图被拉伸,Task 4 审查交接)。
- * 相机(缩放/平移/`0` 复位/位置记忆)全在 useGraphCamera;这里只负责把 DOM 事件接上去。
+ * 故 `plan` 的 memo 依赖必须含 `size` 与 `dprKey`(尺寸变而 plan 未变 -> 位图被拉伸,Task 4 审查交接;
+ * 纯 DPR 变化时尺寸量化可能量不出差别,只靠 size 会停在旧 DPR)。
+ * 相机(缩放/平移/`+` `-` `0`/位置记忆)全在 useGraphCamera;这里只负责把 DOM 事件接上去。
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
@@ -14,6 +15,7 @@ import { drawPlan, type DrawPlan } from './graph-draw-plan';
 import { DEFAULT_COLLAPSED, visibleGraph } from './graph-view-model';
 import { radialLayout, type Point } from './radial';
 import { token } from './token';
+import { useDprKey } from './use-dpr-key';
 import { useGraphCamera } from './use-graph-camera';
 import { useThemeKey } from './use-theme-key';
 
@@ -26,6 +28,7 @@ export function GraphView(p: { onExit: () => void }): ReactNode {
   const [failed, setFailed] = useState(false);
   const [size, setSize] = useState({ w: 0, h: 0 });
   const themeKey = useThemeKey();
+  const dprKey = useDprKey();
   const fitted = useRef(false);
   const boxRef = useRef<HTMLDivElement>(null);
 
@@ -119,7 +122,8 @@ export function GraphView(p: { onExit: () => void }): ReactNode {
             fallbackColor: token('--color-muted'),
           }),
     // themeKey 进依赖:兜底色是计划期读的令牌,换主题必须重建 plan(边/文字的颜色在画布里现读)
-    [nodes, edges, points, cam.camera, size, themeKey],
+    // dprKey 进依赖:纯 DPR 变化时尺寸可能一点没变,不重建 plan 就不会重设后备缓冲(画布停在旧 DPR)
+    [nodes, edges, points, cam.camera, size, themeKey, dprKey],
   );
 
   const count = failed ? '关系图加载失败' : `${nodes.length} 个节点 / ${edges.length} 条边`;

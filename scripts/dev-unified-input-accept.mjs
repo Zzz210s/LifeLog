@@ -62,7 +62,7 @@ async function main(ctx) {
   r.record('④ `#` 采纳 -> 条件 chip', (chipTexts[0] ?? '').startsWith('⊢') && (chipTexts[0] ?? '').includes(`#${FIXTURE_TAG}`),
     `候选 ${tagRows?.length ?? 0} 行(首行 ${tagRows?.[0]?.label ?? '-'});chip=${JSON.stringify(chipTexts)}`);
 
-  // --- ⑤ `>` 命令:候选行数 == 可用命令数(12 条);`>侧栏` 勾选态换边 ---
+  // --- ⑤ `>` 命令:候选行数 == 命令表条数(从 shared/commands.ts 派生);`>侧栏` 勾选态换边 ---
   // 注:命令表已含两条排序命令(`COMMAND_IDS` 里的 sort.newest/sort.oldest,候选数与勾选态另由 ⑫ 实测),
   // 这里仍用带勾选态的 sidebar.toggle 驱动换边。
   await d.clearChips();
