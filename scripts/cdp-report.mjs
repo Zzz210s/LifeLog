@@ -50,8 +50,9 @@ export async function timeTagRoot(call) {
 /**
  * 绑定主窗页面的常用动作:验收脚本都只用主窗做 IPC 断言/库存对照。
  * call 走真实 IPC;inventory 是库存快照:笔记数 + `id|首行` 清单(逐页取全,不是首页 50 条)+ 全部标签路径
- * + `filter_current` 原文 + `theme` 原文(基线洁净断言与运行清单断言都基于它;
+ * + `filter_current` 原文 + `theme` 原文 + `graph_positions` 原文(基线洁净断言与运行清单断言都基于它;
  * 保存视图与 `filter_last` 已随迁移 014 删除,多页筛选快照随迁移 016 迁成单份 `filter_current`)。
+ * `graph_positions` 进快照:关系图只读验收要能证明"进图不写库"(G1 只读该键,写了就会变)。
  * liCount 数信息流里渲染出的笔记条数(条目根为 li 且内含 .md-body)。
  */
 export function bindMain(cdp) {
@@ -71,12 +72,14 @@ export function bindMain(cdp) {
         const tags = await T('list_tags');
         const filterCurrent = await T('get_setting', { key: 'filter_current' });
         const theme = await T('get_setting', { key: 'theme' });
+        const positions = await T('get_setting', { key: 'graph_positions' });
         return {
           notes: all.length,
           ids: all.map((n) => n.id + '|' + n.content.split(String.fromCharCode(10))[0]).sort(),
           paths: tags.map((t) => t.path).sort(),
           filterCurrent: filterCurrent === undefined ? null : filterCurrent,
           theme: theme === undefined ? null : theme,
+          graphPositions: positions === undefined ? null : positions,
         };
       })()`),
   };

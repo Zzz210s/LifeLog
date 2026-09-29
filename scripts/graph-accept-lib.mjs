@@ -162,21 +162,27 @@ export const panDrag = (cdp) =>
 
 /**
  * 布局耗时:开发构建下直接 import 源码模块对纯函数计时(生产构建没有源码路径 -> null)。
- * 只折叠「时间」根:与视图外壳的默认折叠口径一致(DEFAULT_COLLAPSED)。
+ * 计时的节点集必须与视图真正布局的那一份一致:走同一份 visibleGraph + DEFAULT_COLLAPSED。
+ * 折叠「时间」根会连它的全部后代一起隐藏(本机库 768 个标签里 378 个以「时间」开头),
+ * 只剔掉根自身等于把 391 个点当 767 个点计时,那只是探针自己的工作量。
  */
 export const layoutMs = (cdp, runs = 20) =>
   cdp.eval(`(async () => {
-    const mod = await import('/src/main-window/graph/radial.ts').catch(() => null);
-    if (!mod) return null;
+    const mods = await Promise.all([
+      import('/src/main-window/graph/radial.ts'),
+      import('/src/main-window/graph/graph-view-model.ts'),
+    ]).catch(() => null);
+    if (mods === null) return null;
+    const [radial, vm] = mods;
     const raw = await window.__TAURI_INTERNALS__.invoke('graph_data');
-    const nodes = raw.nodes.filter((n) => n.path !== '时间');
+    const { nodes } = vm.visibleGraph(raw, { collapsedRoots: vm.DEFAULT_COLLAPSED });
     if (nodes.length === 0) return null;
     const times = [];
     for (let i = 0; i < ${runs}; i++) {
       const t0 = performance.now();
-      mod.radialLayout(nodes, { layerGap: 90 });
+      radial.radialLayout(nodes, { layerGap: 90 });
       times.push(performance.now() - t0);
     }
     times.sort((a, b) => a - b);
-    return { ms: Math.round(times[${Math.floor(runs / 2)}] * 1000) / 1000, nodes: nodes.length, runs: ${runs} };
+    return { ms: Math.round(times[${Math.floor(runs / 2)}] * 1000) / 1000, nodes: nodes.length, raw: raw.nodes.length, runs: ${runs} };
   })()`);

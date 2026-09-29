@@ -14,7 +14,7 @@
  */
 import { ensureMain, recorder, sleep, waitFor } from './cdp-lib.mjs';
 
-const { record, finish } = recorder();
+const { record, finish, results } = recorder();
 const main = await ensureMain();
 const d = main.cdp;
 
@@ -114,4 +114,7 @@ await type(''); // 走与真人打字同一条路径清空(非受控框:DOM 与 
 await waitFor(async () => ((await read()).value === '' ? true : null), 8, 200);
 record('收尾:输入框已清空(未写库)', (await read()).value === '', '');
 
+// 关连接再硬退:finish() 只设 exitCode,开着的 WebSocket 会拖住事件循环(实测不退出;同 dev-graph-accept)
 finish();
+main.close();
+process.exit(results.some((x) => !x.ok) ? 1 : 0);

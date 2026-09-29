@@ -11,13 +11,12 @@ import { api } from '../../shared/api';
 import type { GraphData } from '../../shared/types';
 import { GraphCanvas } from './GraphCanvas';
 import { drawPlan, type DrawPlan } from './graph-draw-plan';
-import { visibleGraph } from './graph-view-model';
+import { DEFAULT_COLLAPSED, visibleGraph } from './graph-view-model';
 import { radialLayout, type Point } from './radial';
 import { token } from './token';
 import { useGraphCamera } from './use-graph-camera';
 import { useThemeKey } from './use-theme-key';
 
-const DEFAULT_COLLAPSED = ['时间']; // 设计 D8:时间轴默认折叠
 const LAYER_GAP = 90;
 
 const EMPTY_PLAN: DrawPlan = { co: [], tree: [], dots: [], labels: [] };
@@ -68,13 +67,17 @@ export function GraphView(p: { onExit: () => void }): ReactNode {
     };
   }, []);
 
+  // Esc 只依赖回调本身(App 传的 backToStream 是 useCallback(..., []),身份恒定):props 对象只在
+  // 父组件重渲染时换身份,依赖 [p] 会让视图开着时每次 App 重渲染都摘掉再挂一次 window 监听
+  // (真机实测:切一次侧栏就多挂 1 次;平移不会,与上面 cam.onWheel 的口径一致)。
+  const onExit = p.onExit;
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') p.onExit();
+      if (e.key === 'Escape') onExit();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [p]);
+  }, [onExit]);
 
   const { nodes, edges } = useMemo(
     () => (data === null ? { nodes: [], edges: [] } : visibleGraph(data, { collapsedRoots: DEFAULT_COLLAPSED })),

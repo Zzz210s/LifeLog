@@ -25,7 +25,7 @@ import {
 
 const EXE = process.argv[2] ?? 'E:/1-LifeLog/LifeLog.exe';
 const KEY = 'ui.tutorial_seen';
-const { record, finish } = recorder();
+const { record, finish, results } = recorder();
 const overlap = (a, b) => a != null && b != null && a.left < b[2] && b[0] < a.left + a.width && a.top < b[3] && b[1] < a.top + a.height;
 
 // ---------- 前置:清标记(此时主窗可能不存在,故走输入栏页面) ----------
@@ -133,4 +133,7 @@ const restored = await waitFor(async () => {
 }, 20, 500);
 record('收尾:引导结束后输入栏恢复可见', restored === true, JSON.stringify({ restored }));
 
+// 关连接再硬退:finish() 只设 exitCode,开着的 WebSocket 会拖住事件循环(实测不退出;同 dev-graph-accept)
 finish();
+page.close();
+process.exit(results.some((x) => !x.ok) ? 1 : 0);

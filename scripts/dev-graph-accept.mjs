@@ -96,6 +96,17 @@ record(
   `${first.paintMs}ms(命令执行 -> 首次绘制;DOM 挂载 ${first.mountMs}ms,轮询取回 ${first.observedMs}ms;候选 ${rows.length} 条,命中 graph.open)`,
 );
 
+// 6) 内存增量:进图 3 秒后相对进图前基线的 JS 堆增量(这才是"打开关系图"的开销)
+await sleep(2000);
+const heap1 = await conn.cdp.send('Runtime.getHeapUsage');
+const mem1 = memNow();
+record(
+  '6 打开关系图的内存增量 ≤15MB(JS 堆;窗口紧贴进图)',
+  heap1.usedSize - heap0.usedSize <= 15 * 1024 * 1024,
+  `JS 堆 ${mb(heap0.usedSize)} -> ${mb(heap1.usedSize)}MB(Δ${mb(heap1.usedSize - heap0.usedSize)}),数组缓冲 Δ${mb(heap1.backingStorageSize - heap0.backingStorageSize)}MB;` +
+    `RSS app ${mem0.app} -> ${mem1.app},webview ${mem0.webview} -> ${mem1.webview}(Δ${round1(mem1.total - mem0.total)}MB,含 GC 抖动)`,
+);
+
 // 2) 数据加载耗时与载荷
 const load = await ev(`(async () => {
   const T = window.__TAURI_INTERNALS__.invoke;
@@ -109,18 +120,7 @@ record('2 graph_data ≤40ms', load.ms <= 40, `${load.ms}ms / ${load.kb}KB(${loa
 // 3) 布局耗时(开发构建才有源码模块路径)
 const layout = await layoutMs(conn.cdp);
 if (layout === null) console.log('INFO  3 布局耗时:生产构建没有源码模块路径,本次不单独计时');
-else record('3 径向布局耗时', layout.ms >= 0, `${layout.ms}ms(${layout.nodes} 节点;${layout.runs} 次取中位)`);
-
-// 6) 内存增量:进图 3 秒后相对基线的 JS 堆增量(这才是"打开关系图"的开销)
-await sleep(2000);
-const heap1 = await conn.cdp.send('Runtime.getHeapUsage');
-const mem1 = memNow();
-record(
-  '6 打开关系图的内存增量 ≤15MB(JS 堆;热态基线)',
-  heap1.usedSize - heap0.usedSize <= 15 * 1024 * 1024,
-  `JS 堆 ${mb(heap0.usedSize)} -> ${mb(heap1.usedSize)}MB(Δ${mb(heap1.usedSize - heap0.usedSize)}),数组缓冲 Δ${mb(heap1.backingStorageSize - heap0.backingStorageSize)}MB;` +
-    `RSS app ${mem0.app} -> ${mem1.app},webview ${mem0.webview} -> ${mem1.webview}(Δ${round1(mem1.total - mem0.total)}MB,含 GC 抖动)`,
-);
+else record('3 径向布局耗时', layout.ms >= 0, `${layout.ms}ms(${layout.nodes} 节点 = 视图真实布局点集;graph_data 原始 ${layout.raw} 条,折叠「时间」根后由 visibleGraph 给出;${layout.runs} 次取中位)`);
 
 // 4) 先等画布安静,再量严格 3 秒:绘制调用与内容签名都不该动。
 // 首次数位读回会触发一次重栅格化(AA 级差异、零绘制调用),故第一步先丢弃一次读数。
@@ -189,7 +189,11 @@ record(
   '11 只读:库计数/全量清单/get_db_info 与开工前一致',
   closed === true && same(counts0, counts1) && same(inv0, inv1) && same(info0, info1),
   `退出=${closed === true};笔记 ${counts1.notes} / 标签 ${counts1.tags} / 链接 ${counts1.links} / 别名 ${counts1.aliases};` +
-    `integrity=${counts1.integrity} user_version=${counts1.version};get_db_info=${JSON.stringify(info1)}`,
+    `integrity=${counts1.integrity} user_version=${counts1.version};` +
+    `graph_positions=${JSON.stringify(inv1.graphPositions)};get_db_info=${JSON.stringify(info1)}`,
 );
 
+// 关连接再硬退:finish() 只设 exitCode,开着的 WebSocket 会拖住事件循环(实测 12s 仍不退出)
 finish();
+conn.close();
+process.exit(rec.results.some((x) => !x.ok) ? 1 : 0);
