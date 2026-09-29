@@ -96,7 +96,7 @@ record(
   `${first.paintMs}ms(命令执行 -> 首次绘制;DOM 挂载 ${first.mountMs}ms,轮询取回 ${first.observedMs}ms;候选 ${rows.length} 条,命中 graph.open)`,
 );
 
-// 6) 内存增量:进图 3 秒后相对进图前基线的 JS 堆增量(这才是"打开关系图"的开销)
+// 6) 内存增量:进图 2 秒后相对进图前基线的 JS 堆增量(这才是"打开关系图"的开销)
 await sleep(2000);
 const heap1 = await conn.cdp.send('Runtime.getHeapUsage');
 const mem1 = memNow();
