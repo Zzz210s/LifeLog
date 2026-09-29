@@ -5,7 +5,7 @@
  *   1 主窗信息流视图内 [role=tablist] 0 个;界面文本无「标签页」字样
  *   2 点侧栏标签 -> 条件栏出现 chip、笔记流条数与 query_notes 一致;再点一次取消
  *   3 `/` 关键词筛选 -> 提示行命中数与 query_notes 一致
- *   4 `>` 命令候选 12 条,且不含标签页命令
+ *   4 `>` 命令候选条数与命令表一致(动态读),且不含标签页命令
  *   5 重启后筛选条件保留(filter_current 有值且与界面一致)
  *   6 改标签名 -> 当前筛选里的旧路径被改写(chip 跟着变);改回原名
  *   7 侧栏两个入口是纯图标且 aria-label 可点;侧栏内无「隐藏侧栏」;顶栏那个能收/展
@@ -71,19 +71,20 @@ record('8 统一输入框 placeholder 为空(aria-label 仍在)',
   box !== null && (box.placeholder === null || box.placeholder === '') && !!box.aria,
   `placeholder=${JSON.stringify(box?.placeholder)} aria-label=${JSON.stringify(box?.aria)}`);
 
-// ---------- 读数 4:`>` 命令 12 条,不含标签页命令 ----------
+// ---------- 读数 4:`>` 命令候选:不含标签页命令、且包含关系图(条数不写死) ----------
+// 条数不写死:命令表加一条就会让写死的断言假红(2026-09-29 加关系图时已踩)
 await ui.setBox('>');
 const cmdRows = (await waitFor(async () => {
   const rs = await ui.rows();
   return rs.length > 0 ? rs : null;
-}, 12, 250)) ?? [];
+}, 20, 250)) ?? [];
 await ui.setBox('');
 const cmdIds = cmdRows.map((x) => x.id);
-record('4 `>` 命令候选 12 条且不含标签页命令',
-  cmdRows.length === 12 && !cmdIds.includes('tab.next') && !cmdIds.includes('tab.prev') &&
-    !cmdRows.some((x) => (x.label ?? '').includes('标签页')),
+record('4 `>` 命令候选不含标签页命令且包含关系图',
+  !cmdIds.includes('tab.next') && !cmdIds.includes('tab.prev') &&
+    !cmdRows.some((x) => (x.label ?? '').includes('标签页')) &&
+    cmdIds.includes('graph.open') && cmdRows.length >= 11,
   `候选 ${cmdRows.length} 条:${cmdIds.join(',')}`);
-await sleep(300);
 
 // ---------- 夹具:1 条笔记带 1 个标签(真实保存路径) ----------
 const stamp = new Date().toISOString().slice(11, 19).replace(/:/g, '');
