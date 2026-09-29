@@ -4,11 +4,13 @@
 // 这条读数接替计划 1/3 Task 7 删掉的「命令面板浮层」读数(浮层外壳已不存在):
 // 多页筛选删除后,主窗只剩**一个** `aria-haspopup=menu` 浮层(顶栏 `⋯`;它由主脚本的
 // MENU_SCAN_JS 覆盖),这条负责逐条核对条目档位(4px 圆角 + 13px 字号,V5 收口口径)。
+// 条目清单与 src/main-window/shell/TopBarMenu.tsx 的 MENU_IDS 同序:关系图 G1 Task 5 插入 `graph.open`
+// (排在排序两条之后),本清单随之同步,否则审计会在关系图批次里假红。
 import { sleep, waitFor } from './cdp-lib.mjs';
 
 const MENU = '[data-testid="topbar-menu"]';
 const MORE = '#root button[aria-label="更多操作"]';
-const EXPECT = ['最新在前', '最早在前', '导出整库', '添加条件'];
+const EXPECT = ['最新在前', '最早在前', '关系图', '导出整库', '添加条件'];
 
 /** 开菜单 -> 读容器与四条条目的计算样式与状态 -> 再点击 `⋯` 关回去 */
 const SCAN_JS = `(async () => {
@@ -31,16 +33,18 @@ const SCAN_JS = `(async () => {
   return { ok: true, ...style, rect: { w: Math.round(box.width), h: Math.round(box.height) }, items };
 })()`;
 
-/** 读一条「顶栏溢出菜单」读数:容器 12px + 阴影、四条条目、条目 4px / 13px、关掉后不留浮层 */
+/** 读一条「顶栏溢出菜单」读数:容器 12px + 阴影、五条条目、条目 4px / 13px、关掉后不留浮层 */
 export async function recordTopBarMenu(js, r) {
   const m = await js(SCAN_JS);
   const closed = await waitFor(async () => ((await js(`!!document.querySelector('${MENU}')`)) ? null : true), 6, 200);
   const items = m?.items ?? [];
+  // 前两条是排序(radio,第一条勾选),其余是动作(menuitem):断言按位置写死,条目顺序错了才拦得住
   const itemsOk = items.length === EXPECT.length && items.map((i) => i.label).join('|') === EXPECT.join('|') &&
     items.every((i) => i.radius === '4px' && i.fontSize === '13px') &&
     items[0].role === 'menuitemradio' && items[0].checked === 'true' &&
-    items[1].role === 'menuitemradio' && items[2].role === 'menuitem' && items[3].role === 'menuitem';
-  r.record('顶栏溢出菜单 = 12px + 阴影,四条条目 4px / 13px',
+    items[1].role === 'menuitemradio' && items[1].checked === 'false' &&
+    items.slice(2).every((i) => i.role === 'menuitem' && i.checked === null);
+  r.record('顶栏溢出菜单 = 12px + 阴影,五条条目 4px / 13px',
     m?.ok === true && m.radius === '12px' && m.shadow !== 'none' && m.zIndex !== 'auto' && itemsOk && closed === true,
     `容器 ${m?.radius}/${m?.shadow === 'none' ? '无阴影' : '有阴影'}/z=${m?.zIndex};尺寸 ${JSON.stringify(m?.rect)};` +
       `条目 ${JSON.stringify(items.map((i) => [i.label, i.role, i.checked, i.radius, i.fontSize]))};点两次 「⋯」 后已关=${closed}`);
