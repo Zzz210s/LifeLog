@@ -10,6 +10,12 @@ export interface Segment {
   x2: number;
   y2: number;
   weight: number;
+  /**
+   * 画粗的一类边:**任一端是当前焦点 `emphasis.active`**(设计 §5「邻居边加粗」)。
+   * 与 `dim` 并存:焦点的另一头若是无关节点,这条边仍会 `dim === true`,但画布按
+   * `emphasized` 优先 —— 强调边永远满不透明(见 `GraphCanvas.tsx`)。
+   */
+  emphasized: boolean;
   /** 弱化(有焦点时,与焦点/邻居都无关的边走暗);画布用 globalAlpha 表达,不改颜色 */
   dim: boolean;
 }
@@ -82,6 +88,7 @@ function leafOf(path: string): string {
  * - 颜色:**不在这里硬编码** —— `rootColor` 由调用方按节点给(根色继承),
  *   缺项退回 `fallbackColor`(调用方从主题令牌读出来的值)
  * - 强调:点是/边是否暗由 `emphasis` 决定(渲染时用透明度,不换颜色);
+ *   与焦点相连的边另打 `Segment.emphasized`(渲染时加粗);
  *   笔记小圆是被主动展开的,不参与弱化
  */
 export function drawPlan(input: {
@@ -118,6 +125,7 @@ export function drawPlan(input: {
       x2: b.x,
       y2: b.y,
       weight: e.weight,
+      emphasized: e.a === emphasis.active || e.b === emphasis.active,
       dim: isDimmed(e.a, emphasis) || isDimmed(e.b, emphasis),
     };
     if (e.kind === 'tree') tree.push(seg);

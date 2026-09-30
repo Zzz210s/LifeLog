@@ -44,7 +44,7 @@ describe('drawPlan:决定画什么(纯函数)', () => {
     const p = drawPlan(base);
     expect(p.tree).toHaveLength(1);
     expect(p.co).toHaveLength(1);
-    expect(p.tree[0]).toEqual({ x1: 200, y1: 150, x2: 300, y2: 150, weight: 1, dim: false });
+    expect(p.tree[0]).toEqual({ x1: 200, y1: 150, x2: 300, y2: 150, weight: 1, emphasized: false, dim: false });
   });
 
   it('LOD:缩小到 0.5 时不出文字,放大到 1.5 时每个可见节点都有文字', () => {
@@ -144,6 +144,14 @@ describe('drawPlan:强调态', () => {
     // active = 2,邻居 = {1};tree 边 1-2 两端都亮,co 边 1-3 的 3 端暗
     expect(p.tree[0].dim).toBe(false);
     expect(p.co[0].dim).toBe(true);
+  });
+
+  it('强调边:任一端是当前焦点(active)的边标 emphasized,其余不标', () => {
+    // 悬停 2 -> active = 2:边 1-2 连着它,边 1-3 不连;无悬停时 active 落到选中点 1
+    const p = drawPlan({ ...base, emphasis: emphasisOf({ selected: 1, hovered: 2, edges }) });
+    expect([p.tree[0].emphasized, p.co[0].emphasized]).toEqual([true, false]);
+    const sel = drawPlan({ ...base, emphasis: emphasisOf({ selected: 1, hovered: null, edges }) });
+    expect(sel.tree[0].emphasized && sel.co[0].emphasized).toBe(true);
   });
 
   it('没有强调时谁都不 dim(旧行为不变)', () => {

@@ -1,7 +1,11 @@
 import type { GraphEdge } from '../../shared/types';
 
 export interface Emphasis {
-  /** 当前焦点(**悬停优先于选中**);null 表示没有焦点,谁都不弱化 */
+  /**
+   * 当前焦点(**悬停优先于选中**);null 表示没有焦点,谁都不弱化。
+   * `active` = 当前焦点,`selected` = 选中,**二者可以不同**(选中 A 后悬停 B,则 `active = B`、`selected = A`);
+   * 邻居及其连线的强调跟 `active` 走,选中环与信息条跟 `selected` 走。
+   */
   active: number | null;
   /** active 的 1 跳邻居 */
   neighbors: Set<number>;
@@ -9,8 +13,16 @@ export interface Emphasis {
   selected: number | null;
 }
 
-/** 没有交互态时的强调值(active = selected = null):等价于 `emphasisOf({ selected: null, hovered: null, edges })` */
-export const NO_EMPHASIS: Emphasis = { active: null, neighbors: new Set<number>(), selected: null };
+/**
+ * 没有交互态时的强调值(active = selected = null):等价于 `emphasisOf({ selected: null, hovered: null, edges })`。
+ * 只读单例,被 GraphView 与多处测试共用 —— `Object.freeze` 只挡住改字段,`neighbors` 那个空 Set
+ * 仍能被 `add`(Set 的内部槽冻结不了),所以约定:**谁都不许改它**。
+ */
+export const NO_EMPHASIS: Emphasis = Object.freeze({
+  active: null,
+  neighbors: new Set<number>(),
+  selected: null,
+});
 
 /** 1 跳邻居:父子边与共现边同等对待(图里都是"关系") */
 export function neighborsOf(edges: readonly GraphEdge[], id: number): Set<number> {

@@ -2,6 +2,9 @@
  * 把绘制指令画到 canvas:
  * - 按 devicePixelRatio 设置后备缓冲(尺寸取整,避免半像素模糊)
  * - 颜色一律从主题令牌读,不写死色值;**弱化只改 globalAlpha,不换颜色**(G2)
+ * - 线宽:强调边(与焦点相连)2.5,其余按类型(共现 1 / 父子 1.5);强调边即使 `dim` 也不弱化
+ * - 弱化的归位只在点循环后一处(`ctx.globalAlpha = 1`)——下面三段都不参与弱化,
+ *   它们各自不靠「上一段恰好恢复成 1」活着,这一行也就成了可被用例钉住的单点
  * - 绘制顺序:共现边 -> 父子边 -> 点 -> 选中环 -> 展开的笔记小圆 -> 文字
  * - `plan` 引用不变且 `themeKey` 不变时**不重绘** —— 设计 §3.3 的「静止 0 CPU」就靠这条。
  *   约定:plan 是 (节点 / 边 / 相机 / 视口尺寸 / 强调态) 的纯函数,尺寸变化必然伴随新 plan 对象,
@@ -14,6 +17,8 @@ import { token } from './token';
 
 /** 弱化透明度:足够暗到让焦点跳出来,又还能看出图的结构 */
 const DIM_ALPHA = 0.2;
+/** 强调边(与焦点相连)的线宽:比同类型普通边明显粗一档(设计 §5「邻居边加粗」) */
+const EMPHASIS_WIDTH = 2.5;
 /** 选中环离点的间距(屏幕像素):点小时不至于贴在一起 */
 const RING_GAP = 3;
 /** 笔记小圆半径(屏幕像素) */
@@ -23,18 +28,20 @@ function strokeAll(
   ctx: CanvasRenderingContext2D,
   segs: readonly Segment[],
   color: string,
-  lineWidth: number,
+  /** 本层非强调边的线宽(共现 1 / 父子 1.5) */
+  baseWidth: number,
 ): void {
   ctx.strokeStyle = color;
-  ctx.lineWidth = lineWidth;
   for (const s of segs) {
-    ctx.globalAlpha = s.dim ? DIM_ALPHA : 1;
+    ctx.lineWidth = s.emphasized ? EMPHASIS_WIDTH : baseWidth;
+    // 强调边一律满不透明:焦点那一头即使是无关节点(边 dim),加粗了还变淡反而看不清
+    ctx.globalAlpha = s.dim && !s.emphasized ? DIM_ALPHA : 1;
     ctx.beginPath();
     ctx.moveTo(s.x1, s.y1);
     ctx.lineTo(s.x2, s.y2);
     ctx.stroke();
   }
-  ctx.globalAlpha = 1;
+  // 这里不归位:每段自己设 alpha,而边之后的绘制对象统一由点循环后的归位接住(见下)
 }
 
 export function GraphCanvas(p: {
@@ -72,6 +79,8 @@ export function GraphCanvas(p: {
       ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
       ctx.fill();
     }
+    // 归位单点:环 / 笔记小圆 / `+N` / 文字都不参与弱化,谁不继承上面任何一次的 0.2
+    // (去掉这一行,暗点或暗边之后的环、小圆、文字会一起变淡 —— 有用例钉住)
     ctx.globalAlpha = 1;
     // 选中环:accent 描边,与弱化解耦(选中的点即使被弱化也要看得见环)
     const rings = p.plan.dots.filter((d) => d.selected);
