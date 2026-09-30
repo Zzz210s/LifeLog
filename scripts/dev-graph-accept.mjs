@@ -1,22 +1,19 @@
 #!/usr/bin/env node
 /**
- * 关系图 G1 真机读数(读数 1-6 与 11;计划 docs/superpowers/plans/2026-09-28-graph-g1.md 的 Task 6)。
+ * 关系图真机读数:G1 的 1-6 与 11(计划 2026-09-28-graph-g1.md 的 Task 6),G2 的八条在
+ * scripts/graph-accept-g2.mjs(悬停/单击/双击/右键/搜索/键盘守卫/筛到信息流/只读对账,读数 5 之后跑)。
  *
  *   1 首帧可见 ≤150ms(命令执行 -> 首个有内容的画布绘制;另报 DOM 挂载时刻)
  *   2 graph_data ≤40ms,并报节点/边数与 JSON 载荷
  *   3 径向布局耗时 ≤10ms(开发构建下 import 源码模块对纯函数计时;生产构建无源码路径时只打 INFO)
  *   4 静止 3 秒:画布绘制调用 0 次 + 内容签名(着墨数/列桶/指纹)不变(设计 §3.3「静止不重绘」)
- *   5 缩放/平移/按 0 复位:200 帧帧间隔中位 ≤18ms;着墨质心随平移走(Δ≥拖拽量一半)、
- *     再按 0 回到原位(±8 设备像素)。判据用质心而不是像素指纹:进视图后的首次栅格与
- *     之后的重绘有亚像素级全局差异(实测 127235 个像素不同而相机/计划逐项相同),
- *     指纹只当"变没变"用,量不了"动了多少"
- *   6 打开关系图的内存增量 ≤15MB。判据取 JS 堆(CDP Runtime.getHeapUsage):RSS 会被
- *     WebView2 预热与 GC 抖动淹没(实测 ±60MB),当不了判据,只作上下文读数
+ *   5 缩放/平移/按 0 复位:200 帧帧间隔中位 ≤18ms;着墨质心随平移走(Δ≥拖拽量一半)、再按 0 回到原位(±8 设备像素)。
+ *     判据用质心而不是像素指纹:进视图首次栅格与之后的重绘有亚像素差异(实测 127235 像素不同而相机/计划逐项相同)
+ *   6 打开关系图的内存增量 ≤15MB。判据取 JS 堆(CDP Runtime.getHeapUsage):RSS 会被 WebView2 预热与 GC 抖动淹没
  *  11 只读:库计数 + 全量笔记/标签清单 + get_db_info 与开工前逐项一致
  *
- * 用法:LIFELOG_CDP_PORT=9222 node scripts/dev-graph-accept.mjs
- *   先起应用(vite + 带调试端口的 dev exe,或装机版);没起时明确报「需要先起应用」并以 2 退出。
- * 不碰物理鼠标:键鼠全走 CDP 合成的 DOM 事件;真实库只读。可反复跑(输入框残留会先清掉)。
+ * 用法:LIFELOG_CDP_PORT=9222 node scripts/dev-graph-accept.mjs;先起应用(vite + 带调试端口的 dev exe,
+ *   或装机版);没起时明确报「需要先起应用」并以 2 退出。键鼠全走 CDP 合成事件(不碰物理鼠标),真实库只读。
  */
 import { BASE, bindMain, ensureMain, recorder, sleep } from './cdp-lib.mjs';
 import { bindUi, dbCounts } from './no-tabs-accept-lib.mjs';
@@ -24,6 +21,7 @@ import { psJson } from './dev-perf-lib.mjs';
 import {
   armGraph, closeGraph, drawSignature, installPaintCounter, layoutMs, paintCalls, panDrag, resetPaint, waitFirstDraw, wheelFrames,
 } from './graph-accept-lib.mjs';
+import { runGraphG2 } from './graph-accept-g2.mjs';
 
 const rec = recorder();
 const { record, finish } = rec;
@@ -178,6 +176,8 @@ record(
     `着墨 ${beforePan?.painted} -> ${afterPan?.painted} -> ${home?.painted},列桶差异 ${beforePan?.buckets.filter((v, i) => v !== afterPan?.buckets[i]).length}/16,` +
     `绘制调用 +${afterPan === null ? '?' : afterPan.draws - beforePan.draws}`,
 );
+
+await runGraphG2({ cdp: conn.cdp, ev, ui, bm, record }); // G2 八条读数:悬停/单击/双击/右键/搜索/守卫/筛到信息流/只读
 
 // 11) 退出关系图后对账:数据零影响
 const closed = await closeGraph(ui);

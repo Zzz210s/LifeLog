@@ -62,6 +62,8 @@ export interface GraphCameraApi {
   /** 叠加过记忆位置的落点(布局结果 + graph_positions):绘制与适配都用它 */
   points: Map<number, Point>;
   reset: () => void;
+  /** 把某个世界点在**不改缩放**的前提下摆到画布中心(G2 的图内搜索跳转用) */
+  centerOn: (p: Point) => void;
   onWheel: (e: WheelEvent) => void;
   onPointerDown: (e: PointerAt) => void;
   onPointerMove: (e: PointerAt) => void;
@@ -99,6 +101,19 @@ export function useGraphCamera(opts: {
     setCamera(fitToView([...points.values()], opts.width, opts.height));
   }, [points, opts.width, opts.height]);
 
+  // 只挪平移量,不动 k:搜索跳转不该顺带改变用户当前的缩放档(反向解 screenOf:k 不变时
+  // tx = 中心 x - p.x * k 就能把 p 摆到画布中心)
+  const centerOn = useCallback(
+    (p: Point): void => {
+      setCamera((cam) => ({
+        k: cam.k,
+        tx: opts.width / 2 - p.x * cam.k,
+        ty: opts.height / 2 - p.y * cam.k,
+      }));
+    },
+    [opts.width, opts.height],
+  );
+
   const zoomBy = useCallback(
     (factor: number): void => {
       setCamera((cam) => zoomAt(cam, factor, { x: opts.width / 2, y: opts.height / 2 }));
@@ -108,6 +123,12 @@ export function useGraphCamera(opts: {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
+      // 输入法组合中(打拼音时 `-` 也会作为按键冒上来)不处理:这不是快捷键
+      if (e.isComposing || e.keyCode === 229) return;
+      // 焦点在输入框/可编辑区:用户在打字而不是按图快捷键。
+      // 缺这条时 G2 的图内搜索框里打 `-`/`+` 会同时缩放画布(G1 审查点名的真 bug)。
+      const t = e.target as HTMLElement | null;
+      if (t?.closest?.('input, textarea, [contenteditable]')) return;
       // 带修饰键的按键(Ctrl+0 等)留给宿主,不抢
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.key === '0') reset();
@@ -151,5 +172,5 @@ export function useGraphCamera(opts: {
     await api.setSetting(GRAPH_POSITIONS_KEY, JSON.stringify(Object.fromEntries(merged)));
   }, []);
 
-  return { camera, points, reset, onWheel, onPointerDown, onPointerMove, onPointerUp, savePositions };
+  return { camera, points, reset, centerOn, onWheel, onPointerDown, onPointerMove, onPointerUp, savePositions };
 }

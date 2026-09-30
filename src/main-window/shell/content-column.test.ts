@@ -13,14 +13,14 @@ describe('V4 内容列宽度档', () => {
     expect(contentColumnClass(false)).toBe('max-w-5xl');
   });
 
-  it('App 用 sidebar.visible 取宽度档,且不覆盖 min-w 保护与焦点环', () => {
-    const app = readFileSync('src/main-window/App.tsx', 'utf8');
-    expect(app).toContain('${contentColumnClass(sidebar.visible)}');
+  it('内容区(ViewHost)用 sidebar.visible 取宽度档,且不覆盖 min-w 保护与焦点环', () => {
+    const host = readFileSync('src/main-window/shell/ViewHost.tsx', 'utf8');
+    expect(host).toContain('${contentColumnClass(p.sidebarVisible)}');
     for (const token of ['mx-auto', 'flex-1', 'min-w-[420px]', 'focus-visible:ring-1']) {
-      expect(app, token).toContain(token);
+      expect(host, token).toContain(token);
     }
     // 旧写法必须消失:两串 max-w-* 同时出现时,谁生效取决于 Tailwind 规则顺序,读代码看不出来
-    expect(app).not.toContain('min-w-[420px] max-w-3xl');
+    expect(host).not.toContain('min-w-[420px] max-w-3xl');
   });
 
   it('theme.css 没有重定义 container 刻度,max-w-3xl/5xl 仍是 Tailwind 默认的 768/1024', () => {
@@ -28,10 +28,13 @@ describe('V4 内容列宽度档', () => {
     expect(css).not.toMatch(/--container-(3xl|5xl)/);
   });
 
-  it('可见性只有一个真源:App 把同一个 sidebar.visible 喂给侧栏与宽度档', () => {
+  it('可见性只有一个真源:App 把同一个 sidebar.visible 喂给侧栏与内容区', () => {
     const app = readFileSync('src/main-window/App.tsx', 'utf8');
+    const host = readFileSync('src/main-window/shell/ViewHost.tsx', 'utf8');
+    expect(host).toContain('sidebarVisible={p.sidebarVisible}');
+    expect(host).toContain('contentColumnClass(p.sidebarVisible)');
+    // App 是 sidebar.visible 的唯一读取处:一次传给 Sidebar,一次传给内容区
     expect(app).toContain('sidebarVisible={sidebar.visible}');
-    expect(app).toContain('contentColumnClass(sidebar.visible)');
     // 不允许在 App 里另存一份可见性(第二真源)
     expect(app).not.toMatch(/useState\([^)]*[Vv]isible/);
   });

@@ -105,6 +105,25 @@ describe('GraphView:加载失败', () => {
   });
 });
 
+describe('GraphView:图内搜索', () => {
+  it('搜索 -> Enter:选中该节点(右侧信息条出现该路径与计数)', async () => {
+    await mount(() => {});
+    const el = host.querySelector<HTMLInputElement>('[data-testid="graph-search-input"]');
+    expect(el).not.toBeNull();
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+    await act(async () => {
+      setter.call(el, '地点');
+      el!.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => {
+      el!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    });
+    const bar = host.querySelector('[data-testid="graph-info-bar"]');
+    expect(bar?.textContent).toContain('地点');
+    expect(bar?.textContent).toContain('含子级 779');
+  });
+});
+
 /** 画布上下文替身:只要不是 null,GraphCanvas 就会记账(重绘与否靠调用次数观测) */
 const ctxStub = {
   setTransform: (): void => {}, clearRect: (): void => {}, beginPath: (): void => {},

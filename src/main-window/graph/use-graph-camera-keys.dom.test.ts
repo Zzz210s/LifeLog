@@ -16,7 +16,7 @@ vi.mock('../../shared/api', () => ({
   },
 }));
 
-import { fitToView, type Camera } from './graph-camera';
+import { fitToView, screenOf, type Camera } from './graph-camera';
 import type { Point } from './radial';
 import { useGraphCamera, type GraphCameraApi } from './use-graph-camera';
 
@@ -100,5 +100,34 @@ describe('useGraphCamera:图内键盘缩放', () => {
     await key('-', { metaKey: true });
     await key('+', { altKey: true });
     expect(api!.camera).toEqual(fitToView([...layout.values()], W, H));
+  });
+
+  it('centerOn:只挪平移量把点摆到画布中心,k 不变(搜索跳转不该改缩放档)', async () => {
+    await mount();
+    await key('+'); // 先离开适配值,证明中心化不是“顺便复位”
+    const k = api!.camera.k;
+    const at: Point = { x: 40, y: 20 };
+    await act(async () => api!.centerOn(at));
+    expect(api!.camera.k).toBe(k);
+    expect(screenOf(at, api!.camera)).toEqual(CENTER);
+  });
+
+  it('焦点在输入框/可编辑区时不缩放(图内搜索框里打 `-` 不动画布);IME 组合中也不动', async () => {
+    await mount();
+    const before = { ...api!.camera };
+    const input = document.createElement('input');
+    document.body.appendChild(input);
+    for (const k of ['-', '+', '0']) {
+      await act(async () => {
+        input.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true }));
+      });
+    }
+    expect(api!.camera).toEqual(before);
+    // 组合中(isComposing / legacy keyCode 229):事件从窗口上来也不该抢键
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: '-', isComposing: true }));
+    });
+    expect(api!.camera).toEqual(before);
+    input.remove();
   });
 });

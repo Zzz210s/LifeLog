@@ -12,8 +12,10 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import type { GraphNode } from '../../shared/types';
 import { GraphCanvas } from './GraphCanvas';
 import { GraphInfoBar } from './GraphInfoBar';
+import { GraphSearch } from './GraphSearch';
 import { GraphTagMenuHost } from './GraphTagMenuHost';
 import { GraphTip } from './GraphTip';
 import { visibleGraph } from './graph-view-model';
@@ -105,6 +107,14 @@ export function GraphView(p: {
     onFilterToStream: p.onFilterToStream,
   });
 
+  // 图内搜索跳转(G2 Task 7):把相机挪到该节点(**不改缩放**)并选中 —— 信息条随之出现,
+  // 「搜到 -> 看到详情」一步到位;节点在布局里缺席时(环/自指落不了位)只选中,不做定点
+  const onSearchPick = (node: GraphNode): void => {
+    const at = cam.points.get(node.id);
+    if (at !== undefined) cam.centerOn(at);
+    setSelected(node.id);
+  };
+
   // 首次适配视图(设计 §3.3);此后不再自动改相机 —— 用户按 0 才复位(Task 6)。
   // 复位路径与 `0` 键共用 cam.reset,避免"定点适配"出现两份实现。
   const reset = cam.reset;
@@ -141,7 +151,11 @@ export function GraphView(p: {
       className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-app"
       data-testid="graph-view"
       onPointerDown={cam.onPointerDown}
-      onPointerMove={acts.onPointerMove}
+      // 拖空白平移(相机)与悬停命中(交互)各管一半,两条都要挂 —— Task 5 只留了悬停那条,拖空白处整个图不动
+      onPointerMove={(e) => {
+        cam.onPointerMove(e);
+        acts.onPointerMove(e);
+      }}
       onPointerUp={cam.onPointerUp}
       onPointerLeave={() => {
         cam.onPointerUp();
@@ -160,6 +174,7 @@ export function GraphView(p: {
       >
         {count}
       </div>
+      <GraphSearch nodes={nodes} onPick={onSearchPick} />
       <GraphCanvas plan={plan} width={size.w} height={size.h} themeKey={themeKey} />
       <GraphTip node={hoveredNode} x={acts.tipAt?.x ?? 0} y={acts.tipAt?.y ?? 0} />
       {selectedNode !== null && (
