@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { GraphEdge, GraphNode } from '../../shared/types';
+import { NO_EMPHASIS, emphasisOf } from './graph-focus';
 import { drawPlan } from './graph-draw-plan';
 
 /**
@@ -35,6 +36,7 @@ const base = {
     [3, 'c2'],
   ]),
   fallbackColor: 'c0',
+  emphasis: NO_EMPHASIS,
 };
 
 describe('drawPlan:决定画什么(纯函数)', () => {
@@ -42,7 +44,7 @@ describe('drawPlan:决定画什么(纯函数)', () => {
     const p = drawPlan(base);
     expect(p.tree).toHaveLength(1);
     expect(p.co).toHaveLength(1);
-    expect(p.tree[0]).toEqual({ x1: 200, y1: 150, x2: 300, y2: 150, weight: 1 });
+    expect(p.tree[0]).toEqual({ x1: 200, y1: 150, x2: 300, y2: 150, weight: 1, dim: false });
   });
 
   it('LOD:缩小到 0.5 时不出文字,放大到 1.5 时每个可见节点都有文字', () => {
@@ -118,5 +120,72 @@ describe('drawPlan:决定画什么(纯函数)', () => {
     expect(p.dots.find((d) => d.id === 3)!.color).toBe('c2');
     const plain = drawPlan({ ...base, rootColor: new Map() });
     expect(plain.dots.map((d) => d.color)).toEqual(['c0', 'c0', 'c0']);
+  });
+});
+
+describe('drawPlan:强调态', () => {
+  it('焦点与邻居之外的点标 dim,焦点与邻居不 dim', () => {
+    // 悬停 2:active = 2,邻居 = {1};1 号是选中点、2 号是焦点,3 号谁也不沾 -> 暗
+    const p = drawPlan({ ...base, emphasis: emphasisOf({ selected: 1, hovered: 2, edges }) });
+    expect(p.dots.find((d) => d.id === 3)!.dim).toBe(true);
+    expect(p.dots.find((d) => d.id === 1)!.dim).toBe(false);
+    expect(p.dots.find((d) => d.id === 2)!.dim).toBe(false);
+  });
+
+  it('选中环跟 selected 走,不跟焦点走', () => {
+    const p = drawPlan({ ...base, emphasis: emphasisOf({ selected: 1, hovered: 3, edges }) });
+    expect(p.dots.find((d) => d.id === 1)!.selected).toBe(true);
+    expect(p.dots.find((d) => d.id === 3)!.selected).toBe(false); // 焦点也不会被当成选中
+    expect(p.dots.find((d) => d.id === 3)!.dim).toBe(false);
+  });
+
+  it('边的 dim:只要有一端暗,这条边就暗', () => {
+    const p = drawPlan({ ...base, emphasis: emphasisOf({ selected: null, hovered: 2, edges }) });
+    // active = 2,邻居 = {1};tree 边 1-2 两端都亮,co 边 1-3 的 3 端暗
+    expect(p.tree[0].dim).toBe(false);
+    expect(p.co[0].dim).toBe(true);
+  });
+
+  it('没有强调时谁都不 dim(旧行为不变)', () => {
+    const p = drawPlan({ ...base, emphasis: emphasisOf({ selected: null, hovered: null, edges }) });
+    expect(p.dots.every((d) => !d.dim)).toBe(true);
+    expect(p.dots.every((d) => !d.selected)).toBe(true);
+    expect(p.co.every((s) => !s.dim)).toBe(true);
+    expect(p.tree.every((s) => !s.dim)).toBe(true);
+  });
+});
+
+describe('drawPlan:展开的笔记小圆', () => {
+  const expanded = {
+    id: 2,
+    dots: [
+      { x: 100, y: 0 },
+      { x: 100, y: 20 },
+    ],
+    overflow: { x: 100, y: 0, n: 5 },
+  };
+
+  it('笔记小圆按世界坐标进相机换算,节点默认不展开', () => {
+    expect(drawPlan(base).notes).toEqual([]);
+    expect(drawPlan(base).overflow).toBe(null);
+
+    const p = drawPlan({ ...base, expanded });
+    // cam = { k: 1, tx: 200, ty: 150 }
+    expect(p.notes).toEqual([
+      { x: 300, y: 150 },
+      { x: 300, y: 170 },
+    ]);
+    expect(p.overflow).toEqual({ x: 300, y: 150, n: 5 });
+  });
+
+  it('展开的节点被视口裁掉时,整组笔记与 +N 都不画(不留孤儿小圆)', () => {
+    const far = drawPlan({ ...base, expanded: { ...expanded, id: 99 } });
+    expect(far.notes).toEqual([]);
+    expect(far.overflow).toBe(null);
+  });
+
+  it('笔记小圆不参与弱化:dim 由点与边自己带,plan 的 notes 不带标志', () => {
+    const p = drawPlan({ ...base, emphasis: emphasisOf({ selected: 1, hovered: null, edges }), expanded });
+    expect(p.notes).toHaveLength(2); // 展开者是被主动点开的,永远清晰
   });
 });

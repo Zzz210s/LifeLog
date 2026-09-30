@@ -13,6 +13,7 @@ import { api } from '../../shared/api';
 import type { GraphData } from '../../shared/types';
 import { GraphCanvas } from './GraphCanvas';
 import { drawPlan, type DrawPlan } from './graph-draw-plan';
+import { NO_EMPHASIS } from './graph-focus';
 import { collapseRootsOf, visibleGraph } from './graph-view-model';
 import { radialLayout, type Point } from './radial';
 import { token } from './token';
@@ -23,7 +24,7 @@ import { normalizeTemplate, TIME_TAG_TEMPLATE_KEY } from '../settings/time-tag-s
 
 const LAYER_GAP = 90;
 
-const EMPTY_PLAN: DrawPlan = { co: [], tree: [], dots: [], labels: [] };
+const EMPTY_PLAN: DrawPlan = { co: [], tree: [], dots: [], labels: [], notes: [], overflow: null };
 
 export function GraphView(p: { onExit: () => void }): ReactNode {
   const [data, setData] = useState<GraphData | null>(null);
@@ -141,6 +142,8 @@ export function GraphView(p: { onExit: () => void }): ReactNode {
             h: size.h,
             rootColor: new Map<number, string>(), // G1 不按根着色:统一用主题令牌兜底色
             fallbackColor: token('--color-muted'),
+            // 强调态由交互层给(Task 5);接线之前是「无焦点」,谁都不弱化
+            emphasis: NO_EMPHASIS,
           }),
     // themeKey 进依赖:兜底色是计划期读的令牌,换主题必须重建 plan(边/文字的颜色在画布里现读)
     // dprKey 进依赖:纯 DPR 变化时尺寸可能一点没变,不重建 plan 就不会重设后备缓冲(画布停在旧 DPR)

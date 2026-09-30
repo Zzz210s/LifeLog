@@ -15,13 +15,13 @@ import { GraphCanvas } from './GraphCanvas';
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const desc = Object.getOwnPropertyDescriptor(HTMLCanvasElement.prototype, 'getContext');
-const TOKENS = ['--color-border', '--color-border-strong', '--color-muted'] as const;
+const TOKENS = ['--color-border', '--color-border-strong', '--color-muted', '--color-accent'] as const;
 
-const empty: DrawPlan = { co: [], tree: [], dots: [], labels: [] };
+const empty: DrawPlan = { co: [], tree: [], dots: [], labels: [], notes: [], overflow: null };
 
-/** 画布上下文替身:除调用计数外,还记录 fillStyle/strokeStyle 的每次赋值(颜色口径靠它钉住) */
+/** 画布上下文替身:除调用计数外,还记录 fillStyle/strokeStyle/globalAlpha 的每次赋值(颜色与弱化口径靠它钉住) */
 type Ctx = Record<string, ReturnType<typeof vi.fn>> & {
-  writes: { fillStyle: string[]; strokeStyle: string[] };
+  writes: { fillStyle: string[]; strokeStyle: string[]; globalAlpha: number[] };
 };
 
 let root: Root | null = null;
@@ -30,7 +30,7 @@ let ctx: Ctx;
 let getContext: MockInstance<HTMLCanvasElement['getContext']>;
 
 function makeCtx(): Ctx {
-  const writes = { fillStyle: [] as string[], strokeStyle: [] as string[] };
+  const writes = { fillStyle: [] as string[], strokeStyle: [] as string[], globalAlpha: [] as number[] };
   const stub: Record<string, unknown> = {
     setTransform: vi.fn(),
     clearRect: vi.fn(),
@@ -49,6 +49,10 @@ function makeCtx(): Ctx {
       set: (v: string) => writes[key].push(v),
     });
   }
+  Object.defineProperty(stub, 'globalAlpha', {
+    get: () => writes.globalAlpha[writes.globalAlpha.length - 1],
+    set: (v: number) => writes.globalAlpha.push(v),
+  });
   return stub as Ctx;
 }
 
@@ -100,7 +104,7 @@ describe('GraphCanvas:同一 plan 不重绘', () => {
     expect(canvas.width).toBe(400);
     expect(canvas.height).toBe(240);
 
-    const next: DrawPlan = { co: [], tree: [], dots: [], labels: [] };
+    const next: DrawPlan = { co: [], tree: [], dots: [], labels: [], notes: [], overflow: null };
     await render(next, 200, 120, 'dark'); // 新 plan -> 重绘
     expect(getContext).toHaveBeenCalledTimes(3);
   });
@@ -110,10 +114,12 @@ describe('GraphCanvas:同一 plan 不重绘', () => {
     document.documentElement.style.setProperty('--color-border-strong', 'rgb(22, 22, 22)');
     document.documentElement.style.setProperty('--color-muted', 'rgb(33, 33, 33)');
     const plan: DrawPlan = {
-      co: [{ x1: 0, y1: 0, x2: 10, y2: 0, weight: 3 }],
-      tree: [{ x1: 0, y1: 0, x2: 0, y2: 10, weight: 1 }],
-      dots: [{ id: 1, x: 5, y: 6, r: 9, color: 'rgb(1, 2, 3)' }],
+      co: [{ x1: 0, y1: 0, x2: 10, y2: 0, weight: 3, dim: false }],
+      tree: [{ x1: 0, y1: 0, x2: 0, y2: 10, weight: 1, dim: false }],
+      dots: [{ id: 1, x: 5, y: 6, r: 9, color: 'rgb(1, 2, 3)', dim: false, selected: false }],
       labels: [{ id: 1, x: 5, y: -7, text: '时间' }],
+      notes: [],
+      overflow: null,
     };
     await render(plan, 100, 100, 'light');
     expect(ctx.clearRect).toHaveBeenCalledWith(0, 0, 100, 100);
@@ -130,5 +136,46 @@ describe('GraphCanvas:同一 plan 不重绘', () => {
   it('主题令牌缺失时颜色退回 transparent,不写死色值', async () => {
     await render({ ...empty, dots: [], labels: [] }, 10, 10, 'light'); // jsdom 里三个令牌都没定义
     expect(ctx.writes.fillStyle).toEqual(['transparent']);
+  });
+
+  it('弱化用 globalAlpha 表达,dim 的点与边降透明度而不换色', async () => {
+    const plan: DrawPlan = {
+      ...empty,
+      co: [{ x1: 0, y1: 0, x2: 10, y2: 0, weight: 1, dim: true }],
+      dots: [
+        { id: 1, x: 5, y: 6, r: 9, color: 'rgb(1, 2, 3)', dim: false, selected: false },
+        { id: 2, x: 40, y: 6, r: 9, color: 'rgb(1, 2, 3)', dim: true, selected: false },
+      ],
+    };
+    await render(plan, 100, 100, 'light');
+    // 两条边? 不:一条 co(暗)与两个点(一亮一暗) -> 0.2 出现两次, 1 至少两次
+    expect(ctx.writes.globalAlpha.filter((a) => a === 0.2)).toHaveLength(2);
+    expect(ctx.writes.globalAlpha).toContain(1);
+    // 颜色不因弱化而变:两个点同色
+    expect(ctx.writes.fillStyle).toEqual(['rgb(1, 2, 3)', 'rgb(1, 2, 3)', 'transparent']);
+  });
+
+  it('选中环、笔记小圆与 +N:各自用令牌描边,笔记不参与弱化', async () => {
+    document.documentElement.style.setProperty('--color-border-strong', 'rgb(22, 22, 22)');
+    document.documentElement.style.setProperty('--color-muted', 'rgb(33, 33, 33)');
+    document.documentElement.style.setProperty('--color-accent', 'rgb(44, 44, 44)');
+    const plan: DrawPlan = {
+      ...empty,
+      dots: [{ id: 1, x: 5, y: 6, r: 9, color: 'rgb(1, 2, 3)', dim: true, selected: true }],
+      notes: [
+        { x: 20, y: 30 },
+        { x: 24, y: 30 },
+      ],
+      overflow: { x: 5, y: 6, n: 5 },
+    };
+    await render(plan, 100, 100, 'light');
+    // 点被弱化,但选中环仍按满不透明画:环用 accent,半径 = r + 3
+    expect(ctx.writes.strokeStyle).toContain('rgb(44, 44, 44)');
+    expect(ctx.arc).toHaveBeenCalledWith(5, 6, 12, 0, Math.PI * 2);
+    // 笔记小圆是空心小圆,半径固定 3,颜色取 border-strong
+    expect(ctx.arc).toHaveBeenCalledWith(20, 30, 3, 0, Math.PI * 2);
+    expect(ctx.arc).toHaveBeenCalledWith(24, 30, 3, 0, Math.PI * 2);
+    expect(ctx.fillText).toHaveBeenCalledWith('+5', 5, 6);
+    expect(ctx.writes.fillStyle).toEqual(['rgb(1, 2, 3)', 'rgb(33, 33, 33)']);
   });
 });

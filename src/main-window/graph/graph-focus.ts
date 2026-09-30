@@ -9,6 +9,9 @@ export interface Emphasis {
   selected: number | null;
 }
 
+/** 没有交互态时的强调值(active = selected = null):等价于 `emphasisOf({ selected: null, hovered: null, edges })` */
+export const NO_EMPHASIS: Emphasis = { active: null, neighbors: new Set<number>(), selected: null };
+
 /** 1 跳邻居:父子边与共现边同等对待(图里都是"关系") */
 export function neighborsOf(edges: readonly GraphEdge[], id: number): Set<number> {
   const out = new Set<number>();

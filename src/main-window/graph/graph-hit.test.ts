@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { GraphNode } from '../../shared/types';
+import { NO_EMPHASIS } from './graph-focus';
 import { drawPlan, radiusOf } from './graph-draw-plan';
 import { HIT_SLOP, hitTest } from './graph-hit';
 
@@ -90,6 +91,7 @@ describe('hitTest 边界(自补)', () => {
       h: 300,
       rootColor: new Map(),
       fallbackColor: 'c0',
+      emphasis: NO_EMPHASIS,
     });
     for (const d of plan.dots) {
       const n = nodes.find((x) => x.id === d.id)!;
