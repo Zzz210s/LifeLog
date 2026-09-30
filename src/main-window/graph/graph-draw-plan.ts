@@ -41,8 +41,11 @@ const HUB_NOTES = 100;
 const MIN_R = 2.5;
 const MAX_R = 9;
 
-/** 点半径:随笔记数开方增长,撞上限即封顶(1177 条笔记也已到顶) */
-function radiusOf(notes: number): number {
+/**
+ * 点半径:随笔记数开方增长,撞上限即封顶(1177 条笔记也已到顶)。
+ * 导出给命中检测(`graph-hit.ts`)复用 —— 一处定义,两处使用。
+ */
+export function radiusOf(notes: number): number {
   return Math.min(MAX_R, MIN_R + Math.sqrt(Math.max(notes, 0)) / 4);
 }
 
