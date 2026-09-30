@@ -1,10 +1,12 @@
 import type { GraphEdge } from '../../shared/types';
 
 export interface Emphasis {
-  /** 当前被强调的节点(选中优先于悬停);null 表示没有强调,谁都不弱化 */
+  /** 当前焦点(**悬停优先于选中**);null 表示没有焦点,谁都不弱化 */
   active: number | null;
   /** active 的 1 跳邻居 */
   neighbors: Set<number>;
+  /** 选中的节点,与焦点解耦:选中环与信息条按它画,不随鼠标移走 */
+  selected: number | null;
 }
 
 /** 1 跳邻居:父子边与共现边同等对待(图里都是"关系") */
@@ -17,18 +19,26 @@ export function neighborsOf(edges: readonly GraphEdge[], id: number): Set<number
   return out;
 }
 
-/** 强调集合:选中的节点优先于悬停的节点(点开后不该被鼠标划走打断) */
+/**
+ * 强调集合:**悬停优先于选中** —— 鼠标所在之处必须是焦点,否则「选中 A 后悬停 B」会
+ * 把光标正指着的 B 画成 20% 透明、B 的邻居全暗、气泡还讲着 B。
+ * 选中不参与焦点选择,只经由 `selected` 影响选中环与信息条。
+ */
 export function emphasisOf(input: {
   selected: number | null;
   hovered: number | null;
   edges: readonly GraphEdge[];
 }): Emphasis {
-  const active = input.selected ?? input.hovered;
-  return { active, neighbors: active === null ? new Set() : neighborsOf(input.edges, active) };
+  const active = input.hovered ?? input.selected;
+  const neighbors = active === null ? new Set<number>() : neighborsOf(input.edges, active);
+  return { active, neighbors, selected: input.selected };
 }
 
-/** 该节点是否要弱化(有强调时,自己与邻居之外都弱化) */
+/**
+ * 该节点是否要弱化(有焦点时,焦点、焦点邻居、以及选中点之外都弱化)。
+ * 选中点即使不是焦点也不弱化 —— 它带着选中环,暗掉会显得选中态丢了。
+ */
 export function isDimmed(id: number, em: Emphasis): boolean {
   if (em.active === null) return false;
-  return id !== em.active && !em.neighbors.has(id);
+  return id !== em.active && id !== em.selected && !em.neighbors.has(id);
 }

@@ -17,10 +17,13 @@ describe('邻居与强调', () => {
     expect(neighborsOf(edges, 9).size).toBe(0);
   });
 
-  it('选中优先于悬停', () => {
+  it('悬停优先于选中:鼠标所在之处才是焦点', () => {
+    // 选中 2 后悬停 4:焦点必须是 4 —— 否则光标正指着的 4 被画成 20% 透明、
+    // 4 的邻居全暗,而气泡讲的是 4。「悬停高亮邻居」不能因存在选中而失效。
     const em = emphasisOf({ selected: 2, hovered: 4, edges });
-    expect(em.active).toBe(2);
-    expect([...em.neighbors].sort()).toEqual([1, 3]);
+    expect(em.active).toBe(4);
+    expect([...em.neighbors]).toEqual([5]);
+    expect(em.selected).toBe(2);
   });
 
   it('没有选中也没有悬停时,谁都不弱化', () => {
@@ -30,7 +33,7 @@ describe('邻居与强调', () => {
     expect(isDimmed(99, em)).toBe(false);
   });
 
-  it('有 active 时:非邻居弱化,自己与邻居不弱化', () => {
+  it('有 active 时:非邻居弱化,自己与邻居不弱化(无悬停则焦点=选中)', () => {
     const em = emphasisOf({ selected: 2, hovered: null, edges });
     expect(isDimmed(2, em)).toBe(false);
     expect(isDimmed(1, em)).toBe(false);
@@ -38,8 +41,16 @@ describe('邻居与强调', () => {
   });
 });
 
-// 自补:悬停单独生效(选中为空时),以及邻居集合不吞掉 active 自己
+// 自补:悬停单独生效(选中为空时)、选中与焦点解耦、邻居集合不吞掉 active 自己
 describe('强调边界(自补)', () => {
+  it('选中 A 悬停 B:A 不弱化、B 与其邻居不弱化、其余弱化', () => {
+    const em = emphasisOf({ selected: 2, hovered: 4, edges });
+    expect(isDimmed(2, em)).toBe(false); // 选中点带选中环,不因鼠标移开而暗掉
+    expect(isDimmed(4, em)).toBe(false); // 焦点
+    expect(isDimmed(5, em)).toBe(false); // 焦点邻居
+    expect(isDimmed(1, em)).toBe(true);
+    expect(isDimmed(3, em)).toBe(true);
+  });
   it('没有选中时悬停生效', () => {
     const em = emphasisOf({ selected: null, hovered: 2, edges });
     expect(em.active).toBe(2);

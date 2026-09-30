@@ -32,14 +32,14 @@ describe('hitTest:屏幕坐标 -> 节点', () => {
     expect(hitTest({ nodes, points: close, cam, x: 212, y: 150 })).toBe(2);
   });
 
-  it('缩放后容差按屏幕像素算', () => {
+  it('缩放后仍以屏幕圆心命中(相机 k 只挪位置,不改半径)', () => {
     const zoomed = { k: 4, tx: 0, ty: 0 };
     expect(hitTest({ nodes, points, cam: zoomed, x: 0, y: 0 })).toBe(1);
   });
 });
 
-// 计划给的 4 条里,第 3/4 条的取值落在圆心上,「取最近」「容差乘 k」这两条口径
-// 其实没被真正区分开(实现改成"先遇到的"、或漏乘 k,它们照样绿)。以下三条补齐。
+// 计划给的 4 条里,第 3/4 条的取值落在圆心上,「取最近」这条口径其实没被真正区分开
+// (实现改成"先遇到的"它照样绿)。以下三条补齐。
 describe('hitTest 边界(自补)', () => {
   it('三个都在容差内时取最近(既不是先遇到的也不是后遇到的)', () => {
     const same: GraphNode[] = [10, 11, 12].map((id, i) => ({
@@ -60,11 +60,19 @@ describe('hitTest 边界(自补)', () => {
     expect(hitTest({ nodes: same, points: row, cam, x: 206, y: 150 })).toBe(11);
   });
 
-  it('缩放后容差按屏幕像素算:半径也跟着乘 k', () => {
-    const zoomed = { k: 4, tx: 0, ty: 0 };
-    // r(4) = 3 -> 屏幕上 12px,加 4px 容差 = 16px;漏乘 k 只剩 7px
-    expect(hitTest({ nodes, points, cam: zoomed, x: 10, y: 0 })).toBe(1);
-    expect(hitTest({ nodes, points, cam: zoomed, x: 17, y: 0 })).toBe(null);
+  it('命中区与缩放无关:点的屏幕半径不随 k 变', () => {
+    // r(4) = min(9, 2.5 + sqrt(4)/4) = 3(已是屏幕像素);容差 4 -> 7px 内命中、8px 外不命中
+    for (const k of [0.2, 1, 4]) {
+      const cam = { k, tx: 0, ty: 0 };
+      expect(hitTest({ nodes, points, cam, x: 6, y: 0 })).toBe(1);
+      expect(hitTest({ nodes, points, cam, x: 8, y: 0 })).toBe(null);
+    }
+  });
+
+  it('触及半径含等号:恰好在 7px 上算命中,再多 1px 不算', () => {
+    // 屏幕圆心(200,150),r(4)=3 -> 触及半径 7:落在边界上必须命中(> 与 >= 只差这一格)
+    expect(at(207, 150)).toBe(1);
+    expect(at(208, 150)).toBe(null);
   });
 
   it('布局里没有位置的节点直接跳过', () => {
