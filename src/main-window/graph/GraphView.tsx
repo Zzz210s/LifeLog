@@ -7,25 +7,28 @@
  * 动作在 useExpandedNotes(G2 Task 6),而「一帧画什么」的合成在 useGraphPlan
  * (plan 的依赖理由 —— 尺寸 / DPR / 强调态 / 展开层少一样就会静停在旧画面 —— 记在那个模块)。
  * 折叠根读设置那一段也在外部(useCollapseRoots):两处抽出的都是纯搬移,为守 200 行红线
- * (与 use-graph-data / use-graph-size 同一处理)。
+ * (与 use-graph-data / use-graph-size 同一处理;终审修复轮同样抽出了 useGraphOrigin / useEscapeExit / GraphStatus)。
  * 口径提醒:`expanded` 与 `selected` 各算各的 —— 点别的标签不会把已展开的那圈小圆收掉。
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { GraphNode } from '../../shared/types';
 import { GraphCanvas } from './GraphCanvas';
 import { GraphInfoBar } from './GraphInfoBar';
 import { GraphSearch } from './GraphSearch';
+import { GraphStatus } from './GraphStatus';
 import { GraphTagMenuHost } from './GraphTagMenuHost';
 import { GraphTip } from './GraphTip';
 import { visibleGraph } from './graph-view-model';
 import { radialLayout, type Point } from './radial';
 import { useCollapseRoots } from './use-collapse-roots';
 import { useDprKey } from './use-dpr-key';
+import { useEscapeExit } from './use-escape-exit';
 import { useExpandedNotes } from './use-expanded-notes';
 import { useGraphCamera } from './use-graph-camera';
 import { useGraphData } from './use-graph-data';
 import { useGraphInteractions } from './use-graph-interactions';
+import { useGraphOrigin } from './use-graph-origin';
 import { useGraphPlan } from './use-graph-plan';
 import { useGraphSize } from './use-graph-size';
 import { useThemeKey } from './use-theme-key';
@@ -49,20 +52,7 @@ export function GraphView(p: {
   // 容器实测尺寸:窗口 resize / DPR 变化都要重建几何(设计 §6-3)与后备缓冲
   const size = useGraphSize(boxRef);
 
-  // Esc 只依赖回调本身(App 传的 backToStream 是 useCallback(..., []),身份恒定):props 对象只在
-  // 父组件重渲染时换身份,依赖 [p] 会让视图开着时每次 App 重渲染都摘掉再挂一次 window 监听
-  // (真机实测:切一次侧栏就多挂 1 次;平移不会,与下面 cam.onWheel 的口径一致)。
-  const onExit = p.onExit;
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') onExit();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onExit]);
-
-  // 折叠根从设置派生(G2 收 G1 欠账:写死 `'时间'` 会让用户改根名后折叠静默失效)。
-  // 调用位置不能挪到 useGraphCamera 之后:两处都读 getSetting,折叠根的读要排在前(用例钉住了这次序)。
+  // 折叠根从设置派生;调用位置不能挪到 useGraphCamera 之后(两处都读 getSetting,顺序被用例钉住)。
   const collapsedRoots = useCollapseRoots();
 
   const { nodes, edges } = useMemo(
@@ -70,8 +60,19 @@ export function GraphView(p: {
     [data, collapsedRoots],
   );
   const layout: Map<number, Point> = useMemo(() => radialLayout(nodes, { layerGap: LAYER_GAP }), [nodes]);
+  const selectedNode = selected === null ? null : (nodes.find((n) => n.id === selected) ?? null);
 
-  const cam = useGraphCamera({ width: size.w, height: size.h, points: layout });
+  // 容器原点(视口坐标 <-> 画布坐标的换算基准):相机缩放锚点、交互命中、气泡锚点共读一份
+  const origin = useGraphOrigin(boxRef);
+
+  // Esc:有选中就把该标签带回信息流,没选中则原样退出(设计 §5);注册口径见 use-escape-exit
+  useEscapeExit({
+    selectedPath: selectedNode === null ? null : selectedNode.path,
+    onExit: p.onExit,
+    onFilterToStream: p.onFilterToStream,
+  });
+
+  const cam = useGraphCamera({ width: size.w, height: size.h, points: layout, origin });
   // 画布的 wheel 必须显式 passive: false,只能走 addEventListener(React 的 onWheel 挂在被动层)
   useEffect(() => {
     const el = boxRef.current;
@@ -80,12 +81,6 @@ export function GraphView(p: {
     return () => el.removeEventListener('wheel', cam.onWheel);
   }, [cam.onWheel]);
 
-  // 指针事件带的是视口坐标,画布/相机用的是容器局部坐标:原点在这里现读
-  // (窗口挪动、侧栏显隐之后也要对)。口径与换算详见 useGraphInteractions 的文件注释。
-  const origin = useCallback((): Point => {
-    const r = boxRef.current?.getBoundingClientRect();
-    return { x: r?.left ?? 0, y: r?.top ?? 0 };
-  }, []);
   const acts = useGraphInteractions({
     nodes,
     points: cam.points,
@@ -94,6 +89,8 @@ export function GraphView(p: {
     onSelect: setSelected,
     onExpand: (id) => setExpanded((cur) => (cur === id ? null : id)),
     onMenu: (id, x, y) => setMenu({ id, x, y }),
+    // 双击空白 = 回信息流(设计 §5)
+    onExit: p.onExit,
   });
 
   // 展开笔记(G2 Task 6):吃的是 `expanded` 而不是 selected —— 展开挂在哪个标签上是它自己的
@@ -106,6 +103,13 @@ export function GraphView(p: {
     origin,
     onFilterToStream: p.onFilterToStream,
   });
+
+  // 递给 plan 的展开层要身份稳定:这里每次渲染新建对象字面量会让 plan 的 memo 白重建,
+  // 于是任意一次无关重渲染都变成整图重绘(drawPlan 的依赖理由见 use-graph-plan)
+  const expandedLayer = useMemo(
+    () => (expanded === null ? null : { id: expanded, dots: exp.dots, overflow: exp.overflow }),
+    [expanded, exp.dots, exp.overflow],
+  );
 
   // 图内搜索跳转(G2 Task 7):把相机挪到该节点(**不改缩放**)并选中 —— 信息条随之出现,
   // 「搜到 -> 看到详情」一步到位;节点在布局里缺席时(环/自指落不了位)只选中,不做定点
@@ -136,10 +140,9 @@ export function GraphView(p: {
     selected,
     hovered: acts.hovered,
     // 展开层给的是世界坐标(见 useExpandedNotes);展开者被裁到视口外时 drawPlan 整组不画
-    expanded: expanded === null ? null : { id: expanded, dots: exp.dots, overflow: exp.overflow },
+    expanded: expandedLayer,
   });
 
-  const selectedNode = selected === null ? null : (nodes.find((n) => n.id === selected) ?? null);
   const hoveredNode = acts.hovered === null ? null : (nodes.find((n) => n.id === acts.hovered) ?? null);
   // 展开笔记的状态优先占状态条文案位(用户当下最关心的那件事);没在展开就跟原来一样报计数
   const noteHint = exp.failed ? '笔记加载失败' : exp.loading ? '正在展开笔记…' : null;
@@ -168,12 +171,7 @@ export function GraphView(p: {
       onDoubleClick={acts.onDoubleClick}
       onContextMenu={acts.onContextMenu}
     >
-      <div
-        role="status"
-        className="pointer-events-none absolute left-3 top-3 z-10 rounded-md border border-border bg-raised px-2 py-1 text-xs text-muted"
-      >
-        {count}
-      </div>
+      <GraphStatus text={count} />
       <GraphSearch nodes={nodes} onPick={onSearchPick} />
       <GraphCanvas plan={plan} width={size.w} height={size.h} themeKey={themeKey} />
       <GraphTip node={hoveredNode} x={acts.tipAt?.x ?? 0} y={acts.tipAt?.y ?? 0} />

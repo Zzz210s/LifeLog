@@ -52,9 +52,9 @@ describe('GraphTip:悬停气泡的文案与坐标', () => {
     expect(host.textContent).toBe('');
   });
 
-  it('文案是「路径 · 本级 N / 含子级 M」', async () => {
+  it('文案是「路径 · 本级 N 条 / 含子级 M 条」(与设计 §5 逐字一致)', async () => {
     await render(createElement(GraphTip, { node, x: 10, y: 20 }));
-    expect(tip()?.textContent).toBe('时间/日期/2026 · 本级 9 / 含子级 120');
+    expect(tip()?.textContent).toBe('时间/日期/2026 · 本级 9 条 / 含子级 120 条');
   });
 
   it('复用悬浮气泡的外观(同一 testid,不吃指针)', async () => {

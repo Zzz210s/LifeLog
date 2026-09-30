@@ -111,7 +111,7 @@ describe('GraphView:悬停', () => {
       expect(ctx.writes.globalAlpha).not.toContain(0.2); // 没有焦点:谁都不弱化
       const before = getContext.mock.calls.length;
       await fire('pointermove', at(1));
-      expect(host.textContent).toContain('甲 · 本级 4 / 含子级 4');
+      expect(host.textContent).toContain('甲 · 本级 4 条 / 含子级 4 条');
       // emphasis 不在 plan 依赖里时,plan 引用不变 -> 画布判定"没变" -> 这里一次重绘都没有
       expect(getContext.mock.calls.length).toBeGreaterThan(before);
       // 悬停的节点与 1 不相干(丙)必须被弱化:强调态真吃了 hovered,不是只换了个气泡

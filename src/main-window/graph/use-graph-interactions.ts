@@ -1,5 +1,5 @@
 /**
- * 图上的指针交互 -> 语义动作(G2 Task 5):悬停 / 单击选中 / 双击展开 / 右键标签菜单。
+ * 图上的指针交互 -> 语义动作(G2 Task 5):悬停 / 单击选中 / 双击展开(空白则回信息流)/ 右键标签菜单。
  *
  * **坐标口径**:`points` 与 `cam` 是**画布局部**坐标(与 `GraphCanvas` 的绘制坐标系同一套),
  * 而指针事件带的是 client(视口)坐标,故用 `origin()`(容器左上角的视口位置)换算:
@@ -59,8 +59,10 @@ export function useGraphInteractions(input: {
   onExpand: (id: number) => void;
   /** 右键命中:菜单落点用事件的 client 坐标(钳制在上层做) */
   onMenu: (id: number, x: number, y: number) => void;
+  /** 双击**空白** = 回信息流(设计 §5:双击节点是展开,双击空白是退出) */
+  onExit: () => void;
 }): GraphInteractions {
-  const { nodes, points, cam, origin, onSelect, onExpand, onMenu } = input;
+  const { nodes, points, cam, origin, onSelect, onExpand, onMenu, onExit } = input;
   const [hovered, setHovered] = useState<number | null>(null);
   const [tipAt, setTipAt] = useState<Point | null>(null);
 
@@ -108,9 +110,10 @@ export function useGraphInteractions(input: {
     (e: PointerAt): void => {
       if (fromOverlay(e)) return;
       const { id } = pick(e);
-      if (id !== null) onExpand(id);
+      if (id === null) onExit();
+      else onExpand(id);
     },
-    [pick, onExpand],
+    [pick, onExpand, onExit],
   );
 
   const onContextMenu = useCallback(

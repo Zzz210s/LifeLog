@@ -11,8 +11,11 @@ import { fitToView, zoomAt, type Camera } from './graph-camera';
 import type { Point } from './radial';
 
 export const GRAPH_POSITIONS_KEY = 'graph_positions';
-const ZOOM_STEP = 1.15;
+/** 每格滚轮的缩放倍率(相机用例与视图接线用例共读这一份,别在测试里抄第二份) */
+export const ZOOM_STEP = 1.15;
 const NO_SAVED: Map<number, Point> = new Map();
+/** 默认的"没有坐标系偏移":画布贴视口原点时 client 与画布局部坐标是同一套 */
+const NO_ORIGIN = (): Point => ({ x: 0, y: 0 });
 
 /** 解析记忆位置:坏 JSON / 非对象 / 坐标非有限数的条目一律丢弃(脏数据不该让整图落不了位) */
 export function parseGraphPositions(raw: string | null): Map<number, Point> {
@@ -76,10 +79,17 @@ export function useGraphCamera(opts: {
   width: number;
   height: number;
   points: Map<number, Point>;
+  /**
+   * 容器左上角的**视口**位置:滚轮的 `clientX/Y` 是视口坐标,而 `zoomAt` 要的是画布局部坐标。
+   * 本视图左边有侧栏、上边有顶栏,容器不在视口原点 —— 不换算,缩放的锚点会整体偏一个容器原点
+   * (真机实测:滚轮打在画布中心时,反解出的不动点离正确口径偏 295px)。默认恒等原点。
+   */
+  origin?: () => Point;
 }): GraphCameraApi {
   const [camera, setCamera] = useState<Camera>({ k: 1, tx: opts.width / 2, ty: opts.height / 2 });
   const [saved, setSaved] = useState<Map<number, Point>>(NO_SAVED);
   const drag = useRef<{ x: number; y: number } | null>(null);
+  const origin = opts.origin ?? NO_ORIGIN;
 
   // 位置记忆只读一次;卸载后迟到的回包不碰状态
   useEffect(() => {
@@ -141,9 +151,10 @@ export function useGraphCamera(opts: {
 
   const onWheel = useCallback((e: WheelEvent): void => {
     e.preventDefault();
+    const o = origin();
     const factor = e.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP;
-    setCamera((cam) => zoomAt(cam, factor, { x: e.clientX, y: e.clientY }));
-  }, []);
+    setCamera((cam) => zoomAt(cam, factor, { x: e.clientX - o.x, y: e.clientY - o.y }));
+  }, [origin]);
 
   const onPointerDown = useCallback((e: PointerAt): void => {
     // 只认主键:右键的按下不进入拖拽(右键是开标签菜单,G2),后续 pointermove 因 drag 为空而不平移

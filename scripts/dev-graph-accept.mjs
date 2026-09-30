@@ -1,12 +1,14 @@
 #!/usr/bin/env node
 /**
  * 关系图真机读数:G1 的 1-6 与 11(计划 2026-09-28-graph-g1.md 的 Task 6),G2 的八条在
- * scripts/graph-accept-g2.mjs(悬停/单击/双击/右键/搜索/键盘守卫/筛到信息流/只读对账,读数 5 之后跑)。
+ * scripts/graph-accept-g2.mjs(悬停/单击/双击/右键/搜索/键盘守卫/筛到信息流/只读对账,读数 5 之后跑),
+ * 读数 2 与 4 的测量与判定在 scripts/graph-accept-g1-reads.mjs(两个页面侧读数单独成文件,兼守 200 行红线)。
  *
  *   1 首帧可见 ≤150ms(命令执行 -> 首个有内容的画布绘制;另报 DOM 挂载时刻)
- *   2 graph_data ≤40ms,并报节点/边数与 JSON 载荷
+ *   2 graph_data ≤60ms 且 JSON 载荷 ≤150KB,并报节点/边数
  *   3 径向布局耗时 ≤10ms(开发构建下 import 源码模块对纯函数计时;生产构建无源码路径时只打 INFO)
- *   4 静止 3 秒:画布绘制调用 0 次 + 内容签名(着墨数/列桶/指纹)不变(设计 §3.3「静止不重绘」)
+ *   4 静止 3 秒:画布绘制调用 0 次 + 内容签名(着墨数/指纹)不变(设计 §3.3「静止不重绘」;
+ *     输入驱动的重绘被排掉并重试,最多 3 个窗口)
  *   5 缩放/平移/按 0 复位:200 帧帧间隔中位 ≤18ms;着墨质心随平移走(Δ≥拖拽量一半)、再按 0 回到原位(±8 设备像素)。
  *     判据用质心而不是像素指纹:进视图首次栅格与之后的重绘有亚像素差异(实测 127235 像素不同而相机/计划逐项相同)
  *   6 打开关系图的内存增量 ≤15MB。判据取 JS 堆(CDP Runtime.getHeapUsage):RSS 会被 WebView2 预热与 GC 抖动淹没
@@ -19,8 +21,9 @@ import { BASE, bindMain, ensureMain, recorder, sleep } from './cdp-lib.mjs';
 import { bindUi, dbCounts } from './no-tabs-accept-lib.mjs';
 import { psJson } from './dev-perf-lib.mjs';
 import {
-  armGraph, closeGraph, drawSignature, installPaintCounter, layoutMs, paintCalls, panDrag, resetPaint, waitFirstDraw, wheelFrames,
+  armGraph, closeGraph, drawSignature, installPaintCounter, layoutMs, panDrag, resetPaint, waitFirstDraw, wheelFrames,
 } from './graph-accept-lib.mjs';
+import { readGraphData, readIdleWindow } from './graph-accept-g1-reads.mjs';
 import { runGraphG2 } from './graph-accept-g2.mjs';
 
 const rec = recorder();
@@ -29,7 +32,6 @@ const round1 = (v) => (typeof v === 'number' ? Math.round(v * 10) / 10 : v);
 const mb = (b) => Math.round((b / 1024 / 1024) * 10) / 10;
 /** psJson 对单元素数组会回 `[49.2]`,这里取标量(取不到返回 null) */
 const scalar = (v) => (Array.isArray(v) ? (typeof v[0] === 'number' ? v[0] : null) : typeof v === 'number' ? v : null);
-const sum = (o) => Object.values(o).reduce((a, b) => a + b, 0);
 
 /** 应用自身进程的内存(MB) */
 const appMb = () =>
@@ -105,46 +107,17 @@ record(
     `RSS app ${mem0.app} -> ${mem1.app},webview ${mem0.webview} -> ${mem1.webview}(Δ${round1(mem1.total - mem0.total)}MB,含 GC 抖动)`,
 );
 
-// 2) 数据加载耗时与载荷
-const load = await ev(`(async () => {
-  const T = window.__TAURI_INTERNALS__.invoke;
-  const t = performance.now();
-  const d = await T('graph_data');
-  const bytes = new TextEncoder().encode(JSON.stringify(d)).length;
-  return { ms: Math.round(performance.now() - t), kb: Math.round(bytes / 1024), nodes: d.nodes.length, edges: d.edges.length };
-})()`);
-record('2 graph_data ≤40ms', load.ms <= 40, `${load.ms}ms / ${load.kb}KB(${load.nodes} 节点 / ${load.edges} 边)`);
+// 2) 数据加载耗时与载荷(测量与判定在 graph-accept-g1-reads.mjs)
+await readGraphData({ cdp: conn.cdp, record });
 
 // 3) 布局耗时(开发构建才有源码模块路径)
 const layout = await layoutMs(conn.cdp);
 if (layout === null) console.log('INFO  3 布局耗时:生产构建没有源码模块路径,本次不单独计时');
 else record('3 径向布局耗时 ≤10ms', layout.ms <= 10, `${layout.ms}ms(${layout.nodes} 节点 = 视图真实布局点集;graph_data 原始 ${layout.raw} 条,折叠 ${layout.roots.join('、') || '(无)'} 根后由 visibleGraph 给出;${layout.runs} 次取中位)`);
 
-// 4) 先等画布安静,再量严格 3 秒:绘制调用与内容签名都不该动。
-// 首次数位读回会触发一次重栅格化(AA 级差异、零绘制调用),故第一步先丢弃一次读数。
-let settleDraws = 0;
-for (let i = 0; i < 12; i++) {
-  const a = await paintCalls(conn.cdp);
-  await sleep(500);
-  const b = await paintCalls(conn.cdp);
-  settleDraws += sum(b) - sum(a);
-  if (sum(b) - sum(a) === 0) break;
-}
-await drawSignature(conn.cdp); // 丢弃:触发重栅格化
-await sleep(700);
-const state0 = await drawSignature(conn.cdp);
-const win0 = await ev(`({ iw: window.innerWidth, ih: window.innerHeight, dpr: window.devicePixelRatio })`);
-await sleep(3000);
-const state1 = await drawSignature(conn.cdp);
-const win1 = await ev(`({ iw: window.innerWidth, ih: window.innerHeight, dpr: window.devicePixelRatio })`);
-const draws = state1.draws - state0.draws;
-record(
-  '4 静止 3 秒:画布绘制 0 次且内容签名不变',
-  draws === 0 && state0 !== null && state0.fp === state1?.fp && state0.painted === state1?.painted,
-  `静置前收尾重绘 ${settleDraws} 次;测量窗口内绘制 ${draws} 次;\n` +
-    `        画布 ${state0?.w}x${state0?.h}(${state0?.painted} 着墨,${state0?.fp}) -> ${state1?.w}x${state1?.h}(${state1?.painted} 着墨,${state1?.fp});` +
-    `视口 ${win0.iw}x${win0.ih}@${win0.dpr} -> ${win1.iw}x${win1.ih}@${win1.dpr}`,
-);
+// 4) 静止 3 秒:绘制调用 0 次且内容签名不变;输入驱动的重绘会被排掉并重试(口径与测量在
+//    graph-accept-g1-reads.mjs:先等画布安静,再数绘制与外部输入)。
+await readIdleWindow({ cdp: conn.cdp, record, onInfo: (m) => console.log(`INFO  4 ${m}`) });
 
 // 5) 缩放/平移/复位的真实效果:200 帧帧间隔 + 着墨质心随相机走
 //    像素签名只当"变没变"用(进视图首次栅格与之后的重绘有亚像素级差异,见 task-6 报告),

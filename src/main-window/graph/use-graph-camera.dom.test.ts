@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * 相机交互 hook:滚轮以光标为中心缩放(锚点不漂)、拖空白平移、`0` 复位、
+ * 相机交互 hook:滚轮以光标为中心缩放(锚点不漂,**容器有视口原点偏置也要对**)、拖空白平移、`0` 复位、
  * 位置记忆只读叠加(只覆盖拖过的节点,坏值一律忽略)。
  */
 import { act, createElement } from 'react';
@@ -17,15 +17,15 @@ vi.mock('../../shared/api', () => ({ api: { getSetting, setSetting } }));
 
 import { fitToView, MAX_K, MIN_K, type Camera } from './graph-camera';
 import type { Point } from './radial';
-import {
-  overlayPositions,
-  parseGraphPositions,
-  useGraphCamera,
-  type GraphCameraApi,
-} from './use-graph-camera';
+import { useGraphCamera, type GraphCameraApi } from './use-graph-camera';
 
 const W = 400;
 const H = 300;
+/**
+ * 容器不在视口原点(真机:左边侧栏 + 上边顶栏)。滚轮给的是 client 坐标、`zoomAt` 要的是画布坐标,
+ * 所以夹具**不能是恒等原点** —— 恒等夹具会把这个真机缺陷放过(2026-09-30 终审修复轮)。
+ */
+const ORIGIN = { x: 292.5, y: 44 };
 /** 布局结果(夹具):两个点,记忆位置只覆盖第二个 */
 const layout: Map<number, Point> = new Map([
   [1, { x: 0, y: 0 }],
@@ -35,9 +35,10 @@ const layout: Map<number, Point> = new Map([
 let api: GraphCameraApi | null = null;
 let root: Root;
 let host: HTMLDivElement;
+let origin = { ...ORIGIN };
 
 function Harness(): null {
-  api = useGraphCamera({ width: W, height: H, points: layout });
+  api = useGraphCamera({ width: W, height: H, points: layout, origin: () => origin });
   return null;
 }
 
@@ -51,13 +52,14 @@ const mount = async (): Promise<void> => {
   });
 };
 
+/** `at` 是**画布**坐标:换成 client 再发 —— 原点换算正是被测的那一步 */
 const wheel = async (deltaY: number, at: Point = { x: 100, y: 100 }): Promise<() => void> => {
   const preventDefault = vi.fn();
   await act(async () => {
     api?.onWheel({
       deltaY,
-      clientX: at.x,
-      clientY: at.y,
+      clientX: at.x + origin.x,
+      clientY: at.y + origin.y,
       preventDefault,
     } as unknown as WheelEvent);
   });
@@ -80,6 +82,7 @@ beforeEach(() => {
   getSetting.mockClear();
   setSetting.mockClear();
   getSetting.mockResolvedValue(null);
+  origin = { ...ORIGIN };
   api = null;
   host = document.createElement('div');
   document.body.appendChild(host);
@@ -93,15 +96,41 @@ afterEach(() => {
 });
 
 describe('useGraphCamera:滚轮缩放', () => {
-  it('放大后光标下的世界点仍在原屏幕位置(以光标为中心,不是画布中心)', async () => {
+  it('放大后光标下的世界点仍在原屏幕位置(以光标为中心,不是画布中心;容器有原点偏置也对)', async () => {
     await mount();
     const cursor = { x: 100, y: 100 };
+    // 夹具自检:原点确实不在视口原点,否则这条用例又退回恒等夹具、放过真机缺陷
+    expect(origin.x !== 0 || origin.y !== 0).toBe(true);
     const before = { ...api!.camera };
     const worldBefore = worldOf(cursor, before);
     const preventDefault = await wheel(-100, cursor);
     expect(api!.camera.k).toBeGreaterThan(before.k);
     expect(preventDefault).toHaveBeenCalled(); // 拦下页面滚动
     const worldAfter = worldOf(cursor, api!.camera);
+    expect(worldAfter.x).toBeCloseTo(worldBefore.x, 6);
+    expect(worldAfter.y).toBeCloseTo(worldBefore.y, 6);
+  });
+
+  it('不传 origin 时按恒等原点处理(宿主贴视口原点,client 坐标即画布坐标)', async () => {
+    const plain: { api: GraphCameraApi | null } = { api: null };
+    const Plain = (): null => {
+      plain.api = useGraphCamera({ width: W, height: H, points: layout });
+      return null;
+    };
+    await act(async () => {
+      root.render(createElement(Plain));
+    });
+    const cursor = { x: 100, y: 100 };
+    const worldBefore = worldOf(cursor, plain.api!.camera);
+    await act(async () => {
+      plain.api!.onWheel({
+        deltaY: -100,
+        clientX: cursor.x,
+        clientY: cursor.y,
+        preventDefault: vi.fn(),
+      } as unknown as WheelEvent);
+    });
+    const worldAfter = worldOf(cursor, plain.api!.camera);
     expect(worldAfter.x).toBeCloseTo(worldBefore.x, 6);
     expect(worldAfter.y).toBeCloseTo(worldBefore.y, 6);
   });
@@ -154,43 +183,5 @@ describe('useGraphCamera:拖空白平移与 0 复位', () => {
     const atUnmount = { ...api!.camera };
     await key('0');
     expect(api!.camera).toEqual(atUnmount);
-  });
-});
-
-describe('useGraphCamera:位置记忆(只记拖过的节点)', () => {
-  it('库里的记忆位置覆盖布局坐标,未记过的节点保持布局坐标', async () => {
-    getSetting.mockResolvedValue('{"2":{"x":-50,"y":7}}');
-    await mount();
-    expect(getSetting).toHaveBeenCalledWith('graph_positions');
-    expect(api!.points.get(2)).toEqual({ x: -50, y: 7 });
-    expect(api!.points.get(1)).toEqual({ x: 0, y: 0 });
-    expect(api!.points).not.toBe(layout); // 叠加后是新的 Map,布局结果不被改写
-  });
-
-  it('没有记忆(库值为空 / 坏 JSON / 数组)时直接用布局结果,连 Map 身份都不变', async () => {
-    for (const raw of [null, '', '不是 JSON', '[]', '{"a":{"x":1,"y":2}}', '{"3":{"x":1}}']) {
-      getSetting.mockResolvedValue(raw);
-      root = createRoot(document.createElement('div'));
-      await mount();
-      expect(api!.points).toBe(layout);
-      act(() => root.unmount());
-    }
-  });
-
-  it('savePositions 只写拖过的节点,并在库中已有条目上合并', async () => {
-    getSetting.mockResolvedValue('{"9":{"x":1,"y":2}}');
-    await mount();
-    await act(async () => {
-      await api!.savePositions({ 2: { x: 5, y: 6 } });
-    });
-    expect(setSetting).toHaveBeenCalledTimes(1);
-    const [key, value] = setSetting.mock.calls[0] as unknown as [string, string];
-    expect(key).toBe('graph_positions');
-    expect(JSON.parse(value)).toEqual({ 9: { x: 1, y: 2 }, 2: { x: 5, y: 6 } });
-  });
-
-  it('parseGraphPositions 丢掉坐标非有限数的条目', () => {
-    expect(parseGraphPositions('{"4":{"x":1e999,"y":0},"5":{"x":"1","y":0}}').size).toBe(0);
-    expect(overlayPositions(new Map([[1, { x: 0, y: 0 }]]), new Map([[1, { x: 9, y: 9 }], [7, { x: 1, y: 1 }]])).size).toBe(1);
   });
 });
