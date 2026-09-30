@@ -33,6 +33,31 @@ fn nodes_carry_subtree_note_counts() {
 }
 
 #[test]
+fn nodes_carry_self_and_subtree_counts() {
+    let c = db();
+    let ns = nodes(&c).unwrap();
+    let by = |p: &str| ns.iter().find(|n| n.path == p).unwrap().clone();
+    assert_eq!(by("甲").notes, 2, "含子级");
+    assert_eq!(by("甲").self_count, 0, "本级:甲 上没有直接挂笔记");
+    assert_eq!(by("甲/一").self_count, 1);
+    assert_eq!(by("乙").self_count, 2);
+}
+
+#[test]
+fn nodes_carry_sort_order() {
+    let c = db();
+    c.execute("UPDATE tags SET sort_order = 7 WHERE id = 20", [])
+        .unwrap();
+    let ns = nodes(&c).unwrap();
+    assert_eq!(ns.iter().find(|n| n.path == "乙").unwrap().sort_order, 7);
+    assert_eq!(
+        ns.iter().find(|n| n.path == "甲/一").unwrap().sort_order,
+        0,
+        "没动过的标签保持默认 0"
+    );
+}
+
+#[test]
 fn tree_edges_are_parent_child() {
     let c = db();
     let es = tree_edges(&c).unwrap();

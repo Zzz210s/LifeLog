@@ -120,7 +120,7 @@ record('2 graph_data ≤40ms', load.ms <= 40, `${load.ms}ms / ${load.kb}KB(${loa
 // 3) 布局耗时(开发构建才有源码模块路径)
 const layout = await layoutMs(conn.cdp);
 if (layout === null) console.log('INFO  3 布局耗时:生产构建没有源码模块路径,本次不单独计时');
-else record('3 径向布局耗时 ≤10ms', layout.ms <= 10, `${layout.ms}ms(${layout.nodes} 节点 = 视图真实布局点集;graph_data 原始 ${layout.raw} 条,折叠「时间」根后由 visibleGraph 给出;${layout.runs} 次取中位)`);
+else record('3 径向布局耗时 ≤10ms', layout.ms <= 10, `${layout.ms}ms(${layout.nodes} 节点 = 视图真实布局点集;graph_data 原始 ${layout.raw} 条,折叠 ${layout.roots.join('、') || '(无)'} 根后由 visibleGraph 给出;${layout.runs} 次取中位)`);
 
 // 4) 先等画布安静,再量严格 3 秒:绘制调用与内容签名都不该动。
 // 首次数位读回会触发一次重栅格化(AA 级差异、零绘制调用),故第一步先丢弃一次读数。

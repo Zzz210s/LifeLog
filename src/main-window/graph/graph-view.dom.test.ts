@@ -3,6 +3,7 @@
  * GraphView 视图外壳:数据只拉一次、默认折叠时间轴后计数对得上、Esc 回信息流。
  * 夹具与计划一致(时间 1177 / 时间-日期 1040 / 地点 779):折叠「时间」后应只剩两个节点,
  * 且「时间 -> 时间/日期」这条父子边因一端不可见被丢弃。
+ * 折叠哪一根不再是常量:从设置 `time_tag_template` 派生(G2),故 getSetting 按键回答。
  */
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
@@ -13,13 +14,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const { graphData, getSetting, setSetting } = vi.hoisted(() => ({
   graphData: vi.fn(async () => ({
     nodes: [
-      { id: 1, path: '时间', depth: 1, parent: null, notes: 1177 },
-      { id: 2, path: '时间/日期', depth: 2, parent: 1, notes: 1040 },
-      { id: 3, path: '地点', depth: 1, parent: null, notes: 779 },
+      { id: 1, path: '时间', depth: 1, parent: null, notes: 1177, selfCount: 137, sortOrder: 0 },
+      { id: 2, path: '时间/日期', depth: 2, parent: 1, notes: 1040, selfCount: 1040, sortOrder: 0 },
+      { id: 3, path: '地点', depth: 1, parent: null, notes: 779, selfCount: 779, sortOrder: 0 },
     ],
     edges: [{ a: 1, b: 2, kind: 'tree' as const, weight: 1 }],
   })),
-  getSetting: vi.fn(async (): Promise<string | null> => null),
+  // time_tag_template 是折叠根的真源(图这边的根名「时间」);graph_positions 是相机位置记忆
+  getSetting: vi.fn(async (key: string): Promise<string | null> =>
+    key === 'time_tag_template' ? '时间/{y}/{m}/{d}' : null,
+  ),
   setSetting: vi.fn(async () => undefined),
 }));
 // getSetting 是相机 hook 读位置记忆的入口(G2 起才会写回)
@@ -61,6 +65,14 @@ describe('GraphView:拉数据与默认折叠', () => {
     await mount(() => {});
     expect(host.querySelector('[data-testid="graph-view"]')).not.toBeNull();
     expect(host.querySelector('canvas')).not.toBeNull();
+  });
+
+  it('模板根名不是库里的根时一根都不折(折叠根跟设置走,不再写死「时间」)', async () => {
+    // 模板读数先于相机读 graph_positions(tpl 的 effect 声明在 useGraphCamera 之前),
+    // 故这一发 Once 落在模板上;若将来改了 hook 顺序,这里会红而不是静默绿。
+    getSetting.mockResolvedValueOnce('时间排序/{y}/{m}/{d}');
+    await mount(() => {});
+    expect(host.textContent).toContain('3 个节点 / 1 条边');
   });
 });
 

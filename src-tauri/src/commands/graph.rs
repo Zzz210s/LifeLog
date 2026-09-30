@@ -13,6 +13,8 @@ pub struct GraphNodeDto {
     pub depth: i64,
     pub parent: Option<i64>,
     pub notes: i64,
+    pub self_count: i64,
+    pub sort_order: i64,
 }
 
 #[derive(Serialize)]
@@ -49,6 +51,8 @@ pub fn graph_data(app: AppHandle) -> Result<GraphData, String> {
                 depth: n.depth,
                 parent: n.parent,
                 notes: n.notes,
+                self_count: n.self_count,
+                sort_order: n.sort_order,
             })
             .collect(),
         edges: edges

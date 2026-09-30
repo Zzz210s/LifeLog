@@ -20,7 +20,12 @@ pub struct GraphNode {
     pub path: String,
     pub depth: i64,
     pub parent: Option<i64>,
+    /// 含子级**去重**笔记数(一条笔记同时链父子只算一次)
     pub notes: i64,
+    /// 本级去重笔记数(不含子级;字段名避开 Rust 关键字)
+    pub self_count: i64,
+    /// 同层次序键,与 tags.sort_order 同口径(右键菜单要按它排)
+    pub sort_order: i64,
 }
 
 #[derive(Clone, Debug)]
@@ -31,7 +36,9 @@ pub struct GraphEdge {
     pub weight: i64,
 }
 
-/// 全部标签 + 含子级**去重**笔记数,按 path 升序(与 tags::query::counts 同口径,一条 SQL 算完)
+/// 全部标签 + 含子级**去重**笔记数 + 本级去重笔记数 + 次序键,按 path 升序(一次采完)。
+/// `roll` 只算含子级(与 tags::query::counts 同口径),`selfc` 只算本级 —— 两个聚合分开,
+/// 别用一个 COUNT 兼两义(层级过滤写进 SELECT 会让 LEFT JOIN 退化成内连接,没有链接的标签消失)。
 pub fn nodes(conn: &Connection) -> SqlResult<Vec<GraphNode>> {
     let mut stmt = conn.prepare(
         "WITH RECURSIVE sub(root, leaf) AS (
@@ -40,9 +47,11 @@ pub fn nodes(conn: &Connection) -> SqlResult<Vec<GraphNode>> {
          ),
          roll AS (SELECT sub.root AS root, COUNT(DISTINCT l.target_id) AS n
                   FROM sub JOIN tag_links l ON l.tag_id = sub.leaf AND l.target_type = 'note'
-                  GROUP BY sub.root)
-         SELECT t.id, t.path, t.depth, t.parent_id, COALESCE(roll.n, 0)
-         FROM tags t LEFT JOIN roll ON roll.root = t.id
+                  GROUP BY sub.root),
+         selfc AS (SELECT tag_id AS id, COUNT(DISTINCT target_id) AS n
+                   FROM tag_links WHERE target_type = 'note' GROUP BY tag_id)
+         SELECT t.id, t.path, t.depth, t.parent_id, COALESCE(roll.n, 0), COALESCE(selfc.n, 0), t.sort_order
+         FROM tags t LEFT JOIN roll ON roll.root = t.id LEFT JOIN selfc ON selfc.id = t.id
          ORDER BY t.path",
     )?;
     let rows = stmt.query_map([], |r| {
@@ -52,6 +61,8 @@ pub fn nodes(conn: &Connection) -> SqlResult<Vec<GraphNode>> {
             depth: r.get(2)?,
             parent: r.get(3)?,
             notes: r.get(4)?,
+            self_count: r.get(5)?,
+            sort_order: r.get(6)?,
         })
     })?;
     rows.collect()

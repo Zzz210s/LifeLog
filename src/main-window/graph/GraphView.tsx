@@ -1,5 +1,6 @@
 /**
- * 关系图视图外壳(G1):打开时拉一次图数据 -> 折叠时间轴 -> 径向布局 -> 画布。
+ * 关系图视图外壳(G1):打开时拉一次图数据 -> 折叠时间轴根 -> 径向布局 -> 画布。
+ * 折叠哪一根从设置 `time_tag_template` 派生(G2;`collapseRootsOf`),读到之前不折叠。
  * 数据只在进入本视图时拉取,信息流与输入栏的启动路径不受影响(设计 §2.1)。
  * 画布尺寸按容器实测:窗口 resize / DPR 变化都要重建几何(设计 §6-3),
  * 故 `plan` 的 memo 依赖必须含 `size` 与 `dprKey`(尺寸变而 plan 未变 -> 位图被拉伸,Task 4 审查交接;
@@ -12,12 +13,13 @@ import { api } from '../../shared/api';
 import type { GraphData } from '../../shared/types';
 import { GraphCanvas } from './GraphCanvas';
 import { drawPlan, type DrawPlan } from './graph-draw-plan';
-import { DEFAULT_COLLAPSED, visibleGraph } from './graph-view-model';
+import { collapseRootsOf, visibleGraph } from './graph-view-model';
 import { radialLayout, type Point } from './radial';
 import { token } from './token';
 import { useDprKey } from './use-dpr-key';
 import { useGraphCamera } from './use-graph-camera';
 import { useThemeKey } from './use-theme-key';
+import { normalizeTemplate, TIME_TAG_TEMPLATE_KEY } from '../settings/time-tag-settings';
 
 const LAYER_GAP = 90;
 
@@ -82,9 +84,28 @@ export function GraphView(p: { onExit: () => void }): ReactNode {
     return () => window.removeEventListener('keydown', onKey);
   }, [onExit]);
 
+  // 折叠根从设置派生(G2 收 G1 欠账:写死 `'时间'` 会让用户改根名后折叠静默失效)。
+  // 读到之前 tpl 是 null(= 不折叠),回包一到 useMemo 依赖变化自然重算。
+  const [tpl, setTpl] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    void api.getSetting(TIME_TAG_TEMPLATE_KEY).then(
+      (t) => {
+        if (alive) setTpl(normalizeTemplate(t));
+      },
+      () => {
+        /* 读不到设置就保持不折叠(后端默认值与库内根名对得上时才有得折),不把整图判成加载失败 */
+      },
+    );
+    return () => {
+      alive = false;
+    };
+  }, []);
+  const collapsedRoots = useMemo(() => collapseRootsOf(tpl), [tpl]);
+
   const { nodes, edges } = useMemo(
-    () => (data === null ? { nodes: [], edges: [] } : visibleGraph(data, { collapsedRoots: DEFAULT_COLLAPSED })),
-    [data],
+    () => (data === null ? { nodes: [], edges: [] } : visibleGraph(data, { collapsedRoots })),
+    [data, collapsedRoots],
   );
   const layout: Map<number, Point> = useMemo(() => radialLayout(nodes, { layerGap: LAYER_GAP }), [nodes]);
 

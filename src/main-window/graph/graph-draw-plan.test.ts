@@ -8,9 +8,9 @@ import { drawPlan } from './graph-draw-plan';
  * 且 779 与 1177 的半径都撞上限 9,「点大小随笔记数增长」会因两者相等而红。
  */
 const nodes: GraphNode[] = [
-  { id: 1, path: '时间', depth: 1, parent: null, notes: 1177 },
-  { id: 2, path: '时间/日期', depth: 2, parent: 1, notes: 1040 },
-  { id: 3, path: '地点', depth: 1, parent: null, notes: 12 },
+  { id: 1, path: '时间', depth: 1, parent: null, notes: 1177, selfCount: 137, sortOrder: 0 },
+  { id: 2, path: '时间/日期', depth: 2, parent: 1, notes: 1040, selfCount: 1040, sortOrder: 0 },
+  { id: 3, path: '地点', depth: 1, parent: null, notes: 12, selfCount: 12, sortOrder: 0 },
 ];
 const edges: GraphEdge[] = [
   { a: 1, b: 2, kind: 'tree', weight: 1 },
@@ -67,7 +67,7 @@ describe('drawPlan:决定画什么(纯函数)', () => {
     const one = (notes: number) =>
       drawPlan({
         ...base,
-        nodes: [{ id: 1, path: '甲/乙', depth: 2, parent: null, notes }],
+        nodes: [{ id: 1, path: '甲/乙', depth: 2, parent: null, notes, selfCount: notes, sortOrder: 0 }],
         edges: [],
         points: new Map([[1, { x: 0, y: 0 }]]),
         rootColor: new Map([[1, 'c1']]),
@@ -84,8 +84,8 @@ describe('drawPlan:决定画什么(纯函数)', () => {
       ...base,
       nodes: [
         ...nodes,
-        { id: 9, path: '远/一', depth: 2, parent: 1, notes: 1 },
-        { id: 10, path: '远/二', depth: 2, parent: 1, notes: 1 },
+        { id: 9, path: '远/一', depth: 2, parent: 1, notes: 1, selfCount: 1, sortOrder: 0 },
+        { id: 10, path: '远/二', depth: 2, parent: 1, notes: 1, selfCount: 1, sortOrder: 0 },
       ],
       edges: [
         ...edges,

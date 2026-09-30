@@ -3,7 +3,7 @@ import { radialLayout } from './radial';
 import type { GraphNode } from '../../shared/types';
 
 const n = (id: number, depth: number, parent: number | null, notes = 0): GraphNode => ({
-  id, path: `p${id}`, depth, parent, notes,
+  id, path: `p${id}`, depth, parent, notes, selfCount: notes, sortOrder: 0,
 });
 
 /** 两个角度的最小夹角(atan2 值域 (-π, π],跨 ±π 的角要按 2π 取补) */

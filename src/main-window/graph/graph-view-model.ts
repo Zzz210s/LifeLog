@@ -1,7 +1,20 @@
 import type { GraphData, GraphEdge, GraphNode } from '../../shared/types';
 
-/** 默认折叠的根标签(设计 D8:时间轴默认折叠)。视图与真机读数探针共读这一份口径。 */
-export const DEFAULT_COLLAPSED = ['时间'] as const;
+/**
+ * 默认折叠哪一根:从时间标签模板(设置 `time_tag_template` 的原文)派生。
+ * 取首段作根名,要求模板至少两层 —— 单层模板(如 `时间`)不是树,没有可折叠的子级。
+ * 首段是占位符(`{y}/{m}/{d}`)时也没有可折叠的根名。用户改根名后折叠跟着走
+ * (旧实现写死 `'时间'`,改名即静默失效;探针与视图共读这一份口径)。
+ */
+export function collapseRootsOf(template: string | null | undefined): string[] {
+  const segs = (template ?? '')
+    .split('/')
+    .map((s) => s.trim())
+    .filter((s) => s !== '');
+  const [root] = segs;
+  if (root === undefined || segs.length < 2 || root.includes('{')) return [];
+  return [root];
+}
 
 /**
  * 可见性:折叠某个根标签 = 只保留该根节点本身。

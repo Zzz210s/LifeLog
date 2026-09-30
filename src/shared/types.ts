@@ -80,7 +80,8 @@ export interface ParseResult {
 /**
  * 关系图节点(IPC `graph_data`,字段与 Rust `GraphNodeDto` 逐字一致)。
  * `depth` 是标签树深度(根级 = 1),`parent` 是父标签 id(根级为 null),
- * `notes` 是**含子孙**的去重笔记数(与侧栏 subtree_count 同源)。
+ * `notes` 是**含子孙**的去重笔记数(与侧栏 subtree_count 同源),
+ * `selfCount` 是本级去重笔记数(不含子孙),`sortOrder` 与 `tags.sort_order` 同口径(右键菜单按它排)。
  */
 export interface GraphNode {
   id: number;
@@ -88,6 +89,8 @@ export interface GraphNode {
   depth: number;
   parent: number | null;
   notes: number;
+  selfCount: number;
+  sortOrder: number;
 }
 
 /** 关系图的边(IPC `graph_data`):`tree` 父子边 / `co` 共现边,`weight` 是两端共现笔记数 */

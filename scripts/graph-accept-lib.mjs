@@ -162,20 +162,25 @@ export const panDrag = (cdp) =>
 
 /**
  * 布局耗时:开发构建下直接 import 源码模块对纯函数计时(生产构建没有源码路径 -> null)。
- * 计时的节点集必须与视图真正布局的那一份一致:走同一份 visibleGraph + DEFAULT_COLLAPSED。
- * 折叠「时间」根会连它的全部后代一起隐藏(本机库 768 个标签里 378 个以「时间」开头),
+ * 计时的节点集必须与视图真正布局的那一份一致:走同一份 visibleGraph + collapseRootsOf,
+ * 模板也走视图同一条读法(设置 `time_tag_template` 原文 -> normalizeTemplate -> 派生根名)。
+ * 折叠某个根会连它的全部后代一起隐藏(本机库 768 个标签里 378 个以时间根开头),
  * 只剔掉根自身等于把 391 个点当 767 个点计时,那只是探针自己的工作量。
+ * 返回的 roots 是本次真正折叠的根名,供读数文案照着念(不再写死「时间」)。
  */
 export const layoutMs = (cdp, runs = 20) =>
   cdp.eval(`(async () => {
     const mods = await Promise.all([
       import('/src/main-window/graph/radial.ts'),
       import('/src/main-window/graph/graph-view-model.ts'),
+      import('/src/main-window/settings/time-tag-settings.ts'),
     ]).catch(() => null);
     if (mods === null) return null;
-    const [radial, vm] = mods;
+    const [radial, vm, tt] = mods;
     const raw = await window.__TAURI_INTERNALS__.invoke('graph_data');
-    const { nodes } = vm.visibleGraph(raw, { collapsedRoots: vm.DEFAULT_COLLAPSED });
+    const tpl = tt.normalizeTemplate(await window.__TAURI_INTERNALS__.invoke('get_setting', { key: 'time_tag_template' }));
+    const roots = vm.collapseRootsOf(tpl);
+    const { nodes } = vm.visibleGraph(raw, { collapsedRoots: roots });
     if (nodes.length === 0) return null;
     const times = [];
     for (let i = 0; i < ${runs}; i++) {
@@ -184,5 +189,5 @@ export const layoutMs = (cdp, runs = 20) =>
       times.push(performance.now() - t0);
     }
     times.sort((a, b) => a - b);
-    return { ms: Math.round(times[${Math.floor(runs / 2)}] * 1000) / 1000, nodes: nodes.length, raw: raw.nodes.length, runs: ${runs} };
+    return { ms: Math.round(times[${Math.floor(runs / 2)}] * 1000) / 1000, nodes: nodes.length, raw: raw.nodes.length, runs: ${runs}, roots };
   })()`);
