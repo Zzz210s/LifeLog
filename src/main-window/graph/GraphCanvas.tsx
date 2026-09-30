@@ -13,6 +13,7 @@
 import { useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import type { DrawPlan, Segment } from './graph-draw-plan';
+import { NOTE_R } from './graph-notes';
 import { token } from './token';
 
 /** 弱化透明度:足够暗到让焦点跳出来,又还能看出图的结构 */
@@ -21,8 +22,6 @@ const DIM_ALPHA = 0.2;
 const EMPHASIS_WIDTH = 2.5;
 /** 选中环离点的间距(屏幕像素):点小时不至于贴在一起 */
 const RING_GAP = 3;
-/** 笔记小圆半径(屏幕像素) */
-const NOTE_R = 3;
 
 function strokeAll(
   ctx: CanvasRenderingContext2D,

@@ -1,11 +1,17 @@
 /**
- * 展开笔记的小圆布局(纯函数)。
+ * 展开笔记的小圆:几何口径(半径)与扇形布局(纯函数)。
  * 坐标是**世界坐标**(与 `radial` 的 Point 同一口径),交给 `drawPlan` 经相机换算成屏幕坐标。
  * 上限存在的理由:一个标签可能挂上千条笔记,全画出来会糊满整屏;略去的条数用 `+N` 交代。
  */
 import type { Point } from './radial';
 
 export const NOTE_LIMIT = 20;
+
+/**
+ * 小圆半径(屏幕像素):与标签点一样不随相机缩放,所以「画多大就点多大的地方」
+ * 这条命中口径要靠同一个常量 —— 画布的绘制与 `use-expanded-notes` 的命中都读它。
+ */
+export const NOTE_R = 3;
 
 export interface NoteFan {
   dots: Point[];

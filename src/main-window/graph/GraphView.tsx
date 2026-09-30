@@ -1,38 +1,34 @@
 /**
  * 关系图视图外壳:打开时拉一次图数据 -> 折叠时间轴根 -> 径向布局 -> 画布。
- * 折叠哪一根从设置 `time_tag_template` 派生(G2;`collapseRootsOf`),读到之前不折叠。
+ * 折叠哪一根从设置 `time_tag_template` 派生(G2;见 useCollapseRoots),读到之前不折叠。
  * 数据只在进入本视图时拉取,信息流与输入栏的启动路径不受影响(设计 §2.1)。
- * 画布尺寸按容器实测:窗口 resize / DPR 变化都要重建几何(设计 §6-3),
- * 故 `plan` 的 memo 依赖必须含 `size` 与 `dprKey`(尺寸变而 plan 未变 -> 位图被拉伸,Task 4 审查交接;
- * 纯 DPR 变化时尺寸量化可能量不出差别,只靠 size 会停在旧 DPR)。
- * 相机(缩放/平移/`+` `-` `0`/位置记忆)全在 useGraphCamera;指针语义(悬停/选中/双击/右键)
- * 全在 useGraphInteractions;本文件只负责接线与选中态,并保证 `plan` 的依赖齐全:
- * **`emphasis` 必须进 plan 依赖** —— 画布按 plan 引用判等,悬停/选中换了强调态却不重建 plan,
- * 点与边就永远亮不起来(G2 Task 5 审查点名)。
+ * 本文件只负责接线与状态:`hovered` 在 useGraphInteractions,`selected`/`expanded` 在这里,
+ * 相机(缩放/平移/`+` `-`/`0`/位置记忆)在 useGraphCamera,展开笔记的取数/扇形几何/点小圆的
+ * 动作在 useExpandedNotes(G2 Task 6),而「一帧画什么」的合成在 useGraphPlan
+ * (plan 的依赖理由 —— 尺寸 / DPR / 强调态 / 展开层少一样就会静停在旧画面 —— 记在那个模块)。
+ * 折叠根读设置那一段也在外部(useCollapseRoots):两处抽出的都是纯搬移,为守 200 行红线
+ * (与 use-graph-data / use-graph-size 同一处理)。
+ * 口径提醒:`expanded` 与 `selected` 各算各的 —— 点别的标签不会把已展开的那圈小圆收掉。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { api } from '../../shared/api';
 import { GraphCanvas } from './GraphCanvas';
-import { drawPlan, type DrawPlan } from './graph-draw-plan';
-import { emphasisOf } from './graph-focus';
 import { GraphInfoBar } from './GraphInfoBar';
 import { GraphTagMenuHost } from './GraphTagMenuHost';
 import { GraphTip } from './GraphTip';
-import { collapseRootsOf, visibleGraph } from './graph-view-model';
+import { visibleGraph } from './graph-view-model';
 import { radialLayout, type Point } from './radial';
-import { token } from './token';
+import { useCollapseRoots } from './use-collapse-roots';
 import { useDprKey } from './use-dpr-key';
+import { useExpandedNotes } from './use-expanded-notes';
 import { useGraphCamera } from './use-graph-camera';
 import { useGraphData } from './use-graph-data';
 import { useGraphInteractions } from './use-graph-interactions';
+import { useGraphPlan } from './use-graph-plan';
 import { useGraphSize } from './use-graph-size';
 import { useThemeKey } from './use-theme-key';
-import { normalizeTemplate, TIME_TAG_TEMPLATE_KEY } from '../settings/time-tag-settings';
 
 const LAYER_GAP = 90;
-
-const EMPTY_PLAN: DrawPlan = { co: [], tree: [], dots: [], labels: [], notes: [], overflow: null };
 
 export function GraphView(p: {
   onExit: () => void;
@@ -64,23 +60,8 @@ export function GraphView(p: {
   }, [onExit]);
 
   // 折叠根从设置派生(G2 收 G1 欠账:写死 `'时间'` 会让用户改根名后折叠静默失效)。
-  // 读到之前 tpl 是 null(= 不折叠),回包一到 useMemo 依赖变化自然重算。
-  const [tpl, setTpl] = useState<string | null>(null);
-  useEffect(() => {
-    let alive = true;
-    void api.getSetting(TIME_TAG_TEMPLATE_KEY).then(
-      (t) => {
-        if (alive) setTpl(normalizeTemplate(t));
-      },
-      () => {
-        /* 读不到设置就保持不折叠(后端默认值与库内根名对得上时才有得折),不把整图判成加载失败 */
-      },
-    );
-    return () => {
-      alive = false;
-    };
-  }, []);
-  const collapsedRoots = useMemo(() => collapseRootsOf(tpl), [tpl]);
+  // 调用位置不能挪到 useGraphCamera 之后:两处都读 getSetting,折叠根的读要排在前(用例钉住了这次序)。
+  const collapsedRoots = useCollapseRoots();
 
   const { nodes, edges } = useMemo(
     () => (data === null ? { nodes: [], edges: [] } : visibleGraph(data, { collapsedRoots })),
@@ -113,6 +94,17 @@ export function GraphView(p: {
     onMenu: (id, x, y) => setMenu({ id, x, y }),
   });
 
+  // 展开笔记(G2 Task 6):吃的是 `expanded` 而不是 selected —— 展开挂在哪个标签上是它自己的
+  // 状态,点了别的标签(selected 变了)已展开的那圈小圆还要在。
+  const expandedNode = expanded === null ? null : (nodes.find((n) => n.id === expanded) ?? null);
+  const exp = useExpandedNotes({
+    node: expandedNode,
+    points: cam.points,
+    cam: cam.camera,
+    origin,
+    onFilterToStream: p.onFilterToStream,
+  });
+
   // 首次适配视图(设计 §3.3);此后不再自动改相机 —— 用户按 0 才复位(Task 6)。
   // 复位路径与 `0` 键共用 cam.reset,避免"定点适配"出现两份实现。
   const reset = cam.reset;
@@ -122,36 +114,26 @@ export function GraphView(p: {
     reset();
   }, [layout, size, reset]);
 
-  const points = cam.points;
-  // 强调态:悬停优先于选中(焦点跟着光标),选中环与信息条仍归 selected(见 graph-focus)
-  const emphasis = useMemo(
-    () => emphasisOf({ selected, hovered: acts.hovered, edges }),
-    [selected, acts.hovered, edges],
-  );
-  const plan = useMemo(
-    () =>
-      size.w === 0 || size.h === 0
-        ? EMPTY_PLAN
-        : drawPlan({
-            nodes,
-            edges,
-            points,
-            cam: cam.camera,
-            w: size.w,
-            h: size.h,
-            rootColor: new Map<number, string>(), // G1 不按根着色:统一用主题令牌兜底色
-            fallbackColor: token('--color-muted'),
-            emphasis,
-          }),
-    // themeKey 进依赖:兜底色是计划期读的令牌,换主题必须重建 plan(边/文字的颜色在画布里现读)
-    // dprKey 进依赖:纯 DPR 变化时尺寸可能一点没变,不重建 plan 就不会重设后备缓冲(画布停在旧 DPR)
-    // emphasis 进依赖:悬停/选中必须让 plan 换对象,否则画布认为"没变"而不重绘
-    [nodes, edges, points, cam.camera, size, themeKey, dprKey, emphasis],
-  );
+  // 一帧画什么(含强调态)在 useGraphPlan:本文件只把视图状态摆好递进去
+  const plan = useGraphPlan({
+    nodes,
+    edges,
+    points: cam.points,
+    cam: cam.camera,
+    size,
+    themeKey,
+    dprKey,
+    selected,
+    hovered: acts.hovered,
+    // 展开层给的是世界坐标(见 useExpandedNotes);展开者被裁到视口外时 drawPlan 整组不画
+    expanded: expanded === null ? null : { id: expanded, dots: exp.dots, overflow: exp.overflow },
+  });
 
   const selectedNode = selected === null ? null : (nodes.find((n) => n.id === selected) ?? null);
   const hoveredNode = acts.hovered === null ? null : (nodes.find((n) => n.id === acts.hovered) ?? null);
-  const count = failed ? '关系图加载失败' : `${nodes.length} 个节点 / ${edges.length} 条边`;
+  // 展开笔记的状态优先占状态条文案位(用户当下最关心的那件事);没在展开就跟原来一样报计数
+  const noteHint = exp.failed ? '笔记加载失败' : exp.loading ? '正在展开笔记…' : null;
+  const count = noteHint ?? (failed ? '关系图加载失败' : `${nodes.length} 个节点 / ${edges.length} 条边`);
 
   return (
     <div
@@ -165,7 +147,10 @@ export function GraphView(p: {
         cam.onPointerUp();
         acts.onPointerLeave();
       }}
-      onClick={acts.onClick}
+      // 点在笔记小圆上就是「带着该标签回信息流」:不能再走画布点击(那会先把选中清掉)
+      onClick={(e) => {
+        if (!exp.onNoteClick(e)) acts.onClick(e);
+      }}
       onDoubleClick={acts.onDoubleClick}
       onContextMenu={acts.onContextMenu}
     >
