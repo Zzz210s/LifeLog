@@ -80,3 +80,37 @@ describe('HoverTip:悬停即显示,离开即收起', () => {
     expect(tip()).toBeNull();
   });
 });
+
+/**
+ * 抽取 TipBubble 后补的行为不变证据:定位算式与抽取前一字不差。
+ * jsdom 的 `getBoundingClientRect` 全零,故给锚点钉上真实几何(否则断言的是 0 而非算式)。
+ */
+describe('HoverTip:气泡位置(抽取 TipBubble 前后的算式一致)', () => {
+  const place = (el: HTMLElement, r: { left: number; width: number; top: number; bottom: number }): void => {
+    el.getBoundingClientRect = () =>
+      ({
+        ...r,
+        right: r.left + r.width,
+        height: r.bottom - r.top,
+        x: r.left,
+        y: r.top,
+        toJSON: () => ({}),
+      }) as DOMRect;
+  };
+
+  it('下方放得下时贴目标底边,空隙 6px', async () => {
+    const el = anchor('chēn');
+    place(el, { left: 100, width: 40, top: 200, bottom: 220 });
+    await fire('mouseover', el);
+    expect(tip()?.style.left).toBe('120px');
+    expect(tip()?.style.top).toBe('226px');
+  });
+
+  it('底部空间不够就翻到上方(按视口底边算)', async () => {
+    const el = anchor('chēn');
+    place(el, { left: 100, width: 40, top: 730, bottom: 750 });
+    await fire('mouseover', el);
+    expect(tip()?.style.left).toBe('120px');
+    expect(tip()?.style.bottom).toBe(`${window.innerHeight - 730 + 6}px`);
+  });
+});

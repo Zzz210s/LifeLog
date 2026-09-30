@@ -7,6 +7,7 @@
  */
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
+import { TIP_GAP, TipBubble } from './TipBubble';
 
 interface Tip {
   text: string;
@@ -17,7 +18,6 @@ interface Tip {
   above: boolean;
 }
 
-const GAP = 6;
 const EDGE = 8;
 const FLIP_SPACE = 48;
 
@@ -32,7 +32,7 @@ export function HoverTip(): ReactNode {
       const text = el?.getAttribute('data-tip') ?? '';
       if (el === null || text === '') return;
       const r = el.getBoundingClientRect();
-      const half = Math.min(r.width / 2 + GAP, window.innerWidth / 2 - EDGE);
+      const half = Math.min(r.width / 2 + TIP_GAP, window.innerWidth / 2 - EDGE);
       setTip({
         text,
         x: Math.min(Math.max(r.left + r.width / 2, EDGE + half), window.innerWidth - EDGE - half),
@@ -53,16 +53,13 @@ export function HoverTip(): ReactNode {
   }, []);
 
   if (tip === null) return null;
-  const style = tip.above
-    ? { left: tip.x, bottom: window.innerHeight - tip.top + GAP }
-    : { left: tip.x, top: tip.bottom + GAP };
+  // 锚点按翻转方向取上下边:气泡挂在下方时贴目标底边,翻到上方时贴目标顶边(TipBubble 内部的 GAP)
   return (
-    <div
-      data-testid="hover-tip"
-      className="pointer-events-none fixed z-50 max-w-[16rem] -translate-x-1/2 rounded-md border border-border bg-raised px-2 py-1 text-xs break-words text-text shadow-lg"
-      style={style}
-    >
-      {tip.text}
-    </div>
+    <TipBubble
+      text={tip.text}
+      x={tip.x}
+      y={tip.above ? tip.top : tip.bottom}
+      above={tip.above}
+    />
   );
 }
