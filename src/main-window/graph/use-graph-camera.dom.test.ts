@@ -132,6 +132,16 @@ describe('useGraphCamera:拖空白平移与 0 复位', () => {
     expect(api!.camera.tx).toBeCloseTo(before.tx + 20, 6);
   });
 
+  it('右键按下不平移(右键的拖拽不能挪画布,右键留给标签菜单)', async () => {
+    await mount();
+    const before = { ...api!.camera };
+    await act(async () => {
+      api!.onPointerDown({ clientX: 10, clientY: 10, button: 2 } as PointerEvent);
+      api!.onPointerMove({ clientX: 90, clientY: 90 } as PointerEvent);
+    });
+    expect(api!.camera).toEqual(before);
+  });
+
   it('按 0 复位到适配视图,带修饰键的 0 不算复位,卸载后监听已摘', async () => {
     await mount();
     await wheel(-120);

@@ -1,5 +1,5 @@
 /**
- * 相机状态 + 交互(G1):滚轮以光标为中心缩放、拖空白平移、`0` 复位、`+`/`-` 以画布中心缩放。
+ * 相机状态 + 交互(G1):滚轮以光标为中心缩放、拖空白平移(只认主键,G2)、`0` 复位、`+`/`-` 以画布中心缩放。
  * 位置记忆:进视图读一次 settings `graph_positions`(只含被拖过的节点),叠加在布局结果之上;
  * 写回只发生在 savePositions 被调用时(G1 不做节点拖拽,G2 接)。
  * 键盘监听与视图外壳的 `Esc` 退出是两条独立监听:这里只管缩放三键,不 stopPropagation,互不吞。
@@ -49,10 +49,12 @@ export function overlayPositions(
   return out;
 }
 
-/** 拖拽只需要这两个字段:原生 PointerEvent 与 React 合成事件都满足 */
+/** 拖拽只需要这几个字段:原生 PointerEvent 与 React 合成事件都满足 */
 export interface PointerAt {
   clientX: number;
   clientY: number;
+  /** 按键(0 主键 / 2 右键);合成事件与旧调用可省 —— 省了就按主键处理 */
+  button?: number;
 }
 
 export interface GraphCameraApi {
@@ -123,6 +125,8 @@ export function useGraphCamera(opts: {
   }, []);
 
   const onPointerDown = useCallback((e: PointerAt): void => {
+    // 只认主键:右键的按下不进入拖拽(右键是开标签菜单,G2),后续 pointermove 因 drag 为空而不平移
+    if (e.button !== undefined && e.button !== 0) return;
     drag.current = { x: e.clientX, y: e.clientY };
   }, []);
 

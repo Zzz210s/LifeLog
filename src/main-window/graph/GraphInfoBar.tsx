@@ -5,6 +5,7 @@
  * (`GraphNode` 注释),两个数一起给才不会把「414 篇」误读成这个标签自己挂了 414 篇。
  * 长路径 `break-all`:标签路径没有空格,`break-words` 断不开,会撑破 240px 的条子。
  * 「Esc 返回信息流」是纯提示,按键本身在 `GraphView` 的 window keydown 上。
+ * 根上的 `data-graph-overlay` 告诉指针交互 hook:这一坨的事件不算画布交互(点按钮不该先把选中清掉)。
  */
 import type { ReactNode } from 'react';
 import type { GraphNode } from '../../shared/types';
@@ -20,6 +21,7 @@ export function GraphInfoBar(p: {
   return (
     <div
       data-testid="graph-info-bar"
+      data-graph-overlay
       className="absolute right-3 top-3 z-10 w-60 rounded-md border border-border bg-raised px-3 py-2 text-xs shadow-lg"
     >
       <div className="break-all font-medium text-text">{n.path}</div>

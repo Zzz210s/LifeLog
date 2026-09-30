@@ -37,7 +37,7 @@ let host: HTMLDivElement;
 /** 挂载并等首次数据加载落定 */
 const mount = async (onExit: () => void): Promise<void> => {
   await act(async () => {
-    root.render(createElement(GraphView, { onExit }));
+    root.render(createElement(GraphView, { onExit, onFilterToStream: () => {} }));
   });
 };
 

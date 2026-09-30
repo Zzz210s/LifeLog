@@ -181,7 +181,7 @@ export function App(): ReactNode {
             onReplayTutorial={tutorial.onReplay}
           />
         )}
-        {view === 'graph' && <GraphView onExit={backToStream} />}
+        {view === 'graph' && <GraphView onExit={backToStream} onFilterToStream={(path) => { toggleTag(path); backToStream(); }} />}{/* 图上的「筛到信息流」:与侧栏点标签同一口径(含子级) */}
       </div>
       <CommandStatusPill status={commands.status} />
       {/* 瞬时悬浮提示(标签名里的备注字):原生 title 延迟约 1 秒,这里走 data-tip 事件委托 */}

@@ -65,7 +65,7 @@ const metrics = (w: () => number, h: () => number): (() => void) => {
 
 const mount = async (onExit: () => void): Promise<void> => {
   await act(async () => {
-    root.render(createElement(GraphView, { onExit }));
+    root.render(createElement(GraphView, { onExit, onFilterToStream: () => {} }));
   });
 };
 
