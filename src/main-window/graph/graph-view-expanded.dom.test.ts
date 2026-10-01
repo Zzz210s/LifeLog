@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
  * GraphView 的展开笔记接线面(G2 Task 6):双击展开 -> 取数回包 -> plan 重建 -> 画出小圆与 `+N`;
- * 点小圆 = 带着该标签回信息流,且不能同时被当成画布点击(否则选中先被清掉、信息条当场消失)。
+ * 点小圆 / 点 `+N` = 带着该标签回信息流,且不能同时被当成画布点击(否则选中先被清掉、信息条当场消失)。
  *
  * 节点屏幕位置用视图同一套纯函数现算(`visibleGraph` -> `radialLayout` -> `fitToView` -> `screenOf`),
  * 小圆位置另按 `noteFan` 的算法摆(正上方起顺时针,半径 = 标签半径 + 14),免得把算式抄成第二份。
@@ -171,6 +171,23 @@ describe('GraphView:展开笔记', () => {
       expect(onFilter).toHaveBeenCalledWith('甲');
       // 点小圆不能顺带走画布点击:那会先把选中清掉,信息条当场消失
       expect(host.querySelector('[data-testid="graph-info-bar"]')).not.toBeNull();
+    } finally {
+      restore();
+    }
+  });
+
+  it('点 +N(= 标签点正中央)= 带着该标签回信息流,不算画布点击', async () => {
+    const restore = metrics();
+    try {
+      await mount();
+      await fire('dblclick', at(1));
+      await flush();
+      expect(texts()).toContain('+394');
+      // `+N` 与标签点同心(`noteFan` 把提示位摆在圆心):点那里命中的是 `+N`
+      await fire('click', at(1));
+      expect(onFilter).toHaveBeenCalledWith('甲');
+      // 不算画布点击 -> 不能顺手把这个标签选中(信息条会先冒出来、再被带回信息流的动作带走)
+      expect(host.querySelector('[data-testid="graph-info-bar"]')).toBeNull();
     } finally {
       restore();
     }

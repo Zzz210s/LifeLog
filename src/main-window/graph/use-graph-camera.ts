@@ -56,6 +56,18 @@ export function useGraphCamera(opts: {
   origin?: () => Point;
   /** 写回时的"现存标签 id":库里已删的标签不再保留位置;缺省表示不修剪 */
   validIds?: Set<number>;
+  /**
+   * 「重置视图」的适配信号(单调递增;缺省 0 = 没人请求过):变了就在**当次渲染**的落点上重新适配
+   * —— 与内置 `reset` 同一份算式。用信号而不是回调:相机先于力导向建立,而复位要作废整理结果(在上游),
+   * 回调会绕回相机自己;信号由 `useGraphStage` 递增,下一帧生效时落点已是径向布局。
+   */
+  resetSignal?: number;
+  /**
+   * 按 `0` 时改走这一份(缺省:内置的 `reset`)。「重置视图」= 作废整理结果 + 适配相机,而整理结果在上层,
+   * 合成动作只能由上层给。它**不负责适配**:适配一律走 `resetSignal`(下一帧按新落点算),
+   * 否则会拿整理前的落点去适配。
+   */
+  onReset?: () => void;
 }): GraphCameraApi {
   const [camera, setCamera] = useState<Camera>({ k: 1, tx: opts.width / 2, ty: opts.height / 2 });
   const [saved, setSaved] = useState<Positions>(NO_POSITIONS);
@@ -64,6 +76,7 @@ export function useGraphCamera(opts: {
   const drag = useRef<{ x: number; y: number } | null>(null);
   const origin = opts.origin ?? NO_ORIGIN;
   const validIds = opts.validIds ?? NO_IDS;
+  const onReset = opts.onReset;
 
   // 位置记忆只读一次;卸载后迟到的回包不碰状态
   useEffect(() => {
@@ -90,6 +103,16 @@ export function useGraphCamera(opts: {
     setCamera(fitToView([...points.values()], opts.width, opts.height));
   }, [points, opts.width, opts.height]);
 
+  // 「重置视图」的适配:信号一变就重新适配。`fitted` 记住已处理的信号 ——
+  // 只盯 `reset` 的身份不行:尺寸/落点一变它就换引用,那样拖节点或改尺寸都会把用户的缩放/平移冲掉。
+  const signal = opts.resetSignal ?? 0;
+  const fitted = useRef(signal);
+  useEffect(() => {
+    if (fitted.current === signal) return;
+    fitted.current = signal;
+    reset();
+  }, [signal, reset]);
+
   const commitPositions = useCallback(
     (moved: Positions): void => {
       // 先本地落地:库的回包还没到,松手也不能闪回原位(React 同批渲染,画面只跳一次)
@@ -110,8 +133,7 @@ export function useGraphCamera(opts: {
     [validIds],
   );
 
-  // 只挪平移量,不动 k:搜索跳转不该顺带改变用户当前的缩放档(反向解 screenOf:k 不变时
-  // tx = 中心 x - p.x * k 就能把 p 摆到画布中心)
+  // 只挪平移量,不动 k:搜索跳转不该顺带改变用户的缩放档(反向解 screenOf:tx = 中心 x - p.x * k)
   const centerOn = useCallback(
     (p: Point): void => {
       setCamera((cam) => ({
@@ -134,19 +156,18 @@ export function useGraphCamera(opts: {
     const onKey = (e: KeyboardEvent): void => {
       // 输入法组合中(打拼音时 `-` 也会作为按键冒上来)不处理:这不是快捷键
       if (e.isComposing || e.keyCode === 229) return;
-      // 焦点在输入框/可编辑区:用户在打字而不是按图快捷键。
-      // 缺这条时 G2 的图内搜索框里打 `-`/`+` 会同时缩放画布(G1 审查点名的真 bug)。
+      // 焦点在输入框/可编辑区是打字,不是图快捷键(缺这条:图内搜索框里打 `-`/`+` 会同时缩放画布)
       const t = e.target as HTMLElement | null;
       if (t?.closest?.('input, textarea, [contenteditable]')) return;
       // 带修饰键的按键(Ctrl+0 等)留给宿主,不抢
       if (e.ctrlKey || e.metaKey || e.altKey) return;
-      if (e.key === '0') reset();
+      if (e.key === '0') (onReset ?? reset)();
       else if (e.key === '+' || e.key === '=') zoomBy(ZOOM_STEP);
       else if (e.key === '-') zoomBy(1 / ZOOM_STEP);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [reset, zoomBy]);
+  }, [reset, zoomBy, onReset]);
 
   const onWheel = useCallback((e: WheelEvent): void => {
     e.preventDefault();

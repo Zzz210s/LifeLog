@@ -11,6 +11,7 @@
  *
  * `useArrangedLayout` 还负责"布局换代即作废":过滤器 / 折叠换了节点集,径向布局会重建,
  * 旧的整理坐标对不上新节点集(多出的、缺掉的 id 全错),必须丢弃而不是硬套。
+ * 同样的作废还有一个人工入口:`clear()` —— 「重置视图」与 `0` 靠它回径向(见 use-graph-stage)。
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { GraphEdge } from '../../shared/types';
@@ -92,12 +93,15 @@ export interface ArrangedLayout {
   points: Map<number, Point>;
   /** 把整理结果交进来(每帧一次) */
   setPoints: (points: Map<number, Point>) => void;
+  /** 丢掉整理结果,回到径向布局(「重置视图」/ `0` 用;没整理过时也安全) */
+  clear: () => void;
 }
 
 /** 整理结果的状态 + "布局换代即作废"(见文件头) */
 export function useArrangedLayout(layout: Map<number, Point>): ArrangedLayout {
   const [arranged, setArranged] = useState<{ from: Map<number, Point>; points: Map<number, Point> } | null>(null);
   const setPoints = useCallback((points: Map<number, Point>) => setArranged({ from: layout, points }), [layout]);
+  const clear = useCallback(() => setArranged(null), []);
   const points = arranged !== null && arranged.from === layout ? arranged.points : layout;
-  return { points, setPoints };
+  return { points, setPoints, clear };
 }

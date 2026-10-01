@@ -9,6 +9,10 @@
  * **覆盖层**:右侧信息条与标签菜单压在画布上,它们的事件目标带 `data-graph-overlay`,
  * 一律不当画布交互处理(否则点「展开笔记」的同一个 click 会先冒泡到画布、把选中清掉,信息条当场消失)。
  *
+ * **`+N`**:展开层被略去的那些笔记的提示位画在标签点**正中央**(与点同心),所以单击优先判它
+ * (`+N` -> 带着该标签回信息流,与点笔记小圆同一口径);悬停 / 双击 / 右键都不看它 ——
+ * 看了就会把展开后的「再双击收起」(设计 §5)吞掉。
+ *
  * 只在真的变了才 setState:悬停同一节点时移动鼠标不换 state,视图不重渲染、`plan` 不重建。
  */
 import { useCallback, useState } from 'react';
@@ -36,6 +40,26 @@ export interface GraphInteractions {
   onContextMenu: (e: PointerAt & { preventDefault: () => void }) => void;
 }
 
+/** 展开层的 `+N` 提示位:屏幕坐标 + 所属标签 id(它指示的那批笔记要从哪个标签筛过去) */
+export interface OverflowHit {
+  id: number;
+  x: number;
+  y: number;
+}
+
+/**
+ * `+N` 的命中半径:它按 12px 居中画在标签点正中央,给足一个字的宽度。
+ * 取舍:单击落在这个圈里判 `+N`(回信息流),圈外才轮到标签点 —— 小标签点(笔记数少、半径小)
+ * 的点会被 `+N` 整个盖住,想选中得先收起展开;大标签点(触及半径 > 10)则还留着一圈。
+ * 再小够不着 `+N` 的字,再大就把标签点整个吃掉(半径对照见用例)。
+ */
+export const OVERFLOW_REACH = 10;
+
+/** 指针(视口坐标)是否落在 `+N` 上:先换成画布局部坐标,再比距离(与节点命中同一套原点换算) */
+export function hitsOverflow(o: OverflowHit, e: PointerAt, origin: Point): boolean {
+  return Math.hypot(o.x - (e.clientX - origin.x), o.y - (e.clientY - origin.y)) <= OVERFLOW_REACH;
+}
+
 /** 事件来自覆盖层(信息条 / 标签菜单)而不是画布 */
 function fromOverlay(e: PointerAt): boolean {
   const t = e.target;
@@ -61,8 +85,14 @@ export function useGraphInteractions(input: {
   onMenu: (id: number, x: number, y: number) => void;
   /** 双击**空白** = 回信息流(设计 §5:双击节点是展开,双击空白是退出) */
   onExit: () => void;
+  /** 展开层的 `+N`(屏幕坐标);没展开或没略去时给 null(缺省也是 null) */
+  overflow?: OverflowHit | null;
+  /** 命中 `+N`:与点笔记小圆同效 —— 带着该标签(id)回信息流 */
+  onOverflow?: (id: number) => void;
 }): GraphInteractions {
   const { nodes, points, cam, origin, onSelect, onExpand, onMenu, onExit } = input;
+  const overflow = input.overflow ?? null;
+  const onOverflow = input.onOverflow;
   const [hovered, setHovered] = useState<number | null>(null);
   const [tipAt, setTipAt] = useState<Point | null>(null);
 
@@ -101,9 +131,15 @@ export function useGraphInteractions(input: {
   const onClick = useCallback(
     (e: PointerAt): void => {
       if (fromOverlay(e)) return;
-      onSelect(pick(e).id);
+      const { id, origin: o } = pick(e);
+      // `+N` 压在标签点正中央:先判它(否则永远命不中 —— 点在中心总是先撞上标签点)
+      if (overflow !== null && hitsOverflow(overflow, e, o)) {
+        onOverflow?.(overflow.id);
+        return;
+      }
+      onSelect(id);
     },
-    [pick, onSelect],
+    [pick, onSelect, overflow, onOverflow],
   );
 
   const onDoubleClick = useCallback(

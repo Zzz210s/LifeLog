@@ -17,6 +17,8 @@
  * —— G3 起笔记小圆与标签点同口径:不随相机缩放,`k=0.2` 时不会缩进标签点里面。
  * 点小圆的命中吃 client 坐标,故 `onNoteClick` 拿容器原点现算(命中容差 `NOTE_R + HIT_SLOP`,
  * 与 `graph-hit` 对标签点的口径一致:G2 只做「带着该标签回信息流」,单条定位留给 G3)。
+ * `+N` 提示位的命中不在这里(它压在标签点正中央,归 `use-graph-interactions` 的单击分支),但那一份
+ * 提示位与这里的是**同一个对象**(带 `id`,见 `layer`)。
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../../shared/api';
@@ -31,13 +33,6 @@ import type { Point } from './radial';
 
 /** 小圆离标签圆心的间距(屏幕像素:标签点与笔记小圆都在屏幕口径) */
 const FAN_GAP = 14;
-
-/** 空扇形:同一份模块级对象(未展开/加载中时不要因为换了空数组而让 plan 作废) */
-const EMPTY_FAN: { space: NoteSpace; dots: Point[]; overflow: { x: number; y: number; n: number } | null } = {
-  space: 'screen',
-  dots: [],
-  overflow: null,
-};
 
 /**
  * 展开笔记的查询条件:与信息流同一份形状,只有 `tags` 收窄到该路径。
@@ -55,13 +50,24 @@ interface PageRead {
   count: number;
 }
 
-export interface ExpandedNotesApi {
-  /** 小圆的坐标口径(恒为屏幕):上层把它随 dots 一起递进 drawPlan,别再猜 */
+/**
+ * 递进 `drawPlan` 与命中的展开层。**身份稳定是硬要求**:内容不变就是同一个对象
+ * —— 每次渲染新建对象会让 plan 的 memo 白重建(见 use-graph-plan 的依赖说明)。
+ */
+export interface ExpandedLayer {
+  /** 展开的标签 id */
+  id: number;
+  /** 小圆的坐标口径(恒为屏幕):别在下游猜 */
   space: NoteSpace;
-  /** 笔记小圆(屏幕坐标);未展开/加载中/取不到一律为空 */
+  /** 笔记小圆(屏幕坐标) */
   dots: Point[];
-  /** 略去的条数提示位(世界坐标,标签圆心处);没有略去时为 null */
-  overflow: { x: number; y: number; n: number } | null;
+  /** 略去的条数提示位(屏幕坐标,标签圆心处,带所属标签 id);没有略去时为 null */
+  overflow: { id: number; x: number; y: number; n: number } | null;
+}
+
+export interface ExpandedNotesApi {
+  /** 没展开 / 取不到笔记时为 null(一个圆都不画,也不留一个点不出东西的提示位) */
+  layer: ExpandedLayer | null;
   loading: boolean;
   failed: boolean;
   /** 点中小圆返回 true(上层据此不再当画布点击 —— 那会先把选中清掉) */
@@ -104,9 +110,9 @@ export function useExpandedNotes(input: {
   const cur = read !== null && read.id === id ? read : null;
   const fetched = cur !== null && cur.ok ? cur.count : 0;
 
-  const fan = useMemo(() => {
+  const layer = useMemo((): ExpandedLayer | null => {
     const p = node === null ? undefined : points.get(node.id);
-    if (node === null || p === undefined) return EMPTY_FAN;
+    if (node === null || p === undefined) return null;
     const total = Math.max(node.notes, 0);
     // 屏幕口径:标签点先换成屏幕坐标,半径也是屏幕像素 —— 小圆不随相机缩放
     const f = noteFan({
@@ -118,30 +124,25 @@ export function useExpandedNotes(input: {
     // 只画真取到的小圆(取不到的笔记没有实体;取到 0 条就是一圈都不画)
     // 页大小 > NOTE_LIMIT,正常情况这条截断不生效 —— 它只在图数据与库不同步时拦一下
     const dots = f.dots.slice(0, fetched);
-    return dots.length === 0 ? EMPTY_FAN : { space: f.space, dots, overflow: f.overflow };
+    if (dots.length === 0) return null;
+    // `+N` 与点同心,身份得跟着层走:命中它的人要知道带哪个标签回信息流
+    return { id: node.id, space: f.space, dots, overflow: f.overflow === null ? null : { ...f.overflow, id: node.id } };
   }, [node, points, cam, fetched]);
 
   const onNoteClick = useCallback(
     (e: { clientX: number; clientY: number }): boolean => {
-      if (fan.dots.length === 0 || path === null) return false;
+      if (layer === null || path === null) return false;
       const o = origin();
       const reach = NOTE_R + HIT_SLOP;
       // 小圆已经是屏幕坐标:直接拿 client 减原点的画布坐标比距离,不再过相机
-      const hit = fan.dots.some(
+      const hit = layer.dots.some(
         (d) => Math.hypot(d.x - (e.clientX - o.x), d.y - (e.clientY - o.y)) <= reach,
       );
       if (hit) onFilterToStream(path);
       return hit;
     },
-    [fan.dots, cam, origin, onFilterToStream, path],
+    [layer, origin, onFilterToStream, path],
   );
 
-  return {
-    space: fan.space,
-    dots: fan.dots,
-    overflow: fan.overflow,
-    loading: id !== null && cur === null,
-    failed: cur !== null && !cur.ok,
-    onNoteClick,
-  };
+  return { layer, loading: id !== null && cur === null, failed: cur !== null && !cur.ok, onNoteClick };
 }

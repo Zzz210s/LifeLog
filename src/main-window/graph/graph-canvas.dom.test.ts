@@ -104,7 +104,7 @@ describe('GraphCanvas:同一 plan 不重绘', () => {
         { x: 20, y: 30 },
         { x: 24, y: 30 },
       ],
-      overflow: { x: 5, y: 6, n: 5 },
+      overflow: { id: 1, x: 5, y: 6, n: 5 },
     };
     await render(plan, 100, 100, 'light');
     // 点被弱化,但选中环仍按满不透明画:环用 accent,半径 = r + 3

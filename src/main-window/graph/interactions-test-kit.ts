@@ -10,28 +10,33 @@ import { createRoot } from 'react-dom/client';
 import { vi } from 'vitest';
 import type { GraphNode } from '../../shared/types';
 import type { Point } from './radial';
-import { useGraphInteractions, type GraphInteractions } from './use-graph-interactions';
+import { useGraphInteractions, type GraphInteractions, type OverflowHit } from './use-graph-interactions';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
+/** 节点 3 故意是个大标签(`notes` 1040):展开后它点的触及半径(≈ 14.6)大于 `+N` 的命中半径 */
 export const NODES: GraphNode[] = [
   { id: 1, path: '甲', depth: 1, parent: null, notes: 4, selfCount: 0, sortOrder: 0 },
   { id: 2, path: '甲/一', depth: 2, parent: 1, notes: 1, selfCount: 1, sortOrder: 0 },
+  { id: 3, path: '乙', depth: 1, parent: null, notes: 1040, selfCount: 1040, sortOrder: 0 },
 ];
-/** 节点 1 落在 (200,150)、节点 2 落在 (300,150);半径 r(4) = 3 + 容差 4 -> 圆心 7px 内算命中 */
+/** 节点 1 落在 (200,150)、节点 2 落在 (300,150)、节点 3 落在 (200,400);半径 r(4) = 3 + 容差 4 -> 圆心 7px 内算命中 */
 export const POINTS: Map<number, Point> = new Map([
   [1, { x: 0, y: 0 }],
   [2, { x: 100, y: 0 }],
+  [3, { x: 0, y: 250 }],
 ]);
 export const CAM = { k: 1, tx: 200, ty: 150 };
 
 export interface InteractionsHarness {
   /** 当前挂载的 hook 返回值(未挂载就取会抛) */
   api: () => GraphInteractions;
-  /** 回调记数:选中 / 展开 / 右键菜单落点 / 退出(双击空白) */
-  calls: { select: (number | null)[]; expand: number[]; menu: number[][]; exit: number };
+  /** 回调记数:选中 / 展开 / 右键菜单落点 / 退出(双击空白) / 命中 `+N` */
+  calls: { select: (number | null)[]; expand: number[]; menu: number[][]; exit: number; overflow: number[] };
   /** 换容器原点(默认 (0,0) = 容器贴视口原点) */
   setOrigin(o: Point): void;
+  /** 换展开层的 `+N`(默认 null = 没展开);挂载前设定(挂载后要再调一次 `mount()` 才生效) */
+  setOverflow(o: OverflowHit | null): void;
   mount(): Promise<void>;
   move(x: number, y: number, target?: EventTarget): Promise<void>;
   /** 指针抬离容器(onPointerLeave) */
@@ -46,8 +51,15 @@ export interface InteractionsHarness {
 
 export function makeInteractions(): InteractionsHarness {
   let origin: Point = { x: 0, y: 0 };
+  let overflow: OverflowHit | null = null;
   let api: GraphInteractions | null = null;
-  const calls = { select: [] as (number | null)[], expand: [] as number[], menu: [] as number[][], exit: 0 };
+  const calls = {
+    select: [] as (number | null)[],
+    expand: [] as number[],
+    menu: [] as number[][],
+    exit: 0,
+    overflow: [] as number[],
+  };
   const host = document.createElement('div');
   document.body.appendChild(host);
   const root = createRoot(host);
@@ -61,6 +73,8 @@ export function makeInteractions(): InteractionsHarness {
       onSelect: (id) => calls.select.push(id),
       onExpand: (id) => calls.expand.push(id),
       onMenu: (id, x, y) => calls.menu.push([id, x, y]),
+      overflow,
+      onOverflow: (id) => calls.overflow.push(id),
       onExit: () => {
         calls.exit++;
       },
@@ -78,6 +92,9 @@ export function makeInteractions(): InteractionsHarness {
     calls,
     setOrigin(o) {
       origin = o;
+    },
+    setOverflow(o) {
+      overflow = o;
     },
     async mount() {
       await act(async () => {

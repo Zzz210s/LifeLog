@@ -6,7 +6,8 @@
  *   与「点筛到信息流后的结果」是同一批
  * - 小圆落点是**屏幕坐标**(先把标签落点过一次 screenOf),半径 = 标签半径 + 14 的屏幕像素,
  *   第一个圆在正上方 —— 不随相机缩放(G3 把这条定死)
- * - 414 条 -> 只取第一页,画 20 个圆 + `+394`;取数失败不抛;库里取不到就不画幽灵圆
+ * - 414 条 -> 只取第一页,画 20 个圆 + `+394`(带所属标签 id);取数失败不抛;库里取不到就不画幽灵圆
+ * - 展开层身份稳定:相同输入重渲染拿到**同一个对象**(plan 的 memo 靠它,否则每次渲染都白重建)
  * - 点中小圆 = 带着该标签回信息流(返回 true 让上层别再当画布点击)
  */
 import { act, createElement } from 'react';
@@ -100,11 +101,10 @@ afterEach(() => {
 });
 
 describe('useExpandedNotes:取数口径', () => {
-  it('不展开就不发请求,小圆为空', async () => {
+  it('不展开就不发请求,展开层是 null(没有小圆也没有 +N)', async () => {
     await mount(null);
     expect(queryNotes).not.toHaveBeenCalled();
-    expect(api?.dots).toEqual([]);
-    expect(api?.overflow).toBeNull();
+    expect(api?.layer).toBeNull();
     expect(api?.loading).toBe(false);
     expect(api?.failed).toBe(false);
   });
@@ -124,17 +124,27 @@ describe('useExpandedNotes:取数口径', () => {
       sort: 'newest',
       expr: null,
     });
-    expect(api?.dots).toHaveLength(NOTE_LIMIT);
-    expect(api?.space).toBe('screen'); // 口径随数据一起递出去,上层不用猜
-    expect(api?.overflow).toEqual({ x: 230, y: 90, n: 414 - NOTE_LIMIT });
+    expect(api?.layer?.dots).toHaveLength(NOTE_LIMIT);
+    expect(api?.layer?.space).toBe('screen'); // 口径随数据一起递出去,上层不用猜
+    // `+N` 画在标签屏幕位置 (230, 90) 上,并带着所属标签 id(命中它要知道带哪个标签回信息流)
+    expect(api?.layer?.overflow).toEqual({ id: 7, x: 230, y: 90, n: 414 - NOTE_LIMIT });
     expect(api?.loading).toBe(false);
     expect(api?.failed).toBe(false);
+  });
+
+  it('展开层身份稳定:同一份数据重渲染拿到同一个对象(plan 的 memo 靠这条)', async () => {
+    queryNotes.mockResolvedValue(page(50));
+    await mount(NODE);
+    const first = api?.layer;
+    expect(first).not.toBeNull();
+    await mount(NODE);
+    expect(api?.layer).toBe(first);
   });
 
   it('小圆落点是屏幕坐标:第一个圆在标签屏幕位置 (230, 90) 正上方 radiusOf(414) + 14 处', async () => {
     queryNotes.mockResolvedValue(page(50));
     await mount(NODE);
-    const first = api?.dots[0];
+    const first = api?.layer?.dots[0];
     expect(first?.x).toBeCloseTo(230, 6);
     expect(first?.y).toBeCloseTo(90 - (radiusOf(414) + GAP), 6);
   });
@@ -146,21 +156,19 @@ describe('useExpandedNotes:取数口径', () => {
     expect(queryNotes).toHaveBeenCalledTimes(1);
   });
 
-  it('取数失败:failed = true,小圆为空,不抛', async () => {
+  it('取数失败:failed = true,展开层为空,不抛', async () => {
     queryNotes.mockRejectedValue(new Error('查询炸了'));
     await mount(NODE);
     expect(api?.failed).toBe(true);
     expect(api?.loading).toBe(false);
-    expect(api?.dots).toEqual([]);
-    expect(api?.overflow).toBeNull();
+    expect(api?.layer).toBeNull();
   });
 
   it('库里一条都取不到(图数据与库不同步)就不画幽灵圆', async () => {
     queryNotes.mockResolvedValue([]);
     await mount(NODE);
     expect(api?.failed).toBe(false);
-    expect(api?.dots).toEqual([]);
-    expect(api?.overflow).toBeNull();
+    expect(api?.layer).toBeNull();
   });
 });
 

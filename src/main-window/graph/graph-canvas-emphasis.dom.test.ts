@@ -43,7 +43,7 @@ describe('GraphCanvas:强调边与弱化归位', () => {
       ...empty,
       dots: [{ id: 1, x: 5, y: 6, r: 9, color: 'rgb(1, 2, 3)', dim: true, selected: true }],
       notes: [{ x: 20, y: 30 }],
-      overflow: { x: 5, y: 6, n: 5 },
+      overflow: { id: 1, x: 5, y: 6, n: 5 },
       labels: [{ id: 1, x: 5, y: -7, text: '时间' }],
     };
     await h.render(plan, 100, 100, 'light');
@@ -56,7 +56,7 @@ describe('GraphCanvas:强调边与弱化归位', () => {
     const plan: DrawPlan = {
       ...empty,
       co: [seg(0, false, true)],
-      overflow: { x: 5, y: 6, n: 5 },
+      overflow: { id: 1, x: 5, y: 6, n: 5 },
       labels: [{ id: 1, x: 5, y: -7, text: '时间' }],
     };
     await h.render(plan, 100, 100, 'light');

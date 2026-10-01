@@ -6,7 +6,8 @@
  * 本文件只接线:`hovered` 在 useGraphInteractions,`selected`/`expanded` 在这里,相机在 useGraphCamera,
  * 拖节点与位置记忆在 useNodeDrag(松手写回落给相机的 `commitPositions`),容器上的首次适配与非被动
  * wheel 在 useGraphSurface,展开笔记在 useExpandedNotes,「一帧画什么」在 useGraphPlan,覆盖层
- * (工具栏/过滤器面板/空态)在 GraphOverlays,「整理布局」在 useForceLayout,数据版本重载在 useGraphVersion。
+ * (工具栏/过滤器面板/空态)在 GraphOverlays,「整理布局」在 useForceLayout,数据版本重载在 useGraphVersion,
+ * 命中对象与状态条文案在 graph-hints。「重置视图」与 `0` 的合成动作(回径向 + 复位相机)在 useGraphStage。
  * 口径提醒:`expanded`
  * 与 `selected` 各算各的 —— 点别的标签不会收掉已展开的小圆。
  */
@@ -19,6 +20,7 @@ import { GraphOverlays } from './GraphOverlays';
 import { GraphSearch } from './GraphSearch';
 import { GraphTagMenuHost } from './GraphTagMenuHost';
 import { GraphTip } from './GraphTip';
+import { graphHints, nodePath } from './graph-hints';
 import { radialLayout, type Point } from './radial';
 import { useCollapseRoots } from './use-collapse-roots';
 import { useDprKey } from './use-dpr-key';
@@ -65,37 +67,19 @@ export function GraphView(p: {
   const layout: Map<number, Point> = useMemo(() => radialLayout(nodes, { layerGap: LAYER_GAP }), [nodes]);
   // 位置记忆的修剪口径:库里的**全部**标签(不是过滤后的可见集)—— 被过滤器藏起来的标签,位置要留着
   const validIds = useMemo(() => new Set((data?.nodes ?? []).map((n) => n.id)), [data]);
-  const selectedNode = selected === null ? null : (nodes.find((n) => n.id === selected) ?? null);
 
   // 容器原点(视口坐标 <-> 画布坐标的换算基准):相机缩放锚点、交互命中、气泡锚点共读一份
   const origin = useGraphOrigin(boxRef);
 
-  // Esc:有选中就把该标签带回信息流,没选中则原样退出(设计 §5);注册口径见 use-escape-exit
-  useEscapeExit({
-    selectedPath: selectedNode === null ? null : selectedNode.path,
-    onExit: p.onExit,
-    onFilterToStream: p.onFilterToStream,
-  });
-
   // 落点层(整理 -> 相机 -> 拖节点 -> 力导向)收在 useGraphStage:顺序固定,也是它守本文件的行数
-  const { cam, drag, force, points } = useGraphStage({ layout, nodes, edges, origin, validIds, size });
+  // `resetView` 是「重置视图」与 `0` 共用的出口(整理结果回径向 + 相机复位)
+  const { cam, drag, force, points, resetView } = useGraphStage({ layout, nodes, edges, origin, validIds, size });
   // 首次适配一次(设计 §3.3):落点与尺寸就绪才动相机,此后只由 `0` 复位;wheel 必须显式非被动层
   useAutoFit(layout.size > 0 && size.w > 0, cam.reset);
   usePassiveWheel(boxRef, cam.onWheel);
 
-  const acts = useGraphInteractions({
-    nodes,
-    points,
-    cam: cam.camera,
-    origin,
-    onSelect: setSelected,
-    onExpand: (id) => setExpanded((cur) => (cur === id ? null : id)),
-    onMenu: (id, x, y) => setMenu({ id, x, y }),
-    // 双击空白 = 回信息流(设计 §5)
-    onExit: p.onExit,
-  });
-
-  // 展开笔记:吃 `expanded` 而不是 selected —— 点了别的标签,已展开的那圈小圆还要在
+  // 展开笔记:吃 `expanded` 而不是 selected —— 点了别的标签,已展开的那圈小圆还要在。
+  // 展开层(小圆 + `+N`)由 useExpandedNotes 产出且**身份稳定**:plan 的 memo 与 `+N` 命中共读这一份
   const expandedNode = expanded === null ? null : (nodes.find((n) => n.id === expanded) ?? null);
   const exp = useExpandedNotes({
     node: expandedNode,
@@ -105,11 +89,20 @@ export function GraphView(p: {
     onFilterToStream: p.onFilterToStream,
   });
 
-  // 展开层要身份稳定:每次渲染新建对象会让 plan 的 memo 白重建(依赖理由见 use-graph-plan)
-  const expandedLayer = useMemo(
-    () => (expanded === null ? null : { id: expanded, space: exp.space, dots: exp.dots, overflow: exp.overflow }),
-    [expanded, exp.space, exp.dots, exp.overflow],
-  );
+  const acts = useGraphInteractions({
+    nodes,
+    points,
+    cam: cam.camera,
+    origin,
+    onSelect: setSelected,
+    onExpand: (id) => setExpanded((cur) => (cur === id ? null : id)),
+    onMenu: (id, x, y) => setMenu({ id, x, y }),
+    // `+N` 与标签点同心(压在点的正中央):单击优先判它 = 带着该标签回信息流(与点笔记小圆同一口径)
+    overflow: exp.layer?.overflow ?? null,
+    onOverflow: (id) => { const path = nodePath(nodes, id); if (path !== null) p.onFilterToStream(path); },
+    // 双击空白 = 回信息流(设计 §5)
+    onExit: p.onExit,
+  });
 
   // 图内搜索跳转(G2 Task 7):把相机挪到该节点(**不改缩放**)并选中 —— 信息条随之出现
   const onSearchPick = (node: GraphNode): void => {
@@ -130,13 +123,20 @@ export function GraphView(p: {
     selected,
     hovered: acts.hovered,
     // 展开层给的是屏幕坐标(见 useExpandedNotes);展开者被裁到视口外时 drawPlan 整组不画
-    expanded: expandedLayer,
+    expanded: exp.layer,
   });
 
-  const hoveredNode = acts.hovered === null ? null : (nodes.find((n) => n.id === acts.hovered) ?? null);
-  // 展开笔记的状态优先占状态条文案位(用户当下最关心的那件事);没在展开就跟原来一样报计数
-  const noteHint = exp.failed ? '笔记加载失败' : exp.loading ? '正在展开笔记…' : null;
-  const count = noteHint ?? (failed ? '关系图加载失败' : `${nodes.length} 个节点 / ${edges.length} 条边`);
+  // 命中对象与状态条文案是纯派生(graphHints);本文件只摆状态
+  const { selectedNode, hoveredNode, count } = graphHints({
+    nodes, edges, selected, hovered: acts.hovered, failed, expandedNotes: exp,
+  });
+
+  // Esc:有选中就把该标签带回信息流,没选中则原样退出(设计 §5);注册口径见 use-escape-exit
+  useEscapeExit({
+    selectedPath: selectedNode === null ? null : selectedNode.path,
+    onExit: p.onExit,
+    onFilterToStream: p.onFilterToStream,
+  });
 
   return (
     <div
@@ -166,7 +166,7 @@ export function GraphView(p: {
         empty={empty}
         open={filtersOpen}
         onToggle={() => setFiltersOpen((v) => !v)}
-        onResetView={cam.reset}
+        onResetView={resetView}
         arranging={force.running}
         onArrange={force.start}
         filters={filters}

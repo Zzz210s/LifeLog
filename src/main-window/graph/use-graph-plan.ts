@@ -34,12 +34,16 @@ export function useGraphPlan(input: {
   /** 选中与悬停:强调态由这两个派生(悬停优先于选中,见 graph-focus) */
   selected: number | null;
   hovered: number | null;
-  /** 展开的标签与其笔记小圆 / `+N`(`space` 随层带下来;来自 useExpandedNotes) */
+  /**
+   * 展开的标签与其笔记小圆 / `+N`(`space` 随层带下来;来自 useExpandedNotes 的 `layer`)。
+   * **身份稳定是硬要求**:这一位每次渲染换对象,plan 的 memo 就白重建
+   * (用例:graph-view-plan-identity.dom.test.ts)
+   */
   expanded: {
     id: number;
     space: 'screen' | 'world';
     dots: Point[];
-    overflow: { x: number; y: number; n: number } | null;
+    overflow: { id: number; x: number; y: number; n: number } | null;
   } | null;
 }): DrawPlan {
   const { nodes, edges, points, cam, size, themeKey, dprKey, selected, hovered, expanded } = input;

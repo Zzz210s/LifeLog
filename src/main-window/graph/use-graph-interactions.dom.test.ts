@@ -92,6 +92,40 @@ describe('useGraphInteractions:右键菜单', () => {
   });
 });
 
+describe('useGraphInteractions:展开层的 +N', () => {
+  it('单击落在 +N 上 -> 带着该标签回信息流,不再选中它底下那个节点', async () => {
+    // 节点 3 是大标签(`+N` 就画在它正中央,两层同心)
+    h.setOverflow({ id: 3, x: 200, y: 400 });
+    await h.mount();
+    await h.click(200, 400);
+    expect(h.calls.overflow).toEqual([3]);
+    expect(h.calls.select).toEqual([]); // 顺手选中会先把信息条顶出来,再把用户送去信息流
+  });
+
+  it('+N 半径之外仍是普通节点点击(大标签点的外圈还能选中);没给 +N 时行为不变', async () => {
+    h.setOverflow({ id: 3, x: 200, y: 400 });
+    await h.mount();
+    await h.click(213, 400); // 离圆心 13:在 +N 半径(10)之外、标签点触及半径(~14.6)之内
+    expect(h.calls.overflow).toEqual([]);
+    expect(h.calls.select).toEqual([3]);
+    await h.click(200, 400);
+    expect(h.calls.select).toEqual([3]); // 这一下才是 +N
+    expect(h.calls.overflow).toEqual([3]);
+  });
+
+  it('悬停 / 双击收起 / 右键菜单都不看 +N(看了就会把「再双击收起」吞掉)', async () => {
+    h.setOverflow({ id: 3, x: 200, y: 400 });
+    await h.mount();
+    await h.move(200, 400);
+    expect(h.api().hovered).toBe(3);
+    await h.doubleClick(200, 400);
+    expect(h.calls.expand).toEqual([3]);
+    await h.contextMenu(200, 400);
+    expect(h.calls.menu).toEqual([[3, 200, 400]]);
+    expect(h.calls.overflow).toEqual([]);
+  });
+});
+
 describe('useGraphInteractions:覆盖层事件不算画布交互', () => {
   const overlayTarget = (): HTMLElement => {
     const wrap = document.createElement('div');

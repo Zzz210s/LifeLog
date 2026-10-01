@@ -43,8 +43,13 @@ export interface Label {
 /** 一条展开笔记的小圆(屏幕坐标);等到能点到单条笔记时再带上笔记身份 */
 export type NoteDot = Point;
 
-/** 被略去的笔记条数提示位(屏幕坐标) */
+/**
+ * 被略去的笔记条数提示位(屏幕坐标)。
+ * `id` 是它所属的标签:它画在标签点正中央(与点同心),命中它要知道该带哪个标签回信息流,
+ * 所以这一位不随坐标换算丢掉身份(见 `use-graph-interactions` 的 `+N` 判据)。
+ */
 export interface OverflowDot {
+  id: number;
   x: number;
   y: number;
   n: number;
@@ -113,7 +118,7 @@ export function drawPlan(input: {
     id: number;
     space: 'screen' | 'world';
     dots: readonly Point[];
-    overflow: { x: number; y: number; n: number } | null;
+    overflow: { id: number; x: number; y: number; n: number } | null;
   } | null;
 }): DrawPlan {
   const { nodes, edges, points, cam, w, h, rootColor, fallbackColor, emphasis } = input;
@@ -170,7 +175,7 @@ export function drawPlan(input: {
     for (const d of ex.dots) notes.push(toScreen(d));
     if (ex.overflow !== null) {
       const s = toScreen(ex.overflow);
-      overflow = { x: s.x, y: s.y, n: ex.overflow.n };
+      overflow = { id: ex.overflow.id, x: s.x, y: s.y, n: ex.overflow.n };
     }
   }
   return { co, tree, dots, labels, notes, overflow };
