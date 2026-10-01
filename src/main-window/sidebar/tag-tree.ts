@@ -1,9 +1,9 @@
 /**
  * 标签树纯函数(spec 6.1 标签分区):扁平行(list_tags,路径序)转嵌套树、
- * 可选性判定、改名/移动后的条件路径改写。
+ * 按名称收窄(命中保留祖先链)、可选性判定、改名/移动后的条件路径改写。
  * 时间标签已降级为普通标签(D3):本模块不再有任何时间子树的特殊处理。
  * 全部无副作用,可单测;UI 在 TagsSection 里消费。
- * (2/3 Task 5:侧栏过滤框已删,`filterTree` 随之删除;过滤改由统一输入框驱动。)
+ * (拾枝 ①:侧栏头部放大镜按钮用 `filterTree` 收窄 —— 只看不筛,与统一输入框不同。)
  */
 import type { TagCount } from '../../shared/types';
 import type { FilterConditions } from '../../shared/filter-conditions';
@@ -93,6 +93,39 @@ export function buildTree(rows: TagCount[]): TagNode[] {
   roots.sort(compareSiblings); // 根级兄弟同样按 (sortOrder, path) 排
   roots.forEach(finalize);
   return roots;
+}
+
+/**
+ * 按名称收窄标签树(拾枝 ①):完整路径子串匹配(不区分大小写),只保留命中节点与它们的祖先链,
+ * 其余分支裁掉;空白查询返回原数组(引用相等,不过滤)。
+ * 用「完整路径」而非单段名字(用户常按「父/子」定位);后代路径必含同一子串,故命中一处即见整棵子树。
+ */
+export function filterTree(nodes: TagNode[], query: string): TagNode[] {
+  const q = query.trim().toLowerCase();
+  if (q === '') return nodes;
+  const walk = (list: TagNode[]): TagNode[] => {
+    const out: TagNode[] = [];
+    for (const n of list) {
+      const children = walk(n.children);
+      if (n.path.toLowerCase().includes(q) || children.length > 0) {
+        out.push(children.length > 0 ? { ...n, children } : n);
+      }
+    }
+    return out;
+  };
+  return walk(nodes);
+}
+
+/** 深度优先拉平(扁平模式的显示序);传入收窄后的树即得收窄后的扁平列表 */
+export function flattenTree(nodes: TagNode[]): TagNode[] {
+  const out: TagNode[] = [];
+  const walk = (list: TagNode[]): void =>
+    list.forEach((n) => {
+      out.push(n);
+      walk(n.children);
+    });
+  walk(nodes);
+  return out;
 }
 
 /**

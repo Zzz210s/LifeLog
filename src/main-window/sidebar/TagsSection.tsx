@@ -15,7 +15,7 @@ import { TagRowList } from './TagRowList';
 import { TagsHeader } from './TagsHeader';
 import type { TagFlash } from './TagsHeader';
 import { TagRootDropBar } from './TagRootDropBar';
-import { buildTree, isManageable, toggleTagPick } from './tag-tree';
+import { buildTree, filterTree, flattenTree, isManageable, toggleTagPick } from './tag-tree';
 import type { ManagedNode, TagNode } from './tag-tree';
 import { useTagDrag } from './use-tag-drag';
 import type { TagViewMode } from './use-sidebar-state';
@@ -35,6 +35,8 @@ export interface TagsSectionProps {
 
 export function TagsSection(p: TagsSectionProps): ReactNode {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [query, setQuery] = useState('');
   const [menu, setMenu] = useState<{ node: ManagedNode; x: number; y: number } | null>(null);
   const [flash, setFlash] = useState<TagFlash | null>(null);
   const flashTimer = useRef<number | null>(null);
@@ -44,6 +46,9 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
   const visibleRows = p.tagRows;
 
   const tree = useMemo(() => buildTree(p.tagRows), [p.tagRows]);
+  // 收窄只看不筛:空查询时 filterTree 原样返回,filtering 只用于恒展开与「无匹配」提示
+  const filtering = query.trim() !== '';
+  const shown = useMemo(() => filterTree(tree, query), [tree, query]);
   const activePaths = useMemo(() => new Set(p.conditions.tags.map((t) => t.path)), [p.conditions.tags]);
   const excludedPaths = useMemo(
     () => new Set(p.conditions.excludeTags.map((t) => t.path)),
@@ -91,7 +96,17 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
     [p]
   );
 
-  const isExpanded = (path: string): boolean => !collapsed.has(path);
+  const isExpanded = (path: string): boolean => filtering || !collapsed.has(path);
+
+  /** 放大镜开关:收起时一并清空关键词 —— 否则树被隐式收窄,界面上却没有可见的入口 */
+  const toggleSearch = (): void => {
+    if (searchOpen) setQuery('');
+    setSearchOpen((v) => !v);
+  };
+  const closeSearch = (): void => {
+    setSearchOpen(false);
+    setQuery('');
+  };
 
   /** 悬停自动展开(T2):只展开不收起 —— 自动展开的计时期间用户可能已手动展开过 */
   const expandPath = useCallback((path: string) => {
@@ -116,13 +131,8 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
     onError: (message) => showFlash(message, 'error'),
   });
 
-  // 扁平模式:树拉平为深度优先序列
-  const flatNodes = useMemo(() => {
-    const out: TagNode[] = [];
-    const walk = (nodes: TagNode[]) => nodes.forEach((n) => { out.push(n); walk(n.children); });
-    walk(tree);
-    return out;
-  }, [tree]);
+  // 扁平模式:收窄后的树拉平为深度优先序列
+  const flatNodes = useMemo(() => flattenTree(shown), [shown]);
 
   return (
     <section className="flex min-h-0 flex-1 flex-col" aria-label="标签分区">
@@ -131,6 +141,11 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
         mode={p.mode}
         onModeChange={p.onModeChange}
         onFilterTags={p.onFilterTags}
+        searchOpen={searchOpen}
+        query={query}
+        onQueryChange={setQuery}
+        onToggleSearch={toggleSearch}
+        onCloseSearch={closeSearch}
       />
       <div
         ref={listRef}
@@ -144,7 +159,7 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
           <p className="px-2 py-3 text-label text-muted">还没有标签,在输入栏写 #标签 试试</p>
         ) : (
           <TagRowList
-            nodes={p.mode === 'tree' ? tree : flatNodes}
+            nodes={p.mode === 'tree' ? shown : flatNodes}
             flat={p.mode !== 'tree'}
             selected={activePaths}
             excluded={excludedPaths}
@@ -154,6 +169,9 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
             onContextMenu={onContextMenu}
             drag={drag}
           />
+        )}
+        {visibleRows.length > 0 && filtering && shown.length === 0 && (
+          <p className="px-2 py-2 text-label text-muted">没有匹配的标签</p>
         )}
       </div>
       {/* 「移到根级」指示条:拖拽期间渲染;源已在根级时不出现(T8,避免假成功) */}

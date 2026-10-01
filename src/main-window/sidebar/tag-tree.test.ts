@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildTree, isManageable, isSelectable, rewriteTagPaths, toggleTagPick } from './tag-tree';
+import { buildTree, filterTree, flattenTree, isManageable, isSelectable, rewriteTagPaths, toggleTagPick } from './tag-tree';
 import { EMPTY_FILTER } from '../../shared/filter-conditions';
 import type { FilterConditions } from '../../shared/filter-conditions';
 
@@ -81,6 +81,42 @@ describe('isSelectable(子蕴含父:2026-09-20 D9 的有意行为变更)', () =>
   it('父行缺失补出的结构节点:含子级计数由子树求和,有链接即同样可选', () => {
     const tree = buildTree([{ path: 'a/b', depth: 2, self_count: 1, subtree_count: 1 }] as never);
     expect(isSelectable(tree[0])).toBe(true);
+  });
+});
+
+describe('filterTree(按名称收窄,拾枝 ①)', () => {
+  it('命中子节点时保留祖先链', () => {
+    const filtered = filterTree(buildTree(rows as never), '会议');
+    expect(filtered).toHaveLength(1); // 只有「工作」这一支留下来
+    expect(filtered[0].name).toBe('工作');
+    expect(filtered[0].children.map((n) => n.name)).toEqual(['项目A']);
+    expect(filtered[0].children[0].children[0].name).toBe('会议');
+  });
+  it('按完整路径子串命中(父级路径片段可定位子树)', () => {
+    const filtered = filterTree(buildTree(rows as never), '工作/项目');
+    expect(filtered[0].children[0].name).toBe('项目A');
+    expect(filtered[0].children[0].children).toHaveLength(1);
+  });
+  it('命中一处即看见整棵子树(后代路径必含同一子串)', () => {
+    const filtered = filterTree(buildTree(rows as never), '项目A');
+    expect(filtered[0].children[0].name).toBe('项目A');
+    expect(filtered[0].children[0].children.map((n) => n.name)).toEqual(['会议']);
+  });
+  it('不区分大小写', () => {
+    const mixed = [{ path: 'Work/Standup', depth: 2, self_count: 1, subtree_count: 1 }];
+    expect(filterTree(buildTree(mixed as never), 'standup')).toHaveLength(1);
+  });
+  it('无命中返回空数组', () => {
+    expect(filterTree(buildTree(rows as never), 'zzz')).toEqual([]);
+  });
+  it('空查询/空白原样返回(引用相等,不过滤)', () => {
+    const tree = buildTree(rows as never);
+    expect(filterTree(tree, '')).toBe(tree);
+    expect(filterTree(tree, '  ')).toBe(tree);
+  });
+  it('flattenTree 把收窄后的树拉平成深度优先显示序', () => {
+    const flat = flattenTree(filterTree(buildTree(rows as never), '项目A'));
+    expect(flat.map((n) => n.path)).toEqual(['工作', '工作/项目A', '工作/项目A/会议']);
   });
 });
 

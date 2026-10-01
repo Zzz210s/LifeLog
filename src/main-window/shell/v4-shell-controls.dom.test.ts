@@ -135,13 +135,18 @@ describe('V4 标签分区头部:图标按钮 28 档', () => {
       mode: 'tree',
       onModeChange: () => {},
       onFilterTags: () => {},
+      searchOpen: false,
+      query: '',
+      onQueryChange: () => {},
+      onToggleSearch: () => {},
+      onCloseSearch: () => {},
       ...over,
     });
 
-  it('树/扁平与筛选标签改成图标档按钮(28×28 / rounded-sm),按钮里无文字', async () => {
+  it('搜索/树-扁平/筛选三个图标档按钮(28×28 / rounded-sm),按钮里无文字', async () => {
     await render(header());
     const buttons = [...host.querySelectorAll('button')] as HTMLElement[];
-    expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual(['切换为扁平列表', '筛选标签']);
+    expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual(['搜索标签', '切换为扁平列表', '筛选标签']);
     for (const btn of buttons) {
       expect(btn.textContent).toBe('');
       for (const token of ['h-7', 'w-7', 'rounded-sm', 'text-muted']) expect(tokens(btn)).toContain(token);
@@ -149,12 +154,19 @@ describe('V4 标签分区头部:图标按钮 28 档', () => {
     }
   });
 
-  it('回归:模式切换与筛选标签回调不变', async () => {
+  it('回归:搜索开/关、模式切换与筛选标签回调不变', async () => {
     const calls: string[] = [];
-    await render(header({ onModeChange: (m: string) => calls.push('mode:' + m), onFilterTags: () => calls.push('filter') }));
-    const [mode, filter] = [...host.querySelectorAll('button')] as HTMLElement[];
+    await render(
+      header({
+        onToggleSearch: () => calls.push('search'),
+        onModeChange: (m: string) => calls.push('mode:' + m),
+        onFilterTags: () => calls.push('filter'),
+      })
+    );
+    const [search, mode, filter] = [...host.querySelectorAll('button')] as HTMLElement[];
+    await act(async () => search.click());
     await act(async () => mode.click());
     await act(async () => filter.click());
-    expect(calls).toEqual(['mode:flat', 'filter']);
+    expect(calls).toEqual(['search', 'mode:flat', 'filter']);
   });
 });
