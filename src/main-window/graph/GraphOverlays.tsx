@@ -15,6 +15,9 @@ export function GraphOverlays(p: {
   open: boolean;
   onToggle: () => void;
   onResetView: () => void;
+  /** 「整理布局」:running 时按钮禁用并显示"整理中…" */
+  arranging: boolean;
+  onArrange: () => void;
   filters: GraphFilters;
   roots: readonly string[];
   onFilters: (f: GraphFilters) => void;
@@ -26,6 +29,8 @@ export function GraphOverlays(p: {
         count={p.count}
         filtersOpen={p.open}
         onToggleFilters={p.onToggle}
+        arranging={p.arranging}
+        onArrange={p.onArrange}
         onResetView={p.onResetView}
       />
       {p.open && (

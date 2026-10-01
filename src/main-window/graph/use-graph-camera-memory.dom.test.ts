@@ -116,4 +116,19 @@ describe('useGraphCamera:位置记忆(只记拖过的节点)', () => {
     await act(flush);
     expect(JSON.parse(lastWrite()[1])).toEqual({ 1: { x: 1, y: 1 }, 2: { x: 5, y: 6 } });
   });
+
+  it('pinned 报出库里有位置记忆的标签(= 被拖过的节点,「整理布局」的锚点)', async () => {
+    getSetting.mockResolvedValue('{"2":{"x":-50,"y":7}}');
+    await mount();
+    expect([...api!.pinned]).toEqual([2]);
+  });
+
+  it('pinned 跟着本会话拖节点长:刚拖过、还没重新进图的节点也算锚点', async () => {
+    await mount();
+    expect([...api!.pinned]).toEqual([]);
+    await act(async () => {
+      api!.commitPositions({ '1': { x: 3, y: 4 } });
+    });
+    expect([...api!.pinned]).toEqual([1]);
+  });
 });

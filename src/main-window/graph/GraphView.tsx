@@ -5,7 +5,8 @@
  * 本文件只接线:`hovered` 在 useGraphInteractions,`selected`/`expanded` 在这里,相机在 useGraphCamera,
  * 拖节点与位置记忆在 useNodeDrag(松手写回落给相机的 `commitPositions`),容器上的首次适配与非被动
  * wheel 在 useGraphSurface,展开笔记在 useExpandedNotes,「一帧画什么」在 useGraphPlan,覆盖层
- * (工具栏/过滤器面板/空态)在 GraphOverlays。口径提醒:`expanded` 与 `selected` 各算各的 —— 点别的标签不会收掉已展开的小圆。
+ * (工具栏/过滤器面板/空态)在 GraphOverlays,「整理布局」在 useForceLayout。口径提醒:`expanded`
+ * 与 `selected` 各算各的 —— 点别的标签不会收掉已展开的小圆。
  */
 import { useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
@@ -21,15 +22,14 @@ import { useCollapseRoots } from './use-collapse-roots';
 import { useDprKey } from './use-dpr-key';
 import { useEscapeExit } from './use-escape-exit';
 import { useExpandedNotes } from './use-expanded-notes';
-import { useGraphCamera } from './use-graph-camera';
 import { useGraphData } from './use-graph-data';
 import { useGraphFilters } from './use-graph-filters';
 import { useGraphInteractions } from './use-graph-interactions';
 import { useGraphOrigin } from './use-graph-origin';
 import { useGraphPlan } from './use-graph-plan';
 import { useGraphSize } from './use-graph-size';
+import { useGraphStage } from './use-graph-stage';
 import { useAutoFit, usePassiveWheel } from './use-graph-surface';
-import { useNodeDrag } from './use-node-drag';
 import { useThemeKey } from './use-theme-key';
 
 const LAYER_GAP = 90;
@@ -41,7 +41,6 @@ export function GraphView(p: {
 }): ReactNode {
   const { data, failed, reload } = useGraphData();
   const [selected, setSelected] = useState<number | null>(null);
-  // 展开态:信息条的按钮文案与 Task 6 的笔记小圆都吃它(双击展开/收起也改它)
   // 展开态:信息条文案与笔记小圆都吃它(双击展开/收起也改它);与 selected 各算各的
   const [expanded, setExpanded] = useState<number | null>(null);
   const [menu, setMenu] = useState<{ id: number; x: number; y: number } | null>(null);
@@ -71,11 +70,8 @@ export function GraphView(p: {
     onFilterToStream: p.onFilterToStream,
   });
 
-  const cam = useGraphCamera({ width: size.w, height: size.h, points: layout, origin, validIds });
-  // 拖节点层包在相机外层:命中节点时它接管指针(不平移画布),没命中才转交相机;见 use-node-drag
-  const drag = useNodeDrag({ nodes, cam, origin });
-  // 画布落点 = 相机那份 + 拖拽中的实时位置(没在拖时就是相机那份,引用不变)
-  const points = drag.points;
+  // 落点层(整理 -> 相机 -> 拖节点 -> 力导向)收在 useGraphStage:顺序固定,也是它守本文件的行数
+  const { cam, drag, force, points } = useGraphStage({ layout, nodes, edges, origin, validIds, size });
   // 首次适配一次(设计 §3.3):落点与尺寸就绪才动相机,此后只由 `0` 复位;wheel 必须显式非被动层
   useAutoFit(layout.size > 0 && size.w > 0, cam.reset);
   usePassiveWheel(boxRef, cam.onWheel);
@@ -108,8 +104,7 @@ export function GraphView(p: {
     [expanded, exp.dots, exp.overflow],
   );
 
-  // 图内搜索跳转(G2 Task 7):把相机挪到该节点(**不改缩放**)并选中 —— 信息条随之出现,
-  // 「搜到 -> 看到详情」一步到位;节点在布局里缺席时(环/自指落不了位)只选中,不做定点
+  // 图内搜索跳转(G2 Task 7):把相机挪到该节点(**不改缩放**)并选中 —— 信息条随之出现
   const onSearchPick = (node: GraphNode): void => {
     const at = points.get(node.id);
     if (at !== undefined) cam.centerOn(at);
@@ -165,6 +160,8 @@ export function GraphView(p: {
         open={filtersOpen}
         onToggle={() => setFiltersOpen((v) => !v)}
         onResetView={cam.reset}
+        arranging={force.running}
+        onArrange={force.start}
         filters={filters}
         roots={roots}
         onFilters={patch}

@@ -31,6 +31,8 @@ export interface GraphCameraApi {
   camera: Camera;
   /** 叠加过记忆位置的落点(布局结果 + graph_positions):绘制与适配都用它 */
   points: Map<number, Point>;
+  /** 库里有位置记忆的标签(= 被拖过的节点):「整理布局」拿它当锚点,不移动这些点 */
+  pinned: ReadonlySet<number>;
   reset: () => void;
   /** 把某个世界点在**不改缩放**的前提下摆到画布中心(G2 的图内搜索跳转用) */
   centerOn: (p: Point) => void;
@@ -81,6 +83,8 @@ export function useGraphCamera(opts: {
   }, []);
 
   const points = useMemo(() => applyPositions(opts.points, saved), [opts.points, saved]);
+  // 被拖过的节点 = 位置记忆里的那些 key(写回只有拖节点一个入口,所以这份集合不会混进别的东西)
+  const pinned = useMemo(() => new Set(Object.keys(saved).map(Number)), [saved]);
 
   const reset = useCallback((): void => {
     setCamera(fitToView([...points.values()], opts.width, opts.height));
@@ -168,5 +172,5 @@ export function useGraphCamera(opts: {
     drag.current = null;
   }, []);
 
-  return { camera, points, reset, centerOn, onWheel, onPointerDown, onPointerMove, onPointerUp, commitPositions };
+  return { camera, points, pinned, reset, centerOn, onWheel, onPointerDown, onPointerMove, onPointerUp, commitPositions };
 }
