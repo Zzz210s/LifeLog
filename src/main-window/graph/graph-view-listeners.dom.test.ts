@@ -37,6 +37,8 @@ const { graphData } = vi.hoisted(() => ({
 vi.mock('../../shared/api', () => ({
   api: {
     graphData,
+
+    graphLinkDegrees: vi.fn(async () => ({ outbound: 0, backlinks: 0 })),
     getSetting: vi.fn(async () => null),
     setSetting: vi.fn(async () => undefined),
     queryNotes: vi.fn(async () => []), // 双击命中 = 展开,展开后要去拉笔记

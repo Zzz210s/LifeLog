@@ -11,7 +11,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { mountCanvas, type CanvasHarness } from './canvas-test-kit';
 import type { DrawPlan } from './graph-draw-plan';
 
-const empty: DrawPlan = { co: [], tree: [], dots: [], labels: [], notes: [], overflow: null };
+const empty: DrawPlan = { co: [], tree: [], links: [], dots: [], labels: [], notes: [], overflow: null };
 
 let h: CanvasHarness;
 beforeEach(() => {
@@ -42,17 +42,19 @@ describe('GraphCanvas:同一 plan 不重绘', () => {
     expect(canvas.width).toBe(400);
     expect(canvas.height).toBe(240);
 
-    const next: DrawPlan = { co: [], tree: [], dots: [], labels: [], notes: [], overflow: null };
+    const next: DrawPlan = { co: [], tree: [], links: [], dots: [], labels: [], notes: [], overflow: null };
     await render(next, 200, 120, 'dark'); // 新 plan -> 重绘
     expect(h.getContext).toHaveBeenCalledTimes(3);
   });
 
-  it('绘制指令落成画布调用:边按类型取线宽,点色来自 plan,文字色取主题令牌', async () => {
+  it('绘制指令落成画布调用:边按类型取线宽,链接层取 accent,点色来自 plan,文字色取主题令牌', async () => {
     document.documentElement.style.setProperty('--color-border', 'rgb(11, 11, 11)');
     document.documentElement.style.setProperty('--color-border-strong', 'rgb(22, 22, 22)');
     document.documentElement.style.setProperty('--color-muted', 'rgb(33, 33, 33)');
+    document.documentElement.style.setProperty('--color-accent', 'rgb(44, 44, 44)');
     const plan: DrawPlan = {
       co: [{ x1: 0, y1: 0, x2: 10, y2: 0, weight: 3, emphasized: false, dim: false }],
+      links: [],
       tree: [{ x1: 0, y1: 0, x2: 0, y2: 10, weight: 1, emphasized: false, dim: false }],
       dots: [{ id: 1, x: 5, y: 6, r: 9, color: 'rgb(1, 2, 3)', dim: false, selected: false }],
       labels: [{ id: 1, x: 5, y: -7, text: '时间' }],
@@ -67,7 +69,8 @@ describe('GraphCanvas:同一 plan 不重绘', () => {
     expect(h.ctx.arc).toHaveBeenCalledWith(5, 6, 9, 0, Math.PI * 2);
     expect(h.ctx.fill).toHaveBeenCalledTimes(1);
     expect(h.ctx.fillText).toHaveBeenCalledWith('时间', 5, -7);
-    expect(h.ctx.writes.strokeStyle).toEqual(['rgb(11, 11, 11)', 'rgb(22, 22, 22)']);
+    // 三层边各取一次色:共现 border / 父子 border-strong / 链接 accent(link 层空也照设,与另两层同一手法)
+    expect(h.ctx.writes.strokeStyle).toEqual(['rgb(11, 11, 11)', 'rgb(22, 22, 22)', 'rgb(44, 44, 44)']);
     expect(h.ctx.writes.fillStyle).toEqual(['rgb(1, 2, 3)', 'rgb(33, 33, 33)']);
   });
 
@@ -101,8 +104,8 @@ describe('GraphCanvas:同一 plan 不重绘', () => {
       ...empty,
       dots: [{ id: 1, x: 5, y: 6, r: 9, color: 'rgb(1, 2, 3)', dim: true, selected: true }],
       notes: [
-        { x: 20, y: 30 },
-        { x: 24, y: 30 },
+        { id: 7, x: 20, y: 30 },
+        { id: 8, x: 24, y: 30 },
       ],
       overflow: { id: 1, x: 5, y: 6, n: 5 },
     };

@@ -1,4 +1,4 @@
-import type { GraphEdge, GraphNode } from '../../shared/types';
+import type { GraphEdge, GraphLink, GraphNode } from '../../shared/types';
 import { cullVisible, lodLevel, screenOf, type Camera } from './graph-camera';
 import { isDimmed, type Emphasis } from './graph-focus';
 import type { Point } from './radial';
@@ -40,8 +40,8 @@ export interface Label {
   text: string;
 }
 
-/** 一条展开笔记的小圆(屏幕坐标);等到能点到单条笔记时再带上笔记身份 */
-export type NoteDot = Point;
+/** 一条展开笔记的小圆(屏幕坐标)。`id` 是**笔记 id**:L4 的 link 边要靠它认出两端 */
+export type NoteDot = { id: number; x: number; y: number };
 
 /**
  * 被略去的笔记条数提示位(屏幕坐标)。
@@ -59,6 +59,8 @@ export interface OverflowDot {
 export interface DrawPlan {
   co: Segment[];
   tree: Segment[];
+  /** 笔记间的 link 边(accent 色;两端笔记都在展开的扇形里才有一条) */
+  links: Segment[];
   dots: Dot[];
   labels: Label[];
   /** 当前展开标签下的笔记小圆;不展开时为空数组 */
@@ -117,9 +119,11 @@ export function drawPlan(input: {
   expanded?: {
     id: number;
     space: 'screen' | 'world';
-    dots: readonly Point[];
+    dots: readonly NoteDot[];
     overflow: { id: number; x: number; y: number; n: number } | null;
   } | null;
+  /** 全部已解析的笔记间链接(`graph_data` 里 `kind: 'link'` 的那批;两端都是笔记 id) */
+  links?: readonly GraphLink[];
 }): DrawPlan {
   const { nodes, edges, points, cam, w, h, rootColor, fallbackColor, emphasis } = input;
   const visible = new Set(cullVisible(points, cam, w, h));
@@ -167,16 +171,27 @@ export function drawPlan(input: {
     }
   }
   const notes: NoteDot[] = [];
+  const links: Segment[] = [];
   let overflow: OverflowDot | null = null;
   const ex = input.expanded ?? null;
   if (ex !== null && visible.has(ex.id)) {
     // 屏幕口径原样用,世界口径才过相机 —— 判据只在 expanded.space 一处
     const toScreen = (p: Point): Point => (ex.space === 'screen' ? p : screenOf(p, cam));
-    for (const d of ex.dots) notes.push(toScreen(d));
+    for (const d of ex.dots) notes.push({ id: d.id, ...toScreen(d) });
+    // link 边:两端笔记都在这一圈小圆里才画(看不见的一端没有落点,画出来是飘在空处的线)。
+    // `emphasized` / `dim` 恒 false:强调态的 active/selected 是**标签** id,让笔记 id 去撞它
+    // 会毫无预兆地画出一条粗线或暗线(两套 id 真的会同数)。
+    const at = new Map(notes.map((n) => [n.id, n]));
+    for (const l of input.links ?? []) {
+      const s = at.get(l.a);
+      const t = at.get(l.b);
+      if (s === undefined || t === undefined || l.a === l.b) continue;
+      links.push({ x1: s.x, y1: s.y, x2: t.x, y2: t.y, weight: 1, emphasized: false, dim: false });
+    }
     if (ex.overflow !== null) {
       const s = toScreen(ex.overflow);
       overflow = { id: ex.overflow.id, x: s.x, y: s.y, n: ex.overflow.n };
     }
   }
-  return { co, tree, dots, labels, notes, overflow };
+  return { co, tree, links, dots, labels, notes, overflow };
 }

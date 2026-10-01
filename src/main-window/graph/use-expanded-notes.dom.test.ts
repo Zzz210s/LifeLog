@@ -125,6 +125,8 @@ describe('useExpandedNotes:取数口径', () => {
       expr: null,
     });
     expect(api?.layer?.dots).toHaveLength(NOTE_LIMIT);
+    // 每个小圆带**笔记 id**(L4 的 link 边靠它在两个圆之间连线):第 i 个圆就是第一页第 i 条笔记
+    expect(api?.layer?.dots.map((d) => d.id)).toEqual(Array.from({ length: NOTE_LIMIT }, (_, i) => i + 1));
     expect(api?.layer?.space).toBe('screen'); // 口径随数据一起递出去,上层不用猜
     // `+N` 画在环外偏下(标签屏幕位置 (230, 90) + 扇形半径 + 12),并带着所属标签 id(命中它要知道带哪个标签回信息流)
     expect(api?.layer?.overflow).toEqual({ id: 7, x: 230, y: 90 + radiusOf(414) + GAP + OVERFLOW_GAP, n: 414 - NOTE_LIMIT });

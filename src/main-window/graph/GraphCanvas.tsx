@@ -2,10 +2,10 @@
  * 把绘制指令画到 canvas:
  * - 按 devicePixelRatio 设置后备缓冲(尺寸取整,避免半像素模糊)
  * - 颜色一律从主题令牌读,不写死色值;**弱化只改 globalAlpha,不换颜色**(G2)
- * - 线宽:强调边(与焦点相连)2.5,其余按类型(共现 1 / 父子 1.5);强调边即使 `dim` 也不弱化
+ * - 线宽:强调边(与焦点相连)2.5,其余按类型(共现 1 / 父子 1.5 / 链接 1.5)
  * - 弱化的归位只在点循环后一处(`ctx.globalAlpha = 1`)——下面三段都不参与弱化,
  *   它们各自不靠「上一段恰好恢复成 1」活着,这一行也就成了可被用例钉住的单点
- * - 绘制顺序:共现边 -> 父子边 -> 点 -> 选中环 -> 展开的笔记小圆 -> 文字
+ * - 绘制顺序:共现边 -> 父子边 -> 链接边 -> 点 -> 选中环 -> 展开的笔记小圆 -> 文字
  * - `plan` 引用不变且 `themeKey` 不变时**不重绘** —— 设计 §3.3 的「静止 0 CPU」就靠这条。
  *   约定:plan 是 (节点 / 边 / 相机 / 视口尺寸 / 强调态) 的纯函数,尺寸变化必然伴随新 plan 对象,
  *   所以"尺寸变而 plan 未变"按内容未变处理:不重绘,也不动后备缓冲。
@@ -71,6 +71,8 @@ export function GraphCanvas(p: {
     ctx.clearRect(0, 0, p.width, p.height);
     strokeAll(ctx, p.plan.co, token('--color-border'), 1);
     strokeAll(ctx, p.plan.tree, token('--color-border-strong'), 1.5);
+    // 笔记间的链接边:accent 色 1.5 —— 与共现/父子边同一根线但醒目一档(D12);零硬编码色值
+    strokeAll(ctx, p.plan.links, token('--color-accent'), 1.5);
     for (const d of p.plan.dots) {
       ctx.globalAlpha = d.dim ? DIM_ALPHA : 1;
       ctx.fillStyle = d.color;

@@ -40,6 +40,8 @@ export function visibleGraph(
   }
   const nodes = data.nodes.filter((n) => !hidden.has(n.id));
   const kept = new Set(nodes.map((n) => n.id));
-  const edges = data.edges.filter((e) => kept.has(e.a) && kept.has(e.b));
+  // `kind: 'link'` 的两端是笔记 id:只用于验收脚本对齐标签图,不应把笔记 id 当标签 id 比对
+  // (链接边的画法口径在 `drawPlan`,不在这个只读探针里)
+  const edges = data.edges.filter((e) => e.kind !== 'link' && kept.has(e.a) && kept.has(e.b));
   return { nodes, edges };
 }

@@ -26,7 +26,7 @@ const { graphData, getSetting, setSetting } = vi.hoisted(() => ({
   ),
   setSetting: vi.fn(async () => undefined),
 }));
-vi.mock('../../shared/api', () => ({ api: { graphData, getSetting, setSetting } }));
+vi.mock('../../shared/api', () => ({ api: { graphData, graphLinkDegrees: vi.fn(async () => ({ outbound: 0, backlinks: 0 })), getSetting, setSetting } }));
 
 import { GraphView } from './GraphView';
 import { makeCanvasCtx, type CanvasCtxStub } from './canvas-test-kit';

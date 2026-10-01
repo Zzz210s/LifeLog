@@ -6,10 +6,14 @@
  * 长路径 `break-all`:标签路径没有空格,`break-words` 断不开,会撑破 240px 的条子。
  * 「Esc 返回信息流」是纯提示,按键本身在 `GraphView` 的 window keydown 上。
  * 根上的 `data-graph-overlay` 告诉指针交互 hook:这一坨的事件不算画布交互(点按钮不该先把选中清掉)。
+ *
+ * L4:「出链 N / 入链 M」是该标签**含子孙**聚合（只算已解析且非自指的链接,与图上 link 边
+ * 同一口径),在 `useLinkDegrees` 里按需拉;没拉到就显 `–`,不编一个 0。
  */
 import type { ReactNode } from 'react';
 import type { GraphNode } from '../../shared/types';
 import { BTN_SECONDARY } from '../shell/button-classes';
+import { useLinkDegrees } from './use-link-degrees';
 
 export function GraphInfoBar(p: {
   node: GraphNode;
@@ -18,6 +22,7 @@ export function GraphInfoBar(p: {
   expanded: boolean;
 }): ReactNode {
   const n = p.node;
+  const degrees = useLinkDegrees(n.id);
   return (
     <div
       data-testid="graph-info-bar"
@@ -27,6 +32,9 @@ export function GraphInfoBar(p: {
       <div className="break-all font-medium text-text">{n.path}</div>
       <div className="mt-1 text-muted">
         本级 {n.selfCount} · 含子级 {n.notes}
+      </div>
+      <div className="mt-1 text-muted" data-testid="graph-link-degrees">
+        出链 {degrees?.outbound ?? '–'} / 入链 {degrees?.backlinks ?? '–'}
       </div>
       <div className="mt-2 flex flex-wrap gap-2">
         <button type="button" className={BTN_SECONDARY} onClick={p.onFilterToStream}>

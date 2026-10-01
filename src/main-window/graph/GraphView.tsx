@@ -63,7 +63,7 @@ export function GraphView(p: {
   // 折叠根从设置派生(`null` = 还没读到);调用位置不能挪到 useGraphCamera 之后(两处都读 getSetting,顺序被用例钉住)。
   const collapsedRoots = useCollapseRoots();
 
-  const { nodes, edges, empty, filters, roots, patch, reset: resetFilters } = useGraphFilters(data, collapsedRoots);
+  const { nodes, edges, links, empty, filters, roots, patch, reset: resetFilters } = useGraphFilters(data, collapsedRoots);
   const layout: Map<number, Point> = useMemo(() => radialLayout(nodes, { layerGap: LAYER_GAP }), [nodes]);
   // 位置记忆的修剪口径:库里的**全部**标签(不是过滤后的可见集)—— 被过滤器藏起来的标签,位置要留着
   const validIds = useMemo(() => new Set((data?.nodes ?? []).map((n) => n.id)), [data]);
@@ -115,6 +115,7 @@ export function GraphView(p: {
   const plan = useGraphPlan({
     nodes,
     edges,
+    links,
     points,
     cam: cam.camera,
     size,

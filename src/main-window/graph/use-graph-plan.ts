@@ -9,21 +9,24 @@
  * - `emphasis`:悬停/选中换了强调态却不重建 plan,点与边就永远亮不起来(G2 Task 5 审查点名)
  * - `expanded`:展开/收起与取数回包都要重画(小圆与 `+N` 在 plan 上;喂进来的是屏幕坐标,
  *   `space` 随层带下来,`'world'` 才由 drawPlan 换算)
+ * - `links`:链接边换了(标签菜单写操作后重拉图数据)而 plan 不重建,画布上还留着旧链接
  */
 import { useMemo } from 'react';
-import type { GraphEdge, GraphNode } from '../../shared/types';
+import type { GraphEdge, GraphLink, GraphNode } from '../../shared/types';
 import type { Camera } from './graph-camera';
-import { drawPlan, type DrawPlan } from './graph-draw-plan';
+import { drawPlan, type DrawPlan, type NoteDot } from './graph-draw-plan';
 import { emphasisOf } from './graph-focus';
 import type { Point } from './radial';
 import { token } from './token';
 
 /** 尺寸没测出来之前的一帧:空计划(与"画完了但没有东西"是两回事,但渲染结果一样) */
-const EMPTY_PLAN: DrawPlan = { co: [], tree: [], dots: [], labels: [], notes: [], overflow: null };
+const EMPTY_PLAN: DrawPlan = { co: [], tree: [], links: [], dots: [], labels: [], notes: [], overflow: null };
 
 export function useGraphPlan(input: {
   nodes: readonly GraphNode[];
   edges: readonly GraphEdge[];
+  /** 笔记间链接边(已按 kind 从 edges 里拆出;两端是笔记 id) */
+  links: readonly GraphLink[];
   /** 落点(世界坐标:相机叠加位置记忆之后的那一份) */
   points: Map<number, Point>;
   cam: Camera;
@@ -42,11 +45,11 @@ export function useGraphPlan(input: {
   expanded: {
     id: number;
     space: 'screen' | 'world';
-    dots: Point[];
+    dots: readonly NoteDot[];
     overflow: { id: number; x: number; y: number; n: number } | null;
   } | null;
 }): DrawPlan {
-  const { nodes, edges, points, cam, size, themeKey, dprKey, selected, hovered, expanded } = input;
+  const { nodes, edges, links, points, cam, size, themeKey, dprKey, selected, hovered, expanded } = input;
   const { w, h } = size;
   // 强调态:悬停优先于选中(焦点跟着光标),选中环与信息条仍归 selected(见 graph-focus)
   const emphasis = useMemo(() => emphasisOf({ selected, hovered, edges }), [selected, hovered, edges]);
@@ -65,7 +68,8 @@ export function useGraphPlan(input: {
             fallbackColor: token('--color-muted'),
             emphasis,
             expanded,
+            links,
           }),
-    [nodes, edges, points, cam, w, h, themeKey, dprKey, emphasis, expanded],
+    [nodes, edges, links, points, cam, w, h, themeKey, dprKey, emphasis, expanded],
   );
 }

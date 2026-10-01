@@ -10,12 +10,12 @@ use std::collections::HashMap;
 
 #[path = "note_links_read.rs"]
 pub mod read;
-// 再导出:L3 的出链/入链/计数已接 IPC 消费;`all_resolved`(L4 关系图边)尚未接线,
-// 故整行仍放行 unused_imports,接完 L4 删掉这属性。
-#[allow(unused_imports)]
+// 再导出:L3 的出链/入链/计数与 L4 的 `all_resolved`(graph::link_edges)都已接消费方,
+// 调用方路径不变(crate::db::repos::note_links::outbound_page ...);本文件只留写入。
+// `Backlink` 不在其中:它只是 `NoteLinks` 的字段类型,仓外没人按它写标注。
 pub use read::{
-    all_resolved, list_links_page, list_note_links, outbound_of, outbound_page, Backlink,
-    NoteLinks, OutboundLink,
+    all_resolved, list_links_page, list_note_links, outbound_of, outbound_page, NoteLinks,
+    OutboundLink,
 };
 
 /// 替换一条笔记的全部链接(替换语义,与 `tags::link_paths` 同口径):

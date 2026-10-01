@@ -52,6 +52,21 @@ describe('applyFilters:过滤 + 折叠 + 丢悬空边', () => {
     expect(r.nodes).toHaveLength(0);
     expect(r.empty).toBe(true);
   });
+
+  it('link 边单独成列:不进标签边那一列,也不受标签过滤器影响(L4)', () => {
+    // 900 / 901 是笔记 id(与标签 id 同一数值域,`kept.has` 很可能真的命中)
+    const withLinks: GraphData = {
+      ...data,
+      edges: [...data.edges, { a: 900, b: 901, kind: 'link', weight: 1 }],
+    };
+    const r = applyFilters(withLinks, all);
+    expect(r.edges.every((e) => e.kind !== 'link')).toBe(true);
+    expect(r.links).toEqual([{ a: 900, b: 901 }]);
+    // 把轴全部收起来(= 折到底)到只剩根,标签边都掉光了,链接边仍在
+    const collapsed = applyFilters(withLinks, { ...all, axes: [] });
+    expect(collapsed.edges).toEqual([]);
+    expect(collapsed.links).toEqual([{ a: 900, b: 901 }]);
+  });
 });
 
 describe('axisOf / axisOptions / defaultFilters', () => {

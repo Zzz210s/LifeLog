@@ -40,13 +40,13 @@ const base = {
 };
 
 describe('drawPlan:展开的笔记小圆', () => {
-  /** 世界口径的展开层:点与半径都是世界坐标,由 drawPlan 过相机 */
+  /** 世界口径的展开层:点与半径都是世界坐标,由 drawPlan 过相机;`id` 是笔记 id(link 边要认它) */
   const expandedWorld = {
     id: 2,
     space: 'world' as const,
     dots: [
-      { x: 100, y: 0 },
-      { x: 100, y: 20 },
+      { id: 501, x: 100, y: 0 },
+      { id: 502, x: 100, y: 20 },
     ],
     overflow: { id: 2, x: 100, y: 0, n: 5 },
   };
@@ -58,8 +58,8 @@ describe('drawPlan:展开的笔记小圆', () => {
     const p = drawPlan({ ...base, expanded: expandedWorld });
     // cam = { k: 1, tx: 200, ty: 150 }
     expect(p.notes).toEqual([
-      { x: 300, y: 150 },
-      { x: 300, y: 170 },
+      { id: 501, x: 300, y: 150 },
+      { id: 502, x: 300, y: 170 },
     ]);
     // `+N` 过相机换算之后仍带着所属标签的 id(命中要用它,不能只留坐标)
     expect(p.overflow).toEqual({ id: 2, x: 300, y: 150, n: 5 });
@@ -71,14 +71,14 @@ describe('drawPlan:展开的笔记小圆', () => {
     const center = screenOf(nodeWorld, cam); // 标签点的屏幕位置
     const r = 17;
 
-    // G3 起 use-expanded-notes 就是把「屏幕圆心 + 屏幕半径」递进来的
-    const dots = noteFan({ center, count: 6, radius: r, space: 'screen' }).dots;
+    // G3 起 use-expanded-notes 就是把「屏幕圆心 + 屏幕半径 + 笔记 id」递进来的
+    const dots = noteFan({ center, count: 6, radius: r, space: 'screen' }).dots.map((d, i) => ({ id: 600 + i, ...d }));
     const screen = drawPlan({ ...base, cam, expanded: { id: 2, space: 'screen', dots, overflow: null } });
     expect(screen.notes).toHaveLength(6);
     for (const d of screen.notes) expect(Math.hypot(d.x - center.x, d.y - center.y)).toBeCloseTo(r, 6);
 
     // 旧口径(世界):同一半径 17 被 k=0.2 一缩 -> 只剩 3.4px,整圈缩进标签点里
-    const worldDots = noteFan({ center: nodeWorld, count: 6, radius: r, space: 'world' }).dots;
+    const worldDots = noteFan({ center: nodeWorld, count: 6, radius: r, space: 'world' }).dots.map((d, i) => ({ id: 700 + i, ...d }));
     const world = drawPlan({ ...base, cam, expanded: { id: 2, space: 'world', dots: worldDots, overflow: null } });
     expect(Math.hypot(world.notes[0].x - center.x, world.notes[0].y - center.y)).toBeCloseTo(r * 0.2, 6);
   });

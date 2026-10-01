@@ -8,9 +8,10 @@
  * 只取第一页:第二页在 G2 没有消费者(单条定位是 G3 的事)。
  *
  * **条数口径**:总数取 `GraphNode.notes`(**含子孙**去重,与侧栏计数同源;展开的是"这一支的全部") ,
- * `noteFan` 内部按 `NOTE_LIMIT` 封顶,略去的条数交给 `+N`。取数结果的用处是两件事:
+ * `noteFan` 内部按 `NOTE_LIMIT` 封顶,略去的条数交给 `+N`。取数结果的用处是三件事:
  * ① 确认这批笔记真的取得出来 —— 标签刚改名/合并而图数据还没重拉时库里可能是空的,
- * 照 `node.notes` 画就是一圈点不出东西的幽灵圆;② 知道最多画得出几个圆。
+ * 照 `node.notes` 画就是一圈点不出东西的幽灵圆;② 知道最多画得出几个圆;
+ * ③ 给每个圆带上**笔记 id**(L4 的 link 边靠它在两个圆之间连线)。
  * 因此取到 0 条时一个圆都不画(而不是画满 20 个)。
  *
  * **坐标**:对外全是**屏幕坐标**(先把标签落点过一遍 `screenOf`,半径直接用屏幕像素)
@@ -26,7 +27,7 @@ import type { FilterConditions } from '../../shared/filter-conditions';
 import type { GraphNode } from '../../shared/types';
 import { defaultFilterState } from '../filter/filter-state';
 import { screenOf, type Camera } from './graph-camera';
-import { radiusOf } from './graph-draw-plan';
+import { radiusOf, type NoteDot } from './graph-draw-plan';
 import { HIT_SLOP } from './graph-hit';
 import { noteFan, NOTE_R, type NoteSpace } from './graph-notes';
 import type { Point } from './radial';
@@ -43,11 +44,12 @@ export function expandedConditions(path: string): FilterConditions {
   return { ...defaultFilterState(), tags: [{ path, includeChildren: true }] };
 }
 
-/** 一次取数的读数:失败也留痕(空数组分不出"库里没有"与"压根没问到") */
+/** 一次取数的读数:失败也留痕(空数组分不出"库里没有"与"压根没问到");
+ *  `ids` 是第一页笔记的 id(顺序 = 小圆顺序):L4 的 link 边靠它认出小圆是哪条笔记 */
 interface PageRead {
   id: number;
   ok: boolean;
-  count: number;
+  ids: number[];
 }
 
 /**
@@ -59,8 +61,8 @@ export interface ExpandedLayer {
   id: number;
   /** 小圆的坐标口径(恒为屏幕):别在下游猜 */
   space: NoteSpace;
-  /** 笔记小圆(屏幕坐标) */
-  dots: Point[];
+  /** 笔记小圆(屏幕坐标 + 笔记 id:L4 的 link 边要在它们之间连线) */
+  dots: NoteDot[];
   /** 略去的条数提示位(屏幕坐标,标签环外偏下,带所属标签 id);没有略去时为 null */
   overflow: { id: number; x: number; y: number; n: number } | null;
 }
@@ -95,10 +97,10 @@ export function useExpandedNotes(input: {
     let alive = true;
     void api.queryNotes(expandedConditions(path), 0).then(
       (rows) => {
-        if (alive) setRead({ id, ok: true, count: rows.length });
+        if (alive) setRead({ id, ok: true, ids: rows.map((r) => r.id) });
       },
       () => {
-        if (alive) setRead({ id, ok: false, count: 0 });
+        if (alive) setRead({ id, ok: false, ids: [] });
       },
     );
     return () => {
@@ -108,11 +110,10 @@ export function useExpandedNotes(input: {
 
   // 读数只认当前展开的那个标签:换了对象就当还没回包(渲染期归零,不留一帧错配)
   const cur = read !== null && read.id === id ? read : null;
-  const fetched = cur !== null && cur.ok ? cur.count : 0;
 
   const layer = useMemo((): ExpandedLayer | null => {
     const p = node === null ? undefined : points.get(node.id);
-    if (node === null || p === undefined) return null;
+    if (node === null || p === undefined || cur === null || !cur.ok) return null;
     const total = Math.max(node.notes, 0);
     // 屏幕口径:标签点先换成屏幕坐标,半径也是屏幕像素 —— 小圆不随相机缩放
     const f = noteFan({
@@ -121,13 +122,16 @@ export function useExpandedNotes(input: {
       radius: radiusOf(total) + FAN_GAP,
       space: 'screen',
     });
-    // 只画真取到的小圆(取不到的笔记没有实体;取到 0 条就是一圈都不画)
-    // 页大小 > NOTE_LIMIT,正常情况这条截断不生效 —— 它只在图数据与库不同步时拦一下
-    const dots = f.dots.slice(0, fetched);
+    // 只画真取到的小圆(取不到的笔记没有实体;取到 0 条就是一圈都不画),
+    // 并把**笔记 id** 带到每个圆上:第 i 个圆就是第一页第 i 条笔记,两者同一顺序
+    // (有了它,L4 的 link 边才能从"两个笔记 id"找到两个画得出来的落点)
+    const dots: NoteDot[] = f.dots
+      .slice(0, cur.ids.length)
+      .map((d, i) => ({ id: cur.ids[i], x: d.x, y: d.y }));
     if (dots.length === 0) return null;
     // `+N` 画在环外偏下,身份得跟着层走:命中它的人要知道带哪个标签回信息流
     return { id: node.id, space: f.space, dots, overflow: f.overflow === null ? null : { ...f.overflow, id: node.id } };
-  }, [node, points, cam, fetched]);
+  }, [node, points, cam, cur]);
 
   const onNoteClick = useCallback(
     (e: { clientX: number; clientY: number }): boolean => {

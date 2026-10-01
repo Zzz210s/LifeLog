@@ -116,12 +116,27 @@ export interface GraphNode {
   sortOrder: number;
 }
 
-/** 关系图的边(IPC `graph_data`):`tree` 父子边 / `co` 共现边,`weight` 是两端共现笔记数 */
+/** 关系图的边(IPC `graph_data`):`tree` 父子边 / `co` 共现边 / `link` 笔记间已解析链接。
+ *  `tree`/`co` 的 `a`/`b` 是**标签 id**;`link` 的 `a`/`b` 是**笔记 id**(两套 id 不同命名空间,
+ *  消费者必须先按 `kind` 分流 —— 笔记节点只在展开时出现,link 边也只在两端笔记都展开时画)。
+ *  `weight` 是两端共现笔记数(tree / link 恒为 1)。 */
 export interface GraphEdge {
   a: number;
   b: number;
-  kind: 'tree' | 'co';
+  kind: 'tree' | 'co' | 'link';
   weight: number;
+}
+
+/** 笔记间已解析链接(从 `kind: 'link'` 的边上拆出来):两端都是笔记 id */
+export interface GraphLink {
+  a: number;
+  b: number;
+}
+
+/** 某标签(含子孙)的出链 / 入链(IPC `graph_link_degrees`;只算已解析且非自指的链接) */
+export interface GraphLinkDegrees {
+  outbound: number;
+  backlinks: number;
 }
 
 /** 一次拉全的关系图数据:节点 + 父子边 + 共现边 */

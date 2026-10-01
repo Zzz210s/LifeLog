@@ -27,7 +27,7 @@ const { graphData, getSetting, setSetting } = vi.hoisted(() => ({
   setSetting: vi.fn(async () => undefined),
 }));
 // getSetting 是相机 hook 读位置记忆的入口(G2 起才会写回)
-vi.mock('../../shared/api', () => ({ api: { graphData, getSetting, setSetting } }));
+vi.mock('../../shared/api', () => ({ api: { graphData, graphLinkDegrees: vi.fn(async () => ({ outbound: 0, backlinks: 0 })), getSetting, setSetting } }));
 
 import { GraphView } from './GraphView';
 

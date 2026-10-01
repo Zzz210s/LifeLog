@@ -8,7 +8,7 @@
  *
  * 纯函数:不碰 DOM、不读设置,便于单测与真机读数共用。
  */
-import type { GraphData, GraphEdge, GraphNode } from '../../shared/types';
+import type { GraphData, GraphEdge, GraphLink, GraphNode } from '../../shared/types';
 
 export interface GraphFilters {
   /** 勾选(=展开)的根标签(轴) */
@@ -59,11 +59,15 @@ export function axisOf(data: GraphData, id: number): string | null {
 /**
  * 过滤器 + 折叠合一:先挑节点,再丢掉"一端不可见"的边(不留悬空边)。
  * 全部在前端做 —— 数据已经在内存里,零额外 IPC。
+ *
+ * **链接边单独一列**:`link` 的两端是笔记 id,不是图里的节点;拿它去过 `kept.has` 会被当成
+ * 标签边(两套 id 数值撞车时甚至真的留下来),也会把力导向 / 强调 / 状态条计数搅脏。
+ * 它们不过任何标签过滤器 —— 画不画只取决于「两端笔记是否都在展开的扇形里」(见 `drawPlan`)。
  */
 export function applyFilters(
   data: GraphData,
   f: GraphFilters,
-): { nodes: GraphNode[]; edges: GraphEdge[]; empty: boolean } {
+): { nodes: GraphNode[]; edges: GraphEdge[]; links: GraphLink[]; empty: boolean } {
   const expanded = new Set(f.axes);
   const nodes = data.nodes.filter((n) => {
     const axis = axisOf(data, n.id);
@@ -76,6 +80,7 @@ export function applyFilters(
     return true;
   });
   const kept = new Set(nodes.map((n) => n.id));
-  const edges = data.edges.filter((e) => kept.has(e.a) && kept.has(e.b));
-  return { nodes, edges, empty: nodes.length === 0 };
+  const edges = data.edges.filter((e) => e.kind !== 'link' && kept.has(e.a) && kept.has(e.b));
+  const links = data.edges.filter((e) => e.kind === 'link').map((e) => ({ a: e.a, b: e.b }));
+  return { nodes, edges, links, empty: nodes.length === 0 };
 }

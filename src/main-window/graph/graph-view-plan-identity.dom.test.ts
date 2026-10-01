@@ -41,7 +41,7 @@ const { graphData, queryNotes } = vi.hoisted(() => ({
   queryNotes: vi.fn(async (): Promise<Note[]> => []),
 }));
 vi.mock('../../shared/api', () => ({
-  api: { graphData, queryNotes, getSetting: vi.fn(async () => null), setSetting: vi.fn(async () => undefined) },
+  api: { graphData, graphLinkDegrees: vi.fn(async () => ({ outbound: 0, backlinks: 0 })), queryNotes, getSetting: vi.fn(async () => null), setSetting: vi.fn(async () => undefined) },
 }));
 
 import { GraphView } from './GraphView';

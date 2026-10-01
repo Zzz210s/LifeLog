@@ -42,7 +42,7 @@ const { graphData, getSetting, gate } = vi.hoisted(() => {
   };
 });
 vi.mock('../../shared/api', () => ({
-  api: { graphData, getSetting, setSetting: vi.fn(async () => undefined) },
+  api: { graphData, graphLinkDegrees: vi.fn(async () => ({ outbound: 0, backlinks: 0 })), getSetting, setSetting: vi.fn(async () => undefined) },
 }));
 
 import { GraphView } from './GraphView';

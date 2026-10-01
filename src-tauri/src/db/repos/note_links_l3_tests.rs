@@ -17,7 +17,7 @@ fn db() -> Connection {
 fn backlink_serializes_camel_case_for_the_panel() {
     // 前端 BacklinksPanel 读 `sourceId`(与 NoteLink 同 camelCase 口径)。少了 rename_all
     // 这里只有 snake 的 `source_id`,面板会拿 undefined 去跳转(真机验收读数 3 复现过)。
-    let v = serde_json::to_value(note_links::Backlink { source_id: 7, title: "来源".into() }).unwrap();
+    let v = serde_json::to_value(note_links::read::Backlink { source_id: 7, title: "来源".into() }).unwrap();
     assert_eq!(v["sourceId"], serde_json::json!(7));
     assert!(v.get("source_id").is_none(), "不得再出现 snake 字段");
 }

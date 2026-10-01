@@ -31,7 +31,7 @@ const { graphData } = vi.hoisted(() => ({
 }));
 // getSetting 恒 null:模板取默认值(根名在夹具里不存在 -> 一根都不折),graph_positions 也没有记忆
 vi.mock('../../shared/api', () => ({
-  api: { graphData, getSetting: vi.fn(async () => null), setSetting: vi.fn(async () => undefined) },
+  api: { graphData, graphLinkDegrees: vi.fn(async () => ({ outbound: 0, backlinks: 0 })), getSetting: vi.fn(async () => null), setSetting: vi.fn(async () => undefined) },
 }));
 
 import { GraphView } from './GraphView';

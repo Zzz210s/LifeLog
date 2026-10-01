@@ -2,7 +2,7 @@
 //! 标题一律用 `links::display_title` **实时算**(目标改名后显示跟随);匹配才用归一化 key。
 //! 读取接口有两类消费方:L2 笔记读取(出链随 `Note` 返回,分页靠批量一次取全)、
 //! L3 反向引用面板与编辑面板(入链列表 + 被引用计数,均已接 IPC);
-//! L4 关系图边(`all_resolved`)尚未接线,仍带 dead_code 放行。
+//! L4 关系图边与信息条度数消费 `all_resolved`(`graph::link_edges`)。
 
 use crate::links::display_title;
 use rusqlite::{params, params_from_iter, Connection};
@@ -115,11 +115,14 @@ pub fn list_links_page(conn: &Connection, note_ids: &[i64]) -> rusqlite::Result<
     rows.collect()
 }
 
-/// 全部**已解析**的边 `(source_id, target_id)`,插入序;关系图 L4 画 link 边用。
-#[allow(dead_code)]
+/// 全部**已解析且非自指**的边 `(source_id, target_id)`,插入序;关系图 L4 画 link 边用。
+/// 自指(`source_id = target_id`)写入侧就不落行,这里再挡一道:自指在图上是一条零长的线,
+/// 画不出来也不该占信息条的计数。
 pub fn all_resolved(conn: &Connection) -> rusqlite::Result<Vec<(i64, i64)>> {
-    let mut stmt = conn
-        .prepare("SELECT source_id, target_id FROM note_links WHERE target_id IS NOT NULL ORDER BY id")?;
+    let mut stmt = conn.prepare(
+        "SELECT source_id, target_id FROM note_links
+         WHERE target_id IS NOT NULL AND source_id <> target_id ORDER BY id",
+    )?;
     let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?;
     rows.collect()
 }

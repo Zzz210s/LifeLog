@@ -45,7 +45,10 @@ export function useGraphFilters(data: GraphData | null, collapsedRoots: readonly
   }, [roots, collapsed, edited]);
 
   const view = useMemo(
-    () => (data === null ? { nodes: [], edges: [], empty: false } : applyFilters(data, filters)),
+    () =>
+      data === null
+        ? { nodes: [], edges: [], links: [], empty: false }
+        : applyFilters(data, filters),
     [data, filters],
   );
 

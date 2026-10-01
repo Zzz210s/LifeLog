@@ -27,6 +27,8 @@ const { graphData } = vi.hoisted(() => ({
 vi.mock('../../shared/api', () => ({
   api: {
     graphData,
+
+    graphLinkDegrees: vi.fn(async () => ({ outbound: 0, backlinks: 0 })),
     getSetting: vi.fn(async (): Promise<string | null> => null),
     setSetting: vi.fn(async () => undefined),
   },

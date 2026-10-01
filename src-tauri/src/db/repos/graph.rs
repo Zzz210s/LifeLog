@@ -1,4 +1,6 @@
-//! 关系图数据仓库层(G1 Task 1):节点、父子边、共现边。**只读**,不写库不加表。
+//! 关系图数据仓库层(G1 Task 1):节点、父子边、共现边、笔记间链接边(L4)。**只读**,不写库不加表。
+//!
+//! `GraphLink` 的 `a`/`b` 是**笔记 id**,与标签 id 是两套命名空间(前端也必须分开走)。
 //!
 //! 口径与标签侧保持一致:
 //! - 节点计数复用 `tags::tree::query::counts` 的「含子级去重笔记数」算法(一条笔记同时链了
@@ -6,12 +8,31 @@
 //! - 共现边 = 同一条笔记上共同出现的标签对,权重 = 共同出现的笔记数(注意是笔记数,不是
 //!   链接对数)。出现笔记数超过阈值的枢纽标签(如"时间"这类)一律不参与 —— 实测去掉后
 //!   边数从 2628 降到 771,图才不至于糊成毛球。
+use super::note_links;
 use rusqlite::{Connection, Result as SqlResult};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum EdgeKind {
     Tree,
     Co,
+}
+
+/// 一条笔记间的**已解析**链接(IPC `kind: "link"` 的那类边)。
+/// 单独一个类型而不复用 `GraphEdge`:`GraphEdge.a/b` 是标签 id,两套 id 混进同一个列表
+/// 会被下游当成同一张图(笔记 id 与标签 id 数值撞车很常见)。
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct GraphLink {
+    pub a: i64,
+    pub b: i64,
+}
+
+/// 某标签(含子孙)的出链 / 入链条数(L4 信息条读数)。
+/// 口径:只算**已解析且非自指**的链接(与图上真能画出来的 link 边同一口径),含子孙
+/// (与 `GraphNode.notes`、展开笔记的扇形同一批笔记),同一链接只算一次。
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+pub struct LinkDegrees {
+    pub outbound: i64,
+    pub backlinks: i64,
 }
 
 #[derive(Clone, Debug)]
@@ -83,6 +104,45 @@ pub fn tree_edges(conn: &Connection) -> SqlResult<Vec<GraphEdge>> {
     rows.collect()
 }
 
+/// 笔记间链接边(L4):全部**已解析**的链接(`all_resolved` 已排掉自指与未解析),
+/// 插入序。节点是标签、笔记节点只在展开时出现,所以画不画由前端按
+/// 「两端笔记都在展开的扇形里」自己决定 —— 这里只管把两端 id 交出去。
+pub fn link_edges(conn: &Connection) -> SqlResult<Vec<GraphLink>> {
+    Ok(note_links::all_resolved(conn)?
+        .into_iter()
+        .map(|(a, b)| GraphLink { a, b })
+        .collect())
+}
+
+/// 某标签(含子孙)的「出链 N / 入链 M」:一条 SQL 取两个计数,零额外 IPC 也能给信息条。
+/// `COUNT(DISTINCT nl.id)`:一条笔记同时挂祖先与子孙标签时 `tag_links` 会重复出现,
+/// 不去重就会把同一条链接按标签数算好几遍(与 `nodes` 的去重口径同源)。
+/// 标签不存在时两数都是 0(不报错)。
+pub fn link_degrees(conn: &Connection, tag_id: i64) -> SqlResult<LinkDegrees> {
+    conn.query_row(
+        "WITH RECURSIVE sub(leaf) AS (
+           SELECT id FROM tags WHERE id = ?1
+           UNION ALL SELECT t.id FROM tags t JOIN sub s ON t.parent_id = s.leaf
+         )
+         SELECT
+           (SELECT COUNT(DISTINCT nl.id) FROM sub
+              JOIN tag_links tl ON tl.tag_id = sub.leaf AND tl.target_type = 'note'
+              JOIN note_links nl ON nl.source_id = tl.target_id
+              WHERE nl.target_id IS NOT NULL AND nl.source_id <> nl.target_id),
+           (SELECT COUNT(DISTINCT nl.id) FROM sub
+              JOIN tag_links tl ON tl.tag_id = sub.leaf AND tl.target_type = 'note'
+              JOIN note_links nl ON nl.target_id = tl.target_id
+              WHERE nl.source_id <> nl.target_id)",
+        [tag_id],
+        |r| {
+            Ok(LinkDegrees {
+                outbound: r.get(0)?,
+                backlinks: r.get(1)?,
+            })
+        },
+    )
+}
+
 /// 共现边:`a.tag_id < b.tag_id` 保证每条无向边只出现一次;枢纽标签两端都不参与。
 pub fn co_edges(conn: &Connection, hub_threshold: i64) -> SqlResult<Vec<GraphEdge>> {
     let mut stmt = conn.prepare(
@@ -113,3 +173,7 @@ pub fn co_edges(conn: &Connection, hub_threshold: i64) -> SqlResult<Vec<GraphEdg
 #[cfg(test)]
 #[path = "graph_tests.rs"]
 mod graph_tests;
+
+#[cfg(test)]
+#[path = "graph_links_tests.rs"]
+mod graph_links_tests;
