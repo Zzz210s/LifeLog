@@ -62,7 +62,9 @@ export interface DrawPlan {
   overflow: OverflowDot | null;
 }
 
-/** LOD 中档(hubs)显示文字的笔记数阈值(设计 §3.2) */
+/** LOD 中档(hubs)显示文字的阈值。口径是**本级**计数(2026-10-01 改):`notes` 是含子级,
+ *  展开时间轴后 `时间/日期/2026/03/28` 这类末级段名会靠祖先的计数抢到文字;`selfCount` 才是
+ *  "这个标签本身装了多少东西",用它文字才落在真正的枢纽上(设计 §3.2 的枢纽判据)。 */
 const HUB_NOTES = 100;
 const MIN_R = 2.5;
 const MAX_R = 9;
@@ -148,7 +150,7 @@ export function drawPlan(input: {
       dim: isDimmed(n.id, emphasis),
       selected: n.id === emphasis.selected,
     });
-    if (level === 'all' || (level === 'hubs' && n.notes >= HUB_NOTES)) {
+    if (level === 'all' || (level === 'hubs' && n.selfCount >= HUB_NOTES)) {
       labels.push({ id: n.id, x: s.x, y: s.y - r - 4, text: leafOf(n.path) });
     }
   }

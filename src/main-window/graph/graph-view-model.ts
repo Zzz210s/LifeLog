@@ -1,5 +1,9 @@
 import type { GraphData, GraphEdge, GraphNode } from '../../shared/types';
 
+// 注意(2026-10-01):视图已改走 graph-filters 的 applyFilters(过滤与折叠合一),
+// 这里的 visibleGraph 现在**只被验收脚本**(scripts/graph-accept-lib.mjs)用来对齐口径;
+// 新代码不要再引它,否则会出现两套"隐藏"语义。
+
 /**
  * 默认折叠哪一根:从时间标签模板(设置 `time_tag_template` 的原文)派生。
  * 取首段作根名,要求模板至少两层 —— 单层模板(如 `时间`)不是树,没有可折叠的子级。
