@@ -25,6 +25,9 @@ import {
 } from './graph-accept-lib.mjs';
 import { readGraphData, readIdleWindow } from './graph-accept-g1-reads.mjs';
 import { runGraphG2 } from './graph-accept-g2.mjs';
+import { runGraphG3 } from './graph-accept-g3.mjs';
+import { blankPoint } from './graph-accept-g3-scene.mjs';
+import { invSame } from './graph-accept-g3-lib.mjs';
 
 const rec = recorder();
 const { record, finish } = rec;
@@ -127,7 +130,11 @@ await ev(`window.dispatchEvent(new KeyboardEvent('keydown', { key: '0' }))`); //
 await sleep(700);
 await drawSignature(conn.cdp); // 丢弃一次重栅格化读数
 const beforePan = await drawSignature(conn.cdp);
-await panDrag(conn.cdp);
+// 起手点必须**真的空白**(hitTest 验证):G3 起同一点若压在节点上会变成"拖节点" ——
+// 质心几乎不动(读数 5 会红),而且会真写 graph_positions
+const blank = await blankPoint(conn.cdp);
+if (blank === null) console.log('INFO  5 找不到验证过的空白起手点:退回写死的 (500,350),本读数可能被命中节点干扰');
+await panDrag(conn.cdp, blank ?? undefined);
 await sleep(700);
 await drawSignature(conn.cdp);
 const afterPan = await drawSignature(conn.cdp);
@@ -150,6 +157,10 @@ record(
     `绘制调用 +${afterPan === null ? '?' : afterPan.draws - beforePan.draws}`,
 );
 
+// G3 八条读数:过滤器三档 / 时间轴展开 + LOD / 拖节点与位置记忆 / 整理布局 / 数据版本重载 / 只读对账
+// (跑在 G2 之前:G2 收尾会把「筛到信息流」切回信息流,而 G3 全程要在图里)
+await runGraphG3({ cdp: conn.cdp, ev, ui, bm, record });
+
 await runGraphG2({ cdp: conn.cdp, ev, ui, bm, record }); // G2 八条读数:悬停/单击/双击/右键/搜索/守卫/筛到信息流/只读
 
 // 11) 退出关系图后对账:数据零影响
@@ -160,7 +171,9 @@ const counts1 = dbCounts();
 const inv1 = await bm.inventory();
 record(
   '11 只读:库计数/全量清单/get_db_info 与开工前一致',
-  closed === true && same(counts0, counts1) && same(inv0, inv1) && same(info0, info1),
+  // 清单比较走 invSame:graph_positions 按**空值等价**比(键缺失 = null;G3 复原时只能写空串,
+  // IPC 没有删除键的命令 —— 两者都解析成空表,视图行为一样)
+  closed === true && same(counts0, counts1) && invSame(inv0, inv1) && same(info0, info1),
   `退出=${closed === true};笔记 ${counts1.notes} / 标签 ${counts1.tags} / 链接 ${counts1.links} / 别名 ${counts1.aliases};` +
     `integrity=${counts1.integrity} user_version=${counts1.version};` +
     `graph_positions=${JSON.stringify(inv1.graphPositions)};get_db_info=${JSON.stringify(info1)}`,
