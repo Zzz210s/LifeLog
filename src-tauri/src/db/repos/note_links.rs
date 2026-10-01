@@ -1,17 +1,17 @@
 //! 笔记间显式链接的仓库层(设计 D3/D4/D6):替换语义写入 + 出链/入链读取。
 //! 写入由调用方放在**与标签同一次事务**里(`notes::create_with` / `notes_update::update`),
-//! 任一步失败整批回滚;读取时标题一律用 `links::title_of` **实时算**(目标改名后显示跟随)。
-// 读取接口有三个消费方在 L2/L3/L4(卡片反向引用、编辑面板、关系图 link 边),接线前整体放行
-// dead_code —— 接线后删掉下面这行(与 tags/tree.rs 当时同一做法)。
-#![allow(dead_code)]
+//! 任一步失败整批回滚;读取时标题一律用 `links::display_title` **实时算**(目标改名后显示跟随)。
+// 读取接口有三个消费方在 L2/L3/L4(卡片反向引用、编辑面板、关系图 link 边),
+// 接线前给这几个符号定点放行 dead_code(与 links.rs 同做法);L3/L4 接完删掉这些属性。
 
-use crate::links::{normalize_title, title_of};
+use crate::links::{display_title, normalize_title, title_of};
 use rusqlite::{params, params_from_iter, Connection};
 use serde::Serialize;
 use std::collections::HashMap;
 
 /// 一条出链:`raw_title` 是正文里写的原文(未命中时界面照它显示),
 /// `title` 是目标**当前**首行(目标已删时为 None)。
+#[allow(dead_code)]
 #[derive(Debug, PartialEq, Serialize)]
 pub struct OutboundLink {
     pub target_id: Option<i64>,
@@ -20,6 +20,7 @@ pub struct OutboundLink {
 }
 
 /// 一条入链(引用来源):只带来源首行,不带来源正文
+#[allow(dead_code)]
 #[derive(Debug, PartialEq, Serialize)]
 pub struct Backlink {
     pub source_id: i64,
@@ -27,6 +28,7 @@ pub struct Backlink {
 }
 
 /// 单条笔记的双向链接(编辑面板列表与卡片面板各取所需)
+#[allow(dead_code)]
 #[derive(Debug, PartialEq, Serialize)]
 pub struct NoteLinks {
     pub outbound: Vec<OutboundLink>,
@@ -41,7 +43,8 @@ pub struct NoteLinks {
 /// - 指向自己的**跳过**(自指不建边,连未解析行都不留):判据是「该标题归一化后等于本笔记
 ///   自己的首行,且库里没有第二条同名笔记」—— 若还有同名笔记,那条链接该指向它
 /// - 没命中的写 `target_id = NULL`(D4:允许保存,界面显示为未解析链接)
-/// - 同一条笔记里写重复的同一个 raw_title 只留一行(否则「被引用 N」会把同一来源算两遍)
+/// - 同一条笔记里写重复的**同一个归一化标题**(大小写/空白差异视为同一条)只留一行,
+///   否则「被引用 N」会把同一来源算两遍
 ///
 /// 返回**解析成功**(`target_id` 非空)的条数。
 pub fn replace(conn: &Connection, source_id: i64, titles: &[String]) -> rusqlite::Result<usize> {
@@ -49,14 +52,16 @@ pub fn replace(conn: &Connection, source_id: i64, titles: &[String]) -> rusqlite
     let by_title = title_index(conn, source_id)?;
     let own = own_title(conn, source_id)?;
     let mut resolved = 0usize;
-    let mut seen: Vec<&str> = Vec::new();
+    let mut seen: Vec<String> = Vec::new();
     for raw in titles {
-        if seen.contains(&raw.as_str()) {
+        let key = normalize_title(raw);
+        // 归一化后为空的标题(标签形 `[[#x]]`、纯空白)永远无法命中,不落行。
+        // parse_at 已先挡一道,这里是为直调 `replace` 保留的兜底(设计 §5.5)。
+        if key.is_empty() || seen.contains(&key) {
             continue;
         }
-        seen.push(raw);
-        let key = normalize_title(raw);
-        let target = if key.is_empty() { None } else { by_title.get(&key).copied() };
+        seen.push(key.clone());
+        let target = by_title.get(&key).copied();
         if target.is_none() && own.as_deref() == Some(key.as_str()) {
             continue; // 自指
         }
@@ -94,7 +99,7 @@ fn title_index(conn: &Connection, source_id: i64) -> rusqlite::Result<HashMap<St
         let id: i64 = row.get(0)?;
         let key = title_of(&row.get::<_, String>(1)?);
         if !key.is_empty() {
-            map.entry(key).or_insert(id); // ORDER BY id ⇒ 首次写入即最小
+            map.entry(key).or_insert(id); // ORDER BY id -> 首次写入即最小
         }
     }
     Ok(map)
@@ -111,6 +116,8 @@ fn own_title(conn: &Connection, id: i64) -> rusqlite::Result<Option<String>> {
 
 /// 单条笔记的出链 + 入链(编辑面板用)。出链按正文出现顺序(插入序 = id 升序);
 /// 入链按来源 id 升序,同一条来源只出现一次(DISTINCT:正文里引用两遍算一个人)。
+/// 显示标题走 `display_title`(首行原样),匹配才用归一化 key。
+#[allow(dead_code)]
 pub fn list_note_links(conn: &Connection, note_id: i64) -> rusqlite::Result<NoteLinks> {
     let mut out_stmt = conn.prepare(
         "SELECT l.target_id, l.raw_title, n.content FROM note_links l
@@ -123,7 +130,7 @@ pub fn list_note_links(conn: &Connection, note_id: i64) -> rusqlite::Result<Note
             Ok(OutboundLink {
                 target_id: r.get(0)?,
                 raw_title: r.get(1)?,
-                title: content.as_deref().map(title_of),
+                title: content.as_deref().map(display_title),
             })
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -134,7 +141,7 @@ pub fn list_note_links(conn: &Connection, note_id: i64) -> rusqlite::Result<Note
     )?;
     let backlinks = in_stmt
         .query_map(params![note_id], |r| {
-            Ok(Backlink { source_id: r.get(0)?, title: title_of(&r.get::<_, String>(1)?) })
+            Ok(Backlink { source_id: r.get(0)?, title: display_title(&r.get::<_, String>(1)?) })
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
     Ok(NoteLinks { outbound, backlinks })
@@ -143,6 +150,7 @@ pub fn list_note_links(conn: &Connection, note_id: i64) -> rusqlite::Result<Note
 /// 一页笔记的被引用计数(`target_id -> 引用条数`),一条 SQL 批量取全:
 /// 笔记流 50 张卡不该每张卡一条查询(设计 §3.0 的硬约束)。
 /// 没人引用的 id 不进 Map(前端 `.get()` 得到 undefined,与 0 同义);空入参直接短路。
+#[allow(dead_code)]
 pub fn list_links_page(conn: &Connection, note_ids: &[i64]) -> rusqlite::Result<HashMap<i64, i64>> {
     if note_ids.is_empty() {
         return Ok(HashMap::new());
@@ -157,6 +165,7 @@ pub fn list_links_page(conn: &Connection, note_ids: &[i64]) -> rusqlite::Result<
 }
 
 /// 全部**已解析**的边 `(source_id, target_id)`,插入序;关系图 L4 画 link 边用。
+#[allow(dead_code)]
 pub fn all_resolved(conn: &Connection) -> rusqlite::Result<Vec<(i64, i64)>> {
     let mut stmt = conn
         .prepare("SELECT source_id, target_id FROM note_links WHERE target_id IS NOT NULL ORDER BY id")?;
@@ -167,3 +176,7 @@ pub fn all_resolved(conn: &Connection) -> rusqlite::Result<Vec<(i64, i64)>> {
 #[cfg(test)]
 #[path = "note_links_tests.rs"]
 mod note_links_tests;
+
+#[cfg(test)]
+#[path = "note_links_fix_tests.rs"]
+mod note_links_fix_tests;

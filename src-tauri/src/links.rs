@@ -76,11 +76,17 @@ fn scan_line(line: &str, base: usize, out: &mut Vec<LinkSpan>) {
 
 /// 在 `line[open..]`(open 指向首个 `[`)尝试解析一条链接:
 /// 成功返回 (结束字节下标 = 闭 `]]` 之后, 裁过首尾空白的标题)。
+/// `#` 开头的标签形(`[[#工作/]]`)一律不算(设计 §5.5):它既不是笔记标题,
+/// 归一化后也会是空 key —— 放行只会写出永远解析不了的垃圾行。
 fn parse_at(line: &str, open: usize) -> Option<(usize, String)> {
     let rest = &line[open + 2..];
     let close = rest.find("]]")?;
     let raw = rest[..close].trim();
-    if raw.is_empty() || raw.chars().count() > MAX_TITLE_CHARS || raw.contains(['[', ']']) {
+    if raw.is_empty()
+        || raw.starts_with('#')
+        || raw.chars().count() > MAX_TITLE_CHARS
+        || raw.contains(['[', ']'])
+    {
         return None;
     }
     Some((open + 2 + close + 2, raw.to_string()))
@@ -111,6 +117,16 @@ pub fn title_of(content: &str) -> String {
         .lines()
         .find(|l| !l.trim().is_empty())
         .map(normalize_title)
+        .unwrap_or_default()
+}
+
+/// 取正文第一条非空行作**显示**标题:只裁首尾空白,大小写与标签词元原样保留。
+/// 与 `title_of` 配对 —— 显示路径用它(否则 `Hello World` 会被显示成小写),等值匹配用后者。
+pub fn display_title(content: &str) -> String {
+    content
+        .lines()
+        .find(|l| !l.trim().is_empty())
+        .map(|l| l.trim().to_string())
         .unwrap_or_default()
 }
 

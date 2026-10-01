@@ -8,7 +8,9 @@
     { "name": "嵌套整串不算", "content": "[[甲[[乙]]", "expect": [] },
     { "name": "空不算", "content": "[[]]", "expect": [] },
     { "name": "跨行不算", "content": "[[甲\n乙]]", "expect": [] },
-    { "name": "首尾空白裁掉", "content": "[[  甲  ]]", "expect": ["甲"] }
+    { "name": "首尾空白裁掉", "content": "[[  甲  ]]", "expect": ["甲"] },
+    { "name": "标签形不算", "content": "参考 [[#工作/]]", "expect": [] },
+    { "name": "标签形双斜杠不算", "content": "参考 [[#a//b]]", "expect": [] }
   ],
   "titles": [
     { "name": "普通", "content": "今天聚会\n#日记", "expect": "今天聚会" },

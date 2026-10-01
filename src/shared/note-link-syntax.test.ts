@@ -6,7 +6,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { normalizeTitle, noteLinkSpans, titleOf } from './note-link-syntax';
+import { displayTitle, normalizeTitle, noteLinkSpans, titleOf } from './note-link-syntax';
 
 interface SpanCase {
   name: string;
@@ -60,5 +60,10 @@ describe('区间与归一化边界', () => {
   it('标题词元剥离后不参与匹配', () => {
     expect(normalizeTitle('  聚会  #日记  ')).toBe('聚会');
     expect(normalizeTitle('#安利/软件')).toBe('');
+  });
+
+  it('displayTitle 保留大小写与首行原样', () => {
+    expect(displayTitle('Hello World\n正文')).toBe('Hello World');
+    expect(displayTitle('\n  真正首行  ')).toBe('真正首行');
   });
 });

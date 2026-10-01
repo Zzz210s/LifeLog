@@ -72,13 +72,20 @@ function scanLine(line: string, base: number, out: NoteLinkSpan[]): void {
   }
 }
 
-/** open 指向首个 `[`;成功返回闭 `]]` 之后的下标与裁过首尾空白的标题 */
+/** open 指向首个 `[`;成功返回闭 `]]` 之后的下标与裁过首尾空白的标题。
+ * `#` 开头的标签形(`[[#工作/]]`)与 Rust 一致地不算(设计 §5.5)。 */
 function parseAt(line: string, open: number): { end: number; title: string } | null {
   const rest = line.slice(open + 2);
   const close = rest.indexOf(']]');
   if (close < 0) return null;
   const raw = rest.slice(0, close).trim();
-  if (raw === '' || [...raw].length > MAX_TITLE_CHARS || raw.includes('[') || raw.includes(']')) {
+  if (
+    raw === '' ||
+    raw.startsWith('#') ||
+    [...raw].length > MAX_TITLE_CHARS ||
+    raw.includes('[') ||
+    raw.includes(']')
+  ) {
     return null;
   }
   return { end: open + 2 + close + 2, title: raw };
@@ -107,6 +114,14 @@ export function normalizeTitle(line: string): string {
 export function titleOf(content: string): string {
   for (const line of content.split('\n')) {
     if (line.trim() !== '') return normalizeTitle(line);
+  }
+  return '';
+}
+
+/** 第一条非空行的**显示**标题:只 trim,大小写与标签词元原样保留(与 Rust `display_title` 同口径) */
+export function displayTitle(content: string): string {
+  for (const line of content.split('\n')) {
+    if (line.trim() !== '') return line.trim();
   }
   return '';
 }

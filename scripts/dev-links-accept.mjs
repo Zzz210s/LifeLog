@@ -5,6 +5,7 @@
  *   5 围栏代码块里的 `[[X]]` 不产生 note_links 行
  *   6 改目标笔记首行 -> 链接仍在(target_id 不变,raw_title 仍是原文)
  *   7 删目标笔记 -> 该链接退回未解析(target_id 变 NULL)
+ *   8 标签形 `[[#工作/]]` 不建链(设计 §5.5,不写永久垃圾行)
  *   收尾 夹具删净 + 库对账(notes/tags/tag_links/notes_fts/note_links 逐项回到基线 + integrity_check)
  *
  * 夹具一律 `LINK测试` 前缀,自建自删;真实库除本脚本自建的笔记外只读。
@@ -22,6 +23,7 @@ const TARGET = `${NS} 目标`;
 const RENAMED = `${NS} 目标改`;
 const SOURCE = `${NS} 源 [[${TARGET}]]`;
 const FENCED = `${NS} 围栏\n\`\`\`\n[[${TARGET}]]\n\`\`\``;
+const TAG_SHAPED = `${NS} 标签形 [[#工作/]]`;
 
 /** 只读开一次:不吃旧连接里的 WAL 快照(应用在跑,写提交后立刻能读到) */
 const ro = (fn) => {
@@ -119,6 +121,11 @@ try {
   const fencedId = await createNote(FENCED);
   const rows5 = linkRows(fencedId);
   record('读数5 围栏代码块里的 [[X]] 不建链', rows5.length === 0, `行数=${rows5.length}(期望 0)`);
+
+  // --- 读数 8:标签形 `[[#x]]` 不算(设计 §5.5) ---
+  const shapedId = await createNote(TAG_SHAPED);
+  const rows8 = linkRows(shapedId);
+  record('读数8 标签形 [[#工作/]] 不建链(设计 5.5)', rows8.length === 0, `行数=${rows8.length}(期望 0)`);
 
   // --- 读数 6:目标改名,链接靠 id 存活 ---
   await call('update_note', { id: targetId, content: RENAMED });
