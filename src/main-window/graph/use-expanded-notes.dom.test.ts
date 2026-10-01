@@ -27,7 +27,7 @@ import type { FilterConditions } from '../../shared/filter-conditions';
 import type { GraphNode, Note } from '../../shared/types';
 import { radiusOf } from './graph-draw-plan';
 import { type Camera } from './graph-camera';
-import { NOTE_LIMIT } from './graph-notes';
+import { NOTE_LIMIT, OVERFLOW_GAP } from './graph-notes';
 import type { Point } from './radial';
 import { useExpandedNotes, type ExpandedNotesApi } from './use-expanded-notes';
 
@@ -126,8 +126,8 @@ describe('useExpandedNotes:取数口径', () => {
     });
     expect(api?.layer?.dots).toHaveLength(NOTE_LIMIT);
     expect(api?.layer?.space).toBe('screen'); // 口径随数据一起递出去,上层不用猜
-    // `+N` 画在标签屏幕位置 (230, 90) 上,并带着所属标签 id(命中它要知道带哪个标签回信息流)
-    expect(api?.layer?.overflow).toEqual({ id: 7, x: 230, y: 90, n: 414 - NOTE_LIMIT });
+    // `+N` 画在环外偏下(标签屏幕位置 (230, 90) + 扇形半径 + 12),并带着所属标签 id(命中它要知道带哪个标签回信息流)
+    expect(api?.layer?.overflow).toEqual({ id: 7, x: 230, y: 90 + radiusOf(414) + GAP + OVERFLOW_GAP, n: 414 - NOTE_LIMIT });
     expect(api?.loading).toBe(false);
     expect(api?.failed).toBe(false);
   });

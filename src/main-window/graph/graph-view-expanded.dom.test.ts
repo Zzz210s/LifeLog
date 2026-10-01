@@ -15,7 +15,7 @@ import { makeCanvasCtx, type CanvasCtxStub } from './canvas-test-kit';
 import { fitToView, screenOf } from './graph-camera';
 import { radiusOf } from './graph-draw-plan';
 import { collapseRootsOf, visibleGraph } from './graph-view-model';
-import { NOTE_LIMIT, NOTE_R } from './graph-notes';
+import { NOTE_LIMIT, NOTE_R, OVERFLOW_GAP } from './graph-notes';
 import { radialLayout } from './radial';
 import { normalizeTemplate } from '../settings/time-tag-settings';
 
@@ -68,6 +68,10 @@ const dotAt = (id: number, i: number): { clientX: number; clientY: number } => {
   const a = (Math.PI * 2 * i) / NOTE_LIMIT - Math.PI / 2;
   return client({ x: c.x + Math.cos(a) * FAN_R, y: c.y + Math.sin(a) * FAN_R });
 };
+
+/** `+N` 的 client 位置:环外偏下(圆心正下方,扇形半径 + OVERFLOW_GAP) */
+const overflowAt = (id: number): { clientX: number; clientY: number } =>
+  client({ x: at(id).clientX, y: at(id).clientY + FAN_R + OVERFLOW_GAP });
 
 let root: Root;
 let host: HTMLDivElement;
@@ -176,18 +180,19 @@ describe('GraphView:展开笔记', () => {
     }
   });
 
-  it('点 +N(= 标签点正中央)= 带着该标签回信息流,不算画布点击', async () => {
+  it('点 +N(环外偏下)= 回信息流;圆心留给标签点', async () => {
     const restore = metrics();
     try {
       await mount();
       await fire('dblclick', at(1));
       await flush();
       expect(texts()).toContain('+394');
-      // `+N` 与标签点同心(`noteFan` 把提示位摆在圆心):点那里命中的是 `+N`
-      await fire('click', at(1));
+      await fire('click', overflowAt(1)); // `+N` 摆在环外偏下:点那里才是回信息流
       expect(onFilter).toHaveBeenCalledWith('甲');
-      // 不算画布点击 -> 不能顺手把这个标签选中(信息条会先冒出来、再被带回信息流的动作带走)
-      expect(host.querySelector('[data-testid="graph-info-bar"]')).toBeNull();
+      expect(host.querySelector('[data-testid="graph-info-bar"]')).toBeNull(); // 不算画布点击
+      await fire('click', at(1)); // 圆心是标签点:不再被 `+N` 吃掉(2026-10-01 修)
+      expect(onFilter).toHaveBeenCalledTimes(1);
+      expect(host.querySelector('[data-testid="graph-info-bar"]')).not.toBeNull();
     } finally {
       restore();
     }

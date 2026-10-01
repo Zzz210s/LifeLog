@@ -2,6 +2,8 @@
 /**
  * 关系图真机读数:G1 的 1-6 与 11(计划 2026-09-28-graph-g1.md 的 Task 6),G2 的八条在
  * scripts/graph-accept-g2.mjs(悬停/单击/双击/右键/搜索/键盘守卫/筛到信息流/只读对账,读数 5 之后跑),
+ * G3 的十条在 scripts/graph-accept-g3.mjs(过滤器 1-4 / 拖节点与位置记忆 5 / 整理布局 6 / 数据版本重载 7 /
+ * 只读对账 8 / 进图适配 9 / 位置记忆修剪 10),实现分在 scripts/graph-accept-g3-*.mjs 里。
  * 读数 2 与 4 的测量与判定在 scripts/graph-accept-g1-reads.mjs(两个页面侧读数单独成文件,兼守 200 行红线)。
  *
  *   1 首帧可见 ≤150ms(命令执行 -> 首个有内容的画布绘制;另报 DOM 挂载时刻)
@@ -157,8 +159,8 @@ record(
     `绘制调用 +${afterPan === null ? '?' : afterPan.draws - beforePan.draws}`,
 );
 
-// G3 八条读数:过滤器三档 / 时间轴展开 + LOD / 拖节点与位置记忆 / 整理布局 / 数据版本重载 / 只读对账
-// (跑在 G2 之前:G2 收尾会把「筛到信息流」切回信息流,而 G3 全程要在图里)
+// G3 十条读数:过滤器三档 / 时间轴展开 + LOD / 拖节点与位置记忆 / 整理布局 / 数据版本重载 / 进图适配 /
+// 位置记忆修剪 / 只读对账(跑在 G2 之前:G2 收尾会把「筛到信息流」切回信息流,而 G3 全程要在图里)
 await runGraphG3({ cdp: conn.cdp, ev, ui, bm, record });
 
 await runGraphG2({ cdp: conn.cdp, ev, ui, bm, record }); // G2 八条读数:悬停/单击/双击/右键/搜索/守卫/筛到信息流/只读

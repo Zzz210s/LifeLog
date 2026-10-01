@@ -8,7 +8,7 @@
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { useAutoFit, usePassiveWheel } from './use-graph-surface';
+import { useAutoFit, usePassiveWheel, AUTO_FIT_BUDGET_MS } from './use-graph-surface';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -71,6 +71,49 @@ describe('useAutoFit:首次适配只做一次', () => {
     ready = true;
     await render();
     expect(fits).toBe(1); // 回来也不再适配:此后只由 `0` 复位
+  });
+});
+
+describe('useAutoFit:就绪等不到时有界等待(G3 遗留:IPC 可能永不 settle)', () => {
+  it('ready 一直是 false:预算到点后仍按当前落点适配一次,且只此一次', async () => {
+    vi.useFakeTimers();
+    try {
+      await render();
+      expect(fits).toBe(0); // 预算内不碰相机(折叠根还可能读到)
+      await act(async () => {
+        vi.advanceTimersByTime(AUTO_FIT_BUDGET_MS - 1);
+      });
+      expect(fits).toBe(0);
+      await act(async () => {
+        vi.advanceTimersByTime(1);
+      });
+      expect(fits).toBe(1); // 到点:不等了,按当时的落点适配(没有这条,图停在 k=1/tx=0/ty=0)
+      await act(async () => {
+        vi.advanceTimersByTime(AUTO_FIT_BUDGET_MS * 4);
+      });
+      expect(fits).toBe(1);
+      ready = true; // 迟到的就绪:相机已归用户,不再适配
+      await render();
+      expect(fits).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('预算内就绪:立刻适配,到点不再补一次(定时器已撤)', async () => {
+    vi.useFakeTimers();
+    try {
+      await render();
+      ready = true;
+      await render();
+      expect(fits).toBe(1);
+      await act(async () => {
+        vi.advanceTimersByTime(AUTO_FIT_BUDGET_MS * 2);
+      });
+      expect(fits).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

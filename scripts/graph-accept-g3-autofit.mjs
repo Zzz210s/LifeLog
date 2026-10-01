@@ -17,13 +17,18 @@ const PRESS0 = `window.dispatchEvent(new KeyboardEvent('keydown', { key: '0' }))
 const r3 = (v) => (typeof v === 'number' ? Math.round(v * 1000) / 1000 : v);
 const near = (a, b, eps) => typeof a === 'number' && typeof b === 'number' && Math.abs(a - b) <= eps;
 
-/** 量一次「画布上的相似变换」:纯径向的世界坐标表(折叠后的可见集)对画出来的点位 */
+/**
+ * 量一次「画布上的相似变换」:纯径向布局**叠上库里的位置记忆**(用户拖过的节点)对画出来的点位。
+ * 比的是**有效落点表**(`mem`):库里位置记忆非空时画布本来就该画那些记过的位置 —— 拿纯径向表比
+ * 会把用户自己记过的节点当成错位(实测用户的 `820` 条目离它的径向位置 5.6px,旧判据在真机上会假红);
+ * 位置记忆为空时 `mem` 与 `raw` 逐位相同,这条口径就退化成原来的“对纯径向布局”。
+ */
 async function measure(cdp) {
   const w = await worldPairs(cdp, -1);
   const fr = await lastFrame(cdp);
   const dots = fr?.dots ?? [];
-  const res = w === null ? null : similarityResidual(w.pairs.map((p) => p.raw), dots);
-  return { res, dots: dots.length, visible: w?.visible, camRaw: w?.camRaw };
+  const res = w === null ? null : similarityResidual(w.pairs.map((p) => p.mem), dots);
+  return { res, dots: dots.length, visible: w?.visible, camFit: w?.camMem };
 }
 
 export async function runAutoFit({ cdp, ev, ui, record }) {
@@ -42,14 +47,14 @@ export async function runAutoFit({ cdp, ev, ui, record }) {
   const sameCam =
     a.res !== null && b.res !== null && near(a.res.k, b.res.k, 0.005) && near(a.res.tx, b.res.tx, 1) && near(a.res.ty, b.res.ty, 1);
   const fitOk =
-    b.res !== null && b.camRaw !== null && near(b.res.k, b.camRaw.k, 0.005) && near(b.res.tx, b.camRaw.tx, 1) && near(b.res.ty, b.camRaw.ty, 1);
+    b.res !== null && b.camFit !== null && near(b.res.k, b.camFit.k, 0.005) && near(b.res.tx, b.camFit.tx, 1) && near(b.res.ty, b.camFit.ty, 1);
   const residualOk = a.res !== null && b.res !== null && a.res.max <= 2 && b.res.max <= 2;
   record(
     'G3-9 进图两次的相机适配一致(折叠根就绪才适配)',
     sameCam && fitOk && residualOk,
     `A(按 0 的适配档)k=${r3(a.res?.k)}/tx=${r3(a.res?.tx)}/ty=${r3(a.res?.ty)}、${a.dots} 点(可见 ${a.visible})、残差 ${a.res?.max}px;` +
       `B(退出再进图,不按 0)k=${r3(b.res?.k)}/tx=${r3(b.res?.tx)}/ty=${r3(b.res?.ty)}、${b.dots} 点(可见 ${b.visible})、残差 ${b.res?.max}px;` +
-      `纯函数适配(折叠后布局)camRaw k=${r3(b.camRaw?.k)}/tx=${r3(b.camRaw?.tx)}/ty=${r3(b.camRaw?.ty)};` +
+      `纯函数适配(折叠后布局 + 位置记忆)camFit k=${r3(b.camFit?.k)}/tx=${r3(b.camFit?.tx)}/ty=${r3(b.camFit?.ty)};` +
       `A 与 B 一致=${sameCam}、B 等于纯函数适配=${fitOk}。修复前这一档会是未折叠 768 点布局的 fit(k=0.751/411/304.2,画面更缩且偏心)`,
   );
 }

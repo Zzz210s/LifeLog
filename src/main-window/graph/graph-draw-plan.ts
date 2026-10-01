@@ -45,8 +45,8 @@ export type NoteDot = Point;
 
 /**
  * 被略去的笔记条数提示位(屏幕坐标)。
- * `id` 是它所属的标签:它画在标签点正中央(与点同心),命中它要知道该带哪个标签回信息流,
- * 所以这一位不随坐标换算丢掉身份(见 `use-graph-interactions` 的 `+N` 判据)。
+ * `id` 是它所属的标签:它画在标签环外偏下(`noteFan` 的 `OVERFLOW_GAP`),命中它要知道该带哪个标签
+ * 回信息流,所以这一位不随坐标换算丢掉身份(见 `use-graph-interactions` 的 `+N` 判据)。
  */
 export interface OverflowDot {
   id: number;

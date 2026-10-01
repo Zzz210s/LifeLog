@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { NOTE_LIMIT, noteFan } from './graph-notes';
+import { NOTE_LIMIT, OVERFLOW_GAP, noteFan } from './graph-notes';
 
 describe('noteFan:展开笔记的小圆布局', () => {
   it('按数量均匀铺在圆上', () => {
@@ -17,17 +17,29 @@ describe('noteFan:展开笔记的小圆布局', () => {
     expect(r.dots[1].y).toBeCloseTo(5);
   });
 
-  it('超过上限时只画前 limit 个,并给 +N', () => {
+  it('超过上限时只画前 limit 个,并给 +N(摆在环外偏下)', () => {
     const r = noteFan({ center: { x: 10, y: 20 }, count: 25, radius: 40, limit: 20, space: 'world' });
     expect(r.dots).toHaveLength(20);
-    expect(r.overflow).toEqual({ x: 10, y: 20, n: 5 });
+    expect(r.overflow).toEqual({ x: 10, y: 20 + 40 + OVERFLOW_GAP, n: 5 });
   });
 
   it('不传 limit 时用默认上限 20', () => {
     const r = noteFan({ center: { x: 0, y: 0 }, count: 25, radius: 40, space: 'world' });
     expect(NOTE_LIMIT).toBe(20);
     expect(r.dots).toHaveLength(20);
-    expect(r.overflow).toEqual({ x: 0, y: 0, n: 5 });
+    expect(r.overflow).toEqual({ x: 0, y: 40 + OVERFLOW_GAP, n: 5 });
+  });
+
+  it('+N 在环外偏下:离圆心的距离 = 半径 + 间距,比任何同心的实现都远', () => {
+    const center = { x: 12, y: 34 };
+    const radius = 17; // 小标签的扇形半径(屏幕口径)
+    const r = noteFan({ center, count: 25, radius, space: 'screen' });
+    expect(r.overflow).toEqual({ x: 12, y: 34 + radius + OVERFLOW_GAP, n: 5 });
+    expect(r.overflow!.y).toBeGreaterThan(center.y); // 偏下方
+    expect(r.overflow!.y - center.y).toBeGreaterThan(radius); // 在环外,不与小圆重叠
+    // `+N` 的命中半径是 10(OVERFLOW_REACH):离圆心 ≥ radiusOf(0) + 14 + 12 ≈ 28.5,
+    // 所以点小标签的圆心再也撞不上它(2026-10-01 修:此前它在圆心、整块盖住小标签点)
+    expect(Math.hypot(r.overflow!.x - center.x, r.overflow!.y - center.y)).toBeGreaterThan(10);
   });
 
   it('0 条不画任何东西', () => {
@@ -48,10 +60,10 @@ describe('noteFan:展开笔记的小圆布局', () => {
     expect(r.overflow).toBe(null);
   });
 
-  it('limit 为 0 时一个不画,+N 是全部', () => {
+  it('limit 为 0 时一个不画,+N 是全部(仍在环外偏下)', () => {
     const r = noteFan({ center: { x: 1, y: 2 }, count: 7, radius: 40, limit: 0, space: 'world' });
     expect(r.dots).toHaveLength(0);
-    expect(r.overflow).toEqual({ x: 1, y: 2, n: 7 });
+    expect(r.overflow).toEqual({ x: 1, y: 2 + 40 + OVERFLOW_GAP, n: 7 });
   });
 });
 
@@ -66,9 +78,9 @@ describe('noteFan:口径显式化(定死,别再摇摆)', () => {
     expect(screen.overflow).toBe(null);
   });
 
-  it('+N 提示位也落在同一量纲的圆心处', () => {
+  it('+N 提示位也落在同一量纲的环外偏下', () => {
     const screen = noteFan({ center: { x: 12, y: 34 }, count: 25, radius: 17, space: 'screen' });
     expect(screen.space).toBe('screen');
-    expect(screen.overflow).toEqual({ x: 12, y: 34, n: 5 });
+    expect(screen.overflow).toEqual({ x: 12, y: 34 + 17 + OVERFLOW_GAP, n: 5 });
   });
 });

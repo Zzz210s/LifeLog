@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
  * `useGraphInteractions` 用例的共享测试件(仅测试引用,不进应用代码):
- * 夹具(两个节点 + 相机 + 可变的容器原点)、回调记数、挂载与事件发送。
+ * 夹具(四个节点 + 相机 + 可变的容器原点)、回调记数、挂载与事件发送。
  * 抽出来的理由与 canvas-test-kit.ts 一样 —— 命中换算的坐标算式只该有一份,
  * 用例文件再抄一遍会在改夹具时悄悄漂移(2026-09-30 终审修复轮:文件已到 200 行红线)。
  */
@@ -19,12 +19,16 @@ export const NODES: GraphNode[] = [
   { id: 1, path: '甲', depth: 1, parent: null, notes: 4, selfCount: 0, sortOrder: 0 },
   { id: 2, path: '甲/一', depth: 2, parent: 1, notes: 1, selfCount: 1, sortOrder: 0 },
   { id: 3, path: '乙', depth: 1, parent: null, notes: 1040, selfCount: 1040, sortOrder: 0 },
+  // 节点 4 是小标签(`notes` 25:点半径 3.75、触及半径 7.75 < `+N` 的命中半径 10):
+  // 正是「`+N` 若与点同心就会把圆心整块盖住」的那一类(2026-10-01 修的就是它)
+  { id: 4, path: '丙', depth: 1, parent: null, notes: 25, selfCount: 25, sortOrder: 0 },
 ];
-/** 节点 1 落在 (200,150)、节点 2 落在 (300,150)、节点 3 落在 (200,400);半径 r(4) = 3 + 容差 4 -> 圆心 7px 内算命中 */
+/** 节点 1 在 (200,150)、节点 2 在 (300,150)、节点 3 在 (200,400)、节点 4 在 (200,650);半径 r(4) = 3 + 容差 4 -> 圆心 7px 内算命中 */
 export const POINTS: Map<number, Point> = new Map([
   [1, { x: 0, y: 0 }],
   [2, { x: 100, y: 0 }],
   [3, { x: 0, y: 250 }],
+  [4, { x: 0, y: 500 }],
 ]);
 export const CAM = { k: 1, tx: 200, ty: 150 };
 

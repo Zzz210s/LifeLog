@@ -97,7 +97,7 @@ export function GraphView(p: {
     onSelect: setSelected,
     onExpand: (id) => setExpanded((cur) => (cur === id ? null : id)),
     onMenu: (id, x, y) => setMenu({ id, x, y }),
-    // `+N` 与标签点同心(压在点的正中央):单击优先判它 = 带着该标签回信息流(与点笔记小圆同一口径)
+    // `+N` 画在环外偏下:单击优先判它 = 带着该标签回信息流(与点笔记小圆同一口径)
     overflow: exp.layer?.overflow ?? null,
     onOverflow: (id) => { const path = nodePath(nodes, id); if (path !== null) p.onFilterToStream(path); },
     // 双击空白 = 回信息流(设计 §5)

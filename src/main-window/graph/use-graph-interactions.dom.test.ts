@@ -5,7 +5,11 @@
  * 夹具与事件发送在 interactions-test-kit.ts(坐标算式只留一份)。
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { makeInteractions, type InteractionsHarness } from './interactions-test-kit';
+import { screenOf } from './graph-camera';
+import { radiusOf } from './graph-draw-plan';
+import { OVERFLOW_GAP } from './graph-notes';
+import { CAM, NODES, POINTS, makeInteractions, type InteractionsHarness } from './interactions-test-kit';
+import type { OverflowHit } from './use-graph-interactions';
 
 let h: InteractionsHarness;
 
@@ -93,28 +97,51 @@ describe('useGraphInteractions:右键菜单', () => {
 });
 
 describe('useGraphInteractions:展开层的 +N', () => {
-  it('单击落在 +N 上 -> 带着该标签回信息流,不再选中它底下那个节点', async () => {
-    // 节点 3 是大标签(`+N` 就画在它正中央,两层同心)
-    h.setOverflow({ id: 3, x: 200, y: 400 });
+  /** 与 use-expanded-notes 同一口径的扇形间距(改了口径这里就红) */
+  const FAN_GAP = 14;
+  /** 节点在画布上的屏幕位置(与夹具同一套算式,不抄第二份) */
+  const at = (id: number): { x: number; y: number } => screenOf(POINTS.get(id)!, CAM);
+  /** `+N` 的落点:环外偏下(与 noteFan 同一口径 —— 扇形半径 = 标签半径 + 间距,再加 OVERFLOW_GAP) */
+  const overflowOf = (id: number): OverflowHit => {
+    const c = at(id);
+    const notes = NODES.find((n) => n.id === id)!.notes;
+    return { id, x: c.x, y: c.y + radiusOf(notes) + FAN_GAP + OVERFLOW_GAP };
+  };
+
+  it('单击落在 +N 上 -> 带着该标签回信息流,不再选中它上面那个节点', async () => {
+    const o = overflowOf(3); // 大标签(notes 1040):`+N` 在它环外偏下
+    h.setOverflow(o);
     await h.mount();
-    await h.click(200, 400);
+    await h.click(o.x, o.y);
     expect(h.calls.overflow).toEqual([3]);
     expect(h.calls.select).toEqual([]); // 顺手选中会先把信息条顶出来,再把用户送去信息流
   });
 
-  it('+N 半径之外仍是普通节点点击(大标签点的外圈还能选中);没给 +N 时行为不变', async () => {
-    h.setOverflow({ id: 3, x: 200, y: 400 });
+  it('小标签(点触及半径 < `+N` 命中半径)展开后,点圆心命中的是节点而不是 +N', async () => {
+    const o = overflowOf(4); // 节点 4:notes 25 -> 点半径 3.75、触及半径 7.75
+    h.setOverflow(o);
     await h.mount();
-    await h.click(213, 400); // 离圆心 13:在 +N 半径(10)之外、标签点触及半径(~14.6)之内
+    const c = at(4);
+    await h.click(c.x, c.y);
+    expect(h.calls.overflow).toEqual([]); // `+N` 若与点同心,这一下会被它吞掉(2026-10-01 修)
+    expect(h.calls.select).toEqual([4]);
+    await h.click(o.x, o.y);
+    expect(h.calls.overflow).toEqual([4]); // 点 `+N` 才是回信息流
+  });
+
+  it('+N 半径之外仍是普通节点点击(大标签点的外圈还能选中);没给 +N 时行为不变', async () => {
+    h.setOverflow(overflowOf(3));
+    await h.mount();
+    await h.click(at(3).x + 13, at(3).y); // 离圆心 13:在 `+N` 半径(10)之外、标签点触及半径(~14.6)之内
     expect(h.calls.overflow).toEqual([]);
     expect(h.calls.select).toEqual([3]);
-    await h.click(200, 400);
-    expect(h.calls.select).toEqual([3]); // 这一下才是 +N
-    expect(h.calls.overflow).toEqual([3]);
+    await h.click(at(3).x, at(3).y); // 圆心:仍是标签点(同心时这一下会被 `+N` 吞掉)
+    expect(h.calls.select).toEqual([3, 3]);
+    expect(h.calls.overflow).toEqual([]);
   });
 
   it('悬停 / 双击收起 / 右键菜单都不看 +N(看了就会把「再双击收起」吞掉)', async () => {
-    h.setOverflow({ id: 3, x: 200, y: 400 });
+    h.setOverflow(overflowOf(3));
     await h.mount();
     await h.move(200, 400);
     expect(h.api().hovered).toBe(3);

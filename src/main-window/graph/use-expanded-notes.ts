@@ -17,7 +17,7 @@
  * —— G3 起笔记小圆与标签点同口径:不随相机缩放,`k=0.2` 时不会缩进标签点里面。
  * 点小圆的命中吃 client 坐标,故 `onNoteClick` 拿容器原点现算(命中容差 `NOTE_R + HIT_SLOP`,
  * 与 `graph-hit` 对标签点的口径一致:G2 只做「带着该标签回信息流」,单条定位留给 G3)。
- * `+N` 提示位的命中不在这里(它压在标签点正中央,归 `use-graph-interactions` 的单击分支),但那一份
+ * `+N` 提示位的命中不在这里(它画在标签环外偏下,归 `use-graph-interactions` 的单击分支),但那一份
  * 提示位与这里的是**同一个对象**(带 `id`,见 `layer`)。
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -61,7 +61,7 @@ export interface ExpandedLayer {
   space: NoteSpace;
   /** 笔记小圆(屏幕坐标) */
   dots: Point[];
-  /** 略去的条数提示位(屏幕坐标,标签圆心处,带所属标签 id);没有略去时为 null */
+  /** 略去的条数提示位(屏幕坐标,标签环外偏下,带所属标签 id);没有略去时为 null */
   overflow: { id: number; x: number; y: number; n: number } | null;
 }
 
@@ -125,7 +125,7 @@ export function useExpandedNotes(input: {
     // 页大小 > NOTE_LIMIT,正常情况这条截断不生效 —— 它只在图数据与库不同步时拦一下
     const dots = f.dots.slice(0, fetched);
     if (dots.length === 0) return null;
-    // `+N` 与点同心,身份得跟着层走:命中它的人要知道带哪个标签回信息流
+    // `+N` 画在环外偏下,身份得跟着层走:命中它的人要知道带哪个标签回信息流
     return { id: node.id, space: f.space, dots, overflow: f.overflow === null ? null : { ...f.overflow, id: node.id } };
   }, [node, points, cam, fetched]);
 

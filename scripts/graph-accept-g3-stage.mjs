@@ -108,6 +108,9 @@ export async function runDrag({ cdp, ev, ui, bm, record }) {
   await ev(PRESS0);
   await sleep(800);
   const posBefore = await bm.call('get_setting', { key: 'graph_positions' });
+  // 写回判据比的是**基线 + 本次拖的这一个**:库里可能早有用户自己拖过的条目(本机就有 820),
+  // 写死“只含该 id”会把用户的真实记忆当成违规(实测真机上因此假红)
+  const baseKeys = Object.keys(JSON.parse(posBefore || '{}'));
   const spot = await nodeSpot(cdp);
   const dx = 120;
   const dy = 90;
@@ -124,10 +127,12 @@ export async function runDrag({ cdp, ev, ui, bm, record }) {
     const keys = Object.keys(pos);
     const want = { x: spot.world.x + dx / spot.k, y: spot.world.y + dy / spot.k };
     const got = pos[String(spot.id)] ?? null;
-    writeOk = keys.length === 1 && keys[0] === String(spot.id) && got !== null &&
+    const wantKeys = [...baseKeys, String(spot.id)].sort();
+    writeOk = JSON.stringify(keys.slice().sort()) === JSON.stringify(wantKeys) && got !== null &&
       Math.abs(got.x - want.x) <= 0.6 && Math.abs(got.y - want.y) <= 0.6;
     const writeText = `靶 id=${spot.id} ${spot.path}(命中半径 ${spot.r}px,起手点已由 hitTest 验证命中它本人;k=${Math.round(spot.k * 1000) / 1000});` +
-      `拖 (${dx},${dy}) 后库值=${JSON.stringify(posRaw)},键 ${JSON.stringify(keys)}、世界坐标 (${got?.x},${got?.y})(期望 (${Math.round(want.x * 100) / 100},${Math.round(want.y * 100) / 100}) = 起点 + 屏幕位移/k)`;
+      `拖 (${dx},${dy}) 后库值=${JSON.stringify(posRaw)},键 ${JSON.stringify(keys)}(期望 = 基线 ${JSON.stringify(baseKeys)} + 本次拖的 ${spot.id})、` +
+      `世界坐标 (${got?.x},${got?.y})(期望 (${Math.round(want.x * 100) / 100},${Math.round(want.y * 100) / 100}) = 起点 + 屏幕位移/k)`;
     // 位置保持:退出再进图 -> 画布上那张图还应该是"含记忆"的世界坐标集的相似像
     await closeGraph(ui);
     await sleep(700);
@@ -147,14 +152,16 @@ export async function runDrag({ cdp, ev, ui, bm, record }) {
     await sleep(1400);
     const back = await worldPairs(cdp, spot.id);
     const frBacked = await lastFrame(cdp);
-    const resBack = back === null ? null : similarityResidual(back.pairs.map((p) => p.raw), frBacked?.dots ?? []);
+    // 复原后的残差比的是**有效落点表**(mem):复原的“原值”可能是非空的(用户自己拖过的节点),
+    // 那时画布本来就该画那些记过的位置 —— 拿纯径向表比会把它们当成错位(真机实测 820 离径向 5.6px)
+    const resBack = back === null ? null : similarityResidual(back.pairs.map((p) => p.mem), frBacked?.dots ?? []);
     const stored = await bm.call('get_setting', { key: 'graph_positions' });
     restoreOk = back?.hasKey === false && resBack !== null && resBack.max <= 2 && stored === (posBefore ?? '');
     detail = `${writeText};退出再进图:${dots.length} 个点对"含记忆"的坐标表残差最大 ${resMem?.max}px、对"纯径向"残差最大 ${resRaw?.max}px` +
       `(前者贴住、后者 ≥20px = 位置真的记住了;反推相机 k=${resMem?.k},三档对照:适配(含记忆) k=${held?.camMem.k} / 适配(纯径向) k=${held?.camRaw.k});` +
-      `复原后库值=${JSON.stringify(stored)}(原值 ${JSON.stringify(posBefore ?? null)}),画布对纯径向残差最大 ${resBack?.max}px`;
+      `复原后库值=${JSON.stringify(stored)}(原值 ${JSON.stringify(posBefore ?? null)}),画布对“径向+复原的位置记忆”残差最大 ${resBack?.max}px`;
   }
-  record('G3-5 拖节点:位置记忆只含该 id、退出再进图保持、测后复原原值', writeOk && heldOk && restoreOk, detail);
+  record('G3-5 拖节点:位置记忆 = 基线 + 该 id、退出再进图保持、测后复原原值', writeOk && heldOk && restoreOk, detail);
 }
 
 export async function runArrange({ cdp, ev, record }) {

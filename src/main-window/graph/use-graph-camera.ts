@@ -172,6 +172,8 @@ export function useGraphCamera(opts: {
   const onWheel = useCallback((e: WheelEvent): void => {
     e.preventDefault();
     const o = origin();
+    // 锚点吃**画布局部**坐标:`clientX/Y` 减容器原点(容器左边有侧栏、上边有顶栏)。
+    // 这条 G2 就已修好(91b2a5c9),不是欠账 —— 早期报告里的"仍是 client 口径"是旧话。
     const factor = e.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP;
     setCamera((cam) => zoomAt(cam, factor, { x: e.clientX - o.x, y: e.clientY - o.y }));
   }, [origin]);
