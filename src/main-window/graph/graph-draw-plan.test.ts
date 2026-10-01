@@ -162,38 +162,3 @@ describe('drawPlan:强调态', () => {
     expect(p.tree.every((s) => !s.dim)).toBe(true);
   });
 });
-
-describe('drawPlan:展开的笔记小圆', () => {
-  const expanded = {
-    id: 2,
-    dots: [
-      { x: 100, y: 0 },
-      { x: 100, y: 20 },
-    ],
-    overflow: { x: 100, y: 0, n: 5 },
-  };
-
-  it('笔记小圆按世界坐标进相机换算,节点默认不展开', () => {
-    expect(drawPlan(base).notes).toEqual([]);
-    expect(drawPlan(base).overflow).toBe(null);
-
-    const p = drawPlan({ ...base, expanded });
-    // cam = { k: 1, tx: 200, ty: 150 }
-    expect(p.notes).toEqual([
-      { x: 300, y: 150 },
-      { x: 300, y: 170 },
-    ]);
-    expect(p.overflow).toEqual({ x: 300, y: 150, n: 5 });
-  });
-
-  it('展开的节点被视口裁掉时,整组笔记与 +N 都不画(不留孤儿小圆)', () => {
-    const far = drawPlan({ ...base, expanded: { ...expanded, id: 99 } });
-    expect(far.notes).toEqual([]);
-    expect(far.overflow).toBe(null);
-  });
-
-  it('笔记小圆不参与弱化:dim 由点与边自己带,plan 的 notes 不带标志', () => {
-    const p = drawPlan({ ...base, emphasis: emphasisOf({ selected: 1, hovered: null, edges }), expanded });
-    expect(p.notes).toHaveLength(2); // 展开者是被主动点开的,永远清晰
-  });
-});

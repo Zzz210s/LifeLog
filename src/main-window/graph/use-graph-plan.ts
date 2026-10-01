@@ -7,7 +7,8 @@
  * - `themeKey`:兜底色是计划期读的令牌,换主题必须重建 plan(边/文字的颜色在画布里现读)
  * - `dprKey`:纯 DPR 变化时尺寸可能一点没变,不重建 plan 就不会重设后备缓冲(画布停在旧 DPR)
  * - `emphasis`:悬停/选中换了强调态却不重建 plan,点与边就永远亮不起来(G2 Task 5 审查点名)
- * - `expanded`:展开/收起与取数回包都要重画(小圆与 `+N` 在 plan 上;喂进来的是世界坐标,换算归 drawPlan)
+ * - `expanded`:展开/收起与取数回包都要重画(小圆与 `+N` 在 plan 上;喂进来的是屏幕坐标,
+ *   `space` 随层带下来,`'world'` 才由 drawPlan 换算)
  */
 import { useMemo } from 'react';
 import type { GraphEdge, GraphNode } from '../../shared/types';
@@ -33,8 +34,13 @@ export function useGraphPlan(input: {
   /** 选中与悬停:强调态由这两个派生(悬停优先于选中,见 graph-focus) */
   selected: number | null;
   hovered: number | null;
-  /** 展开的标签与其笔记小圆 / `+N`(世界坐标;来自 useExpandedNotes) */
-  expanded: { id: number; dots: Point[]; overflow: { x: number; y: number; n: number } | null } | null;
+  /** 展开的标签与其笔记小圆 / `+N`(`space` 随层带下来;来自 useExpandedNotes) */
+  expanded: {
+    id: number;
+    space: 'screen' | 'world';
+    dots: Point[];
+    overflow: { x: number; y: number; n: number } | null;
+  } | null;
 }): DrawPlan {
   const { nodes, edges, points, cam, size, themeKey, dprKey, selected, hovered, expanded } = input;
   const { w, h } = size;

@@ -13,9 +13,9 @@
  * 照 `node.notes` 画就是一圈点不出东西的幽灵圆;② 知道最多画得出几个圆。
  * 因此取到 0 条时一个圆都不画(而不是画满 20 个)。
  *
- * **坐标**:对外全是**世界坐标**(与 `radialLayout` 的落点同一口径),由 `drawPlan` 经
- * `screenOf` 换算;这里自己换算就等于把相机口径复制一份。点小圆的命中反过来要吃
- * client 坐标,故 `onNoteClick` 拿 `cam` 与容器原点现算(命中容差 `NOTE_R + HIT_SLOP`,
+ * **坐标**:对外全是**屏幕坐标**(先把标签落点过一遍 `screenOf`,半径直接用屏幕像素)
+ * —— G3 起笔记小圆与标签点同口径:不随相机缩放,`k=0.2` 时不会缩进标签点里面。
+ * 点小圆的命中吃 client 坐标,故 `onNoteClick` 拿容器原点现算(命中容差 `NOTE_R + HIT_SLOP`,
  * 与 `graph-hit` 对标签点的口径一致:G2 只做「带着该标签回信息流」,单条定位留给 G3)。
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -26,14 +26,15 @@ import { defaultFilterState } from '../filter/filter-state';
 import { screenOf, type Camera } from './graph-camera';
 import { radiusOf } from './graph-draw-plan';
 import { HIT_SLOP } from './graph-hit';
-import { noteFan, NOTE_R } from './graph-notes';
+import { noteFan, NOTE_R, type NoteSpace } from './graph-notes';
 import type { Point } from './radial';
 
-/** 小圆离标签圆心的间距(与 `noteFan` 的 center 同一量纲:世界坐标) */
+/** 小圆离标签圆心的间距(屏幕像素:标签点与笔记小圆都在屏幕口径) */
 const FAN_GAP = 14;
 
 /** 空扇形:同一份模块级对象(未展开/加载中时不要因为换了空数组而让 plan 作废) */
-const EMPTY_FAN: { dots: Point[]; overflow: { x: number; y: number; n: number } | null } = {
+const EMPTY_FAN: { space: NoteSpace; dots: Point[]; overflow: { x: number; y: number; n: number } | null } = {
+  space: 'screen',
   dots: [],
   overflow: null,
 };
@@ -55,7 +56,9 @@ interface PageRead {
 }
 
 export interface ExpandedNotesApi {
-  /** 笔记小圆(世界坐标);未展开/加载中/取不到一律为空 */
+  /** 小圆的坐标口径(恒为屏幕):上层把它随 dots 一起递进 drawPlan,别再猜 */
+  space: NoteSpace;
+  /** 笔记小圆(屏幕坐标);未展开/加载中/取不到一律为空 */
   dots: Point[];
   /** 略去的条数提示位(世界坐标,标签圆心处);没有略去时为 null */
   overflow: { x: number; y: number; n: number } | null;
@@ -105,22 +108,28 @@ export function useExpandedNotes(input: {
     const p = node === null ? undefined : points.get(node.id);
     if (node === null || p === undefined) return EMPTY_FAN;
     const total = Math.max(node.notes, 0);
-    const f = noteFan({ center: p, count: total, radius: radiusOf(total) + FAN_GAP });
+    // 屏幕口径:标签点先换成屏幕坐标,半径也是屏幕像素 —— 小圆不随相机缩放
+    const f = noteFan({
+      center: screenOf(p, cam),
+      count: total,
+      radius: radiusOf(total) + FAN_GAP,
+      space: 'screen',
+    });
     // 只画真取到的小圆(取不到的笔记没有实体;取到 0 条就是一圈都不画)
     // 页大小 > NOTE_LIMIT,正常情况这条截断不生效 —— 它只在图数据与库不同步时拦一下
     const dots = f.dots.slice(0, fetched);
-    return dots.length === 0 ? EMPTY_FAN : { dots, overflow: f.overflow };
-  }, [node, points, fetched]);
+    return dots.length === 0 ? EMPTY_FAN : { space: f.space, dots, overflow: f.overflow };
+  }, [node, points, cam, fetched]);
 
   const onNoteClick = useCallback(
     (e: { clientX: number; clientY: number }): boolean => {
       if (fan.dots.length === 0 || path === null) return false;
       const o = origin();
       const reach = NOTE_R + HIT_SLOP;
-      const hit = fan.dots.some((d) => {
-        const s = screenOf(d, cam);
-        return Math.hypot(s.x - (e.clientX - o.x), s.y - (e.clientY - o.y)) <= reach;
-      });
+      // 小圆已经是屏幕坐标:直接拿 client 减原点的画布坐标比距离,不再过相机
+      const hit = fan.dots.some(
+        (d) => Math.hypot(d.x - (e.clientX - o.x), d.y - (e.clientY - o.y)) <= reach,
+      );
       if (hit) onFilterToStream(path);
       return hit;
     },
@@ -128,6 +137,7 @@ export function useExpandedNotes(input: {
   );
 
   return {
+    space: fan.space,
     dots: fan.dots,
     overflow: fan.overflow,
     loading: id !== null && cur === null,

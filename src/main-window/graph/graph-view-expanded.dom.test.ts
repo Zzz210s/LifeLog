@@ -50,7 +50,7 @@ const VISIBLE = visibleGraph(DATA, { collapsedRoots: collapseRootsOf(normalizeTe
 const LAYOUT = radialLayout(VISIBLE, { layerGap: 90 });
 const CAM = fitToView([...LAYOUT.values()], W, H);
 
-/** 展开笔记的扇形半径(与 use-expanded-notes 同一口径:标签半径 + 14) */
+/** 展开笔记的扇形半径(与 use-expanded-notes 同一口径:标签半径 + 14 的屏幕像素) */
 const FAN_R = radiusOf(414) + 14;
 
 /** 世界坐标 -> 事件用的 client 坐标(jsdom 里容器原点为 0,画布坐标就是 client 坐标) */
@@ -62,11 +62,11 @@ const client = (p: { x: number; y: number }): { clientX: number; clientY: number
 /** 节点在画布上的位置 */
 const at = (id: number): { clientX: number; clientY: number } => client(screenOf(LAYOUT.get(id)!, CAM));
 
-/** 第 i 个笔记小圆的 client 位置(noteFan 从正上方起顺时针均匀铺,世界坐标算) */
+/** 第 i 个笔记小圆的 client 位置(noteFan 从正上方起顺时针铺;屏幕口径:标签点的屏幕位置 + 屏幕半径) */
 const dotAt = (id: number, i: number): { clientX: number; clientY: number } => {
-  const c = LAYOUT.get(id)!;
+  const c = screenOf(LAYOUT.get(id)!, CAM);
   const a = (Math.PI * 2 * i) / NOTE_LIMIT - Math.PI / 2;
-  return client(screenOf({ x: c.x + Math.cos(a) * FAN_R, y: c.y + Math.sin(a) * FAN_R }, CAM));
+  return client({ x: c.x + Math.cos(a) * FAN_R, y: c.y + Math.sin(a) * FAN_R });
 };
 
 let root: Root;
@@ -78,7 +78,7 @@ let ctx: CanvasCtxStub;
 /** 挂载 + flush(数据与设置的第一次回包) */
 const mount = async (): Promise<void> => {
   await act(async () => {
-    root.render(createElement(GraphView, { onExit: () => {}, onFilterToStream: onFilter }));
+    root.render(createElement(GraphView, { onExit: () => {}, onFilterToStream: onFilter, dataVersion: 0 }));
   });
   await act(async () => {
     await Promise.resolve();
@@ -152,7 +152,7 @@ describe('GraphView:展开笔记', () => {
       expect(getContext.mock.calls.length).toBeGreaterThan(drawn);
       expect(noteArcs()).toHaveLength(NOTE_LIMIT);
       expect(texts()).toContain('+394');
-      // 小圆落在标签正上方那一圈上(世界坐标算出来的位置,与视图口径一致)
+      // 小圆落在标签正上方那一圈上(屏幕口径算出来的位置,与视图口径一致)
       expect(noteArcs()[0].slice(0, 2)).toEqual([dotAt(1, 0).clientX, dotAt(1, 0).clientY]);
     } finally {
       restore();

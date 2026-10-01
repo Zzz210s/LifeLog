@@ -58,7 +58,7 @@ let ctx: CanvasCtxStub;
 
 const mount = async (): Promise<void> => {
   await act(async () => {
-    root.render(createElement(GraphView, { onExit: () => {}, onFilterToStream: onFilter }));
+    root.render(createElement(GraphView, { dataVersion: 0, onExit: () => {}, onFilterToStream: onFilter }));
   });
   await act(async () => {
     await Promise.resolve(); // 设置与数据的回包落地

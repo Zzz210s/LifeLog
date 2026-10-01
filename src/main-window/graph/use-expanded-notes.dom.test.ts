@@ -4,7 +4,8 @@
  * - 不展开(`node = null`)就不发请求,小圆为空
  * - 条件对象与信息流**同一份形状**,只有 `tags` 收窄到该路径(含子级),这样「图里展开的笔记」
  *   与「点筛到信息流后的结果」是同一批
- * - 小圆落点是**世界坐标**(相机换算交给 drawPlan),半径 = 标签半径 + 14,第一个圆在正上方
+ * - 小圆落点是**屏幕坐标**(先把标签落点过一次 screenOf),半径 = 标签半径 + 14 的屏幕像素,
+ *   第一个圆在正上方 —— 不随相机缩放(G3 把这条定死)
  * - 414 条 -> 只取第一页,画 20 个圆 + `+394`;取数失败不抛;库里取不到就不画幽灵圆
  * - 点中小圆 = 带着该标签回信息流(返回 true 让上层别再当画布点击)
  */
@@ -24,7 +25,7 @@ vi.mock('../../shared/api', () => ({ api: { queryNotes } }));
 import type { FilterConditions } from '../../shared/filter-conditions';
 import type { GraphNode, Note } from '../../shared/types';
 import { radiusOf } from './graph-draw-plan';
-import { screenOf, type Camera } from './graph-camera';
+import { type Camera } from './graph-camera';
 import { NOTE_LIMIT } from './graph-notes';
 import type { Point } from './radial';
 import { useExpandedNotes, type ExpandedNotesApi } from './use-expanded-notes';
@@ -42,8 +43,8 @@ const NODE: GraphNode = {
   selfCount: 12,
   sortOrder: 3,
 };
-/** 标签落点:世界坐标 (100, 50);相机故意不是恒等变换(k=2 / tx=30 / ty=-10),
- * 这样「返回的是世界坐标」与「自己先换算成屏幕坐标」两种实现才能被区分;容器原点 (10, 20) */
+/** 标签落点:世界坐标 (100, 50),屏幕位置就是 (230, 90);相机故意不是恒等变换(k=2 / tx=30 / ty=-10),
+ * 这样屏幕口径下小圆会落在 (230, 90) 周围,而不是仍停在世界坐标 (100, 50) 上(两种实现能区分);容器原点 (10, 20) */
 const POINTS = new Map<number, Point>([[7, { x: 100, y: 50 }]]);
 const CAM: Camera = { k: 2, tx: 30, ty: -10 };
 const ORIGIN = { x: 10, y: 20 };
@@ -124,17 +125,18 @@ describe('useExpandedNotes:取数口径', () => {
       expr: null,
     });
     expect(api?.dots).toHaveLength(NOTE_LIMIT);
-    expect(api?.overflow).toEqual({ x: 100, y: 50, n: 414 - NOTE_LIMIT });
+    expect(api?.space).toBe('screen'); // 口径随数据一起递出去,上层不用猜
+    expect(api?.overflow).toEqual({ x: 230, y: 90, n: 414 - NOTE_LIMIT });
     expect(api?.loading).toBe(false);
     expect(api?.failed).toBe(false);
   });
 
-  it('小圆落点是世界坐标:第一个圆在标签正上方 radiusOf(414) + 14 处', async () => {
+  it('小圆落点是屏幕坐标:第一个圆在标签屏幕位置 (230, 90) 正上方 radiusOf(414) + 14 处', async () => {
     queryNotes.mockResolvedValue(page(50));
     await mount(NODE);
     const first = api?.dots[0];
-    expect(first?.x).toBeCloseTo(100, 6);
-    expect(first?.y).toBeCloseTo(50 - (radiusOf(414) + GAP), 6);
+    expect(first?.x).toBeCloseTo(230, 6);
+    expect(first?.y).toBeCloseTo(90 - (radiusOf(414) + GAP), 6);
   });
 
   it('同一标签重渲染只请求一次(换了展开对象才重取)', async () => {
@@ -166,8 +168,8 @@ describe('useExpandedNotes:点笔记小圆', () => {
   it('点中小圆 = 带着该标签回信息流;没点中就不动', async () => {
     queryNotes.mockResolvedValue(page(50));
     await mount(NODE);
-    // 第一个圆的世界坐标 -> 屏幕坐标 -> client 坐标(命中侧要自己把 cam 算进去)
-    const first = screenOf({ x: 100, y: 50 - (radiusOf(414) + GAP) }, CAM);
+    // 小圆已是屏幕坐标 -> client 坐标(命中侧只加容器原点,没过相机)
+    const first = { x: 230, y: 90 - (radiusOf(414) + GAP) };
     const at = { clientX: ORIGIN.x + first.x, clientY: ORIGIN.y + first.y };
     expect(api?.onNoteClick(at)).toBe(true);
     expect(filtered).toEqual(['工作/项目A']);

@@ -104,10 +104,17 @@ export function drawPlan(input: {
   fallbackColor: string;
   emphasis: Emphasis;
   /**
-   * 当前展开的标签:其笔记小圆与 `+N` 提示位是**世界坐标**;
+   * 当前展开的标签:其笔记小圆与 `+N` 提示位按 `space` 给 ——
+   * `'screen'` 时**已经是屏幕坐标,这里不再换算**(G3 起笔记小圆一律走屏幕口径:
+   * 半径是屏幕像素,不随相机缩放);`'world'` 时才由这里过 `screenOf`。
    * 展开者自己不在可见集合里时整组不画(否则会留下飘在空处的孤儿小圆)
    */
-  expanded?: { id: number; dots: readonly Point[]; overflow: { x: number; y: number; n: number } | null } | null;
+  expanded?: {
+    id: number;
+    space: 'screen' | 'world';
+    dots: readonly Point[];
+    overflow: { x: number; y: number; n: number } | null;
+  } | null;
 }): DrawPlan {
   const { nodes, edges, points, cam, w, h, rootColor, fallbackColor, emphasis } = input;
   const visible = new Set(cullVisible(points, cam, w, h));
@@ -158,9 +165,11 @@ export function drawPlan(input: {
   let overflow: OverflowDot | null = null;
   const ex = input.expanded ?? null;
   if (ex !== null && visible.has(ex.id)) {
-    for (const d of ex.dots) notes.push(screenOf(d, cam));
+    // 屏幕口径原样用,世界口径才过相机 —— 判据只在 expanded.space 一处
+    const toScreen = (p: Point): Point => (ex.space === 'screen' ? p : screenOf(p, cam));
+    for (const d of ex.dots) notes.push(toScreen(d));
     if (ex.overflow !== null) {
-      const s = screenOf(ex.overflow, cam);
+      const s = toScreen(ex.overflow);
       overflow = { x: s.x, y: s.y, n: ex.overflow.n };
     }
   }

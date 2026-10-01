@@ -1,11 +1,13 @@
 /**
  * 关系图视图外壳:进视图拉一次图数据 -> 过滤/折叠(G3 起两者合一,见 useGraphFilters)->
- * 径向布局 -> 画布。数据只在进视图时拉取,信息流与输入栏的启动路径不受影响(设计 §2.1)。
+ * 径向布局 -> 画布。数据进视图拉一次,标签数据版本变化时自动重拉(useGraphVersion);
+ * 信息流与输入栏的启动路径不受影响(设计 §2.1)。
  *
  * 本文件只接线:`hovered` 在 useGraphInteractions,`selected`/`expanded` 在这里,相机在 useGraphCamera,
  * 拖节点与位置记忆在 useNodeDrag(松手写回落给相机的 `commitPositions`),容器上的首次适配与非被动
  * wheel 在 useGraphSurface,展开笔记在 useExpandedNotes,「一帧画什么」在 useGraphPlan,覆盖层
- * (工具栏/过滤器面板/空态)在 GraphOverlays,「整理布局」在 useForceLayout。口径提醒:`expanded`
+ * (工具栏/过滤器面板/空态)在 GraphOverlays,「整理布局」在 useForceLayout,数据版本重载在 useGraphVersion。
+ * 口径提醒:`expanded`
  * 与 `selected` 各算各的 —— 点别的标签不会收掉已展开的小圆。
  */
 import { useMemo, useRef, useState } from 'react';
@@ -29,6 +31,7 @@ import { useGraphOrigin } from './use-graph-origin';
 import { useGraphPlan } from './use-graph-plan';
 import { useGraphSize } from './use-graph-size';
 import { useGraphStage } from './use-graph-stage';
+import { useGraphVersion } from './use-graph-version';
 import { useAutoFit, usePassiveWheel } from './use-graph-surface';
 import { useThemeKey } from './use-theme-key';
 
@@ -38,8 +41,12 @@ export function GraphView(p: {
   onExit: () => void;
   /** 「筛到信息流」:上层采纳这个标签(与侧栏点标签同一口径)并切回信息流 */
   onFilterToStream: (path: string) => void;
+  /** 标签数据版本(App 的 `tagsVersion`):变了就重取图数据,相机 / 选中 / 展开都保留 */
+  dataVersion: number;
 }): ReactNode {
   const { data, failed, reload } = useGraphData();
+  // 数据变化自动重载(设计 §6-5):版本不变不动;`reload` 只换 data
+  useGraphVersion(p.dataVersion, reload);
   const [selected, setSelected] = useState<number | null>(null);
   // 展开态:信息条文案与笔记小圆都吃它(双击展开/收起也改它);与 selected 各算各的
   const [expanded, setExpanded] = useState<number | null>(null);
@@ -100,8 +107,8 @@ export function GraphView(p: {
 
   // 展开层要身份稳定:每次渲染新建对象会让 plan 的 memo 白重建(依赖理由见 use-graph-plan)
   const expandedLayer = useMemo(
-    () => (expanded === null ? null : { id: expanded, dots: exp.dots, overflow: exp.overflow }),
-    [expanded, exp.dots, exp.overflow],
+    () => (expanded === null ? null : { id: expanded, space: exp.space, dots: exp.dots, overflow: exp.overflow }),
+    [expanded, exp.space, exp.dots, exp.overflow],
   );
 
   // 图内搜索跳转(G2 Task 7):把相机挪到该节点(**不改缩放**)并选中 —— 信息条随之出现
@@ -122,7 +129,7 @@ export function GraphView(p: {
     dprKey,
     selected,
     hovered: acts.hovered,
-    // 展开层给的是世界坐标(见 useExpandedNotes);展开者被裁到视口外时 drawPlan 整组不画
+    // 展开层给的是屏幕坐标(见 useExpandedNotes);展开者被裁到视口外时 drawPlan 整组不画
     expanded: expandedLayer,
   });
 

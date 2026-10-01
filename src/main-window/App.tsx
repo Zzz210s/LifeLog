@@ -172,6 +172,7 @@ export function App(): ReactNode {
         theme={theme}
         onReplayTutorial={tutorial.onReplay}
         onFilterToStream={filterToStream}
+        dataVersion={tagsVersion}
       />
       <CommandStatusPill status={commands.status} />
       {/* 瞬时悬浮提示(标签名里的备注字):原生 title 延迟约 1 秒,这里走 data-tip 事件委托 */}

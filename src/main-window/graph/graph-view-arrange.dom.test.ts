@@ -98,7 +98,7 @@ afterEach(() => {
 
 const mount = async (): Promise<void> => {
   await act(async () => {
-    root.render(createElement(GraphView, { onExit: () => {}, onFilterToStream: () => {} }));
+    root.render(createElement(GraphView, { dataVersion: 0, onExit: () => {}, onFilterToStream: () => {} }));
   });
 };
 

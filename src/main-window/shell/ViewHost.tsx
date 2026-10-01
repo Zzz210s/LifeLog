@@ -36,6 +36,8 @@ export interface ViewHostProps {
   onBack: () => void;
   /** 关系图「筛到信息流」:上层采纳标签并切回信息流 */
   onFilterToStream: (path: string) => void;
+  /** 标签数据版本(App 的 `tagsVersion`):关系图据此自动重取,不动相机与选中 */
+  dataVersion: number;
   onReplayTutorial: () => void;
 }
 
@@ -65,7 +67,9 @@ export function ViewHost(p: ViewHostProps): ReactNode {
           onReplayTutorial={p.onReplayTutorial}
         />
       )}
-      {p.view === 'graph' && <GraphView onExit={p.onBack} onFilterToStream={p.onFilterToStream} />}
+      {p.view === 'graph' && (
+        <GraphView onExit={p.onBack} onFilterToStream={p.onFilterToStream} dataVersion={p.dataVersion} />
+      )}
     </div>
   );
 }
