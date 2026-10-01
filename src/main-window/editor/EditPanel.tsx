@@ -4,6 +4,7 @@ import { composeSource, prepareForSave } from '../../shared/note-source';
 import type { Note } from '../../shared/types';
 import { updateNote } from '../data/note-writes';
 import { shouldEnterEdit } from '../stream/body-click';
+import { BacklinksPanel } from '../stream/BacklinksPanel';
 import { tagCountHint, tagCountLabel } from './edit-tag-count';
 import { editRows } from './textarea-rows';
 import { useSourceTagCount } from './use-source-tags';
@@ -21,6 +22,8 @@ export interface EditPanelProps {
   onSwitchNote?: (id: number) => void;
   /** 面板已卸载、无法就地显示错误时:错误交主窗错误条,不能让失败静默 */
   onErrorFallback?: (message: string) => void;
+  /** 该笔记被多少条其它笔记引用(L3):>0 时在面板底部列出只读的反向引用来源 */
+  backlinkCount?: number;
 }
 
 /** 提交结果:ok 为假时 message 是中文原因;inline = 面板内已经显示过(卸载时才需要转交);
@@ -190,6 +193,7 @@ export function EditPanel(p: EditPanelProps): ReactNode {
         </span>
         {error !== '' && <span className="text-xs text-danger">{error}</span>}
       </div>
+      {(p.backlinkCount ?? 0) > 0 && <BacklinksPanel noteId={p.note.id} />}
     </li>
   );
 }

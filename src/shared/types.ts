@@ -18,6 +18,19 @@ export interface NoteLink {
   title: string | null;
 }
 
+/** 一条入链(与 Rust `Backlink` 逐字一致的 camelCase):sourceId 是引用来源 id,
+ *  title 是来源**当前**显示首行(L3 卡片面板/编辑面板列出反向引用用) */
+export interface Backlink {
+  sourceId: number;
+  title: string;
+}
+
+/** 单条笔记的双向链接(IPC `note_links`):出链按正文出现顺序,入链按来源 id 升序去重 */
+export interface NoteLinks {
+  outbound: NoteLink[];
+  backlinks: Backlink[];
+}
+
 /** 标签树节点计数:id 供右键管理(rename/move/delete/tag_impact 按寻址),
  *  path 为完整路径,self_count 本级链接数,subtree_count 含全部子孙;
  *  sort_order 供同层次序(S8):树里兄弟按 (sort_order, path) 展示 */

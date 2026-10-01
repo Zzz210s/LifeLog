@@ -39,6 +39,8 @@ export interface NoteStreamProps {
   onOpenNote: (id: number) => void;
   /** 点未解析的 chip:拿原文预填输入框 `@`(L2) */
   onUnresolvedNote: (title: string) => void;
+  /** 本页各笔记的被引用计数(按 id;L3 卡片「被引用 N」,缺省视为 0) */
+  backlinkCounts?: Readonly<Record<number, number>>;
 }
 
 /** 时间流:滚动到底自动加载;被编辑条目原位展开为就地源码编辑框 */
@@ -103,6 +105,7 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
             <EditPanel
                 key={n.id}
                 note={n}
+                backlinkCount={p.backlinkCounts?.[n.id]}
                 onSaved={p.onEditSaved}
                 onCancel={p.onEditCancel}
                 onSwitchNote={(id) => {
@@ -129,6 +132,7 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
               onLinkError={p.onLinkError}
               onOpenNote={p.onOpenNote}
               onUnresolvedNote={p.onUnresolvedNote}
+              backlinkCount={p.backlinkCounts?.[n.id]}
             />
           )
         )}

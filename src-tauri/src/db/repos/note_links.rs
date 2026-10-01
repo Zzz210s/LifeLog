@@ -10,8 +10,8 @@ use std::collections::HashMap;
 
 #[path = "note_links_read.rs"]
 pub mod read;
-// 再导出:L3/L4 的消费方(反向引用面板、编辑面板、关系图)尚未接线,
-// 先放行未使用告警(与 read.rs 里的 dead_code 同做法),接完删掉这行。
+// 再导出:L3 的出链/入链/计数已接 IPC 消费;`all_resolved`(L4 关系图边)尚未接线,
+// 故整行仍放行 unused_imports,接完 L4 删掉这属性。
 #[allow(unused_imports)]
 pub use read::{
     all_resolved, list_links_page, list_note_links, outbound_of, outbound_page, Backlink,
@@ -104,3 +104,7 @@ mod note_links_tests;
 #[cfg(test)]
 #[path = "note_links_fix_tests.rs"]
 mod note_links_fix_tests;
+
+#[cfg(test)]
+#[path = "note_links_l3_tests.rs"]
+mod note_links_l3_tests;

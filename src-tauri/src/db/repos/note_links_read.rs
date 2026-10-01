@@ -1,7 +1,8 @@
 //! 笔记间链接的**读取**层(自 note_links.rs 拆出以守 200 行上限;写入见 note_links.rs)。
 //! 标题一律用 `links::display_title` **实时算**(目标改名后显示跟随);匹配才用归一化 key。
 //! 读取接口有两类消费方:L2 笔记读取(出链随 `Note` 返回,分页靠批量一次取全)、
-//! L3/L4 反向引用面板与关系图边(接线前对符号放行 dead_code,接完删属性)。
+//! L3 反向引用面板与编辑面板(入链列表 + 被引用计数,均已接 IPC);
+//! L4 关系图边(`all_resolved`)尚未接线,仍带 dead_code 放行。
 
 use crate::links::display_title;
 use rusqlite::{params, params_from_iter, Connection};
@@ -20,15 +21,14 @@ pub struct OutboundLink {
 }
 
 /// 一条入链(引用来源):只带来源首行,不带来源正文
-#[allow(dead_code)]
 #[derive(Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Backlink {
     pub source_id: i64,
     pub title: String,
 }
 
 /// 单条笔记的双向链接(编辑面板列表与卡片面板各取所需)
-#[allow(dead_code)]
 #[derive(Debug, PartialEq, Serialize)]
 pub struct NoteLinks {
     pub outbound: Vec<OutboundLink>,
@@ -83,9 +83,8 @@ pub fn outbound_page(
     Ok(out)
 }
 
-/// 单条笔记的出链 + 入链(编辑面板用,L3)。出链按正文出现顺序;
+/// 单条笔记的出链 + 入链(卡片面板/编辑面板用,IPC `note_links`)。出链按正文出现顺序;
 /// 入链按来源 id 升序,同一条来源只出现一次(DISTINCT:正文里引用两遍算一个人)。
-#[allow(dead_code)]
 pub fn list_note_links(conn: &Connection, note_id: i64) -> rusqlite::Result<NoteLinks> {
     let outbound = outbound_of(conn, note_id)?;
     let mut in_stmt = conn.prepare(
@@ -101,9 +100,8 @@ pub fn list_note_links(conn: &Connection, note_id: i64) -> rusqlite::Result<Note
     Ok(NoteLinks { outbound, backlinks })
 }
 
-/// 一页笔记的被引用计数(`target_id -> 引用条数`),一条 SQL 批量取全(L3 卡片徽标用)。
+/// 一页笔记的被引用计数(`target_id -> 引用条数`),一条 SQL 批量取全(IPC `note_link_counts`)。
 /// 没人引用的 id 不进 Map(前端 `.get()` 得到 undefined,与 0 同义);空入参直接短路。
-#[allow(dead_code)]
 pub fn list_links_page(conn: &Connection, note_ids: &[i64]) -> rusqlite::Result<HashMap<i64, i64>> {
     if note_ids.is_empty() {
         return Ok(HashMap::new());

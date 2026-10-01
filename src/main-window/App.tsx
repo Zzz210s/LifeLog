@@ -20,6 +20,7 @@ import { notifyTagsChanged } from './data/tags-changed';
 import { useTagRows } from './data/use-tag-rows';
 import { useOpenSettings } from './shell/use-open-settings';
 import { useNotesFeed } from './data/use-notes-feed';
+import { useBacklinkCounts } from './data/use-backlink-counts';
 import { useNotesExport } from './data/use-export';
 import { useStreamActions } from './shell/use-stream-actions';
 import { HoverTip } from './shell/HoverTip';
@@ -42,6 +43,8 @@ export function App(): ReactNode {
   const { exporting, exported, onExport } = useNotesExport(setError, clearError);
   const { notes, setNotes, hasMore, loading, queryFailed, fetchPage, loadMore, retry } =
     useNotesFeed(conditions, setError, clearError);
+  // 本页各笔记的被引用计数(L3):一次批量取,再随 stream 接线透传到卡片/编辑面板
+  const backlinkCounts = useBacklinkCounts(notes);
 
   // 条件变化:退出编辑态(列表重查由 useNotesFeed 负责)
   useEffect(() => {
@@ -161,6 +164,7 @@ export function App(): ReactNode {
           onEditCancel: () => setEditingId(null),
           onToggleTask: toggleTask,
           onLinkError: (m) => setError('action', m),
+          backlinkCounts,
           palette: controller,
           decorations,
           onSaved: refresh,

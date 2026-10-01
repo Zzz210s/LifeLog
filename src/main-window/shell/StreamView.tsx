@@ -61,6 +61,8 @@ export interface StreamViewProps {
   onAddConditionOpenChange: (open: boolean) => void;
   /** 统一输入框控制器上抛口(快捷键要 `prefill`):App 持有的 ref,这里只写不读 */
   unifiedRef: RefObject<UnifiedController | null>;
+  /** 本页各笔记的被引用计数(L3,App 用 useBacklinkCounts 批量取后透传);缺省视为全 0 */
+  backlinkCounts?: Readonly<Record<number, number>>;
 }
 
 export function StreamView(p: StreamViewProps): ReactNode {
@@ -167,6 +169,7 @@ export function StreamView(p: StreamViewProps): ReactNode {
         onLinkError={p.onLinkError}
         onOpenNote={openNote}
         onUnresolvedNote={prefillNoteSearch}
+        backlinkCounts={p.backlinkCounts}
       />
     </div>
   );

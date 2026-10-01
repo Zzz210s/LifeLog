@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { CompleteItem, DbInfo, ExprCheck, GraphData, MergeReport, Note, ParseResult, TagCount, TagImpact } from './types';
+import type { CompleteItem, DbInfo, ExprCheck, GraphData, MergeReport, Note, NoteLinks, ParseResult, TagCount, TagImpact } from './types';
 import type { FilterConditions } from './filter-conditions';
 import type { AppHotkeyKind } from './hotkey-match';
 
@@ -39,6 +39,12 @@ export const api = {
   /** 更新笔记:**标签集合整集合替换**为正文里的 #标签 —— 调用方必须自带该笔记的全部标签(UI 编辑框会回显),否则会丢标签 */
   updateNote: (id: number, content: string) =>
     invoke<Note | null>('update_note', { id, content }),
+  /** 一页笔记的被引用计数(批量一次 `IN (...)` 取全,前端把 Map 分给各卡);
+   *  N=0 的 id 不在返回里(读 `.get` 得 undefined 与 0 同义) */
+  noteLinkCounts: (noteIds: number[]) =>
+    invoke<Record<number, number>>('note_link_counts', { noteIds }),
+  /** 单条笔记的出链 + 入链(卡片/编辑面板的反向引用列表,点开时才拉) */
+  noteLinks: (noteId: number) => invoke<NoteLinks>('note_links', { noteId }),
   deleteNote: (id: number) => invoke<void>('delete_note', { id }),
   /** 解析笔记源码 -> 保存后的正文 + 标签集合(与保存路径共用同一实现,解析的唯一真源);
    *  编辑面板用它实时显示标签数,前端不复制标签语法 */

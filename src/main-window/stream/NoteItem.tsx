@@ -1,9 +1,10 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type { MouseEvent, ReactNode } from 'react';
 import { renderMarkdownInteractive } from '../../shared/markdown';
 import type { Note } from '../../shared/types';
-import { BTN_TEXT } from '../shell/button-classes';
+import { BTN_SECONDARY, BTN_TEXT } from '../shell/button-classes';
 import { shouldEnterEdit } from './body-click';
+import { BacklinksPanel } from './BacklinksPanel';
 import { MarkdownBody } from './MarkdownBody';
 import { NoteChips } from './NoteChips';
 
@@ -22,6 +23,8 @@ export interface NoteItemProps {
   onOpenNote?: (id: number) => void;
   /** 点正文里未解析的 chip:拿原文预填统一输入框的 `@`(L2) */
   onUnresolvedNote?: (title: string) => void;
+  /** 该笔记被多少条其它笔记引用(L3):N=0/未传不显示底部按钮 */
+  backlinkCount?: number;
   /** 点击第 index 个任务列表复选框(0 起,文档顺序) */
   onToggleTask: (index: number) => void;
 }
@@ -36,6 +39,8 @@ export interface NoteItemProps {
  *  卡片之间改用流容器的 gap-2 间距分隔,不再画 border-b。 */
 export function NoteItem(p: NoteItemProps): ReactNode {
   const { note } = p;
+  // 反向引用面板的展开态(L3):点「被引用 N」才拉入链,再点收起
+  const [backlinksOpen, setBacklinksOpen] = useState(false);
   // chip 行展示全部标签:时间标签已降级为普通标签(D3),不再是需要滤掉的系统元数据;
   // 主题/属性分两排与折叠阈值都在 NoteChips 里(纯函数在 note-chips.ts)
   // 正文渲染按内容缓存:流内任一条目变化会重渲整列,避免重复解析 markdown。
@@ -90,6 +95,22 @@ export function NoteItem(p: NoteItemProps): ReactNode {
         />
       </div>
       <NoteChips tags={note.tags} activeTags={p.activeTags} onTagClick={p.onTagClick} />
+      {(p.backlinkCount ?? 0) > 0 && (
+        <div className="mt-2">
+          <button
+            type="button"
+            onClick={() => setBacklinksOpen((v) => !v)}
+            aria-expanded={backlinksOpen}
+            data-testid="backlink-count"
+            className={BTN_SECONDARY}
+          >
+            被引用 {p.backlinkCount}
+          </button>
+          {backlinksOpen && (
+            <BacklinksPanel noteId={note.id} onOpenNote={p.onOpenNote} onError={p.onLinkError} />
+          )}
+        </div>
+      )}
     </li>
   );
 }
