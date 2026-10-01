@@ -11,6 +11,12 @@ mod hotkey_spec;
 mod app_hotkey;
 mod startup_report;
 
+// 笔记间显式链接 `[[标题]]` 的语法解析与首行标题归一化(设计 D1/D2/D9);
+// 纯函数,写入路径(Task 3/4)与测试共用。
+// 注:Task 3/4 之前生产构建里还没调用方,dead_code 临时放行 —— 接线后删掉下面这行。
+#[allow(dead_code)]
+mod links;
+
 // 共享测试向量(仓库根 fixtures/filter-conditions.json)的 Rust 侧断言:
 // 与 src/shared/fixtures.test.ts 读同一份文件,探测两侧筛选取值漂移
 #[cfg(test)]

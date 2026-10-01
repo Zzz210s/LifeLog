@@ -1,0 +1,20 @@
+{
+  "spans": [
+    { "name": "基本", "content": "看 [[今天聚会]] 那条", "expect": ["今天聚会"] },
+    { "name": "两个", "content": "[[甲]] 与 [[乙]]", "expect": ["甲", "乙"] },
+    { "name": "围栏里不算", "content": "```\n[[甲]]\n```", "expect": [] },
+    { "name": "行内代码里不算", "content": "`[[甲]]`", "expect": [] },
+    { "name": "转义不算", "content": "\\[[甲]]", "expect": [] },
+    { "name": "嵌套整串不算", "content": "[[甲[[乙]]", "expect": [] },
+    { "name": "空不算", "content": "[[]]", "expect": [] },
+    { "name": "跨行不算", "content": "[[甲\n乙]]", "expect": [] },
+    { "name": "首尾空白裁掉", "content": "[[  甲  ]]", "expect": ["甲"] }
+  ],
+  "titles": [
+    { "name": "普通", "content": "今天聚会\n#日记", "expect": "今天聚会" },
+    { "name": "首行含标签词元", "content": "聚会 #日记\n第二行", "expect": "聚会" },
+    { "name": "折叠空白与大小写", "content": "Hello   World\nx", "expect": "hello world" },
+    { "name": "跳过前导空行", "content": "\n\n  真正首行  \n", "expect": "真正首行" },
+    { "name": "首行就是标签", "content": "#安利/软件\n正文", "expect": "" }
+  ]
+}
