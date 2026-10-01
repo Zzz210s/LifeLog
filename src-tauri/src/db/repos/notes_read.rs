@@ -1,7 +1,10 @@
-//! 笔记读取层(自 notes.rs 拆出以守 200 行上限):行映射与折叠、单条读回、最近 N 条、删除。
+//! 笔记读取层(自 notes.rs 拆出以守 200 行上限):行映射与折叠、单条读回、最近 N 条、删除、
+//! 以及 `[[` 补全候选池(全部笔记的显示首行)。
 //! 每条笔记除了标签路径(LEFT JOIN 展开成多行),没有其它派生列 —— 时间标签已是普通标签,与其它标签同列。
 use super::Note;
+use crate::links::display_title;
 use rusqlite::{params, Connection};
+use serde::Serialize;
 
 /// 行映射:note 基础列 + 可空标签路径
 type NoteRow = (i64, String, String, Option<String>);
@@ -83,4 +86,76 @@ pub(crate) fn read_full(conn: &Connection, id: i64) -> rusqlite::Result<Option<N
         n.links = crate::db::repos::note_links::outbound_of(conn, n.id)?;
     }
     Ok(note)
+}
+
+/// `[[` 补全候选池的一项:笔记 id + 显示首行(与链接显示口径同源 [`display_title`])。
+/// 字段名走 camelCase(前端 `NoteTitle` 类型同口径)。
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NoteTitle {
+    pub id: i64,
+    pub title: String,
+}
+
+/// 有前缀时的候选上限:前端还要用 `scoreFuzzy` 精排取前 8,粗筛给足冗余即可。
+pub const COMPLETE_NOTES_LIMIT: usize = 200;
+
+/// 全部笔记的**显示首行**(`links::display_title` 口径:只裁首尾空白、大小写与标签词元原样保留);
+/// 首行剥标签后为空的不进池;按 id 升序(池的顺序即空查询时的展示序,设计 N9)。
+pub fn all_titles(conn: &Connection) -> rusqlite::Result<Vec<NoteTitle>> {
+    let mut stmt = conn.prepare("SELECT id, content FROM notes ORDER BY id")?;
+    let rows = stmt.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))?;
+    let mut out = Vec::new();
+    for row in rows {
+        let (id, content) = row?;
+        let title = display_title(&content);
+        if !title.is_empty() {
+            out.push(NoteTitle { id, title });
+        }
+    }
+    Ok(out)
+}
+
+/// 前缀粗筛(与 `tags::complete_fuzzy` 同手法):子串命中整档在前、子序列命中整档在后,
+/// 档内保持传入顺序(池是 id 升序);**空前缀原样返回整池**(设计 N9:一次取回、前端按
+/// `dataVersion` 会话内缓存),有前缀时截到 [`COMPLETE_NOTES_LIMIT`]。
+pub fn pick_titles(pool: Vec<NoteTitle>, prefix: &str) -> Vec<NoteTitle> {
+    if prefix.is_empty() {
+        return pool;
+    }
+    let mut substr = Vec::new();
+    let mut subseq = Vec::new();
+    for t in pool {
+        if t.title.contains(prefix) {
+            substr.push(t);
+        } else if is_subsequence(prefix, &t.title) {
+            subseq.push(t);
+        }
+    }
+    substr.extend(subseq);
+    substr.truncate(COMPLETE_NOTES_LIMIT);
+    substr
+}
+
+/// 词元是否为标题的**子序列**(字符按序出现即可;大小写不敏感,`/` 与 `\` 视同 ——
+/// 与前端 `scoreFuzzy` / `tags::complete_fuzzy` 的匹配条件同一口径)。空词元恒 false。
+fn is_subsequence(token: &str, title: &str) -> bool {
+    let mut query = token.chars().flat_map(char::to_lowercase);
+    let mut want = match query.next() {
+        Some(c) => c,
+        None => return false,
+    };
+    for cur in title.chars().flat_map(char::to_lowercase) {
+        if cur == want || (is_sep(cur) && is_sep(want)) {
+            match query.next() {
+                Some(c) => want = c,
+                None => return true,
+            }
+        }
+    }
+    false
+}
+
+fn is_sep(c: char) -> bool {
+    c == '/' || c == '\\'
 }

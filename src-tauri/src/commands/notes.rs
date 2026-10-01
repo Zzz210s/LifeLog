@@ -3,6 +3,10 @@ use crate::db::Db;
 use std::collections::HashMap;
 use tauri::{AppHandle, Emitter, Manager, State};
 
+#[cfg(test)]
+#[path = "notes_complete_tests.rs"]
+mod notes_complete_tests;
+
 #[tauri::command]
 pub fn save_input_note(app: AppHandle, content: String) -> Result<repos::notes::Note, String> {
     let db: State<Db> = app.state();
@@ -50,6 +54,19 @@ pub fn delete_note(app: AppHandle, id: i64) -> Result<(), String> {
     let db: State<Db> = app.state();
     let mut conn = db.0.lock().map_err(|e| e.to_string())?;
     repos::notes::delete(&mut conn, id).map_err(|e| e.to_string())
+}
+
+/// `[[` 补全的候选池:全部笔记的显示首行(前缀粗筛,上限 200)。
+/// **空前缀回整池**(前端按 dataVersion 会话内缓存,不每键打 IPC);只读,不改库。
+#[tauri::command]
+pub fn complete_notes(
+    app: AppHandle,
+    prefix: Option<String>,
+) -> Result<Vec<repos::notes::NoteTitle>, String> {
+    let db: State<Db> = app.state();
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let all = repos::notes::all_titles(&conn).map_err(|e| e.to_string())?;
+    Ok(repos::notes::pick_titles(all, prefix.as_deref().unwrap_or("")))
 }
 
 /// 更新笔记正文(替换语义重写标签链);id 不存在返回 null

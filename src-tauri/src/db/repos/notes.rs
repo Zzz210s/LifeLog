@@ -141,6 +141,7 @@ pub mod notes_read;
 pub(crate) use notes_read::recent;
 pub(crate) use notes_read::{fold_tag_rows, map_note_row, read_full};
 pub use notes_read::delete;
+pub use notes_read::{all_titles, pick_titles, NoteTitle};
 
 /// 条件对象(结构化筛选真源)与条件 -> SQL 片段生成 / 校验
 #[path = "notes_filter.rs"]

@@ -74,6 +74,7 @@ pub fn run() {
             commands::notes::delete_note,
             commands::notes::note_link_counts,
             commands::notes::note_links,
+            commands::notes::complete_notes,
             commands::parse::parse_note_source,
             commands::expr::validate_expr,
             commands::exchange::export_notes,
