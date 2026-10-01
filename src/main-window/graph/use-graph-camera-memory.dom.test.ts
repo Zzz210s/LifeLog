@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 /**
- * 相机的位置记忆(只读叠加 + 合并写回):库里记过的节点覆盖布局坐标、坏值一律忽略、
- * `savePositions` 在库中已有条目上合并。
+ * 相机的位置记忆(只读叠加 + 写回):库里记过的节点覆盖布局坐标、坏值一律忽略、
+ * `commitPositions` 先本地生效(不等库的回包)再"读旧值 -> 合并 -> 修剪 -> 写回"。
+ * 纯函数(解析/修剪/叠加)的用例在 graph-positions.test.ts;这里只盯相机这一层的接线。
  * 与滚轮/平移/复位分在两个文件是守 200 行红线(本文件不需要原点与事件发送)。
  */
 import { act, createElement } from 'react';
@@ -17,12 +18,7 @@ const { getSetting, setSetting } = vi.hoisted(() => ({
 vi.mock('../../shared/api', () => ({ api: { getSetting, setSetting } }));
 
 import type { Point } from './radial';
-import {
-  overlayPositions,
-  parseGraphPositions,
-  useGraphCamera,
-  type GraphCameraApi,
-} from './use-graph-camera';
+import { useGraphCamera, type GraphCameraApi } from './use-graph-camera';
 
 const W = 400;
 const H = 300;
@@ -35,9 +31,10 @@ const layout: Map<number, Point> = new Map([
 let api: GraphCameraApi | null = null;
 let root: Root;
 let host: HTMLDivElement;
+let ids = new Set<number>([1, 2]);
 
 function Harness(): null {
-  api = useGraphCamera({ width: W, height: H, points: layout });
+  api = useGraphCamera({ width: W, height: H, points: layout, validIds: ids });
   return null;
 }
 
@@ -51,10 +48,19 @@ const mount = async (): Promise<void> => {
   });
 };
 
+/** 把写回链(读旧值 -> 写回)的微任务跑完 */
+const flush = async (): Promise<void> => {
+  for (let i = 0; i < 6; i++) await Promise.resolve();
+};
+
+/** 写回调用:[键, 原文] */
+const lastWrite = (): [string, string] => setSetting.mock.calls[0] as unknown as [string, string];
+
 beforeEach(() => {
   getSetting.mockClear();
   setSetting.mockClear();
   getSetting.mockResolvedValue(null);
+  ids = new Set([1, 2]);
   api = null;
   host = document.createElement('div');
   document.body.appendChild(host);
@@ -87,20 +93,27 @@ describe('useGraphCamera:位置记忆(只记拖过的节点)', () => {
     }
   });
 
-  it('savePositions 只写拖过的节点,并在库中已有条目上合并', async () => {
-    getSetting.mockResolvedValue('{"9":{"x":1,"y":2}}');
+  it('commitPositions:本地立刻生效(不等库的回包),并与库中已有条目合并后写回', async () => {
+    getSetting.mockResolvedValue('{"1":{"x":1,"y":2}}');
     await mount();
     await act(async () => {
-      await api!.savePositions({ 2: { x: 5, y: 6 } });
+      api!.commitPositions({ '2': { x: 5, y: 6 } });
     });
+    expect(api!.points.get(2)).toEqual({ x: 5, y: 6 }); // 还没落库,画面已经在新位置
+    await act(flush);
     expect(setSetting).toHaveBeenCalledTimes(1);
-    const [key, value] = setSetting.mock.calls[0] as unknown as [string, string];
-    expect(key).toBe('graph_positions');
-    expect(JSON.parse(value)).toEqual({ 9: { x: 1, y: 2 }, 2: { x: 5, y: 6 } });
+    expect(lastWrite()[0]).toBe('graph_positions');
+    expect(JSON.parse(lastWrite()[1])).toEqual({ 1: { x: 1, y: 2 }, 2: { x: 5, y: 6 } });
   });
 
-  it('parseGraphPositions 丢掉坐标非有限数的条目', () => {
-    expect(parseGraphPositions('{"4":{"x":1e999,"y":0},"5":{"x":"1","y":0}}').size).toBe(0);
-    expect(overlayPositions(new Map([[1, { x: 0, y: 0 }]]), new Map([[1, { x: 9, y: 9 }], [7, { x: 1, y: 1 }]])).size).toBe(1);
+  it('写回按现存标签修剪:库里已删的标签不再占条目', async () => {
+    getSetting.mockResolvedValue('{"1":{"x":1,"y":1},"99":{"x":9,"y":9}}');
+    ids = new Set([1, 2]); // 99 已不在库里
+    await mount();
+    await act(async () => {
+      api!.commitPositions({ '2': { x: 5, y: 6 } });
+    });
+    await act(flush);
+    expect(JSON.parse(lastWrite()[1])).toEqual({ 1: { x: 1, y: 1 }, 2: { x: 5, y: 6 } });
   });
 });

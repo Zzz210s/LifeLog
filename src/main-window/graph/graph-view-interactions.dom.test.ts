@@ -3,9 +3,8 @@
  * GraphView 的指针接线面(Task 5):悬停 -> 气泡 + 强调态重建 plan 并重绘、
  * 单击 -> 信息条/点空白清选中、覆盖层上的点击不再冒泡成画布点击、「筛到信息流」把路径交给上层、
  * 右键命中 -> 侧栏标签菜单。
- *
  * 节点屏幕位置用视图同一套纯函数现算(`visibleGraph` -> `radialLayout` -> `fitToView` -> `screenOf`),
- * 免得把布局算式抄成第二份而悄悄漂移;jsdom 里容器原点为 0,所以画布坐标就是 client 坐标。
+ * 免得把布局算式抄成第二份;jsdom 里容器原点为 0,所以画布坐标就是 client 坐标。
  */
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
@@ -172,6 +171,27 @@ describe('GraphView:右键标签菜单', () => {
       const menu = host.querySelector('[data-tag-menu]');
       expect(menu).not.toBeNull();
       expect(menu?.textContent).toContain('甲/一');
+    } finally {
+      restore();
+    }
+  });
+});
+
+describe('GraphView:拖节点不平移画布', () => {
+  it('拖节点:被拖的那个点跟着光标走,别的点与相机都不动', async () => {
+    const restore = metrics();
+    try {
+      await mount();
+      const from = at(1);
+      const other = at(2);
+      await fire('pointerdown', from);
+      ctx.calls.length = 0;
+      await fire('pointermove', { clientX: from.clientX + 30, clientY: from.clientY + 20 });
+      // 相机若同时平移,别的点会整体偏 (30,20),这条立刻红
+      const near = (dx: number, dy: number, c: { clientX: number; clientY: number }): boolean =>
+        ctx.calls.some((k) => k.op === 'arc' && Math.abs((k.args[0] as number) - (c.clientX + dx)) < 0.5 && Math.abs((k.args[1] as number) - (c.clientY + dy)) < 0.5);
+      expect([near(30, 20, from), near(0, 0, other)]).toEqual([true, true]);
+      await fire('pointerup', from);
     } finally {
       restore();
     }

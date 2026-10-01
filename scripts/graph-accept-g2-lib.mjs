@@ -68,12 +68,12 @@ export const graphGeom = (cdp) =>
       import('/src/main-window/graph/graph-camera.ts'),
       import('/src/main-window/graph/graph-focus.ts'),
       import('/src/main-window/graph/graph-hit.ts'),
-      import('/src/main-window/graph/use-graph-camera.ts'),
+      import('/src/main-window/graph/graph-positions.ts'),
       import('/src/main-window/settings/time-tag-settings.ts'),
       import('/src/shared/tag-label-plain.ts'),
     ]).catch(() => null);
     if (mods === null) return null;
-    const [radial, vm, camera, focus, hitMod, hcam, tt, label] = mods;
+    const [radial, vm, camera, focus, hitMod, hpos, tt, label] = mods;
     const T = window.__TAURI_INTERNALS__.invoke;
     const raw = await T('graph_data');
     const tpl = tt.normalizeTemplate(await T('get_setting', { key: 'time_tag_template' }));
@@ -82,7 +82,7 @@ export const graphGeom = (cdp) =>
     if (nodes.length === 0) return null;
     const layout = radial.radialLayout(nodes, { layerGap: 90 });
     const savedRaw = await T('get_setting', { key: 'graph_positions' });
-    const points = hcam.overlayPositions(layout, hcam.parseGraphPositions(savedRaw === undefined ? null : savedRaw));
+    const points = hpos.applyPositions(layout, hpos.parsePositions(savedRaw === undefined ? null : savedRaw));
     const view = ${VIEW};
     const cv = view.querySelector('canvas');
     const vrect = view.getBoundingClientRect();

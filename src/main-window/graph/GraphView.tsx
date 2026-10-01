@@ -3,10 +3,11 @@
  * 径向布局 -> 画布。数据只在进视图时拉取,信息流与输入栏的启动路径不受影响(设计 §2.1)。
  *
  * 本文件只接线:`hovered` 在 useGraphInteractions,`selected`/`expanded` 在这里,相机在 useGraphCamera,
- * 展开笔记在 useExpandedNotes,「一帧画什么」在 useGraphPlan,覆盖层(工具栏/过滤器面板/空态)
- * 在 GraphOverlays。口径提醒:`expanded` 与 `selected` 各算各的 —— 点别的标签不会收掉已展开的小圆。
+ * 拖节点与位置记忆在 useNodeDrag(松手写回落给相机的 `commitPositions`),容器上的首次适配与非被动
+ * wheel 在 useGraphSurface,展开笔记在 useExpandedNotes,「一帧画什么」在 useGraphPlan,覆盖层
+ * (工具栏/过滤器面板/空态)在 GraphOverlays。口径提醒:`expanded` 与 `selected` 各算各的 —— 点别的标签不会收掉已展开的小圆。
  */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { GraphNode } from '../../shared/types';
 import { GraphCanvas } from './GraphCanvas';
@@ -27,6 +28,8 @@ import { useGraphInteractions } from './use-graph-interactions';
 import { useGraphOrigin } from './use-graph-origin';
 import { useGraphPlan } from './use-graph-plan';
 import { useGraphSize } from './use-graph-size';
+import { useAutoFit, usePassiveWheel } from './use-graph-surface';
+import { useNodeDrag } from './use-node-drag';
 import { useThemeKey } from './use-theme-key';
 
 const LAYER_GAP = 90;
@@ -45,7 +48,6 @@ export function GraphView(p: {
   const [filtersOpen, setFiltersOpen] = useState(false); // 纯 UI 状态,不进 settings
   const themeKey = useThemeKey();
   const dprKey = useDprKey();
-  const fitted = useRef(false);
   const boxRef = useRef<HTMLDivElement>(null);
   // 容器实测尺寸:窗口 resize / DPR 变化都要重建几何(设计 §6-3)与后备缓冲
   const size = useGraphSize(boxRef);
@@ -55,6 +57,8 @@ export function GraphView(p: {
 
   const { nodes, edges, empty, filters, roots, patch, reset: resetFilters } = useGraphFilters(data, collapsedRoots);
   const layout: Map<number, Point> = useMemo(() => radialLayout(nodes, { layerGap: LAYER_GAP }), [nodes]);
+  // 位置记忆的修剪口径:库里的**全部**标签(不是过滤后的可见集)—— 被过滤器藏起来的标签,位置要留着
+  const validIds = useMemo(() => new Set((data?.nodes ?? []).map((n) => n.id)), [data]);
   const selectedNode = selected === null ? null : (nodes.find((n) => n.id === selected) ?? null);
 
   // 容器原点(视口坐标 <-> 画布坐标的换算基准):相机缩放锚点、交互命中、气泡锚点共读一份
@@ -67,18 +71,18 @@ export function GraphView(p: {
     onFilterToStream: p.onFilterToStream,
   });
 
-  const cam = useGraphCamera({ width: size.w, height: size.h, points: layout, origin });
-  // 画布的 wheel 必须显式 passive: false,只能走 addEventListener(React 的 onWheel 挂在被动层)
-  useEffect(() => {
-    const el = boxRef.current;
-    if (el === null) return;
-    el.addEventListener('wheel', cam.onWheel, { passive: false });
-    return () => el.removeEventListener('wheel', cam.onWheel);
-  }, [cam.onWheel]);
+  const cam = useGraphCamera({ width: size.w, height: size.h, points: layout, origin, validIds });
+  // 拖节点层包在相机外层:命中节点时它接管指针(不平移画布),没命中才转交相机;见 use-node-drag
+  const drag = useNodeDrag({ nodes, cam, origin });
+  // 画布落点 = 相机那份 + 拖拽中的实时位置(没在拖时就是相机那份,引用不变)
+  const points = drag.points;
+  // 首次适配一次(设计 §3.3):落点与尺寸就绪才动相机,此后只由 `0` 复位;wheel 必须显式非被动层
+  useAutoFit(layout.size > 0 && size.w > 0, cam.reset);
+  usePassiveWheel(boxRef, cam.onWheel);
 
   const acts = useGraphInteractions({
     nodes,
-    points: cam.points,
+    points,
     cam: cam.camera,
     origin,
     onSelect: setSelected,
@@ -92,7 +96,7 @@ export function GraphView(p: {
   const expandedNode = expanded === null ? null : (nodes.find((n) => n.id === expanded) ?? null);
   const exp = useExpandedNotes({
     node: expandedNode,
-    points: cam.points,
+    points,
     cam: cam.camera,
     origin,
     onFilterToStream: p.onFilterToStream,
@@ -107,25 +111,16 @@ export function GraphView(p: {
   // 图内搜索跳转(G2 Task 7):把相机挪到该节点(**不改缩放**)并选中 —— 信息条随之出现,
   // 「搜到 -> 看到详情」一步到位;节点在布局里缺席时(环/自指落不了位)只选中,不做定点
   const onSearchPick = (node: GraphNode): void => {
-    const at = cam.points.get(node.id);
+    const at = points.get(node.id);
     if (at !== undefined) cam.centerOn(at);
     setSelected(node.id);
   };
-
-  // 首次适配视图(设计 §3.3);此后不再自动改相机 —— 用户按 0 才复位(Task 6)。
-  // 复位路径与 `0` 键共用 cam.reset,避免"定点适配"出现两份实现。
-  const reset = cam.reset;
-  useEffect(() => {
-    if (fitted.current || layout.size === 0 || size.w === 0) return;
-    fitted.current = true;
-    reset();
-  }, [layout, size, reset]);
 
   // 一帧画什么(含强调态)在 useGraphPlan:本文件只把视图状态摆好递进去
   const plan = useGraphPlan({
     nodes,
     edges,
-    points: cam.points,
+    points,
     cam: cam.camera,
     size,
     themeKey,
@@ -146,15 +141,15 @@ export function GraphView(p: {
       ref={boxRef}
       className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-app"
       data-testid="graph-view"
-      onPointerDown={cam.onPointerDown}
-      // 拖空白平移(相机)与悬停命中(交互)各管一半,两条都要挂 —— Task 5 只留了悬停那条,拖空白处整个图不动
+      onPointerDown={drag.onPointerDown}
+      // 拖节点、拖空白平移、悬停命中各管一段:拖节点层先接手,没命中才轮到相机(见 use-node-drag)
       onPointerMove={(e) => {
-        cam.onPointerMove(e);
+        drag.onPointerMove(e);
         acts.onPointerMove(e);
       }}
-      onPointerUp={cam.onPointerUp}
-      onPointerLeave={() => {
-        cam.onPointerUp();
+      onPointerUp={drag.onPointerUp}
+      onPointerLeave={(e) => {
+        drag.onPointerLeave(e);
         acts.onPointerLeave();
       }}
       // 点在笔记小圆上就是「带着该标签回信息流」:不能再走画布点击(那会先把选中清掉)
