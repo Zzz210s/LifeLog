@@ -31,6 +31,13 @@ export interface NoteLinks {
   backlinks: Backlink[];
 }
 
+/** `[[` 补全候选池的一项(IPC `complete_notes`,与 Rust `NoteTitle` 逐字一致):
+ *  id + 笔记的显示首行(`links::display_title` 口径,只裁首尾空白、大小写原样) */
+export interface NoteTitle {
+  id: number;
+  title: string;
+}
+
 /** 标签树节点计数:id 供右键管理(rename/move/delete/tag_impact 按寻址),
  *  path 为完整路径,self_count 本级链接数,subtree_count 含全部子孙;
  *  sort_order 供同层次序(S8):树里兄弟按 (sort_order, path) 展示 */

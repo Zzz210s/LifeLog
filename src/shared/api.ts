@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { CompleteItem, DbInfo, ExprCheck, GraphData, GraphLinkDegrees, MergeReport, Note, NoteLinks, ParseResult, TagCount, TagImpact } from './types';
+import type { CompleteItem, DbInfo, ExprCheck, GraphData, GraphLinkDegrees, MergeReport, Note, NoteLinks, NoteTitle, ParseResult, TagCount, TagImpact } from './types';
 import type { FilterConditions } from './filter-conditions';
 import type { AppHotkeyKind } from './hotkey-match';
 
@@ -36,6 +36,9 @@ export const api = {
     invoke<MergeReport>('merge_tags', { sourceId, targetId, keepAlias }),
   /** 输入栏补全:按路径前缀列出候选(别名命中项的 kind=alias) */
   completeTags: (prefix: string) => invoke<CompleteItem[]>('complete_tags', { prefix }),
+  /** `[[` 补全的候选池:全部笔记的显示首行。不传 prefix 回整池(前端会话内缓存);
+   *  传 prefix 时后端粗筛(子串档在前、子序列档在后)并截到 200 条 */
+  completeNotes: (prefix?: string) => invoke<NoteTitle[]>('complete_notes', { prefix }),
   /** 更新笔记:**标签集合整集合替换**为正文里的 #标签 —— 调用方必须自带该笔记的全部标签(UI 编辑框会回显),否则会丢标签 */
   updateNote: (id: number, content: string) =>
     invoke<Note | null>('update_note', { id, content }),

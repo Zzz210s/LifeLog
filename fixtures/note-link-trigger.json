@@ -1,0 +1,20 @@
+{
+  "note": "[[ 补全触发/采纳的共享向量。N1 只由 TS 侧读取(src/shared/note-link-trigger.test.ts);caret 允许越界,实现按文本长度夹取,故个别向量的 caret 是「长度+1」(= 末位光标)。围栏/行内代码/转义口径必须与 src-tauri/src/links.rs::link_spans 一致。",
+  "detect": [
+    { "name": "刚打两个括号", "text": "看 [[", "caret": 5, "expect": { "start": 2, "query": "" } },
+    { "name": "打了查询", "text": "看 [[聚会", "caret": 7, "expect": { "start": 2, "query": "聚会" } },
+    { "name": "已闭合就退出", "text": "看 [[聚会]]", "caret": 9, "expect": null },
+    { "name": "光标在闭合前", "text": "看 [[聚会]]", "caret": 7, "expect": { "start": 2, "query": "聚会" } },
+    { "name": "单括号不触发", "text": "看 [聚会", "caret": 5, "expect": null },
+    { "name": "围栏里不触发", "text": "```\n[[聚会", "caret": 8, "expect": null },
+    { "name": "行内代码里不触发", "text": "`[[聚会`", "caret": 6, "expect": null },
+    { "name": "转义不触发", "text": "\\[[聚会", "caret": 7, "expect": null },
+    { "name": "跨行不算", "text": "[[聚会\n", "caret": 5, "expect": null },
+    { "name": "两个未闭合取最近的", "text": "[[甲 [[乙", "caret": 8, "expect": { "start": 4, "query": "乙" } }
+  ],
+  "accept": [
+    { "name": "替换未闭合段", "text": "看 [[聚会", "caret": 7, "title": "今天聚会", "expect": { "text": "看 [[今天聚会]]", "caret": 10 } },
+    { "name": "后面已有闭合就不重复补", "text": "看 [[聚会]]", "caret": 7, "title": "今天聚会", "expect": { "text": "看 [[今天聚会]]", "caret": 10 } },
+    { "name": "无触发时原样返回", "text": "看 聚会", "caret": 5, "title": "今天聚会", "expect": { "text": "看 聚会", "caret": 5 } }
+  ]
+}

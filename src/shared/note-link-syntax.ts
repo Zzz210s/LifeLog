@@ -1,6 +1,6 @@
 /**
- * 笔记间显式链接 `[[标题]]` 的语法**镜像**(设计 D1/D2/D9),只用于前端渲染判断:
- * 保存与匹配一律以后端 `src-tauri/src/links.rs` 为准,前端不落库。
+ * 笔记间显式链接 `[[标题]]` 的语法**镜像**(设计 D1/D2/D9),只用于前端渲染判断与 `[[` 补全的
+ * 触发判断:保存与匹配一律以后端 `src-tauri/src/links.rs` 为准,前端不落库。
  * 跳过口径与标签扫描一致:围栏代码块整段跳过、行内代码里不算、`\` 转义不算。
  *
  * 与 Rust 的已知差异(刻意为之,见 fixtures/note-links.json 的共享向量只钉 raw_title 列表):
@@ -27,23 +27,42 @@ export function noteLinkSpans(text: string): NoteLinkSpan[] {
   let offset = 0;
   for (const rawLine of text.split('\n')) {
     const line = rawLine.endsWith('\r') ? rawLine.slice(0, -1) : rawLine;
-    const trimmed = line.trimStart();
-    if (fence) {
-      if (trimmed.startsWith(fence)) fence = null;
-    } else if (trimmed.startsWith('```')) {
-      fence = '```';
-    } else if (trimmed.startsWith('~~~')) {
-      fence = '~~~';
-    } else {
-      scanLine(line, offset, spans);
-    }
+    const step = stepFence(fence, line);
+    fence = step.next;
+    if (!step.inside) scanLine(line, offset, spans);
     offset += rawLine.length + 1; // 加回被 split 吃掉的换行
   }
   return spans;
 }
 
-/** 单行扫描:维护行内代码与转义,遇到 `[[` 交给 parseAt */
-function scanLine(line: string, base: number, out: NoteLinkSpan[]): void {
+/** 围栏状态机的一步(与 Rust `link_spans` 同结构):返回该行是否「围栏内」(开/闭围栏行也算,
+ *  因为 Rust 对围栏内的行整段不看)与推进后的围栏标记。`noteLinkSpans` 与补全触发判断共用。 */
+function stepFence(fence: string | null, line: string): { inside: boolean; next: string | null } {
+  const trimmed = line.trimStart();
+  if (fence) return { inside: true, next: trimmed.startsWith(fence) ? null : fence };
+  if (trimmed.startsWith('```')) return { inside: true, next: '```' };
+  if (trimmed.startsWith('~~~')) return { inside: true, next: '~~~' };
+  return { inside: false, next: null };
+}
+
+/** `pos` 所在行是否处在围栏代码块内(补全触发判断用:围栏内不弹候选) */
+export function inFencedBlock(text: string, pos: number): boolean {
+  let fence: string | null = null;
+  let offset = 0;
+  for (const rawLine of text.split('\n')) {
+    const line = rawLine.endsWith('\r') ? rawLine.slice(0, -1) : rawLine;
+    const step = stepFence(fence, line);
+    if (pos <= offset + line.length) return step.inside;
+    fence = step.next;
+    offset += rawLine.length + 1;
+  }
+  return false;
+}
+
+/** 单行扫描骨架(围栏外的行):行内代码与 `\` 转义共用一份状态机,
+ *  每个非代码区里的 `[[` 交给 `onOpen`,由它返回「下一个要处理的下标」(必须 > i)。
+ *  链接解析与补全触发判断共用这一份,跳过口径不会漂移。 */
+export function walkLine(line: string, onOpen: (i: number) => number): void {
   let inCode = false;
   let i = 0;
   while (i < line.length) {
@@ -58,18 +77,38 @@ function scanLine(line: string, base: number, out: NoteLinkSpan[]): void {
       continue;
     }
     if (c === '[' && !inCode && line[i + 1] === '[') {
-      const parsed = parseAt(line, i);
-      if (parsed) {
-        out.push({ start: base + i, end: base + parsed.end, rawTitle: parsed.title });
-        i = parsed.end;
-      } else {
-        // 整串不算:跳到闭合 `]]` 之后(嵌套里的 `[[` 不再重启)
-        i = skipPastClose(line, i + 2);
-      }
+      i = onOpen(i);
       continue;
     }
     i += 1;
   }
+}
+
+/** 单行扫描:遇到 `[[` 用 parseAt 解析,失败就按 Rust 口径跳到闭合 `]]` 之后 */
+function scanLine(line: string, base: number, out: NoteLinkSpan[]): void {
+  walkLine(line, (i) => {
+    const parsed = parseAt(line, i);
+    if (parsed) {
+      out.push({ start: base + i, end: base + parsed.end, rawTitle: parsed.title });
+      return parsed.end;
+    }
+    // 整串不算:跳到闭合 `]]` 之后(嵌套里的 `[[` 不再重启)
+    return skipPastClose(line, i + 2);
+  });
+}
+
+/** 行片段里**未闭合**的 `[[` 起点(行片段 = 光标所在行从行首到光标的文本):
+ *  走与 `link_spans` 同一套围栏外扫描(行内代码、转义、已闭合的合法链接整段吞掉),
+ *  返回最后一个没被 `]]` 收尾的 `[[` 下标,没有则 -1。这是补全触发判断的语法核心。 */
+export function lastUnclosedOpen(line: string): number {
+  let last = -1;
+  walkLine(line, (i) => {
+    if (parseAt(line, i)) return skipPastClose(line, i + 2); // 已闭合的合法链接:整段吞掉
+    if (line.indexOf(']]', i + 2) >= 0) return skipPastClose(line, i + 2); // 非法整串:同上
+    last = i; // 未闭合:记为候选,继续往后找更近的
+    return i + 2;
+  });
+  return last;
 }
 
 /** open 指向首个 `[`;成功返回闭 `]]` 之后的下标与裁过首尾空白的标题。
