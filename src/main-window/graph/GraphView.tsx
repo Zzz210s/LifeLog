@@ -1,25 +1,20 @@
 /**
- * 关系图视图外壳:打开时拉一次图数据 -> 折叠时间轴根 -> 径向布局 -> 画布。
- * 折叠哪一根从设置 `time_tag_template` 派生(G2;见 useCollapseRoots),读到之前不折叠。
- * 数据只在进入本视图时拉取,信息流与输入栏的启动路径不受影响(设计 §2.1)。
- * 本文件只负责接线与状态:`hovered` 在 useGraphInteractions,`selected`/`expanded` 在这里,
- * 相机(缩放/平移/`+` `-`/`0`/位置记忆)在 useGraphCamera,展开笔记的取数/扇形几何/点小圆的
- * 动作在 useExpandedNotes(G2 Task 6),而「一帧画什么」的合成在 useGraphPlan
- * (plan 的依赖理由 —— 尺寸 / DPR / 强调态 / 展开层少一样就会静停在旧画面 —— 记在那个模块)。
- * 折叠根读设置那一段也在外部(useCollapseRoots):两处抽出的都是纯搬移,为守 200 行红线
- * (与 use-graph-data / use-graph-size 同一处理;终审修复轮同样抽出了 useGraphOrigin / useEscapeExit / GraphStatus)。
- * 口径提醒:`expanded` 与 `selected` 各算各的 —— 点别的标签不会把已展开的那圈小圆收掉。
+ * 关系图视图外壳:进视图拉一次图数据 -> 过滤/折叠(G3 起两者合一,见 useGraphFilters)->
+ * 径向布局 -> 画布。数据只在进视图时拉取,信息流与输入栏的启动路径不受影响(设计 §2.1)。
+ *
+ * 本文件只接线:`hovered` 在 useGraphInteractions,`selected`/`expanded` 在这里,相机在 useGraphCamera,
+ * 展开笔记在 useExpandedNotes,「一帧画什么」在 useGraphPlan,覆盖层(工具栏/过滤器面板/空态)
+ * 在 GraphOverlays。口径提醒:`expanded` 与 `selected` 各算各的 —— 点别的标签不会收掉已展开的小圆。
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { GraphNode } from '../../shared/types';
 import { GraphCanvas } from './GraphCanvas';
 import { GraphInfoBar } from './GraphInfoBar';
+import { GraphOverlays } from './GraphOverlays';
 import { GraphSearch } from './GraphSearch';
-import { GraphStatus } from './GraphStatus';
 import { GraphTagMenuHost } from './GraphTagMenuHost';
 import { GraphTip } from './GraphTip';
-import { visibleGraph } from './graph-view-model';
 import { radialLayout, type Point } from './radial';
 import { useCollapseRoots } from './use-collapse-roots';
 import { useDprKey } from './use-dpr-key';
@@ -27,6 +22,7 @@ import { useEscapeExit } from './use-escape-exit';
 import { useExpandedNotes } from './use-expanded-notes';
 import { useGraphCamera } from './use-graph-camera';
 import { useGraphData } from './use-graph-data';
+import { useGraphFilters } from './use-graph-filters';
 import { useGraphInteractions } from './use-graph-interactions';
 import { useGraphOrigin } from './use-graph-origin';
 import { useGraphPlan } from './use-graph-plan';
@@ -43,8 +39,10 @@ export function GraphView(p: {
   const { data, failed, reload } = useGraphData();
   const [selected, setSelected] = useState<number | null>(null);
   // 展开态:信息条的按钮文案与 Task 6 的笔记小圆都吃它(双击展开/收起也改它)
+  // 展开态:信息条文案与笔记小圆都吃它(双击展开/收起也改它);与 selected 各算各的
   const [expanded, setExpanded] = useState<number | null>(null);
   const [menu, setMenu] = useState<{ id: number; x: number; y: number } | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false); // 纯 UI 状态,不进 settings
   const themeKey = useThemeKey();
   const dprKey = useDprKey();
   const fitted = useRef(false);
@@ -55,10 +53,7 @@ export function GraphView(p: {
   // 折叠根从设置派生;调用位置不能挪到 useGraphCamera 之后(两处都读 getSetting,顺序被用例钉住)。
   const collapsedRoots = useCollapseRoots();
 
-  const { nodes, edges } = useMemo(
-    () => (data === null ? { nodes: [], edges: [] } : visibleGraph(data, { collapsedRoots })),
-    [data, collapsedRoots],
-  );
+  const { nodes, edges, empty, filters, roots, patch, reset: resetFilters } = useGraphFilters(data, collapsedRoots);
   const layout: Map<number, Point> = useMemo(() => radialLayout(nodes, { layerGap: LAYER_GAP }), [nodes]);
   const selectedNode = selected === null ? null : (nodes.find((n) => n.id === selected) ?? null);
 
@@ -93,8 +88,7 @@ export function GraphView(p: {
     onExit: p.onExit,
   });
 
-  // 展开笔记(G2 Task 6):吃的是 `expanded` 而不是 selected —— 展开挂在哪个标签上是它自己的
-  // 状态,点了别的标签(selected 变了)已展开的那圈小圆还要在。
+  // 展开笔记:吃 `expanded` 而不是 selected —— 点了别的标签,已展开的那圈小圆还要在
   const expandedNode = expanded === null ? null : (nodes.find((n) => n.id === expanded) ?? null);
   const exp = useExpandedNotes({
     node: expandedNode,
@@ -104,8 +98,7 @@ export function GraphView(p: {
     onFilterToStream: p.onFilterToStream,
   });
 
-  // 递给 plan 的展开层要身份稳定:这里每次渲染新建对象字面量会让 plan 的 memo 白重建,
-  // 于是任意一次无关重渲染都变成整图重绘(drawPlan 的依赖理由见 use-graph-plan)
+  // 展开层要身份稳定:每次渲染新建对象会让 plan 的 memo 白重建(依赖理由见 use-graph-plan)
   const expandedLayer = useMemo(
     () => (expanded === null ? null : { id: expanded, dots: exp.dots, overflow: exp.overflow }),
     [expanded, exp.dots, exp.overflow],
@@ -171,7 +164,17 @@ export function GraphView(p: {
       onDoubleClick={acts.onDoubleClick}
       onContextMenu={acts.onContextMenu}
     >
-      <GraphStatus text={count} />
+      <GraphOverlays
+        count={count}
+        empty={empty}
+        open={filtersOpen}
+        onToggle={() => setFiltersOpen((v) => !v)}
+        onResetView={cam.reset}
+        filters={filters}
+        roots={roots}
+        onFilters={patch}
+        onResetFilters={resetFilters}
+      />
       <GraphSearch nodes={nodes} onPick={onSearchPick} />
       <GraphCanvas plan={plan} width={size.w} height={size.h} themeKey={themeKey} />
       <GraphTip node={hoveredNode} x={acts.tipAt?.x ?? 0} y={acts.tipAt?.y ?? 0} />
