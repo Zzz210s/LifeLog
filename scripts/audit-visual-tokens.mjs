@@ -11,6 +11,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { BASE, ensureMain, recorder, sleep } from './cdp-lib.mjs';
 import { auditCardStates } from './audit-visual-card.mjs';
+import { READY_JS } from './audit-visual-ready.mjs';
 import { recordTopBarMenu } from './audit-visual-menu.mjs';
 import {
   CLOSE_DIALOG_JS, MENU_SCAN_JS, OPEN_DIALOG_JS, SCAN_JS, TOKEN_NAMES,
@@ -42,6 +43,12 @@ try {
 const { cdp } = await ensureMain();
 const js = (e) => cdp.eval(e);
 const r = recorder();
+
+const ready = await js(READY_JS);
+if (ready.cards < 2) {
+  console.log(`跳过视觉令牌审计:信息流可见卡片只有 ${ready.cards} 张(门禁需要至少两张做 hover/静止对照),请先把筛选收窄的视图还原`);
+  process.exit(2);
+}
 
 // 亮暗各扫一次(最后还原初始主题):颜色断言用两态令牌并集,故在哪个主题下跑都成立
 const startDark = await js(`document.documentElement.classList.contains('dark')`);
