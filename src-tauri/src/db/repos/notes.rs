@@ -123,6 +123,9 @@ fn create_with(
     let id = tx.last_insert_rowid();
     // 006 起 tags 为树:按路径自动建父级并做增量链接(孤儿回收已收窄为"无链接且无子")
     crate::db::repos::tags::link_paths(&tx, id, &names)?;
+    // 链接紧随标签之后(D6):两步同一事务,任一步 `?` 失败连上面的 INSERT 一起回滚;
+    // 扫的是**已剥标签、即刚落库的那份正文**(text),与 update 路径同一口径。
+    crate::db::repos::note_links::replace_from_body(&tx, id, &text)?;
     let note = read_full(&tx, id)?.ok_or(rusqlite::Error::QueryReturnedNoRows)?;
     tx.commit()?;
     Ok(note)

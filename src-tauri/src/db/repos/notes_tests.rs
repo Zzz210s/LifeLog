@@ -110,3 +110,25 @@ fn delete_also_cleans_fts_row() {
     assert_fts_matches_tags(&c);
     assert_no_orphan_tags(&c);
 }
+
+#[test]
+fn create_resolves_links_in_same_transaction() {
+    let mut c = db();
+    let target = create_plain(&mut c, "聚会记录\n#日记").unwrap();
+    let src = create_plain(&mut c, "看 [[聚会记录]] 和 [[没有这条]] 还有 #随记").unwrap();
+    // 标签侧不受影响(照旧剥掉),正文里的 [[X]] 原样保留(D7)
+    assert_eq!(src.tags, vec!["随记"]);
+    assert_eq!(src.content, "看 [[聚会记录]] 和 [[没有这条]] 还有");
+    let rows: Vec<(Option<i64>, String)> = c
+        .prepare("SELECT target_id, raw_title FROM note_links WHERE source_id=?1 ORDER BY raw_title")
+        .unwrap()
+        .query_map([src.id], |r| Ok((r.get(0)?, r.get(1)?)))
+        .unwrap()
+        .collect::<Result<_, _>>()
+        .unwrap();
+    assert_eq!(
+        rows,
+        vec![(None, "没有这条".to_string()), (Some(target.id), "聚会记录".to_string())],
+        "命中写 target_id,未命中写 NULL(D4)"
+    );
+}

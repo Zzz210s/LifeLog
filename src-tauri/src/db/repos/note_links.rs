@@ -72,6 +72,17 @@ pub fn replace(conn: &Connection, source_id: i64, titles: &[String]) -> rusqlite
     Ok(resolved)
 }
 
+/// 保存路径的唯一入口:从**已剥净标签、且已落库的那份正文**抽链接并替换写入。
+/// 扫剥净后的正文(而不是用户原始输入)有两个好处:① `note_links.raw_title` 一定能在库里的
+/// 正文中找到(两边同一份文本);② 标题写成标签形(`[[#甲]]`)时剥标签后已是 `[[]]`,
+/// 自然不产生链接(设计 §5 边界 5)。
+/// 调用方保证:在事务内、紧跟 `tags::link_paths` 之后。
+pub fn replace_from_body(conn: &Connection, source_id: i64, stored_body: &str) -> rusqlite::Result<usize> {
+    let titles: Vec<String> =
+        crate::links::link_spans(stored_body).into_iter().map(|s| s.raw_title).collect();
+    replace(conn, source_id, &titles)
+}
+
 /// 「归一化首行 -> 笔记 id」索引:同名取 **id 最小**(最早)的一条(D3)。
 /// 排除 `source_id` 自己(自指由 `own_title` 单独判,见 `replace`)。
 /// 首行归一化后为空(整条空白、或首行只有标签,§5 边界 2)的笔记不入索引(不可被链接)。

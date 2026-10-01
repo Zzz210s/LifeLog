@@ -37,6 +37,9 @@ pub fn update(conn: &mut Connection, id: i64, content: &str) -> rusqlite::Result
         );
     }
     set_tags(&tx, id, &names)?;
+    // 链接紧随标签之后(D6):顺序固定「标签 -> 链接」,两步都在同一个 tx 里,
+    // 任一步 `?` 失败都连同上面的正文 UPDATE 整批回滚 —— 不会留下"正文改了、链接还是旧的"。
+    crate::db::repos::note_links::replace_from_body(&tx, id, &text)?;
     let note = read_full(&tx, id)?;
     tx.commit()?;
     Ok(note)

@@ -6,8 +6,12 @@ use crate::db::repos::notes::strip_tags_known;
 
 /// 一个已确认的链接区间:start/end 是原文里的**字节**范围(含 `[[` 与 `]]`),
 /// raw_title 是裁过首尾空白的标题原文(匹配时才归一化)。
+/// 字节范围目前只有测试在用(写入路径只取 raw_title);L2 渲染 chip 靠它切片定位,
+/// 所以先放行 dead_code,而不是把字段删掉再加回来。
 pub struct LinkSpan {
+    #[allow(dead_code)]
     pub start: usize,
+    #[allow(dead_code)]
     pub end: usize,
     pub raw_title: String,
 }
