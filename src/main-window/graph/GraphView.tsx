@@ -60,7 +60,7 @@ export function GraphView(p: {
   // 容器实测尺寸:窗口 resize / DPR 变化都要重建几何(设计 §6-3)与后备缓冲
   const size = useGraphSize(boxRef);
 
-  // 折叠根从设置派生;调用位置不能挪到 useGraphCamera 之后(两处都读 getSetting,顺序被用例钉住)。
+  // 折叠根从设置派生(`null` = 还没读到);调用位置不能挪到 useGraphCamera 之后(两处都读 getSetting,顺序被用例钉住)。
   const collapsedRoots = useCollapseRoots();
 
   const { nodes, edges, empty, filters, roots, patch, reset: resetFilters } = useGraphFilters(data, collapsedRoots);
@@ -74,8 +74,8 @@ export function GraphView(p: {
   // 落点层(整理 -> 相机 -> 拖节点 -> 力导向)收在 useGraphStage:顺序固定,也是它守本文件的行数
   // `resetView` 是「重置视图」与 `0` 共用的出口(整理结果回径向 + 相机复位)
   const { cam, drag, force, points, resetView } = useGraphStage({ layout, nodes, edges, origin, validIds, size });
-  // 首次适配一次(设计 §3.3):落点与尺寸就绪才动相机,此后只由 `0` 复位;wheel 必须显式非被动层
-  useAutoFit(layout.size > 0 && size.w > 0, cam.reset);
+  // 首次适配一次(设计 §3.3):落点、尺寸、折叠根都就绪才动相机 —— 折叠根异步读设置,不等它就会拿「没折叠」的全量落点算 fit(退出再进图实测 k=0.751/411/304.2,折叠后应为 0.949/547.1/221.9);此后只由 `0` 复位;wheel 必须显式非被动层
+  useAutoFit(layout.size > 0 && size.w > 0 && collapsedRoots !== null, cam.reset);
   usePassiveWheel(boxRef, cam.onWheel);
 
   // 展开笔记:吃 `expanded` 而不是 selected —— 点了别的标签,已展开的那圈小圆还要在。

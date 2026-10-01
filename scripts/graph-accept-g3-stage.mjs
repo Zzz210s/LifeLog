@@ -44,7 +44,7 @@ function movedCount(a, b) {
  * `useAutoFit` 只做一次),所以判据是:"画布上那一整张图的相对几何,到底是不是这份世界坐标集的相似像"。
  * 两张表按 `nodes` 遍历序一一对应(drawPlan 与探针同序;无裁剪时长度相等)。
  */
-function similarityResidual(world, dots) {
+export function similarityResidual(world, dots) {
   if (world.length === 0 || world.length !== dots.length) return null;
   const span = (v) => Math.max(...v) - Math.min(...v);
   const wx = world.map((p) => p[0]);

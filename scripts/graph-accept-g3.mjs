@@ -18,6 +18,7 @@ import { dbCounts } from './no-tabs-accept-lib.mjs';
 import { clickAt, clickText, graphStatus, installG3, invSame, lastFrame, panelState, setSearch } from './graph-accept-g3-lib.mjs';
 import { blankPoint, predict } from './graph-accept-g3-scene.mjs';
 import { runFilters } from './graph-accept-g3-filter.mjs';
+import { runAutoFit } from './graph-accept-g3-autofit.mjs';
 import { runArrange, runDrag } from './graph-accept-g3-stage.mjs';
 import { runReload } from './graph-accept-g3-reload.mjs';
 
@@ -39,6 +40,7 @@ export async function runGraphG3({ cdp, ev, ui, bm, record }) {
   const before = { counts: dbCounts(), inv: await bm.inventory(), info: await bm.call('get_db_info') };
   console.log(`G3 基线:${STATUS(base.nodes.length, base.edgeCount)}(全库 ${base.tags} 标签,折叠 ${base.collapsed.join('、') || '(无)'},位置记忆条目 ${base.savedKeys})`);
 
+  await runAutoFit({ cdp, ev, ui, record });
   await runFilters({ cdp, record, base });
   await runDrag({ cdp, ev, ui, bm, record });
   await runArrange({ cdp, ev, record });

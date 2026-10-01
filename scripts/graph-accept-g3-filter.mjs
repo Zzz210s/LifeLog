@@ -62,7 +62,7 @@ export async function runFilters({ cdp, record, base }) {
     `取消前 ${panel0.axes.filter((a) => a.checked).length} 个轴勾着、画布 ${fr0?.fills} 点 / ${fr0?.strokes} 线;点了=${clickedOff};` +
       `取消后 勾选态=${placeBox?.checked}(期望 false)、状态条=${s1}(期望 ${wantNoPlace} = 预测 ${pNoPlace.nodes.length} 点 / ${pNoPlace.edgeCount} 边,悬空边已由 applyFilters 丢掉)、` +
       `画布 ${fr1?.fills} 点 / ${fr1?.strokes} 线;重置后 ${sBack}(画布 ${frBack?.fills} 点 / ${frBack?.strokes} 线,期望 ${wantDefault})。` +
-      `勾选态若仍是 true,根因在 useGraphFilters 的 appeared 分支:它只看"不在 edited.axes 且不是折叠根",于是把"用户取消的轴"又当成"数据里新出现的根"加回 axes`,
+      `勾选态若仍是 true:appeared 分支必须只把“本次重载新出现的根”加回 axes —— 修复前它看的是“不在 edited.axes 且不是折叠根”,于是把用户取消的轴又加回来(修复轮已改,判据是 seen 里没见过的根)`,
   );
 
   // ---- 2) 深度上限 2 ----
