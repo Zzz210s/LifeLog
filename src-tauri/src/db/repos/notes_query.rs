@@ -46,7 +46,14 @@ pub fn query(
     let rows = stmt
         .query_map(params_from_iter(args), map_note_row)
         .map_err(|e| e.to_string())?;
-    fold_tag_rows(rows).map_err(|e| e.to_string())
+    let mut notes = fold_tag_rows(rows).map_err(|e| e.to_string())?;
+    // 出链随页返回:一页 50 条用 `IN (...)` 一次取全,不能每张卡一条查询(设计 §3.0)。
+    let ids: Vec<i64> = notes.iter().map(|n| n.id).collect();
+    let mut links = crate::db::repos::note_links::outbound_page(conn, &ids).map_err(|e| e.to_string())?;
+    for n in &mut notes {
+        n.links = links.remove(&n.id).unwrap_or_default();
+    }
+    Ok(notes)
 }
 
 /// 当前条件命中的总条数:**仅供测试使用**。视图模块已删(S6),也不再有每页分录计数

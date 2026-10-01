@@ -55,7 +55,7 @@ const page = (n: number): Note[] =>
   Array.from({ length: n }, (_, i) => ({
     id: i + 1,
     content: `笔记${i + 1}`,
-    created_at: '2026-09-29 10:00:00',
+    created_at: '2026-09-29 10:00:00', links: [],
     tags: ['工作/项目A'],
   }));
 

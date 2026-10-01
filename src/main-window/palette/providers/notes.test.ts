@@ -18,7 +18,7 @@ const note = (id: number, content: string, tags: string[] = []): Note => ({
   id,
   content,
   tags,
-  created_at: '2026-09-22 10:00:00',
+  created_at: '2026-09-22 10:00:00', links: [],
 });
 
 describe('notes provider:标题提取与详情', () => {

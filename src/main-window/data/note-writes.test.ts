@@ -15,7 +15,7 @@ vi.mock('../../shared/api', () => ({ api: { updateNote, deleteNote } }));
 const { notifyTagsChanged } = vi.hoisted(() => ({ notifyTagsChanged: vi.fn() }));
 vi.mock('./tags-changed', () => ({ notifyTagsChanged }));
 
-const note: Note = { id: 7, content: '买牛奶', created_at: '2026-09-22 10:00:00', tags: ['生活'] };
+const note: Note = { id: 7, content: '买牛奶', created_at: '2026-09-22 10:00:00', links: [], tags: ['生活'] };
 
 beforeEach(() => {
   vi.clearAllMocks();

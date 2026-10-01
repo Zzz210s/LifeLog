@@ -1,39 +1,22 @@
 //! 笔记间显式链接的仓库层(设计 D3/D4/D6):替换语义写入 + 出链/入链读取。
 //! 写入由调用方放在**与标签同一次事务**里(`notes::create_with` / `notes_update::update`),
 //! 任一步失败整批回滚;读取时标题一律用 `links::display_title` **实时算**(目标改名后显示跟随)。
-// 读取接口有三个消费方在 L2/L3/L4(卡片反向引用、编辑面板、关系图 link 边),
-// 接线前给这几个符号定点放行 dead_code(与 links.rs 同做法);L3/L4 接完删掉这些属性。
+// 读取(出链/入链/边)拆到 note_links_read.rs 并在此**再导出**,调用方路径不变
+// (crate::db::repos::note_links::outbound_page ...);本文件只留写入。
 
-use crate::links::{display_title, normalize_title, title_of};
-use rusqlite::{params, params_from_iter, Connection};
-use serde::Serialize;
+use crate::links::{normalize_title, title_of};
+use rusqlite::{params, Connection};
 use std::collections::HashMap;
 
-/// 一条出链:`raw_title` 是正文里写的原文(未命中时界面照它显示),
-/// `title` 是目标**当前**首行(目标已删时为 None)。
-#[allow(dead_code)]
-#[derive(Debug, PartialEq, Serialize)]
-pub struct OutboundLink {
-    pub target_id: Option<i64>,
-    pub raw_title: String,
-    pub title: Option<String>,
-}
-
-/// 一条入链(引用来源):只带来源首行,不带来源正文
-#[allow(dead_code)]
-#[derive(Debug, PartialEq, Serialize)]
-pub struct Backlink {
-    pub source_id: i64,
-    pub title: String,
-}
-
-/// 单条笔记的双向链接(编辑面板列表与卡片面板各取所需)
-#[allow(dead_code)]
-#[derive(Debug, PartialEq, Serialize)]
-pub struct NoteLinks {
-    pub outbound: Vec<OutboundLink>,
-    pub backlinks: Vec<Backlink>,
-}
+#[path = "note_links_read.rs"]
+pub mod read;
+// 再导出:L3/L4 的消费方(反向引用面板、编辑面板、关系图)尚未接线,
+// 先放行未使用告警(与 read.rs 里的 dead_code 同做法),接完删掉这行。
+#[allow(unused_imports)]
+pub use read::{
+    all_resolved, list_links_page, list_note_links, outbound_of, outbound_page, Backlink,
+    NoteLinks, OutboundLink,
+};
 
 /// 替换一条笔记的全部链接(替换语义,与 `tags::link_paths` 同口径):
 /// 先整批删掉旧的,再按正文里的标题序列逐条重建。
@@ -112,65 +95,6 @@ fn own_title(conn: &Connection, id: i64) -> rusqlite::Result<Option<String>> {
     let content: Option<String> =
         conn.query_row("SELECT content FROM notes WHERE id = ?1", params![id], |r| r.get(0)).optional()?;
     Ok(content.map(|c| title_of(&c)).filter(|t| !t.is_empty()))
-}
-
-/// 单条笔记的出链 + 入链(编辑面板用)。出链按正文出现顺序(插入序 = id 升序);
-/// 入链按来源 id 升序,同一条来源只出现一次(DISTINCT:正文里引用两遍算一个人)。
-/// 显示标题走 `display_title`(首行原样),匹配才用归一化 key。
-#[allow(dead_code)]
-pub fn list_note_links(conn: &Connection, note_id: i64) -> rusqlite::Result<NoteLinks> {
-    let mut out_stmt = conn.prepare(
-        "SELECT l.target_id, l.raw_title, n.content FROM note_links l
-         LEFT JOIN notes n ON n.id = l.target_id
-         WHERE l.source_id = ?1 ORDER BY l.id",
-    )?;
-    let outbound = out_stmt
-        .query_map(params![note_id], |r| {
-            let content: Option<String> = r.get(2)?;
-            Ok(OutboundLink {
-                target_id: r.get(0)?,
-                raw_title: r.get(1)?,
-                title: content.as_deref().map(display_title),
-            })
-        })?
-        .collect::<rusqlite::Result<Vec<_>>>()?;
-    let mut in_stmt = conn.prepare(
-        "SELECT DISTINCT l.source_id, n.content FROM note_links l
-         JOIN notes n ON n.id = l.source_id
-         WHERE l.target_id = ?1 ORDER BY l.source_id",
-    )?;
-    let backlinks = in_stmt
-        .query_map(params![note_id], |r| {
-            Ok(Backlink { source_id: r.get(0)?, title: display_title(&r.get::<_, String>(1)?) })
-        })?
-        .collect::<rusqlite::Result<Vec<_>>>()?;
-    Ok(NoteLinks { outbound, backlinks })
-}
-
-/// 一页笔记的被引用计数(`target_id -> 引用条数`),一条 SQL 批量取全:
-/// 笔记流 50 张卡不该每张卡一条查询(设计 §3.0 的硬约束)。
-/// 没人引用的 id 不进 Map(前端 `.get()` 得到 undefined,与 0 同义);空入参直接短路。
-#[allow(dead_code)]
-pub fn list_links_page(conn: &Connection, note_ids: &[i64]) -> rusqlite::Result<HashMap<i64, i64>> {
-    if note_ids.is_empty() {
-        return Ok(HashMap::new());
-    }
-    let marks = vec!["?"; note_ids.len()].join(",");
-    let mut stmt = conn.prepare(&format!(
-        "SELECT target_id, COUNT(*) FROM note_links
-         WHERE target_id IS NOT NULL AND target_id IN ({marks}) GROUP BY target_id"
-    ))?;
-    let rows = stmt.query_map(params_from_iter(note_ids), |r| Ok((r.get(0)?, r.get(1)?)))?;
-    rows.collect()
-}
-
-/// 全部**已解析**的边 `(source_id, target_id)`,插入序;关系图 L4 画 link 边用。
-#[allow(dead_code)]
-pub fn all_resolved(conn: &Connection) -> rusqlite::Result<Vec<(i64, i64)>> {
-    let mut stmt = conn
-        .prepare("SELECT source_id, target_id FROM note_links WHERE target_id IS NOT NULL ORDER BY id")?;
-    let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?;
-    rows.collect()
 }
 
 #[cfg(test)]

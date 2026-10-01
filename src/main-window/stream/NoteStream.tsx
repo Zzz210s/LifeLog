@@ -35,6 +35,10 @@ export interface NoteStreamProps {
   onToggleTask: (note: Note, index: number) => void;
   /** 流内链接打开失败上报(交主窗错误机制) */
   onLinkError: (message: string) => void;
+  /** 点正文里已解析的笔记链接 chip:跳到那条笔记(L2) */
+  onOpenNote: (id: number) => void;
+  /** 点未解析的 chip:拿原文预填输入框 `@`(L2) */
+  onUnresolvedNote: (title: string) => void;
 }
 
 /** 时间流:滚动到底自动加载;被编辑条目原位展开为就地源码编辑框 */
@@ -123,6 +127,8 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
               onDelete={() => p.onDelete(n)}
               onToggleTask={(index) => p.onToggleTask(n, index)}
               onLinkError={p.onLinkError}
+              onOpenNote={p.onOpenNote}
+              onUnresolvedNote={p.onUnresolvedNote}
             />
           )
         )}

@@ -18,7 +18,7 @@ vi.mock('../../shared/api', () => ({ api: { updateNote, parseNoteSource } }));
 const note = (content: string, tags: string[] = ['水果']): Note => ({
   id: 7,
   content,
-  created_at: '2026-09-21 08:00:00',
+  created_at: '2026-09-21 08:00:00', links: [],
   tags,
 });
 

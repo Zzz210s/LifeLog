@@ -77,7 +77,7 @@ const type = async (text: string) => {
 const drop = () => host.querySelector('[data-testid="unified-dropdown"]');
 
 beforeEach(async () => {
-  queryNotes.mockResolvedValue([{ id: 1, content: '买牛奶', created_at: '2026-09-22 10:00:00', tags: ['生活'] }]);
+  queryNotes.mockResolvedValue([{ id: 1, content: '买牛奶', created_at: '2026-09-22 10:00:00', links: [], tags: ['生活'] }]);
   listTags.mockResolvedValue([tag('工作/项目A', 4), tag('生活', 1)]);
   getSetting.mockResolvedValue(null);
   host = document.createElement('div');

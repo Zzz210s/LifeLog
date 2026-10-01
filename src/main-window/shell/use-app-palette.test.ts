@@ -20,7 +20,7 @@ vi.mock('../../shared/api', () => ({ api: { queryNotes, listTags, getSetting, se
 const note = (id: number, content: string, tags: string[] = []): Note => ({
   id,
   content,
-  created_at: '2026-09-22 10:00:00',
+  created_at: '2026-09-22 10:00:00', links: [],
   tags,
 });
 const tag = (path: string, subtree: number): TagCount => ({

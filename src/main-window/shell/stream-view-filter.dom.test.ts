@@ -31,7 +31,7 @@ afterEach(() => {
 describe('`/` 实时筛选(300ms 防抖)', () => {
   it('299ms 不写条件,300ms 后写 keyword;提示行给命中数与排序', async () => {
     vi.useFakeTimers();
-    const m = await mountStreamView({ notes: [{ id: 3, content: 'UI测试笔记', created_at: '2026-09-24 10:00:00', tags: [] }], onPatch });
+    const m = await mountStreamView({ notes: [{ id: 3, content: 'UI测试笔记', created_at: '2026-09-24 10:00:00', links: [], tags: [] }], onPatch });
     await m.type('/UI测试');
     await act(async () => { await vi.advanceTimersByTimeAsync(299); });
     expect(onPatch).not.toHaveBeenCalled();

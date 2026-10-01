@@ -2,6 +2,7 @@
 //! 从 `note_links.rs` 挂载,所以仓库层的函数可直接按 `note_links::x` 调。
 use crate::db::migrate;
 use crate::db::repos::note_links;
+use crate::db::repos::notes::{self, notes_filter::empty};
 use rusqlite::Connection;
 
 /// 内存库 + 跑完全部迁移。**显式开外键**:`ON DELETE SET NULL` / `CASCADE` 依赖它,
@@ -166,4 +167,34 @@ fn outbound_title_follows_target_current_first_line() {
     let out = note_links::list_note_links(&c, 2).unwrap();
     assert_eq!(out.outbound[0].raw_title, "甲", "正文原文不改");
     assert_eq!(out.outbound[0].title.as_deref(), Some("甲改"), "显示用目标当前首行(改名跟随)");
+}
+
+#[test]
+fn outbound_page_batches_and_keeps_source_order() {
+    let c = db();
+    seed(&c, "(1,'甲','2026-01-01'),(2,'乙','2026-01-02'),(3,'源A [[甲]] [[乙]]','2026-01-03'),(4,'源B [[甲]]','2026-01-04')");
+    note_links::replace(&c, 3, &["甲".into(), "乙".into()]).unwrap();
+    note_links::replace(&c, 4, &["甲".into()]).unwrap();
+    let m = note_links::outbound_page(&c, &[3, 4, 99]).unwrap();
+    assert_eq!(m.len(), 2, "没有出链/不存在的 id 不进 Map");
+    let a = &m[&3];
+    assert_eq!(a.iter().map(|l| l.raw_title.as_str()).collect::<Vec<_>>(), vec!["甲", "乙"], "按正文出现顺序");
+    assert_eq!(a[0].target_id, Some(1));
+    assert_eq!(m[&4][0].title.as_deref(), Some("甲"), "显示标题随目标当前首行");
+    assert!(note_links::outbound_page(&c, &[]).unwrap().is_empty(), "空入参短路");
+}
+
+#[test]
+fn note_read_paths_carry_outbound_links() {
+    let mut c = db();
+    let target = notes::create_plain(&mut c, "目标笔记").unwrap();
+    let source = notes::create_plain(&mut c, "源 [[目标笔记]] 又 [[不存在的标题]]").unwrap();
+    assert_eq!(source.links.len(), 2, "单条读回(read_full)带出链,含未解析那条");
+    assert_eq!(source.links[0].target_id, Some(target.id));
+    assert_eq!(source.links[0].title.as_deref(), Some("目标笔记"));
+    assert_eq!(source.links[1].target_id, None, "未解析保留一行,前端画未解析样式");
+    assert_eq!(source.links[1].raw_title, "不存在的标题");
+    let page = notes::query(&c, &empty(), 0).unwrap();
+    let got = page.iter().find(|n| n.id == source.id).unwrap();
+    assert_eq!(got.links.len(), 2, "分页查询同样带出链(outbound_page 批量挂)");
 }

@@ -1,5 +1,6 @@
 import type { MouseEvent, ReactNode } from 'react';
 import { linkHrefFrom, openExternal } from '../../shared/links';
+import { noteLinkFrom } from '../../shared/note-link';
 
 export interface MarkdownBodyProps {
   /** 必须来自 renderMarkdown/sanitize 的消毒产物 */
@@ -7,6 +8,10 @@ export interface MarkdownBodyProps {
   className: string;
   /** 链接打开失败上报(可选):由调用方接入既有错误机制,此处不弹窗、不引入全局状态 */
   onLinkError?: (message: string) => void;
+  /** 点已解析的笔记链接 chip:跳到那条笔记(流内滚动 + 高亮,L2 复用快速打开) */
+  onOpenNote?: (id: number) => void;
+  /** 点未解析的 chip:拿正文原文预填统一输入框的 `@`(L2) */
+  onUnresolvedNote?: (title: string) => void;
   /** 可交互开关(默认关闭):开启后任务列表复选框可点击并回调 onToggleTask;只读调用方保持默认 */
   interactive?: boolean;
   /** 交互态下点击第 index 个任务复选框(0 起,文档顺序,取自 data-task-index) */
@@ -31,6 +36,8 @@ export function MarkdownBody({
   html,
   className,
   onLinkError,
+  onOpenNote,
+  onUnresolvedNote,
   interactive = false,
   onToggleTask,
 }: MarkdownBodyProps): ReactNode {
@@ -40,6 +47,14 @@ export function MarkdownBody({
       // 取消原生勾选:勾选态以正文为准,等改写的正文回来再重渲(失败时不留假象)
       e.preventDefault();
       onToggleTask(task);
+      return;
+    }
+    // 笔记链接 chip 优先于外链:已解析 -> 跳那条笔记,未解析 -> 预填输入框去搜
+    const note = noteLinkFrom(e.target);
+    if (note !== null) {
+      e.preventDefault();
+      if (note.id !== null) onOpenNote?.(note.id);
+      else onUnresolvedNote?.(note.title);
       return;
     }
     const href = linkHrefFrom(e.target);

@@ -44,7 +44,7 @@ const emitHostBlur = async (): Promise<void> => {
 const note = (content: string): Note => ({
   id: 7,
   content,
-  created_at: '2026-09-21 08:00:00',
+  created_at: '2026-09-21 08:00:00', links: [],
   tags: ['水果'],
 });
 

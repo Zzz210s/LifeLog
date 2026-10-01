@@ -3,12 +3,15 @@ use serde::Serialize;
 
 /// 笔记(流查询与单条读回的统一结构)。
 /// `created_at` 是物理列:排序(D1 改按 id,与它同序)与筛选都不再用它,只作展示与导出。
+/// `links` 是正文里的出链(L2 渲染 chip 用):单条读取与分页查询都会带上,
+/// 未解析的链接也保留一行(`target_id`/`title` 为 None),前端据此画未解析样式。
 #[derive(Serialize, Debug)]
 pub struct Note {
     pub id: i64,
     pub content: String,
     pub created_at: String,
     pub tags: Vec<String>,
+    pub links: Vec<super::note_links::OutboundLink>,
 }
 
 /// 单行空白归一:保留行首空格/制表符(markdown 缩进语义),仅把行内连续空白折叠为一个空格,

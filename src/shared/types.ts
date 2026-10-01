@@ -6,6 +6,16 @@ export interface Note {
   created_at: string;
   /** 标签**完整路径**(树语义真源;根级标签即其名称) */
   tags: string[];
+  /** 正文里的出链 `[[X]]`(L2):已解析一条也带 targetId/title,null 表示未解析 */
+  links: NoteLink[];
+}
+
+/** 一条出链(与 Rust `OutboundLink` 逐字一致的 camelCase):rawTitle 是正文原文,
+ *  targetId 解析到的目标 id(未解析 null),title 是目标**当前**显示首行(未解析/已删 null) */
+export interface NoteLink {
+  rawTitle: string;
+  targetId: number | null;
+  title: string | null;
 }
 
 /** 标签树节点计数:id 供右键管理(rename/move/delete/tag_impact 按寻址),

@@ -87,6 +87,16 @@ export function StreamView(p: StreamViewProps): ReactNode {
     setError: reportAction,
   });
 
+  /** 未解析 chip 点击(设计 §4):把 `@原文` 放进统一输入框并聚焦。
+   *  先 setRaw 写全文(盖掉已有草稿),再 prefill('@') 抢焦点 ——
+   *  prefill 走 withPrefix(只带前缀 + 当前 query),直接传 `@原文` 会拼成 `@原文原文`。 */
+  const prefillNoteSearch = (title: string) => {
+    const c = p.unifiedRef.current;
+    if (c === null) return;
+    c.setRaw(`@${title}`);
+    c.prefill('@');
+  };
+
   // `/` 模式的提示行文案:命中数取 query_notes 返回的长度,排序文案跟随条件
   const stat =
     mode === 'filter'
@@ -155,6 +165,8 @@ export function StreamView(p: StreamViewProps): ReactNode {
         onEditCancel={p.onEditCancel}
         onToggleTask={p.onToggleTask}
         onLinkError={p.onLinkError}
+        onOpenNote={openNote}
+        onUnresolvedNote={prefillNoteSearch}
       />
     </div>
   );

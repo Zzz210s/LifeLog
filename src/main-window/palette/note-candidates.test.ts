@@ -8,7 +8,7 @@ import {
   searchConditions,
 } from './note-candidates';
 
-const note = (id: number): Note => ({ id, content: `n${id}`, created_at: '2026-09-22 10:00:00', tags: [] });
+const note = (id: number): Note => ({ id, content: `n${id}`, created_at: '2026-09-22 10:00:00', links: [], tags: [] });
 const pageOf = (from: number, count: number): Note[] =>
   Array.from({ length: count }, (_, i) => note(from + i));
 

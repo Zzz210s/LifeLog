@@ -48,7 +48,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const NOTE: Note = { id: 1, content: '第一条正文', created_at: '2026-09-22 08:00:00', tags: [] };
+const NOTE: Note = { id: 1, content: '第一条正文', created_at: '2026-09-22 08:00:00', links: [], tags: [] };
 
 describe('V4 唯一输入框:区高收紧,输入框与保存按钮同档', () => {
   it('区容器 py-2(不再是 py-3),输入框与保存按钮同一行 gap-2', async () => {
@@ -143,6 +143,8 @@ describe('V4 卡片内联动作与空态按钮', () => {
         onEditCancel: () => {},
         onToggleTask: () => {},
         onLinkError: () => {},
+        onOpenNote: () => {},
+        onUnresolvedNote: () => {},
       })
     );
     const btn = host.querySelector('button') as HTMLElement;

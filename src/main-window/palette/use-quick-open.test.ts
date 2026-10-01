@@ -11,7 +11,7 @@ import { useQuickOpen } from './use-quick-open';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const note = (id: number): Note => ({ id, content: `n${id}`, created_at: '2026-09-22 10:00:00', tags: [] });
+const note = (id: number): Note => ({ id, content: `n${id}`, created_at: '2026-09-22 10:00:00', links: [], tags: [] });
 
 interface Harness {
   open: (id: number) => void;

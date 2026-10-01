@@ -27,7 +27,7 @@ describe('EditPanel 把 flush 登记进命令通道', () => {
     const host = document.createElement('div');
     document.body.appendChild(host);
     const root = createRoot(host);
-    const note: Note = { id: 7, content: '买牛奶', created_at: '2026-09-22 10:00:00', tags: [] };
+    const note: Note = { id: 7, content: '买牛奶', created_at: '2026-09-22 10:00:00', links: [], tags: [] };
     expect(hasEditingPanel()).toBe(false);
     await act(async () => {
       root.render(createElement(EditPanel, { note, onSaved: () => {}, onCancel: () => {} }));

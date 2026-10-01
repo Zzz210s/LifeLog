@@ -3,6 +3,8 @@ import hljs from 'highlight.js/lib/common';
 import MarkdownIt from 'markdown-it';
 import taskLists from 'markdown-it-task-lists';
 import { enableTaskCheckboxes } from './md-task';
+import { noteLinkEnv, noteLinkRule, renderNoteLinkToken } from './note-link';
+import type { NoteLink } from './types';
 
 /**
  * 代码高亮:识别语言则返回自带 hljs 类名的 pre/code 包装
@@ -35,6 +37,11 @@ const md = new MarkdownIt({
     m.renderer.rules.s_open = () => '<del>';
     m.renderer.rules.s_close = () => '</del>';
   });
+
+// 笔记间链接 `[[X]]` 的行内规则 + 渲染规则(设计 D10):装在 link 之后,
+// `[文本](url)` 仍走原 link 规则;围栏/行内代码/`\[[x]]` 由 markdown-it 自身解析顺序挡掉。
+md.inline.ruler.after('link', 'note_link', noteLinkRule);
+md.renderer.rules.note_link = renderNoteLinkToken;
 
 /** URI 白名单:仅 http(s)/mailto;javascript:/data:/相对路径一并剥离 */
 const ALLOWED_URI = /^(?:https?:|mailto:)/i;
@@ -69,9 +76,10 @@ export function sanitize(html: string): string {
   return DOMPurify.sanitize(html, PURIFY);
 }
 
-/** Markdown 文本 -> 安全 HTML;300ms 防抖不在本层,由组件自行节流 */
-export function renderMarkdown(text: string): string {
-  return sanitize(md.render(text));
+/** Markdown 文本 -> 安全 HTML;300ms 防抖不在本层,由组件自行节流。
+ *  `links` 是笔记的出链(L2):给上就按解析结果把 `[[X]]` 渲成 chip,不给则原样文本。 */
+export function renderMarkdown(text: string, links?: readonly NoteLink[]): string {
+  return sanitize(md.render(text, noteLinkEnv(links)));
 }
 
 /**
@@ -79,6 +87,6 @@ export function renderMarkdown(text: string): string {
  * 额外给任务列表复选框按文档顺序标上 data-task-index 并解开 disabled;
  * renderMarkdown 自身仍是只读产物(sanitize 后无序号),供需要纯预览的调用方使用。
  */
-export function renderMarkdownInteractive(text: string): string {
-  return enableTaskCheckboxes(renderMarkdown(text));
+export function renderMarkdownInteractive(text: string, links?: readonly NoteLink[]): string {
+  return enableTaskCheckboxes(renderMarkdown(text, links));
 }

@@ -18,6 +18,10 @@ export interface NoteItemProps {
   selected?: boolean;
   /** 正文内链接打开失败上报(交主窗错误机制) */
   onLinkError?: (message: string) => void;
+  /** 点正文里已解析的笔记链接 chip:跳到那条笔记(L2,复用快速打开的滚动 + 高亮) */
+  onOpenNote?: (id: number) => void;
+  /** 点正文里未解析的 chip:拿原文预填统一输入框的 `@`(L2) */
+  onUnresolvedNote?: (title: string) => void;
   /** 点击第 index 个任务列表复选框(0 起,文档顺序) */
   onToggleTask: (index: number) => void;
 }
@@ -34,8 +38,9 @@ export function NoteItem(p: NoteItemProps): ReactNode {
   const { note } = p;
   // chip 行展示全部标签:时间标签已降级为普通标签(D3),不再是需要滤掉的系统元数据;
   // 主题/属性分两排与折叠阈值都在 NoteChips 里(纯函数在 note-chips.ts)
-  // 正文渲染按内容缓存:流内任一条目变化会重渲整列,避免重复解析 markdown
-  const html = useMemo(() => renderMarkdownInteractive(note.content), [note.content]);
+  // 正文渲染按内容缓存:流内任一条目变化会重渲整列,避免重复解析 markdown。
+  // 依赖要含 links(L2):出链解析结果变了 chip 也得跟着变
+  const html = useMemo(() => renderMarkdownInteractive(note.content, note.links), [note.content, note.links]);
   // 键盘通道的无障碍名带上正文摘要:否则每条的按钮都叫「编辑」,读屏用户无法分辨目标
   const editLabel = useMemo(() => {
     const brief = note.content.replace(/\s+/g, ' ').trim().slice(0, 24);
@@ -78,6 +83,8 @@ export function NoteItem(p: NoteItemProps): ReactNode {
           html={html}
           className="md-body mt-1 min-w-0 text-body text-text"
           onLinkError={p.onLinkError}
+          onOpenNote={p.onOpenNote}
+          onUnresolvedNote={p.onUnresolvedNote}
           interactive
           onToggleTask={p.onToggleTask}
         />

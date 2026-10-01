@@ -29,7 +29,13 @@ pub(crate) fn fold_tag_rows(
                     n.tags.push(t);
                 }
             }
-            _ => out.push(Note { id, content, created_at, tags: tag.into_iter().collect() }),
+            _ => out.push(Note {
+                id,
+                content,
+                created_at,
+                tags: tag.into_iter().collect(),
+                links: Vec::new(), // 单条/分页路径随后用 outbound_of / outbound_page 挂上
+            }),
         }
     }
     Ok(out)
@@ -72,5 +78,9 @@ pub(crate) fn read_full(conn: &Connection, id: i64) -> rusqlite::Result<Option<N
         columns()
     ))?;
     let rows = stmt.query_map(params![id], map_note_row)?;
-    Ok(fold_tag_rows(rows)?.into_iter().next())
+    let mut note = fold_tag_rows(rows)?.into_iter().next();
+    if let Some(n) = note.as_mut() {
+        n.links = crate::db::repos::note_links::outbound_of(conn, n.id)?;
+    }
+    Ok(note)
 }

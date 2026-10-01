@@ -18,7 +18,7 @@ vi.mock('../../shared/api', () => ({ api: { updateNote } }));
 const note = (id: number, content: string): Note => ({
   id,
   content,
-  created_at: '2026-09-21 08:00:00',
+  created_at: '2026-09-21 08:00:00', links: [],
   tags: [],
 });
 
@@ -54,6 +54,8 @@ async function mount(editingId: number | null): Promise<void> {
         onEditCancel,
         onToggleTask: () => {},
         onLinkError: () => {},
+        onOpenNote: () => {},
+        onUnresolvedNote: () => {},
       })
     );
   });

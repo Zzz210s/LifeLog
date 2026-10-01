@@ -7,7 +7,7 @@ import { mergeNotes, replaceNote, needsRefetchAfterChange, shouldAutoRefresh, PA
 const note = (id: number, content = 'x'): Note => ({
   id,
   content,
-  created_at: '2026-09-12 08:30:45',
+  created_at: '2026-09-12 08:30:45', links: [],
   tags: [],
 });
 

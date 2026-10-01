@@ -84,7 +84,7 @@ describe('`#` 候选:标签新鲜度出口(复审 I2)', () => {
     updateNote.mockResolvedValue({
       id: 7,
       content: '旧正文',
-      created_at: '2026-09-22 10:00:00',
+      created_at: '2026-09-22 10:00:00', links: [],
       tags: ['编辑时新建的标签'],
     });
     listTags.mockResolvedValue([tag('工作', 4), tag('生活', 1), tag('编辑时新建的标签', 0)]);

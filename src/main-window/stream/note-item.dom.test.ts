@@ -20,7 +20,7 @@ vi.mock('@tauri-apps/plugin-opener', () => ({ openUrl }));
 const note = (content: string, tags: string[] = []): Note => ({
   id: 1,
   content,
-  created_at: '2026-09-21 08:00:00',
+  created_at: '2026-09-21 08:00:00', links: [],
   tags,
 });
 
@@ -100,6 +100,9 @@ describe('shouldEnterEdit 纯判定', () => {
     expect(shouldEnterEdit(document.createElement('input'), '')).toBe(false);
     expect(shouldEnterEdit(document.createElement('button'), '')).toBe(false);
     expect(shouldEnterEdit(document.createElement('label'), '')).toBe(false);
+    const chip = document.createElement('span');
+    chip.setAttribute('data-note-link', '3');
+    expect(shouldEnterEdit(chip, '')).toBe(false);
     expect(shouldEnterEdit(document.createElement('div'), '选中的文字')).toBe(false);
   });
 });

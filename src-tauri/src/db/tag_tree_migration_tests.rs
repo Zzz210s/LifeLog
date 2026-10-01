@@ -8,6 +8,11 @@ use rusqlite::Connection;
 /// 不写成“len - 1”是因为后续新增迁移(007 起)会改变末尾位置。
 const V_006: usize = 6;
 
+/// 019(笔记间链接表)的位次:`query` 的读取路径自 L2 起会带上出链,
+/// 本文件的旧库夹具只到 006,跑 `query` 前得把这张表补上(与 done_doing_migration_tests
+/// 里 create_plain 夹具补 019 同做法;019 是纯加表,重放无副作用)
+const V_019: usize = 19;
+
 /// 升级前旧库:应用到 006 之前为止,user_version 停在 5,外键开启(与真实运行时一致)
 fn old_db() -> Connection {
     let conn = Connection::open_in_memory().unwrap();
@@ -117,6 +122,8 @@ fn migration_006_indexes_tag_paths_for_search() {
     .unwrap();
 
     apply_006(&conn);
+    // query 读取路径现在会读 note_links(L2 出链),旧库夹具只到 006:先补建该表
+    conn.execute_batch(MIGRATIONS[V_019 - 1]).unwrap();
     // 迁移后按新语法建二级节点 `工作/项目A`,链接落在末端
     conn.execute_batch(
         "INSERT INTO tags(name, parent_id, path, depth)
