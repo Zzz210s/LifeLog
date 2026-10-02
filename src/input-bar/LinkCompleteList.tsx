@@ -6,8 +6,8 @@ import type { ListRow } from '../shared/quickpick/model';
 export interface LinkCompleteListProps {
   items: readonly ListRow[];
   activeIndex: number;
-  /** 采纳:恒传被选中行的完整标题(写回 `[[标题]]`) */
-  onPick: (title: string) => void;
+  /** 采纳选中行:鼠标与键盘共用(行携带 item.id,供 MRU 记账) */
+  onPick: (row: ListRow) => void;
 }
 
 /**
@@ -45,7 +45,7 @@ export function LinkCompleteList(p: LinkCompleteListProps): ReactNode {
             style={{ height: SUGGEST_ROW_CSS }}
             onMouseDown={(e) => {
               e.preventDefault();
-              p.onPick(it.item.label);
+              p.onPick(it);
             }}
             className={
               'flex w-full items-center px-3 text-left text-xs ' +

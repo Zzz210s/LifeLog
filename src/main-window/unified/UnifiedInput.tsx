@@ -21,7 +21,7 @@ import { UnifiedTextarea } from './UnifiedTextarea';
 import { useCloseOnFocusOut } from './use-close-on-focus-out';
 import type { UnifiedCandidateWiring } from './use-unified-candidates';
 import { useUnifiedInput, type UnifiedController } from './use-unified-input';
-import { useUnifiedPanel } from './use-unified-panel';
+import { useUnifiedPanel, type UnifiedPanelOptions } from './use-unified-panel';
 
 export interface UnifiedInputProps {
   /** 保存成功后回调(父组件刷新:回第一页 + 重读标签) */
@@ -42,6 +42,8 @@ export interface UnifiedInputProps {
   dataVersion?: number;
   /** 正在编辑的那条笔记 id(`[[` 候选里排除它自己) */
   excludeNoteId?: number;
+  /** 笔记 MRU(`[[` 候选的空查询排序与采纳记账;与主窗共用一份实例) */
+  noteMru?: UnifiedPanelOptions['noteMru'];
 }
 
 /** 自动增高上限(约 10 行):超过后转框内滚动 */
@@ -135,6 +137,7 @@ export function UnifiedInput(p: UnifiedInputProps): ReactNode {
     decorations: p.candidates?.decorations,
     dataVersion: p.dataVersion ?? 0,
     excludeNoteId: p.excludeNoteId,
+    noteMru: p.noteMru,
     save: () => void save(),
     writeText: (text, next) => {
       pendingCaret.current = next;

@@ -6,10 +6,11 @@
  * 打分/排序/高亮与 `#` 补全同一套,并按 `PaletteController` 形状交给面板,互不影响既有四类前缀。
  *
  * 候选池懒取:`useNoteTitles(enabled)` 只在真的出现未闭合 `[[` 后才打一次 IPC(N9 的会话内缓存)。
- * 空查询给整池前 8(id 升序,`buildList` 默认序);有查询按 `scoreFuzzy` 精排。
+ * 空查询:MRU(最近用过)优先,其后按池顺序;有查询按 `scoreFuzzy` 精排(MRU 不参与)。
  */
 import { useEffect, useMemo, useState } from 'react';
 import { acceptLink, detectLinkTrigger } from '../../shared/note-link-trigger';
+import type { NoteMruSource } from '../../shared/note-mru';
 import { buildList, COMPLETE_LIMIT } from '../../shared/quickpick/model';
 import type { QuickPickItem } from '../../shared/quickpick/model';
 import type { NoteTitle } from '../../shared/types';
@@ -35,6 +36,8 @@ export interface LinkCompleteOptions {
   dataVersion: number;
   /** 正在编辑的那一条(候选里排除它) */
   excludeId?: number;
+  /** 笔记 MRU(采纳记账 + 空查询排序;与主窗/输入栏共用一份,见 shared/note-mru) */
+  mru?: NoteMruSource | null;
 }
 
 export interface LinkComplete {
@@ -45,6 +48,8 @@ export interface LinkComplete {
   accept(index: number): { text: string; caret: number } | null;
   /** Esc 收起面板(不动正文);正文再变一次即自然重现 */
   dismiss(): void;
+  /** 采纳记账(供编辑器走 DOM 写回那条路复用):id 进 MRU 并触发空查询重排 */
+  touchMru(id: string): void;
 }
 
 export function useLinkComplete(o: LinkCompleteOptions): LinkComplete {
@@ -52,7 +57,13 @@ export function useLinkComplete(o: LinkCompleteOptions): LinkComplete {
   const pool = useNoteTitles(o.dataVersion, trigger !== null);
   const items = useMemo(() => linkItems(pool.titles, o.excludeId), [pool.titles, o.excludeId]);
   const query = trigger?.query ?? '';
-  const list = useMemo(() => buildList({ items, query, limit: COMPLETE_LIMIT }), [items, query]);
+  // 采纳记一次 MRU 后要让空查询重排:用 tick 现读 entries(),不缓存成 props 里的静态数组
+  const [mruTick, setMruTick] = useState(0);
+  const mru = useMemo(() => o.mru?.entries() ?? [], [o.mru, mruTick]);
+  const list = useMemo(
+    () => buildList({ items, query, limit: COMPLETE_LIMIT, mru }),
+    [items, query, mru],
+  );
 
   const [rawActive, setRawActive] = useState(0);
   // 查询一变就回到第一行(与控制器 setQuery 同口径),否则收窄后高亮可能停在空行
@@ -61,6 +72,12 @@ export function useLinkComplete(o: LinkCompleteOptions): LinkComplete {
 
   // Esc 收起:记住「在哪段正文上收的」,正文一变(继续打字/删字)就重现
   const [mutedOn, setMutedOn] = useState<string | null>(null);
+
+  /** 采纳记账:进 MRU + 让空查询按最近用过重排(编辑器自己写 DOM 的采纳路径也走这里) */
+  const touchMru = (id: string): void => {
+    o.mru?.touch(id);
+    setMruTick((t) => t + 1);
+  };
 
   return {
     active: trigger !== null && mutedOn !== o.raw,
@@ -79,10 +96,12 @@ export function useLinkComplete(o: LinkCompleteOptions): LinkComplete {
       const row = list.rows[index];
       if (row === undefined) return null;
       const next = acceptLink(o.raw, o.caret, row.item.label);
+      touchMru(row.item.id);
       return next.text === o.raw && next.caret === o.caret ? null : next;
     },
     dismiss() {
       setMutedOn(o.raw);
     },
+    touchMru,
   };
 }

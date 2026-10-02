@@ -6,12 +6,13 @@
  * `effectFor`(可单测),执行(滚到笔记 / 打条件补丁 / 跑既有命令 + MRU 记账)都在本容器里。
  * 模式/query 镜像与筛选防抖已抽到 `use-unified-filter-sync`(Task 4,守行数红线)。
  */
-import { useCallback, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import type { ReactNode, RefObject } from 'react';
 import type { Note } from '../../shared/types';
 import type { FilterConditions } from '../../shared/filter-conditions';
 import type { RowDecoration } from '../palette/PaletteRow';
 import type { PaletteController } from '../palette/use-palette';
+import { noteMruOf } from '../palette/palette-mru';
 import { usePaletteSettings } from '../palette/use-palette-settings';
 import { UnifiedInput } from '../unified/UnifiedInput';
 import type { UnifiedController } from '../unified/use-unified-input';
@@ -75,6 +76,8 @@ export function StreamView(p: StreamViewProps): ReactNode {
   latest.current = p;
   // MRU 记账与候选体系同一套设置装配(只在此处标脏,空闲/退出才落盘)
   const { settings, saveMruSoon } = usePaletteSettings();
+  // `[[` 补全的笔记 MRU:统一输入框与卡片编辑框共用这一份(同一窗口只能有一个内存实例)
+  const noteMru = useMemo(() => noteMruOf(settings, saveMruSoon), [settings, saveMruSoon]);
 
   // 统一错误出口:useQuickOpen 只按 'action' 来源上报,这里透传给主窗错误条
   const reportAction = useCallback(
@@ -143,6 +146,7 @@ export function StreamView(p: StreamViewProps): ReactNode {
         candidates={{ palette: p.palette, decorations: p.decorations }}
         dataVersion={p.dataVersion ?? 0}
         excludeNoteId={p.editingId ?? undefined}
+        noteMru={noteMru}
       />
       <ConditionBar
         conditions={p.conditions}
@@ -174,6 +178,7 @@ export function StreamView(p: StreamViewProps): ReactNode {
         onOpenNote={openNote}
         onUnresolvedNote={prefillNoteSearch}
         backlinkCounts={p.backlinkCounts}
+        noteMru={noteMru}
       />
     </div>
   );

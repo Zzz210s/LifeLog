@@ -52,8 +52,7 @@ export function InputBar() {
     value: content,
     caret,
     onReplace: applyValue,
-    settings: palette.settings,
-    onMruChange: palette.saveMruSoon,
+    palette,
     dataVersion: poolVersion,
   });
   // 建议列表(# 标签 / [[ 笔记二选一):像浏览器搜索框下方那样长在输入框正下方,窗口随之变高(高度不落库)

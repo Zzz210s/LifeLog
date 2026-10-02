@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import type { Note } from '../../shared/types';
 import { EMPTY_STATE_ACTION, EMPTY_STATE_TEXT, streamEmptyState } from '../shell/empty-stream';
 import { BTN_SECONDARY } from '../shell/button-classes';
-import { EditPanel } from '../editor/EditPanel';
+import { EditPanel, type EditPanelProps } from '../editor/EditPanel';
 import { takeScrollRestore } from './scroll-restore';
 import { NoteItem } from './NoteItem';
 
@@ -41,6 +41,8 @@ export interface NoteStreamProps {
   onUnresolvedNote: (title: string) => void;
   /** 本页各笔记的被引用计数(按 id;L3 卡片「被引用 N」,缺省视为 0) */
   backlinkCounts?: Readonly<Record<number, number>>;
+  /** 笔记 MRU(`[[` 候选排序与采纳记账;与主窗共用一份实例) */
+  noteMru?: EditPanelProps['noteMru'];
 }
 
 /** 时间流:滚动到底自动加载;被编辑条目原位展开为就地源码编辑框 */
@@ -106,6 +108,7 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
                 key={n.id}
                 note={n}
                 backlinkCount={p.backlinkCounts?.[n.id]}
+                noteMru={p.noteMru}
                 onSaved={p.onEditSaved}
                 onCancel={p.onEditCancel}
                 onSwitchNote={(id) => {

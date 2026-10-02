@@ -10,6 +10,7 @@
  */
 import type { KeyboardEventHandler, ReactNode } from 'react';
 import type { InputMode } from '../../shared/input-prefix';
+import type { NoteMruSource } from '../../shared/note-mru';
 import type { RowDecoration } from '../palette/PaletteRow';
 import { renderRowCount } from '../palette/palette-limits';
 import type { PaletteController } from '../palette/use-palette';
@@ -31,6 +32,8 @@ export interface UnifiedPanelOptions {
   /** 笔记数据版本与「正在编辑的那一条」(链接候选池) */
   dataVersion: number;
   excludeNoteId?: number;
+  /** 笔记 MRU(链接候选的空查询排序与采纳记账;与主窗共用一份实例) */
+  noteMru?: NoteMruSource | null;
   save: () => void;
   /** 链接采纳:写回正文与光标 */
   writeText: (text: string, caret: number) => void;
@@ -55,6 +58,7 @@ export function useUnifiedPanel(o: UnifiedPanelOptions): UnifiedPanel {
     caret: o.caret,
     dataVersion: o.dataVersion,
     excludeId: o.excludeNoteId,
+    mru: o.noteMru,
   });
   // 常驻驱动前缀控制器(无候选接线时退化为空列表):下拉数据来自控制器,本 hook 不再自己取
   useUnifiedCandidates({ mode: o.mode, query: o.query, controller: o.palette });

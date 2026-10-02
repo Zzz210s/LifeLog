@@ -10,10 +10,12 @@
  * 触发是**渲染期**从 `value + caret` 推导的(宿主从 textarea 的 onChange/onSelect 上报):
  * 因此 ↑/↓ 改变光标只会触发重渲染,查询没变就**不重算、不归零高亮**(同 `#` 补全的
  * "上下箭头选不动"修复口径)。候选池放在 `query !== null` 之后才懒取(N9:不每击键打 IPC)。
+ * 空查询 MRU(最近用过)优先,其后按池顺序;有查询 fuzzy 分数说话(MRU 不参与)。
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react';
 import { acceptLink, detectLinkTrigger } from '../shared/note-link-trigger';
+import type { NoteMruSource } from '../shared/note-mru';
 import { buildList, COMPLETE_LIMIT } from '../shared/quickpick/model';
 import type { ListRow, QuickPickItem } from '../shared/quickpick/model';
 import type { NoteTitle } from '../shared/types';
@@ -29,6 +31,8 @@ export interface LinkCompleteOptions {
   onReplace: (next: string) => void;
   /** 候选池作废键(N9 会话内缓存;缺省 0 = 整个窗口会话只取一次) */
   dataVersion?: number;
+  /** 笔记 MRU(采纳记账 + 空查询排序;与主窗/输入栏共用一份,见 shared/note-mru) */
+  mru?: NoteMruSource | null;
 }
 
 export interface LinkCompleteState {
@@ -38,8 +42,8 @@ export interface LinkCompleteState {
   activeIndex: number;
   /** 键盘路由:返回 true 表示已消费(宿主不再处理该键);Ctrl/组合键与 IME 组合中恒不消费 */
   onKeyDown: (e: ReactKeyboardEvent<HTMLTextAreaElement>) => boolean;
-  /** 采纳指定标题(鼠标点击候选与键盘共走这一条) */
-  onPick: (title: string) => void;
+  /** 采纳选中行(鼠标点击候选与键盘共走这一条;行携带 item.id 供 MRU 记账) */
+  onPick: (row: ListRow) => void;
 }
 
 /** 笔记标题 -> 候选项(标题即打分与展示的主文案;id 用笔记 id 保证 React key 稳定) */
@@ -51,12 +55,15 @@ export function useLinkComplete(opts: LinkCompleteOptions): LinkCompleteState {
   const trigger = detectLinkTrigger(opts.value, opts.caret);
   const query = trigger === null ? null : trigger.query;
   const pool = useNoteTitles(opts.dataVersion ?? 0, query !== null);
+  // 采纳记一次 MRU 后要让空查询重排:用 tick 现读 entries()
+  const [mruTick, setMruTick] = useState(0);
+  const mru = useMemo(() => opts.mru?.entries() ?? [], [opts.mru, mruTick]);
   const items = useMemo(
     () =>
       query === null
         ? []
-        : buildList({ items: toItems(pool.titles), query, limit: COMPLETE_LIMIT }).rows,
-    [pool.titles, query]
+        : buildList({ items: toItems(pool.titles), query, limit: COMPLETE_LIMIT, mru }).rows,
+    [pool.titles, query, mru]
   );
 
   // Esc 收起:记住「在哪段正文上收的」,正文一变(继续打字/删字)就自然重现
@@ -68,10 +75,12 @@ export function useLinkComplete(opts: LinkCompleteOptions): LinkCompleteState {
   const open = query !== null && mutedOn !== opts.value && items.length > 0;
 
   const adopt = useCallback(
-    (title: string) => {
+    (row: ListRow) => {
       const el = opts.textareaRef.current;
       if (el === null) return;
-      const next = acceptLink(el.value, el.selectionStart ?? 0, title);
+      const next = acceptLink(el.value, el.selectionStart ?? 0, row.item.label);
+      opts.mru?.touch(row.item.id);
+      setMruTick((t) => t + 1);
       opts.onReplace(next.text);
       setMutedOn(next.text); // 采纳后保持收起(闭合成 `]]` 或宿主的陈旧光标都不再弹)
       requestAnimationFrame(() => el.setSelectionRange(next.caret, next.caret));
@@ -97,7 +106,7 @@ export function useLinkComplete(opts: LinkCompleteOptions): LinkCompleteState {
       if (e.key === 'Enter' || e.key === 'Tab') {
         e.preventDefault();
         const pick = items[activeIndex] ?? items[0];
-        if (pick !== undefined) adopt(pick.item.label);
+        if (pick !== undefined) adopt(pick);
         return true;
       }
       if (e.key === 'Escape') {

@@ -7,6 +7,8 @@
  */
 import { act } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { PaletteSettingsApi } from '../main-window/palette/use-palette-settings';
+import { createMru } from '../shared/quickpick/mru';
 import type { NoteTitle } from '../shared/types';
 import { mountCompletions } from './completions-test-kit';
 import type { CompletionsDom } from './completions-test-kit';
@@ -119,5 +121,26 @@ describe('输入栏:`[[` 笔记补全', () => {
     await dom.key('ArrowDown');
     await dom.key('Enter');
     expect(dom.box().value).toBe('[[购物清单]]');
+  });
+
+  it('空查询按 MRU:采纳「购物清单」后重打 `[[`,它排第一;非空查询不受 MRU 影响', async () => {
+    const noop = { read: () => null, write: () => {} };
+    const mru = createMru({ storage: noop });
+    const palette: PaletteSettingsApi = {
+      settings: { mruCommands: mru, mruNotes: mru, mruTags: mru, pinnedTags: [], limit: 200, saveMru: () => {} },
+      saveMruSoon: () => {},
+    };
+    const withMru = await mountCompletions({ palette });
+    try {
+      await withMru.type('[[购物');
+      await withMru.key('Enter');
+      expect(withMru.box().value).toBe('[[购物清单]]');
+      await withMru.type('[[');
+      expect(withMru.labels('link-suggest')).toEqual(['购物清单', '买牛奶']);
+      await withMru.type('[[牛');
+      expect(withMru.labels('link-suggest')).toEqual(['买牛奶']); // fuzzy 说话,MRU 不插队
+    } finally {
+      withMru.unmount();
+    }
   });
 });

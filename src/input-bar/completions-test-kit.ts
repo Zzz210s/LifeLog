@@ -9,12 +9,13 @@
 import { act, createElement, useRef, useState } from 'react';
 import type { ChangeEvent, KeyboardEvent as ReactKeyboardEvent, ReactNode, SyntheticEvent } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import type { PaletteSettingsApi } from '../main-window/palette/use-palette-settings';
 import { useInputCompletions } from './use-input-completions';
 
 const SET_VALUE = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!;
 
 /** 宿主接线的最小复刻:非受控 textarea + 值/光标镜像 + 采纳写回(与 InputBar.applyValue 同形) */
-function Harness(): ReactNode {
+function Harness({ palette }: { palette?: PaletteSettingsApi | null }): ReactNode {
   const ref = useRef<HTMLTextAreaElement>(null);
   const [value, setValue] = useState('');
   const [caret, setCaret] = useState(0);
@@ -27,7 +28,7 @@ function Harness(): ReactNode {
     setValue(next);
     setCaret(next.length);
   };
-  const c = useInputCompletions({ textareaRef: ref, value, caret, onReplace: apply });
+  const c = useInputCompletions({ textareaRef: ref, value, caret, onReplace: apply, palette });
   return createElement(
     'div',
     null,
@@ -68,11 +69,13 @@ export interface CompletionsDom {
   unmount(): void;
 }
 
-export async function mountCompletions(): Promise<CompletionsDom> {
+export async function mountCompletions(
+  opts: { palette?: PaletteSettingsApi | null } = {},
+): Promise<CompletionsDom> {
   const host = document.createElement('div');
   document.body.appendChild(host);
   const root: Root = createRoot(host);
-  await act(async () => root.render(createElement(Harness)));
+  await act(async () => root.render(createElement(Harness, { palette: opts.palette })));
 
   const box = () => host.querySelector('textarea[aria-label="输入栏内容"]') as HTMLTextAreaElement;
   const settle = async (): Promise<void> => {

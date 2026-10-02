@@ -7,7 +7,7 @@ import { shouldEnterEdit } from '../stream/body-click';
 import { BacklinksPanel } from '../stream/BacklinksPanel';
 import { editRows } from './textarea-rows';
 import { useSourceTagCount } from './use-source-tags';
-import { useSourceLinkComplete } from './use-source-link-complete';
+import { useSourceLinkComplete, type SourceLinkOptions } from './use-source-link-complete';
 import { useFocusSource } from './use-focus-source';
 import { EDIT_LINK_LISTBOX_ID } from './SourceLinkList';
 import { EditFooter } from './EditFooter';
@@ -28,6 +28,7 @@ export interface EditPanelProps {
   onErrorFallback?: (message: string) => void;
   /** 该笔记被多少条其它笔记引用(L3):>0 时在面板底部列出只读的反向引用来源 */
   backlinkCount?: number;
+  noteMru?: SourceLinkOptions['mru']; // `[[` 补全的笔记 MRU(与主窗共用一份实例)
 }
 
 /** 提交结果:ok 为假时 message 是中文原因;inline = 面板内已经显示过(卸载时才需要转交);
@@ -143,6 +144,7 @@ export function EditPanel(p: EditPanelProps): ReactNode {
     source,
     caret,
     excludeId: p.note.id,
+    mru: p.noteMru,
     onWritten: (text, at) => {
       domText.current = text;
       setSource(text);

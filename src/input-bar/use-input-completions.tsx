@@ -8,12 +8,13 @@
  * - `link.onKeyDown` 只在 `[[` 命中时被调用,标签补全在那种上下文里收不到任何键。
  */
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode, RefObject } from 'react';
+import { noteMruOf } from '../main-window/palette/palette-mru';
+import type { PaletteSettingsApi } from '../main-window/palette/use-palette-settings';
 import { suggestListHeightCss } from '../shared/input-geometry';
 import { LinkCompleteList } from './LinkCompleteList';
 import { TagCompleteList } from './TagCompleteList';
 import { useLinkComplete } from './use-link-complete';
 import { useTagComplete } from './use-tag-complete';
-import type { TagMruSource } from './use-tag-complete';
 
 export interface InputCompletionsOptions {
   textareaRef: RefObject<HTMLTextAreaElement | null>;
@@ -23,10 +24,8 @@ export interface InputCompletionsOptions {
   caret: number;
   /** 采纳:把替换后的整体正文交回受控状态 */
   onReplace: (next: string) => void;
-  /** 标签补全的固定项 / MRU(缺省 = 还没读回来) */
-  settings?: TagMruSource | null;
-  /** 标签 MRU 标脏落盘(缺省不落盘) */
-  onMruChange?: () => void;
+  /** 浮层设置(固定项/标签 MRU/笔记 MRU 共用同一份实例);缺省 = 还没读回来 */
+  palette?: PaletteSettingsApi | null;
   /** 笔记候选池作废键 */
   dataVersion?: number;
 }
@@ -41,12 +40,13 @@ export interface InputCompletions {
 }
 
 export function useInputCompletions(o: InputCompletionsOptions): InputCompletions {
+  const settings = o.palette?.settings ?? null;
   const tag = useTagComplete({
     textareaRef: o.textareaRef,
     value: o.value,
     onReplace: o.onReplace,
-    settings: o.settings,
-    onMruChange: o.onMruChange,
+    settings,
+    onMruChange: o.palette?.saveMruSoon,
   });
   const link = useLinkComplete({
     textareaRef: o.textareaRef,
@@ -54,6 +54,7 @@ export function useInputCompletions(o: InputCompletionsOptions): InputCompletion
     caret: o.caret,
     onReplace: o.onReplace,
     dataVersion: o.dataVersion,
+    mru: noteMruOf(settings, o.palette?.saveMruSoon),
   });
 
   // `[[` 命中即由链接候选接管;否则标签候选照旧(空候选时列表渲染为 null,高度也为 0)

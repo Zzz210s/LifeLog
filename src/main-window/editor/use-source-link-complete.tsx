@@ -14,6 +14,7 @@
  *     这条由 `routeUnifiedKey` 天然的「Esc 永远路由给 esc 回调」+ 本 hook 的 esc 分流实现。
  */
 import type { KeyboardEvent, ReactNode, RefObject } from 'react';
+import type { NoteMruSource } from '../../shared/note-mru';
 import { acceptLink } from '../../shared/note-link-trigger';
 import { renderRowCount } from '../palette/palette-limits';
 import { useUnifiedKeys } from '../unified/use-unified-keys';
@@ -28,6 +29,8 @@ export interface SourceLinkOptions {
   caret: number;
   /** 正在编辑的这条(候选里排除它自己,设计 N3) */
   excludeId: number;
+  /** 笔记 MRU(采纳记账 + 空查询排序;与主窗共用一份实例,见 shared/note-mru) */
+  mru?: NoteMruSource | null;
   /** 采纳写回:新文本与光标交给宿主(非受控框的 DOM 值由本 hook 直接写) */
   onWritten: (text: string, caret: number) => void;
   /** Ctrl/Cmd+Enter:保存并回预览(与面板既有快捷键同一条通道) */
@@ -47,7 +50,7 @@ export interface SourceLinkState {
 
 export function useSourceLinkComplete(o: SourceLinkOptions): SourceLinkState {
   // dataVersion 恒 0:本 hook 随 EditPanel 每次进编辑重新挂载,池天然按会话重取一次(N9)
-  const link = useLinkComplete({ raw: o.source, caret: o.caret, dataVersion: 0, excludeId: o.excludeId });
+  const link = useLinkComplete({ raw: o.source, caret: o.caret, dataVersion: 0, excludeId: o.excludeId, mru: o.mru });
   const rows = link.controller.rows;
 
   const accept = (index: number): void => {
@@ -57,6 +60,7 @@ export function useSourceLinkComplete(o: SourceLinkOptions): SourceLinkState {
     const next = acceptLink(el.value, el.selectionStart ?? 0, row.item.label);
     Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set?.call(el, next.text);
     el.setSelectionRange(next.caret, next.caret);
+    link.touchMru(row.item.id); // 非受控框自己写 DOM 的采纳路径,记账也走同一份 MRU
     link.dismiss(); // 采纳后保持收起(直到正文再变一次)
     o.onWritten(next.text, next.caret);
   };

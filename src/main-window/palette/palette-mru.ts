@@ -9,6 +9,7 @@
  * - 写:**只在接受时标脏,退出/空闲落盘**(`saveMru()` 有改动才写);写失败静默
  *   (IPC 失败时本次快照丢失,下次 touch 会重新标脏)。
  */
+import type { NoteMruSource } from '../../shared/note-mru';
 import { createMru } from '../../shared/quickpick/mru';
 import type { Mru, MruStorage } from '../../shared/quickpick/mru';
 import { PALETTE_SETTING_KEYS, parsePinnedTags, sanitizeLimit } from './palette-settings';
@@ -80,6 +81,25 @@ export async function loadPaletteSettings(io: SettingIo): Promise<PaletteSetting
       mruCommands.save();
       mruNotes.save();
       mruTags.save();
+    },
+  };
+}
+
+/**
+ * 把窗口里那一份 `PaletteSettings` 的笔记 MRU 投影成 `[[` 补全的注入面(id = 笔记 id)。
+ * `saveSoon` 是既有的空闲落盘调度(`usePaletteSettings().saveMruSoon`):采纳时触一次。
+ * 返回值是新的适配对象,调用方按 `[settings, saveSoon]` memo 住即可稳定身份。
+ */
+export function noteMruOf(
+  settings: PaletteSettings | null,
+  saveSoon?: () => void,
+): NoteMruSource | null {
+  if (settings === null) return null;
+  return {
+    entries: () => settings.mruNotes.entries(),
+    touch: (id: string) => {
+      settings.mruNotes.touch(id);
+      saveSoon?.();
     },
   };
 }
