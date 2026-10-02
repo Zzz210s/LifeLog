@@ -74,8 +74,18 @@ export function EditPanel(p: EditPanelProps): ReactNode {
     alive.current = false;
   }, []);
 
-  // 卸载兜底:任何离开方式都要把已改内容写库(见 use-save-on-unmount.ts 的说明)
+  /** 卸载兜底:任何离开方式都要把已改内容写库(见 use-save-on-unmount.ts 的说明) */
   useSaveOnUnmount({ noteId: p.note.id, initial, getText: currentText, saved, cancelled });
+
+  /**
+   * 主动取消(Esc / 未变时退出):先置取消标记,卸载兜底才不写库。
+   * 2026-10-01 修:`cancelled` 此前从未被置真 —— Esc 取消后面板卸载,兜底会把**已取消的改动**写进库。
+   * 注意「笔记已被并发删除」那条路径不走这里(它保持 p.onCancel:那时本就不该保存,但也不是用户取消)。
+   */
+  const cancelEdit = useCallback((): void => {
+    cancelled.current = true;
+    p.onCancel();
+  }, [p]);
 
   /** 真正写库;失败留在编辑态并给中文原因 */
   const commit = async (text: string): Promise<CommitResult> => {
@@ -117,7 +127,7 @@ export function EditPanel(p: EditPanelProps): ReactNode {
     panelRef,
     flush,
     onSwitchNote: p.onSwitchNote,
-    onCancel: p.onCancel,
+    onCancel: cancelEdit,
     onErrorFallback: p.onErrorFallback,
     shouldEnterEdit,
   });
@@ -146,7 +156,7 @@ export function EditPanel(p: EditPanelProps): ReactNode {
       setCaret(at);
     },
     onSave: () => commitAndExit(flush, { onCancel: p.onCancel, onErrorFallback: p.onErrorFallback }),
-    onCancel: p.onCancel,
+    onCancel: cancelEdit,
   });
 
   return (
