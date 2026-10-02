@@ -2,6 +2,7 @@
 // T1 不产出 --sticker-text(自动字色是 S2/T2 的事)。
 import { describe, expect, it } from 'vitest';
 import { APPEARANCE_DEFAULTS, type InputAppearance } from './input-appearance';
+import { pickTextInk } from './color-math';
 import {
   SHADOWS,
   activeSurface,
@@ -71,5 +72,23 @@ describe('stickerStyleVars', () => {
     const vars = stickerStyleVars(ap({ bg: '#123456', opacity: 40 }), false);
     expect(vars['--sticker-bg']).toBe('color-mix(in srgb, #123456 40%, transparent)');
     expect(vars['--sticker-border']).toBe('var(--color-border)');
+  });
+
+  it('自定义底色按底色选墨色:深底给白字、浅底给黑字', () => {
+    expect(stickerStyleVars(ap({ bg: '#123456' }), false)['--sticker-text']).toBe(pickTextInk('#123456'));
+    expect(stickerStyleVars(ap({ bg: '#123456' }), false)['--sticker-text']).toBe('#ffffff');
+    expect(stickerStyleVars(ap({ bg: '#f0f0f0' }), false)['--sticker-text']).toBe('#000000');
+  });
+
+  it('theme / transparent 底色不产出 --sticker-text(交给主题文字色回退)', () => {
+    expect(Object.keys(stickerStyleVars(ap({ bg: 'theme' }), false))).not.toContain('--sticker-text');
+    expect(Object.keys(stickerStyleVars(ap({ bg: 'transparent' }), false))).not.toContain('--sticker-text');
+    expect(Object.keys(stickerStyleVars(ap({ bgDark: 'transparent' }), true))).not.toContain('--sticker-text');
+  });
+
+  it('透明度不改变字色判据:仍按纯底色(不是合成后的淡色)选墨', () => {
+    const vars = stickerStyleVars(ap({ bg: '#1f2328', opacity: 40 }), false);
+    expect(vars['--sticker-bg']).toBe('color-mix(in srgb, #1f2328 40%, transparent)');
+    expect(vars['--sticker-text']).toBe('#ffffff');
   });
 });

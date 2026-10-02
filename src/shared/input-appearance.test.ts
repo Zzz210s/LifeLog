@@ -111,6 +111,11 @@ describe('parseAppearance', () => {
     expect(parseAppearance(raw)).toEqual(APPEARANCE_DEFAULTS);
   });
 
+  it('透明度边界 0 与 100 原样保留', () => {
+    expect(parseAppearance({ input_bg_opacity: '0' }).opacity).toBe(0);
+    expect(parseAppearance({ input_bg_opacity: '100' }).opacity).toBe(100);
+  });
+
   it('合法值逐项读出', () => {
     const raw = {
       input_bg: '#1F2328',

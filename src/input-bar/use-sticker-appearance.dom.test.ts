@@ -7,6 +7,7 @@ import type { ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { InputAppearance } from '../shared/input-appearance';
+import { contrastRatio } from '../shared/color-math';
 import type { StickerStyle } from '../shared/sticker-style';
 import { useStickerAppearance } from './use-sticker-appearance';
 
@@ -44,7 +45,12 @@ function Probe(): ReactNode {
   const got = useStickerAppearance();
   appearance = got.appearance;
   vars = got.vars;
-  return createElement('span', null, got.vars['--sticker-radius']);
+  // 与 InputBar.tsx 同机制:vars 内联在根 div 上,.sticker-input 继承
+  return createElement('div', { 'data-sticker-root': '', style: { ...got.vars } });
+}
+
+function stickerRoot(): HTMLElement {
+  return host.querySelector('[data-sticker-root]') as HTMLElement;
 }
 
 const settle = (): Promise<void> =>
@@ -120,5 +126,58 @@ describe('useStickerAppearance', () => {
     });
     await settle();
     expect(vars['--sticker-bg']).toBe('#222222');
+  });
+});
+
+describe('S2 背景透明度与自动字色(DOM 接线)', () => {
+  const broadcast = async (): Promise<void> => {
+    await act(async () => {
+      ev.callbacks.forEach((cb) => cb({ payload: null }));
+      await Promise.resolve();
+    });
+    await settle();
+  };
+
+  it('改透明度只动背景,字色逐字不变且对比度仍 ≥4.5:1', async () => {
+    getSetting.mockImplementation(keyValue({ input_bg: '#1f2328', input_bg_opacity: '100' }));
+    await act(async () => {
+      root.render(createElement(Probe));
+    });
+    await settle();
+    const text = stickerRoot().style.getPropertyValue('--sticker-text');
+    expect(text).toBe('#ffffff');
+    expect(contrastRatio(text, '#1f2328')).toBeGreaterThanOrEqual(4.5);
+
+    getSetting.mockImplementation(keyValue({ input_bg: '#1f2328', input_bg_opacity: '40' }));
+    await broadcast();
+    expect(stickerRoot().style.getPropertyValue('--sticker-bg')).toBe(
+      'color-mix(in srgb, #1f2328 40%, transparent)',
+    );
+    expect(stickerRoot().style.getPropertyValue('--sticker-text')).toBe(text);
+  });
+
+  it('深色底 + 亮主题 -> 字色自动转浅且对比度达标', async () => {
+    getSetting.mockImplementation(keyValue({ input_bg: '#1f2328' }));
+    await act(async () => {
+      root.render(createElement(Probe));
+    });
+    await settle();
+    const text = stickerRoot().style.getPropertyValue('--sticker-text');
+    expect(text).toBe('#ffffff');
+    expect(contrastRatio(text, '#1f2328')).toBeGreaterThanOrEqual(4.5);
+
+    getSetting.mockImplementation(keyValue({ input_bg: '#e3e5e8' }));
+    await broadcast();
+    expect(stickerRoot().style.getPropertyValue('--sticker-text')).toBe('#000000');
+    expect(contrastRatio('#000000', '#e3e5e8')).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('底色跟随主题时不产出 --sticker-text(回退主题文字色)', async () => {
+    getSetting.mockImplementation(keyValue({ input_bg: 'theme' }));
+    await act(async () => {
+      root.render(createElement(Probe));
+    });
+    await settle();
+    expect(stickerRoot().style.getPropertyValue('--sticker-text')).toBe('');
   });
 });
