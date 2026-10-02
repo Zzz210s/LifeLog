@@ -5,19 +5,21 @@ import { prepareForSave } from '../shared/note-source';
 import { savedStamp } from '../shared/input-feedback';
 import { canClose, canDrag, canEdit } from '../shared/input-lock';
 import { useThemeMode } from '../shared/use-theme-mode';
-import { useTagComplete } from './use-tag-complete';
-import { TagCompleteList } from './TagCompleteList';
+import { useInputCompletions } from './use-input-completions';
 import { InputBarOverlays } from './InputBarOverlays';
 import { useDragBand } from './use-drag-band';
 import { useWidthDrag } from './use-width-drag';
 import { useAutoHeight } from './use-auto-height';
-import { suggestListHeightCss } from '../shared/input-geometry';
 import { useInputSettings } from './use-input-settings';
 import { useInputWheel } from './use-input-wheel';
 import { usePaletteSettings } from '../main-window/palette/use-palette-settings';
 
 export function InputBar() {
   const [content, setContent] = useState('');
+  // 光标镜像(`[[` 补全的触发判断读它;`]]` 类语法要按光标切片,不能只看整串)
+  const [caret, setCaret] = useState(0);
+  // 笔记候选池的作废键:输入栏保存后自增,下一次 `[[` 会重取(否则新笔记不在池里)
+  const [poolVersion, setPoolVersion] = useState(0);
   const [stamp, setStamp] = useState('');
   const [savedAt, setSavedAt] = useState(0);
   const saveTimer = useRef<number | null>(null);
@@ -30,28 +32,32 @@ export function InputBar() {
   // 程序化写入(保存后清空、采纳补全)必须同时改 DOM 与 state,统一走 applyValue
   const applyValue = useCallback((next: string) => {
     const el = inputRef.current;
-    if (el) el.value = next;
+    if (el) {
+      el.value = next;
+      el.setSelectionRange(next.length, next.length); // `el.value =` 后的落点跨浏览器不一致,显式落到末尾
+    }
     setContent(next);
+    setCaret(next.length);
   }, []);
   const { settings, lock, error, setError, unlock } = useInputSettings();
-  // 首次使用引导的开窗不在前端做:由 Rust 启动路径读 `ui.tutorial_seen` 后自己开主窗
-  // (从 IPC 命令里建窗会把主线程卡死,见 windowing/startup.rs 的注释)
+  // 首次使用引导的开窗由 Rust 启动路径做(前端建窗会卡主线程,见 windowing/startup.rs)
   // 主题:输入栏不写库,只跟随主窗广播(见 shared/use-theme-mode);窗口保持透明
   useThemeMode({ follow: true, onError: setError });
   const editing = canEdit(lock);
   const anyLock = lock.move || lock.close || lock.content;
-  // # 标签补全:词元拉候选、↑↓/Enter/Tab/Esc 路由;Ctrl+Enter 保存不受影响。
-  // 固定项(ui.pinned.tags)与标签 MRU(ui.mru.tags)走主窗浮层同一份装配(别造第二套)
+  // 补全装配(标签/链接各一套,`useInputCompletions` 里路由);固定项与标签 MRU 走主窗浮层同一份
   const palette = usePaletteSettings();
-  const complete = useTagComplete({
+  const complete = useInputCompletions({
     textareaRef: inputRef,
     value: content,
+    caret,
     onReplace: applyValue,
     settings: palette.settings,
     onMruChange: palette.saveMruSoon,
+    dataVersion: poolVersion,
   });
-  // # 补全建议列表:像浏览器搜索框下方那样长在输入框正下方,窗口随之变高(高度不落库)
-  const listHeight = complete.open ? suggestListHeightCss(complete.items.length) : 0;
+  // 建议列表(# 标签 / [[ 笔记二选一):像浏览器搜索框下方那样长在输入框正下方,窗口随之变高(高度不落库)
+  const listHeight = complete.listHeight;
   // 内容变化后按真实换行行数(1-5 行)自动长高;滚轮缩放后手动再同步一次
   const syncHeight = useAutoHeight({ textareaRef: inputRef, value: content, extraCss: listHeight });
   const { opacity, onMiddleDown, flushView } = useInputWheel({
@@ -86,8 +92,7 @@ export function InputBar() {
     };
   }, [flushView]);
 
-  // 窗口级 Esc:焦点在 BODY 时 textarea 上的 keydown 收不到,
-  // 会导致点空白后 Esc 隐藏失效,故提升到 window 级
+  // 窗口级 Esc(焦点在 BODY 时 textarea 收不到):锁定判据不变,只负责隐藏
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || e.isComposing) return; // 输入法组合中不抢 Esc
@@ -114,6 +119,7 @@ export function InputBar() {
     try {
       await api.saveInputNote(text);
       applyValue('');
+      setPoolVersion((v) => v + 1); // 新笔记入库:作废笔记候选池,下次 `[[` 重取
       setError('');
       flash(savedStamp(new Date()));
       inputRef.current?.focus(); // 保存后光标留在输入框,可继续记下一条
@@ -170,17 +176,15 @@ export function InputBar() {
         aria-label="输入栏内容"
         name="content"
         readOnly={!editing}
-        onChange={(e) => setContent(e.target.value)}
+        onChange={(e) => {
+          setContent(e.target.value);
+          setCaret(e.target.selectionStart ?? 0);
+        }}
+        onSelect={(e) => setCaret(e.currentTarget.selectionStart ?? 0)}
         onKeyDown={onKeyDown}
         className="sticker-input min-h-0 w-full flex-1 resize-none overflow-y-auto bg-raised px-3 py-2 text-sm leading-relaxed text-text read-only:text-faint"
       />
-      {complete.open && (
-        <TagCompleteList
-          items={complete.items}
-          activeIndex={complete.activeIndex}
-          onPick={complete.onPick}
-        />
-      )}
+      {complete.list}
       <InputBarOverlays
         anyLock={anyLock}
         onUnlock={onUnlock}
