@@ -11,6 +11,7 @@ import { useDragBand } from './use-drag-band';
 import { useWidthDrag } from './use-width-drag';
 import { useAutoHeight } from './use-auto-height';
 import { useInputSettings } from './use-input-settings';
+import { useStickerAppearance } from './use-sticker-appearance';
 import { useInputWheel } from './use-input-wheel';
 import { usePaletteSettings } from '../main-window/palette/use-palette-settings';
 
@@ -45,6 +46,7 @@ export function InputBar() {
   useThemeMode({ follow: true, onError: setError });
   const editing = canEdit(lock);
   const anyLock = lock.move || lock.close || lock.content;
+  const stickerVars = useStickerAppearance().vars;
   // 补全装配(标签/链接各一套,`useInputCompletions` 里路由);固定项与标签 MRU 走主窗浮层同一份
   const palette = usePaletteSettings();
   const complete = useInputCompletions({
@@ -165,7 +167,7 @@ export function InputBar() {
   return (
     <div
       className="relative box-border flex h-screen w-full cursor-move flex-col p-[14px]"
-      style={{ opacity: opacity / 100 }}
+      style={{ ...stickerVars, opacity: opacity / 100 }}
       onMouseDown={onRootMouseDown}
     >
       <textarea
@@ -181,7 +183,7 @@ export function InputBar() {
         }}
         onSelect={(e) => setCaret(e.currentTarget.selectionStart ?? 0)}
         onKeyDown={onKeyDown}
-        className="sticker-input min-h-0 w-full flex-1 resize-none overflow-y-auto bg-raised px-3 py-2 text-sm leading-relaxed text-text read-only:text-faint"
+        className="sticker-input min-h-0 w-full flex-1 resize-none overflow-y-auto px-3 py-2 text-sm leading-relaxed read-only:text-faint"
       />
       {complete.list}
       <InputBarOverlays

@@ -13,13 +13,16 @@ body {
   height: 100%;
 }
 
-/* 输入框光晕:未聚焦浅黑,聚焦强调色。
-   本文件不存色值:--color-border / --color-accent 来自共享 theme.css,令牌层重排后自动同步到本窗口。
-   两处 rgb(0 0 0 / …) 是阴影的几何用色(不是表面/文本令牌),按 D12「输入栏形态不动」保留。
+/* 输入框表面:颜色/圆角/阴影/字色全部走 --sticker-*(由 use-sticker-appearance 内联写在根 div 上)。
+   变量缺失时回退主题令牌,与「未改外观」的今天完全一致(见 docs/superpowers/specs/2026-10-02-input-bar-appearance-design.md §4)。
+   回退值里的 rgb(0 0 0 / …) 是阴影的几何用色(不是表面/文本令牌),与下方聚焦光晕同源。
    窗口四周留 14 像素透明内边距容纳外阴影,:focus-within 在 textarea 自身上同样命中。 */
 .sticker-input {
-  border: 1px solid var(--color-border);
-  box-shadow: 0 2px 10px rgb(0 0 0 / 10%);
+  background-color: var(--sticker-bg, var(--color-raised));
+  border: 1px solid var(--sticker-border, var(--color-border));
+  border-radius: var(--sticker-radius, 0);
+  box-shadow: var(--sticker-shadow, 0 2px 10px rgb(0 0 0 / 10%));
+  color: var(--sticker-text, var(--color-text));
   outline: none;
 }
 
