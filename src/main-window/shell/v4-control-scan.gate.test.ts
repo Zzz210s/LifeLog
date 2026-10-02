@@ -36,6 +36,7 @@ const SKIP_INPUTS: Array<[string, string]> = [
   ['filter/TagPickDialog.tsx', '对话框:归 V5'],
   ['sidebar/TagMenu', '对话框:归 V5'],
   ['editor/EditPanel.tsx', '正文源码框:任务明确例外,保持正文编辑口径'],
+  ['stream/TableCellEditor.tsx', '表格单元格就地编辑框:贴合单元格(12px、贴行高、accent 边框),非 V4 表单输入口径'],
   ['settings/AppearanceSection.tsx', '主题三选一是原生 radio,不按文本输入改'],
 ];
 
