@@ -59,7 +59,7 @@ export function ViewHost(p: ViewHostProps): ReactNode {
         onOpenSettings={p.onOpenSettings}
         onBack={p.onBack}
       />
-      <StreamView {...p.stream} visible={p.view === 'stream'} />
+      <StreamView {...p.stream} visible={p.view === 'stream'} dataVersion={p.dataVersion} />
       {p.view === 'settings' && (
         <SettingsView
           themeMode={p.theme.mode}

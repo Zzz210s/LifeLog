@@ -61,6 +61,8 @@ export interface StreamViewProps {
   onAddConditionOpenChange: (open: boolean) => void;
   /** 统一输入框控制器上抛口(快捷键要 `prefill`):App 持有的 ref,这里只写不读 */
   unifiedRef: RefObject<UnifiedController | null>;
+  /** 标签数据版本(`[[` 补全候选池的作废键) */
+  dataVersion?: number;
   /** 本页各笔记的被引用计数(L3,App 用 useBacklinkCounts 批量取后透传);缺省视为全 0 */
   backlinkCounts?: Readonly<Record<number, number>>;
 }
@@ -139,6 +141,8 @@ export function StreamView(p: StreamViewProps): ReactNode {
         onAccept={acceptAt}
         onController={(c) => { p.unifiedRef.current = c; }}
         candidates={{ palette: p.palette, decorations: p.decorations }}
+        dataVersion={p.dataVersion ?? 0}
+        excludeNoteId={p.editingId ?? undefined}
       />
       <ConditionBar
         conditions={p.conditions}

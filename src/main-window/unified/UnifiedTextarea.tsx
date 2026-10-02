@@ -23,7 +23,9 @@ export interface UnifiedTextareaProps {
   dropdownId: string;
   /** 高亮行 id(aria-activedescendant;无候选行时给 null) */
   activeOptionId: string | null;
-  onChange: (raw: string) => void;
+  onChange: (raw: string, caret: number) => void;
+  /** 光标/选区变化(链接触发判断需要当前光标,不只在输入时) */
+  onSelect?: () => void;
   onKeyDown: KeyboardEventHandler<HTMLTextAreaElement>;
 }
 
@@ -41,7 +43,8 @@ export function UnifiedTextarea(p: UnifiedTextareaProps): ReactNode {
       rows={1}
       value={p.value}
       disabled={p.disabled}
-      onChange={(e) => p.onChange(e.target.value)}
+      onChange={(e) => p.onChange(e.target.value, e.target.selectionStart)}
+      onSelect={p.onSelect}
       onKeyDown={p.onKeyDown}
       style={{ maxHeight: p.maxHeight, overflowY: 'auto' }}
       className="block h-8 min-w-0 flex-1 resize-none rounded-sm border border-border-strong bg-raised px-2.5 py-1.5 text-ui text-text outline-none"

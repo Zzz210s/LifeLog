@@ -43,6 +43,8 @@ export interface UnifiedDropdownProps {
   truncated: boolean;
   onHover: (index: number) => void;
   onAccept: (index: number) => void;
+  /** 空态文案(缺省「无匹配结果」;`[[` 补全用「没有匹配的笔记」) */
+  emptyText?: string;
 }
 
 export function UnifiedDropdown(p: UnifiedDropdownProps): ReactNode {
@@ -62,7 +64,7 @@ export function UnifiedDropdown(p: UnifiedDropdownProps): ReactNode {
         className="mt-1 overflow-y-auto rounded-md border border-border bg-raised shadow-lg"
       >
         {rows.length === 0 ? (
-          <p role="presentation" className="px-3 py-3 text-ui text-muted">无匹配结果</p>
+          <p role="presentation" className="px-3 py-3 text-ui text-muted">{p.emptyText ?? '无匹配结果'}</p>
         ) : (
           // 这层 <ul> 只是列表语义的壳:listbox 的直接子元素必须是 option/group,
           // 留着 role="list" 会插出一层无效中间层(旧浮层没这层)
@@ -102,6 +104,7 @@ export interface UnifiedDropdownSlotProps {
   palette: PaletteController;
   decorations?: Readonly<Record<string, RowDecoration>>;
   onAccept: (index: number) => void;
+  emptyText?: string;
 }
 
 /** 接线槽:把候选数据接到下拉上(自 `UnifiedInput` 抽出以守 200 行红线) */
@@ -114,6 +117,7 @@ export function UnifiedDropdownSlot(p: UnifiedDropdownSlotProps): ReactNode {
       truncated={p.truncated}
       onHover={p.palette.setActiveIndex}
       onAccept={p.onAccept}
+      emptyText={p.emptyText}
     />
   );
 }
