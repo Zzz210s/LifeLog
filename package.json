@@ -11,7 +11,8 @@
     "tauri": "tauri",
     "verify": "node scripts/verify.mjs",
     "verify:quick": "node scripts/verify.mjs --quick",
-    "audit:visual": "node scripts/audit-visual-tokens.mjs"
+    "audit:visual": "node scripts/audit-visual-tokens.mjs",
+    "audit:table": "node scripts/audit-table-style.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.9.0",
