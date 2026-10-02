@@ -116,15 +116,45 @@ body {
   color: var(--color-muted);
 }
 
+/* Markdown 表格(风格 B 数据密集;预览稿 .superpowers/previews/table-styles.html)。
+   长文本口径:**不截断、不藏字** —— 靠列宽上限 26em + 单元格自动换行,行高随内容增长
+   (表格里 height 是最小高度)。刻意不做「截断 + 悬停看全文」:笔记里藏字会让复制/搜索/打印失真。
+   min-width:7rem 是宽表横向滚动的必要条件 —— .md-body 的 word-break:break-word 把单元格
+   min-content 软化成 1 字,不加列宽下限时表格永不超过容器(实测 8 列也不滚),
+   而 width:max-content 对 display:block 的表格无效;7rem 让 8 列超过内容列宽、6 列以内仍铺满。 */
 .md-body table {
   display: block; /* 宽表横向滚动 */
   max-width: 100%;
   margin: 0.6rem 0;
   border-collapse: collapse;
   overflow-x: auto;
+  border: 1px solid var(--color-border-strong);
+  font-size: 12px; /* B:数据密集 */
+  line-height: 1.45; /* 收回 .md-body 的绝对行高(26px),短行才紧凑 */
 }
-.md-body th, .md-body td { border: 1px solid var(--color-border); padding: 0.3rem 0.6rem; }
-.md-body th { background: var(--color-tag); font-weight: 600; }
+.md-body thead th {
+  position: sticky; top: 0; z-index: 1;
+  background: var(--color-chrome-alt);
+  font-weight: 600;
+  height: 36px; /* 表格里 height 是最小高度:短行紧凑、长内容可长高 */
+  min-width: 7rem; /* 宽表横向滚动的必要条件,见上方注释 */
+  padding: 4px 8px;
+  text-align: left;
+  border-bottom: 2px solid var(--color-border-strong);
+  font-variant-numeric: tabular-nums;
+}
+.md-body td {
+  height: 36px; /* 同上:最小值,不是固定高度 */
+  min-width: 7rem;
+  padding: 4px 8px;
+  max-width: 26em; /* 列宽可控:长文本换行,不撑破整表 */
+  vertical-align: top;
+  border-bottom: 1px solid var(--color-border);
+}
+.md-body tbody tr:nth-child(even) td { background: var(--color-canvas); } /* 斑马纹 */
+/* 悬停写在斑马纹之后:同特异性靠顺序压过偶数行底色 */
+.md-body tbody tr:hover td { background: var(--color-selected); transition: background 150ms ease-out; }
+@media (prefers-reduced-motion: reduce) { .md-body tbody tr:hover td { transition: none; } }
 
 .md-body code {
   font-family: ui-monospace, Consolas, "Courier New", monospace;
