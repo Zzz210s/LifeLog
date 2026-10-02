@@ -136,6 +136,7 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
               onOpenNote={p.onOpenNote}
               onUnresolvedNote={p.onUnresolvedNote}
               backlinkCount={p.backlinkCounts?.[n.id]}
+              onCellSaved={p.onEditSaved}
             />
           )
         )}

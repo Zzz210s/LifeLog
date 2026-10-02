@@ -25,12 +25,13 @@ const note = (content: string): Note => ({
 });
 
 /** 最简宿主:真表格(供 anchor 上溯)+ 开格按钮 + 编辑框,hook 的 source 随 onSaved 更新 */
-function Harness({ onSaved }: { onSaved?: (n: Note) => void }) {
+function Harness({ onSaved, wrap }: { onSaved?: (n: Note) => void; wrap?: (b: string) => string }) {
   const [source, setSource] = useState(SRC);
   const edit = useTableEdit({
     source,
     noteId: 7,
     onSaved: (n) => { setSource(n.content); onSaved?.(n); },
+    wrap,
   });
   const open = (row: number, col: number) => (e: MouseEvent<HTMLButtonElement>) => {
     const range = locateTable(source, 0);
@@ -48,6 +49,7 @@ function Harness({ onSaved }: { onSaved?: (n: Note) => void }) {
         createElement('tr', null, createElement('td', null, '1'), createElement('td', null, '2')),
         createElement('tr', null, createElement('td', null, '3'), createElement('td', null, '4')))),
     btn('open-1-0', 1, 0), btn('open-1-1', 1, 1), btn('open-0-1', 0, 1),
+    createElement('button', { key: 'ar', onClick: () => { const r = locateTable(source, 0); if (r) void edit.addRow(r, 0, '9'); } }, 'add-row-pending'),
     createElement(TableCellEditor, {
       cell: edit.editing, anchor: edit.anchor, error: edit.error, busy: edit.busy,
       onCommit: edit.commit, onCancel: edit.cancel,
@@ -66,11 +68,11 @@ const box = (): HTMLTextAreaElement => {
 const hasBox = (): boolean => host?.querySelector('textarea') != null;
 const sourceNow = (): string => host?.querySelector('[data-testid="source"]')?.textContent ?? '';
 
-async function mount(onSaved?: (n: Note) => void): Promise<void> {
+async function mount(onSaved?: (n: Note) => void, wrap?: (b: string) => string): Promise<void> {
   host = document.createElement('div');
   document.body.appendChild(host);
   root = createRoot(host);
-  await act(async () => { root?.render(createElement(Harness, { onSaved })); });
+  await act(async () => { root?.render(createElement(Harness, { onSaved, wrap })); });
 }
 
 async function click(label: string): Promise<void> {
@@ -150,6 +152,26 @@ describe('单元格编辑框的键盘口径', () => {
     await press('Escape');
     expect(updateNote).not.toHaveBeenCalled();
     expect(hasBox()).toBe(false);
+  });
+
+  it('结构改写先并入框里未提交的内容:改一半点 +行 不丢字(一笔写库)', async () => {
+    const next = '| a | b |\n| --- | --- |\n| 9 | 2 |\n|  |  |\n| 3 | 4 |';
+    updateNote.mockResolvedValue(note(next));
+    await mount();
+    await click('open-1-0');
+    setValue('9');
+    await click('add-row-pending'); // addRow(range, 0, '9')
+    expect(updateNote).toHaveBeenCalledTimes(1);
+    expect(updateNote).toHaveBeenCalledWith(7, next);
+  });
+
+  it('写库文本经 wrap 包装(接线层用它补回 #标签;定位/改写只看正文)', async () => {
+    updateNote.mockResolvedValue(note('x'));
+    await mount(undefined, (body) => `${body}\n#标记`);
+    await click('open-1-0');
+    setValue('9');
+    await press('Enter');
+    expect(updateNote).toHaveBeenCalledWith(7, '| a | b |\n| --- | --- |\n| 9 | 2 |\n| 3 | 4 |\n#标记');
   });
 
   it('输入法组合中的 Enter 不提交', async () => {

@@ -8,7 +8,7 @@
 import { rowRaw, type TableRange, type CellSpan } from './md-table-scan';
 
 export type { TableRange, CellSpan } from './md-table-scan';
-export { locateTable, tableCells } from './md-table-scan';
+export { locateTable, tableCells, lineSpans } from './md-table-scan';
 
 /** 把新值写成源码里的格子文本:字面竖线转义,GFM 惯例两侧各留一个空格 */
 const writeCell = (text: string): string => ` ${text.replace(/\|/g, '\\|')} `;

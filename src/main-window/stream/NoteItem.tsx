@@ -7,6 +7,10 @@ import { shouldEnterEdit } from './body-click';
 import { BacklinksPanel } from './BacklinksPanel';
 import { MarkdownBody } from './MarkdownBody';
 import { NoteChips } from './NoteChips';
+import { useNoteTableEdit } from './use-note-table-edit';
+
+/** onCellSaved 缺省(测试/只读调用方):单元格写库后无需就地替换 */
+const noop = (): void => {};
 
 export interface NoteItemProps {
   note: Note;
@@ -27,6 +31,8 @@ export interface NoteItemProps {
   backlinkCount?: number;
   /** 点击第 index 个任务列表复选框(0 起,文档顺序) */
   onToggleTask: (index: number) => void;
+  /** 单元格编辑写库成功:就地替换这条笔记(与编辑面板保存同一条刷新路径) */
+  onCellSaved?: (note: Note) => void;
 }
 
 /** 单条笔记:markdown 正文 + 标签 chips + 悬停删除(不再显示时间,S2;
@@ -51,10 +57,13 @@ export function NoteItem(p: NoteItemProps): ReactNode {
     const brief = note.content.replace(/\s+/g, ' ').trim().slice(0, 24);
     return brief ? `编辑:${brief}` : '编辑这条笔记';
   }, [note.content]);
+  // 表格单元格编辑:点格进编辑、chip/复选框不接管、点表外回整条编辑(设计 §1 T7/E4)
+  const te = useNoteTableEdit(note, p.onCellSaved ?? noop, p.onEdit);
 
   // 点正文任意非交互处进编辑:链接/复选框/按钮由 shouldEnterEdit 守卫,
-  // chip 行不在本容器内,天然不触发
+  // chip 行不在本容器内,天然不触发;表格格已由 te.handleClick 先接管
   const onBodyClick = (e: MouseEvent<HTMLDivElement>) => {
+    if (te.handleClick(e)) return;
     if (shouldEnterEdit(e.target, window.getSelection()?.toString() ?? '')) p.onEdit();
   };
 
@@ -83,7 +92,7 @@ export function NoteItem(p: NoteItemProps): ReactNode {
       </div>
       {/* 不挂常驻 title:光标形状已表达可点编辑,悬浮提示会盖住正文自己的提示。
            data-note-body 供编辑面板判定"点区块外落到哪条笔记"(先存后进) */}
-      <div data-note-body={note.id} onClick={onBodyClick} className="cursor-text">
+      <div ref={te.bodyRef} data-note-body={note.id} onClick={onBodyClick} onMouseOver={te.handleOver} className="cursor-text">
         <MarkdownBody
           html={html}
           className="md-body mt-1 min-w-0 text-body text-text"
@@ -94,6 +103,8 @@ export function NoteItem(p: NoteItemProps): ReactNode {
           onToggleTask={p.onToggleTask}
         />
       </div>
+      {/* 编辑框与控制条是 fixed 覆盖层:挂在正文容器之外,点它们不会冒泡成"点正文" */}
+      {te.overlay}
       <NoteChips tags={note.tags} activeTags={p.activeTags} onTagClick={p.onTagClick} />
       {(p.backlinkCount ?? 0) > 0 && (
         <div className="mt-2">

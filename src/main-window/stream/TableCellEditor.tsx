@@ -7,7 +7,7 @@
  * 目标格 DOM 由 anchor(被点的元素)上溯到 <table>,再取 `table.rows[row].cells[col]` —— 表头在
  * thead、数据行在 tbody,HTMLTableElement.rows 按文档序合并,故移动到别的格子时无需重传 anchor。
  */
-import { useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
 import type { CellSpan } from '../../shared/md-table';
 import type { EditStep } from './use-table-edit';
 
@@ -19,6 +19,8 @@ export interface TableCellEditorProps {
   busy: boolean;
   onCommit: (text: string, step: EditStep) => void;
   onCancel: () => void;
+  /** 外部框 ref(接线层要读未提交内容做结构改写);不传则组件自持一个 */
+  boxRef?: RefObject<HTMLTextAreaElement | null>;
 }
 
 /** anchor 所在表格里 (row, col) 那格的 DOM;找不到返回 null(退化成左上角零点) */
@@ -29,7 +31,8 @@ function cellElement(anchor: HTMLElement | null, row: number, col: number): HTML
 }
 
 export function TableCellEditor(p: TableCellEditorProps): ReactNode {
-  const boxRef = useRef<HTMLTextAreaElement>(null);
+  const ownRef = useRef<HTMLTextAreaElement>(null);
+  const boxRef = p.boxRef ?? ownRef;
   const [rect, setRect] = useState<DOMRect | null>(null);
   const row = p.cell?.row ?? -1;
   const col = p.cell?.col ?? -1;
