@@ -5,9 +5,12 @@ import type { Note } from '../../shared/types';
 import { updateNote } from '../data/note-writes';
 import { shouldEnterEdit } from '../stream/body-click';
 import { BacklinksPanel } from '../stream/BacklinksPanel';
-import { tagCountHint, tagCountLabel } from './edit-tag-count';
 import { editRows } from './textarea-rows';
 import { useSourceTagCount } from './use-source-tags';
+import { useSourceLinkComplete } from './use-source-link-complete';
+import { useFocusSource } from './use-focus-source';
+import { EDIT_LINK_LISTBOX_ID } from './SourceLinkList';
+import { EditFooter } from './EditFooter';
 import { registerEditFlush } from './edit-flush';
 import { commitAndExit, useLeaveSave } from './use-leave-save';
 import { useSaveOnUnmount } from './use-save-on-unmount';
@@ -44,11 +47,12 @@ export function EditPanel(p: EditPanelProps): ReactNode {
   // 决策:note.content 是已剥离标签的正文;编辑源码补回 '#标签' 尾缀,保存时后端重新剥离归类。
   const [source, setSource] = useState(() => composeSource(p.note.content, p.note.tags));
   const [error, setError] = useState('');
+  // 源码框光标(`[[` 触发判断读它;非受控框由 onChange/onSelect 上报)
+  const [caret, setCaret] = useState(0);
   // 标签数实时化:输入变化后 250ms 防抖调后端命令 parse_note_source(与保存路径同源),
   // 尚未返回/失败时回退已保存标签数(不闪烁成 0);顺序守卫与去抖细节见 use-source-tags.ts。
   // 纯建议层:保存行为与校验完全不受影响。
   const tagCount = useSourceTagCount(source, p.note.tags.length);
-  const hint = tagCountHint(tagCount);
   const boxRef = useRef<HTMLTextAreaElement>(null);
   /** 保存时读的文本:非受控框的 DOM 值(含输入法组合中的字),拿不到才回退镜像。
    *  必须 useCallback 稳定身份 —— 它被卸载兜底 hook 当依赖,身份一变 effect 就重跑、
@@ -63,22 +67,11 @@ export function EditPanel(p: EditPanelProps): ReactNode {
   /** 已有保存在飞(区块外连点 / 点另一条笔记时的重复提交守卫) */
   const inFlight = useRef(false);
 
-  // R4:进编辑**不改动笔记流的滚动位置**。原先用 autoFocus,浏览器聚焦时会做 scrollIntoView ——
-  // 被视口裁掉的卡片一旦点进编辑,流 scrollTop 就被拉回去(实测 200 -> 0,跳 200px)。
-  // 改成显式 focus + preventScroll:焦点照样落在源码框(键盘仍可直接打字),
-  // 但不向任何滚动祖先请求“把焦点元素滚进视野”。
-  useEffect(() => {
-    alive.current = true;
-    const el = boxRef.current;
-    el?.focus({ preventScroll: true });
-    // 光标落在正文末尾(标签行之前):否则直接打字会把字并进末行 #标签,正文看起来没变
-    const cut = el?.value.lastIndexOf(String.fromCharCode(10)) ?? -1;
-    const caret = el ? (cut > 0 ? cut : el.value.length) : 0;
-    el?.setSelectionRange(caret, caret);
-    p.onMounted?.(); // 焦点落定后再还原流位置
-    return () => {
-      alive.current = false;
-    };
+  // 进编辑:焦点 + 光标落正文末尾(R4:不请求滚动祖先滚进视野);挂载后回调父层还原流位置
+  useFocusSource(boxRef, p.onMounted);
+  // alive 只在卸载时置假(初值即真),供 commit/flush 判断「面板还在不在」
+  useEffect(() => () => {
+    alive.current = false;
   }, []);
 
   // 卸载兜底:任何离开方式都要把已改内容写库(见 use-save-on-unmount.ts 的说明)
@@ -141,24 +134,28 @@ export function EditPanel(p: EditPanelProps): ReactNode {
     return () => registerEditFlush(null);
   }, []);
 
+  // `[[` 补全(设计 N4):候选逻辑复用统一输入框那套;采纳写回非受控源码框,并把镜像与光标一起回写
+  const link = useSourceLinkComplete({
+    boxRef,
+    source,
+    caret,
+    excludeId: p.note.id,
+    onWritten: (text, at) => {
+      domText.current = text;
+      setSource(text);
+      setCaret(at);
+    },
+    onSave: () => commitAndExit(flush, { onCancel: p.onCancel, onErrorFallback: p.onErrorFallback }),
+    onCancel: p.onCancel,
+  });
+
   return (
     <li
       ref={panelRef}
       data-testid="edit-panel"
-      // Esc = 取消;Ctrl/Cmd+Enter = 保存并回到预览态(与「点区块外」同一条保存通道)。
-      // 输入法组合中的回车不算快捷键:中文上屏那一下 e.key 也是 Enter(keyCode 229 同义)。
-      onKeyDown={(e) => {
-        if (e.nativeEvent.isComposing || e.keyCode === 229) return;
-        if (e.key === 'Escape') {
-          e.preventDefault();
-          p.onCancel();
-          return;
-        }
-        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-          e.preventDefault();
-          commitAndExit(flush, { onCancel: p.onCancel, onErrorFallback: p.onErrorFallback });
-        }
-      }}
+      // Esc = 取消;Ctrl/Cmd+Enter = 保存并回到预览态(与「点区块外」同一条保存通道)。这两条
+      // 由源码框上的 `link.onKeyDown` 路由(见 use-source-link-complete):Esc 下拉开着时只收
+      // 下拉、未开才取消;输入法组合中的回车不算快捷键(routeUnifiedKey 的 IME 守卫)。
       // 边框/底色一律用实体令牌:alpha 变体(border-accent/40 之类)不在令牌表里,
       // 会被视觉审计的「颜色全部来自令牌」判失败 —— 那是 pnpm verify 的第 9 项门禁
       className="border-b border-border-strong bg-accent-soft px-4 py-3"
@@ -168,31 +165,30 @@ export function EditPanel(p: EditPanelProps): ReactNode {
         aria-label="编辑源码"
         rows={editRows(source)}
         defaultValue={source}
+        aria-controls={EDIT_LINK_LISTBOX_ID}
+        aria-activedescendant={link.activeOptionId ?? undefined}
+        onKeyDown={link.onKeyDown}
         // 输入/组合结束都把 DOM 值同步进 state(仅供派生 UI);保存永远读 DOM,故 IME 组合中也不会丢字
         onChange={(e) => {
           domText.current = e.target.value;
           setSource(e.target.value);
+          setCaret(e.target.selectionStart ?? 0);
         }}
+        // 光标移动(点击/方向键)也要上报,否则 `[[` 触发判断会停在旧位置
+        onSelect={(e) => setCaret(e.currentTarget.selectionStart ?? 0)}
         onCompositionEnd={(e) => {
           domText.current = (e.target as HTMLTextAreaElement).value;
           setSource(domText.current);
+          setCaret(e.currentTarget.selectionStart ?? 0);
         }}
         // 字体与快捷输入一致(用户 2026-09-28:以输入栏为准):同一族(系统 UI 字)与同一档字号/行高,
         // 不用 font-mono —— 之前等宽 + 15px 与输入栏的 13px 无衬线看着像两个应用
         className="scroll-gutter w-full resize-y rounded-md border border-border-strong bg-raised p-2 text-sm leading-relaxed text-text"
       />
+      {link.list}
       {/* 保存/取消按钮与「点其他位置即保存」提示已按用户要求删除:离开区块(点别处/切条目/失焦)即保存,Esc 取消;
           Ctrl+Enter 是「保存并回到预览」的快捷键,提示就放在这一行小字里 */}
-      <div className="mt-2 flex items-center gap-3">
-        <span className="text-xs text-muted" data-testid="edit-tag-count">
-          {tagCountLabel(tagCount)}
-          {hint !== null && <span className="ml-2 text-faint">{hint}</span>}
-        </span>
-        <span className="text-xs text-faint" data-testid="edit-save-hint">
-          Ctrl+Enter 保存
-        </span>
-        {error !== '' && <span className="text-xs text-danger">{error}</span>}
-      </div>
+      <EditFooter tagCount={tagCount} error={error} />
       {(p.backlinkCount ?? 0) > 0 && <BacklinksPanel noteId={p.note.id} />}
     </li>
   );
