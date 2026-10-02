@@ -117,17 +117,19 @@ body {
 }
 
 /* Markdown 表格(风格 B 数据密集;预览稿 .superpowers/previews/table-styles.html)。
-   长文本口径:**不截断、不藏字** —— 靠列宽上限 26em + 单元格自动换行,行高随内容增长
-   (表格里 height 是最小高度)。刻意不做「截断 + 悬停看全文」:笔记里藏字会让复制/搜索/打印失真。
-   min-width:7rem 是宽表横向滚动的必要条件 —— .md-body 的 word-break:break-word 把单元格
-   min-content 软化成 1 字,不加列宽下限时表格永不超过容器(实测 8 列也不滚),
-   而 width:max-content 对 display:block 的表格无效;7rem 让 8 列超过内容列宽、6 列以内仍铺满。 */
+   三条不显然的口径:
+   1) 长文本不截断不藏字 —— 列宽上限 26em + 自动换行,行高随内容长(表格里 height 即最小值);
+   2) min-width:7rem 是横向滚动的必要条件 —— .md-body 的 word-break:break-word 把单元格
+      min-content 软化成 1 字,不加下限时宽表永不超过容器(实测 8 列也不滚);
+   3) 表头钉住必须有 max-height:表格自己就是滚动容器,表高=内容高时 sticky 无处可粘。
+      短表不受影响(不到 max-height 就不出滚动条),长表内部滚动 + 表头真钉住。 */
 .md-body table {
   display: block; /* 宽表横向滚动 */
   max-width: 100%;
+  max-height: 70vh; /* 长表内部纵向滚动,表头才有可粘的地方 */
   margin: 0.6rem 0;
   border-collapse: collapse;
-  overflow-x: auto;
+  overflow: auto; /* 横向 + 纵向 */
   border: 1px solid var(--color-border-strong);
   font-size: 12px; /* B:数据密集 */
   line-height: 1.45; /* 收回 .md-body 的绝对行高(26px),短行才紧凑 */

@@ -60,6 +60,16 @@ export const SCAN_JS = (s) => `(() => {${HELP}
       clientHeight: longTd.clientHeight, whiteSpace: cs(longTd).whiteSpace, textOverflow: cs(longTd).textOverflow,
       text: longTd.textContent } : null,
     wide: { scrollWidth: t1.scrollWidth, clientWidth: t1.clientWidth, w: Math.round(t1.getBoundingClientRect().width) },
+    sticky: (() => {
+      const t2 = tables[2];
+      if (!t2) return { tallTableScrolls: false, headerStuckOffset: 999 };
+      const th2 = t2.querySelector('thead th');
+      t2.scrollTop = 240; // 内部纵向滚动(长表才会滚)
+      const off = Math.round(th2.getBoundingClientRect().top - t2.getBoundingClientRect().top);
+      const scrolls = t2.scrollHeight > t2.clientHeight + 1;
+      t2.scrollTop = 0;
+      return { tallTableScrolls: scrolls, headerStuckOffset: Math.abs(off) };
+    })(),
     cardW: Math.round(card.getBoundingClientRect().width),
   };
 })()`;

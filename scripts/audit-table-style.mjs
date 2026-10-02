@@ -22,7 +22,10 @@ const CONTENT = [
   '| 列一 | 列二 | 列三 | 列四 | 列五 | 列六 | 列七 | 列八 |',
   '| --- | --- | --- | --- | --- | --- | --- | --- |',
   '| 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |',
-  '| a | b | c | d | e | f | g | h |',
+  '| a | b | c | d | e | f | g | h |', '',
+  // 第 3 张表:30 行,超过 max-height(70vh) → 表格内部纵向滚动,表头才有可粘的地方
+  '| 序号 | 名称 | 数量 |', '| ---: | :--- | ---: |',
+  ...Array.from({ length: 30 }, (_, i) => `| ${i + 1} | 第 ${i + 1} 行 | ${(i + 1) * 10} |`),
 ].join('\n');
 const kw = { keyword: NS, tags: [], excludeTags: [], tagPresence: null, sort: 'newest', expr: null };
 const lum = (s) => {
@@ -48,10 +51,11 @@ const r = recorder();
 function assertScan(s, theme) {
   const tok = s.tok;
   r.record(
-    `表头 th(${theme}):底=chrome-alt / 底边 2px / 字号 12px / sticky`,
+    `表头 th(${theme}):底=chrome-alt / 底边 2px / 字号 12px / sticky 真钉住(长表内部滚动后仍在顶部)`,
     s.th.bg === tok['--color-chrome-alt'] && near(s.th.borderBottomWidth, 2) && s.th.fontSize === '12px'
-      && s.th.position === 'sticky' && s.th.top === '0px',
-    `底 ${s.th.bg} / 底边 ${s.th.borderBottomWidth} / 字号 ${s.th.fontSize} / ${s.th.position}@${s.th.top} / 内距 ${s.th.padding}`,
+      && s.th.position === 'sticky' && s.th.top === '0px'
+      && s.sticky.tallTableScrolls === true && s.sticky.headerStuckOffset <= 2,
+    `底 ${s.th.bg} / 底边 ${s.th.borderBottomWidth} / 字号 ${s.th.fontSize} / ${s.th.position}@${s.th.top} / 内距 ${s.th.padding} / 长表可滚=${s.sticky.tallTableScrolls} 表头偏移=${s.sticky.headerStuckOffset}px`,
   );
   r.record(
     `单元格 td(${theme}):内距 4/8 / 顶对齐 / max-width 26em / 底边 1px`,
