@@ -31,15 +31,19 @@ export function detectLinkTrigger(text: string, caret: number): LinkTrigger | nu
   const line = text.slice(lineStart, pos);
   const open = lastUnclosedOpen(line);
   if (open < 0) return null;
-  // query 不含 `]`(单个 `]` 也是标题终止符,设计 §2)
+  // query 不含 `]`(单个 `]` 也是标题终止符,设计 §2);
+  // 也在**第一个 `|` 处截断** —— 打了 `[[买|别名` 时候选仍按「买」匹配(设计 A6)
   const raw = line.slice(open + 2);
   const cut = raw.indexOf(']');
-  return { start: lineStart + open, query: cut >= 0 ? raw.slice(0, cut) : raw };
+  const head = cut >= 0 ? raw.slice(0, cut) : raw;
+  const bar = head.indexOf('|');
+  return { start: lineStart + open, query: bar >= 0 ? head.slice(0, bar) : head };
 }
 
 /**
  * 采纳候选:用 `[[title]]` 替换从 `[[` 到「光标处(或光标后已有的 `]]` 闭合)」的那段,
  * 光标落在 `]]` 之后;后面已是 `]]` 时不重复补(设计 N5)。没有触发点则原样返回。
+ * 已写的别名(`|` 之后那段)整段搬回新文本,**不覆盖**(设计 A6 / 读数 6)。
  */
 export function acceptLink(
   text: string,
@@ -51,7 +55,11 @@ export function acceptLink(
   const pos = clamp(caret, text.length);
   const close = text.indexOf(']]', trigger.start + 2);
   const end = close >= 0 ? close + 2 : pos;
-  const inserted = `[[${title}]]`;
+  const innerEnd = close >= 0 ? close : pos;
+  const inner = text.slice(trigger.start + 2, innerEnd);
+  const bar = inner.indexOf('|');
+  const alias = bar >= 0 ? inner.slice(bar) : '';
+  const inserted = `[[${title}${alias}]]`;
   return {
     text: text.slice(0, trigger.start) + inserted + text.slice(end),
     caret: trigger.start + inserted.length,

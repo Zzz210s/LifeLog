@@ -10,11 +10,20 @@
  * - start/end 是 JS 的 UTF-16 下标(Rust 用字节),仅在本侧切片自洽。
  */
 
-/** 一个已确认的链接区间(标题已裁首尾空白) */
+/** 一个已确认的链接区间(目标已裁首尾空白;display 是 `|` 之后的显示文本,设计 A5) */
 export interface NoteLinkSpan {
   start: number;
   end: number;
   rawTitle: string;
+  display: string | null;
+}
+
+/** 按**第一个** `|` 切分 `[[…]]` 的内容(设计 A1):目标是前段、显示是后段。
+ *  两段都裁首尾空白;没有 `|` 或显示切完为空时 display 是 null(`[[甲|]]` 等价 `[[甲]]`,设计 A3) */
+export function splitAlias(inner: string): { rawTitle: string; display: string | null } {
+  const bar = inner.indexOf('|');
+  if (bar < 0) return { rawTitle: inner.trim(), display: null };
+  return { rawTitle: inner.slice(0, bar).trim(), display: inner.slice(bar + 1).trim() || null };
 }
 
 /** 标题长度上限(字符数,非字节),与 Rust `MAX_TITLE_CHARS` 同口径 */
@@ -89,7 +98,7 @@ function scanLine(line: string, base: number, out: NoteLinkSpan[]): void {
   walkLine(line, (i) => {
     const parsed = parseAt(line, i);
     if (parsed) {
-      out.push({ start: base + i, end: base + parsed.end, rawTitle: parsed.title });
+      out.push({ start: base + i, end: base + parsed.end, rawTitle: parsed.rawTitle, display: parsed.display });
       return parsed.end;
     }
     // 整串不算:跳到闭合 `]]` 之后(嵌套里的 `[[` 不再重启)
@@ -111,23 +120,26 @@ export function lastUnclosedOpen(line: string): number {
   return last;
 }
 
-/** open 指向首个 `[`;成功返回闭 `]]` 之后的下标与裁过首尾空白的标题。
- * `#` 开头的标签形(`[[#工作/]]`)与 Rust 一致地不算(设计 §5.5)。 */
-function parseAt(line: string, open: number): { end: number; title: string } | null {
+/** open 指向首个 `[`;成功返回闭 `]]` 之后的下标与切好的目标/显示。
+ *  合法性只判**目标**:空目标(`[[|乙]]`)整串不算,`#` 开头的标签形(`[[#工作/]]`)不算(设计 §5.5),`|` 之后不参与判。 */
+function parseAt(
+  line: string,
+  open: number
+): { end: number; rawTitle: string; display: string | null } | null {
   const rest = line.slice(open + 2);
   const close = rest.indexOf(']]');
   if (close < 0) return null;
-  const raw = rest.slice(0, close).trim();
+  const { rawTitle, display } = splitAlias(rest.slice(0, close));
   if (
-    raw === '' ||
-    raw.startsWith('#') ||
-    [...raw].length > MAX_TITLE_CHARS ||
-    raw.includes('[') ||
-    raw.includes(']')
+    rawTitle === '' ||
+    rawTitle.startsWith('#') ||
+    [...rawTitle].length > MAX_TITLE_CHARS ||
+    rawTitle.includes('[') ||
+    rawTitle.includes(']')
   ) {
     return null;
   }
-  return { end: open + 2 + close + 2, title: raw };
+  return { end: open + 2 + close + 2, rawTitle, display };
 }
 
 /** 从 from 起跳过第一个 `]]`;没有闭合就跳到行尾 */

@@ -10,7 +10,23 @@
     { "name": "跨行不算", "content": "[[甲\n乙]]", "expect": [] },
     { "name": "首尾空白裁掉", "content": "[[  甲  ]]", "expect": ["甲"] },
     { "name": "标签形不算", "content": "参考 [[#工作/]]", "expect": [] },
-    { "name": "标签形双斜杠不算", "content": "参考 [[#a//b]]", "expect": [] }
+    { "name": "标签形双斜杠不算", "content": "参考 [[#a//b]]", "expect": [] },
+    { "name": "别名", "content": "看 [[甲|乙]] 那条", "expect": ["甲"], "expectDisplay": ["乙"] },
+    {
+      "name": "多个竖线只在第一个切分",
+      "content": "[[甲|乙|丙]]",
+      "expect": ["甲"],
+      "expectDisplay": ["乙|丙"]
+    },
+    { "name": "空显示回退成无别名", "content": "[[甲|]]", "expect": ["甲"], "expectDisplay": [null] },
+    { "name": "空目标整串不算", "content": "[[|乙]]", "expect": [], "expectDisplay": [] },
+    { "name": "别名首尾空白裁掉", "content": "[[甲|  乙  ]]", "expect": ["甲"], "expectDisplay": ["乙"] },
+    {
+      "name": "围栏里带别名不算",
+      "content": "```\n[[甲|乙]]\n```",
+      "expect": [],
+      "expectDisplay": []
+    }
   ],
   "titles": [
     { "name": "普通", "content": "今天聚会\n#日记", "expect": "今天聚会" },

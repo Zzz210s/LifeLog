@@ -10,11 +10,14 @@
     { "name": "行内代码里不触发", "text": "`[[聚会`", "caret": 6, "expect": null },
     { "name": "转义不触发", "text": "\\[[聚会", "caret": 7, "expect": null },
     { "name": "跨行不算", "text": "[[聚会\n", "caret": 5, "expect": null },
-    { "name": "两个未闭合取最近的", "text": "[[甲 [[乙", "caret": 8, "expect": { "start": 4, "query": "乙" } }
+    { "name": "两个未闭合取最近的", "text": "[[甲 [[乙", "caret": 8, "expect": { "start": 4, "query": "乙" } },
+    { "name": "查询在第一个竖线处截断", "text": "看 [[买|别名", "caret": 8, "expect": { "start": 2, "query": "买" } },
+    { "name": "竖线后还有闭合也一样截断", "text": "看 [[买|别名]]", "caret": 6, "expect": { "start": 2, "query": "买" } }
   ],
   "accept": [
     { "name": "替换未闭合段", "text": "看 [[聚会", "caret": 7, "title": "今天聚会", "expect": { "text": "看 [[今天聚会]]", "caret": 10 } },
     { "name": "后面已有闭合就不重复补", "text": "看 [[聚会]]", "caret": 7, "title": "今天聚会", "expect": { "text": "看 [[今天聚会]]", "caret": 10 } },
-    { "name": "无触发时原样返回", "text": "看 聚会", "caret": 5, "title": "今天聚会", "expect": { "text": "看 聚会", "caret": 5 } }
+    { "name": "无触发时原样返回", "text": "看 聚会", "caret": 5, "title": "今天聚会", "expect": { "text": "看 聚会", "caret": 5 } },
+    { "name": "采纳不覆盖已写别名", "text": "看 [[买|别名", "caret": 8, "title": "买牛奶", "expect": { "text": "看 [[买牛奶|别名]]", "caret": 12 } }
   ]
 }

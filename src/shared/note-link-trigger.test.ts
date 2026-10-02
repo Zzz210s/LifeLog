@@ -66,4 +66,19 @@ describe('围栏 / 转义 / 边界的口径(与 links.rs 对齐)', () => {
     expect(detectLinkTrigger('[[甲', 99)).toEqual({ start: 0, query: '甲' });
     expect(detectLinkTrigger('[[甲', -3)).toBeNull();
   });
+
+  it('query 只在第一个竖线处截断(竖线后仍算同一处触发)', () => {
+    expect(detectLinkTrigger('[[买|别名', 8)).toEqual({ start: 0, query: '买' });
+    expect(detectLinkTrigger('[[买|别名', 6)).toEqual({ start: 0, query: '买' });
+    expect(detectLinkTrigger('看 [[买|乙|丙', 10)).toEqual({ start: 2, query: '买' });
+  });
+
+  it('采纳时已写别名整段保留', () => {
+    expect(acceptLink('看 [[买|别名', 8, '买牛奶')).toEqual({
+      text: '看 [[买牛奶|别名]]',
+      caret: 12,
+    });
+    // 别名里带多个竖线也整段搬回(不重新切)
+    expect(acceptLink('[[买|乙|丙', 8, '买牛奶')).toEqual({ text: '[[买牛奶|乙|丙]]', caret: 11 });
+  });
 });

@@ -6,12 +6,13 @@
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { displayTitle, normalizeTitle, noteLinkSpans, titleOf } from './note-link-syntax';
+import { displayTitle, normalizeTitle, noteLinkSpans, splitAlias, titleOf } from './note-link-syntax';
 
 interface SpanCase {
   name: string;
   content: string;
   expect: string[];
+  expectDisplay?: (string | null)[];
 }
 interface TitleCase {
   name: string;
@@ -37,7 +38,9 @@ describe('fixtures/note-links.json 结构合法', () => {
 describe('链接扫描与共享向量一致', () => {
   for (const c of fixture.spans) {
     it(c.name, () => {
-      expect(noteLinkSpans(c.content).map((s) => s.rawTitle)).toEqual(c.expect);
+      const spans = noteLinkSpans(c.content);
+      expect(spans.map((s) => s.rawTitle)).toEqual(c.expect);
+      if (c.expectDisplay) expect(spans.map((s) => s.display)).toEqual(c.expectDisplay);
     });
   }
 });
@@ -55,6 +58,14 @@ describe('区间与归一化边界', () => {
     const text = '看 [[今天聚会]] 与 [[乙]]';
     const spans = noteLinkSpans(text);
     expect(spans.map((s) => text.slice(s.start, s.end))).toEqual(['[[今天聚会]]', '[[乙]]']);
+  });
+
+  it('splitAlias 只在第一个竖线切分,空显示回落 null', () => {
+    expect(splitAlias('甲|乙|丙')).toEqual({ rawTitle: '甲', display: '乙|丙' });
+    expect(splitAlias('  甲 |  乙  ')).toEqual({ rawTitle: '甲', display: '乙' });
+    expect(splitAlias('甲|')).toEqual({ rawTitle: '甲', display: null });
+    expect(splitAlias('甲|   ')).toEqual({ rawTitle: '甲', display: null });
+    expect(splitAlias('甲')).toEqual({ rawTitle: '甲', display: null });
   });
 
   it('标题词元剥离后不参与匹配', () => {

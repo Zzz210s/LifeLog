@@ -5,7 +5,8 @@
 use crate::db::repos::notes::strip_tags_known;
 
 /// 一个已确认的链接区间:start/end 是原文里的**字节**范围(含 `[[` 与 `]]`),
-/// raw_title 是裁过首尾空白的标题原文(匹配时才归一化)。
+/// raw_title 是裁过首尾空白的**目标**原文(匹配时才归一化)。
+/// display 是 `|` 之后的显示文本(裁过首尾空白,设计 A5);无 `|` 或显示为空时是 None(设计 A3)。
 /// 字节范围目前只有测试在用(写入路径只取 raw_title);L2 渲染 chip 靠它切片定位,
 /// 所以先放行 dead_code,而不是把字段删掉再加回来。
 pub struct LinkSpan {
@@ -14,6 +15,8 @@ pub struct LinkSpan {
     #[allow(dead_code)]
     pub end: usize,
     pub raw_title: String,
+    #[allow(dead_code)]
+    pub display: Option<String>,
 }
 
 /// 标题长度上限(字符数,非字节):超长的整串保持字面(设计 §3 语法约束)
@@ -61,8 +64,8 @@ fn scan_line(line: &str, base: usize, out: &mut Vec<LinkSpan>) {
                 i += 1;
             }
             b'[' if !in_code && bytes.get(i + 1) == Some(&b'[') => match parse_at(line, i) {
-                Some((end, raw_title)) => {
-                    out.push(LinkSpan { start: base + i, end: base + end, raw_title });
+                Some((end, raw_title, display)) => {
+                    out.push(LinkSpan { start: base + i, end: base + end, raw_title, display });
                     i = end;
                 }
                 // 整串不算:跳到闭合 `]]` 之后 —— 里面的那个 `[[` 不再重启
@@ -75,13 +78,21 @@ fn scan_line(line: &str, base: usize, out: &mut Vec<LinkSpan>) {
 }
 
 /// 在 `line[open..]`(open 指向首个 `[`)尝试解析一条链接:
-/// 成功返回 (结束字节下标 = 闭 `]]` 之后, 裁过首尾空白的标题)。
+/// 成功返回 (结束字节下标 = 闭 `]]` 之后, 裁过首尾空白的**目标**, 显示文本)。
+/// 只按**第一个** `|` 切分(设计 A1):目标是它之前那段,显示是之后那段(裁过首尾空白,
+/// 切完为空则视作没有显示 —— `[[甲|]]` 等价 `[[甲]]`,设计 A3)。
+/// 长度/方括号/`#` 这些合法性只判**目标**(显示不参与匹配,可以含空格与 md 记号)。
 /// `#` 开头的标签形(`[[#工作/]]`)一律不算(设计 §5.5):它既不是笔记标题,
 /// 归一化后也会是空 key —— 放行只会写出永远解析不了的垃圾行。
-fn parse_at(line: &str, open: usize) -> Option<(usize, String)> {
+fn parse_at(line: &str, open: usize) -> Option<(usize, String, Option<String>)> {
     let rest = &line[open + 2..];
     let close = rest.find("]]")?;
-    let raw = rest[..close].trim();
+    let inner = &rest[..close];
+    let (target, display) = match inner.find('|') {
+        Some(bar) => (&inner[..bar], Some(inner[bar + 1..].trim())),
+        None => (inner, None),
+    };
+    let raw = target.trim();
     if raw.is_empty()
         || raw.starts_with('#')
         || raw.chars().count() > MAX_TITLE_CHARS
@@ -89,7 +100,8 @@ fn parse_at(line: &str, open: usize) -> Option<(usize, String)> {
     {
         return None;
     }
-    Some((open + 2 + close + 2, raw.to_string()))
+    let display = display.filter(|d| !d.is_empty()).map(str::to_string);
+    Some((open + 2 + close + 2, raw.to_string(), display))
 }
 
 /// 从 `from` 起跳过第一个 `]]`;没有闭合就跳到行尾(整串字面保留,不解析)

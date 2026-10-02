@@ -16,10 +16,14 @@ struct Fixture {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct SpanCase {
     name: String,
     content: String,
     expect: Vec<String>,
+    /// 与 expect 一一对应的显示文本(设计 A5);缺省表示该向量不钉显示
+    #[serde(default)]
+    expect_display: Option<Vec<Option<String>>>,
 }
 
 #[derive(Deserialize)]
@@ -46,9 +50,13 @@ fn fixture_is_well_formed() {
 #[test]
 fn link_spans_match_shared_fixture() {
     for c in fixture().spans {
-        let got: Vec<String> =
-            link_spans(&c.content).into_iter().map(|s| s.raw_title).collect();
+        let spans = link_spans(&c.content);
+        let got: Vec<String> = spans.iter().map(|s| s.raw_title.clone()).collect();
         assert_eq!(got, c.expect, "向量「{}」不符,源码:{:?}", c.name, c.content);
+        if let Some(want) = &c.expect_display {
+            let got_d: Vec<Option<String>> = spans.iter().map(|s| s.display.clone()).collect();
+            assert_eq!(&got_d, want, "向量「{}」显示文本不符,源码:{:?}", c.name, c.content);
+        }
     }
 }
 
@@ -57,6 +65,27 @@ fn title_of_matches_shared_fixture() {
     for c in fixture().titles {
         assert_eq!(title_of(&c.content), c.expect, "向量「{}」不符", c.name);
     }
+}
+
+/// 别名口径(设计 A1/A3):第一个 `|` 切分、空显示回退、空目标整串不算
+#[test]
+fn alias_splits_at_first_bar() {
+    let one = link_spans("[[甲|乙]]");
+    assert_eq!(one.len(), 1);
+    assert_eq!(one[0].raw_title, "甲");
+    assert_eq!(one[0].display.as_deref(), Some("乙"));
+
+    let multi = link_spans("[[甲|乙|丙]]");
+    assert_eq!(multi[0].raw_title, "甲");
+    assert_eq!(multi[0].display.as_deref(), Some("乙|丙"));
+
+    let empty = link_spans("[[甲|]]");
+    assert_eq!(empty[0].raw_title, "甲");
+    assert!(empty[0].display.is_none(), "空显示要回退成无别名");
+
+    assert!(link_spans("[[|乙]]").is_empty(), "空目标整串不算");
+    let plain = link_spans("[[甲]]");
+    assert!(plain[0].display.is_none());
 }
 
 /// 区间自洽:start/end 必须正好切出 `[[…]]` 原文(渲染期切片依赖这一点)
