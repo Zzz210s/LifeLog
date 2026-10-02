@@ -27,6 +27,15 @@ const SOURCE: Note = {
   ],
 };
 
+const ALIAS: Note = {
+  id: 5, content: '看 [[UI测试笔记|我自己的说法]] 与 [[没有的笔记|随便什么]]',
+  created_at: '2026-09-24 10:00:02', tags: [],
+  links: [
+    { rawTitle: 'UI测试笔记', targetId: 3, title: 'UI测试笔记' },
+    { rawTitle: '没有的笔记', targetId: null, title: null },
+  ],
+};
+
 let scrollSpy: ReturnType<typeof vi.fn>;
 
 const click = async (el: Element): Promise<void> => {
@@ -65,6 +74,33 @@ describe('正文 chip 点击(StreamView 执行)', () => {
     expect(chip).not.toBeNull();
     expect(chip!.className).toContain('decoration-dashed');
     await click(chip!);
+    const box = m.host.querySelector('[data-testid="unified-input"]') as HTMLTextAreaElement;
+    expect(box.value).toBe('@没有的笔记');
+    m.unmount();
+  });
+});
+
+describe('正文 chip 别名(设计 A5)', () => {
+  it('已解析:chip 文字=显示文本,title=目标标题,点击跳的是目标', async () => {
+    const m = await mountStreamView({ notes: [ALIAS, TARGET] });
+    const chip = m.host.querySelector('[data-note-link="3"]') as HTMLElement;
+    expect(chip).not.toBeNull();
+    expect(chip.textContent).toBe('我自己的说法');
+    expect(chip.getAttribute('title')).toBe('UI测试笔记');
+    expect(chip.getAttribute('data-note-link-raw')).toBe('UI测试笔记');
+    await click(chip);
+    expect(scrollSpy).toHaveBeenCalledWith({ block: 'center' });
+    const row = m.host.querySelector('[data-note-body="3"]')!.closest('li')!;
+    expect(row.className).toContain('bg-accent-soft');
+    m.unmount();
+  });
+
+  it('未解析:chip 文字=显示文本,点击预填的是**目标**不是显示文本', async () => {
+    const m = await mountStreamView({ notes: [ALIAS, TARGET] });
+    const chip = m.host.querySelector('[data-note-link=""]') as HTMLElement;
+    expect(chip.textContent).toBe('随便什么');
+    expect(chip.getAttribute('title')).toBe('没有的笔记');
+    await click(chip);
     const box = m.host.querySelector('[data-testid="unified-input"]') as HTMLTextAreaElement;
     expect(box.value).toBe('@没有的笔记');
     m.unmount();

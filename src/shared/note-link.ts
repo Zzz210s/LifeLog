@@ -5,12 +5,14 @@
  * 这是 markdown-it 块级与行内解析顺序天然给的,与 L1 的跳过口径一致)+ 渲染函数
  * renderNoteLink + 点击命中 noteLinkFrom。调用方(markdown.ts / MarkdownBody)只从这里取。
  *
- * 已解析 -> `text-accent` 实线 + `data-note-link="<id>"`,标签文本用目标**当前**首行;
- * 未解析 -> `text-muted` 虚线 + `data-note-link=""`,文本用正文原文。
- * 点击分发在 MarkdownBody(事件委托):id 非空跳转,空则拿标题预填统一输入框的 `@`。
+ * 已解析 -> `text-accent` 实线 + `data-note-link="<id>"`,chip 文字用显示文本(有则用)、
+ * 悬停 `title` 提示目标当前首行;
+ * 未解析 -> `text-muted` 虚线 + `data-note-link=""`,chip 文字同样优先显示文本,`title` 与
+ * `data-note-link-raw` 都是**目标**原文(点击预填也要拿目标,不是显示文本)。
+ * 点击分发在 MarkdownBody(事件委托):id 非空跳转,空则拿**目标**标题预填统一输入框的 `@`。
  */
 import type { RendererRule, StateInline } from 'markdown-it';
-import { MAX_TITLE_CHARS, normalizeTitle } from './note-link-syntax';
+import { MAX_TITLE_CHARS, normalizeTitle, splitAlias } from './note-link-syntax';
 import type { NoteLink } from './types';
 
 /** chip 携带的解析结果:id 与目标的当前显示首行 */
@@ -34,15 +36,16 @@ export function noteLinkEnv(links: readonly NoteLink[] | undefined): NoteLinkEnv
   return { links: map };
 }
 
-/** `[[` 与 `]]` 之间的合法标题:非空、不超长、不含方括号/换行、不以 `#` 开头(标签形) */
-function validTitle(t: string): boolean {
+/** `[[` 与 `]]` 之间的合法内容:只判**目标**部分(设计 A2),显示文本不参与合法性判定 */
+function validContent(inner: string): boolean {
+  const { rawTitle } = splitAlias(inner);
   return (
-    t !== '' &&
-    !t.startsWith('#') &&
-    !t.includes('[') &&
-    !t.includes(']') &&
-    !t.includes('\n') &&
-    [...t].length <= MAX_TITLE_CHARS
+    rawTitle !== '' &&
+    !rawTitle.startsWith('#') &&
+    !rawTitle.includes('[') &&
+    !rawTitle.includes(']') &&
+    !rawTitle.includes('\n') &&
+    [...rawTitle].length <= MAX_TITLE_CHARS
   );
 }
 
@@ -60,7 +63,7 @@ export function noteLinkRule(state: StateInline, silent: boolean): boolean {
   if (close < 0) return false;
   const raw = state.src.slice(start + 2, close).trim();
   if (!silent) {
-    if (validTitle(raw)) {
+    if (validContent(raw)) {
       const token = state.push('note_link', '', 0);
       token.content = raw;
     } else {
@@ -84,32 +87,41 @@ function escapeHtml(s: string): string {
 const RESOLVED_CLASS = 'note-link cursor-pointer text-accent underline';
 const UNRESOLVED_CLASS = 'note-link cursor-pointer text-muted underline decoration-dashed';
 
-/** 一条链接 -> chip HTML:已解析显示目标当前首行 + 目标 id,未解析显示原文 + 空 id */
-export function renderNoteLink(rawTitle: string, target: NoteLinkTarget | null): string {
-  const label = target === null ? rawTitle : target.title;
+/** 一条链接 -> chip HTML:文字优先用显示文本,否则回落(已解析用目标首行、未解析用目标原文);
+ *  `title` 提示指向谁(两种情形都用目标),`data-note-link-raw` 留着点击预填用(设计 A5)。 */
+export function renderNoteLink(
+  rawTitle: string,
+  target: NoteLinkTarget | null,
+  display: string | null = null
+): string {
+  const label = display ?? (target === null ? rawTitle : target.title);
+  const tooltip = target === null ? rawTitle : target.title;
   const cls = target === null ? UNRESOLVED_CLASS : RESOLVED_CLASS;
-  return `<span class="${cls}" data-note-link="${target?.id ?? ''}">${escapeHtml(label)}</span>`;
+  const attrs = `data-note-link="${target?.id ?? ''}" data-note-link-raw="${escapeHtml(rawTitle)}" title="${escapeHtml(tooltip)}"`;
+  return `<span class="${cls}" ${attrs}>${escapeHtml(label)}</span>`;
 }
 
-/** 渲染规则:按 env 里的解析表查目标(归一化 key 与写入侧同源) */
+/** 渲染规则:按 env 里的解析表查目标(归一化 key 与写入侧同源);内外先按第一个 `|` 切分别 */
 export const renderNoteLinkToken: RendererRule = (tokens, idx, _options, env) => {
-  const raw = tokens[idx].content;
-  const target = (env as NoteLinkEnv).links?.get(normalizeTitle(raw)) ?? null;
-  return renderNoteLink(raw, target);
+  const { rawTitle, display } = splitAlias(tokens[idx].content);
+  const target = (env as NoteLinkEnv).links?.get(normalizeTitle(rawTitle)) ?? null;
+  return renderNoteLink(rawTitle, target, display);
 };
 
-/** 一次点击命中的 chip:已解析给 id,未解析给正文原文(供预填) */
+/** 一次点击命中的 chip:已解析给 id,未解析给**目标**原文(供预填) */
 export interface NoteLinkHit {
   id: number | null;
   title: string;
 }
 
-/** 点击事件目标 -> 命中的 chip(最近祖先带 data-note-link);非 chip 返回 null */
+/** 点击事件目标 -> 命中的 chip(最近祖先带 data-note-link);非 chip 返回 null。
+ *  预填要的是目标(不是显示文本),优先读 `data-note-link-raw`,手写节点里没有就回落文本。 */
 export function noteLinkFrom(target: EventTarget | null): NoteLinkHit | null {
   if (!(target instanceof Element)) return null;
   const el = target.closest('[data-note-link]');
   if (el === null) return null;
   const raw = el.getAttribute('data-note-link') ?? '';
   const id = Number.parseInt(raw, 10);
-  return { id: Number.isInteger(id) ? id : null, title: (el.textContent ?? '').trim() };
+  const targetRaw = el.getAttribute('data-note-link-raw');
+  return { id: Number.isInteger(id) ? id : null, title: targetRaw ?? (el.textContent ?? '').trim() };
 }

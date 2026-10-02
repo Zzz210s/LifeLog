@@ -29,10 +29,39 @@ describe('renderNoteLink:两种样式的 chip', () => {
     expect(html).toContain('>不存在的标题</span>');
   });
 
-  it('标题转义:不注入元素', () => {
+  it('标题转义：不注入元素', () => {
     const html = renderNoteLink('<b>x</b>', null);
     expect(html).toContain('&lt;b&gt;');
     expect(html).not.toContain('<b>');
+  });
+});
+
+describe('renderNoteLink:别名(设计 A5)', () => {
+  it('有别名时 chip 文字用显示文本，title 给目标标题', () => {
+    const html = renderNoteLink('目标', { id: 7, title: '目标笔记' }, '我自己的说法');
+    expect(html).toContain('>我自己的说法</span>');
+    expect(html).toContain('title="目标笔记"');
+    expect(html).toContain('data-note-link="7"');
+    expect(html).toContain('data-note-link-raw="目标"');
+  });
+
+  it('空别名(display=null)回落成目标标题，与无别名一致', () => {
+    expect(renderNoteLink('甲', { id: 7, title: '甲改' }, null)).toContain('>甲改</span>');
+    expect(renderNoteLink('甲', { id: 7, title: '甲改' })).toContain('>甲改</span>');
+  });
+
+  it('未解析带别名：chip 文字=显示文本，title 与 raw 都是目标', () => {
+    const html = renderNoteLink('不存在', null, '随便什么');
+    expect(html).toContain('data-note-link=""');
+    expect(html).toContain('decoration-dashed');
+    expect(html).toContain('>随便什么</span>');
+    expect(html).toContain('title="不存在"');
+    expect(html).toContain('data-note-link-raw="不存在"');
+  });
+
+  it('别名里的引号被转义', () => {
+    const html = renderNoteLink('甲', null, '说"引号"');
+    expect(html).toContain('&quot;引号&quot;');
   });
 });
 
@@ -50,6 +79,11 @@ describe('noteLinkFrom:点击命中', () => {
   it('未解析 chip -> id 为 null,title 是正文原文', () => {
     const el = mount('data-note-link=""', '没有的');
     expect(noteLinkFrom(el)).toEqual({ id: null, title: '没有的' });
+  });
+
+  it('带 data-note-link-raw 时优先用它(预填目标而非显示文本)', () => {
+    const el = mount('data-note-link="" data-note-link-raw="目标"', '我自己的说法');
+    expect(noteLinkFrom(el)).toEqual({ id: null, title: '目标' });
   });
 
   it('子节点命中也算(最近祖先),非 chip 返回 null', () => {
@@ -109,5 +143,42 @@ describe('正文渲染里的 chip(与 L1 解析口径一致)', () => {
     const html = renderMarkdown('[官网](https://example.com)', [link('官网', 1, '官网')]);
     expect(html).toContain('<a');
     expect(html).not.toContain('data-note-link');
+  });
+
+  it('别名:chip 文字用显示文本,data-note-link 仍是目标 id', () => {
+    const html = renderMarkdown('看 [[目标笔记|我自己的说法]]', [link('目标笔记', 7, '目标笔记')]);
+    expect(html).toContain('data-note-link="7"');
+    expect(html).toContain('>我自己的说法</span>');
+    expect(html).toContain('title="目标笔记"');
+  });
+
+  it('别名目标是目标段落:匹配用 `|` 之前那段(显示文本不参与解析)', () => {
+    const html = renderMarkdown('[[甲|乙]]', [link('甲', 1, '甲')]);
+    expect(html).toContain('data-note-link="1"');
+    expect(html).toContain('>乙</span>');
+    // 显示文本正是另一条笔记时也不会解析到它
+    const other = renderMarkdown('[[甲|乙]]', [link('乙', 2, '乙')]);
+    expect(other).toContain('data-note-link=""');
+  });
+
+  it('多个竖线:显示文本是第一个 `|` 之后的全部', () => {
+    const html = renderMarkdown('[[甲|乙|丙]]', [link('甲', 1, '甲')]);
+    expect(html).toContain('>乙|丙</span>');
+  });
+
+  it('空别名回落目标标题;空目标整串不渲染', () => {
+    expect(renderMarkdown('[[甲|]]', [link('甲', 1, '甲改')])).toContain('>甲改</span>');
+    expect(renderMarkdown('[[|乙]]', [])).not.toContain('data-note-link');
+  });
+
+  it('未解析带别名:chip 文字=显示文本,点击预填目标', () => {
+    const html = renderMarkdown('看 [[不存在|随便什么]] 那条', []);
+    expect(html).toContain('data-note-link=""');
+    expect(html).toContain('data-note-link-raw="不存在"');
+    expect(html).toContain('>随便什么</span>');
+  });
+
+  it('围栏代码块里的别名不渲染成 chip', () => {
+    expect(renderMarkdown('```\n[[甲|乙]]\n```', [link('甲', 1, '甲')])).not.toContain('data-note-link');
   });
 });
