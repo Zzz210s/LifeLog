@@ -7,8 +7,14 @@
  */
 import { useCallback, useMemo, useRef, useState } from 'react';
 import type { Note } from '../../shared/types';
-import { replaceCell, tableCells, type CellSpan, type TableRange } from '../../shared/md-table';
+import {
+  deleteColumn, deleteRow, insertColumn, insertRow,
+  replaceCell, tableCells, type CellSpan, type TableRange,
+} from '../../shared/md-table';
 import { updateNote } from '../data/note-writes';
+
+/** 结构改写纯函数(四者签名一致,供 rewrite 收口) */
+type Rewriter = (source: string, range: TableRange, at: number) => string;
 
 /** 提交后移动方向:0 留在本格;+1 右移(行尾折下一行首格);-1 左移(首格折上一行尾) */
 export type EditStep = -1 | 0 | 1;
@@ -29,6 +35,14 @@ export interface TableEdit {
   openAt(cell: CellSpan, range: TableRange, anchor?: HTMLElement): void;
   commit(text: string, step?: EditStep): Promise<void>;
   cancel(): void;
+  /** 在当前行下方加一行(at = 数据行下标,-1 = 插到第一行数据行之前) */
+  addRow(range: TableRange, at: number): Promise<void>;
+  /** 在当前列右侧加一列(at = 列下标) */
+  addColumn(range: TableRange, at: number): Promise<void>;
+  /** 删除第 at 行(数据行,0 起) */
+  removeRow(range: TableRange, at: number): Promise<void>;
+  /** 删除第 at 列(0 起) */
+  removeColumn(range: TableRange, at: number): Promise<void>;
 }
 
 /** 目标格的相邻格;越出表格(无下一行/上一行)返回 null = 留在本格 */
@@ -94,5 +108,34 @@ export function useTableEdit(opts: Options): TableEdit {
     }
   }, [source, target, noteId, onSaved]);
 
-  return { editing, anchor, error, busy, openAt, commit, cancel };
+  // 结构改写:一次 updateNote;成功后表结构已变,旧坐标作废 -> 收框。失败不改源码,
+  // 就地 setError(框开着由 TableCellEditor 显示,框没开由 TableControls 显示)。
+  const rewrite = useCallback(async (
+    range: TableRange, at: number, apply: Rewriter,
+  ): Promise<void> => {
+    if (inFlight.current) return;
+    const next = apply(source, range, at);
+    if (next === source) return; // 越界 / 删到只剩一列:无变化不写库
+    inFlight.current = true;
+    setBusy(true);
+    setError('');
+    try {
+      const updated = await updateNote(noteId, next);
+      setTarget(null); // 结构变了,收框(坐标不再指向原格)
+      if (!updated) return; // 笔记已被并发删除:静默收框
+      onSaved(updated);
+    } catch (e) {
+      setError('保存失败: ' + String(e));
+    } finally {
+      inFlight.current = false;
+      setBusy(false);
+    }
+  }, [source, noteId, onSaved]);
+
+  const addRow = useCallback((range: TableRange, at: number) => rewrite(range, at, insertRow), [rewrite]);
+  const addColumn = useCallback((range: TableRange, at: number) => rewrite(range, at, insertColumn), [rewrite]);
+  const removeRow = useCallback((range: TableRange, at: number) => rewrite(range, at, deleteRow), [rewrite]);
+  const removeColumn = useCallback((range: TableRange, at: number) => rewrite(range, at, deleteColumn), [rewrite]);
+
+  return { editing, anchor, error, busy, openAt, commit, cancel, addRow, addColumn, removeRow, removeColumn };
 }
