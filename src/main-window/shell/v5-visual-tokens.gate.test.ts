@@ -39,6 +39,9 @@ const FILES = [
   'settings/controls.tsx',
   'settings/AppearanceSection.tsx',
   'settings/InputBarSection.tsx',
+  'settings/InputAppearanceSection.tsx',
+  'settings/appearance-controls.tsx',
+  'settings/color-popover.tsx',
   'settings/NotesSection.tsx',
   'settings/StartupSection.tsx',
   'settings/GeneralSection.tsx',
@@ -55,6 +58,7 @@ const FLOATS: Array<[string, string]> = [
   ['shell/TopBarMenu.tsx', 'role="menu"'],
   ['sidebar/TagMenu.tsx', 'role="menu"'],
   ['tutorial/TutorialBubble.tsx', 'role="dialog"'],
+  ['settings/color-popover.tsx', 'role="menu"'],
 ];
 
 /** 有模态遮罩的文件(对话框的 bg-overlay;2/3 Task 5 已删零使用者的 .overlay-scrim) */

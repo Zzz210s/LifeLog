@@ -27,6 +27,7 @@ const SKIP_BUTTONS: Array<[string, string]> = [
   ['sidebar/TagMenu', '标签右键菜单(对话框):归 V5'],
   ['sidebar/TagRow.tsx', '标签树行(列表行,高 24→V5 定 26):归 V5'],
   ['settings/controls.tsx', '开关 role=switch、百分比/下拉由输入框扫描覆盖'],
+  ['settings/color-popover.tsx', '色盘浮层菜单项:归 V5(色块按外观设计取 rounded-xs 方块)'],
 ];
 
 /** 输入框扫描跳过的文件(前缀匹配) */

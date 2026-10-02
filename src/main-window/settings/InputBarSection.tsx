@@ -12,10 +12,14 @@ import { BTN_SECONDARY } from '../shell/button-classes';
 import { HotkeyRecorder } from './HotkeyRecorder';
 import { notifyInputSettingsChanged } from './input-settings-events';
 import { inputResetKeys, inputRows, resetInputSettings, withInputSetting } from './settings-model';
+import { InputAppearanceSection } from './InputAppearanceSection';
+import { appearanceResetKeys } from './input-appearance-model';
+import { useAppearanceEditing } from './use-appearance-editing';
 
 export function InputBarSection(): ReactNode {
   const [settings, setSettings] = useState<InputSettings | null>(null);
   const [error, setError] = useState('');
+  const editing = useAppearanceEditing();
 
   const reload = useCallback(() => {
     loadInputSettings()
@@ -44,7 +48,8 @@ export function InputBarSection(): ReactNode {
   );
 
   const onReset = useCallback(async () => {
-    const count = inputResetKeys().length;
+    // 旧 9 项 + 外观 8 项一起恢复;外观那份由 useAppearanceEditing 自己写库并回读
+    const count = inputResetKeys().length + appearanceResetKeys().length;
     // 二次确认必须用插件导出的 async confirm(走 plugin:dialog|message,在 dialog:default 权限内)。
     // 不能用 window.confirm:tauri-plugin-dialog 的初始化脚本把它改成了 async(返回 Promise),
     // 布尔上下文恒为真;且它走的 plugin:dialog|confirm 不在默认权限里会直接 reject
@@ -54,7 +59,7 @@ export function InputBarSection(): ReactNode {
       kind: 'warning',
     }).catch(() => false); // 弹窗失败一律当作取消,不意外清空用户设置
     if (!ok) return;
-    void resetInputSettings()
+    void Promise.all([resetInputSettings(), editing.reset()])
       .then(() => notifyInputSettingsChanged())
       .then(() => {
         setError('');
@@ -64,7 +69,7 @@ export function InputBarSection(): ReactNode {
         setError('恢复默认失败: ' + String(e));
         reload();
       });
-  }, [reload]);
+  }, [reload, editing]);
 
   return (
     <section className="rounded-md border border-border bg-raised">
@@ -72,7 +77,7 @@ export function InputBarSection(): ReactNode {
         <h2 className="text-title text-text">输入栏</h2>
         <p className="mt-0.5 text-label text-muted">改动立即生效并保存,不需要点保存按钮</p>
       </div>
-      {error && <p className="px-4 pt-3 text-label text-danger">{error}</p>}
+      {(error || editing.error) && <p className="px-4 pt-3 text-label text-danger">{error || editing.error}</p>}
       {settings === null ? (
         <div className="flex flex-col items-center gap-2 px-4 py-6">
           <span className="text-label text-muted">加载中...</span>
@@ -89,6 +94,13 @@ export function InputBarSection(): ReactNode {
       ) : (
         <>
           <div className="px-4">
+            <InputAppearanceSection
+              appearance={editing.appearance}
+              error={editing.error}
+              onUpdate={editing.update}
+              onApplyPreset={editing.applyPreset}
+              onReload={editing.reload}
+            />
             {inputRows().map((row) => (
               <SettingsRow key={row.key} label={row.label} hint={row.hint}>
                 <RowControl row={row} value={settings[row.key]} onChange={update} />

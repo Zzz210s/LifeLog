@@ -1,0 +1,8 @@
+/* 色盘里「透明」格的棋盘格图案:表示透明,不放内联十六进制,取主题令牌两色。 */
+.swatch-transparent {
+  background-image: repeating-conic-gradient(
+    var(--color-border) 0% 25%,
+    var(--color-raised) 0% 50%
+  );
+  background-size: 10px 10px;
+}
