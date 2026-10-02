@@ -15,6 +15,18 @@ const { completeNotes } = vi.hoisted(() => ({
 }));
 vi.mock('../../shared/api', () => ({ api: { completeNotes } }));
 
+// 跨窗事件订阅:记下每个 handler,退订时移除(供「卸载后不再重取」断言)
+const { handlers } = vi.hoisted(() => ({ handlers: [] as Array<() => void> }));
+vi.mock('@tauri-apps/api/event', () => ({
+  listen: (_event: string, handler: () => void) => {
+    handlers.push(handler);
+    return Promise.resolve(() => {
+      const i = handlers.indexOf(handler);
+      if (i >= 0) handlers.splice(i, 1);
+    });
+  },
+}));
+
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 let root: Root;
@@ -43,6 +55,7 @@ const settle = (): Promise<void> =>
 beforeEach(() => {
   completeNotes.mockClear();
   completeNotes.mockImplementation(async () => [{ id: 1, title: '甲' }]);
+  handlers.length = 0;
   host = document.createElement('div');
   document.body.appendChild(host);
   root = createRoot(host);
@@ -93,5 +106,30 @@ describe('useNoteTitles(候选池缓存)', () => {
     release([{ id: 2, title: '乙' }]);
     await settle();
     expect(titles).toEqual([]); // 迟到的池没有被接受
+  });
+
+  it('跨窗事件 note-created 到达 -> 池重取一次(版本号没变也重取)', async () => {
+    await act(async () => root.render(createElement(Probe, { version: 0 })));
+    await settle();
+    expect(completeNotes).toHaveBeenCalledTimes(1);
+    expect(handlers).toHaveLength(1);
+    await act(async () => {
+      handlers[0]();
+    });
+    await settle();
+    expect(completeNotes).toHaveBeenCalledTimes(2);
+  });
+
+  it('卸载后退订跨窗事件,不再重取', async () => {
+    await act(async () => root.render(createElement(Probe, { version: 0 })));
+    await settle();
+    const handler = handlers[0];
+    act(() => root.unmount());
+    expect(handlers).toHaveLength(0); // 已退订
+    await act(async () => {
+      handler();
+    });
+    await settle();
+    expect(completeNotes).toHaveBeenCalledTimes(1);
   });
 });

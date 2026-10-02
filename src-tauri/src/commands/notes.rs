@@ -7,6 +7,18 @@ use tauri::{AppHandle, Emitter, Manager, State};
 #[path = "notes_complete_tests.rs"]
 mod notes_complete_tests;
 
+/// 笔记表变化事件名(与前端 `use-note-titles.ts` 的 NOTE_CREATED_EVENT / `use-note-created.ts` 同值)
+const NOTE_CREATED_EVENT: &str = "note-created";
+/// 输入栏窗口标签(`[[` 补全标题池的跨窗失效通知只发给它)
+const INPUT_LABEL: &str = "input";
+
+/// 笔记改名/删除后通知输入栏重取标题池(见 `src/input-bar/use-link-complete.ts` 的候选池)。
+/// **只发给输入栏**:同名事件被主窗的 `useNoteCreatedRefresh` 订阅着,广播会在每次改名/删除时
+/// 把单页信息流拉回第一页(那套语义是「另一窗新建了笔记」)。
+fn notify_input_titles_changed(app: &AppHandle, id: i64) {
+    let _ = app.emit_to(INPUT_LABEL, NOTE_CREATED_EVENT, id);
+}
+
 #[tauri::command]
 pub fn save_input_note(app: AppHandle, content: String) -> Result<repos::notes::Note, String> {
     let db: State<Db> = app.state();
@@ -14,7 +26,7 @@ pub fn save_input_note(app: AppHandle, content: String) -> Result<repos::notes::
     let note = repos::notes::create(&mut conn, &content).map_err(|e| e.to_string())?;
     drop(conn);
     // 跨窗通知:输入栏保存后主窗在空闲时自动刷新,新笔记无需手动操作即可见
-    let _ = app.emit("note-created", note.id);
+    let _ = app.emit(NOTE_CREATED_EVENT, note.id);
     Ok(note)
 }
 
@@ -53,7 +65,10 @@ pub fn note_links(app: AppHandle, note_id: i64) -> Result<repos::note_links::Not
 pub fn delete_note(app: AppHandle, id: i64) -> Result<(), String> {
     let db: State<Db> = app.state();
     let mut conn = db.0.lock().map_err(|e| e.to_string())?;
-    repos::notes::delete(&mut conn, id).map_err(|e| e.to_string())
+    repos::notes::delete(&mut conn, id).map_err(|e| e.to_string())?;
+    drop(conn);
+    notify_input_titles_changed(&app, id);
+    Ok(())
 }
 
 /// `[[` 补全的候选池:全部笔记的显示首行(前缀粗筛,上限 200)。
@@ -78,6 +93,11 @@ pub fn update_note(
 ) -> Result<Option<repos::notes::Note>, String> {
     let db: State<Db> = app.state();
     let mut conn = db.0.lock().map_err(|e| e.to_string())?;
-    repos::notes::update(&mut conn, id, &content).map_err(|e| e.to_string())
+    let updated = repos::notes::update(&mut conn, id, &content).map_err(|e| e.to_string())?;
+    drop(conn);
+    if updated.is_some() {
+        notify_input_titles_changed(&app, id);
+    }
+    Ok(updated)
 }
 
