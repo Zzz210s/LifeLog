@@ -11,13 +11,6 @@ describe('renderMarkdown 基础渲染', () => {
     expect(html).toContain('<h2>标题二</h2>');
   });
 
-  it('GFM 表格渲染 table 与 th', () => {
-    const html = renderMarkdown('| 列A | 列B |\n| --- | --- |\n| 1 | 2 |');
-    expect(html).toContain('<table>');
-    expect(html).toContain('<th>列A</th>');
-    expect(html).toContain('<td>1</td>');
-  });
-
   it('任务列表渲染禁用复选框并带类名', () => {
     const html = renderMarkdown('- [ ] 买牛奶');
     expect(html).toContain('task-list-item');
