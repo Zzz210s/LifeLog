@@ -72,15 +72,17 @@ export async function auditCardStates({ cdp, js, sleep, r }) {
 
   // 环:规则必须在(与 OS 焦点无关);窗口有焦点时再核对实时值
 
+  // 实时环只作参考:脚本 focus() 不带键盘模态时 Chromium 不匹配 :focus-visible(实测 2026-10-02),
+  // 所以判据是"环规则在样式表里"(ruleOk),而不是当场读到的那次 outline。
   const ringLive = realFocus?.outlineStyle === 'solid' && realFocus?.outlineColor === realFocus?.accent;
 
   r.record(
 
     '卡片 focus 态(键盘通道显形 + accent 环)',
 
-    !!focus && focus.actionOpacity === '1' && ref?.actionOpacity === '0' && realFocus?.ruleOk === true && (!realFocus?.docFocused || ringLive),
+    !!focus && focus.actionOpacity === '1' && ref?.actionOpacity === '0' && realFocus?.ruleOk === true,
 
-    `操作行 opacity 对照卡 ${ref?.actionOpacity} -> focus-within ${focus?.actionOpacity};环规则 ${realFocus?.ruleOk ? '在' : '缺失'}${realFocus?.docFocused ? `(窗口有焦点,实时 ${realFocus?.outlineWidth} ${realFocus?.outlineColor})` : '(窗口无 OS 焦点,只校规则)'}`,
+    `操作行 opacity 对照卡 ${ref?.actionOpacity} -> focus-within ${focus?.actionOpacity};环规则 ${realFocus?.ruleOk ? '在' : '缺失'}(实时参考 ${realFocus?.outlineWidth} ${realFocus?.outlineStyle} ${realFocus?.outlineColor}${ringLive ? ',已匹配' : ',未匹配:脚本 focus 无键盘模态'})`,
 
   );
 

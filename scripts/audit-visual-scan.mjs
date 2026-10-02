@@ -112,7 +112,10 @@ ${HELPERS}
 export const REAL_FOCUS_JS = (index = 0) => `(() => {
 ${HELPERS}
   const li = document.querySelectorAll('#root ul li')[${index}];
-  const btn = li && li.querySelector('button');
+  // 要测的语义是「卡片拿到键盘焦点 → 操作行显形 + 画 accent 环」,所以焦点必须落在**操作行里的按钮**上。
+  // 旧写法取 li 里第一个 button —— 卡片内容一变(例如一条含表格/链接 chip 的笔记排在最前),
+  // 第一个 button 可能是 chip 之类,环色不是 accent → 假失败(2026-10-02 实测)。
+  const btn = li && (li.querySelector('div.ml-auto button') || li.querySelector('button'));
   if (!btn) return null;
   btn.focus();
   const c = cs(btn);
