@@ -2,8 +2,8 @@
 /**
  * 表格视觉门禁(风格 B 数据密集):真机建一条含表格的临时笔记,用计算样式断言
  *   表头(底=chrome-alt / 2px 底边 / 12px / sticky)/ 单元格(4-8 padding / top / 26em)/
- *   斑马纹 = canvas / 悬停 = selected(压过斑马纹)/ 短行 36px 且长文本完整可见 /
- *   8 列宽表横向滚动不撑破卡片 / 零硬编码色 / 暗色斑马纹不脏(AA)。
+ *   单双行同色(无斑马纹)/ 悬停 = selected / 短行 36px 且长文本完整可见 /
+ *   8 列宽表横向滚动不撑破卡片 / 零硬编码色 / 暗色正文对比度(AA)。
  * 夹具自建自删(前缀 `TABLE测试`),不碰用户数据。退出码:0 通过 / 1 失败 / 2 跳过(应用不在 CDP 端口)。
  */
 import { BASE, ensureMain, recorder, sleep, waitFor } from './cdp-lib.mjs';
@@ -72,9 +72,9 @@ function assertScan(s, theme) {
     `边框 ${s.table.borderTopWidth} ${s.table.borderTopStyle} ${s.table.borderTopColor} / 字号 ${s.table.fontSize} / display ${s.table.display} / overflow-x ${s.table.overflowX}`,
   );
   r.record(
-    `斑马纹(${theme}):偶数行底 = canvas`,
-    s.zebra?.bg === tok['--color-canvas'],
-    `偶数行底 ${s.zebra?.bg}(= --color-canvas ${tok['--color-canvas']})`,
+    `单双行背景一致(${theme}):无斑马纹`,
+    s.zebra?.bg === s.zebra?.oddBg,
+    `单行底 ${s.zebra?.oddBg} / 双行底 ${s.zebra?.bg}(必须相等)`,
   );
   r.record(
     `短行 36px / 长文本行高 > 36 且完整可见(不裁切、无省略号)`,
@@ -111,7 +111,7 @@ async function hoverRead() {
   return read ? { ...read, via: 'CDP 强制 :hover' } : null;
 }
 
-/** 把真实鼠标挪到视口角落:悬停态会残留,污染后续主题的斑马纹读数(实测暗色读到 selected) */
+/** 把真实鼠标挪到视口角落:悬停态会残留,污染后续主题的行底色读数(实测暗色读到 selected) */
 const parkMouse = () => cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 2, y: 2, buttons: 0 });
 
 // 回到已知状态:退关系图/设置、清条件 chip、清空统一输入框;并清掉上次残留夹具
@@ -137,7 +137,7 @@ try {
     assertScan(light, '亮色');
     const hover = await hoverRead();
     r.record(
-      '悬停行底 = selected(压过斑马纹)',
+      '悬停行底 = selected(压过行底色)',
       hover?.bg === hover?.selected && hover?.bg !== hover?.canvas,
       `悬停底 ${hover?.bg}(= --color-selected ${hover?.selected})via ${hover?.via};偶数行底 ${hover?.canvas}`,
     );
@@ -152,9 +152,9 @@ try {
     const dark = await js(SCAN_JS(NS));
     assertScan(dark, '暗色');
     r.record(
-      '暗色不脏:斑马纹比卡片更暗且正文对比度 >= 4.5:1',
+      '暗色可读:正文对比度 >= 4.5:1',
       lum(dark.zebra.bg) < lum(dark.tok['--color-raised']) && ratio(dark.zebra.color, dark.zebra.bg) >= 4.5,
-      `斑马纹 ${dark.zebra.bg}(L ${lum(dark.zebra.bg).toFixed(3)}) < 卡片 ${dark.tok['--color-raised']}(L ${lum(dark.tok['--color-raised']).toFixed(3)});正文对比度 ${ratio(dark.zebra.color, dark.zebra.bg)}:1`,
+      `单双行同色 ${dark.zebra.bg};正文对比度 ${ratio(dark.zebra.color, dark.tok['--color-raised'])}:1(卡片底)`,
     );
     await js(startDark ? `document.documentElement.classList.add('dark')` : `document.documentElement.classList.remove('dark')`);
   }

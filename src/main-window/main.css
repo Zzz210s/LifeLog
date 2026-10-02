@@ -153,7 +153,7 @@ body {
   vertical-align: top;
   border-bottom: 1px solid var(--color-border);
 }
-.md-body tbody tr:nth-child(even) td { background: var(--color-canvas); } /* 斑马纹 */
+/* 无斑马纹(用户 2026-10-02):单双行背景一致,靠 1px 行分隔线 + 悬停区分 */
 /* 悬停写在斑马纹之后:同特异性靠顺序压过偶数行底色 */
 .md-body tbody tr:hover td { background: var(--color-selected); transition: background 150ms ease-out; }
 @media (prefers-reduced-motion: reduce) { .md-body tbody tr:hover td { transition: none; } }

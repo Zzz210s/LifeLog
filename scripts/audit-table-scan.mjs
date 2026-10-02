@@ -30,6 +30,7 @@ export const SCAN_JS = (s) => `(() => {${HELP}
   const th = t0.querySelector('thead th'), td = t0.querySelector('tbody td');
   const rows = [...t0.querySelectorAll('tbody tr')];
   const zebraTd = rows[1] ? rows[1].querySelectorAll('td')[0] : null;
+  const firstTd = rows[0] ? rows[0].querySelectorAll('td')[0] : null; // 单行(奇)底色:与双行对比用
   const longTd = rows[1] ? rows[1].querySelectorAll('td')[2] : null;
   // 只收真正画出来的颜色(零宽边框的 currentColor 不算硬编码)
   const paint = (el) => { const c = cs(el); const out = { color: c.color };
@@ -55,7 +56,8 @@ export const SCAN_JS = (s) => `(() => {${HELP}
       paddingRight: cs(td).paddingRight, verticalAlign: cs(td).verticalAlign, maxWidth: cs(td).maxWidth,
       borderBottomWidth: cs(td).borderBottomWidth, borderBottomColor: cs(td).borderBottomColor },
     shortRowH: Math.round(rows[0].getBoundingClientRect().height),
-    zebra: zebraTd ? { bg: cs(zebraTd).backgroundColor, color: cs(zebraTd).color } : null,
+    zebra: zebraTd ? { bg: cs(zebraTd).backgroundColor, color: cs(zebraTd).color,
+      oddBg: firstTd ? cs(firstTd).backgroundColor : null } : null,
     long: longTd ? { h: Math.round(longTd.getBoundingClientRect().height), scrollHeight: longTd.scrollHeight,
       clientHeight: longTd.clientHeight, whiteSpace: cs(longTd).whiteSpace, textOverflow: cs(longTd).textOverflow,
       text: longTd.textContent } : null,
