@@ -17,7 +17,7 @@ export interface NoteItemProps {
   note: Note;
   activeTags: string[];
   onTagClick: (name: string) => void;
-  onEdit: (caret?: number | null) => void;
+  onEdit: (caret?: number | null, clickY?: number) => void;
   onDelete: () => void;
   /** 选中态(卡片用 bg-selected 取代 hover 底;视觉刷新 V2)。当前应用还没有「选中某条笔记」
    *  的交互模型(点卡片即进编辑、卡片被 EditPanel 顶掉),故调用方暂不传;留作后续接线口。 */
@@ -67,7 +67,7 @@ export function NoteItem(p: NoteItemProps): ReactNode {
     if (te.handleClick(e)) return;
     if (shouldEnterEdit(e.target, window.getSelection()?.toString() ?? '')) {
       // 光标跟随点击位置(用户 2026-10-03):算不出时传 null,EditPanel 退回「正文末尾」
-      p.onEdit(caretHintFromClick(te.bodyRef.current, e.target, e.clientX, e.clientY, note.content));
+      p.onEdit(caretHintFromClick(te.bodyRef.current, e.target, e.clientX, e.clientY, note.content), e.clientY);
     }
   };
 

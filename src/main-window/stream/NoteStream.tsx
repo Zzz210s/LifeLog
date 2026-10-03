@@ -5,6 +5,8 @@ import { EMPTY_STATE_ACTION, EMPTY_STATE_TEXT, streamEmptyState } from '../shell
 import { BTN_SECONDARY } from '../shell/button-classes';
 import { EditPanel, type EditPanelProps } from '../editor/EditPanel';
 import { restoreScrollSoon } from './scroll-restore';
+import { caretScrollDelta } from '../editor/caret-screen';
+import { measureCaretTop } from '../editor/caret-metrics';
 import { NoteItem } from './NoteItem';
 
 export interface NoteStreamProps {
@@ -54,11 +56,14 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
   const scrollBeforeEdit = useRef<number | null>(null);
   /** 点正文时算出的光标偏移(进编辑用);与滚动位置一样是**一次性**交接 */
   const caretBeforeEdit = useRef<number | null>(null);
+  /** 点击时的视口 y:进编辑后把光标拉回这个屏幕位置(用户 2026-10-03) */
+  const clickYBeforeEdit = useRef<number | null>(null);
 
-  /** 进编辑:click = 用户点正文(带光标偏移);panel = 编辑面板已提交成功后的切换 */
-  const openEdit = (n: Note, via: 'click' | 'panel', caret?: number | null): void => {
+  /** 进编辑:click = 用户点正文(带光标偏移与点击屏幕 y);panel = 编辑面板已提交成功后的切换 */
+  const openEdit = (n: Note, via: 'click' | 'panel', caret?: number | null, clickY?: number): void => {
     scrollBeforeEdit.current = scroller?.scrollTop ?? null;
     caretBeforeEdit.current = caret ?? null;
+    clickYBeforeEdit.current = clickY ?? null;
     if (via === 'panel') p.onSwitchEdit(n);
     else p.onEdit(n);
   };
@@ -128,6 +133,25 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
                   // 然后多打几次:光标落点会让浏览器在挂载之后再把滚动祖先滚进视野(2026-10-03)
                   const saved = scrollBeforeEdit.current;
                   scrollBeforeEdit.current = null;
+                  // 光标拉回鼠标点击的屏幕位置(用户 2026-10-03):面板比卡片高,点击又在卡片中下部,
+                  // 面板一挂载顶部就在视口之上 —— 只还原 scrollTop 会让编辑框(与光标)留在屏幕外。
+                  const clickY = clickYBeforeEdit.current;
+                  clickYBeforeEdit.current = null;
+                  if (clickY !== null) {
+                    const box = document.querySelector<HTMLTextAreaElement>('textarea.md-source-box');
+                    if (box && scroller) {
+                      const caretInBox = measureCaretTop(box, box.selectionStart);
+                      if (caretInBox !== null) {
+                        const delta = caretScrollDelta({
+                          boxTop: box.getBoundingClientRect().top,
+                          caretInBox,
+                          boxScroll: box.scrollTop,
+                          clickY,
+                        });
+                        if (delta !== 0) scroller.scrollTop = scroller.scrollTop + delta;
+                      }
+                    }
+                  }
                   restoreScrollSoon(scroller, saved, (fn, ms) => {
                     if (ms === 0) requestAnimationFrame(fn);
                     else window.setTimeout(fn, ms);
@@ -154,7 +178,7 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
               note={n}
               activeTags={p.activeTags}
               onTagClick={p.onTagClick}
-              onEdit={(caret) => openEdit(n, 'click', caret)}
+              onEdit={(caret, clickY) => openEdit(n, 'click', caret, clickY)}
               onDelete={() => p.onDelete(n)}
               onToggleTask={(index) => p.onToggleTask(n, index)}
               onLinkError={p.onLinkError}
