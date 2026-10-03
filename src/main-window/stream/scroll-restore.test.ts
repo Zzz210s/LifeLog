@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyScrollRestore, takeScrollRestore } from './scroll-restore';
+import { applyScrollRestore, restoreScrollSoon, takeScrollRestore } from './scroll-restore';
 
 describe('applyScrollRestore(进编辑时把流滚动位置还原)', () => {
   it('已偏离记录值时写回并返回 true', () => {
@@ -58,5 +58,29 @@ describe('takeScrollRestore(一次性令牌:还原后置 null)', () => {
     const ref = { current: null as number | null };
     expect(takeScrollRestore(el, ref)).toBe(false);
     expect(el.scrollTop).toBe(300);
+  });
+});
+
+describe('restoreScrollSoon(进编辑后多打几次)', () => {
+  it('立即 + 下一帧 + 120ms 各还原一次', () => {
+    const el = { scrollTop: 500 };
+    const plan: Array<{ delay: number; fn: () => void }> = [];
+    restoreScrollSoon(el, 200, (fn, delay) => plan.push({ delay, fn }));
+    expect(el.scrollTop).toBe(200); // 立即
+    expect(plan.map((p) => p.delay)).toEqual([0, 120]);
+    el.scrollTop = 0; // 模拟浏览器随后把流滚回顶部
+    plan[0].fn();
+    expect(el.scrollTop).toBe(200);
+    el.scrollTop = 0;
+    plan[1].fn();
+    expect(el.scrollTop).toBe(200);
+  });
+
+  it('没有记录值时:不动作', () => {
+    const el = { scrollTop: 7 };
+    const plan: Array<() => void> = [];
+    restoreScrollSoon(el, null, (fn) => plan.push(fn));
+    plan.forEach((f) => f());
+    expect(el.scrollTop).toBe(7);
   });
 });

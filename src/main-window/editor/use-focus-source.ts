@@ -27,6 +27,13 @@ export function useFocusSource(
     const end = el ? (cut > 0 ? cut : el.value.length) : 0;
     const caret = typeof caretHint === 'number' && caretHint >= 0 && caretHint <= end ? caretHint : end;
     el?.setSelectionRange(caret, caret);
+    // 取证(2026-10-03):真实鼠标出问题时把这三个值报出来就能定位
+    // (hint = 点击处换算值;end = 正文末尾;final = 实际落点)
+    const w = window as unknown as { __editCaretLog?: unknown[] };
+    w.__editCaretLog = w.__editCaretLog ?? [];
+    if (w.__editCaretLog.length < 40) {
+      w.__editCaretLog.push({ hint: caretHint ?? null, end, final: el?.selectionStart ?? null, at: Date.now() });
+    }
     mounted.current?.();
   }, [boxRef]);
 }

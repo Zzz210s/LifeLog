@@ -26,3 +26,21 @@ export function takeScrollRestore(
   ref.current = null;
   return applyScrollRestore(el, saved);
 }
+
+/**
+ * 进编辑后的滚动还原需要**多打几次**(用户 2026-10-03:进编辑后流跳到顶部)。
+ *
+ * 原因:面板挂载时除了滚动锚定,浏览器还会为**光标落点**把最近的滚动祖先滚进视野 ——
+ * 这次滚动发生在挂载之后(甚至下一帧),只还原一次会被它覆盖掉。
+ * 做法:立即还原一次,再在下一帧与一小段时间后各补一次;每次只在偏离时才写
+ * (与 applyScrollRestore 同口径,不把后续用户滚动钉住)。`schedule` 注入便于单测。
+ */
+export function restoreScrollSoon(
+  el: { scrollTop: number } | null,
+  saved: number | null,
+  schedule: (fn: () => void, delayMs: number) => void,
+): void {
+  applyScrollRestore(el, saved);
+  schedule(() => applyScrollRestore(el, saved), 0);
+  schedule(() => applyScrollRestore(el, saved), 120);
+}

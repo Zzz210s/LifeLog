@@ -4,7 +4,7 @@ import type { Note } from '../../shared/types';
 import { EMPTY_STATE_ACTION, EMPTY_STATE_TEXT, streamEmptyState } from '../shell/empty-stream';
 import { BTN_SECONDARY } from '../shell/button-classes';
 import { EditPanel, type EditPanelProps } from '../editor/EditPanel';
-import { takeScrollRestore } from './scroll-restore';
+import { restoreScrollSoon } from './scroll-restore';
 import { NoteItem } from './NoteItem';
 
 export interface NoteStreamProps {
@@ -124,7 +124,14 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
                 onMounted={() => {
                   // 一次性用掉记录的位置:还原完就置 null,避免将来 EditPanel 在没有新 onEdit 的
                   // 情况下重挂载,把过期位置再写回一次(2026-09-21 复审 A4)
-                  takeScrollRestore(scroller, scrollBeforeEdit);
+                  // 一次性用掉记录的位置(用完置 null,避免过期值再写回 —— 2026-09-21 复审 A4),
+                  // 然后多打几次:光标落点会让浏览器在挂载之后再把滚动祖先滚进视野(2026-10-03)
+                  const saved = scrollBeforeEdit.current;
+                  scrollBeforeEdit.current = null;
+                  restoreScrollSoon(scroller, saved, (fn, ms) => {
+                    if (ms === 0) requestAnimationFrame(fn);
+                    else window.setTimeout(fn, ms);
+                  });
                 }}
               />
           ) : (
