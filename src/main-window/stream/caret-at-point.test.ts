@@ -54,4 +54,30 @@ describe('visibleOffsetAtPoint', () => {
     };
     expect(visibleOffsetAtPoint(el, 10, 10)).toBe(2);
   });
+
+  it('容器是**元素**时:startOffset 是子节点下标,累加之前的子树文本(Chromium 实测走这条)', () => {
+    const el = cell('第一<strong>粗</strong>体');
+    // 真实 Chromium 在表格单元格上返回的是「容器 = td,offset = 子节点下标」
+    (el.ownerDocument as unknown as { caretRangeFromPoint?: unknown }).caretRangeFromPoint = () => {
+      const r = document.createRange();
+      r.setStart(el, 2); // 第 3 个子节点之前:即「体」之前
+      r.collapse(true);
+      return r;
+    };
+    expect(visibleOffsetAtPoint(el, 10, 10)).toBe(3);
+  });
+
+  it('范围落在格子之外:返回 null', () => {
+    const el = cell('甲');
+    const outside = document.createElement('td');
+    outside.textContent = '乙';
+    document.body.appendChild(outside);
+    (el.ownerDocument as unknown as { caretRangeFromPoint?: unknown }).caretRangeFromPoint = () => {
+      const r = document.createRange();
+      r.setStart(outside.firstChild as Text, 0);
+      r.collapse(true);
+      return r;
+    };
+    expect(visibleOffsetAtPoint(el, 10, 10)).toBeNull();
+  });
 });

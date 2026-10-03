@@ -35,8 +35,11 @@ export function sourceOffsetForVisible(text: string, visibleOffset: number): num
 /**
  * 点在单元格上的**可见文本偏移**(相对整格的渲染文本)。
  *
- * Chromium 的 caretRangeFromPoint 给出点击处的文本节点与节点内偏移;再把该节点之前的文本节点
- * 长度累加,得到「第几个可见字符」。点在空白/padding 上(拿不到 range 或落在格子之外)返回 null。
+ * Chromium 的 caretRangeFromPoint 给出点击处的范围;两种形态都要处理:
+ *   - **文本节点**容器:`startOffset` 是节点内字符偏移 → 累加它之前的文本长度;
+ *   - **元素**容器:`startOffset` 是**子节点下标** → 累加它之前子树的文本长度。
+ * 实测(2026-10-03)点在表格单元格上时 Chromium 给的是后者 —— 只处理文本节点会永远返回 null,
+ * 光标就退回浏览器默认位置。
  */
 export function visibleOffsetAtPoint(cell: HTMLElement, x: number, y: number): number | null {
   const doc = cell.ownerDocument as Document & {
@@ -44,11 +47,20 @@ export function visibleOffsetAtPoint(cell: HTMLElement, x: number, y: number): n
   };
   const range = doc.caretRangeFromPoint?.(x, y);
   if (!range || !cell.contains(range.startContainer)) return null;
-  const walker = doc.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
-  let offset = 0;
-  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-    if (node === range.startContainer) return offset + range.startOffset;
-    offset += node.textContent?.length ?? 0;
+  const container = range.startContainer;
+  if (container.nodeType === Node.TEXT_NODE) {
+    const walker = doc.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
+    let offset = 0;
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (node === container) return offset + range.startOffset;
+      offset += node.textContent?.length ?? 0;
+    }
+    return null;
   }
-  return null;
+  let offset = 0;
+  const kids = container.childNodes;
+  for (let i = 0; i < range.startOffset && i < kids.length; i += 1) {
+    offset += kids[i].textContent?.length ?? 0;
+  }
+  return offset;
 }

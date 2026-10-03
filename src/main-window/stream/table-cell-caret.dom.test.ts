@@ -5,7 +5,7 @@
  * 换算本身(可见偏移 → 源码偏移)在 `caret-at-point.test.ts` 里单测;
  * 这里只钉住「prop 真的落到 selectionStart/End」这一环。
  */
-import { act, createElement, useRef, useState, type ReactNode } from 'react';
+import { act, createElement, useRef, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TableCellEditor } from './TableCellEditor';
