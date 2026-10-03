@@ -1,4 +1,4 @@
-// 输入栏分区:9 项设置读取自 settings 表,改动即落库(无保存按钮),底部可整批恢复默认。
+// 输入栏分区:10 项设置读取自 settings 表,改动即落库(无保存按钮),底部可整批恢复默认。
 import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { confirm } from '@tauri-apps/plugin-dialog';
@@ -48,7 +48,7 @@ export function InputBarSection(): ReactNode {
   );
 
   const onReset = useCallback(async () => {
-    // 旧 9 项 + 外观 8 项一起恢复;外观那份由 useAppearanceEditing 自己写库并回读
+    // 旧 10 项 + 外观 8 项一起恢复;外观那份由 useAppearanceEditing 自己写库并回读
     const count = inputResetKeys().length + appearanceResetKeys().length;
     // 二次确认必须用插件导出的 async confirm(走 plugin:dialog|message,在 dialog:default 权限内)。
     // 不能用 window.confirm:tauri-plugin-dialog 的初始化脚本把它改成了 async(返回 Promise),
