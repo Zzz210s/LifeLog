@@ -20,6 +20,8 @@ export interface InPlaceCellOptions {
   /** 表格元素:用它按 row/col 找目标格(表头在 thead、数据行在 tbody,rows 按文档序合并) */
   table: HTMLTableElement | null;
   busy: boolean;
+  /** 点击位置换算出的**期望**光标偏移(源码偏移);null = 没量出来,完全交给浏览器 */
+  caretHint?: number | null;
   onCommit: (text: string, step: EditStep, close?: boolean) => void;
   onCancel: () => void;
 }
@@ -117,11 +119,20 @@ export function useInPlaceCell(p: InPlaceCellOptions): void {
     const saveTimer = window.setTimeout(() => { saved.offset = offsetInCell(); }, 0);
     const raf = requestAnimationFrame(() => {
       if (done) return;
-      const now = offsetInCell();
-      if (saved.offset === null || saved.offset === 0) return; // 浏览器本来就落在开头/没落成,不干预
-      if (now === saved.offset) return; // 没被重置
       el.focus({ preventScroll: true });
-      restore(saved.offset);
+      const now = offsetInCell();
+      const hint = p.caretHint ?? null;
+      /**
+       * 校正规则(用户 2026-10-03 报"光标跑到末尾"):
+       *   ① 有期望偏移且浏览器落点与它差得多(>1 字符)→ 说明这次点击的落光标没生效
+       *      (窗口刚被激活时会被跳过,而 focus() 会把光标丢到末尾)→ 用期望值。
+       *   ② 否则保持浏览器的落点(它才是权威,±1 字符是它自己的取整)。
+       */
+      if (hint !== null && (now === null || Math.abs(now - hint) > 1)) {
+        restore(hint);
+        return;
+      }
+      if (now !== null && saved.offset !== null && saved.offset !== 0 && now !== saved.offset) restore(saved.offset);
     });
 
     el.addEventListener('keydown', onKey);

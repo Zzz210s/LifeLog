@@ -17,6 +17,7 @@ import type { Note } from '../../shared/types';
 import { composeSource } from '../../shared/note-source';
 import { locateTable, tableCells, type TableRange } from '../../shared/md-table';
 import { useInPlaceCell } from './use-in-place-cell';
+import { sourceOffsetForVisible, visibleOffsetAtPoint } from './caret-at-point';
 import { TableControls } from './TableControls';
 import { useTableEdit } from './use-table-edit';
 
@@ -65,7 +66,7 @@ export function useNoteTableEdit(
     [...body.querySelectorAll('table')].indexOf(table);
 
   /** 命中表格里的某一格 -> 进就地编辑;不是格子 / 自校验失败则返回 false(交给整条编辑) */
-  const openCell = (target: EventTarget | null, body: HTMLElement): boolean => {
+  const openCell = (target: EventTarget | null, body: HTMLElement, point?: { x: number; y: number }): boolean => {
     if (!(target instanceof Element)) return false;
     if (target.closest(INTERACTIVE)) return false; // chip / 复选框 / 外链:既有行为独占
     const td = target.closest('td,th');
@@ -79,15 +80,26 @@ export function useNoteTableEdit(
     const col = (td as HTMLTableCellElement).cellIndex;
     const cell = cells.find((c) => c.row === row && c.col === col);
     if (!cell) return false;
+    /**
+     * 期望光标偏移(用户 2026-10-03 报"光标跑到末尾"):先按**预览态**的渲染结果量出点击落在第几个
+     * 可见字符上,再换算成源码偏移。窗口刚被激活时浏览器会跳过"点击落光标",而 focus() 会把光标
+     * 丢到末尾 —— 这时用这个期望值纠正(校正规则见 use-in-place-cell)。
+     */
+    let hint: number | null = null;
+    if (point) {
+      const visible = visibleOffsetAtPoint(td as HTMLElement, point.x, point.y);
+      if (visible !== null) hint = sourceOffsetForVisible(cell.text, visible);
+    }
     setIndex(idx);
-    edit.openAt(cell, r, table);
+    edit.openAt(cell, r, table, hint);
     return true;
   };
 
   // 就地编辑在 **mousedown** 开:浏览器「点击落光标」的默认行为在事件处理之后执行,
   // 这时格子已经是可编辑的源码文本,光标自然落在点到的那个字上 —— 既不用自己算几何,
   // 也不用抢焦点(那是盖 textarea 方案在真实鼠标下失败的原因,2026-10-03)。
-  const handleMouseDown = (e: MouseEvent<HTMLDivElement>): boolean => openCell(e.target, e.currentTarget);
+  const handleMouseDown = (e: MouseEvent<HTMLDivElement>): boolean =>
+    openCell(e.target, e.currentTarget, { x: e.clientX, y: e.clientY });
   const handleClick = (e: MouseEvent<HTMLDivElement>): boolean => openCell(e.target, e.currentTarget);
 
   // 悬停到表格 -> 控制条出现;移到别的表格 -> 换锚点;移到正文其它处 -> 不动

@@ -35,7 +35,9 @@ export interface TableEdit {
   anchor: HTMLElement | null;
   error: string;
   busy: boolean;
-  openAt(cell: CellSpan, range: TableRange, anchor?: HTMLElement): void;
+  /** 点击位置算出的期望光标偏移(源码偏移);null = 交给浏览器 */
+  caretHint: number | null;
+  openAt(cell: CellSpan, range: TableRange, anchor?: HTMLElement, caretHint?: number | null): void;
   /** 提交;step = 提交后移动方向;close = true 时提交后收框(点框外走这条) */
   commit(text: string, step?: EditStep, close?: boolean): Promise<void>;
   cancel(): void;
@@ -93,6 +95,8 @@ export function useTableEdit(opts: Options): TableEdit {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  /** 点击位置算出的期望光标偏移(见 use-in-place-cell 的校正规则) */
+  const [caretHint, setCaretHint] = useState<number | null>(null);
   const inFlight = useRef(false);
 
   const editing = useMemo(() => {
@@ -101,9 +105,10 @@ export function useTableEdit(opts: Options): TableEdit {
     return cells?.find((c) => c.row === target.row && c.col === target.col) ?? null;
   }, [source, target]);
 
-  const openAt = useCallback((cell: CellSpan, range: TableRange, el?: HTMLElement) => {
+  const openAt = useCallback((cell: CellSpan, range: TableRange, el?: HTMLElement, hint?: number | null) => {
     setError('');
     setAnchor(el ?? null);
+    setCaretHint(hint ?? null);
     setTarget({ range, row: cell.row, col: cell.col });
   }, []);
 
@@ -177,5 +182,5 @@ export function useTableEdit(opts: Options): TableEdit {
   const removeRow = useCallback((range: TableRange, at: number, pending?: string | null) => rewrite(range, at, deleteRow, pending), [rewrite]);
   const removeColumn = useCallback((range: TableRange, at: number, pending?: string | null) => rewrite(range, at, deleteColumn, pending), [rewrite]);
 
-  return { editing, anchor, error, busy, openAt, commit, cancel, addRow, addColumn, removeRow, removeColumn };
+  return { editing, anchor, error, busy, caretHint, openAt, commit, cancel, addRow, addColumn, removeRow, removeColumn };
 }
