@@ -19,8 +19,11 @@ body {
 
 /* 滚动条出现/消失不再让内容横跳(R3):常驻预留滚动条槽,宽度跟随 R2 定制的 10px。
    只给真正会“由短变长”的竖向滚动容器用,免得白吃一条竖槽。 */
+/* 关掉滚动锚定:进编辑时面板高度变化会触发浏览器的补偿滚动,与我们的对齐互相打架
+   (实测 465 <-> 1 来回跳)。对齐由代码显式负责,不需要浏览器的锚定。 */
 .scroll-gutter {
   scrollbar-gutter: stable;
+  overflow-anchor: none;
 }
 
 /* 全局焦点基元(设计 §4-10 / D6;VS Code style.css:258-272 + keyboardFocusOnly.css:35-44):

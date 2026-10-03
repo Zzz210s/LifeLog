@@ -72,10 +72,14 @@ export function scheduleCaretAlign(
     });
     ro.observe(box);
   }
-  // 窗口结束:最后一次精确对齐,再显示;观察器继续留着但只在明显偏差时纠正
+  // 窗口结束:最后一次精确对齐,再显示;观察器继续留着但只在明显偏差时纠正。
+  // 用 try/finally 保证**一定会显示** —— 量不到几何时抛错会让流永远停在不可见状态。
   schedule(() => {
-    applyExact();
-    onSettled?.();
-    schedule(() => ro?.disconnect(), 2000);
+    try {
+      applyExact();
+    } finally {
+      onSettled?.();
+      schedule(() => ro?.disconnect(), 2000);
+    }
   }, ALIGN_WINDOW_MS);
 }
