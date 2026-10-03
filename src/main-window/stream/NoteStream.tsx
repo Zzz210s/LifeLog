@@ -1,11 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { Note } from '../../shared/types';
 import { EMPTY_STATE_ACTION, EMPTY_STATE_TEXT, streamEmptyState } from '../shell/empty-stream';
 import { BTN_SECONDARY } from '../shell/button-classes';
 import { EditPanel, type EditPanelProps } from '../editor/EditPanel';
-import { scheduleCaretAlign } from './caret-restore';
+
 import { NoteItem } from './NoteItem';
+import { useEditHandoff } from './use-edit-handoff';
 
 export interface NoteStreamProps {
   notes: Note[];
@@ -49,24 +50,11 @@ export interface NoteStreamProps {
 export function NoteStream(p: NoteStreamProps): ReactNode {
   const [sentinel, setSentinel] = useState<HTMLDivElement | null>(null);
   const [scroller, setScroller] = useState<HTMLDivElement | null>(null);
-  // 进编辑前记下流的滚动位置:编辑面板比卡片高,浏览器滚动锚定会补偿性地改 scrollTop
-  // (实测 +81/+58),导致被点的卡片整体上移。挂载后把这一个值写回,卡片就停在原处。
-  const scrollBeforeEdit = useRef<number | null>(null);
-  /** 点正文时算出的光标偏移(进编辑用);与滚动位置一样是**一次性**交接 */
-  const caretBeforeEdit = useRef<number | null>(null);
-  /** 点击时的视口 y:进编辑后把光标拉回这个屏幕位置(用户 2026-10-03) */
-  const clickYBeforeEdit = useRef<number | null>(null);
-  /** 对齐窗口内把流藏起来,避免用户看到"拉扯"(2026-10-03) */
-  const [aligning, setAligning] = useState(false);
+  const handoff = useEditHandoff();
 
   /** 进编辑:click = 用户点正文(带光标偏移与点击屏幕 y);panel = 编辑面板已提交成功后的切换 */
   const openEdit = (n: Note, via: 'click' | 'panel', caret?: number | null, clickY?: number): void => {
-    scrollBeforeEdit.current = scroller?.scrollTop ?? null;
-    caretBeforeEdit.current = caret ?? null;
-    clickYBeforeEdit.current = clickY ?? null;
-    // 只在这一条**还没在编辑**时进入对齐窗口:点击会同时触发 mousedown 与 click 两次
-    // openEdit,重复进入会让流一直停在不可见状态(实测)。
-    if (clickY !== undefined && p.editingId !== n.id) setAligning(true);
+    handoff.begin(scroller, caret, clickY);
     if (via === 'panel') p.onSwitchEdit(n);
     else p.onEdit(n);
   };
@@ -100,7 +88,7 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
   return (
     <div
       ref={setScroller}
-      className={`scroll-gutter flex-1 overflow-y-auto${aligning ? ' invisible' : ''}`}
+      className={`scroll-gutter flex-1 overflow-y-auto${handoff.aligning ? ' invisible' : ''}`}
     >
       {empty !== null && (
         <div className="flex h-full flex-col items-center justify-center gap-2 text-sm text-muted">
@@ -123,7 +111,7 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
                 note={n}
                 backlinkCount={p.backlinkCounts?.[n.id]}
                 noteMru={p.noteMru}
-                caretHint={caretBeforeEdit.current}
+                caretHint={handoff.caretHint}
                 onSaved={p.onEditSaved}
                 onCancel={p.onEditCancel}
                 onSwitchNote={(id) => {
@@ -133,19 +121,7 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
                 }}
                 onErrorFallback={p.onLinkError}
                 onMounted={() => {
-                  // 一次性用掉记录的位置:还原完就置 null,避免将来 EditPanel 在没有新 onEdit 的
-                  // 情况下重挂载,把过期位置再写回一次(2026-09-21 复审 A4)
-                  // 一次性用掉记录的位置(用完置 null,避免过期值再写回 —— 2026-09-21 复审 A4),
-                  // 然后多打几次:光标落点会让浏览器在挂载之后再把滚动祖先滚进视野(2026-10-03)
-                  const saved = scrollBeforeEdit.current;
-                  scrollBeforeEdit.current = null;
-                  const clickY = clickYBeforeEdit.current;
-                  clickYBeforeEdit.current = null;
-                  // 目标 = 进编辑前的位置 + 让光标回到点击处的增量;多次重算(面板布局会变)
-                  scheduleCaretAlign(scroller, saved, clickY, (fn, ms) => {
-                    if (ms === 0) requestAnimationFrame(fn);
-                    else window.setTimeout(fn, ms);
-                  });
+                  handoff.settle(scroller);
                   // 取证(2026-10-03):流还跳时,这几个值能直接定位是哪一步没生效。
                   // scrollAt800 是关键 —— 浏览器把"光标滚动祖先"带进视野发生在挂载之后,
                   // 只看挂载那一刻(nowScroll)会漏掉这次晚到的跳动。
@@ -153,12 +129,9 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
                   w.__editCaretLog = w.__editCaretLog ?? [];
                   const entry = w.__editCaretLog[w.__editCaretLog.length - 1];
                   if (entry) {
-                    entry.savedScroll = saved;
-                    entry.clickY = clickY;
                     entry.nowScroll = scroller?.scrollTop ?? null;
                     window.setTimeout(() => {
                       entry.scrollAt800 = scroller?.scrollTop ?? null;
-                      entry.maxScroll = scroller ? scroller.scrollHeight - scroller.clientHeight : null;
                     }, 800);
                   }
                 }}
