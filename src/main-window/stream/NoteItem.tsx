@@ -4,6 +4,7 @@ import { renderMarkdownInteractive } from '../../shared/markdown';
 import type { Note } from '../../shared/types';
 import { BTN_SECONDARY, BTN_TEXT } from '../shell/button-classes';
 import { shouldEnterEdit } from './body-click';
+import { caretHintFromClick } from './body-caret';
 import { BacklinksPanel } from './BacklinksPanel';
 import { MarkdownBody } from './MarkdownBody';
 import { NoteChips } from './NoteChips';
@@ -16,7 +17,7 @@ export interface NoteItemProps {
   note: Note;
   activeTags: string[];
   onTagClick: (name: string) => void;
-  onEdit: () => void;
+  onEdit: (caret?: number | null) => void;
   onDelete: () => void;
   /** 选中态(卡片用 bg-selected 取代 hover 底;视觉刷新 V2)。当前应用还没有「选中某条笔记」
    *  的交互模型(点卡片即进编辑、卡片被 EditPanel 顶掉),故调用方暂不传;留作后续接线口。 */
@@ -64,7 +65,10 @@ export function NoteItem(p: NoteItemProps): ReactNode {
   // chip 行不在本容器内,天然不触发;表格格已由 te.handleClick 先接管
   const onBodyClick = (e: MouseEvent<HTMLDivElement>) => {
     if (te.handleClick(e)) return;
-    if (shouldEnterEdit(e.target, window.getSelection()?.toString() ?? '')) p.onEdit();
+    if (shouldEnterEdit(e.target, window.getSelection()?.toString() ?? '')) {
+      // 光标跟随点击位置(用户 2026-10-03):算不出时传 null,EditPanel 退回「正文末尾」
+      p.onEdit(caretHintFromClick(te.bodyRef.current, e.target, e.clientX, e.clientY, note.content));
+    }
   };
 
   return (
@@ -77,7 +81,7 @@ export function NoteItem(p: NoteItemProps): ReactNode {
       <div className="flex items-center gap-2">
         {/* 键盘通道:可见的「编辑」按钮已删,键盘用户 Tab 到它即显形;鼠标用户看不到 */}
         <button
-          onClick={p.onEdit}
+          onClick={() => p.onEdit(null)}
           aria-label={editLabel}
           className="sr-only focus:not-sr-only focus:text-xs focus:text-accent-text focus:underline"
         >

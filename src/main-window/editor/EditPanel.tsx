@@ -22,13 +22,13 @@ export interface EditPanelProps {
   onCancel: () => void;
   /** 挂载并聚焦完成后的回调:父层用它把笔记流的滚动位置还原到进编辑之前 */
   onMounted?: () => void;
+  /** 点击处换算出的源码偏移:进编辑时把光标放到这里(用户 2026-10-03);缺省落正文末尾 */
+  caretHint?: number | null;
   /** 点区块外且落点是另一条笔记正文:先保存当前(成功才)再切过去 */
-  onSwitchNote?: (id: number) => void;
-  /** 面板已卸载、无法就地显示错误时:错误交主窗错误条,不能让失败静默 */
+  onSwitchNote?: (id: number) => void;  /** 面板已卸载、无法就地显示错误时:错误交主窗错误条,不能让失败静默 */
   onErrorFallback?: (message: string) => void;
   /** 该笔记被多少条其它笔记引用(L3):>0 时在面板底部列出只读的反向引用来源 */
-  backlinkCount?: number;
-  noteMru?: SourceLinkOptions['mru']; // `[[` 补全的笔记 MRU(与主窗共用一份实例)
+  backlinkCount?: number;  noteMru?: SourceLinkOptions['mru']; // `[[` 补全的笔记 MRU(与主窗共用一份实例)
 }
 
 /** 提交结果:ok 为假时 message 是中文原因;inline = 面板内已经显示过(卸载时才需要转交);
@@ -70,7 +70,7 @@ export function EditPanel(p: EditPanelProps): ReactNode {
   const inFlight = useRef(false);
 
   // 进编辑:焦点 + 光标落正文末尾(R4:不请求滚动祖先滚进视野);挂载后回调父层还原流位置
-  useFocusSource(boxRef, p.onMounted);
+  useFocusSource(boxRef, p.onMounted, p.caretHint);
   // alive 只在卸载时置假(初值即真),供 commit/flush 判断「面板还在不在」
   useEffect(() => () => {
     alive.current = false;

@@ -52,10 +52,13 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
   // 进编辑前记下流的滚动位置:编辑面板比卡片高,浏览器滚动锚定会补偿性地改 scrollTop
   // (实测 +81/+58),导致被点的卡片整体上移。挂载后把这一个值写回,卡片就停在原处。
   const scrollBeforeEdit = useRef<number | null>(null);
+  /** 点正文时算出的光标偏移(进编辑用);与滚动位置一样是**一次性**交接 */
+  const caretBeforeEdit = useRef<number | null>(null);
 
-  /** 进编辑:click = 用户点正文;panel = 编辑面板已提交成功后的切换 */
-  const openEdit = (n: Note, via: 'click' | 'panel'): void => {
+  /** 进编辑:click = 用户点正文(带光标偏移);panel = 编辑面板已提交成功后的切换 */
+  const openEdit = (n: Note, via: 'click' | 'panel', caret?: number | null): void => {
     scrollBeforeEdit.current = scroller?.scrollTop ?? null;
+    caretBeforeEdit.current = caret ?? null;
     if (via === 'panel') p.onSwitchEdit(n);
     else p.onEdit(n);
   };
@@ -109,6 +112,7 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
                 note={n}
                 backlinkCount={p.backlinkCounts?.[n.id]}
                 noteMru={p.noteMru}
+                caretHint={caretBeforeEdit.current}
                 onSaved={p.onEditSaved}
                 onCancel={p.onEditCancel}
                 onSwitchNote={(id) => {
@@ -129,7 +133,7 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
               note={n}
               activeTags={p.activeTags}
               onTagClick={p.onTagClick}
-              onEdit={() => openEdit(n, 'click')}
+              onEdit={(caret) => openEdit(n, 'click', caret)}
               onDelete={() => p.onDelete(n)}
               onToggleTask={(index) => p.onToggleTask(n, index)}
               onLinkError={p.onLinkError}
