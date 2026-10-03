@@ -41,6 +41,5 @@ export function restoreScrollSoon(
   schedule: (fn: () => void, delayMs: number) => void,
 ): void {
   applyScrollRestore(el, saved);
-  schedule(() => applyScrollRestore(el, saved), 0);
-  schedule(() => applyScrollRestore(el, saved), 120);
+  for (const delay of [0, 120, 400, 800]) schedule(() => applyScrollRestore(el, saved), delay);
 }

@@ -132,6 +132,15 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
                     if (ms === 0) requestAnimationFrame(fn);
                     else window.setTimeout(fn, ms);
                   });
+                  // 取证(2026-10-03):流还跳时,这几个值能直接定位是哪一步没生效
+                  const w = window as unknown as { __editCaretLog?: Array<Record<string, unknown>> };
+                  w.__editCaretLog = w.__editCaretLog ?? [];
+                  if (w.__editCaretLog.length > 0) {
+                    Object.assign(w.__editCaretLog[w.__editCaretLog.length - 1], {
+                      savedScroll: saved,
+                      nowScroll: scroller?.scrollTop ?? null,
+                    });
+                  }
                 }}
               />
           ) : (

@@ -67,12 +67,15 @@ describe('restoreScrollSoon(进编辑后多打几次)', () => {
     const plan: Array<{ delay: number; fn: () => void }> = [];
     restoreScrollSoon(el, 200, (fn, delay) => plan.push({ delay, fn }));
     expect(el.scrollTop).toBe(200); // 立即
-    expect(plan.map((p) => p.delay)).toEqual([0, 120]);
+    expect(plan.map((p) => p.delay)).toEqual([0, 120, 400, 800]);
     el.scrollTop = 0; // 模拟浏览器随后把流滚回顶部
     plan[0].fn();
     expect(el.scrollTop).toBe(200);
     el.scrollTop = 0;
     plan[1].fn();
+    expect(el.scrollTop).toBe(200);
+    el.scrollTop = 0;
+    plan[3].fn();
     expect(el.scrollTop).toBe(200);
   });
 
