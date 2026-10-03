@@ -15,7 +15,7 @@ import { measureCaretTop } from '../editor/caret-metrics';
 export const SOURCE_BOX_CLASS = 'md-source-box';
 const SELECTOR = `textarea.${SOURCE_BOX_CLASS}`;
 /** 对齐窗口(毫秒):这段时间里流不可见,用户看不到中间过程 */
-export const ALIGN_WINDOW_MS = 400; // 覆盖到焦点确认之后(最后一次在 340ms),显示时一定有光标
+export const ALIGN_WINDOW_MS = 200;
 /** 显示之后的容差:偏差小于它就不动,免得来回抖 */
 const TOLERANCE_PX = 8;
 
@@ -85,6 +85,16 @@ export function scheduleCaretAlign(
       applyExact();
     } finally {
       onSettled?.();
+      // 显示这一步会触发重渲染,而重渲染会把编辑框的焦点丢掉(实测:显示后 focused=false)——
+      // 立刻补回来,不然光标虽然位置对、却因为没焦点而看不见。
+      const refocus = (): void => {
+        const b = document.querySelector<HTMLTextAreaElement>(SELECTOR);
+        if (!b || b.ownerDocument.activeElement === b) return;
+        b.focus({ preventScroll: true });
+        const pos = b.selectionStart;
+        b.setSelectionRange(pos, pos);
+      };
+      for (const ms of [0, 40, 120]) schedule(refocus, ms);
       schedule(() => ro?.disconnect(), 2000);
     }
   }, ALIGN_WINDOW_MS);
