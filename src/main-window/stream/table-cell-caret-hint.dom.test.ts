@@ -27,6 +27,7 @@ let root: Root | null = null;
 let host: HTMLDivElement;
 
 beforeEach(() => {
+  delete (window as unknown as { __caretLog?: unknown }).__caretLog;
   host = document.createElement('div');
   document.body.appendChild(host);
   root = createRoot(host);
@@ -58,6 +59,24 @@ describe('就地编辑的光标校正', () => {
     await act(async () => { root?.render(createElement(Harness, { hint: 0, on: true })); });
     await tick();
     expect(window.getSelection()?.anchorOffset).toBe(0);
+  });
+
+  it('期望值与浏览器落点不同时:用期望值(浏览器落点不权威)', async () => {
+    await act(async () => { root?.render(createElement(Harness, { hint: 3, on: false })); });
+    await act(async () => { root?.render(createElement(Harness, { hint: 3, on: true })); });
+    await tick();
+    expect(window.getSelection()?.anchorOffset).toBe(3);
+  });
+
+  it('诊断日志:记录期望值/浏览器落点/最终落点', async () => {
+    await act(async () => { root?.render(createElement(Harness, { hint: 1, on: false })); });
+    await act(async () => { root?.render(createElement(Harness, { hint: 1, on: true })); });
+    await tick();
+    const log = (window as unknown as { __caretLog?: Record<string, unknown>[] }).__caretLog ?? [];
+    expect(log.length).toBeGreaterThan(0);
+    const last = log[log.length - 1];
+    expect(last.hint).toBe(1);
+    expect(last.final).toBe(1);
   });
 
   it('没有期望值(null):不干预,交给浏览器', async () => {

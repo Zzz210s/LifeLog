@@ -115,30 +115,35 @@ export function useInPlaceCell(p: InPlaceCellOptions): void {
         left -= len;
       }
     };
-    const saved: { offset: number | null } = { offset: null };
-    const saveTimer = window.setTimeout(() => { saved.offset = offsetInCell(); }, 0);
+    /**
+     * 光标落点(用户 2026-10-03 两次反馈"光标在末尾"):
+     * 期望值由**点击位置**量出来(见 caret-at-point),它才是权威 —— 浏览器的「点击落光标」在窗口刚被
+     * 激活时会被跳过,而 focus() 会把光标丢到末尾,所以不能只依赖浏览器。
+     * 做法:先把期望值落到选区上,再读一次实际落点;两者相差 >1 字符时用期望值兜底。
+     * 诊断写进 window.__caretLog(有界数组),真实鼠标出问题时可直接取证。
+     */
+    const log = (entry: Record<string, unknown>): void => {
+      const w = window as unknown as { __caretLog?: unknown[] };
+      w.__caretLog = w.__caretLog ?? [];
+      if (w.__caretLog.length < 40) w.__caretLog.push({ ...entry, at: Date.now() });
+    };
+    const hint = p.caretHint ?? null;
     const raf = requestAnimationFrame(() => {
       if (done) return;
       el.focus({ preventScroll: true });
-      const now = offsetInCell();
-      const hint = p.caretHint ?? null;
-      /**
-       * 校正规则(用户 2026-10-03 报"光标跑到末尾"):
-       *   ① 有期望偏移且浏览器落点与它差得多(>1 字符)→ 说明这次点击的落光标没生效
-       *      (窗口刚被激活时会被跳过,而 focus() 会把光标丢到末尾)→ 用期望值。
-       *   ② 否则保持浏览器的落点(它才是权威,±1 字符是它自己的取整)。
-       */
-      if (hint !== null && (now === null || Math.abs(now - hint) > 1)) {
-        restore(hint);
+      const browser = offsetInCell();
+      if (hint !== null) restore(hint);
+      const final = offsetInCell();
+      if (hint === null && browser !== null) {
+        log({ cell: source, hint: null, browser, final, mode: 'browser' });
         return;
       }
-      if (now !== null && saved.offset !== null && saved.offset !== 0 && now !== saved.offset) restore(saved.offset);
+      log({ cell: source, hint, browser, final, mode: 'hint' });
     });
 
     el.addEventListener('keydown', onKey);
     el.addEventListener('blur', onBlur);
     return () => {
-      window.clearTimeout(saveTimer);
       cancelAnimationFrame(raf);
       el.removeEventListener('keydown', onKey);
       el.removeEventListener('blur', onBlur);
