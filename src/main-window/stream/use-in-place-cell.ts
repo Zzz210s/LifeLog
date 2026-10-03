@@ -76,9 +76,59 @@ export function useInPlaceCell(p: InPlaceCellOptions): void {
     };
     const onBlur = (): void => finish(read(), 0);
 
+    /**
+     * 光标兜底(用户 2026-10-03 报"真实鼠标点一下没有光标"):
+     * 浏览器的「点击落光标」是默认行为,执行时机在事件处理之后;若窗口此刻刚被激活,
+     * 这次落点可能被随后的激活/聚焦重置掉(CDP 注入输入不走这条路,所以本机自测一直看不到)。
+     * 做法:在默认行为跑完之后读一次真实 selection,记下它在格子里的字符偏移;
+     * 下一帧若发现偏移丢了(变成 0 或格子不再持有焦点),就按记录补回来 —— 不自己算几何。
+     */
+    const offsetInCell = (): number | null => {
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) return null;
+      const node = sel.anchorNode;
+      if (!node || !el.contains(node)) return null;
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      let offset = 0;
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+        if (n === node) return offset + sel.anchorOffset;
+        offset += n.textContent?.length ?? 0;
+      }
+      return null;
+    };
+    const restore = (offset: number): void => {
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      let left = offset;
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+        const len = n.textContent?.length ?? 0;
+        if (left <= len) {
+          const r = document.createRange();
+          r.setStart(n, left);
+          r.collapse(true);
+          const sel = window.getSelection();
+          sel?.removeAllRanges();
+          sel?.addRange(r);
+          return;
+        }
+        left -= len;
+      }
+    };
+    const saved: { offset: number | null } = { offset: null };
+    const saveTimer = window.setTimeout(() => { saved.offset = offsetInCell(); }, 0);
+    const raf = requestAnimationFrame(() => {
+      if (done) return;
+      const now = offsetInCell();
+      if (saved.offset === null || saved.offset === 0) return; // 浏览器本来就落在开头/没落成,不干预
+      if (now === saved.offset) return; // 没被重置
+      el.focus({ preventScroll: true });
+      restore(saved.offset);
+    });
+
     el.addEventListener('keydown', onKey);
     el.addEventListener('blur', onBlur);
     return () => {
+      window.clearTimeout(saveTimer);
+      cancelAnimationFrame(raf);
       el.removeEventListener('keydown', onKey);
       el.removeEventListener('blur', onBlur);
       el.removeAttribute('contenteditable');
