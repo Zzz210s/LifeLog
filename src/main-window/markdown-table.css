@@ -46,3 +46,12 @@
 /* 悬停写在斑马纹之后:同特异性靠顺序压过偶数行底色 */
 .md-body tbody tr:hover td { background: var(--color-selected); transition: background 150ms ease-out; }
 @media (prefers-reduced-motion: reduce) { .md-body tbody tr:hover td { transition: none; } }
+
+/**
+ * 编辑源码框的"滚动余量"(用户 2026-10-03):光标所在行要能落在框内上半部分。
+ * 没有这段余量时,光标靠近正文末尾就会被"最多只能滚到底"夹住、只能停在中线略下方。
+ * 40vh 的底部空白让光标行始终能滚到约 1/3 高度处(与编辑器常见的"可滚过末尾"一致)。
+ */
+.md-source-box {
+  padding-bottom: 40vh;
+}

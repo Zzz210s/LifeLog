@@ -132,14 +132,19 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
                     if (ms === 0) requestAnimationFrame(fn);
                     else window.setTimeout(fn, ms);
                   });
-                  // 取证(2026-10-03):流还跳时,这几个值能直接定位是哪一步没生效
+                  // 取证(2026-10-03):流还跳时,这几个值能直接定位是哪一步没生效。
+                  // scrollAt800 是关键 —— 浏览器把"光标滚动祖先"带进视野发生在挂载之后,
+                  // 只看挂载那一刻(nowScroll)会漏掉这次晚到的跳动。
                   const w = window as unknown as { __editCaretLog?: Array<Record<string, unknown>> };
                   w.__editCaretLog = w.__editCaretLog ?? [];
-                  if (w.__editCaretLog.length > 0) {
-                    Object.assign(w.__editCaretLog[w.__editCaretLog.length - 1], {
-                      savedScroll: saved,
-                      nowScroll: scroller?.scrollTop ?? null,
-                    });
+                  const entry = w.__editCaretLog[w.__editCaretLog.length - 1];
+                  if (entry) {
+                    entry.savedScroll = saved;
+                    entry.nowScroll = scroller?.scrollTop ?? null;
+                    window.setTimeout(() => {
+                      entry.scrollAt800 = scroller?.scrollTop ?? null;
+                      entry.maxScroll = scroller ? scroller.scrollHeight - scroller.clientHeight : null;
+                    }, 800);
                   }
                 }}
               />
