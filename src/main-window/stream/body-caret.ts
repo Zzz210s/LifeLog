@@ -11,7 +11,9 @@ import { visibleOffsetAtPoint } from './caret-at-point';
 /** 正文容器里承载点击的**顶层块**(不是被点到的内层元素) */
 export function topLevelBlock(body: HTMLElement, target: EventTarget | null): HTMLElement | null {
   if (!(target instanceof Element)) return null;
-  const children = [...body.children];
+  // 真正的 markdown 块在 `.md-body` 里(data-note-body 只是外层卡片容器,子元素只有这一个)
+  const md = body.querySelector('.md-body') ?? body;
+  const children = [...md.children];
   return (children.find((c) => c === target || c.contains(target)) as HTMLElement | undefined) ?? null;
 }
 
@@ -24,9 +26,10 @@ export function caretHintFromClick(
   source: string,
 ): number | null {
   if (!body) return null;
+  const md = body.querySelector('.md-body') ?? body;
   const block = topLevelBlock(body, target);
   if (!block) return null;
-  const index = [...body.children].indexOf(block);
+  const index = [...md.children].indexOf(block);
   if (index < 0) return null;
   const visible = visibleOffsetAtPoint(block, x, y);
   if (visible === null) return null;

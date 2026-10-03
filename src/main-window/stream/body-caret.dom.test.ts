@@ -13,19 +13,24 @@ vi.mock('./caret-at-point', () => ({ visibleOffsetAtPoint }));
 
 const SOURCE = ['第一段正文', '', '## 标题二', '', '- 甲', '- 乙'].join('\n');
 
+/** 与真实结构一致:外层是卡片容器(data-note-body),markdown 块在里面的 .md-body 里 */
 function body(html: string): HTMLDivElement {
-  const el = document.createElement('div');
-  el.className = 'md-body';
-  el.innerHTML = html;
-  document.body.appendChild(el);
-  return el;
+  const outer = document.createElement('div');
+  outer.setAttribute('data-note-body', '5');
+  const inner = document.createElement('div');
+  inner.className = 'md-body';
+  inner.innerHTML = html;
+  outer.appendChild(inner);
+  document.body.appendChild(outer);
+  return outer;
 }
+const md = (outer: HTMLElement): HTMLElement => outer.querySelector('.md-body') as HTMLElement;
 
 describe('topLevelBlock', () => {
   it('点内层元素时上溯到顶层块', () => {
     const b = body('<ul><li><strong>甲</strong></li></ul><p>尾巴</p>');
     const strong = b.querySelector('strong')!;
-    expect(topLevelBlock(b, strong)).toBe(b.children[0]);
+    expect(topLevelBlock(b, strong)).toBe(md(b).children[0]);
   });
   it('点正文之外返回 null', () => {
     const b = body('<p>x</p>');
@@ -37,9 +42,9 @@ describe('topLevelBlock', () => {
 describe('caretHintFromClick', () => {
   it('点第 1 段 -> 用第 0 块的源码换算(偏移随桩值为 1)', () => {
     const b = body('<p>第一段正文</p><h2>标题二</h2>');
-    const off = caretHintFromClick(b, b.children[0], 10, 10, SOURCE);
+    const off = caretHintFromClick(b, md(b).children[0], 10, 10, SOURCE);
     expect(off).toBe(1);
-    expect(visibleOffsetAtPoint).toHaveBeenCalledWith(b.children[0], 10, 10);
+    expect(visibleOffsetAtPoint).toHaveBeenCalledWith(md(b).children[0], 10, 10);
   });
 
   it('点列表项(内层 li)-> 仍用第 2 块(列表)换算,块号不错位', () => {
@@ -54,7 +59,7 @@ describe('caretHintFromClick', () => {
   it('量不出可见偏移 -> null(调用方退回末尾)', () => {
     visibleOffsetAtPoint.mockReturnValueOnce(null as unknown as number);
     const b = body('<p>第一段正文</p>');
-    expect(caretHintFromClick(b, b.children[0], 1, 1, SOURCE)).toBeNull();
+    expect(caretHintFromClick(b, md(b).children[0], 1, 1, SOURCE)).toBeNull();
   });
 
   it('body 为空 / 目标不在正文里 -> null', () => {
