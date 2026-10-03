@@ -53,14 +53,16 @@ export function TableCellEditor(p: TableCellEditorProps): ReactNode {
     };
   }, [p.anchor, row, col]);
 
-  // 光标跟随点击位置(用户 2026-10-03):autoFocus 默认把光标丢到末尾,这里按点击处的
-  // 可见偏移换算成源码偏移后显式设置。框按 `${row}:${col}` 重建,所以每次进格只跑一次。
-  useLayoutEffect(() => {
+  // 光标跟随点击位置(用户 2026-10-03):autoFocus 默认把光标丢到末尾,这里按点击处算出的
+  // 源码偏移显式设置。依赖用 row/col 两个**原语**而不是 cell 对象 —— cell 每次渲染都是新对象,
+  // 写成 p.cell 会让 effect 每轮都跑,用户在框里移动光标后一次重渲染就把光标拽回去。
+  const applyCaret = (): void => {
     const box = boxRef.current;
     if (!box || p.caret == null) return;
     const pos = Math.max(0, Math.min(p.caret, box.value.length));
     box.setSelectionRange(pos, pos);
-  }, [p.cell, p.caret, boxRef]);
+  };
+  useLayoutEffect(applyCaret, [p.caret, row, col, boxRef]);
 
   if (!p.cell) return null;
 
@@ -88,6 +90,7 @@ export function TableCellEditor(p: TableCellEditorProps): ReactNode {
         autoFocus
         readOnly={p.busy}
         onKeyDown={onKeyDown}
+        onFocus={applyCaret}
         style={rect ? { width: rect.width, height: rect.height } : undefined}
         className="resize-none overflow-hidden rounded border border-accent bg-raised px-2 py-1 text-xs leading-tight text-text outline-none"
       />

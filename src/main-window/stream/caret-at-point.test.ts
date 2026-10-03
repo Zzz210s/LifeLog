@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { sourceOffsetForVisible, visibleOffsetAtPoint } from './caret-at-point';
+import { nearestBoundary, sourceOffsetForVisible, visibleOffsetAtPoint, type CharBox } from './caret-at-point';
 
 describe('sourceOffsetForVisible', () => {
   it('纯文本:一一对应(绝大多数格子)', () => {
@@ -27,6 +27,32 @@ describe('sourceOffsetForVisible', () => {
   });
 });
 
+/** 造一行等宽字符:每个 10px 宽,从 x0 起 */
+const row = (count: number, x0 = 0, y = 100): CharBox[] =>
+  Array.from({ length: count }, (_, i) => ({ left: x0 + i * 10, right: x0 + i * 10 + 10, centerY: y }));
+
+describe('nearestBoundary(不依赖 caretRangeFromPoint)', () => {
+  it('点在某个字左半区 -> 落在它前面', () => {
+    expect(nearestBoundary(row(3), 12, 100)).toBe(1); // 第 2 个字符(10..20)左半区
+  });
+  it('点在某个字右半区 -> 落在它后面', () => {
+    expect(nearestBoundary(row(3), 18, 100)).toBe(2);
+  });
+  it('点在文本左边留白 -> 0(最前)', () => {
+    expect(nearestBoundary(row(3, 100), 20, 100)).toBe(0);
+  });
+  it('点在文本右边留白 -> 末尾(短文本格子的常见情况:留白占大半)', () => {
+    expect(nearestBoundary(row(3, 100), 300, 100)).toBe(3);
+  });
+  it('多行:先选同一行,再按水平距离', () => {
+    const chars = [...row(3, 0, 100), ...row(3, 0, 120)];
+    expect(nearestBoundary(chars, 12, 121)).toBe(4); // 第二行的第 2 个字符
+  });
+  it('空数组 -> 0', () => {
+    expect(nearestBoundary([], 5, 5)).toBe(0);
+  });
+});
+
 describe('visibleOffsetAtPoint', () => {
   const cell = (html: string): HTMLElement => {
     const el = document.createElement('td');
@@ -34,50 +60,36 @@ describe('visibleOffsetAtPoint', () => {
     document.body.appendChild(el);
     return el;
   };
-
-  it('jsdom 没有 caretRangeFromPoint:安全返回 null(退化成默认光标位置)', () => {
-    const el = cell('第一');
-    expect(visibleOffsetAtPoint(el, 0, 0)).toBeNull();
-  });
-
-  it('有 caretRangeFromPoint 时:把点击处的节点偏移累加成整格偏移', () => {
-    const el = cell('<strong>粗</strong>体');
-    const textNodes: Text[] = [];
-    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
-    for (let n = walker.nextNode(); n; n = walker.nextNode()) textNodes.push(n as Text);
-    // 模拟点在第二个文本节点(「体」)的第 1 个字符之后
-    (el.ownerDocument as unknown as { caretRangeFromPoint?: unknown }).caretRangeFromPoint = () => {
-      const r = document.createRange();
-      r.setStart(textNodes[1], 1);
-      r.collapse(true);
-      return r;
+  /** jsdom 不排版:把 Range.getBoundingClientRect 桩成"每个字符 10px 宽" */
+  const stubRects = (el: HTMLElement, width = 10): void => {
+    const proto = el.ownerDocument.createRange().constructor.prototype as {
+      getBoundingClientRect?: () => DOMRect;
     };
-    expect(visibleOffsetAtPoint(el, 10, 10)).toBe(2);
-  });
-
-  it('容器是**元素**时:startOffset 是子节点下标,累加之前的子树文本(Chromium 实测走这条)', () => {
-    const el = cell('第一<strong>粗</strong>体');
-    // 真实 Chromium 在表格单元格上返回的是「容器 = td,offset = 子节点下标」
-    (el.ownerDocument as unknown as { caretRangeFromPoint?: unknown }).caretRangeFromPoint = () => {
-      const r = document.createRange();
-      r.setStart(el, 2); // 第 3 个子节点之前:即「体」之前
-      r.collapse(true);
-      return r;
+    proto.getBoundingClientRect = function (this: Range): DOMRect {
+      const start = this.startOffset;
+      const left = start * width;
+      return { left, right: left + width, top: 100, bottom: 120, width, height: 20,
+        x: left, y: 100, toJSON: () => ({}) } as unknown as DOMRect;
     };
-    expect(visibleOffsetAtPoint(el, 10, 10)).toBe(3);
-  });
+  };
 
-  it('范围落在格子之外:返回 null', () => {
-    const el = cell('甲');
-    const outside = document.createElement('td');
-    outside.textContent = '乙';
-    document.body.appendChild(outside);
-    (el.ownerDocument as unknown as { caretRangeFromPoint?: unknown }).caretRangeFromPoint = () => {
-      const r = document.createRange();
-      r.setStart(outside.firstChild as Text, 0);
-      r.collapse(true);
-      return r;
-    };
+  it('空单元格:量不出字符 -> null(调用方退回默认光标)', () => {
+    const el = cell('');
     expect(visibleOffsetAtPoint(el, 10, 10)).toBeNull();
+  });
+
+  it('有字符:按最近的字符边界给出偏移', () => {
+    const el = cell('第一第二');
+    stubRects(el);
+    expect(visibleOffsetAtPoint(el, 5, 110)).toBe(0); // 第 1 个字符左半区
+    expect(visibleOffsetAtPoint(el, 15, 110)).toBe(1); // 第 1 个字符右半区 -> 落在它之后
+    expect(visibleOffsetAtPoint(el, 999, 110)).toBe(4); // 远在右侧 -> 末尾
+  });
+
+  it('带内联标签的格子:文本节点按顺序累加', () => {
+    const el = cell('第一<strong>粗</strong>体');
+    stubRects(el);
+    // 第 3 个可见字符「粗」在 20..30
+    expect(visibleOffsetAtPoint(el, 21, 110)).toBe(2);
   });
 });
