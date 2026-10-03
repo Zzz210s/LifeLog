@@ -16,8 +16,7 @@ import type { MouseEvent, ReactNode, RefObject } from 'react';
 import type { Note } from '../../shared/types';
 import { composeSource } from '../../shared/note-source';
 import { locateTable, tableCells, type TableRange } from '../../shared/md-table';
-import { sourceOffsetForVisible, visibleOffsetAtPoint } from './caret-at-point';
-import { TableCellEditor } from './TableCellEditor';
+import { useInPlaceCell } from './use-in-place-cell';
 import { TableControls } from './TableControls';
 import { useTableEdit } from './use-table-edit';
 
@@ -29,6 +28,8 @@ export interface NoteTableEdit {
   bodyRef: RefObject<HTMLDivElement | null>;
   /** 正文点击分流:返回 true = 已被单元格编辑接管(调用方别再进整条编辑) */
   handleClick(e: MouseEvent<HTMLDivElement>): boolean;
+  /** 按下分流:在**浏览器落光标之前**把该格切成可编辑(就地编辑的关键,见 use-in-place-cell) */
+  handleMouseDown(e: MouseEvent<HTMLDivElement>): boolean;
   /** 悬停分流:刷新控制条锚定的表格 */
   handleOver(e: MouseEvent<HTMLDivElement>): void;
   /** 编辑框 + 结构控制条(挂在正文容器之外,点它们不会冒泡成「点正文」) */
@@ -45,11 +46,8 @@ export function useNoteTableEdit(
   const wrap = useCallback((body: string) => composeSource(body, note.tags), [note.tags]);
   const edit = useTableEdit({ source, noteId: note.id, onSaved, wrap });
   const bodyRef = useRef<HTMLDivElement | null>(null);
-  const boxRef = useRef<HTMLTextAreaElement | null>(null);
   const [index, setIndex] = useState<number | null>(null);
   const [tableEl, setTableEl] = useState<HTMLTableElement | null>(null);
-  /** 进入编辑时的光标落点(源码偏移);null = 交给浏览器默认 */
-  const [caret, setCaret] = useState<number | null>(null);
 
   const range: TableRange | null = useMemo(
     () => (index === null ? null : locateTable(source, index)),
@@ -66,14 +64,14 @@ export function useNoteTableEdit(
   const indexOf = (body: HTMLElement, table: HTMLTableElement): number =>
     [...body.querySelectorAll('table')].indexOf(table);
 
-  const handleClick = (e: MouseEvent<HTMLDivElement>): boolean => {
-    const target = e.target;
+  /** 命中表格里的某一格 -> 进就地编辑;不是格子 / 自校验失败则返回 false(交给整条编辑) */
+  const openCell = (target: EventTarget | null, body: HTMLElement): boolean => {
     if (!(target instanceof Element)) return false;
     if (target.closest(INTERACTIVE)) return false; // chip / 复选框 / 外链:既有行为独占
     const td = target.closest('td,th');
     const table = td?.closest('table') as HTMLTableElement | null;
     if (!td || !table) return false; // 点表格外正文 -> 交给整条编辑
-    const idx = indexOf(e.currentTarget, table);
+    const idx = indexOf(body, table);
     const r = idx >= 0 ? locateTable(source, idx) : null;
     const cells = r ? tableCells(source, r) : null;
     if (!r || !cells) return false; // 自校验失败:退化成整条编辑,绝不猜
@@ -81,13 +79,16 @@ export function useNoteTableEdit(
     const col = (td as HTMLTableCellElement).cellIndex;
     const cell = cells.find((c) => c.row === row && c.col === col);
     if (!cell) return false;
-    // 光标跟随点击位置:先量点击处在格子里的可见偏移,再换算成源码偏移
-    const visible = visibleOffsetAtPoint(td as HTMLElement, e.clientX, e.clientY);
-    setCaret(visible === null ? null : sourceOffsetForVisible(cell.text, visible));
     setIndex(idx);
     edit.openAt(cell, r, table);
     return true;
   };
+
+  // 就地编辑在 **mousedown** 开:浏览器「点击落光标」的默认行为在事件处理之后执行,
+  // 这时格子已经是可编辑的源码文本,光标自然落在点到的那个字上 —— 既不用自己算几何,
+  // 也不用抢焦点(那是盖 textarea 方案在真实鼠标下失败的原因,2026-10-03)。
+  const handleMouseDown = (e: MouseEvent<HTMLDivElement>): boolean => openCell(e.target, e.currentTarget);
+  const handleClick = (e: MouseEvent<HTMLDivElement>): boolean => openCell(e.target, e.currentTarget);
 
   // 悬停到表格 -> 控制条出现;移到别的表格 -> 换锚点;移到正文其它处 -> 不动
   // (不能清空:鼠标从表格挪到控制条上会先经过正文空白,清空会让控制条中途卸载)
@@ -101,7 +102,7 @@ export function useNoteTableEdit(
     setIndex(ok ? (p) => (p === idx ? p : idx) : null);
   };
 
-  // 点编辑框/控制条之外:先提交框里未提交的内容,避免"改一半点走"丢字
+  // 点编辑格/控制条之外:先提交未保存的内容,避免"改一半点走"丢字
   const latest = useRef(edit);
   latest.current = edit;
   const open = edit.editing !== null;
@@ -110,15 +111,21 @@ export function useNoteTableEdit(
     const down = (e: PointerEvent) => {
       const t = e.target;
       if (!(t instanceof Element)) return;
-      if (t.closest('[data-testid="table-cell-editor"]') || t.closest('[data-table-controls]')) return;
-      const box = boxRef.current;
-      if (box) void latest.current.commit(box.value, 0, true); // 提交并收框
+      if (t.closest('[data-table-controls]')) return;
+      const el = t.closest('[contenteditable]');
+      if (el) return; // 点在正在编辑的那一格:交给它自己
+      const text = bodyRef.current?.querySelector('[contenteditable]')?.textContent ?? null;
+      if (text !== null) void latest.current.commit(text, 0, true); // 提交并退出编辑
     };
     document.addEventListener('pointerdown', down, true);
     return () => document.removeEventListener('pointerdown', down, true);
   }, [open]);
 
-  const pending = (): string | null => boxRef.current?.value ?? null;
+  /** 结构改写前先取编辑中格子的当前文本(就地编辑:DOM 的 textContent 是真源) */
+  const pending = (): string | null => {
+    const el = bodyRef.current?.querySelector('[contenteditable]');
+    return el ? el.textContent : null;
+  };
   const structure = {
     onAddRow: (at: number) => { if (range) void edit.addRow(range, at, pending()); },
     onAddColumn: (at: number) => { if (range) void edit.addColumn(range, at, pending()); },
@@ -133,18 +140,16 @@ export function useNoteTableEdit(
     onEditSource();
   };
 
+  useInPlaceCell({
+    cell: edit.editing,
+    table: tableEl,
+    busy: edit.busy,
+    onCommit: edit.commit,
+    onCancel: edit.cancel,
+  });
+
   const overlay = (
     <>
-      <TableCellEditor
-        cell={edit.editing}
-        anchor={tableEl}
-        boxRef={boxRef}
-        caret={caret}
-        error={edit.error}
-        busy={edit.busy}
-        onCommit={edit.commit}
-        onCancel={edit.cancel}
-      />
       <TableControls
         table={tableEl}
         cell={edit.editing}
@@ -156,5 +161,5 @@ export function useNoteTableEdit(
     </>
   );
 
-  return { bodyRef, handleClick, handleOver, overlay };
+  return { bodyRef, handleClick, handleMouseDown, handleOver, overlay };
 }

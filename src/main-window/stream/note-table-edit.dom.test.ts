@@ -52,7 +52,8 @@ const pick = (sel: string): Element => {
   if (!el) throw new Error('未找到元素: ' + sel);
   return el;
 };
-const editorOpen = (): boolean => host.querySelector('[data-testid="table-cell-editor"]') != null;
+/** 就地编辑:正在编辑的那个格子带 contenteditable */
+const editorOpen = (): boolean => host.querySelector('td[contenteditable], th[contenteditable]') != null;
 
 beforeEach(() => {
   host = document.createElement('div');
@@ -66,15 +67,16 @@ afterEach(() => {
 });
 
 describe('表格单元格编辑与既有交互共存', () => {
-  it('点单元格文字:开覆盖编辑框,不进整条笔记编辑', async () => {
+  it('点单元格文字:该格就地变可编辑,不进整条笔记编辑', async () => {
     await mount(note(TABLE));
     // 第二列那一格(不含 chip),点它进单元格编辑
     const td = pick('[data-note-body="5"] tbody tr td:nth-child(2)');
     await click(td);
     expect(editorOpen()).toBe(true);
     expect(calls.edit).toBe(0);
-    // 编辑框里是该格源码文本
-    expect((pick('[data-testid="table-cell-editor"] textarea') as HTMLTextAreaElement).value).toBe('2');
+    // 就地编辑时该格显示的是**源码**文本
+    expect(td.textContent).toBe('2');
+    expect(td.getAttribute('contenteditable')).toBe('plaintext-only');
   });
 
   it('点表格里的 chip:不进单元格编辑,交给既有跳转(未解析 -> 预填)', async () => {

@@ -80,7 +80,7 @@ try {
   const seq = [await dom.editorValue(idNav)];
   for (const extra of ['', '', '', ', shiftKey: true']) {
     await dom.keyEditor(idNav, 'Tab', extra);
-    await sleep(180);
+    await sleep(260); // 就地编辑要等一次 React 提交(首次运行偶发未落定)
     seq.push(await dom.editorValue(idNav));
   }
   record('读数2 Tab 提交并右移、行尾折下一行首格、Shift+Tab 左移(未改内容不写库)',

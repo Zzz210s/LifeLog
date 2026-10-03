@@ -92,7 +92,7 @@ export function NoteItem(p: NoteItemProps): ReactNode {
       </div>
       {/* 不挂常驻 title:光标形状已表达可点编辑,悬浮提示会盖住正文自己的提示。
            data-note-body 供编辑面板判定"点区块外落到哪条笔记"(先存后进) */}
-      <div ref={te.bodyRef} data-note-body={note.id} onClick={onBodyClick} onMouseOver={te.handleOver} className="cursor-text">
+      <div ref={te.bodyRef} data-note-body={note.id} onClick={onBodyClick} onMouseDown={te.handleMouseDown} onMouseOver={te.handleOver} className="cursor-text">
         <MarkdownBody
           html={html}
           className="md-body mt-1 min-w-0 text-body text-text"

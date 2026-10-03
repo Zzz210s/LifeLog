@@ -56,28 +56,35 @@ export function tableDom(ev) {
   const clickTd = (id, row, col) =>
     ev(`(() => { const b = document.querySelector('[data-note-body="${id}"]');
       const td = b?.querySelectorAll('table')[0]?.rows[${row}]?.cells[${col}];
-      if (!td) return false; td.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })); return true; })()`);
+      if (!td) return false;
+      // 就地编辑在 mousedown 开(浏览器落光标之前),所以要发 mousedown + click
+      td.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+      td.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+      return true; })()`);
   const clickIn = (id, sel) =>
     ev(`(() => { const el = document.querySelector('[data-note-body="${id}"] ${sel}');
-      if (!el) return false; el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })); return true; })()`);
-  const box = (id) => `${li(id)}?.querySelector('[data-testid="table-cell-editor"] textarea')`;
+      if (!el) return false;
+      el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+      el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+      return true; })()`);
+  /** 就地编辑:正在编辑的格子是那个带 contenteditable 的 td/th */
+  const box = (id) => `${li(id)}?.querySelector('td[contenteditable],th[contenteditable]')`;
   const clickLabel = (id, label) =>
     ev(`(() => { const b = ${li(id)}?.querySelector('[data-table-controls] button[aria-label=${JSON.stringify(label)}]');
       if (!b) return false; b.click(); return true; })()`);
   const hasEditor = (id) => ev(`!!(${box(id)})`);
-  const editorValue = (id) => ev(`(${box(id)})?.value ?? null`);
+  const editorValue = (id) => ev(`(${box(id)})?.textContent ?? null`);
   const setEditor = (id, v) =>
-    ev(`(() => { const el = ${box(id)}; if (!el) return false;
-      const s = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set; s.call(el, ${JSON.stringify(v)}); return el.value; })()`);
+    ev(`(() => { const el = ${box(id)}; if (!el) return false; el.textContent = ${JSON.stringify(v)}; return el.textContent; })()`);
   const keyEditor = (id, key, extra = '') =>
     ev(`(() => { const el = ${box(id)}; if (!el) return null;
-      el.dispatchEvent(new KeyboardEvent('keydown', { key: ${JSON.stringify(key)}, bubbles: true, cancelable: true${extra} })); return el.value; })()`);
+      el.dispatchEvent(new KeyboardEvent('keydown', { key: ${JSON.stringify(key)}, bubbles: true, cancelable: true${extra} })); return el.textContent; })()`);
   const openTd = async (id, row, col) => {
     await clickTd(id, row, col);
     const ok = await waitFor(() => hasEditor(id), 16, 200);
-    if (!ok) throw new Error(`点夹具 ${id} 的格 (${row},${col}) 未出现编辑框`);
+    if (!ok) throw new Error(`点夹具 ${id} 的格 (${row},${col}) 未进入编辑态`);
   };
-  /** 收掉该夹具的编辑框(及其它夹具残框),让下一条读数从干净态开始 */
+  /** 退出该夹具的编辑态(及其它夹具残框),让下一条读数从干净态开始 */
   const closeEditor = async (id) => {
     if (await hasEditor(id)) await keyEditor(id, 'Escape');
     await waitFor(async () => ((await hasEditor(id)) ? null : true), 10, 120);
