@@ -133,13 +133,15 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
                   // 然后多打几次:光标落点会让浏览器在挂载之后再把滚动祖先滚进视野(2026-10-03)
                   const saved = scrollBeforeEdit.current;
                   scrollBeforeEdit.current = null;
-                  // 光标拉回鼠标点击的屏幕位置(用户 2026-10-03):面板比卡片高,点击又在卡片中下部,
-                  // 面板一挂载顶部就在视口之上 —— 只还原 scrollTop 会让编辑框(与光标)留在屏幕外。
+                  // 光标拉回鼠标点击的屏幕位置(用户 2026-10-03):面板比卡片高、点击又常在卡片中下部,
+                  // 面板一挂载其顶部就在视口之上 —— 只还原 scrollTop 会让编辑框(与光标)留在屏幕外。
+                  // 目标 = 进编辑前的位置 + 让光标回到点击处的增量;后续几次还原都钉到**这个目标**上。
                   const clickY = clickYBeforeEdit.current;
                   clickYBeforeEdit.current = null;
+                  let target = saved;
                   if (clickY !== null) {
                     const box = document.querySelector<HTMLTextAreaElement>('textarea.md-source-box');
-                    if (box && scroller) {
+                    if (box) {
                       const caretInBox = measureCaretTop(box, box.selectionStart);
                       if (caretInBox !== null) {
                         const delta = caretScrollDelta({
@@ -148,11 +150,11 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
                           boxScroll: box.scrollTop,
                           clickY,
                         });
-                        if (delta !== 0) scroller.scrollTop = scroller.scrollTop + delta;
+                        if (saved !== null) target = saved + delta;
                       }
                     }
                   }
-                  restoreScrollSoon(scroller, saved, (fn, ms) => {
+                  restoreScrollSoon(scroller, target, (fn, ms) => {
                     if (ms === 0) requestAnimationFrame(fn);
                     else window.setTimeout(fn, ms);
                   });
@@ -164,6 +166,7 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
                   const entry = w.__editCaretLog[w.__editCaretLog.length - 1];
                   if (entry) {
                     entry.savedScroll = saved;
+                    entry.targetScroll = target;
                     entry.nowScroll = scroller?.scrollTop ?? null;
                     window.setTimeout(() => {
                       entry.scrollAt800 = scroller?.scrollTop ?? null;
