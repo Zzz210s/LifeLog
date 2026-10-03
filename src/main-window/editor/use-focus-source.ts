@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { RefObject } from 'react';
 import { caretScrollTop } from './caret-scroll';
+import { caretScrollFromTop, measureCaretTop } from './caret-metrics';
 
 /**
  * 进编辑时的焦点与光标落点(自 `EditPanel` 抽出以守 200 行红线)。
@@ -28,21 +29,27 @@ export function useFocusSource(
     const end = el ? (cut > 0 ? cut : el.value.length) : 0;
     const caret = typeof caretHint === 'number' && caretHint >= 0 && caretHint <= end ? caretHint : end;
     el?.setSelectionRange(caret, caret);
-    // 把**光标所在行**滚到框内约 1/3 高度处(用户 2026-10-03):源码与渲染文本行数不同,
-    // 只能估算;夹在合法范围内,保证光标不会被丢出视野。
+    // 把**光标所在行**滚到框内约 1/3 高度处(用户 2026-10-03)。
+    // 先用镜像量出光标真实纵向位置(长段落折行时行号估算会严重偏低,框会滚到底、光标反而看不见),
+    // 量不到时退回按换行数估算。
     if (el) {
-      const cs = window.getComputedStyle(el);
-      const lineHeight = Number.parseFloat(cs.lineHeight);
-      const before = el.value.slice(0, caret);
-      let newlines = 0;
-      for (let i = 0; i < before.length; i += 1) if (before.charCodeAt(i) === 10) newlines += 1;
-      el.scrollTop = caretScrollTop({
-        caret,
-        newlinesBefore: newlines,
-        lineHeight,
-        clientHeight: el.clientHeight,
-        scrollHeight: el.scrollHeight,
-      });
+      const top = measureCaretTop(el, caret);
+      if (top !== null) {
+        el.scrollTop = caretScrollFromTop(top, el.clientHeight, el.scrollHeight);
+      } else {
+        const cs = window.getComputedStyle(el);
+        const lineHeight = Number.parseFloat(cs.lineHeight);
+        const before = el.value.slice(0, caret);
+        let newlines = 0;
+        for (let i = 0; i < before.length; i += 1) if (before.charCodeAt(i) === 10) newlines += 1;
+        el.scrollTop = caretScrollTop({
+          caret,
+          newlinesBefore: newlines,
+          lineHeight,
+          clientHeight: el.clientHeight,
+          scrollHeight: el.scrollHeight,
+        });
+      }
     }
     // 取证(2026-10-03):真实鼠标出问题时把这三个值报出来就能定位
     // (hint = 点击处换算值;end = 正文末尾;final = 实际落点)
