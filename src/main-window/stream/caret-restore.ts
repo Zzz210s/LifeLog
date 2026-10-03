@@ -15,7 +15,7 @@ import { measureCaretTop } from '../editor/caret-metrics';
 export const SOURCE_BOX_CLASS = 'md-source-box';
 const SELECTOR = `textarea.${SOURCE_BOX_CLASS}`;
 /** 对齐窗口(毫秒):这段时间里流不可见,用户看不到中间过程 */
-export const ALIGN_WINDOW_MS = 280;
+export const ALIGN_WINDOW_MS = 400; // 覆盖到焦点确认之后(最后一次在 340ms),显示时一定有光标
 /** 显示之后的容差:偏差小于它就不动,免得来回抖 */
 const TOLERANCE_PX = 8;
 
