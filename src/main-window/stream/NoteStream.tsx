@@ -56,12 +56,15 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
   const caretBeforeEdit = useRef<number | null>(null);
   /** 点击时的视口 y:进编辑后把光标拉回这个屏幕位置(用户 2026-10-03) */
   const clickYBeforeEdit = useRef<number | null>(null);
+  /** 对齐窗口内把流藏起来,避免用户看到"拉扯"(2026-10-03) */
+  const [aligning, setAligning] = useState(false);
 
   /** 进编辑:click = 用户点正文(带光标偏移与点击屏幕 y);panel = 编辑面板已提交成功后的切换 */
   const openEdit = (n: Note, via: 'click' | 'panel', caret?: number | null, clickY?: number): void => {
     scrollBeforeEdit.current = scroller?.scrollTop ?? null;
     caretBeforeEdit.current = caret ?? null;
     clickYBeforeEdit.current = clickY ?? null;
+    if (clickY !== undefined) setAligning(true); // 对齐窗口:期间流不可见
     if (via === 'panel') p.onSwitchEdit(n);
     else p.onEdit(n);
   };
@@ -93,7 +96,10 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
     empty === 'failed' ? p.onRetry : empty === 'no-match' ? p.onClearFilters : p.onShowInput;
 
   return (
-    <div ref={setScroller} className="scroll-gutter flex-1 overflow-y-auto">
+    <div
+      ref={setScroller}
+      className={`scroll-gutter flex-1 overflow-y-auto${aligning ? ' invisible' : ''}`}
+    >
       {empty !== null && (
         <div className="flex h-full flex-col items-center justify-center gap-2 text-sm text-muted">
           <span>{EMPTY_STATE_TEXT[empty]}</span>
