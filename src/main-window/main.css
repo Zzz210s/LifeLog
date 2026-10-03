@@ -1,4 +1,5 @@
 @import "../shared/theme.css";
+@import "./markdown-table.css";
 
 /* 应用外壳固定:R1 实测根文档自身可滚动(scrollHeight 6674 / clientHeight 720),焦点在 body /
    Composer / 搜索框时按 PageDown、End 会把整页滚走(根 scrollTop 0 -> 630 / 0 -> 18929,
@@ -123,40 +124,6 @@ body {
       min-content 软化成 1 字,不加下限时宽表永不超过容器(实测 8 列也不滚);
    3) 表头钉住必须有 max-height:表格自己就是滚动容器,表高=内容高时 sticky 无处可粘。
       短表不受影响(不到 max-height 就不出滚动条),长表内部滚动 + 表头真钉住。 */
-.md-body table {
-  display: block; /* 宽表横向滚动 */
-  max-width: 100%;
-  max-height: 70vh; /* 长表内部纵向滚动,表头才有可粘的地方 */
-  margin: 0.6rem 0;
-  border-collapse: collapse;
-  overflow: auto; /* 横向 + 纵向 */
-  border: 1px solid var(--color-border-strong);
-  font-size: 12px; /* B:数据密集 */
-  line-height: 1.45; /* 收回 .md-body 的绝对行高(26px),短行才紧凑 */
-}
-.md-body thead th {
-  position: sticky; top: 0; z-index: 1;
-  background: var(--color-chrome-alt);
-  font-weight: 600;
-  height: 36px; /* 表格里 height 是最小高度:短行紧凑、长内容可长高 */
-  min-width: 7rem; /* 宽表横向滚动的必要条件,见上方注释 */
-  padding: 4px 8px;
-  text-align: left;
-  border-bottom: 2px solid var(--color-border-strong);
-  font-variant-numeric: tabular-nums;
-}
-.md-body td {
-  height: 36px; /* 同上:最小值,不是固定高度 */
-  min-width: 7rem;
-  padding: 4px 8px;
-  max-width: 26em; /* 列宽可控:长文本换行,不撑破整表 */
-  vertical-align: top;
-  border-bottom: 1px solid var(--color-border);
-}
-/* 无斑马纹(用户 2026-10-02):单双行背景一致,靠 1px 行分隔线 + 悬停区分 */
-/* 悬停写在斑马纹之后:同特异性靠顺序压过偶数行底色 */
-.md-body tbody tr:hover td { background: var(--color-selected); transition: background 150ms ease-out; }
-@media (prefers-reduced-motion: reduce) { .md-body tbody tr:hover td { transition: none; } }
 
 .md-body code {
   font-family: ui-monospace, Consolas, "Courier New", monospace;

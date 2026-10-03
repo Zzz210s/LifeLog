@@ -21,6 +21,8 @@ export interface TableCellEditorProps {
   onCancel: () => void;
   /** 外部框 ref(接线层要读未提交内容做结构改写);不传则组件自持一个 */
   boxRef?: RefObject<HTMLTextAreaElement | null>;
+  /** 光标落点(源码偏移,按点击位置换算);不传则用浏览器默认(autoFocus 落末尾) */
+  caret?: number | null;
 }
 
 /** anchor 所在表格里 (row, col) 那格的 DOM;找不到返回 null(退化成左上角零点) */
@@ -50,6 +52,15 @@ export function TableCellEditor(p: TableCellEditorProps): ReactNode {
       window.removeEventListener('scroll', measure, true);
     };
   }, [p.anchor, row, col]);
+
+  // 光标跟随点击位置(用户 2026-10-03):autoFocus 默认把光标丢到末尾,这里按点击处的
+  // 可见偏移换算成源码偏移后显式设置。框按 `${row}:${col}` 重建,所以每次进格只跑一次。
+  useLayoutEffect(() => {
+    const box = boxRef.current;
+    if (!box || p.caret == null) return;
+    const pos = Math.max(0, Math.min(p.caret, box.value.length));
+    box.setSelectionRange(pos, pos);
+  }, [p.cell, p.caret, boxRef]);
 
   if (!p.cell) return null;
 

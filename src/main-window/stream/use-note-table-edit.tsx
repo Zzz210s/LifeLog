@@ -16,6 +16,7 @@ import type { MouseEvent, ReactNode, RefObject } from 'react';
 import type { Note } from '../../shared/types';
 import { composeSource } from '../../shared/note-source';
 import { locateTable, tableCells, type TableRange } from '../../shared/md-table';
+import { sourceOffsetForVisible, visibleOffsetAtPoint } from './caret-at-point';
 import { TableCellEditor } from './TableCellEditor';
 import { TableControls } from './TableControls';
 import { useTableEdit } from './use-table-edit';
@@ -47,6 +48,8 @@ export function useNoteTableEdit(
   const boxRef = useRef<HTMLTextAreaElement | null>(null);
   const [index, setIndex] = useState<number | null>(null);
   const [tableEl, setTableEl] = useState<HTMLTableElement | null>(null);
+  /** 进入编辑时的光标落点(源码偏移);null = 交给浏览器默认 */
+  const [caret, setCaret] = useState<number | null>(null);
 
   const range: TableRange | null = useMemo(
     () => (index === null ? null : locateTable(source, index)),
@@ -78,6 +81,9 @@ export function useNoteTableEdit(
     const col = (td as HTMLTableCellElement).cellIndex;
     const cell = cells.find((c) => c.row === row && c.col === col);
     if (!cell) return false;
+    // 光标跟随点击位置:先量点击处在格子里的可见偏移,再换算成源码偏移
+    const visible = visibleOffsetAtPoint(td as HTMLElement, e.clientX, e.clientY);
+    setCaret(visible === null ? null : sourceOffsetForVisible(cell.text, visible));
     setIndex(idx);
     edit.openAt(cell, r, table);
     return true;
@@ -133,6 +139,7 @@ export function useNoteTableEdit(
         cell={edit.editing}
         anchor={tableEl}
         boxRef={boxRef}
+        caret={caret}
         error={edit.error}
         busy={edit.busy}
         onCommit={edit.commit}

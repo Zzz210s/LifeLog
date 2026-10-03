@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * 表格视觉门禁(风格 B 数据密集):真机建一条含表格的临时笔记,用计算样式断言
- *   表头(底=chrome-alt / 2px 底边 / 12px / sticky)/ 单元格(4-8 padding / top / 26em)/
+ *   表头(底=raised / 1px 底边 / 12px / sticky)/ 单元格(4-8 padding / top / 26em)/
  *   单双行同色(无斑马纹)/ 悬停 = selected / 短行 36px 且长文本完整可见 /
  *   8 列宽表横向滚动不撑破卡片 / 零硬编码色 / 暗色正文对比度(AA)。
  * 夹具自建自删(前缀 `TABLE测试`),不碰用户数据。退出码:0 通过 / 1 失败 / 2 跳过(应用不在 CDP 端口)。
@@ -51,11 +51,11 @@ const r = recorder();
 function assertScan(s, theme) {
   const tok = s.tok;
   r.record(
-    `表头 th(${theme}):底=chrome-alt / 底边 2px / 字号 12px / sticky 真钉住(长表内部滚动后仍在顶部)`,
-    s.th.bg === tok['--color-chrome-alt'] && near(s.th.borderBottomWidth, 2) && s.th.fontSize === '12px'
+    `表头 th(${theme}):底=raised(与数据行同色) / 底边 1px / 字号 12px / sticky 真钉住(长表内部滚动后仍在顶部)`,
+    s.th.bg === tok['--color-raised'] && near(s.th.borderBottomWidth, 1) && s.th.fontSize === '12px'
       && s.th.position === 'sticky' && s.th.top === '0px'
       && s.sticky.tallTableScrolls === true && s.sticky.headerStuckOffset <= 2,
-    `底 ${s.th.bg} / 底边 ${s.th.borderBottomWidth} / 字号 ${s.th.fontSize} / ${s.th.position}@${s.th.top} / 内距 ${s.th.padding} / 长表可滚=${s.sticky.tallTableScrolls} 表头偏移=${s.sticky.headerStuckOffset}px`,
+    `底 ${s.th.bg} / 底边 ${s.th.borderBottomWidth} / 字号 ${s.th.fontSize} / ${s.th.position}@${s.th.top} / 内距 ${s.th.padding} / 长表可滚=${s.sticky.tallTableScrolls} 表头偏移=${s.sticky.headerStuckOffset}px / 外框 ${s.table.borderTopWidth} ${s.table.borderTopStyle}`,
   );
   r.record(
     `单元格 td(${theme}):内距 4/8 / 顶对齐 / max-width 26em / 底边 1px`,
@@ -65,11 +65,10 @@ function assertScan(s, theme) {
     `内距 ${s.td.paddingTop}/${s.td.paddingLeft} / ${s.td.verticalAlign} / max-width ${s.td.maxWidth} / 底边 ${s.td.borderBottomWidth}`,
   );
   r.record(
-    `表框(${theme}):1px border-strong / 字号 12px / 横向滚动容器`,
-    near(s.table.borderTopWidth, 1) && s.table.borderTopStyle === 'solid'
-      && s.table.borderTopColor === tok['--color-border-strong'] && s.table.fontSize === '12px'
+    `表框(${theme}):无外框(描边感太强,用户 2026-10-03)/ 字号 12px / 横向滚动容器`,
+    near(s.table.borderTopWidth, 0) && s.table.fontSize === '12px'
       && s.table.display === 'block' && s.table.overflowX === 'auto',
-    `边框 ${s.table.borderTopWidth} ${s.table.borderTopStyle} ${s.table.borderTopColor} / 字号 ${s.table.fontSize} / display ${s.table.display} / overflow-x ${s.table.overflowX}`,
+    `边框 ${s.table.borderTopWidth} ${s.table.borderTopStyle} / 字号 ${s.table.fontSize} / display ${s.table.display} / overflow-x ${s.table.overflowX}`,
   );
   r.record(
     `单双行背景一致(${theme}):无斑马纹`,

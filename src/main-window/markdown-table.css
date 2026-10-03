@@ -1,0 +1,48 @@
+/**
+ * markdown 表格样式(用户 2026-10-03 定的口径:数据密集 + 无描边感 + 表头与数据行同色)。
+ *
+ * 从 main.css 拆出:那一份正好顶在 200 行红线上,再加规则就超。
+ * 关键约束:
+ *   - 表格自己是滚动容器(display:block + overflow:auto),所以 min-width 必须给到 th/td,
+ *     否则 .md-body 的 word-break 会让宽表永远不超出容器、横向滚动失效。
+ *   - 表头 sticky 且必须**不透明**底色,否则滚动内容会从它底下透出来;
+ *     用 --color-raised 与数据行看到的颜色一致(数据行本身透明,露出卡片底)。
+ *   - 悬停规则写在行分隔之后:同特异性靠顺序生效。
+ */
+.md-body table {
+  display: block; /* 宽表横向滚动 */
+  max-width: 100%;
+  max-height: 70vh; /* 长表内部纵向滚动,表头才有可粘的地方 */
+  margin: 0.6rem 0;
+  border-collapse: collapse;
+  overflow: auto; /* 横向 + 纵向 */
+  /* 无外框(用户 2026-10-03):描边感太强、和卡片自己的 1px 边框叠在一起显得脏;
+     只留行分隔线与表头下边线分格 */
+  font-size: 12px; /* B:数据密集 */
+  line-height: 1.45; /* 收回 .md-body 的绝对行高(26px),短行才紧凑 */
+}
+.md-body thead th {
+  position: sticky; top: 0; z-index: 1;
+  /* 表头底色 = 数据行看到的颜色(行本身透明,露出卡片底 --color-raised)。
+     必须不透明:表头是 sticky 的,半透明会让滚动内容从它底下透出来。 */
+  background: var(--color-raised);
+  font-weight: 600;
+  height: 36px; /* 表格里 height 是最小高度:短行紧凑、长内容可长高 */
+  min-width: 7rem; /* 宽表横向滚动的必要条件,见上方注释 */
+  padding: 4px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+  font-variant-numeric: tabular-nums;
+}
+.md-body td {
+  height: 36px; /* 同上:最小值,不是固定高度 */
+  min-width: 7rem;
+  padding: 4px 8px;
+  max-width: 26em; /* 列宽可控:长文本换行,不撑破整表 */
+  vertical-align: top;
+  border-bottom: 1px solid var(--color-border);
+}
+/* 无斑马纹(用户 2026-10-02):单双行背景一致,靠 1px 行分隔线 + 悬停区分 */
+/* 悬停写在斑马纹之后:同特异性靠顺序压过偶数行底色 */
+.md-body tbody tr:hover td { background: var(--color-selected); transition: background 150ms ease-out; }
+@media (prefers-reduced-motion: reduce) { .md-body tbody tr:hover td { transition: none; } }
