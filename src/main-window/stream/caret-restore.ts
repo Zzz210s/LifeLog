@@ -29,3 +29,25 @@ export function targetScrollAfterEdit(
     clickY,
   });
 }
+
+/**
+ * 多次重算并应用:面板挂载后字体/布局还会变,只量一次会用到过期几何 ——
+ * 实测只量一次时光标仍在屏幕外(量到的框顶比稳定后低 300px 以上)。
+ * 每次都用**当前**几何重算,越往后越准;拿不到位置时退回原来的 scrollTop。
+ */
+export function scheduleCaretAlign(
+  scroller: { scrollTop: number } | null,
+  saved: number | null,
+  clickY: number | null,
+  schedule: (fn: () => void, delayMs: number) => void,
+): void {
+  if (saved === null) return;
+  const apply = (): void => {
+    if (!scroller) return;
+    const box = document.querySelector<HTMLTextAreaElement>(SOURCE_BOX_SELECTOR);
+    const target = targetScrollAfterEdit(saved, clickY, box);
+    if (target !== null) scroller.scrollTop = target;
+  };
+  apply();
+  for (const ms of [0, 120, 400, 800]) schedule(apply, ms);
+}

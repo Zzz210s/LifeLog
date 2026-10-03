@@ -4,8 +4,7 @@ import type { Note } from '../../shared/types';
 import { EMPTY_STATE_ACTION, EMPTY_STATE_TEXT, streamEmptyState } from '../shell/empty-stream';
 import { BTN_SECONDARY } from '../shell/button-classes';
 import { EditPanel, type EditPanelProps } from '../editor/EditPanel';
-import { restoreScrollSoon } from './scroll-restore';
-import { SOURCE_BOX_SELECTOR, targetScrollAfterEdit } from './caret-restore';
+import { scheduleCaretAlign } from './caret-restore';
 import { NoteItem } from './NoteItem';
 
 export interface NoteStreamProps {
@@ -134,13 +133,8 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
                   scrollBeforeEdit.current = null;
                   const clickY = clickYBeforeEdit.current;
                   clickYBeforeEdit.current = null;
-                  // 目标 = 进编辑前的位置 + 让光标回到点击处的增量(见 caret-restore)
-                  const target = targetScrollAfterEdit(
-                    saved,
-                    clickY,
-                    document.querySelector<HTMLTextAreaElement>(SOURCE_BOX_SELECTOR),
-                  );
-                  restoreScrollSoon(scroller, target, (fn, ms) => {
+                  // 目标 = 进编辑前的位置 + 让光标回到点击处的增量;多次重算(面板布局会变)
+                  scheduleCaretAlign(scroller, saved, clickY, (fn, ms) => {
                     if (ms === 0) requestAnimationFrame(fn);
                     else window.setTimeout(fn, ms);
                   });
@@ -152,7 +146,7 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
                   const entry = w.__editCaretLog[w.__editCaretLog.length - 1];
                   if (entry) {
                     entry.savedScroll = saved;
-                    entry.targetScroll = target;
+                    entry.clickY = clickY;
                     entry.nowScroll = scroller?.scrollTop ?? null;
                     window.setTimeout(() => {
                       entry.scrollAt800 = scroller?.scrollTop ?? null;
