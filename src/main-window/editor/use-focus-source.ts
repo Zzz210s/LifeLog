@@ -59,5 +59,26 @@ export function useFocusSource(
       w.__editCaretLog.push({ hint: caretHint ?? null, end, final: el?.selectionStart ?? null, at: Date.now() });
     }
     mounted.current?.();
+    /**
+     * 把焦点抢回来(用户 2026-10-03 报"光标又没了"):
+     * 点击的**默认行为**是在事件派发之后把焦点移到 body,而编辑面板是在这次派发中挂载的 ——
+     * 于是刚拿到的焦点被那次默认行为抽走,框没焦点就不画光标(选区还在,只是看不见)。
+     * 做法:挂载后短时间内反复确认一次焦点(只在框没焦点且用户没点到别处时抢回来);
+     * 有选区时不动,免得把用户正在选中复制的内容清掉。
+     */
+    const refocus = (): void => {
+      const box = boxRef.current;
+      if (!box) return;
+      if (box.ownerDocument.activeElement === box) return;
+      box.focus({ preventScroll: true });
+      box.setSelectionRange(caret, caret);
+    };
+    const timers = [0, 60, 140, 260].map((ms) =>
+      ms === 0 ? requestAnimationFrame(refocus) : window.setTimeout(refocus, ms),
+    );
+    return () => {
+      cancelAnimationFrame(timers[0] as number);
+      timers.slice(1).forEach((t) => window.clearTimeout(t as number));
+    };
   }, [boxRef]);
 }
