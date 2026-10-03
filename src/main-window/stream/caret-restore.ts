@@ -10,8 +10,9 @@
 import { caretScrollDelta } from '../editor/caret-screen';
 import { measureCaretTop } from '../editor/caret-metrics';
 
-/** 编辑面板里源码框的选择器(与 EditPanel 的类名一致) */
-export const SOURCE_BOX_SELECTOR = 'textarea.md-source-box';
+/** 编辑面板里源码框的类名(与 EditPanel 一致) */
+export const SOURCE_BOX_CLASS = 'md-source-box';
+
 
 export function targetScrollAfterEdit(
   saved: number | null,
@@ -44,10 +45,18 @@ export function scheduleCaretAlign(
   if (saved === null) return;
   const apply = (): void => {
     if (!scroller) return;
-    const box = document.querySelector<HTMLTextAreaElement>(SOURCE_BOX_SELECTOR);
+    const box = document.querySelector<HTMLTextAreaElement>(`textarea.${SOURCE_BOX_CLASS}`);
     const target = targetScrollAfterEdit(saved, clickY, box);
     if (target !== null) scroller.scrollTop = target;
   };
   apply();
   for (const ms of [0, 120, 400, 800]) schedule(apply, ms);
+  // 字体替换 / 面板高度变化都会把光标位置改掉 —— 只靠定时几次会用到过期几何(实测 1.4 秒后又偏了)。
+  // 盯住框的尺寸变化:一变就重新对齐;3 秒后自动停(不长期占观察器)。
+  const box = document.querySelector<HTMLTextAreaElement>(`textarea.${SOURCE_BOX_CLASS}`);
+  const win = box?.ownerDocument.defaultView as (Window & typeof globalThis) | null | undefined;
+  if (!box || typeof win?.ResizeObserver !== 'function') return;
+  const ro = new win.ResizeObserver(apply);
+  ro.observe(box);
+  schedule(() => ro.disconnect(), 3000);
 }
