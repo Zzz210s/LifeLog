@@ -19,16 +19,22 @@ export const ALIGN_WINDOW_MS = 180;
 /** 显示之后的容差:偏差小于它就不动,免得来回抖 */
 const TOLERANCE_PX = 8;
 
+/**
+ * 目标 scrollTop = **当前** scrollTop + 光标屏幕位置与点击位置的差。
+ *
+ * 用当前值而不是"进编辑前的值":框的视口位置本身就随滚动变化,写成 `saved + delta` 会形成
+ * 反馈回路 —— 实测 1 与 465 每 60ms 来回跳。按当前值做一步修正则一步到位(且重复应用收敛)。
+ */
 export function targetScrollAfterEdit(
-  saved: number | null,
+  currentScroll: number | null,
   clickY: number | null,
   box: HTMLTextAreaElement | null,
 ): number | null {
-  if (saved === null) return null;
-  if (clickY === null || !box) return saved;
+  if (currentScroll === null) return null;
+  if (clickY === null || !box) return currentScroll;
   const caretInBox = measureCaretTop(box, box.selectionStart);
-  if (caretInBox === null) return saved;
-  return saved + caretScrollDelta({
+  if (caretInBox === null) return currentScroll;
+  return currentScroll + caretScrollDelta({
     boxTop: box.getBoundingClientRect().top,
     caretInBox,
     boxScroll: box.scrollTop,
@@ -52,7 +58,7 @@ export function scheduleCaretAlign(
     return;
   }
   const measure = (): number | null =>
-    targetScrollAfterEdit(saved, clickY, document.querySelector<HTMLTextAreaElement>(SELECTOR));
+    targetScrollAfterEdit(scroller?.scrollTop ?? null, clickY, document.querySelector<HTMLTextAreaElement>(SELECTOR));
   const applyExact = (): void => {
     if (!scroller) return;
     const target = measure();

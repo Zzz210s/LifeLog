@@ -64,7 +64,9 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
     scrollBeforeEdit.current = scroller?.scrollTop ?? null;
     caretBeforeEdit.current = caret ?? null;
     clickYBeforeEdit.current = clickY ?? null;
-    if (clickY !== undefined) setAligning(true); // 对齐窗口:期间流不可见
+    // 只在这一条**还没在编辑**时进入对齐窗口:点击会同时触发 mousedown 与 click 两次
+    // openEdit,重复进入会让流一直停在不可见状态(实测)。
+    if (clickY !== undefined && p.editingId !== n.id) setAligning(true);
     if (via === 'panel') p.onSwitchEdit(n);
     else p.onEdit(n);
   };

@@ -19,3 +19,20 @@ describe('caretScrollDelta(把光标拉回点击的屏幕位置)', () => {
     expect(caretScrollDelta({ boxTop: Number.NaN, caretInBox: 1, boxScroll: 0, clickY: 1 })).toBe(0);
   });
 });
+
+describe('一步修正的收敛性(按当前滚动)', () => {
+  it('重复应用不再来回跳:第二次的差值为 0', () => {
+    // 框在内容里的位置固定为 800(视口位置 = 800 − scroll),光标在框内 200,点击在 300
+    const boxInContent = 800;
+    const caretInBox = 200;
+    const clickY = 300;
+    const step = (scroll: number) => {
+      const boxTop = boxInContent - scroll;
+      return scroll + caretScrollDelta({ boxTop, caretInBox, boxScroll: 0, clickY });
+    };
+    const s1 = step(562);
+    const s2 = step(s1);
+    expect(s1).toBe(562 + (800 - 562 + 200 - 300)); // 一步到位
+    expect(s2).toBe(s1);                            // 再算一次不动 -> 收敛
+  });
+});
