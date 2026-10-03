@@ -56,13 +56,23 @@ export function TableCellEditor(p: TableCellEditorProps): ReactNode {
   // 光标跟随点击位置(用户 2026-10-03):autoFocus 默认把光标丢到末尾,这里按点击处算出的
   // 源码偏移显式设置。依赖用 row/col 两个**原语**而不是 cell 对象 —— cell 每次渲染都是新对象,
   // 写成 p.cell 会让 effect 每轮都跑,用户在框里移动光标后一次重渲染就把光标拽回去。
+  //
+  // 两层 focus(用户 2026-10-03 报“进了编辑态但没光标,再点一下才出现”):
+  // 第一次点击的**默认行为**(把焦点移回 body)发生在事件派发之后,会把刚拿到的焦点抢走;
+  // 所以挂载时先 focus 一次,再在下一帧补一次 —— 否则用户得再点一下才看得见光标。
   const applyCaret = (): void => {
     const box = boxRef.current;
-    if (!box || p.caret == null) return;
+    if (!box) return;
+    if (box.ownerDocument.activeElement !== box) box.focus({ preventScroll: true });
+    if (p.caret == null) return;
     const pos = Math.max(0, Math.min(p.caret, box.value.length));
     box.setSelectionRange(pos, pos);
   };
-  useLayoutEffect(applyCaret, [p.caret, row, col, boxRef]);
+  useLayoutEffect(() => {
+    applyCaret();
+    const raf = requestAnimationFrame(applyCaret);
+    return () => cancelAnimationFrame(raf);
+  }, [p.caret, row, col, boxRef]);
 
   if (!p.cell) return null;
 

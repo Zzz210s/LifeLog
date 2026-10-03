@@ -59,6 +59,21 @@ describe('单元格编辑框的光标落点', () => {
     expect(box().selectionEnd).toBe(2);
   });
 
+  it('挂载后编辑框自己拿焦点(不等用户再点一下)', async () => {
+    await render(1);
+    expect(document.activeElement).toBe(box());
+  });
+
+  it('焦点被点走的默认行为抢回后,下一帧会补回来', async () => {
+    await render(1);
+    // 模拟“点击的默认行为把焦点移回 body”
+    (document.activeElement as HTMLElement | null)?.blur();
+    expect(document.activeElement).not.toBe(box());
+    await act(async () => { await new Promise((r) => requestAnimationFrame(() => r(null))); });
+    expect(document.activeElement).toBe(box());
+    expect(box().selectionStart).toBe(1);
+  });
+
   it('caret = 0:光标在开头', async () => {
     await render(0);
     expect(box().selectionStart).toBe(0);
