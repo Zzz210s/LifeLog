@@ -7,11 +7,19 @@
  */
 export const READY_JS = `(async () => {
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-  // 1) 回信息流:关系图与设置页的退出通道都是 Esc
-  for (let i = 0; i < 3; i++) {
-    if (!document.querySelector('[data-testid="graph-view"]') && !document.querySelector('[data-testid="settings-view"]')) break;
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-    await sleep(400);
+  // 1) 回信息流。两条退出通道,顺序固定:
+  //    a) 关系图 —— Esc;b) 设置页 —— 顶栏那个「返回信息流」按钮(设置页**没有** testid,
+  //       也没有 Esc 处理;2026-10-03 实测:光靠 testid + Esc 会把停在设置页的应用当成信息流,
+  //       后续读数全读到 0px 高的隐藏卡片)。
+  for (let i = 0; i < 4; i++) {
+    const back = [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === '返回信息流');
+    if (back) { back.click(); await sleep(500); continue; }
+    if (document.querySelector('[data-testid="graph-view"]')) {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      await sleep(400);
+      continue;
+    }
+    break;
   }
   // 2) 清空筛选条件(条件栏里的移除按钮)
   for (let i = 0; i < 12; i++) {

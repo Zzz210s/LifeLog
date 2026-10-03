@@ -142,5 +142,11 @@ record('9 只读对账:8 个外观键回到基线 + 库存(笔记/标签/主题)
   `键=${diffs.length ? diffs.map((k) => `${k}:${finalKeys[k]}`).join(',') : '全部一致'} 笔记 ${inv1.notes}/${inv0.notes} 标签同=${j(inv1.paths) === j(inv0.paths)} theme ${inv1.theme}/${inv0.theme}`);
 
 finish();
+// 把界面带回信息流:脚本会在设置页操作,留在那里会让后续门禁(表格视觉/视觉令牌)
+// 读到隐藏的 0px 卡片而假失败(2026-10-03 实测)。设置页的退出通道是顶栏那个按钮。
+await mainPage
+  .eval(`(() => { const b = [...document.querySelectorAll('button')].find((x) => x.textContent.trim() === '返回信息流'); if (b) b.click(); return !!b; })()`)
+  .catch(() => {});
+await sleep(400);
 mainPage.close();
 inputPage.close();
