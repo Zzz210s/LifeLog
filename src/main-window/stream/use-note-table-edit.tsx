@@ -85,10 +85,10 @@ export function useNoteTableEdit(
      * 可见字符上,再换算成源码偏移。窗口刚被激活时浏览器会跳过"点击落光标",而 focus() 会把光标
      * 丢到末尾 —— 这时用这个期望值纠正(校正规则见 use-in-place-cell)。
      */
-    let hint: number | null = null;
+    let hint: number | null | undefined;
     if (point) {
       const visible = visibleOffsetAtPoint(td as HTMLElement, point.x, point.y);
-      if (visible !== null) hint = sourceOffsetForVisible(cell.text, visible);
+      hint = visible === null ? null : sourceOffsetForVisible(cell.text, visible);
     }
     setIndex(idx);
     edit.openAt(cell, r, table, hint);
@@ -156,6 +156,7 @@ export function useNoteTableEdit(
     cell: edit.editing,
     table: tableEl,
     busy: edit.busy,
+    caretHint: edit.caretHint,   // ← 漏了这行会导致期望偏移永远是 null(2026-10-03 的真实 bug)
     onCommit: edit.commit,
     onCancel: edit.cancel,
   });

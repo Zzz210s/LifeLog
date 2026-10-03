@@ -108,7 +108,9 @@ export function useTableEdit(opts: Options): TableEdit {
   const openAt = useCallback((cell: CellSpan, range: TableRange, el?: HTMLElement, hint?: number | null) => {
     setError('');
     setAnchor(el ?? null);
-    setCaretHint(hint ?? null);
+    // 只有**带点击位置**的那次调用才更新期望偏移:mousedown 先到(带坐标),
+    // 紧接着的 click 不带坐标 —— 若无条件写 null 会把刚算好的期望值清掉(2026-10-03 的真实 bug)
+    setCaretHint((prev) => (hint === undefined ? prev : hint));
     setTarget({ range, row: cell.row, col: cell.col });
   }, []);
 

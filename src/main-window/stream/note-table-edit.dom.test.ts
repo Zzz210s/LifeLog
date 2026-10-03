@@ -11,6 +11,12 @@ import type { Note } from '../../shared/types';
 import { NoteItem } from './NoteItem';
 
 const { openUrl } = vi.hoisted(() => ({ openUrl: vi.fn() }));
+// 几何量不出东西的 jsdom 里:把「点击处可见偏移」桩成 1,专门验证**接线**是否把期望值传下去
+const { visibleOffsetAtPoint } = vi.hoisted(() => ({ visibleOffsetAtPoint: vi.fn(() => 1) }));
+vi.mock('./caret-at-point', () => ({
+  visibleOffsetAtPoint,
+  sourceOffsetForVisible: (_t: string, off: number) => off,
+}));
 vi.mock('@tauri-apps/plugin-opener', () => ({ openUrl }));
 vi.mock('../../shared/api', () => ({ api: { updateNote: vi.fn() } }));
 vi.mock('../data/tags-changed', () => ({ notifyTagsChanged: vi.fn() }));
@@ -45,7 +51,11 @@ async function mount(n: Note): Promise<void> {
 }
 
 const click = (el: Element): Promise<void> =>
-  act(async () => { el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })); });
+  act(async () => {
+    // 就地编辑在 mousedown 开(浏览器落光标之前),所以两条都要发
+    el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+  });
 
 const pick = (sel: string): Element => {
   const el = host.querySelector(sel);
@@ -77,6 +87,17 @@ describe('表格单元格编辑与既有交互共存', () => {
     // 就地编辑时该格显示的是**源码**文本
     expect(td.textContent).toBe('2');
     expect(td.getAttribute('contenteditable')).toBe('plaintext-only');
+  });
+
+  it('点单元格:期望光标偏移被接线传下去(漏传时这条会红)', async () => {
+    await mount(note(TABLE));
+    const td = pick('[data-note-body="5"] tbody tr td:nth-child(2)');
+    await click(td);
+    // 桩:点击处可见偏移 = 1 -> 源码偏移 = 1 -> 光标应落在第 1 个字符之后
+    await act(async () => { await new Promise((r) => requestAnimationFrame(() => r(null))); });
+    expect(visibleOffsetAtPoint).toHaveBeenCalled();
+    expect(window.getSelection()?.anchorOffset).toBe(1);
+    await act(async () => { (td as HTMLElement).dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); });
   });
 
   it('点表格里的 chip:不进单元格编辑,交给既有跳转(未解析 -> 预填)', async () => {
