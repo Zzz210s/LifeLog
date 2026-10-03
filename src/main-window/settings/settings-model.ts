@@ -71,6 +71,13 @@ const ROWS: SettingsRow[] = [
     kind: 'toggle',
   },
   {
+    key: 'focusOnShow',
+    label: '唤起时夺取焦点',
+    hint:
+      '默认关闭:唤起输入栏不抢当前窗口,全屏游戏不会被踢出;需要马上打字就打开它(独占全屏游戏建议改用无边框窗口模式)',
+    kind: 'toggle',
+  },
+  {
     key: 'hideOnBlur',
     label: '失焦自动隐藏',
     hint: '输入栏失去焦点时自动隐藏;关闭则常驻(贴纸模式)',

@@ -1,5 +1,6 @@
 use crate::db::repos;
 use crate::db::Db;
+use crate::windowing::input_focus;
 use crate::windowing::input_overlay;
 use crate::windowing::input_scale;
 use std::sync::Mutex;
@@ -137,8 +138,14 @@ pub fn show(app: &AppHandle) -> tauri::Result<()> {
         if !w.is_visible().unwrap_or(true) {
             let _ = w.hide(); // 尽力而为:对齐失败也要继续走主操作 show()
         }
+        // 唤起时的焦点行为(用户 2026-10-03):默认**不夺焦点** —— 免得把全屏游戏踢出去。
+        // 细则与开关见 windowing/input_focus.rs。
+        let steal = input_focus::steal_on_show(app);
+        input_focus::apply_focusable(&w, steal);
         w.show()?;
-        w.set_focus()?;
+        if steal {
+            w.set_focus()?;
+        }
         // 显示后通知页面重新同步高度:本次尺寸是 apply_scale 从**库里的基础高**算出的,
         // 不含候选列表占的高度;而页面的 120ms 重同步只在内容/宽度变化时跑,
         // 「带着展开的候选列表隐藏再显示」就不会重算,过矮会把输入框压瘪、列表裁掉

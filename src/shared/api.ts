@@ -66,6 +66,8 @@ export const api = {
   setAppHotkey: (kind: AppHotkeyKind, accelerator: string) =>
     invoke<string>('set_app_hotkey', { kind, accelerator }),
   /** 显示(不切换)输入栏:主窗空库引导用 */
+  /** 用户点了输入栏:允许它取焦点(默认唤起不夺焦点,见 Rust input::show) */
+  focusInputBar: () => invoke<void>('focus_input_bar'),
   /** 输入栏当前是否可见(新手引导临时收起前的问询;系统口径) */
   inputBarVisible: () => invoke<boolean>('input_bar_visible'),
   showInputWindow: () => invoke<void>('show_input_bar'),

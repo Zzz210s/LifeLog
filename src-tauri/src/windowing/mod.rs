@@ -1,5 +1,6 @@
 pub mod events;
 pub mod input;
+pub mod input_focus;
 pub mod input_geom;
 pub mod input_height;
 pub mod input_overlay;

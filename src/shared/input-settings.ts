@@ -6,6 +6,7 @@ import { clampOpacity, clampStep } from './input-scale';
 
 export interface InputSettings {
   alwaysOnTop: boolean;
+  focusOnShow: boolean;
   hideOnBlur: boolean;
   zoomStep: number;
   defaultOpacity: number;
@@ -18,6 +19,7 @@ export interface InputSettings {
 
 export const INPUT_KEYS: Record<keyof InputSettings, string> = {
   alwaysOnTop: 'input_always_on_top',
+  focusOnShow: 'input_focus_on_show',
   hideOnBlur: 'input_hide_on_blur',
   zoomStep: 'input_zoom_step',
   defaultOpacity: 'input_default_opacity',
@@ -33,6 +35,7 @@ export const INPUT_SETTINGS_CHANGED_EVENT = 'input-settings-changed';
 
 export const INPUT_DEFAULTS: InputSettings = {
   alwaysOnTop: true,
+  focusOnShow: false,
   hideOnBlur: false,
   zoomStep: 10,
   defaultOpacity: 100,
@@ -45,7 +48,7 @@ export const INPUT_DEFAULTS: InputSettings = {
 
 /** 数值只接受十进制(空串、abc、0x10、1e3 一律回退默认值) */
 const NUMBER_RE = /^-?\d+(\.\d+)?$/;
-const BOOL_FIELDS = ['alwaysOnTop', 'hideOnBlur', 'lockMove', 'lockClose', 'lockContent'] as const;
+const BOOL_FIELDS = ['alwaysOnTop', 'focusOnShow', 'hideOnBlur', 'lockMove', 'lockClose', 'lockContent'] as const;
 const NUM_FIELDS = ['zoomStep', 'defaultOpacity', 'opacityStep'] as const;
 
 type BoolField = (typeof BOOL_FIELDS)[number];
@@ -77,6 +80,7 @@ function parseNum(
 export function parseInputSettings(raw: Record<string, string | null>): InputSettings {
   return {
     alwaysOnTop: parseBool(raw, 'alwaysOnTop'),
+    focusOnShow: parseBool(raw, 'focusOnShow'),
     hideOnBlur: parseBool(raw, 'hideOnBlur'),
     zoomStep: parseNum(raw, 'zoomStep', clampStep),
     defaultOpacity: parseNum(raw, 'defaultOpacity', clampOpacity),

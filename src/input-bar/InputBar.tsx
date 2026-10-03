@@ -9,7 +9,9 @@ import { useInputCompletions } from './use-input-completions';
 import { InputBarOverlays } from './InputBarOverlays';
 import { useDragBand } from './use-drag-band';
 import { useWidthDrag } from './use-width-drag';
+import { useFocusOnClick } from './use-focus-on-click';
 import { useAutoHeight } from './use-auto-height';
+import { useRootMouse } from './use-root-mouse';
 import { useInputSettings } from './use-input-settings';
 import { useStickerAppearance } from './use-sticker-appearance';
 import { useInputWheel } from './use-input-wheel';
@@ -145,14 +147,8 @@ export function InputBar() {
     hideNow();
   }, [settings.doubleClickAction, lock, hideNow]);
 
-  const onMouseDown = useDragBand({ locked: !canDrag(lock), onDoubleClick });
-  const onWidthMouseDown = useWidthDrag({ textareaRef: inputRef, onDoubleClick });
-  // 中键恢复视图 -> 左右带优先(双击或宽度拖动)-> 其余交给上下带(双击或移动窗口)
-  const onRootMouseDown = (e: React.MouseEvent) => {
-    if (onMiddleDown(e)) return;
-    if (onWidthMouseDown(e)) return;
-    onMouseDown(e);
-  };
+  // 根元素鼠标路由(中键/左右带/上下带)与「点一下才允许取焦点」都在这个 hook 里
+  const onRootMouseDown = useRootMouse({ lock, textareaRef: inputRef, onDoubleClick, onMiddleDown });
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     // 补全先拿键(返回 true 表示已消费);Esc 由窗口级监听兜底,此处只处理 Ctrl+Enter

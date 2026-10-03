@@ -21,6 +21,12 @@ pub fn show_input_bar(app: AppHandle) -> Result<(), String> {
     windowing::input::show(&app).map_err(|e| e.to_string())
 }
 
+/// 用户点了输入栏:这时才允许它取焦点(默认唤起不夺焦点,见 input::show)。
+#[tauri::command]
+pub fn focus_input_bar(app: AppHandle) -> Result<(), String> {
+    windowing::input_focus::focus_now(&app).map_err(|e| e.to_string())
+}
+
 /// 宽度拖动路径(唯一会写 input_w 的命令):width = 当前逻辑像素意图(套 240-900),
 /// height = **基础逻辑高度**(缩放无关,见 input_height)
 #[tauri::command]

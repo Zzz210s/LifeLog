@@ -5,9 +5,9 @@ import { STARTUP_SHOW_VALUES } from '../../shared/startup-settings';
 import { inputResetKeys, inputRows, startupRows } from './settings-model';
 
 describe('inputRows', () => {
-  it('恰好 9 项且顺序与设计一致', () => {
+  it('恰好 10 项且顺序与设计一致', () => {
     expect(inputRows().map((r) => r.key)).toEqual([
-      'alwaysOnTop', 'hideOnBlur', 'zoomStep', 'defaultOpacity', 'opacityStep',
+      'alwaysOnTop', 'focusOnShow', 'hideOnBlur', 'zoomStep', 'defaultOpacity', 'opacityStep',
       'lockMove', 'lockClose', 'lockContent', 'doubleClickAction',
     ]);
   });
@@ -46,8 +46,8 @@ describe('inputRows', () => {
 });
 
 describe('inputResetKeys', () => {
-  it('返回全部 9 个键', () => {
-    expect(inputResetKeys()).toHaveLength(9);
+  it('返回全部 10 个键', () => {
+    expect(inputResetKeys()).toHaveLength(10);
   });
 });
 

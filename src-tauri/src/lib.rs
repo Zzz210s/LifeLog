@@ -96,6 +96,7 @@ pub fn run() {
             commands::windowing::hide_main_window,
             commands::windowing::webview_ack,
             commands::windowing::show_input_bar,
+            commands::windowing::focus_input_bar,
             commands::windowing::take_pending_open_settings,
             commands::windowing::set_input_size,
             commands::windowing::set_input_height,

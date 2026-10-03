@@ -9,7 +9,7 @@
  */
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import type { CellSpan } from '../../shared/md-table';
-import { BTN_SECONDARY } from '../shell/button-classes';
+import { BTN_ICON } from '../shell/button-classes';
 
 export interface TableControlsProps {
   /** 当前悬停/操作的表格元素;为空则整条不渲染 */
@@ -28,6 +28,25 @@ export interface TableControlsProps {
 }
 
 const HIDE_DELAY_MS = 160;
+
+/**
+ * 图标(16 格 / 1.5 描边 / 14px 框,与侧栏 TagsHeader 的图标同一风格)。
+ * 语义靠**行/列示意图 + 加减号**区分 —— 单独的加号看不出是加行还是加列(用户 2026-10-03 要求)。
+ */
+const ROW_ADD = 'M2.5 2.5h11v6.5h-11z M2.5 5.8h11 M8 11v4 M6 13h4';
+const COL_ADD = 'M2.5 3.5h6.5v9h-6.5z M2.5 6.8h6.5 M13 8v5 M10.5 10.5h5';
+const ROW_DEL = 'M2.5 2.5h11v6.5h-11z M2.5 5.8h11 M6 13h4';
+const COL_DEL = 'M2.5 3.5h6.5v9h-6.5z M2.5 6.8h6.5 M10.5 10.5h5';
+/** `</>`:看源码,比铅笔更准(铅笔像是"写文章") */
+const SOURCE = 'M6 4.5 2.5 8 6 11.5 M10 4.5 13.5 8 10 11.5';
+
+function Icon({ d }: { d: string }): ReactNode {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true" className="h-3.5 w-3.5">
+      <path d={d} fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
 
 /** 指针落在的格子(表头 = 行 0);不在格上返回 null */
 function cellAt(target: EventTarget | null): { row: number; col: number } | null {
@@ -96,9 +115,9 @@ export function TableControls(p: TableControlsProps): ReactNode {
   const cols = rows[0]?.cells.length ?? 0;
   const cur = cell ?? hoverCell ?? { row: Math.max(1, dataRows), col: Math.max(0, cols - 1) };
 
-  const action = (label: string, hint: string, onClick: () => void): ReactNode => (
-    <button type="button" key={label} aria-label={hint} title={hint} disabled={p.busy}
-      onClick={onClick} className={BTN_SECONDARY}>{label}</button>
+  const action = (d: string, hint: string, onClick: () => void): ReactNode => (
+    <button type="button" key={hint} aria-label={hint} title={hint} disabled={p.busy}
+      onClick={onClick} className={BTN_ICON}><Icon d={d} /></button>
   );
 
   return (
@@ -109,11 +128,11 @@ export function TableControls(p: TableControlsProps): ReactNode {
       onMouseLeave={scheduleHide}
       className="fixed z-40 flex flex-wrap items-center gap-1 rounded-sm border border-border bg-raised p-0.5 pointer-events-none [&_button]:pointer-events-auto"
     >
-      {action('+行', '在下方插入一行', () => p.onAddRow(cur.row <= 0 ? -1 : cur.row - 1))}
-      {action('+列', '在右侧插入一列', () => p.onAddColumn(cur.col))}
-      {cell && cell.row >= 1 && action('删除本行', '删除本行', () => p.onRemoveRow(cell.row - 1))}
-      {cell && action('删除本列', '删除本列', () => p.onRemoveColumn(cell.col))}
-      {action('编辑源码', '编辑源码', p.onEditSource)}
+      {action(ROW_ADD, '在下方插入一行', () => p.onAddRow(cur.row <= 0 ? -1 : cur.row - 1))}
+      {action(COL_ADD, '在右侧插入一列', () => p.onAddColumn(cur.col))}
+      {cell && cell.row >= 1 && action(ROW_DEL, '删除本行', () => p.onRemoveRow(cell.row - 1))}
+      {cell && action(COL_DEL, '删除本列', () => p.onRemoveColumn(cell.col))}
+      {action(SOURCE, '编辑源码', p.onEditSource)}
       {p.error !== '' && cell === null && (
         <span role="alert" className="rounded-sm bg-danger-soft px-2 py-1 text-ui text-danger">{p.error}</span>
       )}

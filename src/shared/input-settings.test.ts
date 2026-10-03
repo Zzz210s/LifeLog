@@ -59,10 +59,10 @@ describe('serializeInputSetting', () => {
 });
 
 describe('INPUT_KEYS', () => {
-  it('九个键与字段一一对应且无重复', () => {
+  it('十个键与字段一一对应且无重复', () => {
     const keys = Object.values(INPUT_KEYS);
-    expect(keys).toHaveLength(9);
-    expect(new Set(keys).size).toBe(9);
+    expect(keys).toHaveLength(10);
+    expect(new Set(keys).size).toBe(10);
     expect(Object.keys(INPUT_KEYS).sort()).toEqual(Object.keys(INPUT_DEFAULTS).sort());
   });
 });
