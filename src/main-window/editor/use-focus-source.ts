@@ -73,7 +73,7 @@ export function useFocusSource(
       box.focus({ preventScroll: true });
       box.setSelectionRange(caret, caret);
     };
-    const timers = [0, 60, 140, 260].map((ms) =>
+    const timers = [0, 60, 140, 260, 340].map((ms) =>
       ms === 0 ? requestAnimationFrame(refocus) : window.setTimeout(refocus, ms),
     );
     return () => {
