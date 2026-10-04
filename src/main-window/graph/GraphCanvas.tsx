@@ -22,7 +22,7 @@ const DIM_ALPHA = 0.2;
 const CO_ALPHA = 0.6;
 /** 枢纽外环半径增量与线宽(屏幕像素) */
 const HUB_RING_GAP = 3;
-const HUB_RING_WIDTH = 1.5;
+const HUB_RING_WIDTH = 2;
 /** 强调边(与焦点相连)的线宽:比同类型普通边明显粗一档(设计 §5「邻居边加粗」) */
 const EMPHASIS_WIDTH = 2.5;
 /** 选中环离点的间距(屏幕像素):点小时不至于贴在一起 */
@@ -109,7 +109,7 @@ export function GraphCanvas(p: {
     // 用 muted 而非 accent —— accent 留给"选中",两者不能撞语义。
     const hubs = p.plan.hubs ?? [];
     if (hubs.length > 0) {
-      ctx.strokeStyle = token('--color-muted');
+      ctx.strokeStyle = token('--color-border-strong');
       ctx.lineWidth = HUB_RING_WIDTH;
       for (const h of hubs) {
         ctx.beginPath();

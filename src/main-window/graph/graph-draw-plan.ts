@@ -88,11 +88,14 @@ export function aggregateRadius(count: number): number {
 }
 
 /**
- * 枢纽**外环**的阈值(设计 D6,2026-10-04 截图复核):文字用 `HUB_NOTES = 100`,
- * 但环如果也用 100,全库几乎没有节点带环(实测视野里一个都没有)= 等于没做。
- * 环是"结构重要性"的标记,门槛低一档(30)才看得见,且不会喧宾夺主。
+ * 枢纽**外环**的判据(设计 D6,2026-10-04 二次复核):用**度数**(父子边 + 共现边之和),
+ * 不用 `selfCount`。
+ *
+ * 为什么换:`selfCount` 是"本级直接挂的笔记数",靠子级撑起来的骨架节点(如 `书籍`)本级很小,
+ * 永远不带环 —— 实测阈值降到 30 仍然一个都看不见。度数才对应"这个节点连出去多少关系",
+ * 也正是画布上能一眼看出重要性差异的量。
  */
-export const HUB_RING_NOTES = 30;
+export const HUB_RING_DEGREE = 10;
 
 /** LOD 中档(hubs)显示文字的阈值。口径是**本级**计数(2026-10-01 改):`notes` 是含子级,
  *  展开时间轴后 `时间/日期/2026/03/28` 这类末级段名会靠祖先的计数抢到文字;`selfCount` 才是
@@ -176,6 +179,12 @@ export function drawPlan(input: {
   }
   const dots: Dot[] = [];
   const hubs: Dot[] = [];
+  // degree = tree + co edges per node (both express how many relations it has)
+  const degree = new Map<number, number>();
+  for (const e of edges) {
+    degree.set(e.a, (degree.get(e.a) ?? 0) + 1);
+    degree.set(e.b, (degree.get(e.b) ?? 0) + 1);
+  }
   const labels: Label[] = [];
   const level = lodLevel(cam.k);
   // 低缩放聚合(设计 D1/D2):同格节点合并成一个带计数的圆,避免多个点挤占同一块像素。
