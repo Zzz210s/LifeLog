@@ -2,6 +2,7 @@
 // 正文/次级对比度必须过 AA。设计表变了就同时改这里,防止令牌悄悄漂移。
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { GRAPH_COLORS } from './graph-colors';
 
 const CSS = readFileSync('src/shared/theme.css', 'utf8');
 
@@ -44,15 +45,6 @@ const COLORS: ReadonlyArray<readonly [string, string, string]> = [
   ['--color-text', '#1f2328', '#cccccc'],
   ['--color-muted', '#5e666f', '#9d9d9d'],
   ['--color-faint', '#7e868f', '#7a7a7a'],
-  // 关系图分类色(2026-10-04,设计 D4):8 档,亮暗各一套
-  ['--color-graph-1', '#2563eb', '#7aa7ff'],
-  ['--color-graph-2', '#7c3aed', '#b18cff'],
-  ['--color-graph-3', '#0f766e', '#4fd1c5'],
-  ['--color-graph-4', '#b45309', '#f0a44a'],
-  ['--color-graph-5', '#be123c', '#ff8fa3'],
-  ['--color-graph-6', '#0369a1', '#67c7f0'],
-  ['--color-graph-7', '#4d7c0f', '#a3d977'],
-  ['--color-graph-8', '#a21caf', '#e78fe8'],
 ];
 
 /** 旧令牌名 -> 新档(别名只在亮色块里定义一次) */
@@ -110,6 +102,8 @@ function contrast(fg: string, bg: string): number {
   return (hi + 0.05) / (lo + 0.05);
 }
 
+const ALL_COLORS = [...COLORS, ...GRAPH_COLORS];
+
 const THEMES: ReadonlyArray<readonly [string, Map<string, string>]> = [
   ['亮色', LIGHT],
   ['暗色', DARK],
@@ -120,7 +114,7 @@ const SURFACES: ReadonlyArray<string> = [
 
 describe('§3 令牌表', () => {
   it('§3.1 表面/边框/文本:亮暗两套与设计表逐项一致', () => {
-    for (const [name, light, dark] of COLORS) {
+    for (const [name, light, dark] of ALL_COLORS) {
       expect(token(LIGHT, name), `亮色 ${name}`).toBe(light);
       expect(token(DARK, name), `暗色 ${name}`).toBe(dark);
     }
@@ -128,7 +122,7 @@ describe('§3 令牌表', () => {
 
   it('亮色颜色令牌集合 = 设计表 + 旧别名 + 既有语义色(不丢也不多)', () => {
     const actual = [...LIGHT.keys()].filter((k) => k.startsWith('--color-')).sort();
-    const expected = [...COLORS.map((r) => r[0]), ...ALIASES.map((r) => r[0]), ...SEMANTIC].sort();
+    const expected = [...ALL_COLORS.map((r) => r[0]), ...ALIASES.map((r) => r[0]), ...SEMANTIC].sort();
     expect(actual).toEqual(expected);
   });
 
