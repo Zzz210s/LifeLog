@@ -11,11 +11,13 @@ describe('inputRows', () => {
       'lockMove', 'lockClose', 'lockContent', 'doubleClickAction',
     ]);
   });
-  it('每项都有中文标签与说明', () => {
+  it('每项都有中文标签;说明只在 label 说不清时才有(设计 D2,可为空)', () => {
     for (const r of inputRows()) {
       expect(r.label.length).toBeGreaterThan(0);
-      expect(r.hint.length).toBeGreaterThan(0);
+      expect(typeof r.hint).toBe('string');
     }
+    // 至少保留几条需要解释的(否则等于把说明全删了)
+    expect(inputRows().filter((r) => r.hint.length > 0).length).toBeGreaterThan(3);
   });
   it('双击动作为下拉且有两项', () => {
     const row = inputRows().find((r) => r.key === 'doubleClickAction')!;

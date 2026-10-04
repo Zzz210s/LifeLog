@@ -21,13 +21,13 @@ const STARTUP_ROWS: StartupRow[] = [
   {
     key: 'autostart',
     label: '开机启动',
-    hint: '登录系统后自动启动应用;关闭则只能手动打开',
+    hint: '',
     kind: 'toggle',
   },
   {
     key: 'startupShow',
     label: '启动时显示',
-    hint: '启动后直接显示输入栏,或者只驻留托盘不打扰',
+    hint: '',
     kind: 'select',
     options: [
       { value: 'input-bar', label: '输入栏' },
@@ -67,7 +67,7 @@ const ROWS: SettingsRow[] = [
   {
     key: 'alwaysOnTop',
     label: '窗口置顶',
-    hint: '输入栏唤起时是否始终显示在其他窗口前面',
+    hint: '',
     kind: 'toggle',
   },
   {
@@ -80,7 +80,7 @@ const ROWS: SettingsRow[] = [
   {
     key: 'hideOnBlur',
     label: '失焦自动隐藏',
-    hint: '输入栏失去焦点时自动隐藏;关闭则常驻(贴纸模式)',
+    hint: '',
     kind: 'toggle',
   },
   {
@@ -107,7 +107,7 @@ const ROWS: SettingsRow[] = [
   {
     key: 'lockMove',
     label: '阻止移动',
-    hint: '开启后按住窗口边缘也不再移动窗口',
+    hint: '',
     kind: 'toggle',
   },
   {

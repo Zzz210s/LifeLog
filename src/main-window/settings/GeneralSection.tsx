@@ -15,7 +15,7 @@ export interface GeneralSectionProps {
 export function GeneralSection({ onReplayTutorial }: GeneralSectionProps): ReactNode {
   return (
     <SettingsSection meta={META}>
-      <SettingsRow label="新手引导" hint="随时重看第一步的操作说明">
+      <SettingsRow label="新手引导">
         <button type="button" onClick={onReplayTutorial} className={BTN_SECONDARY}>
           重新观看
         </button>
