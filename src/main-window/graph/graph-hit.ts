@@ -1,4 +1,5 @@
 import type { GraphNode } from '../../shared/types';
+import { aggregateBuckets, shouldAggregate } from './graph-aggregate';
 import { screenOf, type Camera } from './graph-camera';
 import { radiusOf } from './graph-draw-plan';
 import type { Point } from './radial';
@@ -21,6 +22,30 @@ export function hitTest(input: {
   y: number;
 }): number | null {
   const { nodes, points, cam, x, y } = input;
+  // 低缩放聚合生效时,画的是**聚合圆**(圆心是桶内均值、半径按桶大小):命中必须按同一套算,
+  // 否则会出现"看得见点不中"或"点中看不见的点"(设计 D1/D3)。
+  if (shouldAggregate(cam.k)) {
+    const parents = new Map<number, number>();
+    const depthOf = new Map<number, number>();
+    for (const n of nodes) {
+      if (n.parent !== null) parents.set(n.id, n.parent);
+      depthOf.set(n.id, n.depth);
+    }
+    const buckets = aggregateBuckets({
+      nodes: nodes.filter((n) => points.has(n.id)),
+      points,
+      parents,
+      depthOf: (id) => depthOf.get(id) ?? 0,
+      cam,
+    });
+    let hit: { id: number; d: number } | null = null;
+    for (const b of buckets) {
+      const d = Math.hypot(b.x - x, b.y - y);
+      if (d > radiusOf(b.count) + HIT_SLOP) continue;
+      if (hit === null || d < hit.d) hit = { id: b.first, d };
+    }
+    return hit === null ? null : hit.id;
+  }
   let best: { id: number; d: number } | null = null;
   for (const n of nodes) {
     const p = points.get(n.id);

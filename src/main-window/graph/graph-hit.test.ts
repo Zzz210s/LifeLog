@@ -62,12 +62,21 @@ describe('hitTest 边界(自补)', () => {
   });
 
   it('命中区与缩放无关:点的屏幕半径不随 k 变', () => {
-    // r(4) = min(9, 2.5 + sqrt(4)/4) = 3(已是屏幕像素);容差 4 -> 7px 内命中、8px 外不命中
-    for (const k of [0.2, 1, 4]) {
+    // r(4) = min(9, 2.5 + sqrt(4)/4) = 3(已是屏幕像素);容差 4 -> 7px 内命中、8px 外不命中。
+    // k=0.2 走**聚合圆**分支(半径按桶大小,见下一条),不在这条断言里。
+    for (const k of [1, 4]) {
       const cam = { k, tx: 0, ty: 0 };
       expect(hitTest({ nodes, points, cam, x: 6, y: 0 })).toBe(1);
       expect(hitTest({ nodes, points, cam, x: 8, y: 0 })).toBe(null);
     }
+  });
+
+  it('低缩放命中聚合圆:半径按桶大小,比单个点大(设计 D1)', () => {
+    // k=0.2 时同格节点合并 -> 圆更大,8px 处也能命中(单个点只能到 7px)
+    const cam = { k: 0.2, tx: 0, ty: 0 };
+    expect(hitTest({ nodes, points, cam, x: 8, y: 0 })).toBe(1);
+    // 但再远仍不命中(不是无限大)
+    expect(hitTest({ nodes, points, cam, x: 60, y: 0 })).toBe(null);
   });
 
   it('触及半径含等号:恰好在 7px 上算命中,再多 1px 不算', () => {

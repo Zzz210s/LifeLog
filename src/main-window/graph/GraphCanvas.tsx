@@ -80,6 +80,17 @@ export function GraphCanvas(p: {
       ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
       ctx.fill();
     }
+    // 聚合圆的计数(设计 D1):低缩放时一个圆代表多个节点,把数字画在圆心上。
+    // 颜色取画布底(与圆形成对比),字号固定 11px 屏幕像素。
+    const agg = p.plan.dots.filter((d) => (d.count ?? 1) > 1);
+    if (agg.length > 0) {
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = token('--color-raised');
+      ctx.font = '11px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      for (const d of agg) ctx.fillText(String(d.count), d.x, d.y);
+    }
     // 归位单点:环 / 笔记小圆 / `+N` / 文字都不参与弱化,谁不继承上面任何一次的 0.2
     // (去掉这一行,暗点或暗边之后的环、小圆、文字会一起变淡 —— 有用例钉住)
     ctx.globalAlpha = 1;
