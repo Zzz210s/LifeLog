@@ -48,6 +48,7 @@ export async function runGraphG3({ cdp, ev, ui, bm, record }) {
   await runDrag({ cdp, ev, ui, bm, record });
   await runArrange({ cdp, ev, record });
   await runReload({ cdp, ev, ui, bm, record, base, filterCurrent });
+  await runGraphViz({ cdp, ev, record }); // 视觉重做三条读数(聚合/着色/放大锚点)
   // 自建标签 + 自建笔记的读数:跑在最后(它建/删标签会改可见集,别踩前面的读数)
   await runPrune({ cdp, ev, ui, bm, record });
 
