@@ -95,6 +95,13 @@ export function GraphView(p: {
     cam: cam.camera,
     origin,
     onSelect: setSelected,
+    // 点聚合圆 = 放大到该处(设计 D3):先居中到那个点,再放大一档(与滚轮同一套夹取)
+    onZoomIn: (id) => {
+      const at = points.get(id);
+      if (!at) return;
+      cam.centerOn(at);
+      cam.onWheel(new WheelEvent('wheel', { deltaY: -120 }));
+    },
     onExpand: (id) => setExpanded((cur) => (cur === id ? null : id)),
     onMenu: (id, x, y) => setMenu({ id, x, y }),
     // `+N` 画在环外偏下:单击优先判它 = 带着该标签回信息流(与点笔记小圆同一口径)

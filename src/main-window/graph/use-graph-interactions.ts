@@ -19,6 +19,7 @@
 import { useCallback, useState } from 'react';
 import type { GraphNode } from '../../shared/types';
 import { screenOf, type Camera } from './graph-camera';
+import { AGGREGATE_BELOW_K } from './graph-aggregate';
 import { hitTest } from './graph-hit';
 import type { Point } from './radial';
 
@@ -80,6 +81,11 @@ export function useGraphInteractions(input: {
   origin: () => Point;
   /** 命中 -> 选中;未命中 -> 清选中(null) */
   onSelect: (id: number | null) => void;
+  /**
+   * 低缩放时点到聚合圆(设计 D3):放大到该处,而不是"选中一个代表节点" ——
+   * 聚合圆代表一整片区域,选它没有意义,用户的意图是"我要看这块"。
+   */
+  onZoomIn?: (id: number) => void;
   /** 双击命中(已展开则收起由上层的状态决定) */
   onExpand: (id: number) => void;
   /** 右键命中:菜单落点用事件的 client 坐标(钳制在上层做) */
@@ -91,7 +97,7 @@ export function useGraphInteractions(input: {
   /** 命中 `+N`:与点笔记小圆同效 —— 带着该标签(id)回信息流 */
   onOverflow?: (id: number) => void;
 }): GraphInteractions {
-  const { nodes, points, cam, origin, onSelect, onExpand, onMenu, onExit } = input;
+  const { nodes, points, cam, origin, onSelect, onZoomIn, onExpand, onMenu, onExit } = input;
   const overflow = input.overflow ?? null;
   const onOverflow = input.onOverflow;
   const [hovered, setHovered] = useState<number | null>(null);
@@ -138,9 +144,14 @@ export function useGraphInteractions(input: {
         onOverflow?.(overflow.id);
         return;
       }
+      // 聚合档:命中即放大到该处(不再选中)
+      if (id !== null && cam.k < AGGREGATE_BELOW_K && onZoomIn) {
+        onZoomIn(id);
+        return;
+      }
       onSelect(id);
     },
-    [pick, onSelect, overflow, onOverflow],
+    [pick, onSelect, onZoomIn, cam.k, overflow, onOverflow],
   );
 
   const onDoubleClick = useCallback(
