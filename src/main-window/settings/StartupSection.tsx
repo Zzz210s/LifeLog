@@ -3,10 +3,12 @@
 // 而不是假装设置已生效(注册表可能被外部改动,或注册动作被系统拦下)。
 import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
+import { confirm } from '@tauri-apps/plugin-dialog';
 import { SettingsSection } from './SettingsSection';
 import { SETTINGS_SECTIONS } from './settings-sections';
 import { api } from '../../shared/api';
 import {
+  STARTUP_DEFAULTS,
   loadAutostartActual,
   loadStartupSettings,
   resolveAutostartStatus,
@@ -90,7 +92,21 @@ export function StartupSection(): ReactNode {
     settings && actual !== null ? resolveAutostartStatus(settings.autostart, actual) : null;
 
   return (
-    <SettingsSection meta={META}>
+    <SettingsSection
+      meta={META}
+      onReset={() => {
+        void (async () => {
+          const ok = await confirm('恢复启动分区的 2 项设置为默认值?', { title: '恢复启动默认', kind: 'warning' }).catch(() => false);
+          if (!ok) return;
+          await Promise.all([
+            saveStartupSetting('autostart', STARTUP_DEFAULTS.autostart),
+            saveStartupSetting('startupShow', STARTUP_DEFAULTS.startupShow),
+          ]);
+          setSettings(STARTUP_DEFAULTS);
+          reload();
+        })();
+      }}
+    >
       {error && <p className="px-4 pt-3 text-label text-danger">{error}</p>}
       {settings === null ? (
         <div className="flex flex-col items-center gap-2 px-4 py-6">

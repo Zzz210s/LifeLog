@@ -4,6 +4,7 @@
 // 模板走后端命令即时校验(与创建路径同一实现),非法给中文提示且不落库。
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import { confirm } from '@tauri-apps/plugin-dialog';
 import { SettingsSection } from './SettingsSection';
 import { SETTINGS_SECTIONS } from './settings-sections';
 import { api } from '../../shared/api';
@@ -77,7 +78,21 @@ export function NotesSection(): ReactNode {
   };
 
   return (
-    <SettingsSection meta={META}>
+    <SettingsSection
+      meta={META}
+      onReset={() => {
+        void (async () => {
+          const ok = await confirm('恢复笔记分区的 2 项设置为默认值?', { title: '恢复笔记默认', kind: 'warning' }).catch(() => false);
+          if (!ok) return;
+          // 默认:自动带时间标签 = 开;模板 = DEFAULT_TIME_TAG_TEMPLATE
+          await Promise.all([
+            api.setSetting(AUTO_TIME_TAG_KEY, 'true'),
+            api.setSetting(TIME_TAG_TEMPLATE_KEY, DEFAULT_TIME_TAG_TEMPLATE),
+          ]);
+          load();
+        })();
+      }}
+    >
       {error && <p className="px-4 pt-3 text-label text-danger">{error}</p>}
       {!loaded ? (
         <div className="flex flex-col items-center gap-2 px-4 py-6">

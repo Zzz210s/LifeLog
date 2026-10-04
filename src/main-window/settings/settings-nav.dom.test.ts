@@ -103,3 +103,18 @@ describe('设置页导航', () => {
     expect(row.className).toContain('justify-between');
   });
 });
+
+describe('每个分区的恢复默认', () => {
+  it('笔记/快捷键/启动 三个分区也各有一个恢复按钮(设计 D5)', async () => {
+    for (const id of ['notes', 'hotkey', 'startup', 'appearance', 'inputAppearance', 'inputBehavior']) {
+      await act(async () => { root?.render(createElement(SettingsView, { themeMode: 'system', onThemeChange: () => {} })); });
+      await flush();
+      await act(async () => { nav(id).click(); });
+      await flush();
+      await flush();
+      const labels = [...host.querySelectorAll('button')].map((b) => b.textContent?.trim());
+      // 外观分区的按钮文案带补充说明,故只断言前缀
+      expect(labels.some((t) => (t || '').startsWith('恢复')), id).toBe(true);
+    }
+  });
+});

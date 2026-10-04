@@ -5,13 +5,14 @@
 // 成功即广播事件让主窗立刻用新键;失败的中文原因由录制行就地显示,旧键保持可用。
 import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
+import { confirm } from '@tauri-apps/plugin-dialog';
 import { SettingsSection } from './SettingsSection';
 import { SETTINGS_SECTIONS } from './settings-sections';
 import { api } from '../../shared/api';
 import type { AppHotkeyKind } from '../../shared/hotkey-match';
 import { BTN_SECONDARY } from '../shell/button-classes';
 import { AppHotkeyRow } from './AppHotkeyRow';
-import { appHotkeyRows } from './app-hotkey-model';
+import { appHotkeyRows, notifyAppHotkeysChanged, resetAppHotkey } from './app-hotkey-model';
 
 type Stored = Record<AppHotkeyKind, string | null>;
 
@@ -37,7 +38,19 @@ export function AppHotkeySection(): ReactNode {
   }, []);
 
   return (
-    <SettingsSection meta={META}>
+    <SettingsSection
+      meta={META}
+      onReset={() => {
+        void (async () => {
+          const ok = await confirm('恢复快捷键分区的 2 条为默认键?', { title: '恢复快捷键默认', kind: 'warning' }).catch(() => false);
+          if (!ok) return;
+          // 逐条显式写回默认键(与「清除」不同:以后默认值变化时写回不会跟随)
+          await Promise.all(appHotkeyRows().map((row) => resetAppHotkey(row.kind)));
+          notifyAppHotkeysChanged();
+          reload();
+        })();
+      }}
+    >
       {error && <p className="px-4 pt-3 text-label text-danger">{error}</p>}
       {values === null ? (
         <div className="flex flex-col items-center gap-2 px-4 py-6">
