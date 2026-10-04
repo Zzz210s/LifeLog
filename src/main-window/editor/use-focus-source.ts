@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 import type { RefObject } from 'react';
 import { caretScrollTop } from './caret-scroll';
 import { caretScrollFromTop, measureCaretTop } from './caret-metrics';
@@ -22,7 +22,8 @@ export function useFocusSource(
 ): void {
   const mounted = useRef(onMounted);
   mounted.current = onMounted;
-  useEffect(() => {
+  // useLayoutEffect:光标位置与框内滚动都在**首帧之前**定好,用户看不到中间过程
+  useLayoutEffect(() => {
     const el = boxRef.current;
     el?.focus({ preventScroll: true });
     const cut = el?.value.lastIndexOf('\n') ?? -1;
