@@ -3,7 +3,11 @@ import type { Point } from './radial';
 /** 相机:世界坐标 -> 屏幕坐标的相似变换(先缩放 k,再平移 tx/ty) */
 export interface Camera { k: number; tx: number; ty: number }
 
-export const MIN_K = 0.2;
+/**
+ * 缩放下限。2026-10-04 截图复核:0.2 时整图缩成画布中间一小块、还偏出中心(自适应只做一次),
+ * 观感很差且没有任何信息量 —— 提到 0.5(约等于"半屏看骨架")。
+ */
+export const MIN_K = 0.5;
 export const MAX_K = 4;
 
 export function screenOf(p: Point, cam: Camera): Point {

@@ -8,6 +8,7 @@ import {
   shouldAggregate,
   totalCount,
 } from './graph-aggregate';
+import { aggregateRadius } from './graph-draw-plan';
 import type { Point } from './radial';
 
 const node = (id: number): GraphNode => ({ id, path: `a/${id}`, depth: 0, parent: null, notes: 1, selfCount: 1, sortOrder: id });
@@ -95,5 +96,16 @@ describe('aggregateBuckets(网格聚合)', () => {
   it('网格边长按缩放换算(世界单位)', () => {
     const grid = GRID_PX / 0.5;
     expect(grid).toBe(48);
+  });
+});
+
+describe('aggregateRadius(聚合圆自己的半径)', () => {
+  it('下限 12:能容纳计数文字;上限 30', () => {
+    expect(aggregateRadius(1)).toBe(14);
+    expect(aggregateRadius(400)).toBe(30);
+  });
+  it('按 sqrt 增长:100 个节点的桶明显大于 4 个的', () => {
+    expect(aggregateRadius(100)).toBeGreaterThan(aggregateRadius(4));
+    expect(aggregateRadius(100)).toBeLessThanOrEqual(30);
   });
 });

@@ -33,9 +33,9 @@ describe('相机:适配 / 缩放 / 裁剪 / LOD', () => {
     expect(after.y).toBeCloseTo(at.y, 10);
   });
 
-  it('缩放夹在 0.2–4', () => {
+  it('缩放夹在 0.5–4', () => {
     expect(zoomAt({ k: 3, tx: 0, ty: 0 }, 10, { x: 0, y: 0 }).k).toBe(4);
-    expect(zoomAt({ k: 0.3, tx: 0, ty: 0 }, 0.1, { x: 0, y: 0 }).k).toBe(0.2);
+    expect(zoomAt({ k: 0.3, tx: 0, ty: 0 }, 0.1, { x: 0, y: 0 }).k).toBe(0.5);
   });
 
   it('fitToView 极远点集夹到 MIN_K', () => {

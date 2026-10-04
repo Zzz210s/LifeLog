@@ -77,6 +77,16 @@ export interface DrawPlan {
   overflow: OverflowDot | null;
 }
 
+/**
+ * 聚合圆的半径(设计 D1 返工,2026-10-04 截图复核):普通节点的 `radiusOf` 最大 9px,
+ * 拿它画聚合圆会让 11px 的计数文字比圆还大、糊成一团。聚合圆按 `sqrt(count)` 增长,
+ * 下限 12(能容纳数字)、上限 30(再大就喧宾夺主)。
+ */
+export function aggregateRadius(count: number): number {
+  const c = Math.max(1, count);
+  return Math.min(30, Math.max(12, 12 + Math.sqrt(c) * 2));
+}
+
 /** LOD 中档(hubs)显示文字的阈值。口径是**本级**计数(2026-10-01 改):`notes` 是含子级,
  *  展开时间轴后 `时间/日期/2026/03/28` 这类末级段名会靠祖先的计数抢到文字;`selfCount` 才是
  *  "这个标签本身装了多少东西",用它文字才落在真正的枢纽上(设计 §3.2 的枢纽判据)。 */
@@ -184,7 +194,7 @@ export function drawPlan(input: {
         id: b.first,
         x: b.x,
         y: b.y,
-        r: radiusOf(b.count),
+        r: aggregateRadius(b.count),
         color: rootColor.get(b.first) ?? fallbackColor,
         dim: isDimmed(b.first, emphasis),
         selected: b.first === emphasis.selected,
