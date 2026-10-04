@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { CompleteItem, DbInfo, ExprCheck, GraphData, GraphLinkDegrees, MergeReport, Note, NoteLinks, NoteTitle, ParseResult, TagCount, TagImpact } from './types';
+import type { CarryReport, CompleteItem, DbInfo, ExprCheck, GraphData, GraphLinkDegrees, MergeReport, Note, NoteLinks, NoteTitle, ParseResult, TagCount, TagImpact } from './types';
 import type { FilterConditions } from './filter-conditions';
 import type { AppHotkeyKind } from './hotkey-match';
 
@@ -31,6 +31,14 @@ export const api = {
   addTagAlias: (alias: string, tagId: number) => invoke<void>('add_tag_alias', { alias, tagId }),
   /** 删除别名(幂等:不存在也算成功) */
   removeTagAlias: (alias: string) => invoke<void>('remove_tag_alias', { alias }),
+  /** 添加标签携带关系(幂等):自携带 / 成环 / 标签不存在都会 reject 中文原因 */
+  setTagCarry: (carrierId: number, carriedId: number) =>
+    invoke<void>('set_tag_carry', { carrierId, carriedId }),
+  /** 移除标签携带关系(幂等:不存在也算成功) */
+  removeTagCarry: (carrierId: number, carriedId: number) =>
+    invoke<void>('remove_tag_carry', { carrierId, carriedId }),
+  /** 双向携带读数:carried 是本标签携带的,carriersOf 是携带本标签的 */
+  listTagCarries: (carrierId: number) => invoke<CarryReport>('list_tag_carries', { carrierId }),
   /** 合并标签(G2 命令):转移链接 + 可选保留旧名为别名,返回转移读数 */
   mergeTags: (sourceId: number, targetId: number, keepAlias: boolean) =>
     invoke<MergeReport>('merge_tags', { sourceId, targetId, keepAlias }),

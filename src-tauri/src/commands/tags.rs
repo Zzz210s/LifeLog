@@ -120,6 +120,24 @@ pub fn remove_tag_alias(app: AppHandle, alias: String) -> Result<(), String> {
     with_conn(&app, |c| tags::remove(c, &alias).map_err(|e| e.to_string()))
 }
 
+/// 添加标签携带关系(幂等):自携带 / 成环 / 标签不存在都给中文错且不写库
+#[tauri::command]
+pub fn set_tag_carry(app: AppHandle, carrier_id: i64, carried_id: i64) -> Result<(), String> {
+    with_conn(&app, |c| tags::set_carry(c, carrier_id, carried_id))
+}
+
+/// 移除标签携带关系(幂等:不存在也算成功)
+#[tauri::command]
+pub fn remove_tag_carry(app: AppHandle, carrier_id: i64, carried_id: i64) -> Result<(), String> {
+    with_conn(&app, |c| tags::remove_carry(c, carrier_id, carried_id))
+}
+
+/// 双向携带读数:carried = 本标签携带的;carriersOf = 携带本标签的(标签菜单「携带…」数据源)
+#[tauri::command]
+pub fn list_tag_carries(app: AppHandle, carrier_id: i64) -> Result<tags::CarryReport, String> {
+    with_conn(&app, |c| tags::list_carries(c, carrier_id).map_err(|e| e.to_string()))
+}
+
 /// 路径前缀补全(输入 `#工作/` 时列出下一级候选)。
 /// 每项带 `kind`:"tag" 为标签路径命中,"alias" 为别名命中(前端在行尾标一个「别名」弱标记)。
 #[tauri::command]

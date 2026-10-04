@@ -43,12 +43,14 @@ pub(crate) const DROP_DONE_DOING_VERSION: i64 = 13;
 const DONE_DOING_PREDICATE: &str = "path = 'done' OR substr(path, 1, 5) = 'done/' \
      OR path = 'doing' OR substr(path, 1, 6) = 'doing/'";
 
-/// 013 之前提示:将要删除的标签节点数、链接数与受影响笔记数(无命中则不打印)
+/// 013 之前提示:将要删除的标签节点数、链接数与受影响笔记数(无命中则不打印)。
+/// 两个 tag_links 计数都显式限 `target_type = 'note'`:tag_links 现在也存 `'tag'` 携带行(R1),
+/// 不过滤会把携带目标(标签 id)当成笔记计入"涉及 N 条笔记"。
 pub(crate) fn warn_drop_done_doing(conn: &Connection) -> rusqlite::Result<()> {
     let sql = format!(
         "SELECT (SELECT COUNT(*) FROM tags WHERE {p}),
-                (SELECT COUNT(*) FROM tag_links WHERE tag_id IN (SELECT id FROM tags WHERE {p})),
-                (SELECT COUNT(DISTINCT target_id) FROM tag_links WHERE tag_id IN (SELECT id FROM tags WHERE {p}))",
+                (SELECT COUNT(*) FROM tag_links WHERE target_type = 'note' AND tag_id IN (SELECT id FROM tags WHERE {p})),
+                (SELECT COUNT(DISTINCT target_id) FROM tag_links WHERE target_type = 'note' AND tag_id IN (SELECT id FROM tags WHERE {p}))",
         p = DONE_DOING_PREDICATE
     );
     let (tags, links, notes): (i64, i64, i64) =

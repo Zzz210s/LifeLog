@@ -78,6 +78,19 @@ export interface MergeReport {
   aliases: string[];
 }
 
+/** 携带 / 被携带方向上的一个标签(id + 完整路径,IPC `list_tag_carries`) */
+export interface TagRef {
+  id: number;
+  path: string;
+}
+
+/** 双向携带读数(IPC `list_tag_carries`,camelCase 与 Rust CarryReport 一致):
+ *  carried 是本标签携带的;carriersOf 是携带本标签的 */
+export interface CarryReport {
+  carried: TagRef[];
+  carriersOf: TagRef[];
+}
+
 /** 表达式实时校验结果(IPC `validate_expr`);position 是 0 起字符下标,展示时 +1 */
 export interface ExprCheck {
   ok: boolean;
