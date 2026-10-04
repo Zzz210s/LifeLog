@@ -15,6 +15,7 @@ import { useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { GraphNode } from '../../shared/types';
 import { GraphCanvas } from './GraphCanvas';
+import { screenOf } from './graph-camera';
 import { GraphInfoBar } from './GraphInfoBar';
 import { GraphOverlays } from './GraphOverlays';
 import { GraphSearch } from './GraphSearch';
@@ -95,12 +96,12 @@ export function GraphView(p: {
     cam: cam.camera,
     origin,
     onSelect: setSelected,
-    // 点聚合圆 = 放大到该处(设计 D3):先居中到那个点,再放大一档(与滚轮同一套夹取)
+    // 点聚合圆 = 放大到该处(设计 D3):以那个圆**自己的屏幕位置**为锚点放大一档。
+    // 先 centerOn 再 zoomBy 也能看,但锚点会落在画布中心 —— 用户点的是圆,就该围着圆放大。
     onZoomIn: (id) => {
       const at = points.get(id);
       if (!at) return;
-      cam.centerOn(at);
-      cam.onWheel(new WheelEvent('wheel', { deltaY: -120 }));
+      cam.zoomAtScreen(screenOf(at, cam.camera), 1.8);
     },
     onExpand: (id) => setExpanded((cur) => (cur === id ? null : id)),
     onMenu: (id, x, y) => setMenu({ id, x, y }),

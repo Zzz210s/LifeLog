@@ -36,6 +36,11 @@ export interface GraphCameraApi {
   reset: () => void;
   /** 把某个世界点在**不改缩放**的前提下摆到画布中心(G2 的图内搜索跳转用) */
   centerOn: (p: Point) => void;
+  /**
+   * 以**指定屏幕点**为锚点缩放(2026-10-04):聚合圆放大需要"放大到那个圆",
+   * 而 `zoomBy` 锚在画布中心、合成 WheelEvent 的坐标又是 0(左上角)。
+   */
+  zoomAtScreen: (p: Point, factor: number) => void;
   onWheel: (e: WheelEvent) => void;
   onPointerDown: (e: PointerAt) => void;
   onPointerMove: (e: PointerAt) => void;
@@ -152,6 +157,10 @@ export function useGraphCamera(opts: {
     [opts.width, opts.height],
   );
 
+  const zoomAtScreen = useCallback((p: Point, factor: number): void => {
+    setCamera((cam) => zoomAt(cam, factor, p));
+  }, []);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       // 输入法组合中(打拼音时 `-` 也会作为按键冒上来)不处理:这不是快捷键
@@ -195,5 +204,8 @@ export function useGraphCamera(opts: {
     drag.current = null;
   }, []);
 
-  return { camera, points, pinned, reset, centerOn, onWheel, onPointerDown, onPointerMove, onPointerUp, commitPositions };
+  return {
+    camera, points, pinned, reset, centerOn, zoomAtScreen,
+    onWheel, onPointerDown, onPointerMove, onPointerUp, commitPositions,
+  };
 }
