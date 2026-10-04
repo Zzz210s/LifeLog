@@ -27,7 +27,7 @@ export function GraphInfoBar(p: {
     <div
       data-testid="graph-info-bar"
       data-graph-overlay
-      className="absolute right-3 top-3 z-10 w-60 rounded-md border border-border bg-raised px-3 py-2 text-xs shadow-lg"
+      className="absolute right-3 top-3 z-10 w-60 rounded-md border border-border bg-raised px-3 py-2 text-label shadow-lg"
     >
       <div className="break-all font-medium text-text">{n.path}</div>
       <div className="mt-1 text-muted">

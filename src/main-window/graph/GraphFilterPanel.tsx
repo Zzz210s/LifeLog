@@ -28,7 +28,7 @@ export function GraphFilterPanel(p: {
   return (
     <div
       data-testid="graph-filters"
-      className="absolute left-3 top-14 z-20 w-64 rounded-md border border-border bg-raised p-2 text-xs shadow-lg"
+      className="absolute left-3 top-14 z-20 w-64 rounded-md border border-border bg-raised p-2 text-label shadow-lg"
     >
       <div className="mb-1 text-muted">展开的轴(取消 = 折叠成根节点)</div>
       <div className="mb-2 max-h-48 overflow-auto">
