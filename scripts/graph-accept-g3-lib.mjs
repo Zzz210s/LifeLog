@@ -15,6 +15,32 @@ const PANEL = `document.querySelector('[data-testid="graph-filters"]')`;
  * (开机时踩过:改完过滤器读 `last`,读到的还是改之前那一帧)。点坐标也收(弧 -> 填 = 一个点圆),
  * 读数 5/6 靠它比"这个点画在哪"。
  */
+/**
+ * 视觉重做的页面探针(2026-10-04):从**同一套画布插桩**里读,不额外侵入产品代码。
+ * 能读到:每个圆(arc+fill 的 x/y/r)、文字(fillText 的字符串,聚合计数就是纯数字)、
+ * 一帧里的填充/描边次数。相机 k 不在画布上暴露,所以"是否聚合"由**有无纯数字文字**判定。
+ */
+export const installVizProbe = (cdp) =>
+  cdp.eval(`(() => {
+    if (typeof window.__vizProbe === 'function') return true;
+    window.__vizProbe = () => {
+      const st = window.__g3;
+      if (!st || !st.cur) return null;
+      const dots = st.cur.dots.map((d) => ({ x: Math.round(d.x), y: Math.round(d.y), r: Math.round(d.r * 10) / 10 }));
+      const nums = st.cur.labels.filter((t) => /^[0-9]+$/.test(String(t))).map(Number);
+      return {
+        dots,
+        counts: nums,
+        sumCounts: nums.reduce((a, b) => a + b, 0),
+        labels: st.cur.labels.filter((t) => !/^[0-9]+$/.test(String(t))).length,
+        fills: st.cur.fills,
+        arcs: st.cur.arcs,
+        aggregated: nums.length > 0,
+      };
+    };
+    return true;
+  })()`);
+
 export const installG3 = (cdp) =>
   cdp.eval(`(() => {
     if (window.__g3V === 1) return true;
@@ -38,6 +64,7 @@ export const installG3 = (cdp) =>
     P.fillText = function (t, ...a) { if (st.cur !== null) st.cur.labels.push(String(t)); return real.fillText.call(this, t, ...a); };
     window.__g3 = st;
     window.__g3V = 1;
+    window.__g3State = st; // 兼容旧名字(视觉探针先写的那个)
     return true;
   })()`);
 

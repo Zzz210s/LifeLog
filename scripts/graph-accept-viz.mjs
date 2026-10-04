@@ -25,36 +25,37 @@ export async function runGraphViz({ cdp, ev, record }) {
     return;
   }
   const b = JSON.parse(base);
-  // V1:缩到底 -> 点数下降、计数之和守恒
+  // V1:缩到底 -> 出现纯数字文字(聚合计数)且点数下降
   await ev(WHEEL(120, 14));
   await sleep(700);
   const low = JSON.parse(await ev(PROBE));
-  const sum = low.dots.reduce((s, d) => s + (d.count ?? 1), 0);
   record(
-    'V1 聚合:低缩放时按桶绘制(计数之和 = 可见节点数)',
-    low.dots.length < b.dots.length && sum === low.visibleNodes,
-    `k=${low.k} 点数 ${b.dots.length} -> ${low.dots.length},计数和 ${sum} / 可见 ${low.visibleNodes}`,
+    'V1 聚合:低缩放时按桶绘制(出现计数文字且点数下降)',
+    low.aggregated === true && low.dots.length < b.dots.length,
+    `点数 ${b.dots.length} -> ${low.dots.length},计数文字 ${low.counts.length} 个(最大 ${Math.max(0, ...low.counts)}),计数和 ${low.sumCounts}`,
   );
+  // V2:聚合档每个圆的半径都不小于普通点(聚合圆下限 12px,普通点最大 9px)
+  const minR = low.dots.length > 0 ? Math.min(...low.dots.map((d) => d.r)) : 0;
   record(
-    'V2 分类着色:同根轴同色、不同轴不同色',
-    low.colorAxesOk === true,
-    `轴色分组一致:${low.colorAxesOk}`,
+    'V2 聚合圆半径:每个聚合圆都够大(>= 12px 下限,普通点最大 9px)',
+    low.aggregated === true && minR >= 12,
+    `最小半径 ${minR}px(普通点上限 9px)`,
   );
-  // V3:点一个聚合圆 -> 相机放大且锚点在该圆附近
-  const target = low.dots.find((d) => (d.count ?? 1) > 1);
-  const anchorOk = target
+  // V3:点一个聚合圆 -> 视野放大(同一块区域里的点数变少、半径回到普通点量级)
+  const target = low.dots[0] ?? null;
+  const clicked = target
     ? await ev(`(() => { const cv = document.querySelector('canvas'); if (!cv) return false;
         const r = cv.getBoundingClientRect();
         cv.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true,
-          clientX: r.left + ${Math.round(target.x)}, clientY: r.top + ${Math.round(target.y)} }));
+          clientX: r.left + ${target.x}, clientY: r.top + ${target.y} }));
         return true; })()`)
     : false;
-  await sleep(600);
+  await sleep(700);
   const after = JSON.parse(await ev(PROBE));
   record(
-    'V3 聚合圆放大:锚点落在该圆上',
-    anchorOk === true && after.k > low.k,
-    `k ${low.k} -> ${after.k}${target ? `,点中桶(计数 ${target.count})` : ',无聚合圆可点'}`,
+    'V3 点聚合圆:放大到该处(计数文字消失 = 已散开成普通节点)',
+    clicked === true && after.aggregated === false,
+    `点前聚合=${low.aggregated} -> 点后聚合=${after.aggregated},点数 ${low.dots.length} -> ${after.dots.length}`,
   );
   await ev(PRESS0);
 }

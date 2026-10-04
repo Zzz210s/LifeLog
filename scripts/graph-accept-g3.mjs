@@ -31,6 +31,7 @@ const PRESS0 = `window.dispatchEvent(new KeyboardEvent('keydown', { key: '0' }))
 
 export async function runGraphG3({ cdp, ev, ui, bm, record }) {
   await installG3(cdp);
+  await installVizProbe(cdp); // 视觉读数用的探针(复用同一套画布插桩)
   // 前置:相机回适配档(G1 读数 5 收尾刚按过 `0`,这里再按一次把读数之间的互相踩抹平)
   await ev(PRESS0);
   await sleep(800);
