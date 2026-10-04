@@ -11,7 +11,7 @@ export function GraphStatus(p: { text: string }): ReactNode {
     <div
       role="status"
       data-testid="graph-status"
-      className="pointer-events-none rounded-md border border-border bg-raised px-2 py-1 text-xs text-muted"
+      className="pointer-events-none flex h-8 items-center rounded-sm border border-border bg-raised px-2 text-label text-muted"
     >
       {p.text}
     </div>

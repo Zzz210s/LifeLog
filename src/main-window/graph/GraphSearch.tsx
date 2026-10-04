@@ -36,7 +36,7 @@ export function GraphSearch(p: {
     <div
       data-testid="graph-search"
       data-graph-overlay
-      className="absolute left-1/2 top-3 z-20 w-64 -translate-x-1/2"
+      className="absolute right-3 top-3 z-20 w-56"
     >
       <input
         data-testid="graph-search-input"
