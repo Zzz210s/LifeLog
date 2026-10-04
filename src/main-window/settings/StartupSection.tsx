@@ -3,6 +3,8 @@
 // 而不是假装设置已生效(注册表可能被外部改动,或注册动作被系统拦下)。
 import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
+import { SettingsSection } from './SettingsSection';
+import { SETTINGS_SECTIONS } from './settings-sections';
 import { api } from '../../shared/api';
 import {
   loadAutostartActual,
@@ -23,6 +25,8 @@ const STATUS_TEXT: Record<AutostartState, string> = {
   on: '已开启',
   'needs-repair': '需要修复',
 };
+
+const META = SETTINGS_SECTIONS.find((s) => s.id === 'startup')!;
 
 export function StartupSection(): ReactNode {
   const [settings, setSettings] = useState<StartupSettings | null>(null);
@@ -86,11 +90,7 @@ export function StartupSection(): ReactNode {
     settings && actual !== null ? resolveAutostartStatus(settings.autostart, actual) : null;
 
   return (
-    <section className="rounded-md border border-border bg-raised">
-      <div className="border-b border-border px-4 py-2">
-        <h2 className="text-title text-text">启动</h2>
-        <p className="mt-0.5 text-label text-muted">开机启动会在系统注册表中登记;改动立即保存</p>
-      </div>
+    <SettingsSection meta={META}>
       {error && <p className="px-4 pt-3 text-label text-danger">{error}</p>}
       {settings === null ? (
         <div className="flex flex-col items-center gap-2 px-4 py-6">
@@ -148,6 +148,6 @@ export function StartupSection(): ReactNode {
           </p>
         </>
       )}
-    </section>
+    </SettingsSection>
   );
 }

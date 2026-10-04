@@ -5,6 +5,8 @@
 // 成功即广播事件让主窗立刻用新键;失败的中文原因由录制行就地显示,旧键保持可用。
 import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
+import { SettingsSection } from './SettingsSection';
+import { SETTINGS_SECTIONS } from './settings-sections';
 import { api } from '../../shared/api';
 import type { AppHotkeyKind } from '../../shared/hotkey-match';
 import { BTN_SECONDARY } from '../shell/button-classes';
@@ -12,6 +14,8 @@ import { AppHotkeyRow } from './AppHotkeyRow';
 import { appHotkeyRows } from './app-hotkey-model';
 
 type Stored = Record<AppHotkeyKind, string | null>;
+
+const META = SETTINGS_SECTIONS.find((s) => s.id === 'hotkey')!;
 
 export function AppHotkeySection(): ReactNode {
   const [values, setValues] = useState<Stored | null>(null);
@@ -33,13 +37,7 @@ export function AppHotkeySection(): ReactNode {
   }, []);
 
   return (
-    <section className="rounded-md border border-border bg-raised">
-      <div className="border-b border-border px-4 py-2">
-        <h2 className="text-title text-text">快捷键</h2>
-        <p className="mt-0.5 text-label text-muted">
-          应用内快捷键,只在主窗生效;改动立即保存并生效,不需要点保存按钮
-        </p>
-      </div>
+    <SettingsSection meta={META}>
       {error && <p className="px-4 pt-3 text-label text-danger">{error}</p>}
       {values === null ? (
         <div className="flex flex-col items-center gap-2 px-4 py-6">
@@ -65,6 +63,6 @@ export function AppHotkeySection(): ReactNode {
           ))}
         </div>
       )}
-    </section>
+    </SettingsSection>
   );
 }

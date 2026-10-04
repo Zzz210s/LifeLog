@@ -4,6 +4,8 @@
 // 模板走后端命令即时校验(与创建路径同一实现),非法给中文提示且不落库。
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import { SettingsSection } from './SettingsSection';
+import { SETTINGS_SECTIONS } from './settings-sections';
 import { api } from '../../shared/api';
 import { SettingsRow, Toggle } from './controls';
 import { BTN_SECONDARY } from '../shell/button-classes';
@@ -20,6 +22,8 @@ import {
 const DEBOUNCE_MS = 250;
 
 type Verdict = { ok: boolean; message: string };
+
+const META = SETTINGS_SECTIONS.find((s) => s.id === 'notes')!;
 
 export function NotesSection(): ReactNode {
   const [auto, setAuto] = useState(true);
@@ -73,11 +77,7 @@ export function NotesSection(): ReactNode {
   };
 
   return (
-    <section className="rounded-md border border-border bg-raised">
-      <div className="border-b border-border px-4 py-2">
-        <h2 className="text-title text-text">笔记</h2>
-        <p className="mt-0.5 text-label text-muted">新建笔记与时间标签的存放规则;改动立即保存</p>
-      </div>
+    <SettingsSection meta={META}>
       {error && <p className="px-4 pt-3 text-label text-danger">{error}</p>}
       {!loaded ? (
         <div className="flex flex-col items-center gap-2 px-4 py-6">
@@ -123,6 +123,6 @@ export function NotesSection(): ReactNode {
           )}
         </div>
       )}
-    </section>
+    </SettingsSection>
   );
 }
