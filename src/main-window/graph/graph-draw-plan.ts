@@ -1,4 +1,5 @@
 import type { GraphEdge, GraphLink, GraphNode } from '../../shared/types';
+import { aggregateBuckets, shouldAggregate } from './graph-aggregate';
 import { cullVisible, lodLevel, screenOf, type Camera } from './graph-camera';
 import { isDimmed, type Emphasis } from './graph-focus';
 import type { Point } from './radial';
@@ -30,6 +31,8 @@ export interface Dot {
   dim: boolean;
   /** 是否画选中环:跟 `emphasis.selected` 走,不跟焦点走 */
   selected: boolean;
+  /** 聚合计数(>1 才画数字,2026-10-04 设计 D1):低缩放时同格合并,记它代表多少个节点 */
+  count?: number;
 }
 
 /** 一个节点文字:坐标为文字基线中心(点上方),text 是末级段名 */
@@ -152,7 +155,39 @@ export function drawPlan(input: {
   const dots: Dot[] = [];
   const labels: Label[] = [];
   const level = lodLevel(cam.k);
-  for (const n of nodes) {
+  // 低缩放聚合(设计 D1/D2):同格节点合并成一个带计数的圆,避免多个点挤占同一块像素。
+  // 聚合生效时不再逐节点画点、也不画文字(聚合档看骨架,文字没有意义)。
+  const aggregated = shouldAggregate(cam.k);
+  if (aggregated) {
+    const parents = new Map<number, number>();
+    const depthOf = new Map<number, number>();
+    for (const n of nodes) {
+      if (n.parent !== null) parents.set(n.id, n.parent);
+      depthOf.set(n.id, n.depth);
+    }
+    const visibleNodes = nodes.filter((n) => visible.has(n.id) && points.has(n.id));
+    const buckets = aggregateBuckets({
+      nodes: visibleNodes,
+      points,
+      parents,
+      depthOf: (id) => depthOf.get(id) ?? 0,
+      cam,
+    });
+    for (const b of buckets) {
+      dots.push({
+        id: b.first,
+        x: b.x,
+        y: b.y,
+        r: radiusOf(b.count),
+        color: rootColor.get(b.first) ?? fallbackColor,
+        dim: isDimmed(b.first, emphasis),
+        selected: b.first === emphasis.selected,
+        count: b.count,
+      });
+    }
+  }
+  // 聚合生效时逐节点循环空转:点由上面的桶给出,而笔记小圆/链接/溢出提示照旧计算
+  for (const n of aggregated ? [] : nodes) {
     const p = points.get(n.id);
     if (!p || !visible.has(n.id)) continue;
     const s = screenOf(p, cam);

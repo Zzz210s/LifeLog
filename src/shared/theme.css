@@ -32,15 +32,17 @@
   --color-faint: #7e868f; /* 三级:只作注记/占位,不作正文(白底 3.04:1,低于 AA 4.5) */
 
   /* ---- 关系图分类色(2026-10-04):按根轴给节点上色,8 档,其余走 --color-muted。
-     口径来自 ui-ux-pro-max「Node types: categorical colors」:色相间隔足够、亮度接近 ---- */
-  --color-graph-1: #2563eb;
-  --color-graph-2: #7c3aed;
-  --color-graph-3: #0f766e;
-  --color-graph-4: #b45309;
-  --color-graph-5: #be123c;
-  --color-graph-6: #0369a1;
-  --color-graph-7: #4d7c0f;
-  --color-graph-8: #a21caf;
+     色板 = Paul Tol muted(色盲安全,低饱和),顺序按「平静 -> 醒目」排,让最大的轴拿最平静的色;
+     来源:Paul Tol Color Schemes / Observable 10 分类色(2026-10-04 返工:上一版主导轴拿到 muddy brown,
+     半屏土色) ---- */
+  --color-graph-1: #44aa99;
+  --color-graph-2: #332288;
+  --color-graph-3: #999933;
+  --color-graph-4: #88ccee;
+  --color-graph-5: #cc6677;
+  --color-graph-6: #117733;
+  --color-graph-7: #aa4499;
+  --color-graph-8: #882255;
 
   /* ---- 旧令牌别名:只指向新档,让 300+ 既有调用点不改名;不在 .dark 里重复定义,
      别名取 var() 值,暗色下自动跟随目标令牌 ---- */
@@ -171,12 +173,12 @@
   --shadow-lg: 0 8px 24px rgb(0 0 0 / 36%);
   color-scheme: dark;
   /* 关系图分类色(暗色:统一提亮,保证在深底上的对比) */
-  --color-graph-1: #7aa7ff;
-  --color-graph-2: #b18cff;
-  --color-graph-3: #4fd1c5;
-  --color-graph-4: #f0a44a;
-  --color-graph-5: #ff8fa3;
-  --color-graph-6: #67c7f0;
-  --color-graph-7: #a3d977;
-  --color-graph-8: #e78fe8;
+  --color-graph-1: #6fc9b8;
+  --color-graph-2: #8a86d8;
+  --color-graph-3: #c4c060;
+  --color-graph-4: #a5dcf5;
+  --color-graph-5: #e88b9b;
+  --color-graph-6: #4aa96a;
+  --color-graph-7: #c977c4;
+  --color-graph-8: #c4677f;
 }

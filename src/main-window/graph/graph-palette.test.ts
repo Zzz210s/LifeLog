@@ -50,3 +50,23 @@ describe('nodeColors', () => {
     expect(nodeColors([], () => 'x').size).toBe(0);
   });
 });
+
+describe('轴大小决定色档(2026-10-04 返工)', () => {
+  it('节点最多的轴拿 0 档(色板顺序是平静 -> 醒目)', () => {
+    const nodes = [
+      node(1, '大轴/a'), node(2, '大轴/b'), node(3, '大轴/c'),
+      node(4, '小轴/a'), node(5, '小轴/b'),
+      node(6, '微轴/a'),
+    ];
+    const slots = axisSlots(nodes);
+    expect(slots.get('大轴')).toBe(0);
+    expect(slots.get('小轴')).toBe(1);
+    expect(slots.get('微轴')).toBe(2);
+  });
+
+  it('数量相同时按轴名排序(着色稳定)', () => {
+    const a = axisSlots([node(1, '甲/a'), node(2, '乙/a')]);
+    const b = axisSlots([node(9, '乙/a'), node(8, '甲/a')]);
+    expect(a.get('甲')).toBe(b.get('甲'));
+  });
+});

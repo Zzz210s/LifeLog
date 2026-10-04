@@ -20,10 +20,22 @@ export function rootAxisOf(path: string): string {
 }
 
 /**
- * 根轴 -> 色档下标(0..7)。排序保证同一份数据每次着色一致(不随节点顺序抖动)。
+ * 根轴 -> 色档下标(0..7)。
+ *
+ * 按**节点数降序**分配(2026-10-04 返工):色板顺序是「平静 -> 醒目」,
+ * 所以最大的轴拿到最平静的色 —— 上一版按轴名排序,结果占一半节点的大轴拿到 muddy brown,
+ * 整屏一片土色。同数量时按轴名排序,保证着色稳定(不随节点顺序抖动)。
  */
 export function axisSlots(nodes: readonly GraphNode[]): Map<string, number> {
-  const axes = [...new Set(nodes.map((n) => rootAxisOf(n.path)))].sort((a, b) => a.localeCompare(b, 'zh'));
+  const count = new Map<string, number>();
+  for (const n of nodes) {
+    const axis = rootAxisOf(n.path);
+    count.set(axis, (count.get(axis) ?? 0) + 1);
+  }
+  const axes = [...count.keys()].sort((a, b) => {
+    const d = (count.get(b) ?? 0) - (count.get(a) ?? 0);
+    return d !== 0 ? d : a.localeCompare(b, 'zh');
+  });
   return new Map(axes.map((axis, i) => [axis, i % GRAPH_COLOR_SLOTS]));
 }
 
