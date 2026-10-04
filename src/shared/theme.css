@@ -31,6 +31,17 @@
   --color-muted: #5e666f; /* 次级 */
   --color-faint: #7e868f; /* 三级:只作注记/占位,不作正文(白底 3.04:1,低于 AA 4.5) */
 
+  /* ---- 关系图分类色(2026-10-04):按根轴给节点上色,8 档,其余走 --color-muted。
+     口径来自 ui-ux-pro-max「Node types: categorical colors」:色相间隔足够、亮度接近 ---- */
+  --color-graph-1: #2563eb;
+  --color-graph-2: #7c3aed;
+  --color-graph-3: #0f766e;
+  --color-graph-4: #b45309;
+  --color-graph-5: #be123c;
+  --color-graph-6: #0369a1;
+  --color-graph-7: #4d7c0f;
+  --color-graph-8: #a21caf;
+
   /* ---- 旧令牌别名:只指向新档,让 300+ 既有调用点不改名;不在 .dark 里重复定义,
      别名取 var() 值,暗色下自动跟随目标令牌 ---- */
   --color-app: var(--color-canvas);
@@ -159,4 +170,13 @@
   --shadow-md: 0 4px 12px rgb(0 0 0 / 30%);
   --shadow-lg: 0 8px 24px rgb(0 0 0 / 36%);
   color-scheme: dark;
+  /* 关系图分类色(暗色:统一提亮,保证在深底上的对比) */
+  --color-graph-1: #7aa7ff;
+  --color-graph-2: #b18cff;
+  --color-graph-3: #4fd1c5;
+  --color-graph-4: #f0a44a;
+  --color-graph-5: #ff8fa3;
+  --color-graph-6: #67c7f0;
+  --color-graph-7: #a3d977;
+  --color-graph-8: #e78fe8;
 }

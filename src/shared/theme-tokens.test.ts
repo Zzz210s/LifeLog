@@ -44,6 +44,15 @@ const COLORS: ReadonlyArray<readonly [string, string, string]> = [
   ['--color-text', '#1f2328', '#cccccc'],
   ['--color-muted', '#5e666f', '#9d9d9d'],
   ['--color-faint', '#7e868f', '#7a7a7a'],
+  // 关系图分类色(2026-10-04,设计 D4):8 档,亮暗各一套
+  ['--color-graph-1', '#2563eb', '#7aa7ff'],
+  ['--color-graph-2', '#7c3aed', '#b18cff'],
+  ['--color-graph-3', '#0f766e', '#4fd1c5'],
+  ['--color-graph-4', '#b45309', '#f0a44a'],
+  ['--color-graph-5', '#be123c', '#ff8fa3'],
+  ['--color-graph-6', '#0369a1', '#67c7f0'],
+  ['--color-graph-7', '#4d7c0f', '#a3d977'],
+  ['--color-graph-8', '#a21caf', '#e78fe8'],
 ];
 
 /** 旧令牌名 -> 新档(别名只在亮色块里定义一次) */

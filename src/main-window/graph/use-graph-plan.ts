@@ -17,6 +17,7 @@ import type { Camera } from './graph-camera';
 import { drawPlan, type DrawPlan, type NoteDot } from './graph-draw-plan';
 import { emphasisOf } from './graph-focus';
 import type { Point } from './radial';
+import { nodeColors } from './graph-palette';
 import { token } from './token';
 
 /** 尺寸没测出来之前的一帧:空计划(与"画完了但没有东西"是两回事,但渲染结果一样) */
@@ -64,7 +65,8 @@ export function useGraphPlan(input: {
             cam,
             w,
             h,
-            rootColor: new Map<number, string>(), // G1 不按根着色:统一用主题令牌兜底色
+            // D4 按根轴分类着色:色值全部从主题令牌读(亮暗切换靠 themeKey 重建 plan)
+            rootColor: nodeColors(nodes, (slot) => token(`--color-graph-${slot + 1}`)),
             fallbackColor: token('--color-muted'),
             emphasis,
             expanded,

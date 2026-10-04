@@ -93,25 +93,27 @@ afterEach(() => {
 
 describe('GraphView:换主题重建 plan(点色跟随)', () => {
   it('暗色 class 一变就重建 plan 并重绘,点色与文字色一起换到新主题', async () => {
-    let muted = 'light-muted';
+    // D4 起节点色取自分类令牌 --color-graph-1(第一个根轴),不再用 --color-muted 兜底
+    let graph = 'light-graph';
     vi.spyOn(window, 'getComputedStyle').mockImplementation(
       () =>
-        ({ getPropertyValue: (n: string) => (n === '--color-muted' ? muted : '#000') }) as unknown as CSSStyleDeclaration,
+        ({ getPropertyValue: (n: string) => (n === '--color-graph-1' ? graph : 'light-muted') }) as unknown as CSSStyleDeclaration,
     );
     const getContext = stubContext();
     // 容器必须有实测尺寸:尺寸为 0 时 plan 是空计划(没有点),点色也就无从观测
     const restore = metrics(() => 400, () => 300);
     try {
       await mount(() => {});
-      expect([...new Set(paint)]).toEqual(['light-muted']); // 有图:点色取自兜底令牌
+      expect([...new Set(paint)]).toContain('light-graph'); // 有图:点色取自分类令牌(文字另用 --color-muted)
       paint.length = 0;
       const calls = getContext.mock.calls.length;
-      muted = 'dark-muted';
+      graph = 'dark-graph';
       await act(async () => {
         document.documentElement.classList.add('dark');
       });
       expect(getContext.mock.calls.length).toBe(calls + 1); // 换主题必然重绘
-      expect([...new Set(paint)]).toEqual(['dark-muted']); // 亮色一点不剩 = plan 连同点色一起重建了
+      expect([...new Set(paint)]).toContain('dark-graph'); // 亮色一点不剩 = plan 连同点色一起重建了
+      expect([...new Set(paint)]).not.toContain('light-graph');
       // 摘 class 也要包在 act 里(它同样触发一次重渲染),否则会报 state 更新未包裹
       await act(async () => {
         document.documentElement.classList.remove('dark');
