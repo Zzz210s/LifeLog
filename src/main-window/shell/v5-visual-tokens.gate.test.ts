@@ -38,7 +38,7 @@ const FILES = [
   'settings/SettingsView.tsx',
   'settings/controls.tsx',
   'settings/AppearanceSection.tsx',
-  'settings/InputBarSection.tsx',
+  'settings/InputBehaviorPanel.tsx',
   'settings/InputAppearanceSection.tsx',
   'settings/appearance-controls.tsx',
   'settings/color-popover.tsx',

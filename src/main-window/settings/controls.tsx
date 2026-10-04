@@ -1,24 +1,25 @@
-// 设置页的控件:行容器(左标签+说明、右控件)、开关、百分比输入、下拉。
+// 设置页的控件:行容器(左标签+可选说明、右控件)、开关、下拉、数值滑块(见 number-slider)。
 // 全部受控:变更即回调,没有"保存"按钮;输入框失焦时收敛并落库。
-import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { InputSettings } from '../../shared/input-settings';
 import { STEP_MAX, STEP_MIN } from '../../shared/input-scale';
 import type { SettingsRow } from './settings-model';
+import { NumberSlider } from './number-slider';
 
 export interface SettingsRowProps {
   label: string;
-  hint: string;
+  /** 说明句:只在 label 说不清行为/单位/后果时才写(设计 D2);省略则整行只有标签 */
+  hint?: string;
   children: ReactNode;
 }
 
-/** 一行设置:左侧标签与中文说明,右侧控件 */
+/** 一行设置:左侧标签(必要时带中文说明),右侧控件 */
 export function SettingsRow({ label, hint, children }: SettingsRowProps): ReactNode {
   return (
-    <div className="flex items-center justify-between gap-4 border-b border-border py-3 last:border-b-0">
+    <div className="flex items-center justify-between gap-4 border-b border-border py-2.5 last:border-b-0">
       <div className="min-w-0">
         <div className="text-ui text-text">{label}</div>
-        <div className="mt-0.5 text-label text-muted">{hint}</div>
+        {hint !== undefined && hint !== '' && <div className="mt-0.5 text-label text-muted">{hint}</div>}
       </div>
       <div className="shrink-0">{children}</div>
     </div>
@@ -55,53 +56,6 @@ export function Toggle({ checked, label, onChange }: ToggleProps): ReactNode {
         }
       />
     </button>
-  );
-}
-
-export interface PercentInputProps {
-  value: number;
-  label: string;
-  min: number;
-  max: number;
-  onCommit: (value: number) => void;
-}
-
-/** 百分比输入:只接受整数,失焦(或回车)时收敛到区间并落库 */
-export function PercentInput({ value, label, min, max, onCommit }: PercentInputProps): ReactNode {
-  const [text, setText] = useState(String(value));
-
-  // 外部值变化(如"恢复默认"或读取完成)时同步显示
-  useEffect(() => {
-    setText(String(value));
-  }, [value]);
-
-  const commit = () => {
-    const t = text.trim();
-    if (!/^-?\d+$/.test(t)) {
-      setText(String(value)); // 空串或非整数:放弃编辑,显示原值
-      return;
-    }
-    const clamped = Math.min(max, Math.max(min, Number(t)));
-    setText(String(clamped));
-    if (clamped !== value) onCommit(clamped);
-  };
-
-  return (
-    <div className="flex items-center gap-1">
-      <input
-        type="text"
-        inputMode="numeric"
-        value={text}
-        aria-label={label}
-        onChange={(e) => setText(e.target.value)}
-        onBlur={commit}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') e.currentTarget.blur();
-        }}
-        className="h-8 w-16 rounded-sm border border-border-strong px-2 text-right text-ui outline-none"
-      />
-      <span className="text-label text-muted">%</span>
-    </div>
   );
 }
 
@@ -164,11 +118,13 @@ export function RowControl({ row, value, onChange }: RowControlProps): ReactNode
   // {min:1,max:50},是第二真源);新增 percent 行必须自带 range。
   const range = row.range ?? { min: STEP_MIN, max: STEP_MAX };
   return (
-    <PercentInput
+    <NumberSlider
       value={typeof value === 'number' ? value : Number(value)}
       label={row.label}
       min={range.min}
       max={range.max}
+      step={1}
+      suffix="%"
       onCommit={(n) => onChange(row.key, n)}
     />
   );

@@ -10,7 +10,8 @@ import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SettingsView } from './SettingsView';
-import { PercentInput, SelectInput, SettingsRow, Toggle } from './controls';
+import { SelectInput, SettingsRow, Toggle } from './controls';
+import { NumberSlider } from './number-slider';
 
 vi.mock('../../shared/api', () => ({
   api: {
@@ -86,8 +87,11 @@ describe('V5 设置页:字号全部落在 7 档令牌内', () => {
     expect(h1.textContent).toBe('设置');
     expect(tokens(h1)).toContain('text-display');
 
+    // 导航项 = 8 个分区;当前分区(外观)渲染一个 h2
+    const tabs = [...host.querySelectorAll('[role="tab"]')].map((t) => t.textContent?.trim());
+    expect(tabs).toEqual(['外观', '输入栏外观', '输入栏行为', '笔记', '快捷键', '启动', '通用', '关于']);
     const h2s = [...host.querySelectorAll('h2')] as HTMLElement[];
-    expect(h2s.map((h) => h.textContent)).toEqual(['外观', '输入栏', '快捷键', '笔记', '启动', '通用']);
+    expect(h2s.map((h) => h.textContent)).toEqual(['外观']);
     for (const h2 of h2s) {
       expect(tokens(h2), String(h2.textContent)).toContain('text-title');
       expect(tokens(h2), String(h2.textContent)).not.toContain('text-sm');
@@ -99,6 +103,8 @@ describe('V5 设置页:字号全部落在 7 档令牌内', () => {
     render(createElement(SettingsView, { themeMode: 'system', onThemeChange: () => {} }));
     await flush();
     await flush();
+    // 一次只显示一个分区(设计 D1):导航 8 项 + 当前分区一个标题
+    expect(host.querySelectorAll('[role="tab"]').length).toBe(8);
     for (const h2 of [...host.querySelectorAll('h2')] as HTMLElement[]) {
       const card = h2.parentElement?.parentElement as HTMLElement;
       expect(tokens(card)).toContain('rounded-md');
@@ -115,10 +121,15 @@ describe('V5 设置页:字号全部落在 7 档令牌内', () => {
     render(createElement(SettingsView, { themeMode: 'system', onThemeChange: () => {} }));
     await flush();
     await flush();
+    // 默认分区(外观)只有分段控件;切到「输入栏行为」才有输入框与下拉
+    act(() => (host.querySelector('[data-section-nav="inputBehavior"]') as HTMLButtonElement).click());
+    await flush();
+    await flush();
     const controls = [...host.querySelectorAll('input, select')] as HTMLElement[];
     expect(controls.length).toBeGreaterThan(4);
     for (const el of controls) {
-      if (el.getAttribute('type') === 'radio') continue; // 原生 radio 不按文本输入改(主题三选一)
+      // 分段控件与滑块不是文本输入:分段用按钮(见下),滑块是 range(自带轨道样式)
+      if (el.getAttribute('type') === 'radio' || el.getAttribute('type') === 'range') continue;
       const t = tokens(el);
       expect(t).toContain('h-8');
       expect(t).toContain('rounded-sm');
@@ -135,13 +146,18 @@ describe('V5 设置页:字号全部落在 7 档令牌内', () => {
     render(createElement(SettingsView, { themeMode: 'system', onThemeChange }));
     await flush();
     await flush();
-    const radios = [...host.querySelectorAll('input[type="radio"]')] as HTMLInputElement[];
-    expect(radios.map((r) => r.value)).toEqual(['system', 'light', 'dark']);
-    act(() => radios[2].click());
+    // 主题改为分段控件(设计 D4):三块按钮,点第三块 = 暗色
+    const themeButtons = [...host.querySelectorAll('[role="group"][aria-label="主题"] button')] as HTMLButtonElement[];
+    expect(themeButtons.map((b) => b.textContent?.trim())).toEqual(['跟随系统', '亮色', '暗色']);
+    act(() => themeButtons[2].click());
     expect(onThemeChange).toHaveBeenCalledWith('dark');
 
+    // 恢复默认按钮:切到「输入栏行为」(该分区实现了恢复)
+    act(() => (host.querySelector('[data-section-nav="inputBehavior"]') as HTMLButtonElement).click());
+    await flush();
+    await flush();
     const texts = [...host.querySelectorAll('button')].map((b) => b.textContent?.trim());
-    expect(texts).toContain('恢复输入栏分区默认');
+    expect(texts).toContain('恢复本分区默认');
 
     // 行容器:标签在左、控件在右,一行一条分隔线(结构与 V4 前一致)
     render(createElement(SettingsRow, { label: '主题', hint: '说明', children: createElement('span', null, 'x') }));
@@ -168,7 +184,7 @@ describe('V5 设置页控件:同名口径的三件', () => {
       createElement(
         'div',
         null,
-        createElement(PercentInput, { value: 10, label: '缩放进阶', min: 1, max: 50, onCommit: () => {} }),
+        createElement(NumberSlider, { value: 10, label: '缩放进阶', min: 1, max: 50, step: 1, suffix: '%', onCommit: () => {} }),
         createElement(SelectInput, {
           value: 'input-bar',
           label: '启动时显示',
@@ -177,8 +193,9 @@ describe('V5 设置页控件:同名口径的三件', () => {
         })
       )
     );
-    const [input, select] = [...host.querySelectorAll('input, select')] as HTMLElement[];
-    for (const el of [input, select]) {
+    const numeric = host.querySelector('input[inputmode="numeric"]') as HTMLElement;
+    const select = host.querySelector('select') as HTMLElement;
+    for (const el of [numeric, select]) {
       expect(tokens(el)).toContain('h-8');
       expect(tokens(el)).toContain('rounded-sm');
     }

@@ -3,43 +3,28 @@
 import type { ReactNode } from 'react';
 import { THEME_MODES, type ThemeMode } from '../../shared/theme-mode';
 import { SettingsRow } from './controls';
+import { Segmented } from './segmented';
+import { SettingsSection } from './SettingsSection';
+import { SETTINGS_SECTIONS } from './settings-sections';
 
 export interface AppearanceSectionProps {
   mode: ThemeMode;
   onChange: (mode: ThemeMode) => void;
 }
 
+const META = SETTINGS_SECTIONS.find((s) => s.id === 'appearance')!;
+
 export function AppearanceSection({ mode, onChange }: AppearanceSectionProps): ReactNode {
   return (
-    <section className="rounded-md border border-border bg-raised">
-      <div className="border-b border-border px-4 py-2">
-        <h2 className="text-title text-text">外观</h2>
-        <p className="mt-0.5 text-label text-muted">
-          改动立即生效,并同时应用到输入栏;跟随系统时随系统深浅色自动切换
-        </p>
-      </div>
-      <div className="px-4">
-        <SettingsRow label="主题" hint="亮色与暗色各自一套配色,选择会保存到设置表">
-          <div className="flex items-center gap-3" role="radiogroup" aria-label="主题">
-            {THEME_MODES.map((option) => (
-              <label
-                key={option.value}
-                className="flex cursor-pointer items-center gap-1 text-ui text-muted"
-              >
-                <input
-                  type="radio"
-                  name="theme"
-                  value={option.value}
-                  checked={mode === option.value}
-                  onChange={() => onChange(option.value)}
-                  className="accent-accent"
-                />
-                {option.label}
-              </label>
-            ))}
-          </div>
-        </SettingsRow>
-      </div>
-    </section>
+    <SettingsSection meta={META} onReset={() => onChange('system')} resetLabel="恢复本分区默认(主题回跟随系统)">
+      <SettingsRow label="主题">
+        <Segmented
+          value={mode}
+          label="主题"
+          options={THEME_MODES.map((o) => ({ value: o.value, label: o.label }))}
+          onChange={(v) => onChange(v as ThemeMode)}
+        />
+      </SettingsRow>
+    </SettingsSection>
   );
 }
