@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { mountCanvas, strokeCalls, type CanvasHarness } from './canvas-test-kit';
 import type { DrawPlan } from './graph-draw-plan';
 
-const empty: DrawPlan = { co: [], tree: [], links: [], dots: [], labels: [], notes: [], overflow: null };
+const empty: DrawPlan = { co: [], tree: [], links: [], hubs: [], dots: [], labels: [], notes: [], overflow: null };
 
 const seg = (x1: number, y1: number, x2: number, y2: number): DrawPlan['links'][number] => ({
   x1, y1, x2, y2, weight: 1, emphasized: false, dim: false,
@@ -47,7 +47,7 @@ describe('GraphCanvas:笔记间的链接边', () => {
     const plan: DrawPlan = {
       ...empty,
       links: [seg(60, 200, 100, 200)],
-      dots: [{ id: 1, x: 60, y: 200, r: 3, color: 'c', dim: true, selected: false }],
+      hubs: [], dots: [{ id: 1, x: 60, y: 200, r: 3, color: 'c', dim: true, selected: false }],
     };
     await h.render(plan, 100, 100, 'light');
     expect(strokeCalls(h.ctx.calls)).toHaveLength(1);

@@ -60,6 +60,11 @@ export interface OverflowDot {
 
 /** 一帧要画的东西:边按类型分层,点与文字各自成列,另带展开的笔记小圆 */
 export interface DrawPlan {
+  /**
+   * 枢纽节点(设计 D6):`selfCount >= HUB_NOTES` 的点,画布给它们加一圈细环。
+   * 与 `dots` 分开给,是因为画布要在"画完所有点"之后、画选中环之前统一描环。
+   */
+  hubs: readonly Dot[];
   co: Segment[];
   tree: Segment[];
   /** 笔记间的 link 边(accent 色;两端笔记都在展开的扇形里才有一条) */
@@ -153,6 +158,7 @@ export function drawPlan(input: {
     else co.push(seg);
   }
   const dots: Dot[] = [];
+  const hubs: Dot[] = [];
   const labels: Label[] = [];
   const level = lodLevel(cam.k);
   // 低缩放聚合(设计 D1/D2):同格节点合并成一个带计数的圆,避免多个点挤占同一块像素。
@@ -228,5 +234,5 @@ export function drawPlan(input: {
       overflow = { id: ex.overflow.id, x: s.x, y: s.y, n: ex.overflow.n };
     }
   }
-  return { co, tree, links, dots, labels, notes, overflow };
+  return { co, tree, links, dots, hubs, labels, notes, overflow };
 }

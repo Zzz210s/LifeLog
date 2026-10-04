@@ -11,7 +11,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { mountCanvas, type CanvasHarness } from './canvas-test-kit';
 import type { DrawPlan } from './graph-draw-plan';
 
-const empty: DrawPlan = { co: [], tree: [], links: [], dots: [], labels: [], notes: [], overflow: null };
+const empty: DrawPlan = { co: [], tree: [], links: [], hubs: [], dots: [], labels: [], notes: [], overflow: null };
 
 let h: CanvasHarness;
 beforeEach(() => {
@@ -42,7 +42,7 @@ describe('GraphCanvas:同一 plan 不重绘', () => {
     expect(canvas.width).toBe(400);
     expect(canvas.height).toBe(240);
 
-    const next: DrawPlan = { co: [], tree: [], links: [], dots: [], labels: [], notes: [], overflow: null };
+    const next: DrawPlan = { co: [], tree: [], links: [], hubs: [], dots: [], labels: [], notes: [], overflow: null };
     await render(next, 200, 120, 'dark'); // 新 plan -> 重绘
     expect(h.getContext).toHaveBeenCalledTimes(3);
   });
@@ -56,7 +56,7 @@ describe('GraphCanvas:同一 plan 不重绘', () => {
       co: [{ x1: 0, y1: 0, x2: 10, y2: 0, weight: 3, emphasized: false, dim: false }],
       links: [],
       tree: [{ x1: 0, y1: 0, x2: 0, y2: 10, weight: 1, emphasized: false, dim: false }],
-      dots: [{ id: 1, x: 5, y: 6, r: 9, color: 'rgb(1, 2, 3)', dim: false, selected: false }],
+      hubs: [], dots: [{ id: 1, x: 5, y: 6, r: 9, color: 'rgb(1, 2, 3)', dim: false, selected: false }],
       labels: [{ id: 1, x: 5, y: -7, text: '时间' }],
       notes: [],
       overflow: null,
@@ -75,7 +75,7 @@ describe('GraphCanvas:同一 plan 不重绘', () => {
   });
 
   it('主题令牌缺失时颜色退回 transparent,不写死色值', async () => {
-    await render({ ...empty, dots: [], labels: [] }, 10, 10, 'light'); // jsdom 里三个令牌都没定义
+    await render({ ...empty, hubs: [], dots: [], labels: [] }, 10, 10, 'light'); // jsdom 里三个令牌都没定义
     expect(h.ctx.writes.fillStyle).toEqual(['transparent']);
   });
 
@@ -83,7 +83,7 @@ describe('GraphCanvas:同一 plan 不重绘', () => {
     const plan: DrawPlan = {
       ...empty,
       co: [{ x1: 0, y1: 0, x2: 10, y2: 0, weight: 1, emphasized: false, dim: true }],
-      dots: [
+      hubs: [], dots: [
         { id: 1, x: 5, y: 6, r: 9, color: 'rgb(1, 2, 3)', dim: false, selected: false },
         { id: 2, x: 40, y: 6, r: 9, color: 'rgb(1, 2, 3)', dim: true, selected: false },
       ],
@@ -102,7 +102,7 @@ describe('GraphCanvas:同一 plan 不重绘', () => {
     document.documentElement.style.setProperty('--color-accent', 'rgb(44, 44, 44)');
     const plan: DrawPlan = {
       ...empty,
-      dots: [{ id: 1, x: 5, y: 6, r: 9, color: 'rgb(1, 2, 3)', dim: true, selected: true }],
+      hubs: [], dots: [{ id: 1, x: 5, y: 6, r: 9, color: 'rgb(1, 2, 3)', dim: true, selected: true }],
       notes: [
         { id: 7, x: 20, y: 30 },
         { id: 8, x: 24, y: 30 },

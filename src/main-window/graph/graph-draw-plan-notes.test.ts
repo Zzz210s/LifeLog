@@ -44,7 +44,7 @@ describe('drawPlan:展开的笔记小圆', () => {
   const expandedWorld = {
     id: 2,
     space: 'world' as const,
-    dots: [
+    hubs: [], dots: [
       { id: 501, x: 100, y: 0 },
       { id: 502, x: 100, y: 20 },
     ],

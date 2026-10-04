@@ -37,7 +37,7 @@ const base = {
 const expanded = {
   id: 1,
   space: 'screen' as const,
-  dots: [
+  hubs: [], dots: [
     { id: 501, x: 60, y: 200 },
     { id: 502, x: 100, y: 200 },
     { id: 503, x: 140, y: 200 },

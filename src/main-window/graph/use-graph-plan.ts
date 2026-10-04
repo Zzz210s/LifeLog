@@ -21,7 +21,7 @@ import { nodeColors } from './graph-palette';
 import { token } from './token';
 
 /** 尺寸没测出来之前的一帧:空计划(与"画完了但没有东西"是两回事,但渲染结果一样) */
-const EMPTY_PLAN: DrawPlan = { co: [], tree: [], links: [], dots: [], labels: [], notes: [], overflow: null };
+const EMPTY_PLAN: DrawPlan = { co: [], tree: [], links: [], hubs: [], dots: [], labels: [], notes: [], overflow: null };
 
 export function useGraphPlan(input: {
   nodes: readonly GraphNode[];

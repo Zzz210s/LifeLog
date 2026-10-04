@@ -18,6 +18,11 @@ import { token } from './token';
 
 /** 弱化透明度:足够暗到让焦点跳出来,又还能看出图的结构 */
 const DIM_ALPHA = 0.2;
+/** 共现边的基础不透明度(设计 D5:最弱一档,压到父子边之下) */
+const CO_ALPHA = 0.6;
+/** 枢纽外环半径增量与线宽(屏幕像素) */
+const HUB_RING_GAP = 3;
+const HUB_RING_WIDTH = 1.5;
 /** 强调边(与焦点相连)的线宽:比同类型普通边明显粗一档(设计 §5「邻居边加粗」) */
 const EMPHASIS_WIDTH = 2.5;
 /** 选中环离点的间距(屏幕像素):点小时不至于贴在一起 */
@@ -29,12 +34,17 @@ function strokeAll(
   color: string,
   /** 本层非强调边的线宽(共现 1 / 父子 1.5) */
   baseWidth: number,
+  /**
+   * 本层基础不透明度(设计 D5 边三档):共现边压到 60% 让它在父子边之下,
+   * 层次靠"粗细 + 透明度"两层表达,而不是只靠颜色深浅。
+   */
+  baseAlpha = 1,
 ): void {
   ctx.strokeStyle = color;
   for (const s of segs) {
     ctx.lineWidth = s.emphasized ? EMPHASIS_WIDTH : baseWidth;
     // 强调边一律满不透明:焦点那一头即使是无关节点(边 dim),加粗了还变淡反而看不清
-    ctx.globalAlpha = s.dim && !s.emphasized ? DIM_ALPHA : 1;
+    ctx.globalAlpha = s.dim && !s.emphasized ? DIM_ALPHA : baseAlpha;
     ctx.beginPath();
     ctx.moveTo(s.x1, s.y1);
     ctx.lineTo(s.x2, s.y2);
@@ -69,7 +79,8 @@ export function GraphCanvas(p: {
     if (el.height !== bh) el.height = bh;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, p.width, p.height);
-    strokeAll(ctx, p.plan.co, token('--color-border'), 1);
+    // 三档(设计 D5):共现边最弱(1px + 60%),父子边居中(1.5px),链接边最醒目(accent)
+    strokeAll(ctx, p.plan.co, token('--color-border'), 1, CO_ALPHA);
     strokeAll(ctx, p.plan.tree, token('--color-border-strong'), 1.5);
     // 笔记间的链接边:accent 色 1.5 —— 与共现/父子边同一根线但醒目一档(D12);零硬编码色值
     strokeAll(ctx, p.plan.links, token('--color-accent'), 1.5);
@@ -94,6 +105,18 @@ export function GraphCanvas(p: {
     // 归位单点:环 / 笔记小圆 / `+N` / 文字都不参与弱化,谁不继承上面任何一次的 0.2
     // (去掉这一行,暗点或暗边之后的环、小圆、文字会一起变淡 —— 有用例钉住)
     ctx.globalAlpha = 1;
+    // 枢纽外环(设计 D6):度数高的节点加一圈细环,让骨架里的关键节点一眼可辨。
+    // 用 muted 而非 accent —— accent 留给"选中",两者不能撞语义。
+    const hubs = p.plan.hubs ?? [];
+    if (hubs.length > 0) {
+      ctx.strokeStyle = token('--color-muted');
+      ctx.lineWidth = HUB_RING_WIDTH;
+      for (const h of hubs) {
+        ctx.beginPath();
+        ctx.arc(h.x, h.y, h.r + HUB_RING_GAP, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
     // 选中环:accent 描边,与弱化解耦(选中的点即使被弱化也要看得见环)
     const rings = p.plan.dots.filter((d) => d.selected);
     if (rings.length > 0) {

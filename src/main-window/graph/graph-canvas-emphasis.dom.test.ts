@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { mountCanvas, strokeCalls, type CanvasHarness } from './canvas-test-kit';
 import type { DrawPlan } from './graph-draw-plan';
 
-const empty: DrawPlan = { co: [], tree: [], links: [], dots: [], labels: [], notes: [], overflow: null };
+const empty: DrawPlan = { co: [], tree: [], links: [], hubs: [], dots: [], labels: [], notes: [], overflow: null };
 
 let h: CanvasHarness;
 beforeEach(() => {
@@ -35,13 +35,13 @@ describe('GraphCanvas:强调边与弱化归位', () => {
     await h.render(plan, 100, 100, 'light');
     // 顺序 = co 三条 + tree 两条
     expect(strokeCalls(h.ctx.calls).map((c) => c.lineWidth)).toEqual([1, 2.5, 1, 1.5, 2.5]);
-    expect(strokeCalls(h.ctx.calls).map((c) => c.alpha)).toEqual([1, 1, 0.2, 1, 1]);
+    expect(strokeCalls(h.ctx.calls).map((c) => c.alpha)).toEqual([0.6, 0.6, 0.2, 1, 1]);
   });
 
   it('弱化归位:暗点之后紧随的选中环、笔记小圆、+N 与文字都是满不透明', async () => {
     const plan: DrawPlan = {
       ...empty,
-      dots: [{ id: 1, x: 5, y: 6, r: 9, color: 'rgb(1, 2, 3)', dim: true, selected: true }],
+      hubs: [], dots: [{ id: 1, x: 5, y: 6, r: 9, color: 'rgb(1, 2, 3)', dim: true, selected: true }],
       notes: [{ id: 7, x: 20, y: 30 }],
       overflow: { id: 1, x: 5, y: 6, n: 5 },
       labels: [{ id: 1, x: 5, y: -7, text: '时间' }],
