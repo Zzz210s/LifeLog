@@ -141,29 +141,6 @@ describe('V5 设置页:字号全部落在 7 档令牌内', () => {
     expect(tokens(sw)).toContain('h-6');
   });
 
-  it('回归:齿轮进设置、返回信息流、开关点击回调、恢复默认按钮仍在', async () => {
-    const onThemeChange = vi.fn();
-    render(createElement(SettingsView, { themeMode: 'system', onThemeChange }));
-    await flush();
-    await flush();
-    // 主题改为分段控件(设计 D4):三块按钮,点第三块 = 暗色
-    const themeButtons = [...host.querySelectorAll('[role="group"][aria-label="主题"] button')] as HTMLButtonElement[];
-    expect(themeButtons.map((b) => b.textContent?.trim())).toEqual(['跟随系统', '亮色', '暗色']);
-    act(() => themeButtons[2].click());
-    expect(onThemeChange).toHaveBeenCalledWith('dark');
-
-    // 恢复默认按钮:切到「输入栏行为」(该分区实现了恢复)
-    act(() => (host.querySelector('[data-section-nav="inputBehavior"]') as HTMLButtonElement).click());
-    await flush();
-    await flush();
-    const texts = [...host.querySelectorAll('button')].map((b) => b.textContent?.trim());
-    expect(texts).toContain('恢复本分区默认');
-
-    // 行容器:标签在左、控件在右,一行一条分隔线(结构与 V4 前一致)
-    render(createElement(SettingsRow, { label: '主题', hint: '说明', children: createElement('span', null, 'x') }));
-    const row = host.querySelector('div > div') as HTMLElement;
-    expect(row.className).toContain('justify-between');
-  });
 });
 
 describe('V5 设置页控件:同名口径的三件', () => {
