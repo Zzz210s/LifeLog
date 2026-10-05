@@ -50,6 +50,7 @@ async function render(onPrefill: (prefix: string) => void, rows: TagCount[] = ta
         conditions: EMPTY_FILTER,
         onPatch: () => {},
         tagRows: rows,
+        tagMru: null,
         onTagsMutated: () => {},
         onPrefill,
       }),

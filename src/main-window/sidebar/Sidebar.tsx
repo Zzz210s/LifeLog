@@ -9,6 +9,7 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 import type { FilterConditions } from '../../shared/filter-conditions';
 import { PREFIXES } from '../../shared/input-prefix';
+import type { TagMruSource } from '../../shared/tag-mru';
 import type { TagCount } from '../../shared/types';
 import { TagsSection } from './TagsSection';
 import { clampSidebarWidth } from './use-sidebar-state';
@@ -20,6 +21,8 @@ export interface SidebarProps {
   onPatch: (value: Partial<FilterConditions>) => void;
   /** 全量标签行(list_tags,含 id) */
   tagRows: TagCount[];
+  /** 固定标签 + 标签 MRU(标签菜单「携带…」候选的三档排序);无固定项/无最近用过传 null */
+  tagMru: TagMruSource | null;
   /** 标签改名/移动/删除成功后:刷新标签树 + 级联改写当前筛选条件 */
   onTagsMutated: (pathChange?: { from: string; to: string }) => void;
   /**
@@ -70,6 +73,7 @@ export function Sidebar(p: SidebarProps): ReactNode {
         conditions={p.conditions}
         onPatch={p.onPatch}
         tagRows={p.tagRows}
+        tagMru={p.tagMru}
         mode={p.sidebar.mode}
         onModeChange={p.sidebar.setMode}
         onTagsMutated={p.onTagsMutated}

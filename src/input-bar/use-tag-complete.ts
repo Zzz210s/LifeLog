@@ -1,19 +1,14 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react';
 import { api } from '../shared/api';
-import type { MruEntry } from '../shared/quickpick/model';
+import type { TagMruSource } from '../shared/tag-mru';
 import { completeMatch, tokenAt } from './tag-complete';
 import { useCandidateList } from './use-candidate-list';
 import type { CompleteRow } from './tag-complete';
 
-/** 固定项 / 标签 MRU / 落盘调度的注入面(结构类型):由 `usePaletteSettings` 提供,
- *  输入栏不反向依赖主窗浮层的具体类型,只依赖它俩字段 */
-export interface TagMruSource {
-  /** 固定项(`ui.pinned.tags`),数组顺序即固定档顺序 */
-  readonly pinnedTags: readonly string[];
-  /** 标签 MRU(`ui.mru.tags`,id = 标签完整路径) */
-  readonly mruTags: { touch(id: string): void; entries(): MruEntry[] };
-}
+/** 固定项 / 标签 MRU 的注入面:定义在 `shared/tag-mru`(主窗侧栏也要用同一份),
+ *  输入栏从这个入口取类型,不反向依赖主窗浮层的具体类型 */
+export type { TagMruSource };
 
 export interface TagCompleteOptions {
   textareaRef: RefObject<HTMLTextAreaElement | null>;

@@ -1,18 +1,16 @@
 /**
- * 关系图视图外壳:进视图拉一次图数据 -> 过滤/折叠(G3 起两者合一,见 useGraphFilters)->
- * 径向布局 -> 画布。数据进视图拉一次,标签数据版本变化时自动重拉(useGraphVersion);
- * 信息流与输入栏的启动路径不受影响(设计 §2.1)。
+ * 关系图视图外壳:进视图拉一次图数据 -> 过滤/折叠(G3 起两者合一,见 useGraphFilters)-> 径向布局 -> 画布;
+ * 标签数据版本变化时自动重拉(useGraphVersion),信息流与输入栏的启动路径不受影响(设计 §2.1);`expanded` 与 `selected` 各算各的。
  *
  * 本文件只接线:`hovered` 在 useGraphInteractions,`selected`/`expanded` 在这里,相机在 useGraphCamera,
  * 拖节点与位置记忆在 useNodeDrag(松手写回落给相机的 `commitPositions`),容器上的首次适配与非被动
  * wheel 在 useGraphSurface,展开笔记在 useExpandedNotes,「一帧画什么」在 useGraphPlan,覆盖层
  * (工具栏/过滤器面板/空态)在 GraphOverlays,「整理布局」在 useForceLayout,数据版本重载在 useGraphVersion,
  * 命中对象与状态条文案在 graph-hints。「重置视图」与 `0` 的合成动作(回径向 + 复位相机)在 useGraphStage。
- * 口径提醒:`expanded`
- * 与 `selected` 各算各的 —— 点别的标签不会收掉已展开的小圆。
  */
 import { useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import type { TagMruSource } from '../../shared/tag-mru';
 import type { GraphNode } from '../../shared/types';
 import { GraphCanvas } from './GraphCanvas';
 import { screenOf } from './graph-camera';
@@ -46,6 +44,7 @@ export function GraphView(p: {
   onFilterToStream: (path: string) => void;
   /** 标签数据版本(App 的 `tagsVersion`):变了就重取图数据,相机 / 选中 / 展开都保留 */
   dataVersion: number;
+  tagMru?: TagMruSource | null; // 固定标签 + 标签 MRU(上层透传):「携带…」候选的三档排序
 }): ReactNode {
   const { data, failed, reload } = useGraphData();
   // 数据变化自动重载(设计 §6-5):版本不变不动;`reload` 只换 data
@@ -197,6 +196,7 @@ export function GraphView(p: {
       <GraphTagMenuHost
         at={menu}
         allNodes={data?.nodes ?? []}
+        tagMru={p.tagMru}
         onClose={() => setMenu(null)}
         onDone={() => {
           setMenu(null);

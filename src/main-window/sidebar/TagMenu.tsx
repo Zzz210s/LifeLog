@@ -7,7 +7,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { api } from '../../shared/api';
-import { isValidTagPath } from '../../shared/filter-conditions';
+import type { TagMruSource } from '../../shared/tag-mru';
 import type { TagCount } from '../../shared/types';
 import { TagMenuAliasPane } from './TagMenuAliasPane';
 import { TagMenuCarryPane } from './TagMenuCarryPane';
@@ -18,6 +18,7 @@ import { TagMenuMovePane } from './TagMenuMovePane';
 import { TagMenuRenamePane } from './TagMenuRenamePane';
 import { useDismiss } from '../shell/use-dismiss';
 import { mergeCandidates } from './tag-menu-pure';
+import { tagMenuOps } from './tag-menu-ops';
 import type { Pane } from './tag-menu-ui';
 import type { ManagedNode } from './tag-tree';
 import { useTagMenuAliases } from './use-tag-menu-aliases';
@@ -30,6 +31,8 @@ export interface TagMenuProps {
   y: number;
   /** 移动/合并候选:全部标签行(含 id),自身与子孙由本组件用 mergeCandidates 剔除 */
   tagRows: TagCount[];
+  /** 固定标签 + 标签 MRU(「携带…」候选的三档排序);无固定项/无最近用过传 null */
+  tagMru: TagMruSource | null;
   onClose: () => void;
   /** 操作成功:提示文案 + 改名/移动/合并时的路径变化(删除断链、别名变更不产生) */
   onDone: (message: string, pathChange?: { from: string; to: string }) => void;
@@ -58,12 +61,12 @@ export function TagMenu(p: TagMenuProps): ReactNode {
   }, [pane, p.node.id, impact]);
 
   const parentPrefix = p.node.path.slice(0, p.node.path.length - p.node.name.length);
-  const newPathOf = (name: string): string => parentPrefix + name;
   /** 失败兑现:就地显示后端中文错误并解除 busy(不动菜单状态) */
   const fail = (e: unknown): void => {
     setError(String(e));
     setBusy(false);
   };
+  const ops = tagMenuOps({ node: p.node, newName, fail, setBusy, onError: setError, onClose: p.onClose, onDone: p.onDone });
   const alias = useTagMenuAliases(p.node.id, pane === 'alias', fail, setBusy);
   /** 切换面板:进入前清掉就地错误;删除/合并面板重新取影响面,别名面板重置列表 */
   const pickPane = (next: Pane): void => {
@@ -71,45 +74,6 @@ export function TagMenu(p: TagMenuProps): ReactNode {
     if (next === 'delete' || next === 'merge') setImpact(null);
     if (next === 'alias') alias.reset();
     setPane(next);
-  };
-
-  const doRename = (): void => {
-    const t = newName.trim();
-    if (t === '') return setError('标签名不能为空');
-    if (t.includes('/') || !isValidTagPath(t)) {
-      return setError('标签名不合法(可用行内 md 语法;不能含空白、# 或 /)');
-    }
-    if (t === p.node.name) return p.onClose();
-    setBusy(true);
-    void api
-      .renameTag(p.node.id, t)
-      .then(() => p.onDone('已重命名标签', { from: p.node.path, to: newPathOf(t) }))
-      .catch(fail);
-  };
-
-  const doMove = (parentId: number | null, to: string): void => {
-    setBusy(true);
-    void api
-      .moveTag(p.node.id, parentId)
-      .then(() => p.onDone('已移动标签', { from: p.node.path, to }))
-      .catch(fail);
-  };
-
-  const doDelete = (): void => {
-    setBusy(true);
-    void api
-      .deleteTag(p.node.id)
-      .then(() => p.onDone('已删除标签'))
-      .catch(fail);
-  };
-
-  /** 合并:成功后回报 源路径 -> 目标路径,让上层级联改写筛选条件(源标签已被删除) */
-  const doMerge = (target: TagCount, keepAlias: boolean): void => {
-    setBusy(true);
-    void api
-      .mergeTags(p.node.id, target.id, keepAlias)
-      .then(() => p.onDone('已合并标签', { from: p.node.path, to: target.path }))
-      .catch(fail);
   };
 
   // 移动/合并候选:剔除自身与子孙(路径前缀),按原路径序展示
@@ -136,7 +100,7 @@ export function TagMenu(p: TagMenuProps): ReactNode {
           error={error}
           busy={busy}
           onCancel={p.onClose}
-          onSubmit={doRename}
+          onSubmit={ops.rename}
         />
       )}
       {pane === 'move' && (
@@ -147,7 +111,7 @@ export function TagMenu(p: TagMenuProps): ReactNode {
           busy={busy}
           error={error}
           onCancel={p.onClose}
-          onMove={doMove}
+          onMove={ops.move}
         />
       )}
       {pane === 'delete' && (
@@ -157,7 +121,7 @@ export function TagMenu(p: TagMenuProps): ReactNode {
           error={error}
           busy={busy}
           onCancel={p.onClose}
-          onConfirm={doDelete}
+          onConfirm={ops.remove}
         />
       )}
       {pane === 'alias' && (
@@ -188,11 +152,18 @@ export function TagMenu(p: TagMenuProps): ReactNode {
           error={error}
           busy={busy}
           onCancel={p.onClose}
-          onConfirm={doMerge}
+          onConfirm={ops.merge}
         />
       )}
       {pane === 'carry' && (
-        <TagMenuCarryPane tagId={p.node.id} path={p.node.path} rows={p.tagRows} onCancel={p.onClose} />
+        <TagMenuCarryPane
+          tagId={p.node.id}
+          path={p.node.path}
+          rows={p.tagRows}
+          pinned={p.tagMru?.pinnedTags}
+          mru={p.tagMru?.mruTags.entries()}
+          onCancel={p.onClose}
+        />
       )}
     </div>
   );

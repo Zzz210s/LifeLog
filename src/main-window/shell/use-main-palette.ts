@@ -10,6 +10,7 @@ import type { RefObject } from 'react';
 import type { CommandRegistry } from '../../shared/commands';
 import type { FilterConditions } from '../../shared/filter-conditions';
 import { KEYS } from '../../shared/keys';
+import type { TagMruSource } from '../../shared/tag-mru';
 import type { Context } from '../../shared/when';
 import { usePaletteHotkeys } from '../palette/use-palette-hotkeys';
 import type { PaletteController } from '../palette/use-palette';
@@ -35,6 +36,8 @@ export interface MainPaletteOptions {
 export interface MainPalette {
   controller: PaletteController;
   decorations: Readonly<Record<string, RowDecoration>>;
+  /** 固定标签 + 标签 MRU(来自 `use-app-palette` 里那一份实例):App 透传给侧栏/关系图的标签菜单 */
+  tagMru: TagMruSource | null;
   /** 统一输入框控制器(由 StreamView 上抛):状态取用方从它读 */
   unified: RefObject<UnifiedController | null>;
   /** 聚焦统一输入框并预填前缀(快捷键与侧栏「筛选标签」共用这一条通道) */
@@ -83,5 +86,11 @@ export function useMainPalette(o: MainPaletteOptions): MainPalette {
   const readHotkeys = useAppHotkeys();
   usePaletteHotkeys({ onPrefill: prefill, read: readHotkeys });
 
-  return { controller: palette.controller, decorations: palette.decorations, unified, prefill };
+  return {
+    controller: palette.controller,
+    decorations: palette.decorations,
+    tagMru: palette.tagMru,
+    unified,
+    prefill,
+  };
 }

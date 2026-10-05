@@ -11,6 +11,7 @@
  * 本文件对它们只做透传,不认识其中任何一项;`visible` 由 `view` 派生,调用方不必重复传。
  */
 import type { ReactNode } from 'react';
+import type { TagMruSource } from '../../shared/tag-mru';
 import type { ThemeModeController } from '../../shared/use-theme-mode';
 import { GraphView } from '../graph/GraphView';
 import type { MainView } from '../settings/settings-model';
@@ -38,6 +39,8 @@ export interface ViewHostProps {
   onFilterToStream: (path: string) => void;
   /** 标签数据版本(App 的 `tagsVersion`):关系图据此自动重取,不动相机与选中 */
   dataVersion: number;
+  /** 固定标签 + 标签 MRU(App 透传):关系图的标签菜单「携带…」候选与侧栏同一套三档排序 */
+  tagMru?: TagMruSource | null;
   onReplayTutorial: () => void;
 }
 
@@ -68,7 +71,12 @@ export function ViewHost(p: ViewHostProps): ReactNode {
         />
       )}
       {p.view === 'graph' && (
-        <GraphView onExit={p.onBack} onFilterToStream={p.onFilterToStream} dataVersion={p.dataVersion} />
+        <GraphView
+          onExit={p.onBack}
+          onFilterToStream={p.onFilterToStream}
+          dataVersion={p.dataVersion}
+          tagMru={p.tagMru}
+        />
       )}
     </div>
   );

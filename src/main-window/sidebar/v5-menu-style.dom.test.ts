@@ -55,6 +55,7 @@ function render(onClose = vi.fn(), onDone = vi.fn()): { onClose: typeof onClose;
         x: 10,
         y: 10,
         tagRows: [{ id: 1, path: '工作', depth: 1, self_count: 1, subtree_count: 2 }] as never,
+        tagMru: null,
         onClose,
         onDone,
       })

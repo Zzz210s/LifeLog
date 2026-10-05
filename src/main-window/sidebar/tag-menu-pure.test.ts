@@ -1,7 +1,7 @@
 /** 标签菜单纯助手测试(测试先行,G3):别名输入校验 / 合并候选 / 影响面文案 */
 import { describe, expect, it } from 'vitest';
 import type { TagCount } from '../../shared/types';
-import { mergeCandidates, mergeImpactText, validateAliasInput } from './tag-menu-pure';
+import { carryCandidates, mergeCandidates, mergeImpactText, validateAliasInput } from './tag-menu-pure';
 
 const row = (id: number, path: string, depth: number): TagCount => ({
   id,
@@ -67,6 +67,29 @@ describe('mergeCandidates', () => {
       '乙/子',
       '甲X',
     ]);
+  });
+});
+
+describe('carryCandidates', () => {
+  const rows = [row(1, '甲', 1), row(2, '乙', 1), row(3, '丙', 1), row(4, '丁', 1)];
+
+  it('排除自己', () => {
+    expect(carryCandidates(rows, '甲', []).map((r) => r.path)).toEqual(['乙', '丙', '丁']);
+  });
+
+  it('排除已携带的标签(自己与已携带同时命中时也不重复)', () => {
+    expect(carryCandidates(rows, '甲', [{ path: '丙' }]).map((r) => r.path)).toEqual(['乙', '丁']);
+    expect(carryCandidates(rows, '乙', [{ path: '乙' }]).map((r) => r.path)).toEqual([
+      '甲',
+      '丙',
+      '丁',
+    ]);
+  });
+
+  it('保持原路径序,不改动传入数组', () => {
+    const out = carryCandidates(rows, '甲', [{ path: '乙' }]);
+    expect(out.map((r) => r.id)).toEqual([3, 4]);
+    expect(rows.map((r) => r.id)).toEqual([1, 2, 3, 4]);
   });
 });
 

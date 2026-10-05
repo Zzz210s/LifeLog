@@ -1,14 +1,14 @@
 /**
  * 侧栏「标签」分区(spec 6.1):树/扁平双模式 + 计数导轨 + 选中态。
  * 时间标签已降级为普通标签(D3):本分区就是全部标签(含 `时间排序` 根),
- * 可展开、可右键管理;不再有单独的时间分区,也不再有数据层过滤。
- * 关键词过滤已改为走统一输入框(计划 Task 4):本分区不再有过滤态,树永远全量渲染。
+ * 可展开、可右键管理;关键词过滤已改为走统一输入框(计划 Task 4),本分区不再有过滤态。
  * 选中态与筛选栏 tags[] 是同一份条件对象(上层传入 conditions 派生);
  * 点击 = applyTagPick(含子级 true),再点 = 移除;右键打开 TagMenu 管理标签。
  */
 import { useCallback, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { FilterConditions } from '../../shared/filter-conditions';
+import type { TagMruSource } from '../../shared/tag-mru';
 import type { TagCount } from '../../shared/types';
 import { TagMenu } from './TagMenu';
 import { TagRowList } from './TagRowList';
@@ -25,6 +25,8 @@ export interface TagsSectionProps {
   onPatch: (value: Partial<FilterConditions>) => void;
   /** 全量标签行(list_tags,含 id),树与扁平共用 */
   tagRows: TagCount[];
+  /** 固定标签 + 标签 MRU(标签菜单「携带…」候选的三档排序);无固定项/无最近用过传 null */
+  tagMru: TagMruSource | null;
   mode: TagViewMode;
   onModeChange: (m: TagViewMode) => void;
   /** 点「筛选标签」:交给上层聚焦统一输入框并预填 `#` */
@@ -185,9 +187,9 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
       {menu && (
         <TagMenu
           node={menu.node}
-          x={menu.x}
-          y={menu.y}
+          x={menu.x} y={menu.y}
           tagRows={p.tagRows}
+          tagMru={p.tagMru}
           onClose={() => setMenu(null)}
           onDone={onMenuDone}
         />

@@ -31,6 +31,7 @@ const render = async (mode: TagViewMode = 'tree'): Promise<void> => {
         conditions: EMPTY_FILTER,
         onPatch: () => {},
         tagRows: rows,
+        tagMru: null,
         mode,
         onModeChange: () => {},
         onFilterTags: () => {},

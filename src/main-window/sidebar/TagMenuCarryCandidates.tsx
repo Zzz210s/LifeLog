@@ -48,7 +48,11 @@ export function TagMenuCarryCandidates(p: {
           data-carry-candidate={c.id}
           disabled={p.busy}
           onMouseEnter={() => p.onHover(i)}
-          onClick={() => p.onPick(c)}
+          // 鼠标路径走 mousedown + preventDefault:onClick 之前焦点已被浏览器移到按钮上,输入框一失焦后续打字就落空
+          onMouseDown={(e) => {
+            e.preventDefault();
+            p.onPick(c);
+          }}
           className={ITEM_CLASS + (i === p.activeIndex ? ' bg-accent-soft text-accent-text' : '')}
         >
           <HighlightedPath path={c.path} ranges={c.ranges} />

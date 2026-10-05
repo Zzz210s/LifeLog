@@ -14,6 +14,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../../shared/api';
 import type { CommandRegistry } from '../../shared/commands';
+import type { TagMruSource } from '../../shared/tag-mru';
 import type { Note, TagCount } from '../../shared/types';
 import type { Context } from '../../shared/when';
 import type { ErrorKind } from './ErrorBar';
@@ -43,6 +44,11 @@ export interface AppPaletteOptions {
 export interface AppPalette {
   controller: PaletteController;
   decorations: Readonly<Record<string, RowDecoration>>;
+  /**
+   * 固定标签 + 标签 MRU(直接引用本层 `usePaletteSettings` 的那一份实例,不再新建第二份)。
+   * 侧栏与关系图的标签菜单「携带…」候选靠它拿到与 `#` 补全同一套三档排序;还没读回来时为 null。
+   */
+  tagMru: TagMruSource | null;
 }
 
 interface FilterState {
@@ -136,5 +142,5 @@ export function useAppPalette(options: AppPaletteOptions): AppPalette {
     return noteDecorationsFor(items, noteIndex.current);
   }, [filter.prefix, items, options.registry, options.getContext]);
 
-  return { controller, decorations };
+  return { controller, decorations, tagMru: settings };
 }

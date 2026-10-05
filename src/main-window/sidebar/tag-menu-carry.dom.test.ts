@@ -63,7 +63,7 @@ const flush = async (): Promise<void> => {
 function render(onClose = vi.fn()): { onClose: typeof onClose } {
   act(() => {
     root.render(
-      createElement(TagMenu, { node, x: 10, y: 10, tagRows: ROWS as never, onClose, onDone: vi.fn() })
+      createElement(TagMenu, { node, x: 10, y: 10, tagRows: ROWS as never, tagMru: null, onClose, onDone: vi.fn() })
     );
   });
   return { onClose };
@@ -83,16 +83,6 @@ const candidateTexts = (): string[] =>
   [...host.querySelectorAll('[data-carry-candidate]')].map((el) => el.textContent?.trim() ?? '');
 
 const input = (): HTMLInputElement => host.querySelector('input[aria-label="添加携带标签"]') as HTMLInputElement;
-
-/** 写回受控输入(原生 setter + input 事件) */
-function typeQuery(value: string): void {
-  const el = input();
-  const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
-  act(() => {
-    setValue?.call(el, value);
-    el.dispatchEvent(new Event('input', { bubbles: true }));
-  });
-}
 
 function pressEnter(composing = false): void {
   const ev = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true });

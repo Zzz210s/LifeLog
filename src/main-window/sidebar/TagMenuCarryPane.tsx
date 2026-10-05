@@ -33,12 +33,19 @@ export interface TagMenuCarryPaneProps {
   onCancel: () => void;
 }
 
+/** 完整路径的升序比较器:相等返回 0(后端的 carried 就是路径序,本地增量插入保持同一口径) */
+function byPath(a: { path: string }, b: { path: string }): number {
+  return a.path < b.path ? -1 : a.path > b.path ? 1 : 0;
+}
+
 export function TagMenuCarryPane(p: TagMenuCarryPaneProps): ReactNode {
   const [report, setReport] = useState<CarryReport | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
+  /** 首帧读数未回来:候选池还不知道该排除谁,输入/候选项一律禁用(否则会选了已携带的、本地又无处可记) */
+  const loading = report === null;
 
   useEffect(() => {
     let alive = true;
@@ -77,6 +84,7 @@ export function TagMenuCarryPane(p: TagMenuCarryPaneProps): ReactNode {
   }, [query]);
 
   const add = (id: number, path: string): void => {
+    if (loading) return; // 读数未回来时输入/候选已禁用,这是键盘路径的兜底
     setError('');
     setBusy(true);
     void api
@@ -86,7 +94,7 @@ export function TagMenuCarryPane(p: TagMenuCarryPaneProps): ReactNode {
         setReport((prev) =>
           prev === null
             ? prev
-            : { ...prev, carried: [...prev.carried, { id, path }].sort((a, b) => (a.path < b.path ? -1 : 1)) }
+            : { ...prev, carried: [...prev.carried, { id, path }].sort(byPath) }
         );
       })
       .catch((e) => setError(String(e)))
@@ -131,7 +139,7 @@ export function TagMenuCarryPane(p: TagMenuCarryPaneProps): ReactNode {
         携带:{renderTagLabel(p.path)}
       </p>
       <p className="px-1 text-label text-muted">当前携带</p>
-      {report === null && <p className="px-1 py-1 text-label text-muted">加载中…</p>}
+      {loading && <p className="px-1 py-1 text-label text-muted">加载中…</p>}
       {report !== null && report.carried.length === 0 && (
         <p className="px-1 py-1 text-label text-muted">还没有携带任何标签</p>
       )}
@@ -160,14 +168,20 @@ export function TagMenuCarryPane(p: TagMenuCarryPaneProps): ReactNode {
           setError('');
         }}
         onKeyDown={onKeyDown}
+        disabled={loading || busy}
         placeholder="输入标签名或路径…"
         aria-label="添加携带标签"
         className="h-8 w-full rounded-sm border border-border-strong bg-raised px-2.5 text-ui text-text outline-none"
       />
+      {!loading && candidates.length === 0 && (
+        <p className="px-1 py-1 text-label text-muted">
+          {query.trim() === '' ? '没有可添加的标签' : '没有匹配的标签'}
+        </p>
+      )}
       <TagMenuCarryCandidates
         rows={candidates}
         activeIndex={activeIndex}
-        busy={busy}
+        busy={busy || loading}
         onHover={setActiveIndex}
         onPick={(c) => add(c.id, c.path)}
       />

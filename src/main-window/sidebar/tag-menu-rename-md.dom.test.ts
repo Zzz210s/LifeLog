@@ -77,6 +77,7 @@ function render(): { onDone: ReturnType<typeof vi.fn> } {
         x: 10,
         y: 10,
         tagRows: [{ id: 2, path: '地点/郴州市', depth: 2, self_count: 1, subtree_count: 1 }] as never,
+        tagMru: null,
         onClose: () => {},
         onDone,
       })

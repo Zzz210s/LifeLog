@@ -7,6 +7,7 @@
  * 外层用 `contents` 不生成盒子,菜单是 `fixed` 定位,布局与画布尺寸都不受影响。
  */
 import type { ReactNode } from 'react';
+import type { TagMruSource } from '../../shared/tag-mru';
 import type { GraphNode } from '../../shared/types';
 import { TagMenu } from '../sidebar/TagMenu';
 import { clampMenuPos, toManagedNode, toTagCount } from './graph-tag-menu';
@@ -15,6 +16,8 @@ export interface GraphTagMenuHostProps {
   /** 右键请求(节点 id + 事件落点);null 表示不开菜单 */
   at: { id: number; x: number; y: number } | null;
   allNodes: readonly GraphNode[];
+  /** 固定标签 + 标签 MRU(上层透传):「携带…」候选与侧栏同一套三档排序 */
+  tagMru?: TagMruSource | null;
   onClose: () => void;
   onDone: (message: string, pathChange?: { from: string; to: string }) => void;
 }
@@ -31,6 +34,7 @@ export function GraphTagMenuHost(p: GraphTagMenuHostProps): ReactNode {
       <TagMenu
         node={toManagedNode(node)}
         tagRows={p.allNodes.map(toTagCount)}
+        tagMru={p.tagMru ?? null}
         x={pos.x}
         y={pos.y}
         onClose={p.onClose}

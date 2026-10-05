@@ -113,7 +113,7 @@ export function App(): ReactNode {
   const menuItems = topBarMenuItems({ sort: conditions.sort, exporting, run: (id) => void commands.execute(id) });
 
   // 候选控制器/装饰 + 快捷键接线(prefill 是唯一入口;采纳副作用在 StreamView)
-  const { controller, decorations, unified, prefill } = useMainPalette({
+  const { controller, decorations, tagMru, unified, prefill } = useMainPalette({
     registry: commands.registry,
     beforePrefill: () => setView('stream'),
     tagsVersion,
@@ -130,6 +130,7 @@ export function App(): ReactNode {
         conditions={conditions}
         onPatch={patch}
         tagRows={tagRows}
+        tagMru={tagMru}
         onTagsMutated={handleTagsMutated}
         onPrefill={prefill}
       />
@@ -177,6 +178,7 @@ export function App(): ReactNode {
         onReplayTutorial={tutorial.onReplay}
         onFilterToStream={filterToStream}
         dataVersion={tagsVersion}
+        tagMru={tagMru}
       />
       <CommandStatusPill status={commands.status} />
       {/* 瞬时悬浮提示(标签名里的备注字):原生 title 延迟约 1 秒,这里走 data-tip 事件委托 */}
