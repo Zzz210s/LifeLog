@@ -3,7 +3,10 @@
  *
  * - `tag-grammar.json`:前端**不实现**标签语法(再写一份等于把漂移固化),解析一律走
  *   后端命令 `parse_note_source`。这里只做契约断言:fixture 结构合法 + 前端确实接线该命令。
- *   **若将来前端要镜像语法,必须让本文件的断言真正跑一遍镜像实现**,而不是只断言结构。
+ *   **唯一例外**是展示级的 `src/main-window/filter/expr-tag-spans.ts`(只在条件栏摘要里定位
+ *   表达式中的标签叶子,不参与校验/求值);它不靠人工对齐,而由共享向量
+ *   `fixtures/expr-tag-spans.json` 两侧各跑一遍钉住 —— 前端断言真调 `exprTagSpans`
+ *   (`expr-tag-spans.test.ts`),后端读同一份跑 `lex_spans`(`expr/lexer_fixtures_tests.rs`)。
  * - `filter-conditions.json`:每条喂给前端**真实的**校验/归一函数(parseFilterJson /
  *   applyTagPick / localExprError);Rust 侧读同一份文件断言后端真源
  *   (见 src-tauri/src/filter_fixtures_tests.rs),同一份向量两边各跑一遍才能发现漂移。

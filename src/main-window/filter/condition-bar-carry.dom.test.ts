@@ -74,4 +74,13 @@ describe('条件栏摘要 +携带:按携带者数据门控', () => {
     await render(COND);
     expect(summaryText()).toBe('标签 工作+携带、临时+携带;表达式:#工作+携带 AND #临时+携带');
   });
+
+  it('加载中(IPC 未回)先不标 +携带:真实库 0 条携带行时也不闪一下', async () => {
+    let resolveFetch: (v: string[]) => void = () => {};
+    carriedTagPaths.mockReturnValue(new Promise<string[]>((r) => { resolveFetch = r; }));
+    await render(COND);
+    expect(summaryText()).not.toContain('携带');
+    await act(async () => resolveFetch(['工作']));
+    expect(summaryText()).toBe('标签 工作+携带、临时;表达式:#工作+携带 AND #临时');
+  });
 });

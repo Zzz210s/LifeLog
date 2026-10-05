@@ -28,11 +28,11 @@ pub(crate) fn tag_predicate(path: &str, self_only: bool, args: &mut Vec<Value>) 
 
 /// 「`t` 落在某个携带 `path` 的标签子树内」:先把「携带者子树的标签 id」物化成一个
 /// 集合,再用 `t.id IN (...)` 做成员判定。集合子查询**不引用 `t`/`n`**,SQLite 只求值
-/// 一次(QUERY PLAN 里是 `LIST SUBQUERY`),而对每对 (笔记, 标签) 重跑一次相关
-/// `EXISTS`(旧写法,`CORRELATED SCALAR SUBQUERY`)是这条筛选的主要开销:
-/// 真实库副本 ×300 复测(见 .superpowers/t2-carry-perf/bench.mjs)中位耗时
-/// 无携带行 4.52ms -> 2.60ms、1 条携带 7.75ms -> 2.69ms、8 条携带 21.85ms -> 3.41ms,
-/// 已接近整段去掉携带的下限 2.4ms。语义逐值等价:仍是「`d` 与某个携带 `path` 的
+/// 一次(QUERY PLAN 里是 `LIST SUBQUERY`);旧写法对每对 (笔记, 标签) 重跑一次相关
+/// `EXISTS`(`CORRELATED SCALAR SUBQUERY`),携带行越多、题面越大时越贵,物化集合则与
+/// 携带行数近乎无关(复测读数见提交信息)。**适用条件**:优势只在整表扫描/长翻页时体现;
+/// 若查询很快被 `LIMIT` 早停填满(如按时间取一页 50 条),旧写法的 OR 短路反而更省 ——
+/// 此时物化集合要先付一次全表构建。语义逐值等价:仍是「`d` 与某个携带 `path` 的
 /// `ca` 同路径或在其子树内」,前缀用 substr、边界靠显式 `/`;`target_type='tag'`
 /// 既限定携带行、又避免把笔记链接(target_id 撞号)误当携带。
 fn carry_predicate(path: &str, args: &mut Vec<Value>) -> String {

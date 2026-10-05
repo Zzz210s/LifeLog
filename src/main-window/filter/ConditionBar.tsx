@@ -36,11 +36,13 @@ export function ConditionBar(p: ConditionBarProps): ReactNode {
   // 两个对话框的开关只由「添加条件」菜单触发,所以留在本组件里
   const [tagPick, setTagPick] = useState<{ exclude: boolean } | null>(null);
   const [exprOpen, setExprOpen] = useState(false);
-  // 有携带者的标签路径集合(null = 还没取到 → 摘要退回「都标 +携带」)
-  const [carryPaths, setCarryPaths] = useState<CarryPaths>(null);
+  // 有携带者的标签路径集合;初值空集 = 加载中(先不标) —— 真实库 0 条携带行时不会闪 +携带
+  const [carryPaths, setCarryPaths] = useState<CarryPaths>(new Set());
   const condKey = filterKey(p.conditions);
 
-  // 挂载 / 条件变化时批量取一次(不每个 chip 一次 IPC);取不到就保持 null,不变成不显示
+  // 挂载 / 条件变化时批量取一次(不每个 chip 一次 IPC)。condKey 有意当刷新信号:携带关系是
+  // 全局集合、与条件无关,但条件变更顺带重取,省一条跨栏事件通道。加载中保持上一轮结果(不闪);
+  // 只有 IPC 失败才置 null(退回「都显示」,spec 兜底)。
   useEffect(() => {
     let stale = false;
     api

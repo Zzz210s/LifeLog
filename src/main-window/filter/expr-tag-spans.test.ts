@@ -1,7 +1,19 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { exprTagSpans } from './expr-tag-spans';
 
 const spans = (text: string) => exprTagSpans(text).map((s) => [s.path, s.start, s.end]);
+
+interface FixtureCase {
+  why: string;
+  src: string;
+  tags: [string, number, number][];
+  lexError?: boolean;
+}
+
+const fixture: FixtureCase[] = JSON.parse(
+  readFileSync(new URL('../../../fixtures/expr-tag-spans.json', import.meta.url), 'utf8')
+);
 
 describe('exprTagSpans:表达式里的标签叶子定位(展示级)', () => {
   it('按出现顺序给出 #路径 的路径与区间', () => {
@@ -43,5 +55,29 @@ describe('exprTagSpans:表达式里的标签叶子定位(展示级)', () => {
       ['生活', 16, 19],
     ]);
     expect(spans('a&b')).toEqual([]);
+  });
+
+  it('代理对(扩展区汉字)按码位计算:不截断路径、下标不错位', () => {
+    expect(spans('#中日𠀀文')).toEqual([['中日𠀀文', 0, 5]]);
+    expect(spans('#𠀀测试 AND #中日𠀀文')).toEqual([
+      ['𠀀测试', 0, 4],
+      ['中日𠀀文', 9, 14],
+    ]);
+  });
+});
+
+// 共享向量:前端是本仓库唯一一处镜像标签语法的地方,所以断言必须真跑 exprTagSpans,
+// 而不是只验结构。Rust 侧读同一份文件跑 lex_spans(见 expr/lexer_fixtures_tests.rs)。
+describe('fixtures/expr-tag-spans.json(镜像实现逐条实跑)', () => {
+  it('向量结构合法:条数达标,且含词法报错反例与非 ASCII 路径', () => {
+    expect(fixture.length).toBeGreaterThanOrEqual(12);
+    expect(fixture.some((c) => c.lexError)).toBe(true);
+    expect(fixture.some((c) => c.tags.some(([p]) => /[^\x00-\x7f]/.test(p)))).toBe(true);
+  });
+
+  it('每条向量都按 exprTagSpans 实际输出逐字对齐', () => {
+    for (const c of fixture) {
+      expect(spans(c.src), `${c.src}:${c.why}`).toEqual(c.tags);
+    }
   });
 });

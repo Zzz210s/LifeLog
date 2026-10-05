@@ -8,11 +8,14 @@
  */
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { FilterConditions } from '../../shared/filter-conditions';
-import { EMPTY_FILTER } from '../../shared/filter-conditions';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { EMPTY_FILTER, type FilterConditions } from '../../shared/filter-conditions';
 import { ConditionBar } from './ConditionBar';
 import { summaryOf, summaryTitleOf } from './filter-chips';
+
+// 携带集合走 IPC:本文件固定返回空集(携带专项见 condition-bar-carry.dom.test.ts),且落在 act 内
+const { carriedTagPaths } = vi.hoisted(() => ({ carriedTagPaths: vi.fn() }));
+vi.mock('../../shared/api', () => ({ api: { carriedTagPaths } }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -32,8 +35,8 @@ let host: HTMLDivElement;
 let patches: Array<Partial<FilterConditions>>;
 let opens: boolean[];
 
-function render(conditions: FilterConditions = EMPTY_FILTER, addConditionOpen = false): void {
-  act(() =>
+async function render(conditions: FilterConditions = EMPTY_FILTER, addConditionOpen = false): Promise<void> {
+  await act(async () => {
     root.render(
       createElement(ConditionBar, {
         conditions,
@@ -41,8 +44,8 @@ function render(conditions: FilterConditions = EMPTY_FILTER, addConditionOpen = 
         addConditionOpen,
         onAddConditionOpenChange: (open: boolean) => opens.push(open),
       })
-    )
-  );
+    );
+  });
 }
 
 const tokens = (el: Element): string[] => String(el.className).split(/\s+/).filter(Boolean);
@@ -56,6 +59,8 @@ const buttonText = (b: HTMLButtonElement): string =>
   `${b.textContent ?? ''} ${b.getAttribute('aria-label') ?? ''}`;
 
 beforeEach(() => {
+  carriedTagPaths.mockReset();
+  carriedTagPaths.mockResolvedValue([]);
   patches = [];
   opens = [];
   host = document.createElement('div');
@@ -69,8 +74,8 @@ afterEach(() => {
 });
 
 describe('条件栏:只剩 chips 与摘要', () => {
-  it('不渲染排序 / 导出 / 添加条件按钮(鼠标入口在顶栏溢出菜单)', () => {
-    render(FULL);
+  it('不渲染排序 / 导出 / 添加条件按钮(鼠标入口在顶栏溢出菜单)', async () => {
+    await render(FULL);
     expect(buttons().length).toBeGreaterThan(0); // 断言不是"整栏没按钮"这种假绿
     for (const b of buttons()) {
       expect(buttonText(b)).not.toMatch(/排序|导出|添加条件/);
@@ -81,8 +86,8 @@ describe('条件栏:只剩 chips 与摘要', () => {
     }
   });
 
-  it('外层仍是条件栏样式(border-b + px-4 + py-1),故以 data-testid 锚定', () => {
-    render();
+  it('外层仍是条件栏样式(border-b + px-4 + py-1),故以 data-testid 锚定', async () => {
+    await render();
     const t = tokens(bar());
     for (const token of ['border-b', 'border-border', 'px-4', 'py-1']) expect(t).toContain(token);
     expect(bar().getAttribute('data-testid')).toBe('condition-bar');
@@ -90,8 +95,8 @@ describe('条件栏:只剩 chips 与摘要', () => {
 });
 
 describe('条件栏:条件 chips 的显示与单删', () => {
-  it('关键词 chip 可单删:点 × 回传 keyword: null,其余条件原样带出', () => {
-    render(FULL);
+  it('关键词 chip 可单删:点 × 回传 keyword: null,其余条件原样带出', async () => {
+    await render(FULL);
     const removeBtn = chips()[0].querySelector('button') as HTMLButtonElement;
     expect(removeBtn.getAttribute('aria-label')).toBe('移除条件 关键词:电影');
     act(() => removeBtn.click());
@@ -100,8 +105,8 @@ describe('条件栏:条件 chips 的显示与单删', () => {
     expect(patches[0].tags).toEqual(FULL.tags);
   });
 
-  it('tags / excludeTags 各自一个 chip,标签文案即路径', () => {
-    render(FULL);
+  it('tags / excludeTags 各自一个 chip,标签文案即路径', async () => {
+    await render(FULL);
     const labels = chips().map((c) => c.textContent ?? '');
     expect(chips().length).toBe(6);
     expect(labels[1]).toContain('工作');
@@ -109,8 +114,8 @@ describe('条件栏:条件 chips 的显示与单删', () => {
     expect(patches).toEqual([]);
   });
 
-  it('回归:六种 chip 都是 rounded-xs + text-label + 1px border,gap-1(4px)', () => {
-    render(FULL);
+  it('回归:六种 chip 都是 rounded-xs + text-label + 1px border,gap-1(4px)', async () => {
+    await render(FULL);
     const list = chips();
     expect(tokens(list[0].parentElement as HTMLElement)).toContain('gap-1');
     for (const chip of list) {
@@ -120,8 +125,8 @@ describe('条件栏:条件 chips 的显示与单删', () => {
     }
   });
 
-  it('回归:中性条件(有无标签 / 排序)= chrome 底 + muted 字;收窄条件 = accent', () => {
-    render(FULL);
+  it('回归:中性条件(有无标签 / 排序)= chrome 底 + muted 字;收窄条件 = accent', async () => {
+    await render(FULL);
     const [keyword, tag, , presence, expr, sort] = chips();
     for (const neutral of [presence, sort]) {
       const t = tokens(neutral);
@@ -136,8 +141,8 @@ describe('条件栏:条件 chips 的显示与单删', () => {
     }
   });
 
-  it('回归:排除标签 chip 仍走 danger 语义色;表达式 chip 的 label 可点(编辑入口)', () => {
-    render(FULL);
+  it('回归:排除标签 chip 仍走 danger 语义色;表达式 chip 的 label 可点(编辑入口)', async () => {
+    await render(FULL);
     const exclude = tokens(chips()[2]);
     expect(exclude).toContain('text-danger');
     expect(exclude).toContain('bg-danger-soft');
@@ -147,36 +152,36 @@ describe('条件栏:条件 chips 的显示与单删', () => {
 });
 
 describe('条件栏:中文摘要', () => {
-  it('渲染中文摘要且带 title(悬浮看未截断的表达式原文)', () => {
-    render(FULL);
+  it('渲染中文摘要且带 title(悬浮看未截断的表达式原文)', async () => {
+    await render(FULL);
     const summary = host.querySelector('[data-testid="condition-bar-summary"]') as HTMLElement;
-    expect(summary.textContent).toBe(summaryOf(FULL));
-    expect(summary.getAttribute('title')).toBe(summaryTitleOf(FULL));
+    expect(summary.textContent).toBe(summaryOf(FULL, new Set()));
+    expect(summary.getAttribute('title')).toBe(summaryTitleOf(FULL, new Set()));
     expect(tokens(summary)).toContain('text-label');
     expect(tokens(summary)).toContain('text-muted');
   });
 
-  it('空条件不渲染摘要', () => {
-    render();
+  it('空条件不渲染摘要', async () => {
+    await render();
     expect(host.querySelector('[data-testid="condition-bar-summary"]')).toBeNull();
   });
 });
 
 describe('条件栏:添加条件菜单受控', () => {
-  it('addConditionOpen=true 时菜单出现,五项在;false 时不渲染菜单', () => {
+  it('addConditionOpen=true 时菜单出现,五项在;false 时不渲染菜单', async () => {
     const items = (): string[] =>
       [...(menu() as HTMLElement).querySelectorAll('button[role="menuitem"]')].map((b) => b.textContent ?? '');
-    render(FULL);
+    await render(FULL);
     expect(menu()).toBeNull();
-    render(FULL, true);
+    await render(FULL, true);
     expect(menu()).not.toBeNull();
     expect(items()).toEqual(['标签', '排除标签', '有无标签', '排序', '表达式(高级)']);
   });
 
-  it('有无标签子面板:文案是「无标签」,不再叫「无自定义标签」', () => {
+  it('有无标签子面板:文案是「无标签」,不再叫「无自定义标签」', async () => {
     const items = (): string[] =>
       [...(menu() as HTMLElement).querySelectorAll('button[role="menuitem"]')].map((b) => b.textContent ?? '');
-    render(FULL, true);
+    await render(FULL, true);
     const pane = [...(menu() as HTMLElement).querySelectorAll<HTMLButtonElement>('button[role="menuitem"]')].find(
       (b) => b.textContent === '有无标签'
     ) as HTMLButtonElement;
@@ -184,8 +189,8 @@ describe('条件栏:添加条件菜单受控', () => {
     expect(items()).toEqual(['不限', '有标签', '无标签']);
   });
 
-  it('菜单自身只通过 onAddConditionOpenChange 关闭(受控,不自持状态)', () => {
-    render(FULL, true);
+  it('菜单自身只通过 onAddConditionOpenChange 关闭(受控,不自持状态)', async () => {
+    await render(FULL, true);
     act(() => {
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     });

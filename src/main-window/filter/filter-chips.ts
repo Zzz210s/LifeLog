@@ -7,7 +7,12 @@
 import { hasExpr } from '../../shared/filter-conditions';
 import type { FilterConditions, TagCond } from '../../shared/filter-conditions';
 import { tagLabelPlain } from '../../shared/tag-label';
-import { exprTagSpans } from './expr-tag-spans';
+import { CARRY_MARK, exprSegments, showCarry, truncateExpr } from './expr-tag-spans';
+import type { CarryPaths, SummarySegment } from './expr-tag-spans';
+
+// 截断与表达式片段(含标签叶子定位)的真源在 expr-tag-spans.ts,这里转发给既有调用点
+export { EXPR_TEXT_MAX, truncateExpr } from './expr-tag-spans';
+export type { CarryPaths, SummarySegment } from './expr-tag-spans';
 
 /** chip 种类与文案一一对应;remove 是删掉该 chip 后的条件对象(完整替换用) */
 export type Chip = {
@@ -27,15 +32,6 @@ const chipTag = (t: TagCond): string =>
 
 /** 标签 chip 的悬浮提示:含子级 / 仅本级 */
 const tagTitle = (t: TagCond): string => (t.includeChildren ? '含子级' : '仅本级');
-
-/** 表达式 chip / 摘要里原文的截断长度(超出补省略号;全文放 title) */
-export const EXPR_TEXT_MAX = 40;
-
-/** 按字符(码点)截断表达式原文:不超长原样返回,超长截到 EXPR_TEXT_MAX 并补「…」 */
-export function truncateExpr(text: string, max = EXPR_TEXT_MAX): string {
-  const chars = [...text];
-  return chars.length <= max ? text : chars.slice(0, max).join('') + '…';
-}
 
 /** 表达式 chip / 摘要的文案:「表达式:<原文>」 */
 const exprLabel = (text: string, truncate: boolean): string =>
@@ -86,19 +82,6 @@ export function chipsOf(c: FilterConditions): Chip[] {
   }
   return chips;
 }
-
-/** 携带标记:标签条件也含「携带它的标签子树」下的笔记(spec §5),摘要里用小字标出 */
-export const CARRY_MARK = '+携带';
-
-/** 有携带者的标签路径集合;null = 数据未就绪(退回现在的行为:都显示) */
-export type CarryPaths = ReadonlySet<string> | null;
-
-/** 是否给该路径标 `+携带`:数据未就绪时退回显示,拿到数据后只看它是否真有携带者 */
-const showCarry = (path: string, carryPaths: CarryPaths): boolean =>
-  carryPaths === null || carryPaths.has(path);
-
-/** 摘要片段:carry=true 的片段渲染成小字(目前只有 `+携带`);text 含分隔符 */
-export type SummarySegment = { text: string; carry: boolean };
 
 /** 中文一句话摘要:'关键词「电影」;标签 工作+携带;无标签;最早在前';空条件为空串(含子级不进摘要) */
 export function summaryOf(c: FilterConditions, carryPaths: CarryPaths = null): string {
@@ -152,24 +135,6 @@ function tagGroup(prefix: string, list: TagCond[], carryPaths: CarryPaths): Summ
     segs.push({ text: tagLabelPlain(t.path), carry: false });
     if (showCarry(t.path, carryPaths)) segs.push({ text: CARRY_MARK, carry: true });
   });
-  return segs;
-}
-
-/**
- * 表达式段:原文按标签叶子切成若干片段,每个叶子后按需跟 `+携带` 小字。
- * 截断先做(显示口径与 chip 一致),再在截断后的文本里定位叶子 —— 被截掉的半个标签不再标。
- */
-function exprSegments(text: string, truncate: boolean, carryPaths: CarryPaths): SummarySegment[] {
-  const shown = truncate ? truncateExpr(text) : text;
-  const segs: SummarySegment[] = [{ text: '表达式:', carry: false }];
-  let pos = 0;
-  for (const tag of exprTagSpans(shown)) {
-    if (tag.start > pos) segs.push({ text: shown.slice(pos, tag.start), carry: false });
-    segs.push({ text: shown.slice(tag.start, tag.end), carry: false });
-    if (showCarry(tag.path, carryPaths)) segs.push({ text: CARRY_MARK, carry: true });
-    pos = tag.end;
-  }
-  if (pos < shown.length) segs.push({ text: shown.slice(pos), carry: false });
   return segs;
 }
 

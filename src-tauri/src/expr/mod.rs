@@ -34,6 +34,12 @@ mod describe_tests;
 #[path = "lexer_tests.rs"]
 mod lexer_tests;
 
+// 共享测试向量(仓库根 fixtures/expr-tag-spans.json)的 Rust 侧断言:
+// 与前端 src/main-window/filter/expr-tag-spans.test.ts 读同一份文件,钉住展示级镜像
+#[cfg(test)]
+#[path = "lexer_fixtures_tests.rs"]
+mod lexer_fixtures_tests;
+
 #[cfg(test)]
 #[path = "parser_tests.rs"]
 mod parser_tests;
