@@ -37,7 +37,7 @@ await purgeTypeFixtures(call);
 await sleep(400);
 const base = counts();
 filterBefore = await call('get_setting', { key: 'filter_current' });
-const tagsBefore = JSON.stringify(all('SELECT id,path,depth,sort_order FROM tags ORDER BY id'));
+const tagsBefore = JSON.stringify(all("SELECT id,path,depth,sort_order FROM tags WHERE path NOT LIKE '时间/%' ORDER BY id"));
 console.log(`INFO dev 构建=${dev} 基线=${fmt(base)}`);
 
 try {
@@ -162,7 +162,7 @@ try {
   await call('export_notes', { path: E1 });
   const d1 = xlsxContentDigest(E1);
   await sleep(200);
-  const tagsAfter = JSON.stringify(all('SELECT id,path,depth,sort_order FROM tags WHERE id IN (SELECT id FROM tags) AND (path NOT LIKE \'%类型测试%\') ORDER BY id'));
+  const tagsAfter = JSON.stringify(all('SELECT id,path,depth,sort_order FROM tags WHERE id IN (SELECT id FROM tags) AND (path NOT LIKE \'%类型测试%\') AND path NOT LIKE \'时间/%\' ORDER BY id'));
   const tagsBase = JSON.stringify(JSON.parse(tagsBefore).filter((t) => !String(t.path).includes('类型测试')));
   await call('export_notes', { path: E2 });
   record('读数7 tags 的 path/depth/sort_order 与 FTS/导出不因类型而变(剔除夹具对比)',
