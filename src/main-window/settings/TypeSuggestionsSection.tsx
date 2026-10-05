@@ -1,37 +1,37 @@
-// 设置页「标签角色」分区(设计 2026-10-05-tag-roles-design.md §6):把启发式建议逐条过一遍,
-// 接受 / 改成别的角色 / 忽略,最后批量写库。
-// 绝不自动写(R6/R10):只有点「批量确认」才调命令;已确认的 (标签,角色) 自动消失。
+// 设置页「标签类型」分区(设计 2026-10-05-tag-types-design.md §6):把启发式建议逐条过一遍,
+// 接受 / 改成别的类型 / 忽略,最后批量写库。
+// 绝不自动写(R6/R10):只有点「批量确认」才调命令;已确认的 (标签,类型) 自动消失。
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { api } from '../../shared/api';
-import type { RoleRef } from '../../shared/types';
+import type { TypeRef } from '../../shared/types';
 import { BTN_SECONDARY } from '../shell/button-classes';
-import { RoleSuggestionRow } from './RoleSuggestionRow';
-import { RoleSuggestionsToolbar } from './RoleSuggestionsToolbar';
+import { TypeSuggestionRow } from './TypeSuggestionRow';
+import { TypeSuggestionsToolbar } from './TypeSuggestionsToolbar';
 import { SettingsSection } from './SettingsSection';
 import { TagTreeCarryRow } from './TagTreeCarryRow';
 import { SETTINGS_SECTIONS } from './settings-sections';
-import { effectiveRole, pendingSuggestions, planWrites, setExcludedFor, suggestRoles, type RoleSuggestion } from './role-suggestions';
+import { effectiveType, pendingSuggestions, planWrites, setExcludedFor, suggestTypes, type TypeSuggestion } from './type-suggestions';
 
-const META = SETTINGS_SECTIONS.find((s) => s.id === 'roles')!;
+const META = SETTINGS_SECTIONS.find((s) => s.id === 'types')!;
 /** 每页条数:上百条建议要能一次过完,但一屏不刷太长(R11) */
 const PAGE_SIZE = 20;
 
 type ClaimIndex = Map<number, Set<number>>;
 
-export interface RoleSuggestionsSectionProps {
+export interface TypeSuggestionsSectionProps {
   /** 设置开关「标签树里显示携带」当前值(默认关);透传给 TagTreeCarryRow */
   showCarry?: boolean;
   onShowCarryChange?: (v: boolean) => void;
 }
 
-export function RoleSuggestionsSection(p: RoleSuggestionsSectionProps = {}): ReactNode {
-  const [all, setAll] = useState<RoleSuggestion[]>([]);
-  const [roles, setRoles] = useState<RoleRef[]>([]);
+export function TypeSuggestionsSection(p: TypeSuggestionsSectionProps = {}): ReactNode {
+  const [all, setAll] = useState<TypeSuggestion[]>([]);
+  const [types, setTypes] = useState<TypeRef[]>([]);
   const [claimed, setClaimed] = useState<ClaimIndex>(new Map());
   const [ignored, setIgnored] = useState<Set<number>>(new Set());
   const [overrides, setOverrides] = useState<Map<number, number>>(new Map());
   const [excluded, setExcluded] = useState<Set<number>>(new Set());
-  const [filterRole, setFilterRole] = useState('all');
+  const [filterType, setFilterType] = useState('all');
   const [page, setPage] = useState(0);
   const [status, setStatus] = useState('');
   const [loaded, setLoaded] = useState(false);
@@ -40,14 +40,14 @@ export function RoleSuggestionsSection(p: RoleSuggestionsSectionProps = {}): Rea
   useEffect(() => {
     let alive = true;
     setStatus('');
-    Promise.all([api.listTags(), api.listRoles()])
-      .then(async ([tags, roleList]) => {
-        const rows = suggestRoles(tags);
+    Promise.all([api.listTags(), api.listTypes()])
+      .then(async ([tags, typeList]) => {
+        const rows = suggestTypes(tags);
         const ids = [...new Set(rows.map((r) => r.tagId))];
-        const claims = await Promise.all(ids.map((id) => api.listTagRoles(id)));
+        const claims = await Promise.all(ids.map((id) => api.listTagTypes(id)));
         if (!alive) return;
         setAll(rows);
-        setRoles(roleList);
+        setTypes(typeList);
         setClaimed(new Map(ids.map((id, i) => [id, new Set(claims[i].map((r) => r.tagId))])));
         setLoaded(true);
       })
@@ -64,14 +64,14 @@ export function RoleSuggestionsSection(p: RoleSuggestionsSectionProps = {}): Rea
     [all, claimed, ignored, overrides],
   );
   const visible = useMemo(
-    () => (filterRole === 'all' ? rows : rows.filter((r) => String(r.roleTagId) === filterRole)),
-    [rows, filterRole],
+    () => (filterType === 'all' ? rows : rows.filter((r) => String(r.typeTagId) === filterType)),
+    [rows, filterType],
   );
   const filterOptions = useMemo(() => {
     const seen = new Map<number, string>();
-    for (const r of rows) if (!seen.has(r.roleTagId)) seen.set(r.roleTagId, r.roleName);
+    for (const r of rows) if (!seen.has(r.typeTagId)) seen.set(r.typeTagId, r.typeName);
     return [
-      { value: 'all', label: '全部角色' },
+      { value: 'all', label: '全部类型' },
       ...[...seen].map(([id, name]) => ({ value: String(id), label: name })),
     ];
   }, [rows]);
@@ -91,9 +91,9 @@ export function RoleSuggestionsSection(p: RoleSuggestionsSectionProps = {}): Rea
       return next;
     });
 
-  /** 唯一的写库入口:先登记缺的角色标签(幂等),再逐标签整体替换认领;作用域 = 当前筛选可见项 */
+  /** 唯一的写库入口:先登记缺的类型标签(幂等),再逐标签整体替换认领;作用域 = 当前筛选可见项 */
   const confirmBatch = useCallback(async (): Promise<void> => {
-    const plan = planWrites(visible, allSelected, overrides, claimed, new Set(roles.map((r) => r.tagId)));
+    const plan = planWrites(visible, allSelected, overrides, claimed, new Set(types.map((r) => r.tagId)));
     if (plan.writes.length === 0) {
       setStatus('没有选中的建议(全选与批量确认只作用于当前筛选可见项)');
       return;
@@ -101,23 +101,23 @@ export function RoleSuggestionsSection(p: RoleSuggestionsSectionProps = {}): Rea
     setBusy(true);
     setStatus('');
     try {
-      for (const id of plan.registerRoleIds) await api.registerRole(id);
-      for (const w of plan.writes) await api.setTagRoles(w.tagId, w.roleIds);
+      for (const id of plan.registerTypeIds) await api.setTagTypeFlag(id, true);
+      for (const w of plan.writes) await api.setTagTypes(w.tagId, w.typeIds);
       setClaimed((prev) => {
         const next = new Map(prev);
-        for (const w of plan.writes) next.set(w.tagId, new Set(w.roleIds));
+        for (const w of plan.writes) next.set(w.tagId, new Set(w.typeIds));
         return next;
       });
-      // 新登记的角色要立刻进「改成别的角色」下拉,否则同批剩下的行看不到它
-      const fresh = await api.listRoles().catch(() => null);
-      if (fresh !== null) setRoles(fresh);
+      // 新登记的类型要立刻进「改成别的类型」下拉,否则同批剩下的行看不到它
+      const fresh = await api.listTypes().catch(() => null);
+      if (fresh !== null) setTypes(fresh);
       setStatus(`已写入 ${plan.writes.length} 条认领`);
     } catch (e) {
       setStatus('写入失败: ' + String(e));
     } finally {
       setBusy(false);
     }
-  }, [visible, allSelected, overrides, claimed, roles]);
+  }, [visible, allSelected, overrides, claimed, types]);
 
   return (
     <SettingsSection meta={META}>
@@ -129,10 +129,10 @@ export function RoleSuggestionsSection(p: RoleSuggestionsSectionProps = {}): Rea
         checked={p.showCarry === true}
         onChange={(v) => p.onShowCarryChange?.(v)}
       />
-      <RoleSuggestionsToolbar
-        filterRole={filterRole}
+      <TypeSuggestionsToolbar
+        filterType={filterType}
         filterOptions={filterOptions}
-        onFilterRole={setFilterRole}
+        onFilterType={setFilterType}
         selectedCount={allSelected.size}
         busy={busy}
         onSelectAll={() => setExcluded((prev) => setExcludedFor(prev, visible.map((r) => r.tagId), false))}
@@ -151,14 +151,14 @@ export function RoleSuggestionsSection(p: RoleSuggestionsSectionProps = {}): Rea
       )}
 
       {pageRows.map((row) => (
-        <RoleSuggestionRow
+        <TypeSuggestionRow
           key={row.tagId}
           row={row}
-          roles={roles}
+          types={types}
           checked={!excluded.has(row.tagId)}
-          roleId={effectiveRole(row, overrides)}
+          typeId={effectiveType(row, overrides)}
           onToggle={() => toggle(row.tagId)}
-          onRole={(id) => setOverrides((prev) => new Map(prev).set(row.tagId, id))}
+          onType={(id) => setOverrides((prev) => new Map(prev).set(row.tagId, id))}
           onIgnore={() => setIgnored((prev) => new Set(prev).add(row.tagId))}
         />
       ))}

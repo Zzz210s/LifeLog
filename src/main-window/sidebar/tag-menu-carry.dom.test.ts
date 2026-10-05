@@ -12,15 +12,15 @@ import { TagMenuCarryPane } from './TagMenuCarryPane';
 import { buildTree } from './tag-tree';
 import type { ManagedNode } from './tag-tree';
 
-const { listTagCarries, setTagCarry, removeTagCarry, listRoles } = vi.hoisted(() => ({
+const { listTagCarries, setTagCarry, removeTagCarry, listTypes } = vi.hoisted(() => ({
   listTagCarries: vi.fn(),
   setTagCarry: vi.fn(),
   removeTagCarry: vi.fn(),
-  listRoles: vi.fn(),
+  listTypes: vi.fn(),
 }));
 
 vi.mock('../../shared/api', () => ({
-  api: { listTagCarries, setTagCarry, removeTagCarry, listRoles },
+  api: { listTagCarries, setTagCarry, removeTagCarry, listTypes },
 }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -39,9 +39,9 @@ beforeEach(() => {
   listTagCarries.mockReset();
   setTagCarry.mockReset();
   removeTagCarry.mockReset();
-  listRoles.mockReset();
-  // 已登记角色:丙(21)与出版年份(30) —— 携带候选现在只列已登记角色(R3)
-  listRoles.mockResolvedValue([
+  listTypes.mockReset();
+  // 已登记类型:丙(21)与出版年份(30) —— 携带候选现在只列已登记类型(R3)
+  listTypes.mockResolvedValue([
     { tagId: 21, path: '携带测试丙', name: '携带测试丙' },
     { tagId: 30, path: '出版年份', name: '出版年份' },
   ]);
@@ -166,7 +166,7 @@ describe('Task 3 携带面板', () => {
           tagId: 1,
           path: '携带测试甲',
           rows: ROWS as never,
-          roles: [
+          types: [
             { tagId: 21, path: '携带测试丙', name: '携带测试丙' },
             { tagId: 30, path: '出版年份', name: '出版年份' },
           ],

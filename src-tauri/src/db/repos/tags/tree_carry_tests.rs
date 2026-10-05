@@ -6,7 +6,7 @@ use crate::db::repos::notes;
 use crate::db::repos::tags::invariants_tests::{
     assert_carry_acyclic, assert_no_dangling_carries, assert_no_orphan_tags,
 };
-use crate::db::repos::tags::{merge_tags, register_role, set_carry};
+use crate::db::repos::tags::{merge_tags, set_tag_type_flag, set_carry};
 use crate::db::migrate;
 use rusqlite::{params, Connection};
 
@@ -80,7 +80,7 @@ fn delete_subtree_cleans_incoming_carry_rows() {
     notes::create_plain(&mut c, "a #携带者").unwrap();
     let carrier = id_at(&c, "携带者");
     let carried = ensure_path(&c, &segs(&["被携带"])).unwrap();
-    register_role(&c, carried).unwrap();
+    set_tag_type_flag(&c, carried, true).unwrap();
     set_carry(&mut c, carrier, carried).unwrap();
     assert_eq!(incoming_carries(&c, carried), 1, "前置:一条指向被删标签的携带行");
 
@@ -107,7 +107,7 @@ fn merge_source_carrying_target_leaves_no_self_carry() {
     notes::create_plain(&mut c, "a #源").unwrap();
     let src = id_at(&c, "源");
     let dst = ensure_path(&c, &segs(&["目标"])).unwrap();
-    register_role(&c, dst).unwrap();
+    set_tag_type_flag(&c, dst, true).unwrap();
     set_carry(&mut c, src, dst).unwrap();
 
     merge_tags(&mut c, src, dst, false).unwrap();
@@ -141,7 +141,7 @@ fn merge_carried_source_leaves_no_dangling_carry() {
     let src = id_at(&c, "源");
     let dst = id_at(&c, "目标");
     let jia = id_at(&c, "甲");
-    register_role(&c, src).unwrap();
+    set_tag_type_flag(&c, src, true).unwrap();
     set_carry(&mut c, jia, src).unwrap();
 
     merge_tags(&mut c, src, dst, false).unwrap();
@@ -166,8 +166,8 @@ fn merge_source_carrying_x_which_carries_target_leaves_no_cycle() {
     let src = id_at(&c, "源");
     let dst = id_at(&c, "目标");
     let x = ensure_path(&c, &segs(&["X"])).unwrap();
-    register_role(&c, dst).unwrap();
-    register_role(&c, x).unwrap();
+    set_tag_type_flag(&c, dst, true).unwrap();
+    set_tag_type_flag(&c, x, true).unwrap();
     set_carry(&mut c, src, x).unwrap();
     set_carry(&mut c, x, dst).unwrap();
 

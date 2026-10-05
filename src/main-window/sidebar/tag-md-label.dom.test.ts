@@ -101,7 +101,7 @@ describe('T1 侧栏树行:预览态 + 原始路径寻址', () => {
 
 describe('T1 标签菜单:标题渲染态,确认文案纯文本', () => {
   it('主面板标题显示预览文本(悬浮仍是纯文本全路径)', () => {
-    mount(createElement(TagMenuMainPane, { path: RAW, isRole: false, onPick: () => {}, onMakeRole: () => {} }));
+    mount(createElement(TagMenuMainPane, { path: RAW, isType: false, onPick: () => {}, onMakeType: () => {} }));
     const title = host.querySelector('p') as HTMLElement;
     expect(title.textContent).toBe(PLAIN);
     expectHoverTitle(title, PLAIN);

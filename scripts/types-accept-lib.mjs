@@ -1,6 +1,6 @@
-// 标签角色端到端验收(scripts/dev-roles-accept.mjs)的共用件:只做「只读库对账 / 发 IPC /
+// 标签类型端到端验收(scripts/dev-types-accept.mjs)的共用件:只做「只读库对账 / 发 IPC /
 // 发 DOM 事件 / 读值」,判定全部留在主脚本。通用件(计数、IPC、条件 id、清 chip)从
-// carry-accept-lib.mjs 直接复用,这里只放角色/建议/DOM 新增的那部分。
+// carry-accept-lib.mjs 直接复用,这里只放类型/建议/DOM 新增的那部分。
 import { execFileSync } from 'node:child_process';
 import {
   all, counts, fmt, get, ipc, condIds, queryCount, clearChips, pressEsc, sleep, waitFor, requireApp,
@@ -12,48 +12,49 @@ export {
   noteIdOf, tagIdOf, DB_PATH, openTagMenu, timeQuery, xlsxContentDigest,
 };
 
-/** 角色条件(角色天然含子级并叠加携带,没有仅本级开关) */
-export const roleCond = (path) => ({ ...EMPTY, roles: [{ path }] });
-/** 排除角色条件 */
-export const excludeRoleCond = (path) => ({ ...EMPTY, excludeRoles: [{ path }] });
+/** 类型条件(类型天然含子级并叠加携带,没有仅本级开关) */
+export const typeCond = (path) => ({ ...EMPTY, types: [{ path }] });
+/** 排除类型条件 */
+export const excludeTypeCond = (path) => ({ ...EMPTY, excludeTypes: [{ path }] });
 export const tagCond = (path) => ({ ...EMPTY, tags: [{ path, includeChildren: true }] });
 
 // --- 库读数(只读;真实库不动写) ---
-export const roleRows = () => get('SELECT COUNT(*) n FROM roles').n;
-export const claimRows = () => get('SELECT COUNT(*) n FROM tag_roles').n;
-export const claimRoleIds = (tagId) =>
-  all('SELECT role_id FROM tag_roles WHERE tag_id=?1 ORDER BY role_id', tagId).map((r) => r.role_id);
-export const roleIdOfPath = (path) =>
-  get('SELECT r.id FROM roles r JOIN tags t ON t.id=r.tag_id WHERE t.path=?1', path)?.id ?? null;
-export const isRoleTag = (tagId) =>
-  get('SELECT COUNT(*) n FROM roles WHERE tag_id=?1', tagId).n === 1;
-export const claimRowsToRole = (roleId) =>
-  get('SELECT COUNT(*) n FROM tag_roles WHERE role_id=?1', roleId).n;
+export const typeRows = () => get('SELECT COUNT(*) n FROM tags WHERE is_type=1').n;
+export const claimRows = () => get("SELECT COUNT(*) n FROM tag_links WHERE target_type='type'").n;
+export const claimTypeIds = (tagId) =>
+  all("SELECT target_id AS type_id FROM tag_links WHERE tag_id=?1 AND target_type='type' ORDER BY target_id", tagId)
+    .map((r) => r.type_id);
+export const typeIdOfPath = (path) =>
+  get('SELECT id FROM tags WHERE path=?1 AND is_type=1', path)?.id ?? null;
+export const isTypeTag = (tagId) =>
+  get('SELECT is_type n FROM tags WHERE id=?1', tagId)?.n === 1;
+export const claimRowsToType = (typeId) =>
+  get("SELECT COUNT(*) n FROM tag_links WHERE target_type='type' AND target_id=?1", typeId).n;
 
-// --- 夹具(一律 角色测试 前缀,自建自删) ---
-const NS = '角色测试';
+// --- 夹具(一律 类型测试 前缀,自建自删) ---
+const NS = '类型测试';
 export const FIX = {
   NS,
   A: `${NS}甲`, AS: `${NS}甲/子`, B: `${NS}乙`, C: `${NS}丙`, E: `${NS}戊`, F: `${NS}己`,
   R1: `${NS}/国籍`, R2: `${NS}/所在`, R3: `${NS}/产地`, BASE: `${NS}基准`, CITY: `地点/${NS}城市`,
 };
-/** 夹具笔记(标题, 标签):每条标签各带一条笔记;角色/基准标签也不例外 */
+/** 夹具笔记(标题, 标签):每条标签各带一条笔记;类型/基准标签也不例外 */
 export const FIXTURE_NOTES = [
   [`${NS}甲笔记`, FIX.A], [`${NS}甲子笔记`, FIX.AS], [`${NS}乙笔记`, FIX.B], [`${NS}丙笔记`, FIX.C],
   [`${NS}国籍标签`, FIX.R1], [`${NS}所在标签`, FIX.R2], [`${NS}产地标签`, FIX.R3], [`${NS}戊标签`, FIX.E],
   [`${NS}城市笔记`, FIX.CITY], [`${NS}基准一`, FIX.BASE], [`${NS}基准二`, FIX.BASE], [`${NS}基准三`, FIX.BASE],
 ];
 /** 走真实保存路径建夹具笔记 */
-export async function raiseRoleFixtures(call) {
+export async function raiseTypeFixtures(call) {
   for (const [title, tag] of FIXTURE_NOTES) await call('save_input_note', { content: `${title}\n#${tag}` });
 }
 export const fixtureNoteIds = () =>
-  all("SELECT id FROM notes WHERE content LIKE '角色测试%' ORDER BY id").map((r) => r.id);
-/** 夹具标签:根级 角色测试*,以及建议规则路径下的 地点/…角色测试… */
+  all("SELECT id FROM notes WHERE content LIKE '类型测试%' ORDER BY id").map((r) => r.id);
+/** 夹具标签:根级 类型测试*,以及建议规则路径下的 地点/…类型测试… */
 export const fixtureTagIds = () =>
-  all("SELECT id FROM tags WHERE path LIKE '角色测试%' OR path LIKE '地点/%角色测试%' ORDER BY depth DESC")
+  all("SELECT id FROM tags WHERE path LIKE '类型测试%' OR path LIKE '地点/%类型测试%' ORDER BY depth DESC")
     .map((r) => r.id);
-export async function purgeRoleFixtures(call) {
+export async function purgeTypeFixtures(call) {
   for (const id of fixtureNoteIds()) await call('delete_note', { id }).catch(() => null);
   for (const id of fixtureTagIds()) await call('delete_tag', { tagId: id }).catch(() => null);
 }
@@ -66,10 +67,10 @@ export const clickByLabel = (cdp, label) =>
 export const clickMenuItem = (cdp, text) =>
   cdp.eval(`(() => { const b = Array.from(document.querySelectorAll('[data-tag-menu] button')).find((x) => x.textContent.trim() === ${JSON.stringify(text)});
     if (!b) return false; b.click(); return true; })()`);
-/** 侧栏某行的角色徽章文本数组(null = 行不在) */
+/** 侧栏某行的类型徽章文本数组(null = 行不在) */
 export const badgesOf = (cdp, path) =>
   cdp.eval(`(() => { const r = document.querySelector('aside ${attr('data-tag-path', path)}');
-    return r ? Array.from(r.querySelectorAll('[data-role-badge]')).map((x) => x.textContent.trim()) : null; })()`);
+    return r ? Array.from(r.querySelectorAll('[data-type-badge]')).map((x) => x.textContent.trim()) : null; })()`);
 /** 侧栏某行的悬浮卡片文本(`data-tip` 多行;卡片走瞬时 HoverTip,不再是原生 title) */
 export const rowTipOf = (cdp, path) =>
   cdp.eval(`(() => { const r = document.querySelector('aside ${attr('data-tag-path', path)}');
@@ -84,13 +85,13 @@ export const carryCandidatePaths = (cdp) =>
 export const chipTexts = (cdp) =>
   cdp.eval(`Array.from(document.querySelectorAll('[aria-label="已生效的筛选条件"] > span')).map((s) => s.textContent.trim())`);
 
-/** 打开设置页并切到「标签角色」分区 */
-export async function openRoleSettings(cdp) {
+/** 打开设置页并切到「标签类型」分区 */
+export async function openTypeSettings(cdp) {
   await clickByLabel(cdp, '设置');
-  return waitFor(() => cdp.eval(`!!document.querySelector('[data-section-nav="roles"]')`), 20, 200);
+  return waitFor(() => cdp.eval(`!!document.querySelector('[data-section-nav="types"]')`), 20, 200);
 }
-export const pickRoleSection = (cdp) =>
-  cdp.eval(`(() => { const b = document.querySelector('[data-section-nav="roles"]'); if (!b) return false; b.click(); return true; })()`);
+export const pickTypeSection = (cdp) =>
+  cdp.eval(`(() => { const b = document.querySelector('[data-section-nav="types"]'); if (!b) return false; b.click(); return true; })()`);
 export const backToStream = (cdp) =>
   cdp.eval(`(() => { const b = Array.from(document.querySelectorAll('button')).find((x) => x.textContent.trim() === '返回信息流');
     if (!b) return false; b.click(); return true; })()`);
@@ -112,11 +113,11 @@ export function assertDevBuild() {
 
 // --- 建议面板 ---
 export const suggestionRowText = (cdp, path) =>
-  cdp.eval(`(() => { const r = document.querySelector('[data-role-row=' + JSON.stringify(${JSON.stringify(path)}) + ']');
+  cdp.eval(`(() => { const r = document.querySelector('[data-type-row=' + JSON.stringify(${JSON.stringify(path)}) + ']');
     return r ? r.textContent.replace(/\\s+/g, ' ').trim() : null; })()`);
-/** 按建议角色筛选(native select:原型 setter + change) */
-export const filterSuggestionsByRole = (cdp, name) =>
-  cdp.eval(`(() => { const s = document.querySelector('select[aria-label="按建议角色筛选"]'); if (!s) return false;
+/** 按建议类型筛选(native select:原型 setter + change) */
+export const filterSuggestionsByType = (cdp, name) =>
+  cdp.eval(`(() => { const s = document.querySelector('select[aria-label="按建议类型筛选"]'); if (!s) return false;
     const o = Array.from(s.options).find((x) => x.textContent.trim() === ${JSON.stringify(name)}); if (!o) return false;
     const set = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set; set.call(s, o.value);
     s.dispatchEvent(new Event('change', { bubbles: true })); return true; })()`);
@@ -134,7 +135,7 @@ export async function findSuggestion(cdp, path, maxPages = 12) {
 }
 /** 勾选某条建议的复选框 */
 export const checkSuggestion = (cdp, path) =>
-  cdp.eval(`(() => { const r = document.querySelector('[data-role-row=' + JSON.stringify(${JSON.stringify(path)}) + ']');
+  cdp.eval(`(() => { const r = document.querySelector('[data-type-row=' + JSON.stringify(${JSON.stringify(path)}) + ']');
     const cb = r?.querySelector('input[type=checkbox]'); if (!cb) return false; cb.click(); return true; })()`);
 
 /** 打开某标签的「携带…」面板、敲查询串、读候选路径、Esc 关闭(机械动作,判定在调用方) */
@@ -153,8 +154,8 @@ export async function readCarryCandidates(cdp, tagPath, query) {
 
 /** 设置页开关往返:开→读树行携带→关→再读(回各步读数) */
 export async function carryToggleRoundTrip(cdp, rowPath) {
-  await openRoleSettings(cdp);
-  await pickRoleSection(cdp);
+  await openTypeSettings(cdp);
+  await pickTypeSection(cdp);
   const off = await waitFor(() => carryToggleState(cdp), 20, 200);
   await clickByLabel(cdp, '标签树里显示携带');
   const on = await waitFor(() => cdp.eval(`document.querySelector('button[aria-label="标签树里显示携带"]')?.getAttribute('aria-checked') === 'true'`), 10, 200);

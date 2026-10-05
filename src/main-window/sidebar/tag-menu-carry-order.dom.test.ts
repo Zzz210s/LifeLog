@@ -17,15 +17,15 @@ import { TagsSection } from './TagsSection';
 import { buildTree } from './tag-tree';
 import type { ManagedNode } from './tag-tree';
 
-const { listTagCarries, setTagCarry, removeTagCarry, listRoles } = vi.hoisted(() => ({
+const { listTagCarries, setTagCarry, removeTagCarry, listTypes } = vi.hoisted(() => ({
   listTagCarries: vi.fn(),
   setTagCarry: vi.fn(),
   removeTagCarry: vi.fn(),
-  listRoles: vi.fn(),
+  listTypes: vi.fn(),
 }));
 
 vi.mock('../../shared/api', () => ({
-  api: { listTagCarries, setTagCarry, removeTagCarry, listRoles },
+  api: { listTagCarries, setTagCarry, removeTagCarry, listTypes },
 }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -59,9 +59,9 @@ beforeEach(() => {
   listTagCarries.mockReset();
   setTagCarry.mockReset();
   removeTagCarry.mockReset();
-  // 候选只列已登记角色(R3):丙与出版年份
-  listRoles.mockReset();
-  listRoles.mockResolvedValue([
+  // 候选只列已登记类型(R3):丙与出版年份
+  listTypes.mockReset();
+  listTypes.mockResolvedValue([
     { tagId: OTHER.id, path: OTHER.path, name: OTHER.path },
     { tagId: PINNABLE.id, path: PINNABLE.path, name: PINNABLE.path },
   ]);

@@ -139,3 +139,23 @@ pub(crate) fn carry_over_filter_current(conn: &Connection) -> rusqlite::Result<(
     eprintln!("迁移 016:当前筛选条件从 tabs_state 迁移({how})");
     Ok(())
 }
+
+/// 021 新增 `tags.is_type`:SQLite 的 `ALTER TABLE ADD COLUMN` 没有 IF NOT EXISTS,
+/// 迁移重放会报 duplicate column name,故在钩子里按列存在性决定是否 ADD COLUMN
+/// (与 012 的跳过同理,但那里是 DROP、这里是 ADD,写不进纯 SQL)。
+pub(crate) const TYPES_VERSION: i64 = 21;
+
+/// 确保 `tags.is_type` 存在且默认 0;重放时是空操作。
+pub(crate) fn ensure_is_type_column(conn: &Connection) -> rusqlite::Result<()> {
+    let n: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info('tags') WHERE name = 'is_type'",
+        [],
+        |r| r.get(0),
+    )?;
+    if n == 0 {
+        conn.execute_batch(
+            "ALTER TABLE tags ADD COLUMN is_type INTEGER NOT NULL DEFAULT 0",
+        )?;
+    }
+    Ok(())
+}

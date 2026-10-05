@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
- * 标签菜单两档(标签角色 spec §5):「角色…」勾选/取消该标签的认领、「设为角色」登记/取消登记;
- * 既有的「携带…」面板候选**只列已登记的角色标签**(R3),未登记的不进候选。
+ * 标签菜单两档(标签类型 spec §5):「类型…」勾选/取消该标签的认领、「设为类型」登记/取消登记;
+ * 既有的「携带…」面板候选**只列已登记的类型标签**(R3),未登记的不进候选。
  */
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
@@ -10,21 +10,19 @@ import { TagMenu } from './TagMenu';
 import { buildTree } from './tag-tree';
 import type { ManagedNode } from './tag-tree';
 
-const { listRoles, listTagRoles, setTagRoles, registerRole, unregisterRole } = vi.hoisted(() => ({
-  listRoles: vi.fn(),
-  listTagRoles: vi.fn(),
-  setTagRoles: vi.fn(),
-  registerRole: vi.fn(),
-  unregisterRole: vi.fn(),
+const { listTypes, listTagTypes, setTagTypes, setTagTypeFlag } = vi.hoisted(() => ({
+  listTypes: vi.fn(),
+  listTagTypes: vi.fn(),
+  setTagTypes: vi.fn(),
+  setTagTypeFlag: vi.fn(),
 }));
 
 vi.mock('../../shared/api', () => ({
   api: {
-    listRoles,
-    listTagRoles,
-    setTagRoles,
-    registerRole,
-    unregisterRole,
+    listTypes,
+    listTagTypes,
+    setTagTypes,
+    setTagTypeFlag,
     listTagCarries: () => Promise.resolve({ carried: [], carriersOf: [] }),
   },
 }));
@@ -43,12 +41,11 @@ let root: Root;
 let host: HTMLDivElement;
 
 beforeEach(() => {
-  for (const f of [listRoles, listTagRoles, setTagRoles, registerRole, unregisterRole]) f.mockReset();
-  listRoles.mockResolvedValue([GUO, SUO]);
-  listTagRoles.mockResolvedValue([GUO]);
-  setTagRoles.mockResolvedValue(undefined);
-  registerRole.mockResolvedValue(undefined);
-  unregisterRole.mockResolvedValue(undefined);
+  for (const f of [listTypes, listTagTypes, setTagTypes, setTagTypeFlag]) f.mockReset();
+  listTypes.mockResolvedValue([GUO, SUO]);
+  listTagTypes.mockResolvedValue([GUO]);
+  setTagTypes.mockResolvedValue(undefined);
+  setTagTypeFlag.mockResolvedValue(undefined);
   host = document.createElement('div');
   document.body.appendChild(host);
   root = createRoot(host);
@@ -87,43 +84,43 @@ const item = (text: string): HTMLElement =>
     (b) => b.textContent?.trim() === text
   ) as HTMLElement;
 
-async function openRole(): Promise<void> {
-  act(() => item('角色…').click());
+async function openType(): Promise<void> {
+  act(() => item('类型…').click());
   await flush();
 }
 
 describe('标签菜单两档入口', () => {
-  it('主面板有「角色…」与「设为角色」', async () => {
+  it('主面板有「类型…」与「设为类型」', async () => {
     render();
     await flush();
-    expect(item('角色…')).toBeTruthy();
-    expect(item('设为角色')).toBeTruthy();
+    expect(item('类型…')).toBeTruthy();
+    expect(item('设为类型')).toBeTruthy();
   });
 
-  it('「设为角色」调 register_role 并回报成功', async () => {
+  it('「设为类型」调 set_tag_type_flag 并回报成功', async () => {
     const { onDone } = render();
     await flush();
-    act(() => item('设为角色').click());
+    act(() => item('设为类型').click());
     await flush();
-    expect(registerRole).toHaveBeenCalledWith(1);
-    expect(onDone).toHaveBeenCalledWith('已登记为角色');
+    expect(setTagTypeFlag).toHaveBeenCalledWith(1, true);
+    expect(onDone).toHaveBeenCalledWith('已登记为类型');
   });
 
-  it('已是角色时显示「取消角色」并调 unregister_role', async () => {
-    listRoles.mockResolvedValue([{ tagId: 1, path: '中国', name: '中国' }, GUO]);
+  it('已是类型时显示「取消类型」并调 set_tag_type_flag(false)', async () => {
+    listTypes.mockResolvedValue([{ tagId: 1, path: '中国', name: '中国' }, GUO]);
     const { onDone } = render();
     await flush();
-    act(() => item('取消角色').click());
+    act(() => item('取消类型').click());
     await flush();
-    expect(unregisterRole).toHaveBeenCalledWith(1);
-    expect(onDone).toHaveBeenCalledWith('已取消角色登记');
+    expect(setTagTypeFlag).toHaveBeenCalledWith(1, false);
+    expect(onDone).toHaveBeenCalledWith('已取消类型登记');
   });
 });
 
-describe('角色…面板:勾选/取消认领', () => {
-  it('列出全部已登记角色,当前认领项为勾选态(中文文案,不是对勾符号)', async () => {
+describe('类型…面板:勾选/取消认领', () => {
+  it('列出全部已登记类型,当前认领项为勾选态(中文文案,不是对勾符号)', async () => {
     render();
-    await openRole();
+    await openType();
     const rows = [...host.querySelectorAll('[role="menuitemcheckbox"]')] as HTMLElement[];
     expect(rows).toHaveLength(2);
     expect(rows[0].textContent).toContain('国籍');
@@ -135,36 +132,36 @@ describe('角色…面板:勾选/取消认领', () => {
     expect(host.textContent).not.toMatch(/\u2713/u);
   });
 
-  it('勾选另一个角色 -> set_tag_roles 带上完整集合(整体替换)', async () => {
+  it('勾选另一个类型 -> set_tag_types 带上完整集合(整体替换)', async () => {
     render();
-    await openRole();
+    await openType();
     const rows = [...host.querySelectorAll('[role="menuitemcheckbox"]')] as HTMLElement[];
     act(() => rows[1].click());
     await flush();
-    expect(setTagRoles).toHaveBeenCalledWith(1, [10, 11]);
+    expect(setTagTypes).toHaveBeenCalledWith(1, [10, 11]);
   });
 
-  it('取消已认领的角色 -> 集合里去掉它', async () => {
+  it('取消已认领的类型 -> 集合里去掉它', async () => {
     render();
-    await openRole();
+    await openType();
     const rows = [...host.querySelectorAll('[role="menuitemcheckbox"]')] as HTMLElement[];
     act(() => rows[0].click());
     await flush();
-    expect(setTagRoles).toHaveBeenCalledWith(1, []);
+    expect(setTagTypes).toHaveBeenCalledWith(1, []);
   });
 
   it('后端中文错误就地显示', async () => {
-    setTagRoles.mockRejectedValue('认领的角色必须是已登记的角色标签: 99');
+    setTagTypes.mockRejectedValue('认领的类型必须是已登记的类型标签: 99');
     render();
-    await openRole();
+    await openType();
     const rows = [...host.querySelectorAll('[role="menuitemcheckbox"]')] as HTMLElement[];
     act(() => rows[1].click());
     await flush();
-    expect(host.textContent).toContain('必须是已登记的角色标签');
+    expect(host.textContent).toContain('必须是已登记的类型标签');
   });
 });
 
-describe('携带候选只列已登记角色(R3)', () => {
+describe('携带候选只列已登记类型(R3)', () => {
   it('未登记的标签不进候选', async () => {
     render();
     await flush();

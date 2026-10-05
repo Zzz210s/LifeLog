@@ -5,7 +5,7 @@
  * 标签路径都是**字符串位**(chip label / 中文摘要),故一律走 tagLabelPlain 的显示口径。
  */
 import { hasExpr } from '../../shared/filter-conditions';
-import type { FilterConditions, RoleCond, TagCond } from '../../shared/filter-conditions';
+import type { FilterConditions, TypeCond, TagCond } from '../../shared/filter-conditions';
 import type { ConditionHits } from '../../shared/tag-facts-types';
 import { tagLabelPlain } from '../../shared/tag-label';
 import { CARRY_MARK, exprSegments, showCarry, truncateExpr } from './expr-tag-spans';
@@ -14,16 +14,16 @@ import type { CarryPaths, SummarySegment } from './expr-tag-spans';
 // 截断与表达式片段(含标签叶子定位)的真源在 expr-tag-spans.ts,这里转发给既有调用点
 export { EXPR_TEXT_MAX, truncateExpr } from './expr-tag-spans';
 export type { CarryPaths, SummarySegment } from './expr-tag-spans';
-// 标签/角色选择落笔抽到 filter-pick.ts(守 200 行上限),从本模块照旧出口
-export { applyRolePick, applyTagPick } from './filter-pick';
+// 标签/类型选择落笔抽到 filter-pick.ts(守 200 行上限),从本模块照旧出口
+export { applyTypePick, applyTagPick } from './filter-pick';
 
 /** chip 种类与文案一一对应;remove 是删掉该 chip 后的条件对象(完整替换用) */
 export type Chip = {
-  kind: 'keyword' | 'tag' | 'excludeTag' | 'role' | 'excludeRole' | 'presence' | 'sort' | 'expr';
+  kind: 'keyword' | 'tag' | 'excludeTag' | 'type' | 'excludeType' | 'presence' | 'sort' | 'expr';
   label: string;
   /** 悬浮提示(标签 chip 用它区分含子级/仅本级;表达式 chip 放未截断原文) */
   title?: string;
-  /** 标签 / 角色条件的独立命中数(条件栏小字「命中 N 条」;其它 chip 无) */
+  /** 标签 / 类型条件的独立命中数(条件栏小字「命中 N 条」;其它 chip 无) */
   hits?: number;
   remove: FilterConditions;
 };
@@ -42,13 +42,13 @@ const tagTitle = (t: TagCond): string => (t.includeChildren ? '含子级' : '仅
 const exprLabel = (text: string, truncate: boolean): string =>
   `表达式:${truncate ? truncateExpr(text) : text}`;
 
-/** 角色 chip 文案:`角色:国籍`(与 `标签` 的 `#中国` 视觉区分) */
-const chipRole = (r: RoleCond): string => `角色:${tagLabelPlain(r.path)}`;
+/** 类型 chip 文案:`类型:国籍`(与 `标签` 的 `#中国` 视觉区分) */
+const chipType = (r: TypeCond): string => `类型:${tagLabelPlain(r.path)}`;
 
 /** 排序 chip 文案(仅非默认时出现) */
 export const SORT_CHIP_LABEL = '最早在前';
 /** 每个收窄来源一个 chip;排序仅在非默认(最早在前)时出现。
- *  hits 给定(后端 `condition_hit_counts`)时,四个标签/角色数组按索引贴上独立命中数 */
+ *  hits 给定(后端 `condition_hit_counts`)时,四个标签/类型数组按索引贴上独立命中数 */
 export function chipsOf(c: FilterConditions, hits: ConditionHits | null = null): Chip[] {
   const chips: Chip[] = [];
   const kw = (c.keyword ?? '').trim();
@@ -71,22 +71,22 @@ export function chipsOf(c: FilterConditions, hits: ConditionHits | null = null):
       remove: { ...c, excludeTags: c.excludeTags.filter((x) => x !== t) },
     })
   );
-  c.roles.forEach((r, i) =>
+  c.types.forEach((r, i) =>
     chips.push({
-      kind: 'role',
-      label: chipRole(r),
-      title: '角色条件(认领标签含子级,并叠加携带)',
-      hits: hits?.roleHits[i],
-      remove: { ...c, roles: c.roles.filter((x) => x !== r) },
+      kind: 'type',
+      label: chipType(r),
+      title: '类型条件(认领标签含子级,并叠加携带)',
+      hits: hits?.typeHits[i],
+      remove: { ...c, types: c.types.filter((x) => x !== r) },
     })
   );
-  c.excludeRoles.forEach((r, i) =>
+  c.excludeTypes.forEach((r, i) =>
     chips.push({
-      kind: 'excludeRole',
-      label: `排除 ${chipRole(r)}`,
-      title: '排除角色条件(与包含侧同一份命中集)',
-      hits: hits?.excludeRoleHits[i],
-      remove: { ...c, excludeRoles: c.excludeRoles.filter((x) => x !== r) },
+      kind: 'excludeType',
+      label: `排除 ${chipType(r)}`,
+      title: '排除类型条件(与包含侧同一份命中集)',
+      hits: hits?.excludeTypeHits[i],
+      remove: { ...c, excludeTypes: c.excludeTypes.filter((x) => x !== r) },
     })
   );
   if (c.tagPresence !== null) {
@@ -142,8 +142,8 @@ export function summarySegmentsOf(
   if (kw !== '') groups.push([{ text: `关键词「${kw}」`, carry: false }]);
   if (c.tags.length > 0) groups.push(tagGroup('标签 ', c.tags, carryPaths));
   if (c.excludeTags.length > 0) groups.push(tagGroup('排除 ', c.excludeTags, carryPaths));
-  if (c.roles.length > 0) groups.push(roleGroup('角色:', c.roles));
-  if (c.excludeRoles.length > 0) groups.push(roleGroup('排除 角色:', c.excludeRoles));
+  if (c.types.length > 0) groups.push(typeGroup('类型:', c.types));
+  if (c.excludeTypes.length > 0) groups.push(typeGroup('排除 类型:', c.excludeTypes));
   if (hasExpr(c)) groups.push(exprSegments(c.expr ?? '', truncate, carryPaths));
   if (c.tagPresence !== null) {
     groups.push([{ text: c.tagPresence === 'none' ? '无标签' : '有标签', carry: false }]);
@@ -168,8 +168,8 @@ function tagGroup(prefix: string, list: TagCond[], carryPaths: CarryPaths): Summ
   return segs;
 }
 
-/** 一个角色组:`角色:国籍、所在`(角色没有携带标记,携带是标签条件的事) */
-function roleGroup(prefix: string, list: RoleCond[]): SummarySegment[] {
+/** 一个类型组:`类型:国籍、所在`(类型没有携带标记,携带是标签条件的事) */
+function typeGroup(prefix: string, list: TypeCond[]): SummarySegment[] {
   const segs: SummarySegment[] = [{ text: prefix, carry: false }];
   list.forEach((r, i) => {
     if (i > 0) segs.push({ text: '、', carry: false });

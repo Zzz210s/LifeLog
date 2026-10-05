@@ -43,8 +43,8 @@ pub fn query_notes(
     repos::notes::query(&conn, &conditions, offset.unwrap_or(0))
 }
 
-/// 条件栏「命中 N 条」读数:每个标签 / 角色条件独立计数(不叠加其它条件),
-/// 与 query_notes 共用同一套谓词(标签含子级与携带继承、角色认领继承)
+/// 条件栏「命中 N 条」读数:每个标签 / 类型条件独立计数(不叠加其它条件),
+/// 与 query_notes 共用同一套谓词(标签含子级与携带继承、类型认领继承)
 #[tauri::command]
 pub fn condition_hit_counts(
     app: AppHandle,

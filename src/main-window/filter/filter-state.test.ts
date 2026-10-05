@@ -56,14 +56,14 @@ describe('filter-state 默认值与退化(单份条件)', () => {
     });
     const raw = serializeFilterState(c);
     expect(Object.keys(JSON.parse(raw)).sort()).toEqual([
-      'excludeRoles',
       'excludeTags',
+      'excludeTypes',
       'expr',
       'keyword',
-      'roles',
       'sort',
       'tagPresence',
       'tags',
+      'types',
     ]);
     expect(JSON.parse(raw)).toEqual(c);
     expect(parseFilterState(raw)).toEqual(c);

@@ -21,6 +21,9 @@ const V_019: i64 = 19;
 /// 而 `create_plain` 会跑孤儿回收。020 同样是 `CREATE TABLE IF NOT EXISTS`,重放是空操作。
 const V_020: i64 = 20;
 
+/// 021(标签类型开关列)的位次:同理 —— 自 021 起孤儿回收会读 `tags.is_type` 判断
+/// "已登记类型不得回收",而 `create_plain` 会跑孤儿回收;本夹具在 `run()` 之前就造数,
+/// 故必须先把该列建好(调 021 的迁移钩子,ADD COLUMN 幂等)。
 fn count(conn: &Connection, sql: &str) -> i64 {
     conn.query_row(sql, [], |r| r.get(0)).unwrap()
 }
@@ -38,6 +41,7 @@ fn db_at_012() -> Connection {
     conn.execute_batch(MIGRATIONS[(V_015 - 1) as usize]).unwrap();
     conn.execute_batch(MIGRATIONS[(V_019 - 1) as usize]).unwrap();
     conn.execute_batch(MIGRATIONS[(V_020 - 1) as usize]).unwrap();
+    crate::db::migration_hooks::ensure_is_type_column(&conn).unwrap();
     conn
 }
 

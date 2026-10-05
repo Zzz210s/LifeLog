@@ -20,7 +20,7 @@ fn rewrite_path(path: &str, old: &str, new: &str) -> Option<String> {
     path.strip_prefix(&sep).map(|rest| format!("{new}/{rest}"))
 }
 
-/// 条件对象按前缀规则改写:两侧标签列表 + 两侧角色列表 + 表达式文本;有变化返回 true
+/// 条件对象按前缀规则改写:两侧标签列表 + 两侧类型列表 + 表达式文本;有变化返回 true
 /// (include_children / keyword / sort 等其余字段原样保留)
 fn rewrite_conditions(c: &mut FilterConditions, old: &str, new: &str) -> bool {
     let mut changed = false;
@@ -32,8 +32,8 @@ fn rewrite_conditions(c: &mut FilterConditions, old: &str, new: &str) -> bool {
             }
         }
     }
-    // 角色条件存的也是标签路径(角色 = 已登记标签),改名/移动时跟着改,否则筛选静默失效
-    for list in [&mut c.roles, &mut c.exclude_roles] {
+    // 类型条件存的也是标签路径(类型 = 已登记标签),改名/移动时跟着改,否则筛选静默失效
+    for list in [&mut c.types, &mut c.exclude_types] {
         for r in list.iter_mut() {
             if let Some(p) = rewrite_path(&r.path, old, new) {
                 r.path = p;
@@ -101,7 +101,7 @@ where
     settings::set(conn, FILTER_CURRENT_KEY, &out)
 }
 
-/// 改名/移动后级联:filter_current 的 tags[] / exclude_tags[] / roles[] / exclude_roles[] / expr
+/// 改名/移动后级联:filter_current 的 tags[] / exclude_tags[] / types[] / exclude_types[] / expr
 /// 按前缀规则改写;有变化才回写,其余字段(keyword / sort / tag_presence / include_children)原样保留。
 pub(crate) fn rewrite_filter_paths(
     conn: &Connection,

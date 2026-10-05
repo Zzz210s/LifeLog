@@ -13,8 +13,8 @@ export interface TagCond {
   includeChildren: boolean;
 }
 
-/** 角色条件(spec 2026-10-05 §4 R4):只有角色标签路径 —— 角色天然含子级并叠加携带,无「仅本级」开关 */
-export interface RoleCond {
+/** 类型条件(spec 2026-10-05 §4 R4):只有类型标签路径 —— 类型天然含子级并叠加携带,无「仅本级」开关 */
+export interface TypeCond {
   path: string;
 }
 
@@ -22,9 +22,9 @@ export interface FilterConditions {
   keyword: string | null;
   tags: TagCond[];
   excludeTags: TagCond[];
-  /** 角色条件:命中 = 被该角色认领的标签子树 ∪ 经携带命中;老库缺字段时按无角色解析 */
-  roles: RoleCond[];
-  excludeRoles: RoleCond[];
+  /** 类型条件:命中 = 被该类型认领的标签子树 ∪ 经携带命中;老库缺字段时按无类型解析 */
+  types: TypeCond[];
+  excludeTypes: TypeCond[];
   tagPresence: 'any' | 'none' | null;
   /** 创建顺序(实现为按 `notes.id`,与 created_at 同序);旧 JSON 的同名字段语义不变 */
   sort: 'newest' | 'oldest';
@@ -44,8 +44,8 @@ export const EMPTY_FILTER: FilterConditions = {
   keyword: null,
   tags: [],
   excludeTags: [],
-  roles: [],
-  excludeRoles: [],
+  types: [],
+  excludeTypes: [],
   tagPresence: null,
   sort: 'newest',
   expr: null,
@@ -62,8 +62,8 @@ export function isFilterEmpty(c: FilterConditions): boolean {
     (c.keyword ?? '').trim() === '' &&
     c.tags.length === 0 &&
     c.excludeTags.length === 0 &&
-    c.roles.length === 0 &&
-    c.excludeRoles.length === 0 &&
+    c.types.length === 0 &&
+    c.excludeTypes.length === 0 &&
     c.tagPresence === null &&
     !hasExpr(c)
   );
@@ -77,8 +77,8 @@ export function filterKey(c: FilterConditions): string {
     c.tagPresence ?? '',
     c.tags.map((t) => [t.path, t.includeChildren]),
     c.excludeTags.map((t) => [t.path, t.includeChildren]),
-    c.roles.map((r) => r.path),
-    c.excludeRoles.map((r) => r.path),
+    c.types.map((r) => r.path),
+    c.excludeTypes.map((r) => r.path),
     // 表达式按 trim 后的值参与比较:尾随空白不触发重复查询(后端按原文解析,只把全空白视为未设置)
     (c.expr ?? '').trim(),
   ]);
@@ -124,11 +124,11 @@ export function validateFilter(c: FilterConditions): string | null {
   for (const t of [...c.tags, ...c.excludeTags]) {
     if (!isValidTagPath(t.path)) return `标签路径不合法:${t.path}`;
   }
-  if (c.roles.length > MAX_FILTER_TAG_ITEMS) return `角色最多 ${MAX_FILTER_TAG_ITEMS} 项`;
-  if (c.excludeRoles.length > MAX_FILTER_TAG_ITEMS) {
-    return `排除角色最多 ${MAX_FILTER_TAG_ITEMS} 项`;
+  if (c.types.length > MAX_FILTER_TAG_ITEMS) return `类型最多 ${MAX_FILTER_TAG_ITEMS} 项`;
+  if (c.excludeTypes.length > MAX_FILTER_TAG_ITEMS) {
+    return `排除类型最多 ${MAX_FILTER_TAG_ITEMS} 项`;
   }
-  for (const r of [...c.roles, ...c.excludeRoles]) {
+  for (const r of [...c.types, ...c.excludeTypes]) {
     if (!isValidTagPath(r.path)) return `标签路径不合法:${r.path}`;
   }
   if (c.sort !== 'newest' && c.sort !== 'oldest') return '排序取值非法';

@@ -45,18 +45,18 @@ fn carry_predicate(path: &str, args: &mut Vec<Value>) -> String {
         .to_string()
 }
 
-/// 角色路径谓词(2026-10-05 roles R4):角色 R 的命中 = 「被 R 认领的标签」的子树 ∪
-/// 携带 R 的标签的子树。认领侧把 `tag_roles`/`roles` 连起来物化成一个标签 id 集合
-/// (子查询不引用 `t`/`n`,SQLite 只求值一次);携带侧直接复用 [`carry_predicate`] ——
-/// R3 保证携带目标就是角色标签,所以按角色路径查携带行即可,与标签条件同一套子树继承。
-/// 角色没认领任何标签(也没有携带者)时集合为空,命中 0(不是退化成全部)。
-pub(crate) fn role_predicate(path: &str, args: &mut Vec<Value>) -> String {
-    args.push(Value::Text(path.to_string())); // 定位角色标签(按 path 取 id)
+/// 类型路径谓词(2026-10-05 types R4):类型 R 的命中 = 「认领了 R 的标签」的子树 ∪
+/// 携带 R 的标签的子树。认领侧把 `tag_links` 的 `'type'` 行与标签子树物化成一个
+/// 标签 id 集合(子查询不引用 `t`/`n`,SQLite 只求值一次);携带侧直接复用
+/// [`carry_predicate`] —— R3 保证携带目标就是类型标签,所以按类型路径查携带行即可,
+/// 与标签条件同一套子树继承。类型没被任何标签认领(也没有携带者)时集合为空,命中 0
+/// (不是退化成全部)。形态与携带那轮一致:一次物化 + `IN`。
+pub(crate) fn type_predicate(path: &str, args: &mut Vec<Value>) -> String {
+    args.push(Value::Text(path.to_string())); // 定位类型标签(按 path 取 id)
     let claimed = "t.id IN (SELECT d.id FROM tags d \
          JOIN tags c ON (d.path = c.path OR substr(d.path, 1, length(c.path) + 1) = c.path || '/') \
-         JOIN tag_roles tr ON tr.tag_id = c.id \
-         JOIN roles r ON r.id = tr.role_id \
-         JOIN tags rt ON rt.id = r.tag_id \
+         JOIN tag_links tl ON tl.target_type = 'type' AND tl.tag_id = c.id \
+         JOIN tags rt ON rt.id = tl.target_id \
          WHERE rt.path = ?)";
     format!("({claimed}) OR {}", carry_predicate(path, args))
 }

@@ -26,6 +26,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("migrations/018_fts_tag_plain_path.sql"),
     include_str!("migrations/019_note_links.sql"),
     include_str!("migrations/020_tag_roles.sql"),
+    include_str!("migrations/021_tag_types.sql"),
 ];
 
 /// 012 的位次(1 起)与它删除的列名:SQLite 没有 `DROP COLUMN IF EXISTS`,
@@ -86,6 +87,9 @@ pub fn run(conn: &Connection) -> rusqlite::Result<()> {
         }
         if v == migration_hooks::FILTER_CURRENT_VERSION {
             migration_hooks::carry_over_filter_current(conn)?;
+        }
+        if v == migration_hooks::TYPES_VERSION {
+            migration_hooks::ensure_is_type_column(conn)?;
         }
         let fk_off = FK_OFF_VERSIONS.contains(&v);
         if fk_off {
@@ -151,3 +155,7 @@ mod done_doing_migration_tests;
 #[cfg(test)]
 #[path = "fts_tag_plain_migration_tests.rs"]
 mod fts_tag_plain_migration_tests;
+
+#[cfg(test)]
+#[path = "tag_types_migration_tests.rs"]
+mod tag_types_migration_tests;

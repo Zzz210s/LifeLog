@@ -1,18 +1,18 @@
-// 标签角色的批量读 / 命中数读数类型(自 shared/types.ts 抽出,守 200 行上限)。
+// 标签类型的批量读 / 命中数读数类型(自 shared/types.ts 抽出,守 200 行上限)。
 // camelCase 与 Rust TagFact / TagFactsBundle / ConditionHits 一致。
-import type { RoleRef } from './types';
+import type { TypeRef } from './types';
 
-/** 单个标签的「角色 / 携带」事实(IPC `list_tag_facts`):
- *  roles = 该标签认领的角色;carried = 该标签携带的目标标签路径(前端拿 bundle.roles 换算成角色与值) */
+/** 单个标签的「类型 / 携带」事实(IPC `list_tag_facts`):
+ *  types = 该标签认领的类型;carried = 该标签携带的目标标签路径(前端拿 bundle.types 换算成类型与值) */
 export interface TagFact {
   tagId: number;
-  roles: RoleRef[];
+  types: TypeRef[];
   carried: string[];
 }
 
-/** 批量事实包(IPC `list_tag_facts`):roles 是完整角色表,与 facts 一起给,一次 IPC 取全 */
+/** 批量事实包(IPC `list_tag_facts`):types 是完整类型表,与 facts 一起给,一次 IPC 取全 */
 export interface TagFactsBundle {
-  roles: RoleRef[];
+  types: TypeRef[];
   facts: TagFact[];
 }
 
@@ -21,6 +21,6 @@ export interface TagFactsBundle {
 export interface ConditionHits {
   tagHits: number[];
   excludeTagHits: number[];
-  roleHits: number[];
-  excludeRoleHits: number[];
+  typeHits: number[];
+  excludeTypeHits: number[];
 }

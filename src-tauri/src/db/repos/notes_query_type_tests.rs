@@ -1,10 +1,10 @@
-//! Task 2 角色筛选口径(spec 2026-10-05 §4 R4):筛角色 R 时,一条笔记命中当且仅当它挂着
+//! Task 2 类型筛选口径(spec 2026-10-05 §4 R4):筛类型 R 时,一条笔记命中当且仅当它挂着
 //! 某个标签 X,而 X 落在「被 R 认领的标签」子树内,或落在「携带 R 的标签」子树内 ——
 //! 携带那一跳与标签条件共用同一套子树继承(S1)。排除侧走同一份命中集(无黑洞)。
 //! 夹具开 foreign_keys=ON(与 db::open 一致):级联/回收是真的。本文件只碰内存库(真实库只读)。
 use crate::db::migrate;
 use crate::db::repos::notes::{create_plain, notes_filter::*, query};
-use crate::db::repos::tags::{ensure_path, register_role, set_carry, set_tag_roles};
+use crate::db::repos::tags::{ensure_path, set_tag_type_flag, set_carry, set_tag_types};
 use rusqlite::{params, Connection};
 
 fn db() -> Connection {
@@ -14,16 +14,16 @@ fn db() -> Connection {
     c
 }
 
-fn role(path: &str) -> RoleCond {
-    RoleCond { path: path.into() }
+fn role(path: &str) -> TypeCond {
+    TypeCond { path: path.into() }
 }
 
 fn include(path: &str) -> FilterConditions {
-    FilterConditions { roles: vec![role(path)], ..empty() }
+    FilterConditions { types: vec![role(path)], ..empty() }
 }
 
 fn exclude(path: &str) -> FilterConditions {
-    FilterConditions { exclude_roles: vec![role(path)], ..empty() }
+    FilterConditions { exclude_types: vec![role(path)], ..empty() }
 }
 
 /// 命中笔记的正文(按正文升序,免得依赖 id 方向)
@@ -37,9 +37,9 @@ fn id_at(c: &Connection, path: &str) -> i64 {
     c.query_row("SELECT id FROM tags WHERE path=?1", params![path], |r| r.get(0)).unwrap()
 }
 
-/// ① 角色命中 = 被认领标签的子树 ∪ 携带该角色的标签子树;认领与携带两条腿都生效
+/// ① 类型命中 = 被认领标签的子树 ∪ 携带该类型的标签子树;认领与携带两条腿都生效
 #[test]
-fn role_hits_claimed_subtree_and_carriers() {
+fn type_hits_claimed_subtree_and_carriers() {
     let mut c = db();
     create_plain(&mut c, "认领本级 #中国").unwrap();
     create_plain(&mut c, "认领子级 #中国/北京").unwrap();
@@ -48,28 +48,28 @@ fn role_hits_claimed_subtree_and_carriers() {
     let guo = ensure_path(&c, &["地点轴".into(), "国籍".into()]).unwrap();
     let china = ensure_path(&c, &["中国".into()]).unwrap();
     let author = id_at(&c, "作者/丸尾");
-    register_role(&c, guo).unwrap();
-    set_tag_roles(&mut c, china, vec![guo]).unwrap();
+    set_tag_type_flag(&c, guo, true).unwrap();
+    set_tag_types(&mut c, china, vec![guo]).unwrap();
     set_carry(&mut c, author, guo).unwrap();
 
     assert_eq!(hits(&c, &include("地点轴/国籍")), vec!["经携带", "认领子级", "认领本级"]);
 }
 
-/// ② 携带只对当前角色生效:携带国籍不等于携带所在(不串味、不向上传播)
+/// ② 携带只对当前类型生效:携带国籍不等于携带所在(不串味、不向上传播)
 #[test]
-fn role_carry_matches_only_this_role() {
+fn role_carry_matches_only_this_type() {
     let mut c = db();
     create_plain(&mut c, "作者页 #作者/丸尾").unwrap();
     let guo = ensure_path(&c, &["国籍".into()]).unwrap();
     let suo = ensure_path(&c, &["所在".into()]).unwrap();
     let author = id_at(&c, "作者/丸尾");
-    register_role(&c, guo).unwrap();
-    register_role(&c, suo).unwrap();
+    set_tag_type_flag(&c, guo, true).unwrap();
+    set_tag_type_flag(&c, suo, true).unwrap();
     set_carry(&mut c, author, guo).unwrap();
 
     assert_eq!(hits(&c, &include("国籍")), vec!["作者页"]);
-    assert_eq!(hits(&c, &include("所在")), Vec::<String>::new(), "别的角色不受这条携带影响");
-    assert_eq!(hits(&c, &include("地点轴")), Vec::<String>::new(), "只认该角色本身,不认它的祖先");
+    assert_eq!(hits(&c, &include("所在")), Vec::<String>::new(), "别的类型不受这条携带影响");
+    assert_eq!(hits(&c, &include("地点轴")), Vec::<String>::new(), "只认该类型本身,不认它的祖先");
 }
 
 /// ③ 含/排除互补:两侧共用同一份命中集,不存在"既不包含也不排除"的黑洞
@@ -82,8 +82,8 @@ fn role_exclude_is_complementary() {
     let guo = ensure_path(&c, &["国籍".into()]).unwrap();
     let china = ensure_path(&c, &["中国".into()]).unwrap();
     let author = id_at(&c, "作者/丸尾");
-    register_role(&c, guo).unwrap();
-    set_tag_roles(&mut c, china, vec![guo]).unwrap();
+    set_tag_type_flag(&c, guo, true).unwrap();
+    set_tag_types(&mut c, china, vec![guo]).unwrap();
     set_carry(&mut c, author, guo).unwrap();
 
     let inc = hits(&c, &include("国籍"));
@@ -93,28 +93,28 @@ fn role_exclude_is_complementary() {
     assert!(inc.iter().all(|x| !exc.contains(x)), "两侧不相交");
 }
 
-/// ④ 角色没认领任何标签(也没有携带者)时命中 0,不是"退化成全部"
+/// ④ 类型没认领任何标签(也没有携带者)时命中 0,不是"退化成全部"
 #[test]
 fn role_without_claims_hits_nothing() {
     let mut c = db();
     create_plain(&mut c, "甲 #中国").unwrap();
     create_plain(&mut c, "乙 #书").unwrap();
     let guo = ensure_path(&c, &["国籍".into()]).unwrap();
-    register_role(&c, guo).unwrap(); // 登记了,但一条认领都没有
+    set_tag_type_flag(&c, guo, true).unwrap(); // 登记了,但一条认领都没有
 
     assert_eq!(hits(&c, &include("国籍")), Vec::<String>::new());
-    assert_eq!(hits(&c, &exclude("国籍")), vec!["乙", "甲"], "排除无认领角色 = 全库");
+    assert_eq!(hits(&c, &exclude("国籍")), vec!["乙", "甲"], "排除无认领类型 = 全库");
 }
 
-/// ⑤ 只被认领、还没有笔记的标签不被孤儿回收(与 R2 同款):回收会让角色筛选静默漏人。
+/// ⑤ 只被认领、还没有笔记的标签不被孤儿回收(与 R2 同款):回收会让类型筛选静默漏人。
 /// 夹具走真实写入路径(create_plain 末尾会跑 gc_orphans),不是直接调 gc。
 #[test]
 fn claimed_tag_survives_gc_and_stays_filterable() {
     let mut c = db();
     let guo = ensure_path(&c, &["国籍".into()]).unwrap();
     let japan = ensure_path(&c, &["日本".into()]).unwrap();
-    register_role(&c, guo).unwrap();
-    set_tag_roles(&mut c, japan, vec![guo]).unwrap();
+    set_tag_type_flag(&c, guo, true).unwrap();
+    set_tag_types(&mut c, japan, vec![guo]).unwrap();
 
     create_plain(&mut c, "无关 #书").unwrap(); // 触发 gc_orphans
     assert_eq!(id_at(&c, "日本"), japan, "被认领的标签不得被回收");
@@ -136,8 +136,8 @@ fn role_subtree_boundary_and_deep_chain() {
     let guo = ensure_path(&c, &["国籍".into()]).unwrap();
     let china = ensure_path(&c, &["中国".into()]).unwrap();
     let author = id_at(&c, "作者/丸尾");
-    register_role(&c, guo).unwrap();
-    set_tag_roles(&mut c, china, vec![guo]).unwrap();
+    set_tag_type_flag(&c, guo, true).unwrap();
+    set_tag_types(&mut c, china, vec![guo]).unwrap();
     set_carry(&mut c, author, guo).unwrap();
 
     assert_eq!(
@@ -147,22 +147,22 @@ fn role_subtree_boundary_and_deep_chain() {
     );
 }
 
-/// ⑦ 大库形态等价性:多角色 × 多认领 × 各自子树 + 携带者,命中集必须与暴力枚举逐值一致。
+/// ⑦ 大库形态等价性:多类型 × 多认领 × 各自子树 + 携带者,命中集必须与暴力枚举逐值一致。
 /// 物化 id 集合若漏成员/多成员,这条会红。
 #[test]
 fn large_role_set_matches_brute_force() {
     let mut c = db();
     let guo = ensure_path(&c, &["国籍".into()]).unwrap();
     let suo = ensure_path(&c, &["所在".into()]).unwrap();
-    register_role(&c, guo).unwrap();
-    register_role(&c, suo).unwrap();
+    set_tag_type_flag(&c, guo, true).unwrap();
+    set_tag_type_flag(&c, suo, true).unwrap();
     for claimed in ["中国", "日本", "法国/巴黎", "地点/旧"] {
         let segs: Vec<String> = claimed.split('/').map(Into::into).collect();
         let id = ensure_path(&c, &segs).unwrap();
-        set_tag_roles(&mut c, id, vec![guo]).unwrap();
+        set_tag_types(&mut c, id, vec![guo]).unwrap();
     }
     let solo = ensure_path(&c, &["家".into()]).unwrap();
-    set_tag_roles(&mut c, solo, vec![suo]).unwrap();
+    set_tag_types(&mut c, solo, vec![suo]).unwrap();
 
     let mut expected: Vec<String> = Vec::new();
     for (label, tag, hit) in [
@@ -192,5 +192,5 @@ fn large_role_set_matches_brute_force() {
     expected.sort();
 
     assert_eq!(hits(&c, &include("国籍")), expected, "命中集必须与暴力枚举一致");
-    assert_eq!(hits(&c, &include("所在")), vec!["L8"], "另一个角色只命中自己的认领");
+    assert_eq!(hits(&c, &include("所在")), vec!["L8"], "另一个类型只命中自己的认领");
 }

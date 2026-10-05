@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * 设置页「标签角色」分区里的「标签树里显示携带」一行(标签角色 spec §5;Task 5 欠账 1):
+ * 设置页「标签类型」分区里的「标签树里显示携带」一行(标签类型 spec §5;Task 5 欠账 1):
  * 开关受控于传入的 checked,点击回传反转值;文案与 aria-label 固定。
  */
 import { act, createElement } from 'react';

@@ -16,7 +16,7 @@ const { getSetting, setSetting, saveInputNote, carriedTagPaths, conditionHitCoun
   setSetting: vi.fn(async (_key: string, _value: string) => {}),
   saveInputNote: vi.fn(async (_s: string) => 1),
   carriedTagPaths: vi.fn(async (): Promise<string[]> => []),
-  conditionHitCounts: vi.fn(async () => ({ tagHits: [], excludeTagHits: [], roleHits: [], excludeRoleHits: [] })),
+  conditionHitCounts: vi.fn(async () => ({ tagHits: [], excludeTagHits: [], typeHits: [], excludeTypeHits: [] })),
 }));
 vi.mock('../../shared/api', () => ({ api: { getSetting, setSetting, saveInputNote, carriedTagPaths, conditionHitCounts } }));
 

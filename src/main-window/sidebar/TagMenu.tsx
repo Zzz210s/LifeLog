@@ -16,13 +16,13 @@ import { TagMenuMainPane } from './TagMenuMainPane';
 import { TagMenuMergePane } from './TagMenuMergePane';
 import { TagMenuMovePane } from './TagMenuMovePane';
 import { TagMenuRenamePane } from './TagMenuRenamePane';
-import { TagMenuRolePane } from './TagMenuRolePane';
+import { TagMenuTypePane } from './TagMenuTypePane';
 import { useDismiss } from '../shell/use-dismiss';
 import { mergeCandidates } from './tag-menu-pure';
 import { tagMenuOps } from './tag-menu-ops';
 import type { Pane } from './tag-menu-ui';
 import type { ManagedNode } from './tag-tree';
-import { useRoles } from './use-roles';
+import { useTagTypes } from './use-tag-types';
 import { useTagMenuAliases } from './use-tag-menu-aliases';
 
 export interface TagMenuProps {
@@ -70,9 +70,9 @@ export function TagMenu(p: TagMenuProps): ReactNode {
   };
   const ops = tagMenuOps({ node: p.node, newName, fail, setBusy, onError: setError, onClose: p.onClose, onDone: p.onDone });
   const alias = useTagMenuAliases(p.node.id, pane === 'alias', fail, setBusy);
-  // 已登记角色:决定「设为角色 / 取消角色」,也是「角色…」列表与「携带…」候选的来源
-  const roles = useRoles(true) ?? [];
-  const isRole = roles.some((r) => r.tagId === p.node.id);
+  // 已登记类型:决定「设为类型 / 取消类型」,也是「类型…」列表与「携带…」候选的来源
+  const types = useTagTypes(true) ?? [];
+  const isType = types.some((r) => r.tagId === p.node.id);
   /** 切换面板:进入前清掉就地错误;删除/合并面板重新取影响面,别名面板重置列表 */
   const pickPane = (next: Pane): void => {
     setError('');
@@ -97,9 +97,9 @@ export function TagMenu(p: TagMenuProps): ReactNode {
       {pane === 'main' && (
         <TagMenuMainPane
           path={p.node.path}
-          isRole={isRole}
+          isType={isType}
           onPick={pickPane}
-          onMakeRole={() => ops.makeRole(isRole)}
+          onMakeType={() => ops.makeType(isType)}
         />
       )}
       {pane === 'rename' && (
@@ -172,14 +172,14 @@ export function TagMenu(p: TagMenuProps): ReactNode {
           tagId={p.node.id}
           path={p.node.path}
           rows={p.tagRows}
-          roles={roles}
+          types={types}
           pinned={p.tagMru?.pinnedTags}
           mru={p.tagMru?.mruTags.entries()}
           onCancel={p.onClose}
         />
       )}
-      {pane === 'role' && (
-        <TagMenuRolePane tagId={p.node.id} path={p.node.path} roles={roles} onCancel={p.onClose} />
+      {pane === 'type' && (
+        <TagMenuTypePane tagId={p.node.id} path={p.node.path} types={types} onCancel={p.onClose} />
       )}
     </div>
   );

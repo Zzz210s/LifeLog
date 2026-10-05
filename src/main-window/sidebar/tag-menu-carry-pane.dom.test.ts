@@ -9,13 +9,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TagCount } from '../../shared/types';
 import { TagMenuCarryPane } from './TagMenuCarryPane';
 
-const { listTagCarries, setTagCarry, removeTagCarry, listRoles } = vi.hoisted(() => ({
+const { listTagCarries, setTagCarry, removeTagCarry, listTypes } = vi.hoisted(() => ({
   listTagCarries: vi.fn(),
   setTagCarry: vi.fn(),
   removeTagCarry: vi.fn(),
-  listRoles: vi.fn(),
+  listTypes: vi.fn(),
 }));
-vi.mock('../../shared/api', () => ({ api: { listTagCarries, setTagCarry, removeTagCarry, listRoles } }));
+vi.mock('../../shared/api', () => ({ api: { listTagCarries, setTagCarry, removeTagCarry, listTypes } }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -39,8 +39,8 @@ beforeEach(() => {
   listTagCarries.mockReset();
   setTagCarry.mockReset();
   removeTagCarry.mockReset();
-  listRoles.mockReset();
-  listRoles.mockResolvedValue([
+  listTypes.mockReset();
+  listTypes.mockResolvedValue([
     { tagId: OTHER.id, path: OTHER.path, name: OTHER.path },
     { tagId: PINNABLE.id, path: PINNABLE.path, name: PINNABLE.path },
   ]);
@@ -70,7 +70,7 @@ const renderPane = (): void => {
         tagId: 1,
         path: '携带测试甲',
         rows: ROWS,
-        roles: [OTHER, PINNABLE].map((r) => ({ tagId: r.id, path: r.path, name: r.path })),
+        types: [OTHER, PINNABLE].map((r) => ({ tagId: r.id, path: r.path, name: r.path })),
         onCancel: () => {},
       })
     );

@@ -51,14 +51,14 @@ pub(crate) fn assert_fts_matches_tags(conn: &Connection) {
     assert!(stale.is_empty(), "notes_fts 残留已不存在的笔记行: {stale:?}");
 }
 
-/// ② 无孤儿标签(无 tag_id 链接、无指向它的携带行、无子节点);失败信息列出全部孤儿路径。
+/// ② 无孤儿标签(无 tag_id 链接、无指向它的 'tag'/'type' 行、未登记为类型、无子节点);失败信息列出全部孤儿路径。
 pub(crate) fn assert_no_orphan_tags(conn: &Connection) {
     let mut stmt = conn
         .prepare(
             "SELECT t.path FROM tags t
               WHERE NOT EXISTS (SELECT 1 FROM tag_links l WHERE l.tag_id = t.id)
-                AND NOT EXISTS (SELECT 1 FROM tag_links lc WHERE lc.target_type = 'tag' AND lc.target_id = t.id)
-                AND NOT EXISTS (SELECT 1 FROM roles r WHERE r.tag_id = t.id)
+                AND NOT EXISTS (SELECT 1 FROM tag_links lc WHERE lc.target_type IN ('tag', 'type') AND lc.target_id = t.id)
+                AND t.is_type = 0
                 AND NOT EXISTS (SELECT 1 FROM tags c WHERE c.parent_id = t.id)
               ORDER BY t.path",
         )
@@ -71,18 +71,18 @@ pub(crate) fn assert_no_orphan_tags(conn: &Connection) {
     assert!(found.is_empty(), "存在孤儿标签(无链接且无子节点): {found:?}");
 }
 
-/// ④ 无悬空携带行:target_type='tag' 的 target_id 都指向存在的标签(R5 的 delete_subtree/merge
-/// 清行不彻底时报警;target_id 无外键,这是兜住它的唯一检查)。
+/// ④ 无悬空关系行:'tag'/'type' 两种 target_type 的 target_id 都指向存在的标签(R5 的
+/// delete_subtree/merge 清行不彻底时报警;target_id 无外键,这是兜住它的唯一检查)。
 pub(crate) fn assert_no_dangling_carries(conn: &Connection) {
     let n: i64 = conn
         .query_row(
             "SELECT COUNT(*) FROM tag_links
-              WHERE target_type = 'tag' AND target_id NOT IN (SELECT id FROM tags)",
+              WHERE target_type IN ('tag', 'type') AND target_id NOT IN (SELECT id FROM tags)",
             [],
             |r| r.get(0),
         )
         .unwrap();
-    assert_eq!(n, 0, "存在悬空携带行(target_id 指向已不存在的标签)");
+    assert_eq!(n, 0, "存在悬空关系行(target_type='tag'/'type' 的 target_id 指向已不存在的标签)");
 }
 
 /// ⑤ 携带图无环(S3):任取一条携带边 a→b,若 b 沿携带方向能走回 a 即成环(2 环及以上都能查)。

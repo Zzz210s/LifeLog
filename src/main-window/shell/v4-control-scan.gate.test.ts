@@ -20,7 +20,7 @@ const SKIP_BUTTONS: Array<[string, string]> = [
   ['filter/ExprDialog.tsx', '对话框:归 V5'],
   ['filter/ExprSyntaxHint.tsx', '对话框内语法提示:归 V5'],
   ['filter/TagPickDialog.tsx', '对话框:归 V5'],
-  ['filter/RolePickDialog.tsx', '角色选择对话框:归 V5'],
+  ['filter/TypePickDialog.tsx', '类型选择对话框:归 V5'],
   ['filter/AddConditionMenu.tsx', '下拉浮层菜单项:归 V5'],
   ['shell/TopBarMenu.tsx', '顶栏下拉浮层菜单项(与 AddConditionMenu 同口径):归 V5'],
   ['filter/FilterChips.tsx', '条件 chip 与其单删 ×:归 V3'],

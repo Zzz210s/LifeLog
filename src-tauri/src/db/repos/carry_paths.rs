@@ -19,7 +19,7 @@ mod tests {
     use super::carried_paths;
     use crate::db::migrate;
     use crate::db::repos::notes::create_plain;
-    use crate::db::repos::tags::{ensure_path, register_role, set_carry};
+    use crate::db::repos::tags::{ensure_path, set_tag_type_flag, set_carry};
     use rusqlite::Connection;
 
     fn db() -> Connection {
@@ -36,7 +36,7 @@ mod tests {
         create_plain(&mut c, "笔记 #地点/国籍/日本").unwrap();
         assert!(carried_paths(&c).unwrap().is_empty(), "笔记链接不算携带");
         let carrier = ensure_path(&c, &["作者/丸尾".into()]).unwrap();
-        register_role(&c, carried).unwrap();
+        set_tag_type_flag(&c, carried, true).unwrap();
         set_carry(&mut c, carrier, carried).unwrap();
         assert_eq!(carried_paths(&c).unwrap(), vec!["地点/国籍/日本"]);
     }
@@ -49,8 +49,8 @@ mod tests {
         let france = ensure_path(&c, &["地点/国籍/法国".into()]).unwrap();
         let a = ensure_path(&c, &["作者/甲".into()]).unwrap();
         let b = ensure_path(&c, &["作者/乙".into()]).unwrap();
-        register_role(&c, japan).unwrap();
-        register_role(&c, france).unwrap();
+        set_tag_type_flag(&c, japan, true).unwrap();
+        set_tag_type_flag(&c, france, true).unwrap();
         set_carry(&mut c, a, japan).unwrap();
         set_carry(&mut c, b, japan).unwrap();
         set_carry(&mut c, a, france).unwrap();

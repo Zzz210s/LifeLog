@@ -46,7 +46,7 @@ const summaryText = (): string =>
 beforeEach(() => {
   carriedTagPaths.mockReset();
   conditionHitCounts.mockReset();
-  conditionHitCounts.mockResolvedValue({ tagHits: [], excludeTagHits: [], roleHits: [], excludeRoleHits: [] });
+  conditionHitCounts.mockResolvedValue({ tagHits: [], excludeTagHits: [], typeHits: [], excludeTypeHits: [] });
   host = document.createElement('div');
   document.body.appendChild(host);
   root = createRoot(host);

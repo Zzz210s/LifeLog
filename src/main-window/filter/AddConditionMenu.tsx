@@ -9,8 +9,8 @@ export interface AddConditionMenuProps {
   onPatch: (value: Partial<FilterConditions>) => void;
   /** 标签/排除标签:交给上层打开标签选择器 */
   onPickTag: (exclude: boolean) => void;
-  /** 角色/排除角色(spec 2026-10-05 §5):交给上层打开角色选择器 */
-  onPickRole: (exclude: boolean) => void;
+  /** 类型/排除类型(spec 2026-10-05 §5):交给上层打开类型选择器 */
+  onPickType: (exclude: boolean) => void;
   /** 表达式(高级):交给上层打开表达式对话框(D4:只在筛选栏编辑) */
   onOpenExpr: () => void;
   /** 受控开关:命令与顶栏菜单(Task 3)、条件栏都把开关放在上层 */
@@ -75,11 +75,11 @@ export function AddConditionMenu(p: AddConditionMenuProps): ReactNode {
               <button type="button" role="menuitem" className={ITEM_CLASS} onClick={() => act(() => p.onPickTag(true))}>
                 排除标签
               </button>
-              <button type="button" role="menuitem" className={ITEM_CLASS} onClick={() => act(() => p.onPickRole(false))}>
-                角色
+              <button type="button" role="menuitem" className={ITEM_CLASS} onClick={() => act(() => p.onPickType(false))}>
+                类型
               </button>
-              <button type="button" role="menuitem" className={ITEM_CLASS} onClick={() => act(() => p.onPickRole(true))}>
-                排除角色
+              <button type="button" role="menuitem" className={ITEM_CLASS} onClick={() => act(() => p.onPickType(true))}>
+                排除类型
               </button>
               <button type="button" role="menuitem" className={ITEM_CLASS} onClick={() => setPane('presence')}>
                 有无标签

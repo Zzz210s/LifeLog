@@ -13,8 +13,8 @@
  * - 源行不再改透明度(VS Code 源行没有任何半透明处理),拖拽中抑制 hover 高亮。
  */
 import type { CSSProperties, ReactNode } from 'react';
-import { carryLabel, roleBadgeRefs, tagFactsTitle } from '../../shared/tag-role-facts';
-import type { CarryFact, RoleChip } from '../../shared/tag-role-facts';
+import { carryLabel, typeBadgeRefs, tagFactsTitle } from '../../shared/tag-type-facts';
+import type { CarryFact, TypeChip } from '../../shared/tag-type-facts';
 import { renderTagLabel, tagLabelPlain } from '../../shared/tag-label';
 import { hoverTitle } from '../../shared/truncate-title';
 import type { TagNode } from './tag-tree';
@@ -43,9 +43,9 @@ export interface TagRowProps {
   onDragEnd: () => void;
   onDragOver: (e: React.DragEvent) => void;
   onDrop: (e: React.DragEvent) => void;
-  /** 本行标签被哪些角色认领(带 id 供列表 key;名字已剥 md);徽章最多 2 个 + `+N` */
-  roles?: readonly RoleChip[];
-  /** 本行标签携带的「角色 -> 值」;树行只在 showCarry 时显示,悬浮卡片始终列 */
+  /** 本行标签被哪些类型认领(带 id 供列表 key;名字已剥 md);徽章最多 2 个 + `+N` */
+  types?: readonly TypeChip[];
+  /** 本行标签携带的「类型 -> 值」;树行只在 showCarry 时显示,悬浮卡片始终列 */
   carry?: readonly CarryFact[];
   /** 设置开关「标签树里显示携带」:关时不进树行(悬浮卡片仍在) */
   showCarry?: boolean;
@@ -85,9 +85,9 @@ export function TagRow(p: TagRowProps): ReactNode {
     (selectable ? state : 'cursor-default text-muted' + (p.dragActive ? '' : ' hover:bg-hover')) +
     (p.dropZone === 'child' ? ' bg-accent-soft' : '');
 
-  const roleChips = p.roles ?? [];
+  const typeChips = p.types ?? [];
   const carries = p.carry ?? [];
-  const badges = roleBadgeRefs(roleChips);
+  const badges = typeBadgeRefs(typeChips);
 
   return (
     <button
@@ -101,7 +101,7 @@ export function TagRow(p: TagRowProps): ReactNode {
         p.node.path,
         p.node.selfCount,
         p.node.subtreeCount,
-        roleChips.map((r) => r.name),
+        typeChips.map((r) => r.name),
         carries
       )}
       className={rowClass}
@@ -155,14 +155,14 @@ export function TagRow(p: TagRowProps): ReactNode {
       {badges.badges.map((b) => (
         <span
           key={b.tagId}
-          data-role-badge
+          data-type-badge
           className="shrink-0 rounded-xs bg-tag px-1 text-micro text-muted"
         >
           {b.name}
         </span>
       ))}
       {badges.extra > 0 && (
-        <span data-role-badge className="shrink-0 rounded-xs bg-tag px-1 text-micro text-muted">
+        <span data-type-badge className="shrink-0 rounded-xs bg-tag px-1 text-micro text-muted">
           {'+' + badges.extra}
         </span>
       )}

@@ -41,7 +41,7 @@ export interface ViewHostProps {
   dataVersion: number;
   /** 固定标签 + 标签 MRU(App 透传):关系图的标签菜单「携带…」候选与侧栏同一套三档排序 */
   tagMru?: TagMruSource | null;
-  /** 「标签角色」分区里的「标签树里显示携带」(值来自侧栏状态,与其共用一份 showCarry) */
+  /** 「标签类型」分区里的「标签树里显示携带」(值来自侧栏状态,与其共用一份 showCarry) */
   tagTreeCarry?: { showCarry: boolean; onShowCarryChange: (v: boolean) => void };
   onReplayTutorial: () => void;
 }

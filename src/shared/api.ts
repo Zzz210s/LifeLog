@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { CarryReport, CompleteItem, DbInfo, ExprCheck, GraphData, GraphLinkDegrees, MergeReport, Note, NoteLinks, NoteTitle, ParseResult, RoleRef, TagCount, TagImpact } from './types';
+import type { CarryReport, CompleteItem, DbInfo, ExprCheck, GraphData, GraphLinkDegrees, MergeReport, Note, NoteLinks, NoteTitle, ParseResult, TypeRef, TagCount, TagImpact } from './types';
 import type { ConditionHits, TagFactsBundle } from './tag-facts-types';
 import type { FilterConditions } from './filter-conditions';
 import type { AppHotkeyKind } from './hotkey-match';
@@ -42,20 +42,19 @@ export const api = {
   listTagCarries: (carrierId: number) => invoke<CarryReport>('list_tag_carries', { carrierId }),
   /** 有携带者的标签路径集合(去重、升序):条件栏摘要据此决定是否显示 `+携带` 小字 */
   carriedTagPaths: () => invoke<string[]>('carried_tag_paths'),
-  /** 登记角色(幂等):把该标签登记为角色,不动它在树里的位置与排序 */
-  registerRole: (tagId: number) => invoke<void>('register_role', { tagId }),
-  /** 取消角色登记(幂等):连带删掉该角色的全部认领行 */
-  unregisterRole: (tagId: number) => invoke<void>('unregister_role', { tagId }),
-  /** 整体替换某标签的角色认领(不是增量);roleIds 每项必须是已登记的角色标签 */
-  setTagRoles: (tagId: number, roleIds: number[]) =>
-    invoke<void>('set_tag_roles', { tagId, roleIds }),
-  /** 全部已登记角色(标签菜单与筛选「角色」条件的数据源) */
-  listRoles: () => invoke<RoleRef[]>('list_roles'),
-  /** 某标签认领的角色(标签菜单「角色…」回显) */
-  listTagRoles: (tagId: number) => invoke<RoleRef[]>('list_tag_roles', { tagId }),
-  /** 全量标签「角色 / 携带」事实(批量只读,一次 IPC 取全):侧栏树行徽章/携带小字/悬浮卡片共用 */
+  /** 设置/取消「类型」标记(幂等):把该标签登记为类型,不动它在树里的位置与排序 */
+  setTagTypeFlag: (tagId: number, isType: boolean) =>
+    invoke<void>('set_tag_type_flag', { tagId, isType }),
+  /** 整体替换某标签的类型认领(不是增量);typeIds 每项必须是已登记的类型标签 */
+  setTagTypes: (tagId: number, typeIds: number[]) =>
+    invoke<void>('set_tag_types', { tagId, typeIds }),
+  /** 全部已登记类型(标签菜单与筛选「类型」条件的数据源) */
+  listTypes: () => invoke<TypeRef[]>('list_types'),
+  /** 某标签认领的类型(标签菜单「类型…」回显) */
+  listTagTypes: (tagId: number) => invoke<TypeRef[]>('list_tag_types', { tagId }),
+  /** 全量标签「类型 / 携带」事实(批量只读,一次 IPC 取全):侧栏树行徽章/携带小字/悬浮卡片共用 */
   listTagFacts: () => invoke<TagFactsBundle>('list_tag_facts'),
-  /** 条件栏「命中 N 条」读数:每个标签/角色条件独立计数(不叠加其它条件) */
+  /** 条件栏「命中 N 条」读数:每个标签/类型条件独立计数(不叠加其它条件) */
   conditionHitCounts: (conditions: FilterConditions) =>
     invoke<ConditionHits>('condition_hit_counts', { conditions }),
   /** 合并标签(G2 命令):转移链接 + 可选保留旧名为别名,返回转移读数 */

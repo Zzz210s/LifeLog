@@ -3,7 +3,7 @@
  * 结构非法一律回退 EMPTY_FILTER,绝不把半成品对象放进状态机。
  */
 import { EMPTY_FILTER, validateFilter } from './filter-conditions';
-import type { FilterConditions, RoleCond, TagCond } from './filter-conditions';
+import type { FilterConditions, TypeCond, TagCond } from './filter-conditions';
 
 /**
  * 解析设置里持久化的条件 JSON:空串 / 坏 JSON / 字段类型非法 / 校验不通过一律回退 EMPTY_FILTER;
@@ -32,8 +32,8 @@ export function normalizeFilter(c: Partial<FilterConditions> | null | undefined)
     keyword: c?.keyword ?? null,
     tags: Array.isArray(c?.tags) ? c.tags : [],
     excludeTags: Array.isArray(c?.excludeTags) ? c.excludeTags : [],
-    roles: Array.isArray(c?.roles) ? c.roles : [],
-    excludeRoles: Array.isArray(c?.excludeRoles) ? c.excludeRoles : [],
+    types: Array.isArray(c?.types) ? c.types : [],
+    excludeTypes: Array.isArray(c?.excludeTypes) ? c.excludeTypes : [],
     tagPresence: c?.tagPresence === 'any' || c?.tagPresence === 'none' ? c.tagPresence : null,
     sort: c?.sort === 'oldest' ? 'oldest' : 'newest',
     expr: keepExpr(c?.expr ?? null),
@@ -51,11 +51,11 @@ const keepExpr = (v: string | null): string | null => (v === null || v.trim() ==
 const readNullableString = (v: unknown): string | null | undefined =>
   v === undefined || v === null ? null : typeof v === 'string' ? v : undefined;
 
-/** 角色数组:缺字段 -> 空数组(老库兼容);非数组或项里 path 非字符串 -> null(非法) */
-function readRoleList(v: unknown): RoleCond[] | null {
+/** 类型数组:缺字段 -> 空数组(老库兼容);非数组或项里 path 非字符串 -> null(非法) */
+function readTypeList(v: unknown): TypeCond[] | null {
   if (v === undefined || v === null) return [];
   if (!Array.isArray(v)) return null;
-  const out: RoleCond[] = [];
+  const out: TypeCond[] = [];
   for (const item of v) {
     if (!isRecord(item) || typeof item.path !== 'string') return null;
     out.push({ path: item.path });
@@ -81,22 +81,22 @@ function normalize(data: unknown): FilterConditions | null {
   const keyword = readNullableString(data.keyword);
   const tags = readTagList(data.tags);
   const excludeTags = readTagList(data.excludeTags);
-  const roles = readRoleList(data.roles);
-  const excludeRoles = readRoleList(data.excludeRoles);
+  const types = readTypeList(data.types ?? data.roles);
+  const excludeTypes = readTypeList(data.excludeTypes ?? data.excludeRoles);
   const presence = readNullableString(data.tagPresence);
   const sort = readNullableString(data.sort);
   const expr = readNullableString(data.expr);
   if (keyword === undefined || expr === undefined) return null;
   if (tags === null || excludeTags === null || presence === undefined || sort === undefined) return null;
-  if (roles === null || excludeRoles === null) return null;
+  if (types === null || excludeTypes === null) return null;
   if (presence !== null && presence !== 'any' && presence !== 'none') return null;
   if (sort !== null && sort !== 'newest' && sort !== 'oldest') return null;
   return {
     keyword: (keyword ?? '').trim() === '' ? null : keyword,
     tags,
     excludeTags,
-    roles,
-    excludeRoles,
+    types,
+    excludeTypes,
     tagPresence: presence,
     sort: sort === 'oldest' ? 'oldest' : 'newest',
     expr: keepExpr(expr),

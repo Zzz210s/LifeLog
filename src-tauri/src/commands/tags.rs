@@ -148,40 +148,34 @@ pub fn carried_tag_paths(app: AppHandle) -> Result<Vec<String>, String> {
     with_conn(&app, |c| carry_paths::carried_paths(c).map_err(|e| e.to_string()))
 }
 
-/// 登记角色(幂等):把该标签登记为角色(受控命名空间),**不动**树结构与排序(R5)
+/// 设置或取消「类型」标记(幂等):把该标签登记为类型(受控命名空间),**不动**树结构与排序(R5)
 #[tauri::command]
-pub fn register_role(app: AppHandle, tag_id: i64) -> Result<(), String> {
-    with_conn(&app, |c| tags::register_role(c, tag_id))
+pub fn set_tag_type_flag(app: AppHandle, tag_id: i64, is_type: bool) -> Result<(), String> {
+    with_conn(&app, |c| tags::set_tag_type_flag(c, tag_id, is_type))
 }
 
-/// 取消角色登记(幂等):连带删掉该角色的全部认领行
+/// 整体替换某标签的类型认领(不是增量);type_ids 里的每一项必须是已登记的类型标签
 #[tauri::command]
-pub fn unregister_role(app: AppHandle, tag_id: i64) -> Result<(), String> {
-    with_conn(&app, |c| tags::unregister_role(c, tag_id))
+pub fn set_tag_types(app: AppHandle, tag_id: i64, type_ids: Vec<i64>) -> Result<(), String> {
+    with_conn(&app, |c| tags::set_tag_types(c, tag_id, type_ids))
 }
 
-/// 整体替换某标签的角色认领(不是增量);role_ids 里的每一项必须是已登记的角色标签
+/// 全部已登记类型(标签菜单与筛选「类型」条件的数据源),按登记顺序
 #[tauri::command]
-pub fn set_tag_roles(app: AppHandle, tag_id: i64, role_ids: Vec<i64>) -> Result<(), String> {
-    with_conn(&app, |c| tags::set_tag_roles(c, tag_id, role_ids))
+pub fn list_types(app: AppHandle) -> Result<Vec<tags::TypeRef>, String> {
+    with_conn(&app, |c| tags::list_types(c).map_err(|e| e.to_string()))
 }
 
-/// 全部已登记角色(标签菜单与筛选「角色」条件的数据源),按登记顺序
-#[tauri::command]
-pub fn list_roles(app: AppHandle) -> Result<Vec<tags::RoleRef>, String> {
-    with_conn(&app, |c| tags::list_roles(c).map_err(|e| e.to_string()))
-}
-
-/// 全量标签「角色 / 携带」事实(一次 IPC 取全):侧栏逐标签读数会在扁平模式打 1.5k 次
+/// 全量标签「类型 / 携带」事实(一次 IPC 取全):侧栏逐标签读数会在扁平模式打 1.5k 次
 #[tauri::command]
 pub fn list_tag_facts(app: AppHandle) -> Result<tags::TagFactsBundle, String> {
     with_conn(&app, |c| tags::tag_facts(c).map_err(|e| e.to_string()))
 }
 
-/// 某标签认领的角色(标签菜单「角色…」回显),按路径升序
+/// 某标签认领的类型(标签菜单「类型…」回显),按路径升序
 #[tauri::command]
-pub fn list_tag_roles(app: AppHandle, tag_id: i64) -> Result<Vec<tags::RoleRef>, String> {
-    with_conn(&app, |c| tags::list_tag_roles(c, tag_id).map_err(|e| e.to_string()))
+pub fn list_tag_types(app: AppHandle, tag_id: i64) -> Result<Vec<tags::TypeRef>, String> {
+    with_conn(&app, |c| tags::list_tag_types(c, tag_id).map_err(|e| e.to_string()))
 }
 
 /// 路径前缀补全(输入 `#工作/` 时列出下一级候选)。

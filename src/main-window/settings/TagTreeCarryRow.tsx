@@ -1,4 +1,4 @@
-// 设置页「标签角色」分区的一行:标签树里显示携带(默认关)。
+// 设置页「标签类型」分区的一行:标签树里显示携带(默认关)。
 // 值、写库都在侧栏状态(use-sidebar-state 的 showCarry,持久化键 tag_tree_show_carry),
 // 由 App 经 SettingsView 透传 —— 同一份状态,开关一拨侧栏树即时跟随。
 import type { ReactNode } from 'react';

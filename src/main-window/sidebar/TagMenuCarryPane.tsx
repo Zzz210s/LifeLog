@@ -15,7 +15,7 @@ import type { MruEntry } from '../../shared/quickpick/model';
 import { renderTagLabel, tagLabelPlain } from '../../shared/tag-label';
 import { remapRanges } from '../../shared/tag-label-highlight';
 import { hoverTitle } from '../../shared/truncate-title';
-import type { CarryReport, RoleRef, TagCount } from '../../shared/types';
+import type { CarryReport, TypeRef, TagCount } from '../../shared/types';
 import { TagMenuCarriedList } from './TagMenuCarriedList';
 import { TagMenuCarryCandidates } from './TagMenuCarryCandidates';
 import { carryCandidates } from './tag-menu-pure';
@@ -27,8 +27,8 @@ export interface TagMenuCarryPaneProps {
   path: string;
   /** 全部标签行(候选池,自身与已携带的由 carryCandidates 剔除) */
   rows: readonly TagCount[];
-  /** 已登记角色(候选只留它们,符合 R3:携带目标必须是角色标签) */
-  roles: readonly RoleRef[];
+  /** 已登记类型(候选只留它们,符合 R3:携带目标必须是类型标签) */
+  types: readonly TypeRef[];
   /** 固定项 / 最近用过(`#` 补全同一套档位;缺省为空档) */
   pinned?: readonly string[];
   mru?: readonly MruEntry[];
@@ -65,8 +65,8 @@ export function TagMenuCarryPane(p: TagMenuCarryPaneProps): ReactNode {
   }, [p.tagId]);
 
   const candidates = useMemo(() => {
-    const roleIds = new Set(p.roles.map((r) => r.tagId));
-    const pool = carryCandidates(p.rows, p.path, report?.carried ?? [], roleIds);
+    const typeIds = new Set(p.types.map((r) => r.tagId));
+    const pool = carryCandidates(p.rows, p.path, report?.carried ?? [], typeIds);
     const byPath = new Map(pool.map((c) => [c.path, c.id] as const));
     const { rows } = buildList({
       items: pool.map((c) => ({ id: c.path, label: c.path })),
@@ -80,7 +80,7 @@ export function TagMenuCarryPane(p: TagMenuCarryPaneProps): ReactNode {
       path: r.item.id,
       ranges: remapRanges(r.item.id, tagLabelPlain(r.item.id), r.ranges),
     }));
-  }, [p.rows, p.path, p.roles, p.pinned, p.mru, report, query]);
+  }, [p.rows, p.path, p.types, p.pinned, p.mru, report, query]);
 
   useEffect(() => {
     setActiveIndex(0);

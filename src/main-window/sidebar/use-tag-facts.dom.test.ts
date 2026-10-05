@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 /**
- * 标签事实读取改成批量一次的组件级证据(标签角色 spec §5 / Task 5 欠账 2):
- *   一次 `list_tag_facts` 拿全量 + 角色表,不再逐标签调 `list_tag_roles` / `list_tag_carries`;
- *   只保留当前可见的标签;携带目标按角色表换算成「角色 -> 值」;读数失败回空值不抛。
+ * 标签事实读取改成批量一次的组件级证据(标签类型 spec §5 / Task 5 欠账 2):
+ *   一次 `list_tag_facts` 拿全量 + 类型表,不再逐标签调 `list_tag_types` / `list_tag_carries`;
+ *   只保留当前可见的标签;携带目标按类型表换算成「类型 -> 值」;读数失败回空值不抛。
  */
 import { act, createElement } from 'react';
 import type { ReactNode } from 'react';
@@ -11,21 +11,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TagFactsBundle } from '../../shared/tag-facts-types';
 import { useTagFacts, type TagFacts } from './use-tag-facts';
 
-const { listTagFacts, listTagRoles, listTagCarries } = vi.hoisted(() => ({
+const { listTagFacts, listTagTypes, listTagCarries } = vi.hoisted(() => ({
   listTagFacts: vi.fn<() => Promise<TagFactsBundle>>(),
-  listTagRoles: vi.fn(),
+  listTagTypes: vi.fn(),
   listTagCarries: vi.fn(),
 }));
-vi.mock('../../shared/api', () => ({ api: { listTagFacts, listTagRoles, listTagCarries } }));
+vi.mock('../../shared/api', () => ({ api: { listTagFacts, listTagTypes, listTagCarries } }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const GUO = { tagId: 7, path: '地点轴/国籍', name: '国籍' };
 const BUNDLE: TagFactsBundle = {
-  roles: [GUO],
+  types: [GUO],
   facts: [
-    { tagId: 1, roles: [GUO], carried: ['地点轴/国籍/日本'] },
-    { tagId: 99, roles: [], carried: ['地点轴/国籍/美国'] },
+    { tagId: 1, types: [GUO], carried: ['地点轴/国籍/日本'] },
+    { tagId: 99, types: [], carried: ['地点轴/国籍/美国'] },
   ],
 };
 
@@ -46,7 +46,7 @@ const settle = (): Promise<void> =>
 beforeEach(() => {
   listTagFacts.mockReset();
   listTagFacts.mockResolvedValue(BUNDLE);
-  listTagRoles.mockReset();
+  listTagTypes.mockReset();
   listTagCarries.mockReset();
   facts = new Map();
   host = document.createElement('div');
@@ -64,16 +64,16 @@ describe('useTagFacts(批量一次)', () => {
     await act(async () => root.render(createElement(Probe)));
     await settle();
     expect(listTagFacts).toHaveBeenCalledTimes(1);
-    expect(listTagRoles).not.toHaveBeenCalled();
+    expect(listTagTypes).not.toHaveBeenCalled();
     expect(listTagCarries).not.toHaveBeenCalled();
   });
 
-  it('只保留可见标签;认领角色剥 md;携带目标换算成「角色 -> 值」', async () => {
+  it('只保留可见标签;认领类型剥 md;携带目标换算成「类型 -> 值」', async () => {
     await act(async () => root.render(createElement(Probe)));
     await settle();
     expect([...facts.keys()]).toEqual([1]);
-    expect(facts.get(1)?.roles).toEqual([{ tagId: 7, name: '国籍' }]);
-    expect(facts.get(1)?.carry).toEqual([{ role: '国籍', value: '日本' }]);
+    expect(facts.get(1)?.types).toEqual([{ tagId: 7, name: '国籍' }]);
+    expect(facts.get(1)?.carry).toEqual([{ type: '国籍', value: '日本' }]);
   });
 
   it('读数失败回空值且不抛', async () => {

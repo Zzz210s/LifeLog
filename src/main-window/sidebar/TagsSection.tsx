@@ -35,7 +35,7 @@ export interface TagsSectionProps {
   onFilterTags: () => void;
   /** 管理(改名/移动/删除)成功后通知上层刷新标签与筛选条件 */
   onTagsMutated: (pathChange?: { from: string; to: string }) => void;
-  /** 设置开关「标签树里显示携带」(默认关,在设置页「标签角色」分区);打开后行尾追加 `国籍 → 日本` 小字 */
+  /** 设置开关「标签树里显示携带」(默认关,在设置页「标签类型」分区);打开后行尾追加 `国籍 → 日本` 小字 */
   showCarry?: boolean;
 }
 
@@ -49,7 +49,7 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
 
   // 全量标签行(含时间标签)就是本分区的数据源(D3)
   const visibleRows = p.tagRows;
-  // 角色/携带事实:后端只有逐标签读数,这里整批取并按 nonce 重取(菜单里改完要刷新)
+  // 类型/携带事实:后端只有逐标签读数,这里整批取并按 nonce 重取(菜单里改完要刷新)
   const tagIds = useMemo(() => visibleRows.map((r) => r.id), [visibleRows]);
   const facts = useTagFacts(tagIds, factsNonce);
 
@@ -91,13 +91,13 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
     (message: string, pathChange?: { from: string; to: string }) => {
       setMenu(null);
       showFlash(message);
-      setFactsNonce((n) => n + 1); // 角色/携带可能被改动,重取事实
+      setFactsNonce((n) => n + 1); // 类型/携带可能被改动,重取事实
       p.onTagsMutated(pathChange);
     },
     [p]
   );
 
-  /** 关闭菜单(Esc/点外/面板取消):角色面板与携带面板是即时写库的,关时重取一次事实 */
+  /** 关闭菜单(Esc/点外/面板取消):类型面板与携带面板是即时写库的,关时重取一次事实 */
   const onMenuClose = useCallback(() => {
     setMenu(null);
     setFactsNonce((n) => n + 1);

@@ -95,10 +95,10 @@ pub fn merge_tags(
     // ⑤ 清掉被 IGNORE 的重复行(删链接会触发 tag_links_ad,按剩余链接重写这些笔记的 FTS)
     tx.execute("DELETE FROM tag_links WHERE tag_id = ?1", params![source_id])
         .map_err(|e| e.to_string())?;
-    // 源是被携带者 -> 删源后指向它的携带行会悬空(target_id 无外键):显式清理
-    //        (也覆盖"目标携带源":该行 tag_id=目标,前面的 DELETE 清不到)
+    // 源是被携带/被认领为类型的标签 -> 删源后指向它的 'tag'/'type' 行会悬空(target_id 无外键):
+    // 显式清理(也覆盖"目标携带源"/"目标是源的类型"这类 tag_id 不在源的行走不到的行)
     tx.execute(
-        "DELETE FROM tag_links WHERE target_type = 'tag' AND target_id = ?1",
+        "DELETE FROM tag_links WHERE target_type IN ('tag', 'type') AND target_id = ?1",
         params![source_id],
     )
     .map_err(|e| e.to_string())?;

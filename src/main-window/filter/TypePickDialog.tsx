@@ -3,37 +3,37 @@ import type { ReactNode } from 'react';
 import { api } from '../../shared/api';
 import { renderTagLabel, tagLabelPlain } from '../../shared/tag-label';
 import { hoverTitle } from '../../shared/truncate-title';
-import type { RoleRef } from '../../shared/types';
+import type { TypeRef } from '../../shared/types';
 import { BTN_ICON } from '../shell/button-classes';
 
-export interface RolePickDialogProps {
-  /** 模式:false 加入角色条件 / true 排除角色条件 */
+export interface TypePickDialogProps {
+  /** 模式:false 加入类型条件 / true 排除类型条件 */
   exclude: boolean;
-  /** 两侧(roles 与 excludeRoles)已含的路径:渲染为「已添加」不可再选 */
+  /** 两侧(types 与 excludeTypes)已含的路径:渲染为「已添加」不可再选 */
   selected: string[];
   onClose: () => void;
-  /** 选中回传角色标签完整路径(筛选条件存路径,数据层按 roles.tag_id 反查) */
+  /** 选中回传类型标签完整路径(筛选条件存路径,数据层按 types.tag_id 反查) */
   onPick: (path: string) => void;
 }
 
 /**
- * 角色选择器(添加条件 -> 角色/排除角色):数据源是 `list_roles`(只列**已登记**的角色)。
- * 角色天然含子级并叠加携带(R4),所以没有「含子级」开关;显示口径与标签选择器一致,
+ * 类型选择器(添加条件 -> 类型/排除类型):数据源是 `list_types`(只列**已登记**的类型)。
+ * 类型天然含子级并叠加携带(R4),所以没有「含子级」开关;显示口径与标签选择器一致,
  * 用纯文本形态,回传仍是原始路径。
  */
-export function RolePickDialog(p: RolePickDialogProps): ReactNode {
-  const [rows, setRows] = useState<RoleRef[] | null>(null);
+export function TypePickDialog(p: TypePickDialogProps): ReactNode {
+  const [rows, setRows] = useState<TypeRef[] | null>(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
     let dead = false;
     api
-      .listRoles()
+      .listTypes()
       .then((r) => {
         if (!dead) setRows(r);
       })
       .catch((e) => {
-        if (!dead) setError('角色加载失败: ' + String(e));
+        if (!dead) setError('类型加载失败: ' + String(e));
       });
     return () => {
       dead = true;
@@ -52,7 +52,7 @@ export function RolePickDialog(p: RolePickDialogProps): ReactNode {
     return () => document.removeEventListener('keydown', onKey, true);
   }, [p]);
 
-  const title = p.exclude ? '排除角色' : '添加角色';
+  const title = p.exclude ? '排除类型' : '添加类型';
 
   return (
     <div
@@ -77,7 +77,7 @@ export function RolePickDialog(p: RolePickDialogProps): ReactNode {
         ) : rows === null ? (
           <p className="py-6 text-center text-label text-muted">加载中…</p>
         ) : rows.length === 0 ? (
-          <p className="py-6 text-center text-label text-muted">还没有角色,在标签菜单里「设为角色」</p>
+          <p className="py-6 text-center text-label text-muted">还没有类型,在标签菜单里「设为类型」</p>
         ) : (
           <ul className="max-h-64 overflow-y-auto rounded-md border border-border">
             {rows.map((row) => {

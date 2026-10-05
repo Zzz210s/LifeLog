@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
- * Task 2 角色条件在条件栏的落笔:添加条件菜单多「角色 / 排除角色」两档,
- * 点开后列已登记角色(api.listRoles),选中即 patch 出 roles / excludeRoles。
+ * Task 2 类型条件在条件栏的落笔:添加条件菜单多「类型 / 排除类型」两档,
+ * 点开后列已登记类型(api.listTypes),选中即 patch 出 types / excludeTypes。
  */
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
@@ -9,11 +9,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EMPTY_FILTER, type FilterConditions } from '../../shared/filter-conditions';
 import { ConditionBar } from './ConditionBar';
 
-const { carriedTagPaths, listRoles } = vi.hoisted(() => ({
+const { carriedTagPaths, listTypes } = vi.hoisted(() => ({
   carriedTagPaths: vi.fn(),
-  listRoles: vi.fn(),
+  listTypes: vi.fn(),
 }));
-vi.mock('../../shared/api', () => ({ api: { carriedTagPaths, listRoles } }));
+vi.mock('../../shared/api', () => ({ api: { carriedTagPaths, listTypes } }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -54,8 +54,8 @@ async function click(el: HTMLElement): Promise<void> {
 beforeEach(() => {
   carriedTagPaths.mockReset();
   carriedTagPaths.mockResolvedValue([]);
-  listRoles.mockReset();
-  listRoles.mockResolvedValue(ROLES);
+  listTypes.mockReset();
+  listTypes.mockResolvedValue(ROLES);
   patches = [];
   host = document.createElement('div');
   document.body.appendChild(host);
@@ -67,32 +67,32 @@ afterEach(() => {
   host.remove();
 });
 
-describe('条件栏:角色档', () => {
-  it('添加条件菜单有「角色」与「排除角色」两档', async () => {
+describe('条件栏:类型档', () => {
+  it('添加条件菜单有「类型」与「排除类型」两档', async () => {
     await render();
-    expect(menuItems()).toContain('角色');
-    expect(menuItems()).toContain('排除角色');
+    expect(menuItems()).toContain('类型');
+    expect(menuItems()).toContain('排除类型');
   });
 
-  it('点「角色」列出已登记角色,选中回传 roles', async () => {
+  it('点「类型」列出已登记类型,选中回传 types', async () => {
     await render();
     await click([...host.querySelectorAll<HTMLButtonElement>('button[role="menuitem"]')].find(
-      (b) => b.textContent === '角色'
+      (b) => b.textContent === '类型'
     ) as HTMLButtonElement);
-    expect(listRoles).toHaveBeenCalled();
+    expect(listTypes).toHaveBeenCalled();
     expect(dialog().textContent).toContain('国籍');
     expect(dialog().textContent).toContain('所在');
 
     await click(buttonWith('国籍'));
-    expect(patches.at(-1)?.roles).toEqual([{ path: '地点轴/国籍' }]);
+    expect(patches.at(-1)?.types).toEqual([{ path: '地点轴/国籍' }]);
   });
 
-  it('点「排除角色」选中回传 excludeRoles', async () => {
+  it('点「排除类型」选中回传 excludeTypes', async () => {
     await render();
     await click([...host.querySelectorAll<HTMLButtonElement>('button[role="menuitem"]')].find(
-      (b) => b.textContent === '排除角色'
+      (b) => b.textContent === '排除类型'
     ) as HTMLButtonElement);
     await click(buttonWith('所在'));
-    expect(patches.at(-1)?.excludeRoles).toEqual([{ path: '地点轴/所在' }]);
+    expect(patches.at(-1)?.excludeTypes).toEqual([{ path: '地点轴/所在' }]);
   });
 });

@@ -11,7 +11,7 @@ export type SectionId =
   | 'inputAppearance'
   | 'inputBehavior'
   | 'notes'
-  | 'roles'
+  | 'types'
   | 'hotkey'
   | 'startup'
   | 'general'
@@ -30,7 +30,7 @@ export const SETTINGS_SECTIONS: readonly SectionMeta[] = [
   { id: 'inputAppearance', label: '输入栏外观' },
   { id: 'inputBehavior', label: '输入栏行为', note: '改动立即生效并保存,不需要点保存按钮' },
   { id: 'notes', label: '笔记' },
-  { id: 'roles', label: '标签角色' },
+  { id: 'types', label: '标签类型' },
   { id: 'hotkey', label: '快捷键' },
   { id: 'startup', label: '启动' },
   { id: 'general', label: '通用' },

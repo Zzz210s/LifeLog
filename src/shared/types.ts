@@ -94,9 +94,9 @@ export interface CarryReport {
   carriersOf: TagRef[];
 }
 
-/** 角色读数(IPC `list_roles` / `list_tag_roles`,camelCase 与 Rust RoleRef 一致):
- *  tagId 是角色对应的真实标签 id,path 是它的完整路径,name 是路径末段(改名自动跟随) */
-export interface RoleRef {
+/** 类型读数(IPC `list_types` / `list_tag_types`,camelCase 与 Rust TypeRef 一致):
+ *  tagId 是类型对应的真实标签 id,path 是它的完整路径,name 是路径末段(改名自动跟随) */
+export interface TypeRef {
   tagId: number;
   path: string;
   name: string;
