@@ -11,6 +11,7 @@ import { GeneralSection } from './GeneralSection';
 import { InputAppearancePanel } from './InputAppearancePanel';
 import { InputBehaviorPanel } from './InputBehaviorPanel';
 import { NotesSection } from './NotesSection';
+import { RoleSuggestionsSection } from './RoleSuggestionsSection';
 import { SettingsNav } from './settings-nav';
 import { normalizeSection, type SectionId } from './settings-sections';
 import { StartupSection } from './StartupSection';
@@ -53,6 +54,8 @@ export function SettingsView({ themeMode, onThemeChange, onReplayTutorial }: Set
         return <InputBehaviorPanel />;
       case 'notes':
         return <NotesSection />;
+      case 'roles':
+        return <RoleSuggestionsSection />;
       case 'hotkey':
         return <AppHotkeySection />;
       case 'startup':
