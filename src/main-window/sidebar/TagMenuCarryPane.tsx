@@ -15,8 +15,8 @@ import type { MruEntry } from '../../shared/quickpick/model';
 import { renderTagLabel, tagLabelPlain } from '../../shared/tag-label';
 import { remapRanges } from '../../shared/tag-label-highlight';
 import { hoverTitle } from '../../shared/truncate-title';
-import type { CarryReport, TagCount } from '../../shared/types';
-import { BTN_TEXT } from '../shell/button-classes';
+import type { CarryReport, RoleRef, TagCount } from '../../shared/types';
+import { TagMenuCarriedList } from './TagMenuCarriedList';
 import { TagMenuCarryCandidates } from './TagMenuCarryCandidates';
 import { carryCandidates } from './tag-menu-pure';
 import { BTN_GHOST } from './tag-menu-ui';
@@ -27,6 +27,8 @@ export interface TagMenuCarryPaneProps {
   path: string;
   /** 全部标签行(候选池,自身与已携带的由 carryCandidates 剔除) */
   rows: readonly TagCount[];
+  /** 已登记角色(候选只留它们,符合 R3:携带目标必须是角色标签) */
+  roles: readonly RoleRef[];
   /** 固定项 / 最近用过(`#` 补全同一套档位;缺省为空档) */
   pinned?: readonly string[];
   mru?: readonly MruEntry[];
@@ -63,7 +65,8 @@ export function TagMenuCarryPane(p: TagMenuCarryPaneProps): ReactNode {
   }, [p.tagId]);
 
   const candidates = useMemo(() => {
-    const pool = carryCandidates(p.rows, p.path, report?.carried ?? []);
+    const roleIds = new Set(p.roles.map((r) => r.tagId));
+    const pool = carryCandidates(p.rows, p.path, report?.carried ?? [], roleIds);
     const byPath = new Map(pool.map((c) => [c.path, c.id] as const));
     const { rows } = buildList({
       items: pool.map((c) => ({ id: c.path, label: c.path })),
@@ -77,7 +80,7 @@ export function TagMenuCarryPane(p: TagMenuCarryPaneProps): ReactNode {
       path: r.item.id,
       ranges: remapRanges(r.item.id, tagLabelPlain(r.item.id), r.ranges),
     }));
-  }, [p.rows, p.path, p.pinned, p.mru, report, query]);
+  }, [p.rows, p.path, p.roles, p.pinned, p.mru, report, query]);
 
   useEffect(() => {
     setActiveIndex(0);
@@ -139,27 +142,7 @@ export function TagMenuCarryPane(p: TagMenuCarryPaneProps): ReactNode {
         携带:{renderTagLabel(p.path)}
       </p>
       <p className="px-1 text-label text-muted">当前携带</p>
-      {loading && <p className="px-1 py-1 text-label text-muted">加载中…</p>}
-      {report !== null && report.carried.length === 0 && (
-        <p className="px-1 py-1 text-label text-muted">还没有携带任何标签</p>
-      )}
-      {report?.carried.map((c) => (
-        <div key={c.id} className="flex items-center gap-1">
-          <span className="min-w-0 flex-1 truncate px-1 py-1 text-label text-muted" onMouseEnter={hoverTitle(tagLabelPlain(c.path))}>
-            {renderTagLabel(c.path)}
-          </span>
-          <button
-            type="button"
-            data-carry-remove={c.id}
-            disabled={busy}
-            title={'移除携带 ' + tagLabelPlain(c.path)}
-            onClick={() => remove(c.id)}
-            className={BTN_TEXT + ' text-muted hover:text-danger'}
-          >
-            移除
-          </button>
-        </div>
-      ))}
+      <TagMenuCarriedList carried={report?.carried ?? null} busy={busy} onRemove={remove} />
       <p className="mt-1 px-1 text-label text-muted">添加携带</p>
       <input
         value={query}

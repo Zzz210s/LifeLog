@@ -13,6 +13,7 @@ import { TagRow } from './TagRow';
 import { TagDropBand } from './TagDropBand';
 import { bandHalves } from './drag-resolve';
 import type { TagNode } from './tag-tree';
+import type { TagFacts } from './use-tag-facts';
 import type { useTagDrag } from './use-tag-drag';
 
 export interface TagRowListProps {
@@ -31,6 +32,10 @@ export interface TagRowListProps {
   onContextMenu: (e: React.MouseEvent, node: TagNode) => void;
   /** 拖拽状态与行事件(源行标记、悬停目标高亮与指示线) */
   drag: ReturnType<typeof useTagDrag>;
+  /** 逐标签的「角色 / 携带」事实(缺项 = 还没读到,行内就不显示徽章与携带) */
+  facts?: ReadonlyMap<number, TagFacts>;
+  /** 设置开关「标签树里显示携带」 */
+  showCarry?: boolean;
 }
 
 export function TagRowList(p: TagRowListProps): ReactNode {
@@ -84,6 +89,9 @@ export function TagRowList(p: TagRowListProps): ReactNode {
             dragSource={sourcePath === node.path}
             dragActive={dragging}
             dropZone={p.drag.over && p.drag.over.path === node.path ? p.drag.over.zone : null}
+            roleNames={node.id === null ? [] : p.facts?.get(node.id)?.roles ?? []}
+            carry={node.id === null ? [] : p.facts?.get(node.id)?.carry ?? []}
+            showCarry={p.showCarry === true}
             onDragStart={(e) => p.drag.rowEvents.onDragStartRow(e, node)}
             onDragEnd={p.drag.rowEvents.onDragEnd}
             onDragOver={(e) => p.drag.rowEvents.onDragOverRow(e, node)}

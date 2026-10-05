@@ -34,6 +34,8 @@ const stateStub = (): SidebarStateApi => ({
   setWidth: () => {},
   mode: 'tree',
   setMode: () => {},
+  showCarry: false,
+  setShowCarry: () => {},
 });
 
 let host: HTMLDivElement;

@@ -13,6 +13,8 @@ export interface TagMenuOps {
   move(parentId: number | null, to: string): void;
   remove(): void;
   merge(target: TagCount, keepAlias: boolean): void;
+  /** 登记/取消登记当前标签为角色(幂等;不动树结构与排序) */
+  makeRole(isRole: boolean): void;
 }
 
 export interface TagMenuOpsOptions {
@@ -65,6 +67,14 @@ export function tagMenuOps(o: TagMenuOpsOptions): TagMenuOps {
       void api
         .mergeTags(o.node.id, target.id, keepAlias)
         .then(() => o.onDone('已合并标签', { from: o.node.path, to: target.path }))
+        .catch(o.fail);
+    },
+    /** 角色登记是即时的幂等写:不做二次确认,成功后回报成功文案(上层刷新角色表与标签事实) */
+    makeRole: (isRole: boolean): void => {
+      o.setBusy(true);
+      const call = isRole ? api.unregisterRole(o.node.id) : api.registerRole(o.node.id);
+      void call
+        .then(() => o.onDone(isRole ? '已取消角色登记' : '已登记为角色'))
         .catch(o.fail);
     },
   };

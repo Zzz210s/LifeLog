@@ -21,12 +21,14 @@ let modeCalls: string[];
 let filterCalls: number;
 let searchCalls: number;
 let closeCalls: number;
+let carryCalls: boolean[];
 
 beforeEach(() => {
   modeCalls = [];
   filterCalls = 0;
   searchCalls = 0;
   closeCalls = 0;
+  carryCalls = [];
   host = document.createElement('div');
   document.body.appendChild(host);
   root = createRoot(host);
@@ -37,12 +39,14 @@ afterEach(() => {
   host.remove();
 });
 
-const render = async (mode: 'tree' | 'flat', searchOpen = false): Promise<void> => {
+const render = async (mode: 'tree' | 'flat', searchOpen = false, showCarry = false): Promise<void> => {
   await act(async () =>
     root.render(
       createElement(TagsHeader, {
         flash: null,
         mode,
+        showCarry,
+        onShowCarryChange: (v: boolean) => carryCalls.push(v),
         onModeChange: (m: 'tree' | 'flat') => modeCalls.push(m),
         onFilterTags: () => {
           filterCalls += 1;
@@ -64,20 +68,22 @@ const render = async (mode: 'tree' | 'flat', searchOpen = false): Promise<void> 
 const buttons = (): HTMLButtonElement[] => [...host.querySelectorAll('button')] as HTMLButtonElement[];
 
 describe('侧栏标签分区头部:按钮图标化', () => {
-  it('树模式:三个按钮都是纯图标,aria-label/title 仍是原值', async () => {
+  it('树模式:四个按钮都是纯图标,aria-label/title 仍是原值', async () => {
     await render('tree');
-    const [search, mode, filter] = buttons();
-    expect(buttons()).toHaveLength(3);
-    expect([search.getAttribute('aria-label'), mode.getAttribute('aria-label'), filter.getAttribute('aria-label')]).toEqual([
-      '搜索标签',
-      '切换为扁平列表',
-      '筛选标签',
-    ]);
-    expect([search.getAttribute('title'), mode.getAttribute('title'), filter.getAttribute('title')]).toEqual([
-      '搜索标签',
-      '切换为扁平列表',
-      FILTER_TITLE,
-    ]);
+    const [search, mode, filter, carry] = buttons();
+    expect(buttons()).toHaveLength(4);
+    expect([
+      search.getAttribute('aria-label'),
+      mode.getAttribute('aria-label'),
+      filter.getAttribute('aria-label'),
+      carry.getAttribute('aria-label'),
+    ]).toEqual(['搜索标签', '切换为扁平列表', '筛选标签', '标签树里显示携带']);
+    expect([
+      search.getAttribute('title'),
+      mode.getAttribute('title'),
+      filter.getAttribute('title'),
+      carry.getAttribute('title'),
+    ]).toEqual(['搜索标签', '切换为扁平列表', FILTER_TITLE, '标签树里显示携带']);
     for (const b of buttons()) {
       expect(b.textContent).toBe('');
       const svg = b.querySelector('svg');
@@ -116,5 +122,20 @@ describe('侧栏标签分区头部:按钮图标化', () => {
     expect(input.getAttribute('aria-label')).toBe('按名称收窄标签树');
     await act(async () => input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
     expect(closeCalls).toBe(1);
+  });
+
+  it('携带开关:默认关(aria-pressed=false),点击反转传值,开启时有选中态', async () => {
+    await render('tree');
+    const carry = buttons()[3];
+    expect(carry.getAttribute('aria-pressed')).toBe('false');
+    await act(async () => carry.click());
+    expect(carryCalls).toEqual([true]);
+
+    await render('tree', false, true);
+    const on = buttons()[3];
+    expect(on.getAttribute('aria-pressed')).toBe('true');
+    expect(String(on.getAttribute('class'))).toContain('bg-selected');
+    await act(async () => on.click());
+    expect(carryCalls).toEqual([true, false]);
   });
 });

@@ -13,7 +13,10 @@
  * - 源行不再改透明度(VS Code 源行没有任何半透明处理),拖拽中抑制 hover 高亮。
  */
 import type { CSSProperties, ReactNode } from 'react';
+import { carryLabel, roleBadges, tagFactsTitle } from '../../shared/tag-role-facts';
+import type { CarryFact } from '../../shared/tag-role-facts';
 import { renderTagLabel, tagLabelPlain } from '../../shared/tag-label';
+import { hoverTitle } from '../../shared/truncate-title';
 import type { TagNode } from './tag-tree';
 import { isSelectable } from './tag-tree';
 import type { DropZone } from './drag-check';
@@ -40,6 +43,12 @@ export interface TagRowProps {
   onDragEnd: () => void;
   onDragOver: (e: React.DragEvent) => void;
   onDrop: (e: React.DragEvent) => void;
+  /** 本行标签被哪些角色认领(角色名,已剥 md);徽章最多 2 个 + `+N` */
+  roleNames?: readonly string[];
+  /** 本行标签携带的「角色 -> 值」;树行只在 showCarry 时显示,悬浮卡片始终列 */
+  carry?: readonly CarryFact[];
+  /** 设置开关「标签树里显示携带」:关时不进树行(悬浮卡片仍在) */
+  showCarry?: boolean;
   /** 行离开(100ms 防抖清落点的入口) */
   onDragLeave: (e: React.DragEvent) => void;
 }
@@ -76,6 +85,10 @@ export function TagRow(p: TagRowProps): ReactNode {
     (selectable ? state : 'cursor-default text-muted' + (p.dragActive ? '' : ' hover:bg-hover')) +
     (p.dropZone === 'child' ? ' bg-accent-soft' : '');
 
+  const roleNames = p.roleNames ?? [];
+  const carries = p.carry ?? [];
+  const badges = roleBadges(roleNames);
+
   return (
     <button
       type="button"
@@ -84,7 +97,7 @@ export function TagRow(p: TagRowProps): ReactNode {
       data-drop-target={p.dropZone ?? undefined}
       draggable={p.node.id !== null}
       aria-pressed={selectable ? p.selected : undefined}
-      title={`${tagLabelPlain(p.node.path)}(本级 ${p.node.selfCount} / 含子级 ${p.node.subtreeCount})`}
+      title={tagFactsTitle(p.node.path, p.node.selfCount, p.node.subtreeCount, roleNames, carries)}
       className={rowClass}
       style={
         {
@@ -130,11 +143,40 @@ export function TagRow(p: TagRowProps): ReactNode {
         </svg>
       )}
       {!p.flat && !hasChildren && <span className="w-3 shrink-0" />}
-      <span className="min-w-0 truncate">{renderTagLabel(label)}</span>
+      <span className="min-w-0 truncate" onMouseEnter={hoverTitle(tagLabelPlain(label))}>
+        {renderTagLabel(label)}
+      </span>
+      {badges.badges.map((name) => (
+        <span
+          key={name}
+          data-role-badge
+          className="shrink-0 rounded-xs bg-tag px-1 text-micro text-muted"
+        >
+          {name}
+        </span>
+      ))}
+      {badges.extra > 0 && (
+        <span data-role-badge className="shrink-0 rounded-xs bg-tag px-1 text-micro text-muted">
+          {'+' + badges.extra}
+        </span>
+      )}
       {p.excluded && (
         <span className="shrink-0 rounded-xs bg-danger-soft px-1 text-micro text-danger">已排除</span>
       )}
-      <span className={COUNT_RAIL_CLASS}>{p.node.subtreeCount}</span>
+      <span className={COUNT_RAIL_CLASS} data-count-rail>
+        {p.node.subtreeCount}
+      </span>
+      {p.showCarry === true &&
+        carries.map((c, i) => (
+          <span
+            key={i}
+            data-tag-carry
+            className="max-w-[8rem] shrink-0 truncate text-micro text-muted"
+            onMouseEnter={hoverTitle(carryLabel(c))}
+          >
+            {carryLabel(c)}
+          </span>
+        ))}
     </button>
   );
 }

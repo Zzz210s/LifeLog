@@ -13,11 +13,13 @@ import type { TagCount } from '../../shared/types';
 import { TagMenu } from './TagMenu';
 import { TagRowList } from './TagRowList';
 import { TagsHeader } from './TagsHeader';
-import type { TagFlash } from './TagsHeader';
 import { TagRootDropBar } from './TagRootDropBar';
 import { buildTree, filterTree, flattenTree, isManageable, toggleTagPick } from './tag-tree';
 import type { ManagedNode, TagNode } from './tag-tree';
 import { useTagDrag } from './use-tag-drag';
+import { useTagFacts } from './use-tag-facts';
+import { useTagFlash } from './use-tag-flash';
+import { useTagSearch } from './use-tag-search';
 import type { TagViewMode } from './use-sidebar-state';
 
 export interface TagsSectionProps {
@@ -33,35 +35,33 @@ export interface TagsSectionProps {
   onFilterTags: () => void;
   /** 管理(改名/移动/删除)成功后通知上层刷新标签与筛选条件 */
   onTagsMutated: (pathChange?: { from: string; to: string }) => void;
+  /** 设置开关「标签树里显示携带」(默认关);打开后行尾追加 `国籍 → 日本` 小字 */
+  showCarry?: boolean;
+  /** 切换上面的开关(持久化在 sidebar 状态里) */
+  onShowCarryChange?: (v: boolean) => void;
 }
 
 export function TagsSection(p: TagsSectionProps): ReactNode {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [query, setQuery] = useState('');
   const [menu, setMenu] = useState<{ node: ManagedNode; x: number; y: number } | null>(null);
-  const [flash, setFlash] = useState<TagFlash | null>(null);
-  const flashTimer = useRef<number | null>(null);
+  const [factsNonce, setFactsNonce] = useState(0);
   const listRef = useRef<HTMLDivElement | null>(null);
+  const { flash, showFlash } = useTagFlash();
+  const search = useTagSearch();
 
   // 全量标签行(含时间标签)就是本分区的数据源(D3)
   const visibleRows = p.tagRows;
+  // 角色/携带事实:后端只有逐标签读数,这里整批取并按 nonce 重取(菜单里改完要刷新)
+  const tagIds = useMemo(() => visibleRows.map((r) => r.id), [visibleRows]);
+  const facts = useTagFacts(tagIds, factsNonce);
 
   const tree = useMemo(() => buildTree(p.tagRows), [p.tagRows]);
-  // 收窄只看不筛:空查询时 filterTree 原样返回,filtering 只用于恒展开与「无匹配」提示
-  const filtering = query.trim() !== '';
-  const shown = useMemo(() => filterTree(tree, query), [tree, query]);
+  const shown = useMemo(() => filterTree(tree, search.query), [tree, search.query]);
   const activePaths = useMemo(() => new Set(p.conditions.tags.map((t) => t.path)), [p.conditions.tags]);
   const excludedPaths = useMemo(
     () => new Set(p.conditions.excludeTags.map((t) => t.path)),
     [p.conditions.excludeTags]
   );
-
-  const showFlash = (text: string, tone: 'ok' | 'error' = 'ok') => {
-    setFlash({ text, tone });
-    if (flashTimer.current !== null) clearTimeout(flashTimer.current);
-    flashTimer.current = window.setTimeout(() => setFlash(null), tone === 'error' ? 3000 : 1500);
-  };
 
   const toggleExpand = useCallback((path: string) => {
     setCollapsed((prev) => {
@@ -93,22 +93,19 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
     (message: string, pathChange?: { from: string; to: string }) => {
       setMenu(null);
       showFlash(message);
+      setFactsNonce((n) => n + 1); // 角色/携带可能被改动,重取事实
       p.onTagsMutated(pathChange);
     },
     [p]
   );
 
-  const isExpanded = (path: string): boolean => filtering || !collapsed.has(path);
+  /** 关闭菜单(Esc/点外/面板取消):角色面板与携带面板是即时写库的,关时重取一次事实 */
+  const onMenuClose = useCallback(() => {
+    setMenu(null);
+    setFactsNonce((n) => n + 1);
+  }, []);
 
-  /** 放大镜开关:收起时一并清空关键词 —— 否则树被隐式收窄,界面上却没有可见的入口 */
-  const toggleSearch = (): void => {
-    if (searchOpen) setQuery('');
-    setSearchOpen((v) => !v);
-  };
-  const closeSearch = (): void => {
-    setSearchOpen(false);
-    setQuery('');
-  };
+  const isExpanded = (path: string): boolean => search.filtering || !collapsed.has(path);
 
   /** 悬停自动展开(T2):只展开不收起 —— 自动展开的计时期间用户可能已手动展开过 */
   const expandPath = useCallback((path: string) => {
@@ -142,12 +139,14 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
         flash={flash}
         mode={p.mode}
         onModeChange={p.onModeChange}
+        showCarry={p.showCarry === true}
+        onShowCarryChange={p.onShowCarryChange ?? (() => {})}
         onFilterTags={p.onFilterTags}
-        searchOpen={searchOpen}
-        query={query}
-        onQueryChange={setQuery}
-        onToggleSearch={toggleSearch}
-        onCloseSearch={closeSearch}
+        searchOpen={search.searchOpen}
+        query={search.query}
+        onQueryChange={search.setQuery}
+        onToggleSearch={search.toggleSearch}
+        onCloseSearch={search.closeSearch}
       />
       <div
         ref={listRef}
@@ -170,9 +169,11 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
             onToggleExpand={toggleExpand}
             onContextMenu={onContextMenu}
             drag={drag}
+            facts={facts}
+            showCarry={p.showCarry === true}
           />
         )}
-        {visibleRows.length > 0 && filtering && shown.length === 0 && (
+        {visibleRows.length > 0 && search.filtering && shown.length === 0 && (
           <p className="px-2 py-2 text-label text-muted">没有匹配的标签</p>
         )}
       </div>
@@ -190,7 +191,7 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
           x={menu.x} y={menu.y}
           tagRows={p.tagRows}
           tagMru={p.tagMru}
-          onClose={() => setMenu(null)}
+          onClose={onMenuClose}
           onDone={onMenuDone}
         />
       )}

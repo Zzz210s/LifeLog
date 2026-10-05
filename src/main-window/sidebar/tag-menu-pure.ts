@@ -38,12 +38,14 @@ export function mergeImpactText(notes: number): string {
 }
 
 /** 携带候选(与 `#` 补全共用同一打分/排序引擎前先剔除):排除自己与已携带的标签,保持原路径序。
- *  后端的自携带/环校验仍是权威,这里只保证候选里不出现这两种必然被拒的项。 */
+ *  后端的自携带/环校验仍是权威,这里只保证候选里不出现这两种必然被拒的项。
+ *  传入 `roleIds` 时只保留已登记的角色标签(R3):未登记的不进候选,避免点了必然被后端拒。 */
 export function carryCandidates(
   rows: readonly TagCount[],
   selfPath: string,
-  carried: readonly { path: string }[]
+  carried: readonly { path: string }[],
+  roleIds?: ReadonlySet<number>
 ): TagCount[] {
   const skip = new Set<string>([selfPath, ...carried.map((c) => c.path)]);
-  return rows.filter((r) => !skip.has(r.path));
+  return rows.filter((r) => !skip.has(r.path) && (roleIds === undefined || roleIds.has(r.id)));
 }

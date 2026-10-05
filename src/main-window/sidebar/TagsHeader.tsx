@@ -35,6 +35,9 @@ export interface TagsHeaderProps {
   onToggleSearch: () => void;
   /** Esc:清空关键词并收起 */
   onCloseSearch: () => void;
+  /** 设置开关「标签树里显示携带」(默认关):打开后树行末尾追加携带小字 */
+  showCarry: boolean;
+  onShowCarryChange: (v: boolean) => void;
 }
 
 /** 树形 = 三条逐级缩进的横线;扁平 = 三条等宽横线(同一视觉重量,一眼能对比) */
@@ -44,6 +47,8 @@ const FLAT_PATH = 'M2.5 4h11M2.5 8h11M2.5 12h11';
 const FUNNEL_PATH = 'M2.5 3.5h11L9 8.5v4.3l-2-1.4V8.5z';
 /** 放大镜:圆 + 45° 手柄,与「收窄标签树」同义 */
 const SEARCH_PATH = 'M13 13 9.7 9.7M2.5 7a4.5 4.5 0 1 0 9 0 4.5 4.5 0 1 0-9 0';
+/** 书签:与「标签树里显示携带」同义(标签属性挂在行尾) */
+const CARRY_PATH = 'M4 2.5h8v11l-4-3.2-4 3.2z';
 
 /** 图标:(16 格 / 1.5 描边 / 14px 框)与仓内既有侧栏图标同一风格 */
 function Icon({ d }: { d: string }): ReactNode {
@@ -95,6 +100,16 @@ export function TagsHeader(p: TagsHeaderProps): ReactNode {
             className={BTN_ICON}
           >
             <Icon d={FUNNEL_PATH} />
+          </button>
+          <button
+            type="button"
+            title="标签树里显示携带"
+            aria-label="标签树里显示携带"
+            aria-pressed={p.showCarry}
+            onClick={() => p.onShowCarryChange(!p.showCarry)}
+            className={BTN_ICON + (p.showCarry ? ' bg-selected text-accent-text' : '')}
+          >
+            <Icon d={CARRY_PATH} />
           </button>
         </span>
       </div>

@@ -10,14 +10,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { GraphNode } from '../../shared/types';
 import { GraphTagMenuHost } from './GraphTagMenuHost';
 
-const { listTagCarries, setTagCarry, removeTagCarry } = vi.hoisted(() => ({
+const { listTagCarries, setTagCarry, removeTagCarry, listRoles } = vi.hoisted(() => ({
   listTagCarries: vi.fn(),
   setTagCarry: vi.fn(),
   removeTagCarry: vi.fn(),
+  listRoles: vi.fn(),
 }));
 
 vi.mock('../../shared/api', () => ({
-  api: { listTagCarries, setTagCarry, removeTagCarry },
+  api: { listTagCarries, setTagCarry, removeTagCarry, listRoles },
 }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -50,6 +51,13 @@ let host: HTMLDivElement;
 beforeEach(() => {
   listTagCarries.mockReset();
   listTagCarries.mockResolvedValue({ carried: [], carriersOf: [] });
+  // 携带候选只列已登记角色(R3):乙/丙/出版年份
+  listRoles.mockReset();
+  listRoles.mockResolvedValue([
+    { tagId: 2, path: '携带测试乙', name: '携带测试乙' },
+    { tagId: 3, path: '携带测试丙', name: '携带测试丙' },
+    { tagId: 4, path: '出版年份', name: '出版年份' },
+  ]);
   host = document.createElement('div');
   document.body.appendChild(host);
   root = createRoot(host);

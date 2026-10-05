@@ -133,6 +133,8 @@ describe('V4 标签分区头部:图标按钮 28 档', () => {
     createElement(TagsHeader, {
       flash: null,
       mode: 'tree',
+      showCarry: false,
+      onShowCarryChange: () => {},
       onModeChange: () => {},
       onFilterTags: () => {},
       searchOpen: false,
@@ -143,10 +145,15 @@ describe('V4 标签分区头部:图标按钮 28 档', () => {
       ...over,
     });
 
-  it('搜索/树-扁平/筛选三个图标档按钮(28×28 / rounded-sm),按钮里无文字', async () => {
+  it('搜索/树-扁平/筛选/携带四个图标档按钮(28×28 / rounded-sm),按钮里无文字', async () => {
     await render(header());
     const buttons = [...host.querySelectorAll('button')] as HTMLElement[];
-    expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual(['搜索标签', '切换为扁平列表', '筛选标签']);
+    expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual([
+      '搜索标签',
+      '切换为扁平列表',
+      '筛选标签',
+      '标签树里显示携带',
+    ]);
     for (const btn of buttons) {
       expect(btn.textContent).toBe('');
       for (const token of ['h-7', 'w-7', 'rounded-sm', 'text-muted']) expect(tokens(btn)).toContain(token);
