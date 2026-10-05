@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { EMPTY_FILTER } from '../../shared/filter-conditions';
-import { EXPR_TEXT_MAX, applyTagPick, chipsOf, summaryOf, summaryTitleOf, truncateExpr } from './filter-chips';
+import { EXPR_TEXT_MAX, applyTagPick, chipsOf, summaryOf, summarySegmentsOf, summaryTitleOf, truncateExpr } from './filter-chips';
 
 const EXPR = '#工作 AND NOT #临时';
 
@@ -64,7 +64,7 @@ describe('chipsOf', () => {
 });
 
 describe('summaryOf', () => {
-  it('中文一句话', () => { expect(summaryOf(c)).toBe('关键词「电影」;标签 工作;无标签;最早在前'); });
+  it('中文一句话', () => { expect(summaryOf(c)).toBe('关键词「电影」;标签 工作+携带;无标签;最早在前'); });
   it('空条件为空串', () => { expect(summaryOf(EMPTY_FILTER)).toBe(''); });
   it('摘要不出现含子级注释', () => { expect(summaryOf(c)).not.toContain('含子级'); });
 });
@@ -100,7 +100,7 @@ describe('summaryOf 补充', () => {
       tags: [{ path: '工作', includeChildren: true }, { path: '生活/健身', includeChildren: false }],
       excludeTags: [{ path: '临时', includeChildren: false }],
     };
-    expect(summaryOf(cc)).toBe('标签 工作、生活/健身;排除 临时');
+    expect(summaryOf(cc)).toBe('标签 工作+携带、生活/健身+携带;排除 临时+携带');
   });
   it('仅有排序也入摘要(与 isFilterEmpty 的收窄口径解耦)', () => {
     expect(summaryOf({ ...EMPTY_FILTER, sort: 'oldest' as const })).toBe('最早在前');
@@ -121,6 +121,35 @@ describe('applyTagPick 补充', () => {
     const c2 = applyTagPick(b, '工作', { exclude: false, includeChildren: true });
     expect(c2.excludeTags).toHaveLength(1);
     expect(c2.tags).toHaveLength(1);
+  });
+});
+
+describe('携带标记 +携带', () => {
+  it('引入与排除的每个标签条件后都跟 +携带', () => {
+    const cc = {
+      ...EMPTY_FILTER,
+      tags: [{ path: '地点/国籍/日本', includeChildren: true }],
+      excludeTags: [{ path: '临时', includeChildren: false }],
+    };
+    expect(summaryOf(cc)).toBe('标签 地点/国籍/日本+携带;排除 临时+携带');
+  });
+
+  it('+携带 是独立片段(carry=true),供渲染成小字', () => {
+    const segs = summarySegmentsOf({
+      ...EMPTY_FILTER,
+      tags: [{ path: '工作', includeChildren: true }],
+      excludeTags: [{ path: '临时', includeChildren: false }],
+    });
+    expect(segs.filter((s) => s.carry).map((s) => s.text)).toEqual(['+携带', '+携带']);
+    expect(segs.map((s) => s.text).join('')).toBe(summaryOf({
+      ...EMPTY_FILTER,
+      tags: [{ path: '工作', includeChildren: true }],
+      excludeTags: [{ path: '临时', includeChildren: false }],
+    }));
+  });
+
+  it('无标签条件时摘要里没有 +携带', () => {
+    expect(summaryOf({ ...EMPTY_FILTER, keyword: '电影' })).not.toContain('+携带');
   });
 });
 

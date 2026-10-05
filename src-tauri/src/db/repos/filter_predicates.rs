@@ -8,15 +8,34 @@ use rusqlite::types::Value;
 /// 标签路径谓词:`self_only` 为真只比本级(`t.path = ?`),否则「本级或 `path/` 前缀」
 /// (`substr(path, 1, length(?) + 1) = ? || '/'`)。前缀一律 substr,禁 LIKE 通配符
 /// (标签名可能含 `%`/`_`)。值只进参数向量,顺序与占位符一一对应。
+///
+/// 2026-10-05 携带(spec §4 S1、§5 口径表):若存在标签 A 携带 `path`
+/// (`tag_links` 里 `(A,'tag',path)` 的行),则 A 及其全部后代也参与命中 ——
+/// 即 `t`(笔记挂着的标签)落在某个携带者的子树内。仅本级 / 含子级两种模式都带这条
+/// (它说的是「`path` 被谁继承」,与 `self_only` 无关)。命中集 =
+/// 直接挂该标签 ∪ 携带它的标签子树,排除侧走同一份谓词(无黑洞)。
 pub(crate) fn tag_predicate(path: &str, self_only: bool, args: &mut Vec<Value>) -> String {
     args.push(Value::Text(path.to_string()));
-    if self_only {
+    let direct = if self_only {
         "t.path = ?".to_string()
     } else {
         args.push(Value::Text(path.to_string()));
         args.push(Value::Text(path.to_string()));
         "t.path = ? OR substr(t.path, 1, length(?) + 1) = ? || '/'".to_string()
-    }
+    };
+    format!("({direct}) OR {}", carry_predicate(path, args))
+}
+
+/// 「`t` 落在某个携带 `path` 的标签子树内」:一次 EXISTS 子查询,不用递归 CTE(R3)。
+/// `target_type='tag'` 既限定携带行、又避免把笔记链接(target_id 撞号)误当携带;
+/// 携带者子树比较的是 `ca.path`(携带者的路径),同样 substr 前缀、边界靠显式 `/`。
+fn carry_predicate(path: &str, args: &mut Vec<Value>) -> String {
+    args.push(Value::Text(path.to_string())); // 定位被携带标签(按 path 取 id)
+    "EXISTS (SELECT 1 FROM tag_links cl JOIN tags ca ON ca.id = cl.tag_id \
+     WHERE cl.target_type = 'tag' \
+       AND cl.target_id IN (SELECT id FROM tags WHERE path = ?) \
+       AND (t.path = ca.path OR substr(t.path, 1, length(ca.path) + 1) = ca.path || '/'))"
+        .to_string()
 }
 
 /// `笔记 n 挂有满足 m 的标签` 的 EXISTS 包装;取反(排除标签、`NOT`)由调用方加 `NOT `

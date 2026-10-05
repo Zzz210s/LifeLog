@@ -86,27 +86,59 @@ export function chipsOf(c: FilterConditions): Chip[] {
   return chips;
 }
 
-/** 中文一句话摘要:'关键词「电影」;标签 工作;无标签;最早在前';空条件为空串(含子级不进摘要) */
+/** 携带标记:标签条件也含「携带它的标签子树」下的笔记(spec §5),摘要里用小字标出 */
+export const CARRY_MARK = '+携带';
+
+/** 摘要片段:carry=true 的片段渲染成小字(目前只有 `+携带`);text 含分隔符 */
+export type SummarySegment = { text: string; carry: boolean };
+
+/** 中文一句话摘要:'关键词「电影」;标签 工作+携带;无标签;最早在前';空条件为空串(含子级不进摘要) */
 export function summaryOf(c: FilterConditions): string {
-  return summaryParts(c, true).join(';');
+  return plainOf(summarySegmentsOf(c, true));
 }
 
 /** 摘要的悬浮提示文本:与 summaryOf 同构,但表达式原文不截断(供 FilterBar 的 title) */
 export function summaryTitleOf(c: FilterConditions): string {
-  return summaryParts(c, false).join(';');
+  return plainOf(summarySegmentsOf(c, false));
 }
 
-/** 摘要分组(truncate 控制表达式原文是否截断) */
-function summaryParts(c: FilterConditions, truncate: boolean): string[] {
-  const parts: string[] = [];
+/** 片段拼回纯文本(摘要与 title 共用;片段自身已含 `;` 分隔) */
+function plainOf(segs: SummarySegment[]): string {
+  return segs.map((s) => s.text).join('');
+}
+
+/**
+ * 摘要片段(结构化):普通文本与 `+携带` 小字分开,渲染侧按 carry 分样式。
+ * 标签组里 `+携带` 紧随每个标签路径(引入与排除两侧都标)。
+ */
+export function summarySegmentsOf(c: FilterConditions, truncate = true): SummarySegment[] {
+  const groups: SummarySegment[][] = [];
   const kw = (c.keyword ?? '').trim();
-  if (kw !== '') parts.push(`关键词「${kw}」`);
-  if (c.tags.length > 0) parts.push(`标签 ${c.tags.map((t) => tagLabelPlain(t.path)).join('、')}`);
-  if (c.excludeTags.length > 0) parts.push(`排除 ${c.excludeTags.map((t) => tagLabelPlain(t.path)).join('、')}`);
-  if (hasExpr(c)) parts.push(exprLabel(c.expr ?? '', truncate));
-  if (c.tagPresence !== null) parts.push(c.tagPresence === 'none' ? '无标签' : '有标签');
-  if (c.sort === 'oldest') parts.push(SORT_CHIP_LABEL);
-  return parts;
+  if (kw !== '') groups.push([{ text: `关键词「${kw}」`, carry: false }]);
+  if (c.tags.length > 0) groups.push(tagGroup('标签 ', c.tags));
+  if (c.excludeTags.length > 0) groups.push(tagGroup('排除 ', c.excludeTags));
+  if (hasExpr(c)) groups.push([{ text: exprLabel(c.expr ?? '', truncate), carry: false }]);
+  if (c.tagPresence !== null) {
+    groups.push([{ text: c.tagPresence === 'none' ? '无标签' : '有标签', carry: false }]);
+  }
+  if (c.sort === 'oldest') groups.push([{ text: SORT_CHIP_LABEL, carry: false }]);
+  const out: SummarySegment[] = [];
+  groups.forEach((g, i) => {
+    if (i > 0) out.push({ text: ';', carry: false });
+    out.push(...g);
+  });
+  return out;
+}
+
+/** 一个标签组:'标签 a+携带、b+携带'(`+携带` 每项都跟) */
+function tagGroup(prefix: string, list: TagCond[]): SummarySegment[] {
+  const segs: SummarySegment[] = [{ text: prefix, carry: false }];
+  list.forEach((t, i) => {
+    if (i > 0) segs.push({ text: '、', carry: false });
+    segs.push({ text: tagLabelPlain(t.path), carry: false });
+    segs.push({ text: CARRY_MARK, carry: true });
+  });
+  return segs;
 }
 
 /**

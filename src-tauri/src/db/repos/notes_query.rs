@@ -89,3 +89,7 @@ mod notes_query_time_tests;
 #[cfg(test)]
 #[path = "notes_query_coarse_tests.rs"]
 mod notes_query_coarse_tests;
+
+#[cfg(test)]
+#[path = "notes_query_carry_tests.rs"]
+mod notes_query_carry_tests;

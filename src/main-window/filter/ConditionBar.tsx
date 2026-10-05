@@ -5,7 +5,7 @@ import { AddConditionMenu } from './AddConditionMenu';
 import { ExprDialog } from './ExprDialog';
 import { FilterChips } from './FilterChips';
 import { TagPickDialog } from './TagPickDialog';
-import { applyTagPick, chipsOf, summaryOf, summaryTitleOf } from './filter-chips';
+import { applyTagPick, chipsOf, summarySegmentsOf, summaryTitleOf } from './filter-chips';
 
 export interface ConditionBarProps {
   /** 顶层筛选条件(chips 与中文摘要都从这里派生) */
@@ -34,7 +34,7 @@ export function ConditionBar(p: ConditionBarProps): ReactNode {
   const [tagPick, setTagPick] = useState<{ exclude: boolean } | null>(null);
   const [exprOpen, setExprOpen] = useState(false);
 
-  const summary = summaryOf(p.conditions);
+  const summarySegments = summarySegmentsOf(p.conditions);
   const summaryTitle = summaryTitleOf(p.conditions);
 
   return (
@@ -45,13 +45,21 @@ export function ConditionBar(p: ConditionBarProps): ReactNode {
           onRemove={(next) => p.onPatch(next)}
           onEditExpr={() => setExprOpen(true)}
         />
-        {summary !== '' && (
+        {summarySegments.length > 0 && (
           <span
             data-testid="condition-bar-summary"
             className="truncate text-label text-muted"
             title={summaryTitle}
           >
-            {summary}
+            {summarySegments.map((s, i) =>
+              s.carry ? (
+                <span key={i} className="text-micro opacity-70">
+                  {s.text}
+                </span>
+              ) : (
+                <span key={i}>{s.text}</span>
+              )
+            )}
           </span>
         )}
         <AddConditionMenu

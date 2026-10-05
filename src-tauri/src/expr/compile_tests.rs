@@ -16,16 +16,17 @@ fn tag_with_children_uses_substr_prefix_and_no_like() {
     assert!(sql.contains("EXISTS"), "{sql}");
     assert!(sql.contains("substr(t.path, 1, length(?) + 1) = ? || '/'"), "{sql}");
     assert!(!sql.contains("LIKE"), "{sql}");
-    assert_eq!(args.len(), 3);
+    assert_eq!(args.len(), 4, "含子级直接段 3 + 携带定位 1");
     assert!(!sql.contains("工作"), "标签值不得进 SQL:{sql}");
 }
 
 #[test]
 fn self_only_tag_uses_equality() {
     let (sql, args) = frag("#=工作");
-    assert!(sql.contains("t.path = ?"), "{sql}");
-    assert!(!sql.contains("substr"), "{sql}");
-    assert_eq!(args.len(), 1);
+    assert!(sql.contains("(t.path = ?)"), "{sql}");
+    // substr 只允许出现在携带段(携带者子树);直接段仍是等式
+    assert!(!sql.contains("t.path = ? OR substr"), "{sql}");
+    assert_eq!(args.len(), 2, "本级 1 + 携带定位 1");
 }
 
 #[test]
@@ -44,8 +45,9 @@ fn or_and_parens_map_to_boolean_sql() {
     assert!(sql.starts_with("(("), "{sql}");
     assert!(sql.contains(" OR "), "{sql}");
     assert!(sql.contains(") AND EXISTS ("), "{sql}");
-    assert_eq!(sql.matches("EXISTS (").count(), 3, "{sql}");
-    assert_eq!(args.len(), 9, "三个含子级标签各压 3 个参数");
+    // 每个标签叶子 = 外层 tag_links EXISTS + 携带段 EXISTS
+    assert_eq!(sql.matches("EXISTS (").count(), 6, "{sql}");
+    assert_eq!(args.len(), 12, "三个含子级标签各压 4 个参数(直接 3 + 携带 1)");
 }
 
 #[test]

@@ -16,16 +16,22 @@ fn tag_include_children_uses_prefix() {
     let c = FilterConditions { tags: vec![tag("工作", true)], ..empty() };
     let (sql, args) = where_clause(&c).unwrap();
     assert!(sql.contains("t.path = ? OR substr(t.path, 1, length(?) + 1) = ? || '/'"));
-    assert_eq!(args.len(), 3);
+    // 携带段:一次 EXISTS 子查询(不用递归 CTE),target 按 path 定位
+    assert!(
+        sql.contains("cl.target_id IN (SELECT id FROM tags WHERE path = ?)"),
+        "缺携带子查询:{sql}"
+    );
+    assert_eq!(args.len(), 4, "含子级直接段 3 个 + 携带定位 1 个");
 }
 
 #[test]
 fn tag_exact_match_has_no_prefix() {
     let c = FilterConditions { tags: vec![tag("工作", false)], ..empty() };
     let (sql, args) = where_clause(&c).unwrap();
-    assert!(sql.contains("t.path = ?"));
-    assert!(!sql.contains("substr"));
-    assert_eq!(args.len(), 1);
+    assert!(sql.contains("(t.path = ?)"), "{sql}");
+    // 仅本级的**直接段**不得有前缀;substr 只允许出现在携带段(ca.path 子树)
+    assert!(!sql.contains("t.path = ? OR substr"), "直接段不得有前缀:{sql}");
+    assert_eq!(args.len(), 2, "本级 1 + 携带定位 1");
 }
 
 #[test]
@@ -41,7 +47,7 @@ fn exclude_tag_uses_not_exists() {
     let c = FilterConditions { exclude_tags: vec![tag("临时", true)], ..empty() };
     let (sql, args) = where_clause(&c).unwrap();
     assert!(sql.contains("NOT EXISTS"));
-    assert_eq!(args.len(), 3);
+    assert_eq!(args.len(), 4);
 }
 
 /// 有无标签:时间标签也是普通标签(D3),一律计入;any/none 必须成对。
@@ -130,7 +136,7 @@ fn tag_values_go_through_placeholders_only() {
     let (sql, args) = where_clause(&c).unwrap();
     assert!(!sql.contains('%'));
     assert!(!sql.contains("a%b_c"));
-    assert_eq!(args.len(), 6);
+    assert_eq!(args.len(), 8);
     let texts: Vec<String> = args
         .iter()
         .map(|v| match v {
@@ -138,7 +144,7 @@ fn tag_values_go_through_placeholders_only() {
             other => panic!("非文本参数:{other:?}"),
         })
         .collect();
-    assert_eq!(texts, vec!["a%b_c", "a%b_c", "a%b_c", "x/y", "x/y", "x/y"]);
+    assert_eq!(texts, vec!["a%b_c", "a%b_c", "a%b_c", "a%b_c", "x/y", "x/y", "x/y", "x/y"]);
 }
 
 /// 表达式非法:位置口径 = 原文 0 起下标 +1,且**解析原文** —— 前后空白也占字符,
@@ -178,7 +184,7 @@ fn blank_expr_is_unset_and_whitespace_keeps_semantics() {
     let padded = FilterConditions { expr: Some("  #工作  ".into()), ..empty() };
     let (sql, args) = where_clause(&padded).unwrap();
     assert!(sql.contains("substr"), "标签谓词照旧编译:{sql}");
-    assert_eq!(args.len(), 3);
+    assert_eq!(args.len(), 4);
     let bare = where_clause(&FilterConditions { expr: Some("#工作".into()), ..empty() }).unwrap().1;
     assert_eq!(args, bare, "前后空白不改变参数");
 }

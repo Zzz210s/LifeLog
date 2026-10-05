@@ -35,14 +35,14 @@ describe('T1 筛选 chip / 摘要:纯文本口径', () => {
   it('chip label 与摘要、摘要 title 都用去掉语法后的路径', () => {
     const [chip] = chipsOf(WITH_TAG);
     expect(chip.label).toBe(`#${PLAIN}`);
-    expect(summaryOf(WITH_TAG)).toBe(`标签 ${PLAIN}`);
-    expect(summaryTitleOf(WITH_TAG)).toBe(`标签 ${PLAIN}`);
+    expect(summaryOf(WITH_TAG)).toBe(`标签 ${PLAIN}+携带`);
+    expect(summaryTitleOf(WITH_TAG)).toBe(`标签 ${PLAIN}+携带`);
   });
 
   it('排除侧的 chip 与摘要同样走纯文本', () => {
     const c = { ...EMPTY_FILTER, excludeTags: [{ path: RAW, includeChildren: true }] };
     expect(chipsOf(c)[0].label).toBe(`排除 ⊢ #${PLAIN}`);
-    expect(summaryOf(c)).toBe(`排除 ${PLAIN}`);
+    expect(summaryOf(c)).toBe(`排除 ${PLAIN}+携带`);
   });
 
   it('渲染出的 chip 里没有 md 语法残渣', () => {
