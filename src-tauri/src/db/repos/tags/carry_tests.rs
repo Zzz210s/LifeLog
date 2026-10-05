@@ -152,7 +152,7 @@ fn carry_rows_do_not_change_note_tags_or_fts() {
     assert_eq!(fts_before, fts_after, "插入携带行不得改写 FTS 标签列");
 }
 
-/// ⑨ 删除确认读数:count_carriers 只数直接携带者,与 list 的 carriersOf 一致
+/// ⑨ 删除确认读数:count_carriers 与 list 的 carriersOf 口径一致(都只数直接携带者)
 #[test]
 fn count_carriers_counts_direct_carriers() {
     let mut c = db();
@@ -166,4 +166,11 @@ fn count_carriers_counts_direct_carriers() {
 
     assert_eq!(count_carriers(&c, bing).unwrap(), 2, "两个标签携带丙");
     assert_eq!(count_carriers(&c, jia).unwrap(), 0, "携带方自己不算被携带");
+    // 与双向读数真比一次:carriersOf 的条数就是 count_carriers,carried 是反方向不混入
+    let bing_report = list_carries(&c, bing).unwrap();
+    assert_eq!(bing_report.carriers_of.len() as i64, count_carriers(&c, bing).unwrap());
+    assert!(bing_report.carried.is_empty(), "丙不携带别人");
+    let jia_report = list_carries(&c, jia).unwrap();
+    assert_eq!(jia_report.carriers_of.len() as i64, count_carriers(&c, jia).unwrap());
+    assert_eq!(jia_report.carried.len(), 1, "甲携带丙");
 }

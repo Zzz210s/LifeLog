@@ -1,7 +1,11 @@
 //! 标签携带标签的清理口径测试(Task 4 / spec 2026-10-05 §3 R2 R5 §7):
-//! 孤儿回收认识"被携带"、删除子树清理指向它的携带行、合并时携带行的自携带/悬空处理。
+//! 孤儿回收认识"被携带"、删除子树清理指向它的携带行、合并时携带行的自携带/悬空/成环处理。
+//! 判据复用 invariants_tests 的共享检查台(孤儿/悬空携带行/携带无环),不再各写一份。
 use super::*;
 use crate::db::repos::notes;
+use crate::db::repos::tags::invariants_tests::{
+    assert_carry_acyclic, assert_no_dangling_carries, assert_no_orphan_tags,
+};
 use crate::db::repos::tags::{merge_tags, set_carry};
 use crate::db::migrate;
 use rusqlite::{params, Connection};
@@ -33,18 +37,6 @@ fn incoming_carries(c: &Connection, carried_id: i64) -> i64 {
             "SELECT COUNT(*) FROM tag_links WHERE target_type='tag' AND target_id={carried_id}"
         ),
     )
-}
-
-/// 无孤儿(含"被携带"这一新理由):无 tag_id 链接、无指向它的携带行、无子节点
-fn assert_no_orphan_tags(c: &Connection) {
-    let n = count(
-        c,
-        "SELECT COUNT(*) FROM tags t
-          WHERE NOT EXISTS (SELECT 1 FROM tag_links l WHERE l.tag_id = t.id)
-            AND NOT EXISTS (SELECT 1 FROM tag_links lc WHERE lc.target_type='tag' AND lc.target_id = t.id)
-            AND NOT EXISTS (SELECT 1 FROM tags ch WHERE ch.parent_id = t.id)",
-    );
-    assert_eq!(n, 0, "存在孤儿标签");
 }
 
 /// R2:只被携带、没有笔记也没有子标签的空壳标签不被回收;无关空壳仍被回收
@@ -103,6 +95,8 @@ fn delete_subtree_cleans_incoming_carry_rows() {
         0,
         "标签本身已删"
     );
+    assert_no_dangling_carries(&c);
+    assert_carry_acyclic(&c);
 }
 
 /// 合并:源携带目标时,不得把携带行迁成 (目标,'tag',目标) 自携带(S3)
@@ -131,6 +125,8 @@ fn merge_source_carrying_target_leaves_no_self_carry() {
         0,
         "源的携带行随源一起消失(源携带的目标不迁成自携带,也不凭空多出)"
     );
+    assert_no_dangling_carries(&c);
+    assert_carry_acyclic(&c);
 }
 
 /// 合并:源是被携带者时,删掉源后不得留下指向源 id 的悬空携带行
@@ -153,5 +149,51 @@ fn merge_carried_source_leaves_no_dangling_carry() {
         "指向已删源的携带行必须清干净(悬空行)"
     );
     assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tags WHERE id={jia}")), 1, "甲仍存在");
+    assert_no_dangling_carries(&c);
+    assert_carry_acyclic(&c);
     assert_no_orphan_tags(&c);
+}
+
+/// 合并:R3 无环 —— 源携带 X、X 携带目标时,不得迁出 目标→X 与 X→目标 的 2 环
+#[test]
+fn merge_source_carrying_x_which_carries_target_leaves_no_cycle() {
+    let mut c = db();
+    notes::create_plain(&mut c, "a #源").unwrap();
+    notes::create_plain(&mut c, "b #目标").unwrap();
+    let src = id_at(&c, "源");
+    let dst = id_at(&c, "目标");
+    let x = ensure_path(&c, &segs(&["X"])).unwrap();
+    set_carry(&mut c, src, x).unwrap();
+    set_carry(&mut c, x, dst).unwrap();
+
+    merge_tags(&mut c, src, dst, false).unwrap();
+
+    assert_eq!(
+        count(&c, &format!("SELECT COUNT(*) FROM tag_links WHERE target_type='tag' AND tag_id={dst} AND target_id={x}")),
+        0,
+        "目标→X 会与 X→目标 成环,必须剔除"
+    );
+    assert_eq!(
+        count(&c, &format!("SELECT COUNT(*) FROM tag_links WHERE target_type='tag' AND tag_id={x} AND target_id={dst}")),
+        1,
+        "X→目标 原样保留"
+    );
+    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tags WHERE id={src}")), 0, "源已删");
+    assert_no_dangling_carries(&c);
+    assert_carry_acyclic(&c);
+}
+
+/// 变异自证:直接插 甲→乙、乙→甲(绕开 set_carry 的环校验),无环检查台必须报警(能查 2 环)
+#[test]
+fn carry_acyclic_invariant_catches_manual_two_cycle() {
+    let c = db();
+    let a = ensure_path(&c, &segs(&["甲"])).unwrap();
+    let b = ensure_path(&c, &segs(&["乙"])).unwrap();
+    c.execute(
+        "INSERT INTO tag_links(tag_id, target_type, target_id) VALUES(?1,'tag',?2), (?2,'tag',?1)",
+        params![a, b],
+    )
+    .unwrap();
+    let hit = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| assert_carry_acyclic(&c)));
+    assert!(hit.is_err(), "无环检查台必须抓到手工制造的 2 环");
 }

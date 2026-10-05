@@ -74,7 +74,8 @@ pub fn delete_tag(app: AppHandle, tag_id: i64) -> Result<(), String> {
     with_conn(&app, |c| tags::delete_subtree(c, tag_id))
 }
 
-/// 删除前的影响面读数(供二次确认弹窗)
+/// 删除前的影响面读数(供二次确认弹窗)。carriers 只数指向该标签本身的直接携带者,
+/// 不含指向其子孙的携带行 —— 删除子树会清掉后者,但读数不把它们算进 N。
 #[tauri::command]
 pub fn tag_impact(app: AppHandle, tag_id: i64) -> Result<TagImpact, String> {
     with_conn(&app, |c| {

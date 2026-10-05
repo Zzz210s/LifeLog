@@ -85,7 +85,8 @@ pub fn list_carries(conn: &Connection, carrier_id: i64) -> rusqlite::Result<Carr
     })
 }
 
-/// 携带本标签的标签数(删除确认文案「该标签被 N 个标签携带」的读数;只数直接携带者,不含传递)
+/// 携带本标签的标签数(删除确认文案「该标签被 N 个标签携带」的读数):只数 target_id 就是本标签
+/// 的直接携带者 —— 不含传递携带,也**不含指向子孙标签的携带行**(删除子树会连同子孙一起清掉那些行)。
 pub fn count_carriers(conn: &Connection, carried_id: i64) -> rusqlite::Result<i64> {
     conn.query_row(
         "SELECT COUNT(*) FROM tag_links WHERE target_type = 'tag' AND target_id = ?1",
@@ -111,7 +112,8 @@ fn refs(conn: &Connection, sql: &str, id: i64) -> rusqlite::Result<Vec<TagRef>> 
 
 /// 沿「携带」方向(carrier -> carried)从 `from` 出发能否到达 `to`。
 /// 迭代 DFS + 已访集合:数据异常成环时也不会死循环;访问节点数超过上限即报错兜底。
-fn reaches(conn: &Connection, from: i64, to: i64) -> rusqlite::Result<bool> {
+/// 同模块的合并路径(merge)复用它判「迁移后是否成环」,故对 tags 子树可见。
+pub(super) fn reaches(conn: &Connection, from: i64, to: i64) -> rusqlite::Result<bool> {
     let mut seen: HashSet<i64> = HashSet::new();
     let mut stack = vec![from];
     while let Some(cur) = stack.pop() {

@@ -54,7 +54,8 @@ export interface TagCount {
 export interface TagImpact {
   tags: number;
   notes: number;
-  /** 该标签被多少个标签携带(删除确认文案;只数直接携带者) */
+  /** 该标签被多少个标签携带(删除确认文案):只数 target_id 就是本标签的直接携带者,
+   *  不含传递携带,也不含指向子标签的携带行(删除子树会一并清掉那些,但这里的 N 不统计它们)。 */
   carriers: number;
 }
 

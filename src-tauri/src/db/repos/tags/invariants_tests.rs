@@ -1,12 +1,11 @@
-//! 标签写入不变量测试台(spec 2026-09-21 D:标签写入路径收敛)。
-//! 三组判据,供既有与后续所有标签写入测试复用:
-//! ① [`assert_fts_matches_tags`]:逐笔记比对 FTS 标签列与"按 tag_links 聚合的标签路径 + 别名"。
-//!    聚合口径必须与迁移 018 重建的触发器一致,唯一真源是 [`super::fts_tags::TAGS_AGG`],
-//!    本文件不再另写一份:违反即"按显示文本搜不到、旧名仍命中"的静默漂移。
-//! ② [`assert_no_orphan_tags`]:无孤儿标签(既无 tag_links 又无子节点)。
-//! ③ [`assert_filter_paths_exist`]:settings.filter_current 引用的每个标签路径(结构化 tags[] /
-//!    excludeTags[] 与 expr token)都真实存在。只对"路径变化"类操作断言:删除按设计不改写
-//!    条件(S7),留下已删路径是允许的。
+//! 标签写入不变量测试台(spec 2026-09-21 D:标签写入路径收敛)。五组判据复用:
+//! ① [`assert_fts_matches_tags`]:FTS 标签列 == 按 tag_links 聚合的路径 + 别名(唯一真源
+//!    [`super::fts_tags::TAGS_AGG`],违反即"按显示文本搜不到、旧名仍命中"的静默漂移)。
+//! ② [`assert_no_orphan_tags`]:无孤儿标签(无 tag_links 且无子节点)。
+//! ③ [`assert_filter_paths_exist`]:filter_current 引用的每个标签路径都存在;只对"路径变化"类
+//!    操作断言(删除按设计不改写条件 S7,留已删路径允许)。
+//! ④ [`assert_no_dangling_carries`]:'tag' 行的 target_id 都指向存在的标签。
+//! ⑤ [`assert_carry_acyclic`]:携带图无环(S3)。
 use crate::db::repos::settings::{self, FILTER_CURRENT_KEY};
 use crate::db::repos::tags::fts_tags::TAGS_AGG;
 use crate::expr::lexer::{lex_spans, Token};
@@ -71,8 +70,39 @@ pub(crate) fn assert_no_orphan_tags(conn: &Connection) {
     assert!(found.is_empty(), "存在孤儿标签(无链接且无子节点): {found:?}");
 }
 
-/// ③ filter_current 里引用的每个标签路径都必须存在;失败信息列出全部悬空路径。
-/// 键缺失 / 坏 JSON / 坏条件对象一律跳过(与 filter_rewrite 的容错口径一致,不自作修复)。
+/// ④ 无悬空携带行:target_type='tag' 的 target_id 都指向存在的标签(R5 的 delete_subtree/merge
+/// 清行不彻底时报警;target_id 无外键,这是兜住它的唯一检查)。
+pub(crate) fn assert_no_dangling_carries(conn: &Connection) {
+    let n: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM tag_links
+              WHERE target_type = 'tag' AND target_id NOT IN (SELECT id FROM tags)",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(n, 0, "存在悬空携带行(target_id 指向已不存在的标签)");
+}
+
+/// ⑤ 携带图无环(S3):任取一条携带边 a→b,若 b 沿携带方向能走回 a 即成环(2 环及以上都能查)。
+pub(crate) fn assert_carry_acyclic(conn: &Connection) {
+    let mut stmt = conn
+        .prepare("SELECT tag_id, target_id FROM tag_links WHERE target_type = 'tag'")
+        .unwrap();
+    let edges: Vec<(i64, i64)> = stmt
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+        .unwrap()
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .unwrap();
+    let cycles: Vec<String> = edges
+        .into_iter()
+        .filter(|&(a, b)| super::carry::reaches(conn, b, a).unwrap_or(false))
+        .map(|(a, b)| format!("{a}->{b}"))
+        .collect();
+    assert!(cycles.is_empty(), "携带图存在环(S3 禁止): {cycles:?}");
+}
+
+/// ③ filter_current 引用的路径必须存在;键缺失/坏 JSON/坏条件一律跳过(与 filter_rewrite 同口径)。
 pub(crate) fn assert_filter_paths_exist(conn: &Connection) {
     let Some(raw) = settings::get(conn, FILTER_CURRENT_KEY).unwrap() else {
         return;

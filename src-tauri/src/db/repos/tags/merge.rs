@@ -5,6 +5,7 @@
 //! 目标标签不得落在源标签子树内(否则合并后语义自指)。
 use super::tree::{linked_notes, subtree_ids};
 use super::alias;
+use super::carry;
 use crate::db::repos::tags::{finish, PostWrite};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
@@ -53,40 +54,64 @@ pub fn merge_tags(
     // ② 受影响笔记(源无子节点,子树即它自己)与后续要重写 FTS 的笔记集
     let notes = linked_notes(&tx, &[source_id]).map_err(|e| e.to_string())?;
     let affected_notes = notes.len() as i64;
-    // ③ 携带行不能盲目跟着迁移(两种要特殊处理的形态):
-    //    a) 源携带目标 -> 迁成 (目标,'tag',目标) 自携带(S3 禁止):迁移前先剔除该行
+    // ③ 携带行不能盲目跟着迁移(S3 禁止环):源携带 Y 且 Y 沿携带方向能走回目标时,
+    //    迁成 (目标,'tag',Y) 会与 Y→…→目标 构成环,迁移前剔除该行。Y 就是目标时
+    //    reaches(目标,目标) 自反为真,自携带一并在内。判环用当前图(迁移前)。
+    let mut doomed: Vec<i64> = Vec::new();
+    {
+        let mut stmt = tx
+            .prepare("SELECT target_id FROM tag_links WHERE tag_id = ?1 AND target_type = 'tag'")
+            .map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map(params![source_id], |r| r.get::<_, i64>(0))
+            .map_err(|e| e.to_string())?;
+        for row in rows {
+            let y = row.map_err(|e| e.to_string())?;
+            if carry::reaches(&tx, y, target_id).map_err(|e| e.to_string())? {
+                doomed.push(y);
+            }
+        }
+    }
+    for y in doomed {
+        tx.execute(
+            "DELETE FROM tag_links WHERE tag_id = ?1 AND target_type = 'tag' AND target_id = ?2",
+            params![source_id, y],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    // ④ 笔记链接整行转移:目标已有同一笔记的链接时被主键挡下,不计入 movedLinks
     tx.execute(
-        "DELETE FROM tag_links WHERE tag_id = ?1 AND target_type = 'tag' AND target_id = ?2",
-        params![source_id, target_id],
-    )
-    .map_err(|e| e.to_string())?;
-    //    余下链接整行转移:源携带的其它标签是源的属性,合并后归到目标
-    tx.execute(
-        "UPDATE OR IGNORE tag_links SET tag_id = ?1 WHERE tag_id = ?2",
+        "UPDATE OR IGNORE tag_links SET tag_id = ?1 WHERE tag_id = ?2 AND target_type = 'note'",
         params![target_id, source_id],
     )
     .map_err(|e| e.to_string())?;
     let moved_links = tx.changes() as i64;
-    // ④ 清掉被 IGNORE 的重复行(删链接会触发 tag_links_ad,按剩余链接重写这些笔记的 FTS)
+    // 余下的携带行是源的属性,一并归到目标;与笔记链接分开计,不混进 movedLinks
+    tx.execute(
+        "UPDATE OR IGNORE tag_links SET tag_id = ?1 WHERE tag_id = ?2 AND target_type = 'tag'",
+        params![target_id, source_id],
+    )
+    .map_err(|e| e.to_string())?;
+    // ⑤ 清掉被 IGNORE 的重复行(删链接会触发 tag_links_ad,按剩余链接重写这些笔记的 FTS)
     tx.execute("DELETE FROM tag_links WHERE tag_id = ?1", params![source_id])
         .map_err(|e| e.to_string())?;
-    //     b) 源是被携带者 -> 删源后指向它的携带行会悬空(target_id 无外键):显式清理
+    // 源是被携带者 -> 删源后指向它的携带行会悬空(target_id 无外键):显式清理
     //        (也覆盖"目标携带源":该行 tag_id=目标,前面的 DELETE 清不到)
     tx.execute(
         "DELETE FROM tag_links WHERE target_type = 'tag' AND target_id = ?1",
         params![source_id],
     )
     .map_err(|e| e.to_string())?;
-    // ⑤ 旧名登记为别名(D6):旧完整路径 + 不冲突的旧叶子名
+    // ⑥ 旧名登记为别名(D6):旧完整路径 + 不冲突的旧叶子名
     let aliases = if keep_alias {
         alias::register_rename(&tx, &source_path, target_id).map_err(|e| e.to_string())?
     } else {
         Vec::new()
     };
-    // ⑥ 删除源标签(外键级联兜底清理残余链接行)
+    // ⑦ 删除源标签(外键级联兜底清理残余链接行)
     tx.execute("DELETE FROM tags WHERE id = ?1", params![source_id])
         .map_err(|e| e.to_string())?;
-    // ⑦ 统一收尾:筛选条件级联(D7) -> 受影响笔记 FTS 重写 -> 孤儿回收(源的父链可能变空容器)。
+    // ⑧ 统一收尾:筛选条件级联(D7) -> 受影响笔记 FTS 重写 -> 孤儿回收(源的父链可能变空容器)。
     //    FTS 必须在删掉源标签之后显式重写:被转移链接的笔记不会自动刷新(tag_links 无 au 触发器),
     //    不重写会残留源路径且搜不到目标路径(2026-09-20 合并功能漏的正是这一步)。
     finish(

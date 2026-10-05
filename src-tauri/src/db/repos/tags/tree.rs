@@ -65,7 +65,8 @@ pub fn link_note(conn: &Connection, note_id: i64, tag_id: i64) -> rusqlite::Resu
 }
 
 /// 精确回收孤儿标签:既无 tag_links、又无指向它的携带行、又无子节点(父节点天生没有链接,不得当孤儿删)。
-/// 被携带的标签(如只做类型声明的 `出版年份`)与"被别名为目标"同理,是**有用途**的空壳,不得回收(R2)。
+/// 被携带的标签(如只做类型声明的 `出版年份`)是有用途的空壳:tag_links 的 target_id 没有外键,
+/// 回收它只会留下悬空携带行,故必须与"有笔记链接"同等对待,不得回收(R2)。
 /// 循环删除以覆盖"整条链都成孤儿"的情形(链有多长就循环多少次)。
 pub(crate) fn gc_orphans(conn: &Connection) -> rusqlite::Result<()> {
     loop {
