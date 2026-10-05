@@ -50,10 +50,12 @@ export interface TagCount {
   subtree_count: number;
 }
 
-/** 删除标签前的二次确认数据:将影响的子孙标签数与去重笔记数 */
+/** 删除标签前的二次确认数据:将影响的子孙标签数、去重笔记数与"被多少标签携带" */
 export interface TagImpact {
   tags: number;
   notes: number;
+  /** 该标签被多少个标签携带(删除确认文案;只数直接携带者) */
+  carriers: number;
 }
 
 /**

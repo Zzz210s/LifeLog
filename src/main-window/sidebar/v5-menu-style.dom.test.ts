@@ -15,7 +15,7 @@ import type { ManagedNode } from './tag-tree';
 
 vi.mock('../../shared/api', () => ({
   api: {
-    tagImpact: () => Promise.resolve({ tags: 1, notes: 2 }),
+    tagImpact: () => Promise.resolve({ tags: 1, notes: 2, carriers: 0 }),
     listTagAliases: () => Promise.resolve(['旧名']),
   },
 }));

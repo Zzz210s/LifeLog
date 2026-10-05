@@ -52,12 +52,13 @@ pub(crate) fn assert_fts_matches_tags(conn: &Connection) {
     assert!(stale.is_empty(), "notes_fts 残留已不存在的笔记行: {stale:?}");
 }
 
-/// ② 无孤儿标签;失败信息列出全部孤儿路径(便于定位是哪个容器没回收)。
+/// ② 无孤儿标签(无 tag_id 链接、无指向它的携带行、无子节点);失败信息列出全部孤儿路径。
 pub(crate) fn assert_no_orphan_tags(conn: &Connection) {
     let mut stmt = conn
         .prepare(
             "SELECT t.path FROM tags t
               WHERE NOT EXISTS (SELECT 1 FROM tag_links l WHERE l.tag_id = t.id)
+                AND NOT EXISTS (SELECT 1 FROM tag_links lc WHERE lc.target_type = 'tag' AND lc.target_id = t.id)
                 AND NOT EXISTS (SELECT 1 FROM tags c WHERE c.parent_id = t.id)
               ORDER BY t.path",
         )

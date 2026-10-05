@@ -151,3 +151,19 @@ fn carry_rows_do_not_change_note_tags_or_fts() {
     assert_eq!(tags_before, tags_after, "插入携带行不得改变笔记的 tags 列");
     assert_eq!(fts_before, fts_after, "插入携带行不得改写 FTS 标签列");
 }
+
+/// ⑨ 删除确认读数:count_carriers 只数直接携带者,与 list 的 carriersOf 一致
+#[test]
+fn count_carriers_counts_direct_carriers() {
+    let mut c = db();
+    let jia = ensure(&c, "甲");
+    let yi = ensure(&c, "乙");
+    let bing = ensure(&c, "丙");
+    assert_eq!(count_carriers(&c, bing).unwrap(), 0, "没人携带时读数为 0");
+
+    set_carry(&mut c, jia, bing).unwrap();
+    set_carry(&mut c, yi, bing).unwrap();
+
+    assert_eq!(count_carriers(&c, bing).unwrap(), 2, "两个标签携带丙");
+    assert_eq!(count_carriers(&c, jia).unwrap(), 0, "携带方自己不算被携带");
+}

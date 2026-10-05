@@ -8,7 +8,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { api } from '../../shared/api';
 import type { TagMruSource } from '../../shared/tag-mru';
-import type { TagCount } from '../../shared/types';
+import type { TagCount, TagImpact } from '../../shared/types';
 import { TagMenuAliasPane } from './TagMenuAliasPane';
 import { TagMenuCarryPane } from './TagMenuCarryPane';
 import { TagMenuDeletePane } from './TagMenuDeletePane';
@@ -44,7 +44,7 @@ export function TagMenu(p: TagMenuProps): ReactNode {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [newName, setNewName] = useState(p.node.name);
-  const [impact, setImpact] = useState<{ tags: number; notes: number } | null>(null);
+  const [impact, setImpact] = useState<TagImpact | null>(null);
 
   // Esc 关闭 / 点击菜单外关闭:统一走 shell/use-dismiss(与 AddConditionMenu、TopBarMenu 同一实现)。
   // 菜单本体只在打开时挂载,故 open 恒 true(useDismiss 的 ref 现读保证回调不闭包旧 props)。

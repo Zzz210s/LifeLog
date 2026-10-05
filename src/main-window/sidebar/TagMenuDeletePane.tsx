@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import type { TagImpact } from '../../shared/types';
 import { tagLabelPlain } from '../../shared/tag-label';
 import { BTN_DANGER } from '../shell/button-classes';
 import { BTN_GHOST } from './tag-menu-ui';
@@ -7,7 +8,7 @@ export interface TagMenuDeletePaneProps {
   /** 目标标签完整路径 */
   path: string;
   /** 影响面读数;null 表示还在计算(确认按钮禁用) */
-  impact: { tags: number; notes: number } | null;
+  impact: TagImpact | null;
   /** 就地错误(空串表示无) */
   error: string;
   /** 请求进行中 */
@@ -27,6 +28,9 @@ export function TagMenuDeletePane(p: TagMenuDeletePaneProps): ReactNode {
           : `将影响 ${p.impact.notes} 条笔记` +
             (p.impact.tags > 0 ? `、${p.impact.tags} 个子标签` : '')}
       </p>
+      {p.impact !== null && (
+        <p className="mt-1 px-1 text-label text-muted">该标签被 {p.impact.carriers} 个标签携带</p>
+      )}
       <p className="mt-1 px-1 text-label text-muted">
         只解除这些笔记上的该标签,笔记本身不会被删除;已存在的笔记也不会因删除而重新生成标签。
       </p>

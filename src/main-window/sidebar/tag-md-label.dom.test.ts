@@ -112,7 +112,7 @@ describe('T1 标签菜单:标题渲染态,确认文案纯文本', () => {
     mount(
       createElement(TagMenuDeletePane, {
         path: RAW,
-        impact: { tags: 0, notes: 1 },
+        impact: { tags: 0, notes: 1, carriers: 0 },
         error: '',
         busy: false,
         onCancel: () => {},
@@ -122,6 +122,20 @@ describe('T1 标签菜单:标题渲染态,确认文案纯文本', () => {
     const first = host.querySelector('p') as HTMLElement;
     expect(first.textContent).toBe(`删除「${PLAIN}」?`);
     expect(host.textContent).not.toContain('[郴]');
+  });
+
+  it('删除确认显示被携带数(R5:删被携带的标签会一并清掉携带行)', () => {
+    mount(
+      createElement(TagMenuDeletePane, {
+        path: PLAIN,
+        impact: { tags: 0, notes: 1, carriers: 2 },
+        error: '',
+        busy: false,
+        onCancel: () => {},
+        onConfirm: () => {},
+      })
+    );
+    expect(host.textContent).toContain('该标签被 2 个标签携带');
   });
 
   it('合并面板标题与候选行:文案纯文本、候选行渲染态、确认仍回传原始路径', () => {

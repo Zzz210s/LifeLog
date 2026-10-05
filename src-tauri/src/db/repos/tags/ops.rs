@@ -155,6 +155,13 @@ pub fn delete_subtree(conn: &mut Connection, tag_id: i64) -> Result<(), String> 
         args(),
     )
     .map_err(|e| e.to_string())?;
+    // R5:tag_links 在 target_id 上没有外键,指向被删标签(含子树)的携带行必须显式清理,
+    // 否则删完会留下 target_id 指向不存在标签的悬空行。tag_id 方向由外键 CASCADE 兜底,不必手清。
+    tx.execute(
+        &format!("DELETE FROM tag_links WHERE target_type = 'tag' AND target_id IN ({marks})"),
+        args(),
+    )
+    .map_err(|e| e.to_string())?;
     // tag_links 触发器已按"链接移除后"的聚合重写 FTS,此处再显式重写一次兜底
     tx.execute(&format!("DELETE FROM tags WHERE id IN ({marks})"), args())
         .map_err(|e| e.to_string())?;

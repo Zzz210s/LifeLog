@@ -5,11 +5,13 @@ use crate::db::Db;
 use serde::Serialize;
 use tauri::{AppHandle, Manager, State};
 
-/// 删除前的二次确认数据:将影响的子孙标签数与笔记数(笔记已去重)
+/// 删除前的二次确认数据:将影响的子孙标签数、笔记数(已去重)与"被多少标签携带"
 #[derive(Serialize, Debug, PartialEq)]
 pub struct TagImpact {
     pub tags: i64,
     pub notes: i64,
+    /// 该标签被多少个标签携带(删除确认文案;只数直接携带者)
+    pub carriers: i64,
 }
 
 /// 取库连接并转调:锁中毒等基础设施错误统一转字符串
@@ -76,9 +78,9 @@ pub fn delete_tag(app: AppHandle, tag_id: i64) -> Result<(), String> {
 #[tauri::command]
 pub fn tag_impact(app: AppHandle, tag_id: i64) -> Result<TagImpact, String> {
     with_conn(&app, |c| {
-        tags::impact(c, tag_id)
-            .map(|(tags, notes)| TagImpact { tags, notes })
-            .map_err(|e| e.to_string())
+        let (tags, notes) = tags::impact(c, tag_id).map_err(|e| e.to_string())?;
+        let carriers = tags::count_carriers(c, tag_id).map_err(|e| e.to_string())?;
+        Ok(TagImpact { tags, notes, carriers })
     })
 }
 

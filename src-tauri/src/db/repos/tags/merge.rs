@@ -53,7 +53,14 @@ pub fn merge_tags(
     // ② 受影响笔记(源无子节点,子树即它自己)与后续要重写 FTS 的笔记集
     let notes = linked_notes(&tx, &[source_id]).map_err(|e| e.to_string())?;
     let affected_notes = notes.len() as i64;
-    // ③ 转移链接:目标已有同一笔记链接的行被主键 (tag_id, target_type, target_id) IGNORE
+    // ③ 携带行不能盲目跟着迁移(两种要特殊处理的形态):
+    //    a) 源携带目标 -> 迁成 (目标,'tag',目标) 自携带(S3 禁止):迁移前先剔除该行
+    tx.execute(
+        "DELETE FROM tag_links WHERE tag_id = ?1 AND target_type = 'tag' AND target_id = ?2",
+        params![source_id, target_id],
+    )
+    .map_err(|e| e.to_string())?;
+    //    余下链接整行转移:源携带的其它标签是源的属性,合并后归到目标
     tx.execute(
         "UPDATE OR IGNORE tag_links SET tag_id = ?1 WHERE tag_id = ?2",
         params![target_id, source_id],
@@ -63,6 +70,13 @@ pub fn merge_tags(
     // ④ 清掉被 IGNORE 的重复行(删链接会触发 tag_links_ad,按剩余链接重写这些笔记的 FTS)
     tx.execute("DELETE FROM tag_links WHERE tag_id = ?1", params![source_id])
         .map_err(|e| e.to_string())?;
+    //     b) 源是被携带者 -> 删源后指向它的携带行会悬空(target_id 无外键):显式清理
+    //        (也覆盖"目标携带源":该行 tag_id=目标,前面的 DELETE 清不到)
+    tx.execute(
+        "DELETE FROM tag_links WHERE target_type = 'tag' AND target_id = ?1",
+        params![source_id],
+    )
+    .map_err(|e| e.to_string())?;
     // ⑤ 旧名登记为别名(D6):旧完整路径 + 不冲突的旧叶子名
     let aliases = if keep_alias {
         alias::register_rename(&tx, &source_path, target_id).map_err(|e| e.to_string())?

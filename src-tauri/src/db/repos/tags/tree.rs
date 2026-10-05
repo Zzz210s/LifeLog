@@ -1,7 +1,7 @@
 //! 标签树仓库层(MVP-2 Task 3):建路径、链接、孤儿回收;结构变更见 ops,查询见 query。
 //! 树真源是 parent_id,path 为冗余但受唯一索引约束,结构变更必须同步维护 path/depth;
 //! 路径前缀比较一律用 substr 而非 LIKE(存量标签名可能含 % 或 _),ensure_path/link_note 收在调用方事务里。
-//! 空标签回收策略:既无 tag_links 又无子节点的容器才回收(link_paths 与 delete_subtree 一致)。
+//! 空标签回收策略:既无 tag_links、无指向它的携带行、又无子节点的容器才回收(link_paths 与 delete_subtree 一致)。
 //! 路径 -> id 的解析漏斗与链接替换已拆到 link.rs(replace::replace_links),本文件只留树本身。
 use rusqlite::{params, Connection};
 
@@ -64,14 +64,16 @@ pub fn link_note(conn: &Connection, note_id: i64, tag_id: i64) -> rusqlite::Resu
     Ok(())
 }
 
-/// 精确回收孤儿标签:既无 tag_links 又无子节点(父节点天生没有链接,不得当孤儿删)。
+/// 精确回收孤儿标签:既无 tag_links、又无指向它的携带行、又无子节点(父节点天生没有链接,不得当孤儿删)。
+/// 被携带的标签(如只做类型声明的 `出版年份`)与"被别名为目标"同理,是**有用途**的空壳,不得回收(R2)。
 /// 循环删除以覆盖"整条链都成孤儿"的情形(链有多长就循环多少次)。
 pub(crate) fn gc_orphans(conn: &Connection) -> rusqlite::Result<()> {
     loop {
         let n = conn.execute(
             "DELETE FROM tags
              WHERE NOT EXISTS (SELECT 1 FROM tag_links l WHERE l.tag_id = tags.id)
-               AND NOT EXISTS (SELECT 1 FROM tags c WHERE c.parent_id = tags.id)",
+               AND NOT EXISTS (SELECT 1 FROM tag_links c WHERE c.target_type = 'tag' AND c.target_id = tags.id)
+               AND NOT EXISTS (SELECT 1 FROM tags ch WHERE ch.parent_id = tags.id)",
             [],
         )?;
         if n == 0 {
@@ -162,3 +164,7 @@ mod tree_complete_similar_tests;
 #[cfg(test)]
 #[path = "tree_similar_tests.rs"]
 mod tree_similar_tests;
+
+#[cfg(test)]
+#[path = "tree_carry_tests.rs"]
+mod tree_carry_tests;

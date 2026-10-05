@@ -15,7 +15,7 @@ const { renameTag } = vi.hoisted(() => ({ renameTag: vi.fn() }));
 vi.mock('../../shared/api', () => ({
   api: {
     renameTag,
-    tagImpact: () => Promise.resolve({ tags: 0, notes: 0 }),
+    tagImpact: () => Promise.resolve({ tags: 0, notes: 0, carriers: 0 }),
     listTagAliases: () => Promise.resolve([]),
   },
 }));

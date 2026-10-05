@@ -85,6 +85,15 @@ pub fn list_carries(conn: &Connection, carrier_id: i64) -> rusqlite::Result<Carr
     })
 }
 
+/// 携带本标签的标签数(删除确认文案「该标签被 N 个标签携带」的读数;只数直接携带者,不含传递)
+pub fn count_carriers(conn: &Connection, carried_id: i64) -> rusqlite::Result<i64> {
+    conn.query_row(
+        "SELECT COUNT(*) FROM tag_links WHERE target_type = 'tag' AND target_id = ?1",
+        params![carried_id],
+        |r| r.get(0),
+    )
+}
+
 /// 标签路径;不存在返回 None(供"标签不存在"中文报错)
 fn path_of(conn: &Connection, id: i64) -> rusqlite::Result<Option<String>> {
     conn.query_row("SELECT path FROM tags WHERE id = ?1", params![id], |r| r.get(0))
