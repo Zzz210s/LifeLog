@@ -4,6 +4,7 @@ import {
   carryFacts,
   carryLabel,
   MAX_ROLE_BADGES,
+  roleBadgeRefs,
   roleBadges,
   tagFactsTitle,
 } from './tag-role-facts';
@@ -28,6 +29,15 @@ describe('角色徽章：最多 2 个 + `+N`', () => {
 
   it('max 可覆盖(测试与将来放宽都用同一个入口)', () => {
     expect(roleBadges(['a', 'b', 'c'], 1)).toEqual({ badges: ['a'], extra: 2 });
+  });
+
+  it('roleBadgeRefs 保留 id(同名角色也能拿到不重叠的 key)', () => {
+    const chips = [
+      { tagId: 7, name: '所在' },
+      { tagId: 9, name: '所在' },
+    ];
+    expect(roleBadgeRefs(chips)).toEqual({ badges: chips, extra: 0 });
+    expect(roleBadgeRefs(chips, 1)).toEqual({ badges: [chips[0]], extra: 1 });
   });
 });
 

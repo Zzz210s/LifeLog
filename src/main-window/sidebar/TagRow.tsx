@@ -13,8 +13,8 @@
  * - 源行不再改透明度(VS Code 源行没有任何半透明处理),拖拽中抑制 hover 高亮。
  */
 import type { CSSProperties, ReactNode } from 'react';
-import { carryLabel, roleBadges, tagFactsTitle } from '../../shared/tag-role-facts';
-import type { CarryFact } from '../../shared/tag-role-facts';
+import { carryLabel, roleBadgeRefs, tagFactsTitle } from '../../shared/tag-role-facts';
+import type { CarryFact, RoleChip } from '../../shared/tag-role-facts';
 import { renderTagLabel, tagLabelPlain } from '../../shared/tag-label';
 import { hoverTitle } from '../../shared/truncate-title';
 import type { TagNode } from './tag-tree';
@@ -43,8 +43,8 @@ export interface TagRowProps {
   onDragEnd: () => void;
   onDragOver: (e: React.DragEvent) => void;
   onDrop: (e: React.DragEvent) => void;
-  /** 本行标签被哪些角色认领(角色名,已剥 md);徽章最多 2 个 + `+N` */
-  roleNames?: readonly string[];
+  /** 本行标签被哪些角色认领(带 id 供列表 key;名字已剥 md);徽章最多 2 个 + `+N` */
+  roles?: readonly RoleChip[];
   /** 本行标签携带的「角色 -> 值」;树行只在 showCarry 时显示,悬浮卡片始终列 */
   carry?: readonly CarryFact[];
   /** 设置开关「标签树里显示携带」:关时不进树行(悬浮卡片仍在) */
@@ -85,9 +85,9 @@ export function TagRow(p: TagRowProps): ReactNode {
     (selectable ? state : 'cursor-default text-muted' + (p.dragActive ? '' : ' hover:bg-hover')) +
     (p.dropZone === 'child' ? ' bg-accent-soft' : '');
 
-  const roleNames = p.roleNames ?? [];
+  const roleChips = p.roles ?? [];
   const carries = p.carry ?? [];
-  const badges = roleBadges(roleNames);
+  const badges = roleBadgeRefs(roleChips);
 
   return (
     <button
@@ -97,7 +97,13 @@ export function TagRow(p: TagRowProps): ReactNode {
       data-drop-target={p.dropZone ?? undefined}
       draggable={p.node.id !== null}
       aria-pressed={selectable ? p.selected : undefined}
-      title={tagFactsTitle(p.node.path, p.node.selfCount, p.node.subtreeCount, roleNames, carries)}
+      data-tip={tagFactsTitle(
+        p.node.path,
+        p.node.selfCount,
+        p.node.subtreeCount,
+        roleChips.map((r) => r.name),
+        carries
+      )}
       className={rowClass}
       style={
         {
@@ -146,13 +152,13 @@ export function TagRow(p: TagRowProps): ReactNode {
       <span className="min-w-0 truncate" onMouseEnter={hoverTitle(tagLabelPlain(label))}>
         {renderTagLabel(label)}
       </span>
-      {badges.badges.map((name) => (
+      {badges.badges.map((b) => (
         <span
-          key={name}
+          key={b.tagId}
           data-role-badge
           className="shrink-0 rounded-xs bg-tag px-1 text-micro text-muted"
         >
-          {name}
+          {b.name}
         </span>
       ))}
       {badges.extra > 0 && (

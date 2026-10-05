@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 /**
  * 树行的角色徽章 / 携带小字 / 悬浮卡片(标签角色 spec §5):
- * 徽章最多 2 个 + `+N`;携带只在开关打开时进树行,悬浮卡片(行 title)有值才列;
- * 名字被截断时才给 `title`(沿用 truncate-title 口径)。
+ * 徽章最多 2 个 + `+N`(两个角色末段同名也不能撞 key);携带只在开关打开时进树行;
+ * 悬浮卡片走行上的 `data-tip`(瞬时 HoverTip),名字被截断时才给 `title`(truncate-title 口径)。
  */
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TagRow } from './TagRow';
 import type { TagNode } from './tag-tree';
 
@@ -39,7 +39,8 @@ afterEach(() => {
 });
 
 function render(over: {
-  roleNames?: readonly string[];
+  /** 角色名;id 由位置派生(同名也各不相同,专盯列表 key) */
+  roles?: readonly string[];
   carry?: readonly { role: string; value: string }[];
   showCarry?: boolean;
 } = {}): HTMLElement {
@@ -62,7 +63,7 @@ function render(over: {
         onDragOver: () => {},
         onDrop: () => {},
         onDragLeave: () => {},
-        roleNames: over.roleNames ?? [],
+        roles: (over.roles ?? []).map((name, i) => ({ tagId: 100 + i, name })),
         carry: over.carry ?? [],
         showCarry: over.showCarry ?? false,
       })
@@ -80,19 +81,27 @@ describe('树行角色徽章', () => {
   it('0/1/2 个原样显示', () => {
     render();
     expect(badgeTexts()).toEqual([]);
-    render({ roleNames: ['国籍'] });
+    render({ roles: ['国籍'] });
     expect(badgeTexts()).toEqual(['国籍']);
-    render({ roleNames: ['国籍', '所在'] });
+    render({ roles: ['国籍', '所在'] });
     expect(badgeTexts()).toEqual(['国籍', '所在']);
   });
 
+  it('两个角色末段同名:徽章 key 不重叠(React 不报重复 key)', () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    render({ roles: ['所在', '所在'] });
+    expect(badgeTexts()).toEqual(['所在', '所在']);
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
   it('超过 2 个:显示 2 个 + `+N`', () => {
-    render({ roleNames: ['国籍', '所在', '要求', '产地'] });
+    render({ roles: ['国籍', '所在', '要求', '产地'] });
     expect(badgeTexts()).toEqual(['国籍', '所在', '+2']);
   });
 
   it('徽章在名字之后、计数之前(优先级 名字 -> 角色 -> 计数 -> 携带)', () => {
-    const row = render({ roleNames: ['国籍'] });
+    const row = render({ roles: ['国籍'] });
     const html = row.innerHTML;
     expect(html.indexOf('日本')).toBeLessThan(html.indexOf('data-role-badge'));
     expect(html.indexOf('data-role-badge')).toBeLessThan(html.indexOf('data-count-rail'));
@@ -117,27 +126,33 @@ describe('树行携带小字(开关)', () => {
   });
 });
 
-describe('悬浮卡片(行 title)', () => {
+describe('悬浮卡片(行 data-tip)', () => {
+  it('行上不再挂原生 title(卡片改走 data-tip,不会再被名字的截断 title 吃掉)', () => {
+    const row = render({ roles: ['国籍'], carry: [{ role: '国籍', value: '日本' }] });
+    expect(row.getAttribute('title')).toBeNull();
+    expect(row.getAttribute('data-tip')).toContain('角色：国籍');
+  });
+
   it('有角色有携带:三行文案', () => {
-    const row = render({ roleNames: ['国籍', '所在'], carry: [{ role: '国籍', value: '日本' }] });
-    expect(row.getAttribute('title')).toBe(
+    const row = render({ roles: ['国籍', '所在'], carry: [{ role: '国籍', value: '日本' }] });
+    expect(row.getAttribute('data-tip')).toBe(
       '地点轴/国籍/日本(本级 4 / 含子级 9)\n角色：国籍、所在\n携带：国籍 → 日本'
     );
   });
 
   it('无携带值时不出现携带行', () => {
-    const row = render({ roleNames: ['国籍'] });
-    expect(row.getAttribute('title')).toContain('角色：国籍');
-    expect(row.getAttribute('title')).not.toContain('携带');
+    const row = render({ roles: ['国籍'] });
+    expect(row.getAttribute('data-tip')).toContain('角色：国籍');
+    expect(row.getAttribute('data-tip')).not.toContain('携带');
   });
 
   it('无角色无携带:只有路径与计数行', () => {
     const row = render();
-    expect(row.getAttribute('title')).toBe('地点轴/国籍/日本(本级 4 / 含子级 9)');
+    expect(row.getAttribute('data-tip')).toBe('地点轴/国籍/日本(本级 4 / 含子级 9)');
   });
 
   it('名字被 CSS 截断时才给名字的 title;未截断不给', () => {
-    render({ roleNames: ['国籍'] });
+    render({ roles: ['国籍'] });
     const name = [...host.querySelectorAll('span')].find(
       (el) => el.textContent === '日本'
     ) as HTMLElement;

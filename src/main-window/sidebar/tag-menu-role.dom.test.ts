@@ -121,13 +121,18 @@ describe('标签菜单两档入口', () => {
 });
 
 describe('角色…面板:勾选/取消认领', () => {
-  it('列出全部已登记角色,当前认领项为勾选态', async () => {
+  it('列出全部已登记角色,当前认领项为勾选态(中文文案,不是对勾符号)', async () => {
     render();
     await openRole();
     const rows = [...host.querySelectorAll('[role="menuitemcheckbox"]')] as HTMLElement[];
-    expect(rows.map((r) => r.textContent?.replace('✓', '').trim())).toEqual(['国籍', '所在']);
+    expect(rows).toHaveLength(2);
+    expect(rows[0].textContent).toContain('国籍');
+    expect(rows[1].textContent).toContain('所在');
+    expect(rows[0].textContent).toContain('已认领');
+    expect(rows[1].textContent).toContain('未认领');
     expect(rows[0].getAttribute('aria-checked')).toBe('true');
     expect(rows[1].getAttribute('aria-checked')).toBe('false');
+    expect(host.textContent).not.toMatch(/\u2713/u);
   });
 
   it('勾选另一个角色 -> set_tag_roles 带上完整集合(整体替换)', async () => {

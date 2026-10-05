@@ -94,6 +94,16 @@ const click = async (label: string): Promise<void> => {
   await flush();
 };
 
+/** 切「按建议角色筛选」:用到筛选的用例都走它,少铺 5 行样板 */
+const setFilter = async (value: string): Promise<void> => {
+  const select = host.querySelector('[aria-label="按建议角色筛选"]') as HTMLSelectElement;
+  await act(async () => {
+    select.value = value;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  await flush();
+};
+
 describe('角色建议面板', () => {
   it('未确认前零写入;每条带依据文案;首页 20 条', async () => {
     await render();
@@ -116,12 +126,7 @@ describe('角色建议面板', () => {
 
   it('按建议角色筛选后只剩该角色的建议', async () => {
     await render();
-    const select = host.querySelector('[aria-label="按建议角色筛选"]') as HTMLSelectElement;
-    await act(async () => {
-      select.value = '20';
-      select.dispatchEvent(new Event('change', { bubbles: true }));
-    });
-    await flush();
+    await setFilter('20');
     const rows = [...host.querySelectorAll('[data-role-row]')].map((r) => r.getAttribute('data-role-row'));
     expect(rows).toEqual(['作者/甲']);
   });
@@ -149,9 +154,46 @@ describe('角色建议面板', () => {
 
   it('全不选后批量确认不写库;全选恢复', async () => {
     await render();
-    await click('全不选');
+    await click('全不选可见');
     await click('批量确认');
     expect(api.setTagRoles).not.toHaveBeenCalled();
     expect(host.textContent).toContain('没有选中的建议');
+  });
+
+  it('全不选可见:只圈可见项,筛选外的勾选原样保留', async () => {
+    await render();
+    await setFilter('20');
+    await click('全不选可见');
+    await setFilter('all');
+    await click('批量确认');
+    // 28 条建议里只圈掉了可见的 「作者/甲」(tag 21),其余 27 条照旧被写
+    expect(api.setTagRoles).toHaveBeenCalledTimes(27);
+    expect(api.setTagRoles).not.toHaveBeenCalledWith(21, expect.anything());
+  });
+
+  it('全选可见:只选可见项,筛选外的排除原样保留', async () => {
+    await render();
+    await click('全不选可见'); // 无筛选时 = 全部排除
+    await setFilter('20');
+    await click('全选可见'); // 只把可见的 「作者/甲」放回来
+    await setFilter('all');
+    await click('批量确认');
+    expect(api.setTagRoles).toHaveBeenCalledTimes(1);
+    expect(api.setTagRoles).toHaveBeenCalledWith(21, [20]);
+  });
+
+  it('批量确认后新登记的角色立刻进「改成别的角色」下拉', async () => {
+    const registered: RoleRef[] = [];
+    api.registerRole.mockImplementation(async (id) => {
+      registered.push({ tagId: id, path: '作者', name: '作者' });
+    });
+    api.listRoles.mockImplementation(() => Promise.resolve([...registered]));
+    await render();
+    await setFilter('20');
+    await click('批量确认'); // 只写可见的 作者/甲,顺带登记角色 20
+    expect(api.registerRole).toHaveBeenCalledWith(20);
+    await setFilter('all');
+    const other = host.querySelector('[aria-label="角色 地点/城市01"]') as HTMLSelectElement;
+    expect([...other.options].map((o) => o.value)).toContain('20');
   });
 });

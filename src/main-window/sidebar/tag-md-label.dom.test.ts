@@ -87,7 +87,7 @@ describe('T1 侧栏树行:预览态 + 原始路径寻址', () => {
     const label = row.querySelector('span.truncate') as HTMLElement;
     expect(label.textContent).toBe('郴州市');
     expect(row.getAttribute('data-tag-path')).toBe(RAW);
-    expect(row.getAttribute('title')).toBe(`${PLAIN}(本级 1 / 含子级 1)`);
+    expect(row.getAttribute('data-tip')).toBe(`${PLAIN}(本级 1 / 含子级 1)`);
     expect(row.querySelector('span[data-tip="chēn"]')?.textContent).toBe('郴');
     expect(row.querySelector('a')).toBeNull();
     act(() => row.click());

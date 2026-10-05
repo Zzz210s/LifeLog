@@ -70,10 +70,10 @@ export const clickMenuItem = (cdp, text) =>
 export const badgesOf = (cdp, path) =>
   cdp.eval(`(() => { const r = document.querySelector('aside ${attr('data-tag-path', path)}');
     return r ? Array.from(r.querySelectorAll('[data-role-badge]')).map((x) => x.textContent.trim()) : null; })()`);
-/** 侧栏某行的原生 title(悬浮卡片 = 角色/携带多行文本) */
-export const rowTitleOf = (cdp, path) =>
+/** 侧栏某行的悬浮卡片文本(`data-tip` 多行;卡片走瞬时 HoverTip,不再是原生 title) */
+export const rowTipOf = (cdp, path) =>
   cdp.eval(`(() => { const r = document.querySelector('aside ${attr('data-tag-path', path)}');
-    return r ? r.getAttribute('title') : null; })()`);
+    return r ? r.getAttribute('data-tip') : null; })()`);
 /** 侧栏某行的携带小字(开关打开后才有) */
 export const rowCarryOf = (cdp, path) =>
   cdp.eval(`(() => { const r = document.querySelector('aside ${attr('data-tag-path', path)}');

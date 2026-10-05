@@ -27,12 +27,30 @@ export interface BadgePlan {
   extra: number;
 }
 
+/** 徽章用的角色最小形状:名字给显示,id 给列表 key(两个角色末段可能同名,不能只看名字) */
+export interface RoleChip {
+  tagId: number;
+  name: string;
+}
+
 /** 行内最多显示几个角色徽章(超出显示 `+N`) */
 export const MAX_ROLE_BADGES = 2;
 
-/** 徽章最多 MAX_ROLE_BADGES 个,超出把余数并成 `+N`(顺序按传入原序) */
+/** 徽章计划(带 id):最多 MAX_ROLE_BADGES 个,超出把余数并成 `+N`(顺序按传入原序) */
+export function roleBadgeRefs<T extends RoleChip>(
+  chips: readonly T[],
+  max = MAX_ROLE_BADGES
+): { badges: T[]; extra: number } {
+  return { badges: chips.slice(0, max), extra: Math.max(0, chips.length - max) };
+}
+
+/** 只要名字的徽章计划(列表 key 用不上 id 时的既有入口) */
 export function roleBadges(names: readonly string[], max = MAX_ROLE_BADGES): BadgePlan {
-  return { badges: names.slice(0, max), extra: Math.max(0, names.length - max) };
+  const plan = roleBadgeRefs(
+    names.map((name) => ({ tagId: 0, name })),
+    max
+  );
+  return { badges: plan.badges.map((b) => b.name), extra: plan.extra };
 }
 
 /** `国籍 → 日本`;值为空时只给角色名(如携带目标就是角色标签本身) */

@@ -21,7 +21,7 @@ import {
   claimRows, clickByLabel, counts, filterSuggestionsByRole, findSuggestion, fixtureNoteIds,
   fixtureTagIds, FIX, fmt, ipc, isRoleTag, noteIdOf, pickRoleSection, purgeRoleFixtures, queryCount,
   raiseRoleFixtures, readCarryCandidates, requireApp, roleCond, excludeRoleCond, roleIdOfPath, roleRows,
-  rowTitleOf, sleep, suggestionRowText, tagCond, tagIdOf, timeQuery, waitFor, xlsxContentDigest,
+  rowTipOf, sleep, suggestionRowText, tagCond, tagIdOf, timeQuery, waitFor, xlsxContentDigest,
 } from './roles-accept-lib.mjs';
 
 const { NS, A, AS, B, C, E, F, R1, R2, R3, BASE, CITY } = FIX;
@@ -126,13 +126,13 @@ try {
   // --- §8.5 显示:徽章(2 + `+N`)/ 悬浮卡片 / 设置开关 ---
   const badgesB = await waitFor(() => badgesOf(cdp, B).then((x) => (x && x.length ? x : null)), 20, 300);
   const badgesA = await badgesOf(cdp, A);
-  const titleB = await rowTitleOf(cdp, B), titleA = await rowTitleOf(cdp, A);
+  const tipB = await rowTipOf(cdp, B), tipA = await rowTipOf(cdp, A);
   const togg = await carryToggleRoundTrip(cdp, A);
-  record('读数5 徽章 2 个 + `+1`;悬浮卡片列角色与携带;设置开关打开后树行出现携带',
+  record('读数5 徽章 2 个 + `+1`;悬浮卡片(data-tip)列角色与携带;设置开关打开后树行出现携带',
     badgesB?.length === 3 && badgesB[2] === '+1' && (badgesA ?? []).length === 0
-      && String(titleB).includes('角色：') && String(titleA).includes('携带：国籍')
+      && String(tipB).includes('角色：') && String(tipA).includes('携带：国籍')
       && togg.off === 'false' && togg.on === true && fmt(togg.carryOn) === fmt(['国籍']) && (togg.carryOff ?? []).length === 0,
-    `乙徽章=${fmt(badgesB)} 甲徽章=${fmt(badgesA)};乙title含角色=${String(titleB).includes('角色：')};甲title=「${titleA}」;开关 ${togg.off}->${togg.on};携带 ${fmt(togg.carryOn)}->${fmt(togg.carryOff)}`);
+    `乙徽章=${fmt(badgesB)} 甲徽章=${fmt(badgesA)};乙tip含角色=${String(tipB).includes('角色：')};甲tip=「${tipA}」;开关 ${togg.off}->${togg.on};携带 ${fmt(togg.carryOn)}->${fmt(togg.carryOff)}`);
 
   // --- §8.6 建议:依据正确 / 未确认零写入 / 确认后只写被接受的 ---
   suoTagId = tagIdOf('地点轴/所在');
@@ -143,7 +143,7 @@ try {
   await filterSuggestionsByRole(cdp, '所在');
   const sugText = await findSuggestion(cdp, CITY, 20);
   const sugZero = { roles: roleRows(), claims: claimRows() };
-  await clickByLabel(cdp, '全不选');
+  await clickByLabel(cdp, '全不选可见');
   await checkSuggestion(cdp, CITY);
   await clickByLabel(cdp, '批量确认');
   await waitFor(() => cdp.eval(`document.querySelector('[role="status"]')?.textContent?.includes('已写入')`), 20, 300);

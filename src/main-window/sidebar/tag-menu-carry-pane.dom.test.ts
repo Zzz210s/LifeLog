@@ -103,6 +103,15 @@ describe('携带面板·加载与交互细节', () => {
     expect(setTagCarry).not.toHaveBeenCalled();
   });
 
+  it('「当前携带」标题恰好渲染一次(容器与列表不重复)', async () => {
+    listTagCarries.mockResolvedValue({ carried: [{ id: 2, path: '携带测试乙' }], carriersOf: [] });
+    renderPane();
+    await flush();
+    const headings = [...host.querySelectorAll('p')].filter((el) => el.textContent === '当前携带');
+    expect(headings).toHaveLength(1);
+    expect(host.textContent).toContain('携带测试乙'); // 列表本身在,不是整段删掉
+  });
+
   it('查询无命中时给空态文案', async () => {
     renderPane();
     await flush();

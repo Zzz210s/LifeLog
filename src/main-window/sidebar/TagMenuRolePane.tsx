@@ -77,8 +77,12 @@ export function TagMenuRolePane(p: TagMenuRolePaneProps): ReactNode {
             onClick={() => toggle(r.tagId)}
             className={ITEM_CLASS + ' flex items-center gap-1.5'}
           >
-            <span aria-hidden="true" className="w-3 shrink-0 text-accent-text">
-              {claimed.has(r.tagId) ? '✓' : ''}
+            <span
+              className={
+                'w-10 shrink-0 text-label ' + (claimed.has(r.tagId) ? 'text-accent-text' : 'text-muted')
+              }
+            >
+              {claimed.has(r.tagId) ? '已认领' : '未认领'}
             </span>
             <span className="min-w-0 flex-1 truncate" onMouseEnter={hoverTitle(tagLabelPlain(r.path))}>
               {renderTagLabel(r.name)}

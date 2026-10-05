@@ -25,11 +25,11 @@ export function RoleSuggestionsToolbar(p: RoleSuggestionsToolbarProps): ReactNod
         options={p.filterOptions}
         onChange={p.onFilterRole}
       />
-      <button type="button" aria-label="全选" className={BTN_SECONDARY} onClick={p.onSelectAll}>
-        全选
+      <button type="button" aria-label="全选可见" className={BTN_SECONDARY} onClick={p.onSelectAll}>
+        全选可见
       </button>
-      <button type="button" aria-label="全不选" className={BTN_SECONDARY} onClick={p.onSelectNone}>
-        全不选
+      <button type="button" aria-label="全不选可见" className={BTN_SECONDARY} onClick={p.onSelectNone}>
+        全不选可见
       </button>
       <button
         type="button"

@@ -10,7 +10,7 @@ import { RoleSuggestionsToolbar } from './RoleSuggestionsToolbar';
 import { SettingsSection } from './SettingsSection';
 import { TagTreeCarryRow } from './TagTreeCarryRow';
 import { SETTINGS_SECTIONS } from './settings-sections';
-import { effectiveRole, pendingSuggestions, planWrites, suggestRoles, type RoleSuggestion } from './role-suggestions';
+import { effectiveRole, pendingSuggestions, planWrites, setExcludedFor, suggestRoles, type RoleSuggestion } from './role-suggestions';
 
 const META = SETTINGS_SECTIONS.find((s) => s.id === 'roles')!;
 /** 每页条数:上百条建议要能一次过完,但一屏不刷太长(R11) */
@@ -76,8 +76,8 @@ export function RoleSuggestionsSection(p: RoleSuggestionsSectionProps = {}): Rea
     ];
   }, [rows]);
   const allSelected = useMemo(
-    () => new Set(rows.filter((r) => !excluded.has(r.tagId)).map((r) => r.tagId)),
-    [rows, excluded],
+    () => new Set(visible.filter((r) => !excluded.has(r.tagId)).map((r) => r.tagId)),
+    [visible, excluded],
   );
   const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
   const current = Math.min(page, pageCount - 1);
@@ -91,11 +91,11 @@ export function RoleSuggestionsSection(p: RoleSuggestionsSectionProps = {}): Rea
       return next;
     });
 
-  /** 唯一的写库入口:先登记缺的角色标签(幂等),再逐标签整体替换认领 */
+  /** 唯一的写库入口:先登记缺的角色标签(幂等),再逐标签整体替换认领;作用域 = 当前筛选可见项 */
   const confirmBatch = useCallback(async (): Promise<void> => {
-    const plan = planWrites(rows, allSelected, overrides, claimed, new Set(roles.map((r) => r.tagId)));
+    const plan = planWrites(visible, allSelected, overrides, claimed, new Set(roles.map((r) => r.tagId)));
     if (plan.writes.length === 0) {
-      setStatus('没有选中的建议');
+      setStatus('没有选中的建议(全选与批量确认只作用于当前筛选可见项)');
       return;
     }
     setBusy(true);
@@ -108,18 +108,22 @@ export function RoleSuggestionsSection(p: RoleSuggestionsSectionProps = {}): Rea
         for (const w of plan.writes) next.set(w.tagId, new Set(w.roleIds));
         return next;
       });
+      // 新登记的角色要立刻进「改成别的角色」下拉,否则同批剩下的行看不到它
+      const fresh = await api.listRoles().catch(() => null);
+      if (fresh !== null) setRoles(fresh);
       setStatus(`已写入 ${plan.writes.length} 条认领`);
     } catch (e) {
       setStatus('写入失败: ' + String(e));
     } finally {
       setBusy(false);
     }
-  }, [rows, allSelected, overrides, claimed, roles]);
+  }, [visible, allSelected, overrides, claimed, roles]);
 
   return (
     <SettingsSection meta={META}>
       <p className="border-b border-border py-3 text-label text-muted">
         建议只看标签在树里的路径,是启发式、不是语义判断;确认前不会写入任何数据。
+        全选与批量确认只作用于当前筛选出来的可见条目。
       </p>
       <TagTreeCarryRow
         checked={p.showCarry === true}
@@ -131,8 +135,8 @@ export function RoleSuggestionsSection(p: RoleSuggestionsSectionProps = {}): Rea
         onFilterRole={setFilterRole}
         selectedCount={allSelected.size}
         busy={busy}
-        onSelectAll={() => setExcluded(new Set())}
-        onSelectNone={() => setExcluded(new Set(rows.map((r) => r.tagId)))}
+        onSelectAll={() => setExcluded((prev) => setExcludedFor(prev, visible.map((r) => r.tagId), false))}
+        onSelectNone={() => setExcluded((prev) => setExcludedFor(prev, visible.map((r) => r.tagId), true))}
         onConfirm={() => void confirmBatch()}
       />
 

@@ -72,7 +72,7 @@ describe('useTagFacts(批量一次)', () => {
     await act(async () => root.render(createElement(Probe)));
     await settle();
     expect([...facts.keys()]).toEqual([1]);
-    expect(facts.get(1)?.roles).toEqual(['国籍']);
+    expect(facts.get(1)?.roles).toEqual([{ tagId: 7, name: '国籍' }]);
     expect(facts.get(1)?.carry).toEqual([{ role: '国籍', value: '日本' }]);
   });
 

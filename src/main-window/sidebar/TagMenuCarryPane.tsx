@@ -141,7 +141,7 @@ export function TagMenuCarryPane(p: TagMenuCarryPaneProps): ReactNode {
       <p className="truncate px-1 py-0.5 text-label font-medium text-muted" onMouseEnter={hoverTitle(tagLabelPlain(p.path))}>
         携带:{renderTagLabel(p.path)}
       </p>
-      <p className="px-1 text-label text-muted">当前携带</p>
+      {/* 「当前携带」标题只在 TagMenuCarriedList 里渲染一次(容器不再重复) */}
       <TagMenuCarriedList carried={report?.carried ?? null} busy={busy} onRemove={remove} />
       <p className="mt-1 px-1 text-label text-muted">添加携带</p>
       <input

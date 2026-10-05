@@ -9,6 +9,7 @@ import {
   leaf,
   pendingSuggestions,
   planWrites,
+  setExcludedFor,
   suggestRoles,
   SUGGESTION_RULES,
   type RoleSuggestion,
@@ -137,5 +138,14 @@ describe('planWrites(批量写库计划)', () => {
       registerRoleIds: [],
       writes: [],
     });
+  });
+});
+
+describe('批量勾选(只作用于给定行)', () => {
+  it('加/删只动给定 id,集合里其它行原样保留,且不改原集合', () => {
+    const before = new Set([1, 2, 3]);
+    expect([...setExcludedFor(before, [2, 9], true)].sort((a, b) => a - b)).toEqual([1, 2, 3, 9]);
+    expect([...setExcludedFor(before, [1, 3], false)]).toEqual([2]);
+    expect([...before]).toEqual([1, 2, 3]);
   });
 });

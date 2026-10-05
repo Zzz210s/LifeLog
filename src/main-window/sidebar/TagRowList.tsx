@@ -89,7 +89,7 @@ export function TagRowList(p: TagRowListProps): ReactNode {
             dragSource={sourcePath === node.path}
             dragActive={dragging}
             dropZone={p.drag.over && p.drag.over.path === node.path ? p.drag.over.zone : null}
-            roleNames={node.id === null ? [] : p.facts?.get(node.id)?.roles ?? []}
+            roles={node.id === null ? [] : p.facts?.get(node.id)?.roles ?? []}
             carry={node.id === null ? [] : p.facts?.get(node.id)?.carry ?? []}
             showCarry={p.showCarry === true}
             onDragStart={(e) => p.drag.rowEvents.onDragStartRow(e, node)}

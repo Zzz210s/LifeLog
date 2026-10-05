@@ -90,6 +90,20 @@ export function pendingSuggestions(
   );
 }
 
+/** 批量勾选开关:只动给定行的排除集,筛选外的原样保留(全选/全不选只看可见项) */
+export function setExcludedFor(
+  prev: ReadonlySet<number>,
+  ids: readonly number[],
+  on: boolean,
+): Set<number> {
+  const next = new Set(prev);
+  for (const id of ids) {
+    if (on) next.add(id);
+    else next.delete(id);
+  }
+  return next;
+}
+
 export interface WritePlan {
   /** 需先登记为角色的标签 id(被选中条目用到但尚未登记) */
   registerRoleIds: number[];

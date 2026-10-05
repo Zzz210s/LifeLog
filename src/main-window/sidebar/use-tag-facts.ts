@@ -10,12 +10,12 @@ import { useEffect, useState } from 'react';
 import { api } from '../../shared/api';
 import { tagLabelPlain } from '../../shared/tag-label';
 import { carryFacts } from '../../shared/tag-role-facts';
-import type { CarryFact } from '../../shared/tag-role-facts';
+import type { CarryFact, RoleChip } from '../../shared/tag-role-facts';
 import type { TagFactsBundle } from '../../shared/tag-facts-types';
 
 export interface TagFacts {
-  /** 认领该标签的角色名(已剥 md) */
-  roles: string[];
+  /** 认领该标签的角色(名字已剥 md;id 供徽章列表 key) */
+  roles: RoleChip[];
   /** 该标签携带的「角色 -> 值」 */
   carry: CarryFact[];
 }
@@ -39,7 +39,7 @@ async function loadFacts(ids: readonly number[]): Promise<Map<number, TagFacts>>
   for (const fact of bundle.facts) {
     if (!wanted.has(fact.tagId)) continue;
     out.set(fact.tagId, {
-      roles: fact.roles.map((r) => tagLabelPlain(r.name)),
+      roles: fact.roles.map((r) => ({ tagId: r.tagId, name: tagLabelPlain(r.name) })),
       carry: carryFacts(fact.carried, bundle.roles),
     });
   }

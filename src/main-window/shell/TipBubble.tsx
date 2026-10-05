@@ -25,7 +25,7 @@ export function TipBubble(p: {
   return (
     <div
       data-testid="hover-tip"
-      className="pointer-events-none fixed z-50 max-w-[16rem] -translate-x-1/2 rounded-md border border-border bg-raised px-2 py-1 text-xs break-words text-text shadow-lg"
+      className="pointer-events-none fixed z-50 max-w-[16rem] -translate-x-1/2 whitespace-pre-line rounded-md border border-border bg-raised px-2 py-1 text-xs break-words text-text shadow-lg"
       style={style}
     >
       {p.text}
