@@ -172,6 +172,12 @@ pub fn list_roles(app: AppHandle) -> Result<Vec<tags::RoleRef>, String> {
     with_conn(&app, |c| tags::list_roles(c).map_err(|e| e.to_string()))
 }
 
+/// 全量标签「角色 / 携带」事实(一次 IPC 取全):侧栏逐标签读数会在扁平模式打 1.5k 次
+#[tauri::command]
+pub fn list_tag_facts(app: AppHandle) -> Result<tags::TagFactsBundle, String> {
+    with_conn(&app, |c| tags::tag_facts(c).map_err(|e| e.to_string()))
+}
+
 /// 某标签认领的角色(标签菜单「角色…」回显),按路径升序
 #[tauri::command]
 pub fn list_tag_roles(app: AppHandle, tag_id: i64) -> Result<Vec<tags::RoleRef>, String> {

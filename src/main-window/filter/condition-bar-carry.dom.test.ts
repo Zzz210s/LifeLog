@@ -10,8 +10,8 @@ import type { FilterConditions } from '../../shared/filter-conditions';
 import { EMPTY_FILTER } from '../../shared/filter-conditions';
 import { ConditionBar } from './ConditionBar';
 
-const { carriedTagPaths } = vi.hoisted(() => ({ carriedTagPaths: vi.fn() }));
-vi.mock('../../shared/api', () => ({ api: { carriedTagPaths } }));
+const { carriedTagPaths, conditionHitCounts } = vi.hoisted(() => ({ carriedTagPaths: vi.fn(), conditionHitCounts: vi.fn() }));
+vi.mock('../../shared/api', () => ({ api: { carriedTagPaths, conditionHitCounts } }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -45,6 +45,8 @@ const summaryText = (): string =>
 
 beforeEach(() => {
   carriedTagPaths.mockReset();
+  conditionHitCounts.mockReset();
+  conditionHitCounts.mockResolvedValue({ tagHits: [], excludeTagHits: [], roleHits: [], excludeRoleHits: [] });
   host = document.createElement('div');
   document.body.appendChild(host);
   root = createRoot(host);

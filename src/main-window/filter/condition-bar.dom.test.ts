@@ -14,9 +14,8 @@ import { ConditionBar } from './ConditionBar';
 import { summaryOf, summaryTitleOf } from './filter-chips';
 
 // 携带集合走 IPC:本文件固定返回空集(携带专项见 condition-bar-carry.dom.test.ts),且落在 act 内
-const { carriedTagPaths } = vi.hoisted(() => ({ carriedTagPaths: vi.fn() }));
-vi.mock('../../shared/api', () => ({ api: { carriedTagPaths } }));
-
+const { carriedTagPaths, conditionHitCounts } = vi.hoisted(() => ({ carriedTagPaths: vi.fn(), conditionHitCounts: vi.fn() }));
+vi.mock('../../shared/api', () => ({ api: { carriedTagPaths, conditionHitCounts } }));
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 /** 六种 chip 各一个:关键词 / 标签 / 排除标签 / 有无标签 / 表达式 / 排序 */
@@ -61,6 +60,7 @@ const buttonText = (b: HTMLButtonElement): string =>
 beforeEach(() => {
   carriedTagPaths.mockReset();
   carriedTagPaths.mockResolvedValue([]);
+  conditionHitCounts.mockResolvedValue({ tagHits: [], excludeTagHits: [], roleHits: [], excludeRoleHits: [] });
   patches = [];
   opens = [];
   host = document.createElement('div');

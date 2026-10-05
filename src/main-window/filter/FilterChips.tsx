@@ -49,6 +49,9 @@ export function FilterChips(p: FilterChipsProps): ReactNode {
           ) : (
             chip.label
           )}
+          {chip.hits !== undefined && (
+            <span className="text-micro opacity-70">{`命中 ${chip.hits} 条`}</span>
+          )}
           <button
             type="button"
             onClick={() => p.onRemove(chip.remove)}

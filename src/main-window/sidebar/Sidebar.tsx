@@ -77,7 +77,6 @@ export function Sidebar(p: SidebarProps): ReactNode {
         mode={p.sidebar.mode}
         onModeChange={p.sidebar.setMode}
         showCarry={p.sidebar.showCarry}
-        onShowCarryChange={p.sidebar.setShowCarry}
         onTagsMutated={p.onTagsMutated}
         onFilterTags={() => p.onPrefill(TAG_PREFIX)}
       />

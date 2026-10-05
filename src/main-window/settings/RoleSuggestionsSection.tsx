@@ -5,9 +5,10 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { api } from '../../shared/api';
 import type { RoleRef } from '../../shared/types';
 import { BTN_SECONDARY } from '../shell/button-classes';
-import { SelectInput } from './controls';
 import { RoleSuggestionRow } from './RoleSuggestionRow';
+import { RoleSuggestionsToolbar } from './RoleSuggestionsToolbar';
 import { SettingsSection } from './SettingsSection';
+import { TagTreeCarryRow } from './TagTreeCarryRow';
 import { SETTINGS_SECTIONS } from './settings-sections';
 import { effectiveRole, pendingSuggestions, planWrites, suggestRoles, type RoleSuggestion } from './role-suggestions';
 
@@ -17,7 +18,13 @@ const PAGE_SIZE = 20;
 
 type ClaimIndex = Map<number, Set<number>>;
 
-export function RoleSuggestionsSection(): ReactNode {
+export interface RoleSuggestionsSectionProps {
+  /** 设置开关「标签树里显示携带」当前值(默认关);透传给 TagTreeCarryRow */
+  showCarry?: boolean;
+  onShowCarryChange?: (v: boolean) => void;
+}
+
+export function RoleSuggestionsSection(p: RoleSuggestionsSectionProps = {}): ReactNode {
   const [all, setAll] = useState<RoleSuggestion[]>([]);
   const [roles, setRoles] = useState<RoleRef[]>([]);
   const [claimed, setClaimed] = useState<ClaimIndex>(new Map());
@@ -114,34 +121,20 @@ export function RoleSuggestionsSection(): ReactNode {
       <p className="border-b border-border py-3 text-label text-muted">
         建议只看标签在树里的路径,是启发式、不是语义判断;确认前不会写入任何数据。
       </p>
-      <div className="flex flex-wrap items-center gap-2 border-b border-border py-3">
-        <SelectInput
-          value={filterRole}
-          label="按建议角色筛选"
-          options={filterOptions}
-          onChange={setFilterRole}
-        />
-        <button type="button" aria-label="全选" className={BTN_SECONDARY} onClick={() => setExcluded(new Set())}>
-          全选
-        </button>
-        <button
-          type="button"
-          aria-label="全不选"
-          className={BTN_SECONDARY}
-          onClick={() => setExcluded(new Set(rows.map((r) => r.tagId)))}
-        >
-          全不选
-        </button>
-        <button
-          type="button"
-          aria-label="批量确认"
-          className={BTN_SECONDARY}
-          disabled={busy}
-          onClick={() => void confirmBatch()}
-        >
-          {`批量确认(${allSelected.size})`}
-        </button>
-      </div>
+      <TagTreeCarryRow
+        checked={p.showCarry === true}
+        onChange={(v) => p.onShowCarryChange?.(v)}
+      />
+      <RoleSuggestionsToolbar
+        filterRole={filterRole}
+        filterOptions={filterOptions}
+        onFilterRole={setFilterRole}
+        selectedCount={allSelected.size}
+        busy={busy}
+        onSelectAll={() => setExcluded(new Set())}
+        onSelectNone={() => setExcluded(new Set(rows.map((r) => r.tagId)))}
+        onConfirm={() => void confirmBatch()}
+      />
 
       {!loaded && status === '' && <p className="py-3 text-label text-muted">正在读取标签…</p>}
       {status !== '' && (

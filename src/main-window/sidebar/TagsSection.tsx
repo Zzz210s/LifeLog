@@ -35,10 +35,8 @@ export interface TagsSectionProps {
   onFilterTags: () => void;
   /** 管理(改名/移动/删除)成功后通知上层刷新标签与筛选条件 */
   onTagsMutated: (pathChange?: { from: string; to: string }) => void;
-  /** 设置开关「标签树里显示携带」(默认关);打开后行尾追加 `国籍 → 日本` 小字 */
+  /** 设置开关「标签树里显示携带」(默认关,在设置页「标签角色」分区);打开后行尾追加 `国籍 → 日本` 小字 */
   showCarry?: boolean;
-  /** 切换上面的开关(持久化在 sidebar 状态里) */
-  onShowCarryChange?: (v: boolean) => void;
 }
 
 export function TagsSection(p: TagsSectionProps): ReactNode {
@@ -139,8 +137,6 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
         flash={flash}
         mode={p.mode}
         onModeChange={p.onModeChange}
-        showCarry={p.showCarry === true}
-        onShowCarryChange={p.onShowCarryChange ?? (() => {})}
         onFilterTags={p.onFilterTags}
         searchOpen={search.searchOpen}
         query={search.query}

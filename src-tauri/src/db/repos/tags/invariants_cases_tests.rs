@@ -1,0 +1,64 @@
+//! 不变量的用例与自证(自 invariants_tests.rs 抽出,守 200 行上限):
+//! 改名级联改写 filter_current;以及变异法证明 FTS 漂移检查真能报警。
+use super::{assert_filter_paths_exist, assert_fts_matches_tags, assert_no_orphan_tags};
+use crate::db::repos::settings::FILTER_CURRENT_KEY;
+use rusqlite::{params, Connection};
+
+/// 路径变化类操作(改名)必须级联改写 filter_current,且改写后的引用真实存在(不变量③)。
+#[test]
+fn rename_cascades_filter_and_keeps_invariants() {
+    let mut c = Connection::open_in_memory().unwrap();
+    crate::db::migrate::run(&c).unwrap();
+    crate::db::repos::notes::create_plain(&mut c, "会议记录 #工作/项目A").unwrap();
+    let filter = r##"{"keyword":null,"tags":[{"path":"工作/项目A","includeChildren":true}],"excludeTags":[{"path":"工作","includeChildren":false}],"tagPresence":null,"sort":"newest","expr":"#工作/项目A"}"##;
+    crate::db::repos::settings::set(&c, FILTER_CURRENT_KEY, filter).unwrap();
+    let root = id_at(&c, "工作");
+
+    crate::db::repos::tags::rename(&mut c, root, "事业").unwrap();
+
+    let raw = crate::db::repos::settings::get(&c, FILTER_CURRENT_KEY).unwrap().unwrap();
+    assert!(raw.contains("事业/项目A") && !raw.contains("工作"), "条件未级联: {raw}");
+    assert_fts_matches_tags(&c);
+    assert_no_orphan_tags(&c);
+    assert_filter_paths_exist(&c);
+}
+
+/// 变异法可证伪:直接 `UPDATE tag_links SET tag_id` 制造漂移(tag_links 自 003 起没有
+/// AFTER UPDATE 触发器,索引串不会跟着改),测试台必须报错 —— 证明它真能抓到"合并漏刷新"那类问题。
+#[test]
+fn fts_invariant_catches_manual_update_drift() {
+    let mut c = Connection::open_in_memory().unwrap();
+    crate::db::migrate::run(&c).unwrap();
+    let note = crate::db::repos::notes::create_plain(&mut c, "x #甲").unwrap();
+    let jia = id_at(&c, "甲");
+    let yi = crate::db::repos::tags::ensure_path(&c, &["乙".to_string()]).unwrap();
+
+    // 变异:绕开所有仓库层入口,直接改链接表
+    c.execute("UPDATE tag_links SET tag_id = ?1 WHERE tag_id = ?2", params![yi, jia])
+        .unwrap();
+
+    let err = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| assert_fts_matches_tags(&c)))
+        .expect_err("测试台必须抓到 UPDATE 造成的 FTS 漂移");
+    let msg = panic_message(err);
+    assert!(msg.contains(&format!("笔记 {}", note.id)), "报错要带笔记 id: {msg}");
+    assert!(msg.contains('甲') && msg.contains('乙'), "报错要带两侧取值: {msg}");
+    // 同一个变异也让孤儿检查报错(甲 已无链接且无子节点)
+    let err = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| assert_no_orphan_tags(&c)))
+        .expect_err("孤儿检查必须抓到被改空的 甲");
+    assert!(panic_message(err).contains('甲'));
+}
+
+/// 测试台自身的读库入口:`SELECT id FROM tags WHERE path = ?1`
+fn id_at(conn: &Connection, path: &str) -> i64 {
+    conn.query_row("SELECT id FROM tags WHERE path = ?1", params![path], |r| r.get(0))
+        .unwrap()
+}
+
+/// 取 panic 载荷里的报错文本(assert_eq! / assert! 的载荷是 String)
+fn panic_message(payload: Box<dyn std::any::Any + Send>) -> String {
+    payload
+        .downcast_ref::<String>()
+        .cloned()
+        .or_else(|| payload.downcast_ref::<&str>().map(|s| s.to_string()))
+        .unwrap_or_else(|| "<非字符串 panic>".to_string())
+}

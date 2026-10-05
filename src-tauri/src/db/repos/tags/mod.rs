@@ -8,6 +8,7 @@
 //! (例如测试用的 `tags::tree::counts`),这些子模块不单独上浮到 tags 命名空间。
 pub mod alias;
 pub mod carry;
+pub mod facts;
 pub mod merge;
 pub mod roles;
 pub mod tree;
@@ -31,6 +32,7 @@ mod fts_tag_plain_tests;
 
 pub use alias::*;
 pub use carry::*;
+pub use facts::*;
 pub use merge::*;
 pub use roles::*;
 pub use tree::*;

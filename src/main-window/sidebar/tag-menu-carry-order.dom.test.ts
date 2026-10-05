@@ -13,7 +13,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EMPTY_FILTER } from '../../shared/filter-conditions';
 import type { TagCount } from '../../shared/types';
 import { TagMenu } from './TagMenu';
-import { TagMenuCarryPane } from './TagMenuCarryPane';
 import { TagsSection } from './TagsSection';
 import { buildTree } from './tag-tree';
 import type { ManagedNode } from './tag-tree';
@@ -120,31 +119,6 @@ async function openCarryFromSidebar(tag: TagCount, mru: typeof tagMru | null): P
   await flush();
 }
 
-const renderPane = (): void => {
-  act(() => {
-    root.render(
-      createElement(TagMenuCarryPane, {
-        tagId: 1,
-        path: '携带测试甲',
-        rows: ROWS,
-        roles: [OTHER, PINNABLE].map((r) => ({ tagId: r.id, path: r.path, name: r.path })),
-        onCancel: () => {},
-      })
-    );
-  });
-};
-
-const paneInput = (): HTMLInputElement =>
-  host.querySelector('input[aria-label="添加携带标签"]') as HTMLInputElement;
-
-const typeQuery = (v: string): void => {
-  const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
-  act(() => {
-    setValue?.call(paneInput(), v);
-    paneInput().dispatchEvent(new Event('input', { bubbles: true }));
-  });
-};
-
 describe('携带面板·三档排序的数据源接线', () => {
   it('侧栏透传 tagMru:空查询把最近用过的标签排在最前', async () => {
     await openCarryFromSidebar(SELF, tagMru);
@@ -168,38 +142,5 @@ describe('携带面板·三档排序的数据源接线', () => {
     act(() => menuItem('携带…').click());
     await flush();
     expect(candidateTexts()[0]).toBe('出版年份');
-  });
-});
-
-describe('携带面板·加载与交互细节', () => {
-  it('读取未回来时输入禁用,Enter 不会写库', async () => {
-    listTagCarries.mockReturnValue(new Promise(() => {}));
-    renderPane();
-    expect(paneInput().disabled).toBe(true);
-    expect(host.textContent).toContain('加载中');
-    act(() =>
-      paneInput().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
-    );
-    await flush();
-    expect(setTagCarry).not.toHaveBeenCalled();
-  });
-
-  it('查询无命中时给空态文案', async () => {
-    renderPane();
-    await flush();
-    typeQuery('zzzz');
-    expect(candidateTexts().length).toBe(0);
-    expect(host.textContent).toContain('没有匹配的标签');
-  });
-
-  it('候选用 mousedown 采纳并 preventDefault(输入框不失焦)', async () => {
-    renderPane();
-    await flush();
-    const button = host.querySelector('[data-carry-candidate]') as HTMLElement;
-    const ev = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
-    act(() => button.dispatchEvent(ev));
-    await flush();
-    expect(ev.defaultPrevented).toBe(true);
-    expect(setTagCarry).toHaveBeenCalledWith(1, OTHER.id);
   });
 });

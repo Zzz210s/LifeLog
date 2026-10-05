@@ -43,6 +43,18 @@ pub fn query_notes(
     repos::notes::query(&conn, &conditions, offset.unwrap_or(0))
 }
 
+/// 条件栏「命中 N 条」读数:每个标签 / 角色条件独立计数(不叠加其它条件),
+/// 与 query_notes 共用同一套谓词(标签含子级与携带继承、角色认领继承)
+#[tauri::command]
+pub fn condition_hit_counts(
+    app: AppHandle,
+    conditions: repos::notes::FilterConditions,
+) -> Result<repos::notes_hits::ConditionHits, String> {
+    let db: State<Db> = app.state();
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    repos::notes_hits::hits(&conn, &conditions)
+}
+
 /// 一页笔记的被引用计数(`target_id -> 引用条数`):**一次 `IN (...)` 批量取全**,
 /// 前端把 Map 分给各卡(设计 §3.0:50 张卡不能 50 次查询)。
 #[tauri::command]

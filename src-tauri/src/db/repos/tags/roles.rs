@@ -109,7 +109,7 @@ fn ensure_tag(conn: &Connection, tag_id: i64) -> Result<(), String> {
 }
 
 /// 路径末段(角色名);`/` 是路径分隔符,单段路径即整串
-fn leaf(path: &str) -> String {
+pub(super) fn leaf(path: &str) -> String {
     path.rsplit('/').next().unwrap_or(path).to_string()
 }
 

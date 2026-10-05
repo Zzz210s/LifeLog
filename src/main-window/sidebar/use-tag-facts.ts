@@ -1,16 +1,17 @@
 /**
  * 标签行「角色 / 携带」事实的读取(标签角色 spec §5):树行徽章、携带小字与悬浮卡片共用一份数据。
  *
- * 后端只有逐标签读数(`list_tag_roles` / `list_tag_carries`)与全量角色表 `list_roles`,没有
- * 批量「标签 -> 角色」命令,所以这里对侧栏的标签 id 逐个取,缓存进组件状态;`nonce` 变化
- * (标签菜单里登记角色/改认领/改携带后)整批重取。读数失败回空值,不让侧栏跟着挂。
+ * 后端 `list_tag_facts` 一次返回全量事实 + 完整角色表(逐标签读会让扁平模式 768 个标签
+ * 打约 1.5k 次 IPC);这里只保留当前可见的标签,`nonce` 变化(标签菜单里登记角色/改认领/
+ * 改携带后)重取。携带目标换算成「角色 -> 值」的口径仍在 shared/tag-role-facts.ts 一处。
+ * 读数失败回空值,不让侧栏跟着挂。
  */
 import { useEffect, useState } from 'react';
 import { api } from '../../shared/api';
 import { tagLabelPlain } from '../../shared/tag-label';
 import { carryFacts } from '../../shared/tag-role-facts';
 import type { CarryFact } from '../../shared/tag-role-facts';
-import type { CarryReport, RoleRef } from '../../shared/types';
+import type { TagFactsBundle } from '../../shared/tag-facts-types';
 
 export interface TagFacts {
   /** 认领该标签的角色名(已剥 md) */
@@ -28,24 +29,21 @@ async function safe<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
   }
 }
 
+const EMPTY: TagFactsBundle = { roles: [], facts: [] };
+
+/** 全量事实里挑出当前可见的标签:查不到的标签 = 没角色也没携带,不上表 */
 async function loadFacts(ids: readonly number[]): Promise<Map<number, TagFacts>> {
-  const roles = await safe(() => api.listRoles(), [] as RoleRef[]);
-  const entries = await Promise.all(
-    ids.map(async (id): Promise<readonly [number, TagFacts]> => {
-      const [roleRefs, report] = await Promise.all([
-        safe(() => api.listTagRoles(id), [] as RoleRef[]),
-        safe(() => api.listTagCarries(id), { carried: [], carriersOf: [] } as CarryReport),
-      ]);
-      return [
-        id,
-        {
-          roles: roleRefs.map((r) => tagLabelPlain(r.name)),
-          carry: carryFacts(report.carried.map((c) => c.path), roles),
-        },
-      ];
-    })
-  );
-  return new Map(entries);
+  const bundle = await safe(() => api.listTagFacts(), EMPTY);
+  const wanted = new Set(ids);
+  const out = new Map<number, TagFacts>();
+  for (const fact of bundle.facts) {
+    if (!wanted.has(fact.tagId)) continue;
+    out.set(fact.tagId, {
+      roles: fact.roles.map((r) => tagLabelPlain(r.name)),
+      carry: carryFacts(fact.carried, bundle.roles),
+    });
+  }
+  return out;
 }
 
 export function useTagFacts(ids: readonly number[], nonce: number): ReadonlyMap<number, TagFacts> {

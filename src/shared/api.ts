@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { CarryReport, CompleteItem, DbInfo, ExprCheck, GraphData, GraphLinkDegrees, MergeReport, Note, NoteLinks, NoteTitle, ParseResult, RoleRef, TagCount, TagImpact } from './types';
+import type { ConditionHits, TagFactsBundle } from './tag-facts-types';
 import type { FilterConditions } from './filter-conditions';
 import type { AppHotkeyKind } from './hotkey-match';
 
@@ -52,6 +53,11 @@ export const api = {
   listRoles: () => invoke<RoleRef[]>('list_roles'),
   /** 某标签认领的角色(标签菜单「角色…」回显) */
   listTagRoles: (tagId: number) => invoke<RoleRef[]>('list_tag_roles', { tagId }),
+  /** 全量标签「角色 / 携带」事实(批量只读,一次 IPC 取全):侧栏树行徽章/携带小字/悬浮卡片共用 */
+  listTagFacts: () => invoke<TagFactsBundle>('list_tag_facts'),
+  /** 条件栏「命中 N 条」读数:每个标签/角色条件独立计数(不叠加其它条件) */
+  conditionHitCounts: (conditions: FilterConditions) =>
+    invoke<ConditionHits>('condition_hit_counts', { conditions }),
   /** 合并标签(G2 命令):转移链接 + 可选保留旧名为别名,返回转移读数 */
   mergeTags: (sourceId: number, targetId: number, keepAlias: boolean) =>
     invoke<MergeReport>('merge_tags', { sourceId, targetId, keepAlias }),

@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { api } from '../../shared/api';
 import { filterKey } from '../../shared/filter-conditions';
 import type { FilterConditions } from '../../shared/filter-conditions';
+import type { ConditionHits } from '../../shared/tag-facts-types';
 import { AddConditionMenu } from './AddConditionMenu';
 import { ExprDialog } from './ExprDialog';
 import { FilterChips } from './FilterChips';
@@ -44,6 +45,8 @@ export function ConditionBar(p: ConditionBarProps): ReactNode {
   const [exprOpen, setExprOpen] = useState(false);
   // 有携带者的标签路径集合;初值空集 = 加载中(先不标) —— 真实库 0 条携带行时不会闪 +携带
   const [carryPaths, setCarryPaths] = useState<CarryPaths>(new Set());
+  // 标签 / 角色条件的独立命中数(后端单条件计数,与 query_notes 同谓词)
+  const [hits, setHits] = useState<ConditionHits | null>(null);
   const condKey = filterKey(p.conditions);
 
   // 挂载 / 条件变化时批量取一次(不每个 chip 一次 IPC)。condKey 有意当刷新信号:携带关系是
@@ -64,6 +67,34 @@ export function ConditionBar(p: ConditionBarProps): ReactNode {
     };
   }, [condKey]);
 
+  // 命中数只在真有标签/角色条件时才取(空条件没有可数的 chip)
+  const hasTagRole =
+    p.conditions.tags.length > 0 ||
+    p.conditions.excludeTags.length > 0 ||
+    p.conditions.roles.length > 0 ||
+    p.conditions.excludeRoles.length > 0;
+
+  useEffect(() => {
+    let stale = false;
+    if (!hasTagRole) {
+      setHits(null);
+      return;
+    }
+    api
+      .conditionHitCounts(p.conditions)
+      .then((h) => {
+        if (!stale) setHits(h);
+      })
+      .catch(() => {
+        if (!stale) setHits(null);
+      });
+    return () => {
+      stale = true;
+    };
+    // hasTagRole 由 conditions 派生;条件一变就重取,失败回 null(不显示小字)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [condKey]);
+
   const summarySegments = summarySegmentsOf(p.conditions, true, carryPaths);
   const summaryTitle = summaryTitleOf(p.conditions, carryPaths);
 
@@ -71,7 +102,7 @@ export function ConditionBar(p: ConditionBarProps): ReactNode {
     <div data-testid="condition-bar" className="border-b border-border px-4 py-1">
       <div className="flex flex-wrap items-center gap-2">
         <FilterChips
-          chips={chipsOf(p.conditions)}
+          chips={chipsOf(p.conditions, hits)}
           onRemove={(next) => p.onPatch(next)}
           onEditExpr={() => setExprOpen(true)}
         />
