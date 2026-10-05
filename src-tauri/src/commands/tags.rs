@@ -1,5 +1,6 @@
 //! 标签树命令层(MVP-2 Task 4):只做参数校验与转调仓库层,不写 SQL。
 //! 删除前的影响面由独立的 `tag_impact` 提供(前端二次确认后再调 `delete_tag`)。
+use crate::db::repos::carry_paths;
 use crate::db::repos::tags::{self, CompleteItem, MergeReport, TagCount};
 use crate::db::Db;
 use serde::Serialize;
@@ -139,6 +140,12 @@ pub fn remove_tag_carry(app: AppHandle, carrier_id: i64, carried_id: i64) -> Res
 #[tauri::command]
 pub fn list_tag_carries(app: AppHandle, carrier_id: i64) -> Result<tags::CarryReport, String> {
     with_conn(&app, |c| tags::list_carries(c, carrier_id).map_err(|e| e.to_string()))
+}
+
+/// 有携带者的标签路径集合(去重、升序):条件栏摘要据此决定是否显示 `+携带` 小字
+#[tauri::command]
+pub fn carried_tag_paths(app: AppHandle) -> Result<Vec<String>, String> {
+    with_conn(&app, |c| carry_paths::carried_paths(c).map_err(|e| e.to_string()))
 }
 
 /// 路径前缀补全(输入 `#工作/` 时列出下一级候选)。

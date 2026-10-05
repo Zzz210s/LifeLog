@@ -39,6 +39,8 @@ export const api = {
     invoke<void>('remove_tag_carry', { carrierId, carriedId }),
   /** 双向携带读数:carried 是本标签携带的,carriersOf 是携带本标签的 */
   listTagCarries: (carrierId: number) => invoke<CarryReport>('list_tag_carries', { carrierId }),
+  /** 有携带者的标签路径集合(去重、升序):条件栏摘要据此决定是否显示 `+携带` 小字 */
+  carriedTagPaths: () => invoke<string[]>('carried_tag_paths'),
   /** 合并标签(G2 命令):转移链接 + 可选保留旧名为别名,返回转移读数 */
   mergeTags: (sourceId: number, targetId: number, keepAlias: boolean) =>
     invoke<MergeReport>('merge_tags', { sourceId, targetId, keepAlias }),

@@ -9,12 +9,13 @@ import { act } from 'react';
 import type { Note } from '../../shared/types';
 import { installGeometryStubs, mountStreamView } from './__fixtures__/stream-view-harness';
 
-const { getSetting, setSetting, saveInputNote } = vi.hoisted(() => ({
+const { getSetting, setSetting, saveInputNote, carriedTagPaths } = vi.hoisted(() => ({
   getSetting: vi.fn(async (_key: string): Promise<string | null> => null),
   setSetting: vi.fn(async (_key: string, _value: string) => {}),
   saveInputNote: vi.fn(async (_s: string) => 1),
+  carriedTagPaths: vi.fn(async (): Promise<string[]> => []),
 }));
-vi.mock('../../shared/api', () => ({ api: { getSetting, setSetting, saveInputNote } }));
+vi.mock('../../shared/api', () => ({ api: { getSetting, setSetting, saveInputNote, carriedTagPaths } }));
 
 const TARGET: Note = {
   id: 3, content: 'UI测试笔记', created_at: '2026-09-24 10:00:00', tags: [], links: [],

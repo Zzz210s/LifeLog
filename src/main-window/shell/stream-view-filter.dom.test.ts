@@ -8,12 +8,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act } from 'react';
 import { installGeometryStubs, mountStreamView } from './__fixtures__/stream-view-harness';
 
-const { getSetting, setSetting, saveInputNote } = vi.hoisted(() => ({
+const { getSetting, setSetting, saveInputNote, carriedTagPaths } = vi.hoisted(() => ({
   getSetting: vi.fn(async (_key: string): Promise<string | null> => null),
   setSetting: vi.fn(async (_key: string, _value: string) => {}),
   saveInputNote: vi.fn(async (_s: string) => 1),
+  carriedTagPaths: vi.fn(async (): Promise<string[]> => []),
 }));
-vi.mock('../../shared/api', () => ({ api: { getSetting, setSetting, saveInputNote } }));
+vi.mock('../../shared/api', () => ({ api: { getSetting, setSetting, saveInputNote, carriedTagPaths } }));
 
 let onPatch: ReturnType<typeof vi.fn>;
 

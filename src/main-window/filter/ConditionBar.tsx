@@ -1,11 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
+import { api } from '../../shared/api';
+import { filterKey } from '../../shared/filter-conditions';
 import type { FilterConditions } from '../../shared/filter-conditions';
 import { AddConditionMenu } from './AddConditionMenu';
 import { ExprDialog } from './ExprDialog';
 import { FilterChips } from './FilterChips';
 import { TagPickDialog } from './TagPickDialog';
 import { applyTagPick, chipsOf, summarySegmentsOf, summaryTitleOf } from './filter-chips';
+import type { CarryPaths } from './filter-chips';
 
 export interface ConditionBarProps {
   /** 顶层筛选条件(chips 与中文摘要都从这里派生) */
@@ -33,9 +36,28 @@ export function ConditionBar(p: ConditionBarProps): ReactNode {
   // 两个对话框的开关只由「添加条件」菜单触发,所以留在本组件里
   const [tagPick, setTagPick] = useState<{ exclude: boolean } | null>(null);
   const [exprOpen, setExprOpen] = useState(false);
+  // 有携带者的标签路径集合(null = 还没取到 → 摘要退回「都标 +携带」)
+  const [carryPaths, setCarryPaths] = useState<CarryPaths>(null);
+  const condKey = filterKey(p.conditions);
 
-  const summarySegments = summarySegmentsOf(p.conditions);
-  const summaryTitle = summaryTitleOf(p.conditions);
+  // 挂载 / 条件变化时批量取一次(不每个 chip 一次 IPC);取不到就保持 null,不变成不显示
+  useEffect(() => {
+    let stale = false;
+    api
+      .carriedTagPaths()
+      .then((paths) => {
+        if (!stale) setCarryPaths(new Set(paths));
+      })
+      .catch(() => {
+        if (!stale) setCarryPaths(null);
+      });
+    return () => {
+      stale = true;
+    };
+  }, [condKey]);
+
+  const summarySegments = summarySegmentsOf(p.conditions, true, carryPaths);
+  const summaryTitle = summaryTitleOf(p.conditions, carryPaths);
 
   return (
     <div data-testid="condition-bar" className="border-b border-border px-4 py-1">

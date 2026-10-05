@@ -94,6 +94,7 @@ pub fn run() {
             commands::tags::set_tag_carry,
             commands::tags::remove_tag_carry,
             commands::tags::list_tag_carries,
+            commands::tags::carried_tag_paths,
             commands::windowing::hide_input_bar,
             commands::windowing::input_bar_visible,
             commands::windowing::hide_main_window,

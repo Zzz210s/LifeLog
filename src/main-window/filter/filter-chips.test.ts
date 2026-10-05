@@ -25,7 +25,10 @@ describe('表达式 chip 与摘要', () => {
     expect(chip.label).toBe(`表达式:${truncateExpr(long)}`);
     expect(chip.label).toContain('…');
     expect(chip.title).toBe(`表达式:${long}`);
-    expect(summaryTitleOf({ ...EMPTY_FILTER, expr: long })).toContain(long);
+    // 摘要 title 不截断,但表达式里的标签叶子会带上 +携带(与摘要正文同口径)
+    expect(summaryTitleOf({ ...EMPTY_FILTER, expr: long })).toBe(
+      `表达式:#工作+携带${' 或 '.repeat(20)}#生活+携带`
+    );
     expect(summaryOf({ ...EMPTY_FILTER, expr: long })).toContain('…');
   });
 

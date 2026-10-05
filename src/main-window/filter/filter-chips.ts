@@ -7,6 +7,7 @@
 import { hasExpr } from '../../shared/filter-conditions';
 import type { FilterConditions, TagCond } from '../../shared/filter-conditions';
 import { tagLabelPlain } from '../../shared/tag-label';
+import { exprTagSpans } from './expr-tag-spans';
 
 /** chip 种类与文案一一对应;remove 是删掉该 chip 后的条件对象(完整替换用) */
 export type Chip = {
@@ -89,17 +90,24 @@ export function chipsOf(c: FilterConditions): Chip[] {
 /** 携带标记:标签条件也含「携带它的标签子树」下的笔记(spec §5),摘要里用小字标出 */
 export const CARRY_MARK = '+携带';
 
+/** 有携带者的标签路径集合;null = 数据未就绪(退回现在的行为:都显示) */
+export type CarryPaths = ReadonlySet<string> | null;
+
+/** 是否给该路径标 `+携带`:数据未就绪时退回显示,拿到数据后只看它是否真有携带者 */
+const showCarry = (path: string, carryPaths: CarryPaths): boolean =>
+  carryPaths === null || carryPaths.has(path);
+
 /** 摘要片段:carry=true 的片段渲染成小字(目前只有 `+携带`);text 含分隔符 */
 export type SummarySegment = { text: string; carry: boolean };
 
 /** 中文一句话摘要:'关键词「电影」;标签 工作+携带;无标签;最早在前';空条件为空串(含子级不进摘要) */
-export function summaryOf(c: FilterConditions): string {
-  return plainOf(summarySegmentsOf(c, true));
+export function summaryOf(c: FilterConditions, carryPaths: CarryPaths = null): string {
+  return plainOf(summarySegmentsOf(c, true, carryPaths));
 }
 
 /** 摘要的悬浮提示文本:与 summaryOf 同构,但表达式原文不截断(供 FilterBar 的 title) */
-export function summaryTitleOf(c: FilterConditions): string {
-  return plainOf(summarySegmentsOf(c, false));
+export function summaryTitleOf(c: FilterConditions, carryPaths: CarryPaths = null): string {
+  return plainOf(summarySegmentsOf(c, false, carryPaths));
 }
 
 /** 片段拼回纯文本(摘要与 title 共用;片段自身已含 `;` 分隔) */
@@ -109,15 +117,21 @@ function plainOf(segs: SummarySegment[]): string {
 
 /**
  * 摘要片段(结构化):普通文本与 `+携带` 小字分开,渲染侧按 carry 分样式。
- * 标签组里 `+携带` 紧随每个标签路径(引入与排除两侧都标)。
+ * 标签组里 `+携带` 紧随每个标签路径(引入与排除两侧都标);表达式里的标签叶子同样标。
+ * `carryPaths` 给定「有携带者的标签路径集合」时,只有真有携带者的标签才标;
+ * 传 null(数据未就绪)则退回都标。
  */
-export function summarySegmentsOf(c: FilterConditions, truncate = true): SummarySegment[] {
+export function summarySegmentsOf(
+  c: FilterConditions,
+  truncate = true,
+  carryPaths: CarryPaths = null
+): SummarySegment[] {
   const groups: SummarySegment[][] = [];
   const kw = (c.keyword ?? '').trim();
   if (kw !== '') groups.push([{ text: `关键词「${kw}」`, carry: false }]);
-  if (c.tags.length > 0) groups.push(tagGroup('标签 ', c.tags));
-  if (c.excludeTags.length > 0) groups.push(tagGroup('排除 ', c.excludeTags));
-  if (hasExpr(c)) groups.push([{ text: exprLabel(c.expr ?? '', truncate), carry: false }]);
+  if (c.tags.length > 0) groups.push(tagGroup('标签 ', c.tags, carryPaths));
+  if (c.excludeTags.length > 0) groups.push(tagGroup('排除 ', c.excludeTags, carryPaths));
+  if (hasExpr(c)) groups.push(exprSegments(c.expr ?? '', truncate, carryPaths));
   if (c.tagPresence !== null) {
     groups.push([{ text: c.tagPresence === 'none' ? '无标签' : '有标签', carry: false }]);
   }
@@ -130,14 +144,32 @@ export function summarySegmentsOf(c: FilterConditions, truncate = true): Summary
   return out;
 }
 
-/** 一个标签组:'标签 a+携带、b+携带'(`+携带` 每项都跟) */
-function tagGroup(prefix: string, list: TagCond[]): SummarySegment[] {
+/** 一个标签组:'标签 a+携带、b'(`+携带` 每项按是否有携带者跟) */
+function tagGroup(prefix: string, list: TagCond[], carryPaths: CarryPaths): SummarySegment[] {
   const segs: SummarySegment[] = [{ text: prefix, carry: false }];
   list.forEach((t, i) => {
     if (i > 0) segs.push({ text: '、', carry: false });
     segs.push({ text: tagLabelPlain(t.path), carry: false });
-    segs.push({ text: CARRY_MARK, carry: true });
+    if (showCarry(t.path, carryPaths)) segs.push({ text: CARRY_MARK, carry: true });
   });
+  return segs;
+}
+
+/**
+ * 表达式段:原文按标签叶子切成若干片段,每个叶子后按需跟 `+携带` 小字。
+ * 截断先做(显示口径与 chip 一致),再在截断后的文本里定位叶子 —— 被截掉的半个标签不再标。
+ */
+function exprSegments(text: string, truncate: boolean, carryPaths: CarryPaths): SummarySegment[] {
+  const shown = truncate ? truncateExpr(text) : text;
+  const segs: SummarySegment[] = [{ text: '表达式:', carry: false }];
+  let pos = 0;
+  for (const tag of exprTagSpans(shown)) {
+    if (tag.start > pos) segs.push({ text: shown.slice(pos, tag.start), carry: false });
+    segs.push({ text: shown.slice(tag.start, tag.end), carry: false });
+    if (showCarry(tag.path, carryPaths)) segs.push({ text: CARRY_MARK, carry: true });
+    pos = tag.end;
+  }
+  if (pos < shown.length) segs.push({ text: shown.slice(pos), carry: false });
   return segs;
 }
 
