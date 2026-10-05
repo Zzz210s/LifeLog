@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { CarryReport, CompleteItem, DbInfo, ExprCheck, GraphData, GraphLinkDegrees, MergeReport, Note, NoteLinks, NoteTitle, ParseResult, TagCount, TagImpact } from './types';
+import type { CarryReport, CompleteItem, DbInfo, ExprCheck, GraphData, GraphLinkDegrees, MergeReport, Note, NoteLinks, NoteTitle, ParseResult, RoleRef, TagCount, TagImpact } from './types';
 import type { FilterConditions } from './filter-conditions';
 import type { AppHotkeyKind } from './hotkey-match';
 
@@ -41,6 +41,17 @@ export const api = {
   listTagCarries: (carrierId: number) => invoke<CarryReport>('list_tag_carries', { carrierId }),
   /** 有携带者的标签路径集合(去重、升序):条件栏摘要据此决定是否显示 `+携带` 小字 */
   carriedTagPaths: () => invoke<string[]>('carried_tag_paths'),
+  /** 登记角色(幂等):把该标签登记为角色,不动它在树里的位置与排序 */
+  registerRole: (tagId: number) => invoke<void>('register_role', { tagId }),
+  /** 取消角色登记(幂等):连带删掉该角色的全部认领行 */
+  unregisterRole: (tagId: number) => invoke<void>('unregister_role', { tagId }),
+  /** 整体替换某标签的角色认领(不是增量);roleIds 每项必须是已登记的角色标签 */
+  setTagRoles: (tagId: number, roleIds: number[]) =>
+    invoke<void>('set_tag_roles', { tagId, roleIds }),
+  /** 全部已登记角色(标签菜单与筛选「角色」条件的数据源) */
+  listRoles: () => invoke<RoleRef[]>('list_roles'),
+  /** 某标签认领的角色(标签菜单「角色…」回显) */
+  listTagRoles: (tagId: number) => invoke<RoleRef[]>('list_tag_roles', { tagId }),
   /** 合并标签(G2 命令):转移链接 + 可选保留旧名为别名,返回转移读数 */
   mergeTags: (sourceId: number, targetId: number, keepAlias: boolean) =>
     invoke<MergeReport>('merge_tags', { sourceId, targetId, keepAlias }),

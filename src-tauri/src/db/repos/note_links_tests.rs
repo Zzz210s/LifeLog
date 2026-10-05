@@ -27,7 +27,7 @@ fn migration_creates_table_and_indexes() {
                AND name IN ('note_links_source','note_links_target')";
     assert_eq!(count(&c, idx), 2, "两个索引都要在(出链/入链方向各一)");
     let v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
-    assert_eq!(v, 19, "迁移序列走完应是 19");
+    assert_eq!(v, migrate::latest_version(), "迁移序列走完应到最新版本");
 }
 
 #[test]
@@ -67,7 +67,7 @@ fn migration_is_idempotent() {
     migrate::run(&c).unwrap();
     assert_eq!(count(&c, "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='note_links'"), 1);
     let v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
-    assert_eq!(v, 19);
+    assert_eq!(v, migrate::latest_version());
 }
 
 /// 建笔记(首行即标题),列顺序 id/content/created_at

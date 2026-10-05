@@ -25,6 +25,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("migrations/017_fts_tag_aliases.sql"),
     include_str!("migrations/018_fts_tag_plain_path.sql"),
     include_str!("migrations/019_note_links.sql"),
+    include_str!("migrations/020_tag_roles.sql"),
 ];
 
 /// 012 的位次(1 起)与它删除的列名:SQLite 没有 `DROP COLUMN IF EXISTS`,

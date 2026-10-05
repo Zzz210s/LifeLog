@@ -2,6 +2,7 @@
 //! 复用 tag_links 的 `target_type='tag'` 行:tag_id 是携带者,target_id 是被携带的标签。
 use super::*;
 use crate::db::repos::notes;
+use crate::db::repos::tags::register_role;
 use crate::db::{migrate, repos};
 use rusqlite::{params, Connection};
 
@@ -38,6 +39,7 @@ fn set_carry_adds_row_and_lists_both_directions() {
     let jia = ensure(&c, "甲");
     let yi = ensure(&c, "乙");
     assert_eq!(carry_rows(&c), 0);
+    register_role(&c, yi).unwrap();
 
     set_carry(&mut c, jia, yi).unwrap();
 
@@ -56,6 +58,7 @@ fn set_carry_is_idempotent() {
     let mut c = db();
     let jia = ensure(&c, "甲");
     let yi = ensure(&c, "乙");
+    register_role(&c, yi).unwrap();
     set_carry(&mut c, jia, yi).unwrap();
     set_carry(&mut c, jia, yi).unwrap();
     assert_eq!(carry_rows(&c), 1);
@@ -78,6 +81,8 @@ fn set_carry_rejects_two_node_cycle() {
     let mut c = db();
     let a = ensure(&c, "甲");
     let b = ensure(&c, "乙");
+    register_role(&c, a).unwrap();
+    register_role(&c, b).unwrap();
     set_carry(&mut c, a, b).unwrap();
     let err = set_carry(&mut c, b, a).unwrap_err();
     assert!(err.contains("循环"), "要中文提示会形成循环: {err}");
@@ -91,6 +96,9 @@ fn set_carry_rejects_three_node_cycle() {
     let a = ensure(&c, "甲");
     let b = ensure(&c, "乙");
     let d = ensure(&c, "丙");
+    register_role(&c, a).unwrap();
+    register_role(&c, b).unwrap();
+    register_role(&c, d).unwrap();
     set_carry(&mut c, a, b).unwrap();
     set_carry(&mut c, b, d).unwrap();
     let err = set_carry(&mut c, d, a).unwrap_err();
@@ -104,6 +112,7 @@ fn remove_carry_deletes_row_and_is_idempotent() {
     let mut c = db();
     let jia = ensure(&c, "甲");
     let yi = ensure(&c, "乙");
+    register_role(&c, yi).unwrap();
     set_carry(&mut c, jia, yi).unwrap();
     remove_carry(&mut c, jia, yi).unwrap();
     assert_eq!(carry_rows(&c), 0);
@@ -140,6 +149,7 @@ fn carry_rows_do_not_change_note_tags_or_fts() {
     let fts_before: String = c
         .query_row("SELECT tags FROM notes_fts WHERE rowid=?1", params![note.id], |r| r.get(0))
         .unwrap();
+    register_role(&c, jia).unwrap(); // 借林:目标必须是角色标签(R3)
 
     set_carry(&mut c, yi, jia).unwrap(); // 乙 携带 甲(target_id = note.id,故意撞号)
 
@@ -160,6 +170,7 @@ fn count_carriers_counts_direct_carriers() {
     let yi = ensure(&c, "乙");
     let bing = ensure(&c, "丙");
     assert_eq!(count_carriers(&c, bing).unwrap(), 0, "没人携带时读数为 0");
+    register_role(&c, bing).unwrap();
 
     set_carry(&mut c, jia, bing).unwrap();
     set_carry(&mut c, yi, bing).unwrap();

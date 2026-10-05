@@ -31,9 +31,10 @@ pub struct CarryReport {
 /// 携带链深度上限:正常标签体系远达不到,只在数据异常时兜底,避免环上死循环
 const MAX_CARRY_DEPTH: usize = 64;
 
-/// 添加携带(幂等):校验两端存在 -> 拒绝自携带 -> 沿携带方向 DFS 查环 -> INSERT OR IGNORE。
-/// 整事务:校验失败或写入失败都零变化。携带行**不**参与 FTS/路径/孤儿收尾(它们只描述
-/// 标签之间的关系,不改变任何笔记的标签集合),故这里有意不调 `tags_write::finish`。
+/// 添加携带(幂等):校验两端存在 -> 拒绝自携带 -> R3 目标必须是角色标签 -> 沿携带方向 DFS 查环
+/// -> INSERT OR IGNORE。整事务:校验失败或写入失败都零变化。携带行**不**参与 FTS/路径/孤儿收尾
+/// (它们只描述标签之间的关系,不改变任何笔记的标签集合),故这里有意不调 `tags_write::finish`。
+/// R3 只作用于新写入:历史库里指向未登记标签的携带行原样保留(设计 §7 R8)。
 pub fn set_carry(conn: &mut Connection, carrier_id: i64, carried_id: i64) -> Result<(), String> {
     if carrier_id == carried_id {
         return Err("不能携带自己".into());
@@ -45,6 +46,10 @@ pub fn set_carry(conn: &mut Connection, carrier_id: i64, carried_id: i64) -> Res
     let carried = path_of(&tx, carried_id)
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("标签不存在: {carried_id}"))?;
+    // R3:新写入的携带目标必须是已登记的角色标签(角色 = 受控命名空间)
+    if !super::roles::is_role(&tx, carried_id).map_err(|e| e.to_string())? {
+        return Err("携带的目标必须是角色标签".into());
+    }
     // 新边 carrier -> carried 成环 <=> 已存在 carried -> ... -> carrier 的路径
     if reaches(&tx, carried_id, carrier_id).map_err(|e| e.to_string())? {
         return Err(format!("会形成循环：携带「{carried}」会让「{carrier}」绕回自己"));

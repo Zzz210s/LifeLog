@@ -17,6 +17,9 @@ const V_015: i64 = 15;
 /// 019(笔记间链接表)的位次:同理 —— `create_plain` 走的是生产保存路径,自 019 起
 /// 会在同一次事务里写 note_links。019 是 `CREATE TABLE IF NOT EXISTS`,重放是空操作。
 const V_019: i64 = 19;
+/// 020(标签角色表)的位次:同理 —— 孤儿回收自 020 起会读 `roles` 表判断"已登记角色不得回收",
+/// 而 `create_plain` 会跑孤儿回收。020 同样是 `CREATE TABLE IF NOT EXISTS`,重放是空操作。
+const V_020: i64 = 20;
 
 fn count(conn: &Connection, sql: &str) -> i64 {
     conn.query_row(sql, [], |r| r.get(0)).unwrap()
@@ -34,6 +37,7 @@ fn db_at_012() -> Connection {
     }
     conn.execute_batch(MIGRATIONS[(V_015 - 1) as usize]).unwrap();
     conn.execute_batch(MIGRATIONS[(V_019 - 1) as usize]).unwrap();
+    conn.execute_batch(MIGRATIONS[(V_020 - 1) as usize]).unwrap();
     conn
 }
 

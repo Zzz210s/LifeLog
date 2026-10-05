@@ -148,6 +148,36 @@ pub fn carried_tag_paths(app: AppHandle) -> Result<Vec<String>, String> {
     with_conn(&app, |c| carry_paths::carried_paths(c).map_err(|e| e.to_string()))
 }
 
+/// 登记角色(幂等):把该标签登记为角色(受控命名空间),**不动**树结构与排序(R5)
+#[tauri::command]
+pub fn register_role(app: AppHandle, tag_id: i64) -> Result<(), String> {
+    with_conn(&app, |c| tags::register_role(c, tag_id))
+}
+
+/// 取消角色登记(幂等):连带删掉该角色的全部认领行
+#[tauri::command]
+pub fn unregister_role(app: AppHandle, tag_id: i64) -> Result<(), String> {
+    with_conn(&app, |c| tags::unregister_role(c, tag_id))
+}
+
+/// 整体替换某标签的角色认领(不是增量);role_ids 里的每一项必须是已登记的角色标签
+#[tauri::command]
+pub fn set_tag_roles(app: AppHandle, tag_id: i64, role_ids: Vec<i64>) -> Result<(), String> {
+    with_conn(&app, |c| tags::set_tag_roles(c, tag_id, role_ids))
+}
+
+/// 全部已登记角色(标签菜单与筛选「角色」条件的数据源),按登记顺序
+#[tauri::command]
+pub fn list_roles(app: AppHandle) -> Result<Vec<tags::RoleRef>, String> {
+    with_conn(&app, |c| tags::list_roles(c).map_err(|e| e.to_string()))
+}
+
+/// 某标签认领的角色(标签菜单「角色…」回显),按路径升序
+#[tauri::command]
+pub fn list_tag_roles(app: AppHandle, tag_id: i64) -> Result<Vec<tags::RoleRef>, String> {
+    with_conn(&app, |c| tags::list_tag_roles(c, tag_id).map_err(|e| e.to_string()))
+}
+
 /// 路径前缀补全(输入 `#工作/` 时列出下一级候选)。
 /// 每项带 `kind`:"tag" 为标签路径命中,"alias" 为别名命中(前端在行尾标一个「别名」弱标记)。
 #[tauri::command]

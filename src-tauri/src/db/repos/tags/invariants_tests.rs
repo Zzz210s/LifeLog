@@ -58,6 +58,7 @@ pub(crate) fn assert_no_orphan_tags(conn: &Connection) {
             "SELECT t.path FROM tags t
               WHERE NOT EXISTS (SELECT 1 FROM tag_links l WHERE l.tag_id = t.id)
                 AND NOT EXISTS (SELECT 1 FROM tag_links lc WHERE lc.target_type = 'tag' AND lc.target_id = t.id)
+                AND NOT EXISTS (SELECT 1 FROM roles r WHERE r.tag_id = t.id)
                 AND NOT EXISTS (SELECT 1 FROM tags c WHERE c.parent_id = t.id)
               ORDER BY t.path",
         )
