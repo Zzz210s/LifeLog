@@ -49,8 +49,6 @@ export const carryRowsTo = (id) => get("SELECT COUNT(*) n FROM tag_links WHERE t
 export const carryRowsFrom = (id) => get("SELECT COUNT(*) n FROM tag_links WHERE target_type = 'tag' AND tag_id = ?1", id).n;
 export const tagIdOf = (path) => get('SELECT id FROM tags WHERE path = ?1', path)?.id ?? null;
 export const noteIdOf = (firstLine) => get('SELECT id FROM notes WHERE content LIKE ?1 ORDER BY id DESC LIMIT 1', firstLine + '%')?.id ?? null;
-export const noteTagsOf = (id) =>
-  all("SELECT t.path FROM tag_links l JOIN tags t ON t.id = l.tag_id WHERE l.target_type = 'note' AND l.target_id = ?1 ORDER BY t.path", id).map((r) => r.path);
 export const fixtureNoteIds = () => all("SELECT id FROM notes WHERE content LIKE '携带测试%' ORDER BY id").map((r) => r.id);
 export const fixtureTagIds = () => all("SELECT id FROM tags WHERE path LIKE '携带测试%' ORDER BY depth DESC").map((r) => r.id);
 /** 侧栏标签行计数的数据源(IPC list_tags,与侧栏同一份):按 path 排序的 (本级, 含子级) 二元组 */
@@ -129,19 +127,72 @@ export async function clearChips(cdp) {
     await sleep(300);
   }
 }
-/** 一个条件下的**全量**命中数(query_notes 分页取全,避免误把首页 50 当全库) */
-export const queryCount = async (cdp, cond) => {
-  let n = 0, off = 0, page;
-  do {
-    page = await ipc(cdp, 'query_notes', { conditions: cond, offset: off });
-    n += page.length;
+/** 一个条件下的**全量**命中笔记 id(query_notes 分页取全,避免误把首页 50 当全库) */
+export const condIds = async (cdp, cond) => {
+  const ids = [];
+  for (let off = 0; ; ) {
+    const page = await ipc(cdp, 'query_notes', { conditions: cond, offset: off });
+    ids.push(...page.map((n) => n.id));
+    if (page.length < 50) return ids;
     off += page.length;
-  } while (page.length === 50);
-  return n;
+  }
 };
+export const queryCount = async (cdp, cond) => (await condIds(cdp, cond)).length;
 
 /** 在页面里连打 n 次 query_notes,返回平均耗时 ms(含 IPC 往返,前后同口径) */
 export const timeQuery = (cdp, cond, n = 40) =>
   cdp.eval(`(async () => { const T = window.__TAURI_INTERNALS__.invoke; const c = ${JSON.stringify(cond)};
     const t0 = performance.now(); for (let i = 0; i < ${n}; i++) await T('query_notes', { conditions: c, offset: 0 });
     return (performance.now() - t0) / ${n}; })()`);
+
+// --- 主脚本用的机械动作(只搬数据/发事件,判定一律留在主脚本) ---
+
+/** 删净全部 `携带测试*` 夹具(笔记先删 → 标签按 depth DESC 删) */
+export async function purgeCarryFixtures(call) {
+  for (const id of fixtureNoteIds()) await call('delete_note', { id }).catch(() => null);
+  for (const id of fixtureTagIds()) await call('delete_tag', { tagId: id }).catch(() => null);
+}
+
+/** 走界面「携带…」面板添加一条关系:回各步 DOM 读数(判定留在主脚本) */
+export async function addCarryViaPanel(cdp, from, to) {
+  const menu = await openTagMenu(cdp, from);
+  const menuItem = await waitFor(() => clickCarryMenuItem(cdp).catch(() => false), 8, 200);
+  const paneOpen = await waitFor(() => cdp.eval(`!!document.querySelector('[aria-label="添加携带标签"]')`), 10, 150);
+  await typeCarryQuery(cdp, to);
+  await sleep(200);
+  const picked = await waitFor(() => pickCarryCandidate(cdp, to), 8, 200);
+  const pane = await carryPane(cdp);
+  await pressEsc(cdp);
+  return { menu, menuItem, paneOpen, picked, pane };
+}
+
+/** 带携带 vs 移除携带 后筛同一条件的耗时(各 n 次均值)+ 移除后的携带行数 */
+export async function timeWithAndWithoutCarry(call, cdp, { carrierId, carriedId }, cond, n = 40) {
+  const msWith = await timeQuery(cdp, cond, n);
+  await call('remove_tag_carry', { carrierId, carriedId });
+  const removed = carryRowsFrom(carrierId);
+  const msWithout = await timeQuery(cdp, cond, n);
+  return { msWith, msWithout, removed };
+}
+
+/** 空壳标签探针:笔记挂 tagPath → 该标签被 carrierId 携带 → 摘掉笔记链接(触发 gc),回读前后 id / 笔记链接数 */
+export async function orphanShellProbe(call, noteTitle, tagPath, carrierId) {
+  await call('save_input_note', { content: `${noteTitle}\n#${tagPath}` });
+  await sleep(500);
+  const before = tagIdOf(tagPath);
+  await call('set_tag_carry', { carrierId, carriedId: before });
+  await call('update_note', { id: noteIdOf(noteTitle), content: noteTitle });
+  await sleep(500);
+  const after = tagIdOf(tagPath);
+  const notes = get("SELECT COUNT(*) n FROM tag_links WHERE target_type='note' AND tag_id=?1", before).n;
+  return { before, after, notes };
+}
+
+/** CASCADE 探针:让 x 携带 y 之后删掉 x,回读删前/删后的携带行总数与 x 名下的行数 */
+export async function cascadeDeleteProbe(call, x, y) {
+  await call('set_tag_carry', { carrierId: x, carriedId: y });
+  const before = counts().carryRows;
+  await call('delete_tag', { tagId: x });
+  await sleep(400);
+  return { before, after: counts().carryRows, rowsFromX: carryRowsFrom(x) };
+}
