@@ -7,7 +7,7 @@ import { aggregateBuckets, shouldAggregate } from './graph-aggregate';
 import { lodLevel, screenOf, type Camera } from './graph-camera';
 import { isDimmed, type Emphasis } from './graph-focus';
 import type { Point } from './radial';
-import { aggregateRadius, HUB_NOTES, radiusOf } from './graph-draw-plan-metrics';
+import { aggregateRadius, HUB_NOTES, HUB_RING_DEGREE, radiusOf } from './graph-draw-plan-metrics';
 import type { Dot, Label } from './graph-draw-plan-types';
 
 /** 末级段名:标签树里画的是节点名,不是整条路径 */
@@ -78,7 +78,7 @@ export function planPoints(input: {
     if (!p || !visible.has(n.id)) continue;
     const s = screenOf(p, cam);
     const r = radiusOf(n.notes);
-    dots.push({
+    const dot: Dot = {
       id: n.id,
       x: s.x,
       y: s.y,
@@ -86,7 +86,11 @@ export function planPoints(input: {
       color: rootColor.get(n.id) ?? fallbackColor,
       dim: isDimmed(n.id, emphasis),
       selected: n.id === emphasis.selected,
-    });
+    };
+    dots.push(dot);
+    // 枢纽外环(设计 D6):度数够高的节点进 hubs,画布在画完所有点后统一描环。
+    // 只在非聚合档判:聚合桶是合并圆,没有单一枢纽语义。
+    if ((degree.get(n.id) ?? 0) >= HUB_RING_DEGREE) hubs.push(dot);
     if (level === 'all' || (level === 'hubs' && n.selfCount >= HUB_NOTES)) {
       labels.push({ id: n.id, x: s.x, y: s.y - r - 4, text: leafOf(n.path) });
     }

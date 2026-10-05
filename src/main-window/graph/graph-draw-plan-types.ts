@@ -71,7 +71,8 @@ export interface ExpandedInput {
 /** 一帧要画的东西:边按类型分层,点与文字各自成列,另带展开的笔记小圆 */
 export interface DrawPlan {
   /**
-   * 枢纽节点(设计 D6):`selfCount >= HUB_NOTES` 的点,画布给它们加一圈细环。
+   * 枢纽节点(设计 D6):**度数**(父子边 + 共现边之和)`>= HUB_RING_DEGREE` 的点,
+   * 画布给它们加一圈细环。低缩放聚合档恒为空(桶是合并圆,无单一枢纽语义)。
    * 与 `dots` 分开给,是因为画布要在"画完所有点"之后、画选中环之前统一描环。
    */
   hubs: readonly Dot[];
