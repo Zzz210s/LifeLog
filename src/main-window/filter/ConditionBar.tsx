@@ -6,8 +6,9 @@ import type { FilterConditions } from '../../shared/filter-conditions';
 import { AddConditionMenu } from './AddConditionMenu';
 import { ExprDialog } from './ExprDialog';
 import { FilterChips } from './FilterChips';
+import { RolePickDialog } from './RolePickDialog';
 import { TagPickDialog } from './TagPickDialog';
-import { applyTagPick, chipsOf, summarySegmentsOf, summaryTitleOf } from './filter-chips';
+import { applyRolePick, applyTagPick, chipsOf, summarySegmentsOf, summaryTitleOf } from './filter-chips';
 import type { CarryPaths } from './filter-chips';
 
 export interface ConditionBarProps {
@@ -28,13 +29,18 @@ export interface ConditionBarProps {
  * 已生效的关键词以 chip 显示、可单删。标签选点入口在侧栏与本栏「添加条件」的标签选择器。
  */
 export function ConditionBar(p: ConditionBarProps): ReactNode {
-  // 两侧已选路径合集:同一标签同时进 tags 与 excludeTags 结果恒空,任一侧已含即禁选
+  // 两侧已选路径合集:同一标签同时进 tags 与 excludeTags 结果恒空,任一侧已含即禁选;角色同理
   const pickedPaths = [
     ...p.conditions.tags.map((t) => t.path),
     ...p.conditions.excludeTags.map((t) => t.path),
   ];
+  const pickedRolePaths = [
+    ...p.conditions.roles.map((r) => r.path),
+    ...p.conditions.excludeRoles.map((r) => r.path),
+  ];
   // 两个对话框的开关只由「添加条件」菜单触发,所以留在本组件里
   const [tagPick, setTagPick] = useState<{ exclude: boolean } | null>(null);
+  const [rolePick, setRolePick] = useState<{ exclude: boolean } | null>(null);
   const [exprOpen, setExprOpen] = useState(false);
   // 有携带者的标签路径集合;初值空集 = 加载中(先不标) —— 真实库 0 条携带行时不会闪 +携带
   const [carryPaths, setCarryPaths] = useState<CarryPaths>(new Set());
@@ -93,6 +99,7 @@ export function ConditionBar(p: ConditionBarProps): ReactNode {
           conditions={p.conditions}
           onPatch={p.onPatch}
           onPickTag={(exclude) => setTagPick({ exclude })}
+          onPickRole={(exclude) => setRolePick({ exclude })}
           onOpenExpr={() => setExprOpen(true)}
         />
       </div>
@@ -104,6 +111,17 @@ export function ConditionBar(p: ConditionBarProps): ReactNode {
           onPick={(path, includeChildren) => {
             p.onPatch(applyTagPick(p.conditions, path, { exclude: tagPick.exclude, includeChildren }));
             setTagPick(null);
+          }}
+        />
+      )}
+      {rolePick && (
+        <RolePickDialog
+          exclude={rolePick.exclude}
+          selected={pickedRolePaths}
+          onClose={() => setRolePick(null)}
+          onPick={(path) => {
+            p.onPatch(applyRolePick(p.conditions, path, rolePick.exclude));
+            setRolePick(null);
           }}
         />
       )}

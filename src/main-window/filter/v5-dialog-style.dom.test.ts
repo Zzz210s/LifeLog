@@ -166,6 +166,7 @@ describe('V5 添加条件下拉:菜单浮层口径(受控:直接以 open: true �
       conditions: EMPTY_FILTER,
       onPatch: vi.fn(),
       onPickTag: vi.fn(),
+      onPickRole: vi.fn(),
       onOpenExpr: vi.fn(),
       open: true, onOpenChange: vi.fn(),
       ...over,

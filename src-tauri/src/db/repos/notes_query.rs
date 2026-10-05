@@ -93,3 +93,7 @@ mod notes_query_coarse_tests;
 #[cfg(test)]
 #[path = "notes_query_carry_tests.rs"]
 mod notes_query_carry_tests;
+
+#[cfg(test)]
+#[path = "notes_query_role_tests.rs"]
+mod notes_query_role_tests;

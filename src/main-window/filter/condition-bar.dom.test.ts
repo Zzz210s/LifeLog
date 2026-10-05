@@ -175,7 +175,7 @@ describe('条件栏:添加条件菜单受控', () => {
     expect(menu()).toBeNull();
     await render(FULL, true);
     expect(menu()).not.toBeNull();
-    expect(items()).toEqual(['标签', '排除标签', '有无标签', '排序', '表达式(高级)']);
+    expect(items()).toEqual(['标签', '排除标签', '角色', '排除角色', '有无标签', '排序', '表达式(高级)']);
   });
 
   it('有无标签子面板:文案是「无标签」,不再叫「无自定义标签」', async () => {

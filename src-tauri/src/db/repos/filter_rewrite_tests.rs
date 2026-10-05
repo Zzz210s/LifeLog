@@ -92,6 +92,21 @@ fn rewrite_filter_paths_without_hit_keeps_raw_verbatim() {
     );
 }
 
+/// 角色条件存的也是标签路径:改名/移动后跟着改,否则角色筛选静默失效(2026-10-05 Task 2)
+#[test]
+fn rewrite_filter_paths_rewrites_role_paths() {
+    let c = db();
+    let raw = "{\"keyword\":null,\"tags\":[],\"excludeTags\":[],\"roles\":[{\"path\":\"地点轴/国籍\"},{\"path\":\"不识别的角色\"}],\"excludeRoles\":[{\"path\":\"地点轴/国籍/子级\"}],\"tagPresence\":null,\"sort\":\"newest\",\"expr\":null}";
+    settings::set(&c, FILTER_CURRENT_KEY, raw).unwrap();
+
+    rewrite_filter_paths(&c, "地点轴/国籍", "国家").unwrap();
+
+    let out = read(&c);
+    assert_eq!(out["roles"][0]["path"], json!("国家"));
+    assert_eq!(out["roles"][1]["path"], json!("不识别的角色"), "未命中前缀的不动");
+    assert_eq!(out["excludeRoles"][0]["path"], json!("国家/子级"));
+}
+
 /// 前端真正写进 settings.filter_current 的形状(浏览器实测台的持久化原文,单份条件对象):
 /// camelCase 字段 —— Rust 侧必须原样读懂并只改路径
 #[test]

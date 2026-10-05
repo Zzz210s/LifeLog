@@ -41,6 +41,8 @@ describe('parseFilterJson', () => {
       keyword: '电影',
       tags: [{ path: '工作', includeChildren: true }],
       excludeTags: [{ path: '临时', includeChildren: false }],
+      roles: [],
+      excludeRoles: [],
       tagPresence: 'any',
       sort: 'oldest',
       expr: '#工作 AND NOT #临时',

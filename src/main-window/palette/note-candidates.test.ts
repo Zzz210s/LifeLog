@@ -53,6 +53,8 @@ describe('note-candidates:查询条件', () => {
       keyword: null,
       tags: [],
       excludeTags: [],
+      roles: [],
+      excludeRoles: [],
       tagPresence: null,
       sort: 'newest',
       expr: null,

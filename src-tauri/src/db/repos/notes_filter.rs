@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 /// 共用谓词真源(与表达式编译器共享,杜绝第二套标签/关键词语义)
 #[path = "filter_predicates.rs"]
 pub(crate) mod filter_predicates;
-pub(crate) use filter_predicates::{keyword_predicate, tag_exists, tag_predicate};
+pub(crate) use filter_predicates::{keyword_predicate, role_predicate, tag_exists, tag_predicate};
 
 /// 单个标签条件:完整路径 + 是否含子级(前端默认含子级)
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -19,6 +19,14 @@ pub(crate) use filter_predicates::{keyword_predicate, tag_exists, tag_predicate}
 pub struct TagCond {
     pub path: String,
     pub include_children: bool,
+}
+
+/// 单个角色条件(2026-10-05 roles R4):只有角色标签路径 —— 角色天然含子级并叠加携带,
+/// 没有「仅本级」开关。缺字段时由 `#[serde(default)]` 解析成空,兼容老库 filter_current。
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[serde(default, rename_all = "camelCase")]
+pub struct RoleCond {
+    pub path: String,
 }
 
 /// 流查询条件对象;字段名与前端 `FilterConditions` 完全一致(JSON camelCase)。
@@ -32,6 +40,10 @@ pub struct FilterConditions {
     pub keyword: Option<String>,
     pub tags: Vec<TagCond>,
     pub exclude_tags: Vec<TagCond>,
+    /// 角色条件(spec 2026-10-05 §4 R4):命中 = 被该角色认领的标签子树 ∪ 经携带命中;
+    /// 老库 filter_current 缺这两个字段时按「无角色条件」解析(serde default 给空数组)
+    pub roles: Vec<RoleCond>,
+    pub exclude_roles: Vec<RoleCond>,
     pub tag_presence: Option<String>,
     pub sort: Option<String>,
     pub expr: Option<String>,
@@ -97,6 +109,14 @@ pub fn where_clause(c: &FilterConditions) -> Result<(String, Vec<Value>), String
         let m = tag_predicate(&t.path, !t.include_children, &mut args);
         clauses.push(format!("NOT {}", tag_exists(&m)));
     }
+    // 角色条件:与标签同一套 EXISTS 包装,排除侧共用同一份谓语(含/排除互补,无黑洞)
+    for r in &c.roles {
+        clauses.push(tag_exists(&role_predicate(&r.path, &mut args)));
+    }
+    for r in &c.exclude_roles {
+        let m = role_predicate(&r.path, &mut args);
+        clauses.push(format!("NOT {}", tag_exists(&m)));
+    }
     match c.tag_presence.as_deref() {
         Some("any") => clauses.push(any_tag()),
         Some("none") => clauses.push(format!("NOT ({})", any_tag())),
@@ -135,6 +155,17 @@ pub fn validate(c: &FilterConditions) -> Result<(), String> {
             return Err(format!("标签路径不合法: {}", t.path));
         }
     }
+    if c.roles.len() > MAX_TAG_ITEMS {
+        return Err(format!("角色最多 {MAX_TAG_ITEMS} 项"));
+    }
+    if c.exclude_roles.len() > MAX_TAG_ITEMS {
+        return Err(format!("排除角色最多 {MAX_TAG_ITEMS} 项"));
+    }
+    for r in c.roles.iter().chain(c.exclude_roles.iter()) {
+        if crate::tags::validate_tag_path(&r.path).is_err() {
+            return Err(format!("标签路径不合法: {}", r.path));
+        }
+    }
     if let Some(s) = c.sort.as_deref() {
         if s != "newest" && s != "oldest" {
             return Err("排序取值非法".into());
@@ -157,3 +188,7 @@ pub fn validate(c: &FilterConditions) -> Result<(), String> {
 #[cfg(test)]
 #[path = "notes_filter_md_tests.rs"]
 mod notes_filter_md_tests;
+
+#[cfg(test)]
+#[path = "notes_filter_role_tests.rs"]
+mod notes_filter_role_tests;

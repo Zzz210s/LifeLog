@@ -149,7 +149,7 @@ fn carry_rows_do_not_change_note_tags_or_fts() {
     let fts_before: String = c
         .query_row("SELECT tags FROM notes_fts WHERE rowid=?1", params![note.id], |r| r.get(0))
         .unwrap();
-    register_role(&c, jia).unwrap(); // 借林:目标必须是角色标签(R3)
+    register_role(&c, jia).unwrap(); // 校验:目标必须是角色标签(R3)
 
     set_carry(&mut c, yi, jia).unwrap(); // 乙 携带 甲(target_id = note.id,故意撞号)
 

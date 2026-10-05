@@ -120,6 +120,8 @@ describe('useExpandedNotes:取数口径', () => {
       keyword: null,
       tags: [{ path: '工作/项目A', includeChildren: true }],
       excludeTags: [],
+      roles: [],
+      excludeRoles: [],
       tagPresence: null,
       sort: 'newest',
       expr: null,

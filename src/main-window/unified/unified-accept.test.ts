@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { FilterConditions } from '../../shared/filter-conditions';
+import { EMPTY_FILTER, type FilterConditions } from '../../shared/filter-conditions';
 import { effectFor } from './unified-accept';
 
 // 条件向量按真类型标注:brief 原文的 `as never` 在 `{ ...cond }` 展开处会报 TS2698(never 不可展开)
-const cond = { keyword: null, tags: [], excludeTags: [], tagPresence: null, sort: 'newest', expr: null } as FilterConditions;
+const cond: FilterConditions = { ...EMPTY_FILTER };
 
 describe('采纳副作用(设计 §4 表)', () => {
   it('@ 打开笔记 -> 滚到该条', () => {

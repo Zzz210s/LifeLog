@@ -29,12 +29,14 @@ export function parseFilterState(raw: string | null): FilterConditions {
   return { ...parseFilterJson(raw) };
 }
 
-/** 序列化为落库文本:只写约定的六个字段,未知字段一律不落地(前向兼容) */
+/** 序列化为落库文本:只写约定的八个字段,未知字段一律不落地(前向兼容) */
 export function serializeFilterState(c: FilterConditions): string {
   return JSON.stringify({
     keyword: c.keyword,
     tags: c.tags.map((t) => ({ path: t.path, includeChildren: t.includeChildren })),
     excludeTags: c.excludeTags.map((t) => ({ path: t.path, includeChildren: t.includeChildren })),
+    roles: c.roles.map((r) => ({ path: r.path })),
+    excludeRoles: c.excludeRoles.map((r) => ({ path: r.path })),
     tagPresence: c.tagPresence,
     sort: c.sort,
     expr: c.expr,

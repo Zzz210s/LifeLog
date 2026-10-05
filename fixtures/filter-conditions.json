@@ -116,6 +116,8 @@
       "keyword": null,
       "tags": [],
       "excludeTags": [],
+      "roles": [],
+      "excludeRoles": [],
       "tagPresence": null,
       "sort": "newest",
       "expr": null
@@ -131,6 +133,8 @@
       "keyword": null,
       "tags": [],
       "excludeTags": [],
+      "roles": [],
+      "excludeRoles": [],
       "tagPresence": null,
       "sort": "newest",
       "expr": null
@@ -146,6 +150,8 @@
       "keyword": "电影",
       "tags": [],
       "excludeTags": [],
+      "roles": [],
+      "excludeRoles": [],
       "tagPresence": null,
       "sort": "oldest",
       "expr": null
@@ -166,6 +172,8 @@
       "keyword": "电影",
       "tags": [],
       "excludeTags": [],
+      "roles": [],
+      "excludeRoles": [],
       "tagPresence": null,
       "sort": "newest",
       "expr": null
@@ -178,6 +186,8 @@
     "raw": {
       "tags": [{ "path": "工作" }],
       "excludeTags": [{ "path": "临时", "includeChildren": false }],
+      "roles": [],
+      "excludeRoles": [],
       "tagPresence": "none"
     },
     "valid": true,
@@ -185,6 +195,8 @@
       "keyword": null,
       "tags": [{ "path": "工作", "includeChildren": false }],
       "excludeTags": [{ "path": "临时", "includeChildren": false }],
+      "roles": [],
+      "excludeRoles": [],
       "tagPresence": "none",
       "sort": "newest",
       "expr": null
@@ -208,6 +220,8 @@
         { "path": "生活/健身", "includeChildren": false }
       ],
       "excludeTags": [],
+      "roles": [],
+      "excludeRoles": [],
       "tagPresence": null,
       "sort": "newest",
       "expr": null
@@ -223,6 +237,8 @@
       "keyword": null,
       "tags": [],
       "excludeTags": [],
+      "roles": [],
+      "excludeRoles": [],
       "tagPresence": null,
       "sort": "newest",
       "expr": null
@@ -238,6 +254,8 @@
       "keyword": null,
       "tags": [],
       "excludeTags": [],
+      "roles": [],
+      "excludeRoles": [],
       "tagPresence": null,
       "sort": "newest",
       "expr": "#工作 AND NOT #临时"
@@ -253,6 +271,8 @@
       "keyword": null,
       "tags": [],
       "excludeTags": [],
+      "roles": [],
+      "excludeRoles": [],
       "tagPresence": "any",
       "sort": "newest",
       "expr": null
@@ -268,6 +288,8 @@
       "keyword": null,
       "tags": [{ "path": "工作", "includeChildren": true }],
       "excludeTags": [],
+      "roles": [],
+      "excludeRoles": [],
       "tagPresence": null,
       "sort": "newest",
       "expr": null
@@ -283,6 +305,8 @@
       "keyword": null,
       "tags": [{ "path": "工作", "includeChildren": true }],
       "excludeTags": [],
+      "roles": [],
+      "excludeRoles": [],
       "tagPresence": null,
       "sort": "newest",
       "expr": null
@@ -297,6 +321,8 @@
       "keyword": null,
       "tags": [],
       "excludeTags": [],
+      "roles": [],
+      "excludeRoles": [],
       "tagPresence": null,
       "sort": "newest",
       "expr": null
@@ -312,6 +338,8 @@
       "keyword": null,
       "tags": [],
       "excludeTags": [{ "path": "临时", "includeChildren": true }],
+      "roles": [],
+      "excludeRoles": [],
       "tagPresence": null,
       "sort": "newest",
       "expr": null
@@ -532,5 +560,25 @@
     "why": "对照:&& 才是与运算符",
     "src": "a&&b",
     "valid": true
+  },
+  {
+    "kind": "condition",
+    "why": "角色条件:认领标签子树 + 携带,两侧角色数组都参与归一",
+    "raw": {
+      "roles": [{ "path": "地点轴/国籍" }],
+      "excludeRoles": [{ "path": "所在" }]
+    },
+    "valid": true,
+    "normalized": {
+      "keyword": null,
+      "tags": [],
+      "excludeTags": [],
+      "roles": [{ "path": "地点轴/国籍" }],
+      "excludeRoles": [{ "path": "所在" }],
+      "tagPresence": null,
+      "sort": "newest",
+      "expr": null
+    },
+    "empty": false
   }
 ]
