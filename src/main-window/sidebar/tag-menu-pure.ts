@@ -36,3 +36,14 @@ export function mergeCandidates(
 export function mergeImpactText(notes: number): string {
   return notes === 0 ? '该标签暂无关联笔记' : `将影响 ${notes} 条笔记`;
 }
+
+/** 携带候选(与 `#` 补全共用同一打分/排序引擎前先剔除):排除自己与已携带的标签,保持原路径序。
+ *  后端的自携带/环校验仍是权威,这里只保证候选里不出现这两种必然被拒的项。 */
+export function carryCandidates(
+  rows: readonly TagCount[],
+  selfPath: string,
+  carried: readonly { path: string }[]
+): TagCount[] {
+  const skip = new Set<string>([selfPath, ...carried.map((c) => c.path)]);
+  return rows.filter((r) => !skip.has(r.path));
+}

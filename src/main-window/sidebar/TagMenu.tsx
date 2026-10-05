@@ -10,6 +10,7 @@ import { api } from '../../shared/api';
 import { isValidTagPath } from '../../shared/filter-conditions';
 import type { TagCount } from '../../shared/types';
 import { TagMenuAliasPane } from './TagMenuAliasPane';
+import { TagMenuCarryPane } from './TagMenuCarryPane';
 import { TagMenuDeletePane } from './TagMenuDeletePane';
 import { TagMenuMainPane } from './TagMenuMainPane';
 import { TagMenuMergePane } from './TagMenuMergePane';
@@ -189,6 +190,9 @@ export function TagMenu(p: TagMenuProps): ReactNode {
           onCancel={p.onClose}
           onConfirm={doMerge}
         />
+      )}
+      {pane === 'carry' && (
+        <TagMenuCarryPane tagId={p.node.id} path={p.node.path} rows={p.tagRows} onCancel={p.onClose} />
       )}
     </div>
   );

@@ -11,7 +11,7 @@ export interface TagMenuMainPaneProps {
   onPick: (pane: Pane) => void;
 }
 
-/** 主面板:重命名 / 移动 / 别名 / 合并 / 删除五个入口;标题的标签名走行内 md 预览态(T1) */
+/** 主面板:重命名 / 移动 / 别名 / 合并 / 携带 / 删除六个入口;标题的标签名走行内 md 预览态(T1) */
 export function TagMenuMainPane(p: TagMenuMainPaneProps): ReactNode {
   return (
     <>
@@ -29,6 +29,9 @@ export function TagMenuMainPane(p: TagMenuMainPaneProps): ReactNode {
       </button>
       <button type="button" role="menuitem" className={ITEM_CLASS} onClick={() => p.onPick('merge')}>
         合并…
+      </button>
+      <button type="button" role="menuitem" className={ITEM_CLASS} onClick={() => p.onPick('carry')}>
+        携带…
       </button>
       <button type="button" role="menuitem" className={ITEM_CLASS} onClick={() => p.onPick('delete')}>
         删除
