@@ -57,12 +57,12 @@ export function suggestTypes(tags: readonly TagCount[]): TypeSuggestion[] {
     const parts = tag.path.split('/');
     for (const rule of SUGGESTION_RULES) {
       if (!rule.match(parts)) continue;
-      const role = byPath.get(rule.typePath);
-      if (!role) continue; // 类型标签不存在:不猜 id,静默跳过
+      const typeTag = byPath.get(rule.typePath);
+      if (!typeTag) continue; // 类型标签不存在:不猜 id,静默跳过
       out.push({
         tagId: tag.id,
         tagPath: tag.path,
-        typeTagId: role.id,
+        typeTagId: typeTag.id,
         typeName: leaf(rule.typePath),
         basis: rule.basis,
       });

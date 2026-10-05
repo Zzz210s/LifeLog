@@ -40,9 +40,13 @@ pub struct FilterConditions {
     pub keyword: Option<String>,
     pub tags: Vec<TagCond>,
     pub exclude_tags: Vec<TagCond>,
-    /// 类型条件(spec 2026-10-05 §4 R4):命中 = 被该类型认领的标签子树 ∪ 经携带命中;
-    /// 老库 filter_current 缺这两个字段时按「无类型条件」解析(serde default 给空数组)
+    /// 类型条件(spec 2026-10-05 §4 R4):命中 = 被该类型认领的标签子树 ∪ 经携带命中。
+    /// 老库 filter_current 缺这两个字段时按「无类型条件」解析(serde default 给空数组);
+    /// `alias` 回读 020 时代的旧字段名(`roles`/`excludeRoles`),否则级联改写(标签改名/移动)
+    /// 会把非空旧条件静默抹成空 —— serde 默认忽略未知字段,读不到就等于没有。
+    #[serde(default, alias = "roles")]
     pub types: Vec<TypeCond>,
+    #[serde(default, alias = "excludeRoles")]
     pub exclude_types: Vec<TypeCond>,
     pub tag_presence: Option<String>,
     pub sort: Option<String>,

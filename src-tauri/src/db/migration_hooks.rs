@@ -145,6 +145,43 @@ pub(crate) fn carry_over_filter_current(conn: &Connection) -> rusqlite::Result<(
 /// (与 012 的跳过同理,但那里是 DROP、这里是 ADD,写不进纯 SQL)。
 pub(crate) const TYPES_VERSION: i64 = 21;
 
+/// 表是否存在(搬迁钩子按它决定空操作;pragma_table_info 对不存在的表返回空,但这里要取名字)
+fn table_exists(conn: &Connection, name: &str) -> rusqlite::Result<bool> {
+    let n: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?1",
+        [name],
+        |r| r.get(0),
+    )?;
+    Ok(n > 0)
+}
+
+/// 021 之前把 roles/tag_roles 搬进标签系统(搬迁优先于默默删表,与 013/014 的「动手前留读数」同一用意):
+/// `roles.tag_id` 对应标签置 `is_type=1`;`tag_roles(tag_id, role_id)` 转成 tag_links 的
+/// `'type'` 边 `(tag_id, 'type', roles.tag_id)`。两表都在 020 建,缺任一表(新库/重放)即空操作;
+/// UPDATE 与 INSERT OR IGNORE 幂等,「钩子已跑、版本仍 20」的崩溃重放不会重复写。
+pub(crate) fn carry_over_role_tables(conn: &Connection) -> rusqlite::Result<()> {
+    if !table_exists(conn, "roles")? || !table_exists(conn, "tag_roles")? {
+        return Ok(());
+    }
+    let roles: i64 = conn.query_row("SELECT COUNT(*) FROM roles", [], |r| r.get(0))?;
+    let claims: i64 = conn.query_row("SELECT COUNT(*) FROM tag_roles", [], |r| r.get(0))?;
+    if roles == 0 && claims == 0 {
+        return Ok(());
+    }
+    let tx = conn.unchecked_transaction()?;
+    tx.execute_batch("UPDATE tags SET is_type = 1 WHERE id IN (SELECT tag_id FROM roles)")?;
+    tx.execute_batch(
+        "INSERT OR IGNORE INTO tag_links(tag_id, target_type, target_id)
+         SELECT tr.tag_id, 'type', r.tag_id
+         FROM tag_roles tr JOIN roles r ON r.id = tr.role_id",
+    )?;
+    tx.commit()?;
+    eprintln!(
+        "迁移 021:roles/tag_roles 搬进标签系统 —— 登记类型 {roles} 个、类型认领 {claims} 条(旧表随后删除)"
+    );
+    Ok(())
+}
+
 /// 确保 `tags.is_type` 存在且默认 0;重放时是空操作。
 pub(crate) fn ensure_is_type_column(conn: &Connection) -> rusqlite::Result<()> {
     let n: i64 = conn.query_row(

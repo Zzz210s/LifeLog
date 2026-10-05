@@ -24,7 +24,7 @@ fn id_at(c: &Connection, path: &str) -> i64 {
 /// ① 一次返回全量:一个标签同时有类型与携带时两路合并进同一条事实;
 /// 既无类型也无携带的标签不出现;bundle.types 给出完整类型表
 #[test]
-fn facts_merge_roles_and_carried_per_tag() {
+fn facts_merge_types_and_carried_per_tag() {
     let mut c = db();
     let guo = ensure(&c, "地点轴/国籍");
     let suo = ensure(&c, "地点轴/所在");

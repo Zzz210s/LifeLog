@@ -1,6 +1,12 @@
-// 标签类型收口对账(计划 Task 6 硬要求):同一份数据分别以「旧模型(roles/tag_roles)」
+// 标签类型收口**夹具对账**(不是产品等价性证据):同一份数据分别以「旧模型(roles/tag_roles)」
 // 与「新模型(tags.is_type + tag_links 'type' 行)」表达,跑两侧谓词,断言筛「类型:国籍」
 // 的笔记 id 集合逐值相同。另在真实库副本上做一次改前/改后对账(真实库只读)。
+//
+// 注意:本脚本**不 import 任何产品代码**,两侧谓词是在 JS 里手抄的一份;它只能证明
+// 「手上这套夹具用两种模型表达时结果一致」,对 src-tauri/src/db/repos/filter_predicates.rs
+// 做变异不会改变它的输出 —— 因此它不能作为「产品行为等价」的证据。真正有判别力的等价性用例
+// 是 Rust 测试 notes_query_type_tests::large_type_set_matches_brute_force(在真实谓词实现上
+// 跑暴力枚举比对)。要验产品等价性请跑 cargo test,不要引用本脚本的输出。
 // 用法:node scripts/types-recon.mjs
 import { DatabaseSync } from 'node:sqlite';
 import { copyFileSync, existsSync, mkdtempSync, rmSync } from 'node:fs';
@@ -94,6 +100,10 @@ function migrateFixture(old) {
 
 const oldDb = fixture();
 const newDb = migrateFixture(oldDb);
+console.log(
+  '[说明] 本脚本是夹具对账,不 import 产品代码;产品等价性以 Rust 用例 ' +
+    'notes_query_type_tests::large_type_set_matches_brute_force 为准。'
+);
 let ok = true;
 for (const [path, why] of [['国籍', '认领(含子级)∪携带'], ['所在', '只认领'], ['作者A', '只携带']]) {
   const a = hitIds(oldDb, OLD, path);
@@ -114,19 +124,32 @@ if (existsSync(REAL_DB)) {
   copyFileSync(REAL_DB, after);
   const b = new DatabaseSync(before);
   const a = new DatabaseSync(after);
-  // 改后副本模拟迁移 021(真实库仍是 v20,roles/tag_roles 为空)
-  a.exec('ALTER TABLE tags ADD COLUMN is_type INTEGER NOT NULL DEFAULT 0');
-  a.exec('DROP TABLE IF EXISTS tag_roles');
-  a.exec('DROP TABLE IF EXISTS roles');
-  const beforeHits = hitIds(b, OLD, '地点轴/国籍');
-  const afterHits = hitIds(a, NEW, '地点轴/国籍');
-  realLine =
-    `真实库副本 类型:地点轴/国籍  旧(${beforeHits.length} 条) 新(${afterHits.length} 条)  ` +
-    `${same(beforeHits, afterHits) ? '逐值相同' : '不一致'}`;
+  const hasTable = (db, name) =>
+    db.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type='table' AND name=?").get(name).n > 0;
+  const hasIsType = (db) =>
+    db.prepare("SELECT COUNT(*) AS n FROM pragma_table_info('tags') WHERE name='is_type'").get().n > 0;
+  if (!hasTable(b, 'roles') || !hasTable(b, 'tag_roles')) {
+    // 库已被应用升到 021(旧表已删):没有旧模型可对照,不能假称“旧/新一致”
+    realLine = '真实库副本已是新模型(roles/tag_roles 已删),无从做旧/新对账,跳过';
+  } else {
+    // 改后副本模拟迁移 021(旧表存在时才有这一路)
+    if (!hasIsType(a)) a.exec('ALTER TABLE tags ADD COLUMN is_type INTEGER NOT NULL DEFAULT 0');
+    a.exec('DROP TABLE IF EXISTS tag_roles');
+    a.exec('DROP TABLE IF EXISTS roles');
+    const beforeHits = hitIds(b, OLD, '地点轴/国籍');
+    const afterHits = hitIds(a, NEW, '地点轴/国籍');
+    realLine =
+      `真实库副本 类型:地点轴/国籍  旧(${beforeHits.length} 条) 新(${afterHits.length} 条)  ` +
+      `${same(beforeHits, afterHits) ? '逐值相同' : '不一致'}`;
+  }
   b.close();
   a.close();
   rmSync(dir, { recursive: true, force: true });
 }
 console.log(`[真实库] ${realLine}`);
+console.log(
+  `[说明] 以上读数只对账夹具/副本;产品行为等价性证据在 Rust 用例 ` +
+    `notes_query_type_tests::large_type_set_matches_brute_force(cargo test)。`
+);
 
 if (!ok) process.exit(1);

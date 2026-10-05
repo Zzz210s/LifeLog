@@ -1,7 +1,7 @@
 /**
  * 标签菜单「类型…」面板(标签类型 spec §5):列出全部已登记类型,勾选 = 该标签能被这个类型认领。
  * 自包含容器(与「携带…」同构):状态与 IPC 都在本文件,TagMenu 只需一行挂载。
- * 每次点击即整体替换(tag_roles 是集合语义,后端 set_tag_types 也是整体替换),失败给中文错误且不改变回显。
+ * 每次点击即整体替换(类型认领是集合语义,后端 set_tag_types 也是整体替换),失败给中文错误且不改变回显。
  */
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';

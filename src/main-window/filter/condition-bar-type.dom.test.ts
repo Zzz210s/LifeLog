@@ -17,7 +17,7 @@ vi.mock('../../shared/api', () => ({ api: { carriedTagPaths, listTypes } }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const ROLES = [
+const TYPES = [
   { tagId: 7, path: '地点轴/国籍', name: '国籍' },
   { tagId: 8, path: '地点轴/所在', name: '所在' },
 ];
@@ -55,7 +55,7 @@ beforeEach(() => {
   carriedTagPaths.mockReset();
   carriedTagPaths.mockResolvedValue([]);
   listTypes.mockReset();
-  listTypes.mockResolvedValue(ROLES);
+  listTypes.mockResolvedValue(TYPES);
   patches = [];
   host = document.createElement('div');
   document.body.appendChild(host);

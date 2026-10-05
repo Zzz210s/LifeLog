@@ -94,7 +94,7 @@ fn rewrite_filter_paths_without_hit_keeps_raw_verbatim() {
 
 /// 类型条件存的也是标签路径:改名/移动后跟着改,否则类型筛选静默失效(2026-10-05 Task 2)
 #[test]
-fn rewrite_filter_paths_rewrites_role_paths() {
+fn rewrite_filter_paths_rewrites_type_paths() {
     let c = db();
     let raw = "{\"keyword\":null,\"tags\":[],\"excludeTags\":[],\"types\":[{\"path\":\"地点轴/国籍\"},{\"path\":\"不识别的类型\"}],\"excludeTypes\":[{\"path\":\"地点轴/国籍/子级\"}],\"tagPresence\":null,\"sort\":\"newest\",\"expr\":null}";
     settings::set(&c, FILTER_CURRENT_KEY, raw).unwrap();
@@ -105,6 +105,21 @@ fn rewrite_filter_paths_rewrites_role_paths() {
     assert_eq!(out["types"][0]["path"], json!("国家"));
     assert_eq!(out["types"][1]["path"], json!("不识别的类型"), "未命中前缀的不动");
     assert_eq!(out["excludeTypes"][0]["path"], json!("国家/子级"));
+}
+
+/// 老库非空旧字段名(`roles`/`excludeRoles`):级联必须读懂并只改路径,不得把整条条件抹成空。
+/// serde 默认忽略未知字段 —— 漏 alias 时旧 JSON 解析成空 types,改写无命中 -> 回写后条件消失。
+#[test]
+fn rewrite_filter_paths_reads_legacy_role_field_names() {
+    let c = db();
+    let raw = "{\"keyword\":null,\"tags\":[],\"excludeTags\":[],\"roles\":[{\"path\":\"地点轴/国籍\"}],\"excludeRoles\":[{\"path\":\"所在\"}],\"tagPresence\":null,\"sort\":\"newest\",\"expr\":null}";
+    settings::set(&c, FILTER_CURRENT_KEY, raw).unwrap();
+
+    rewrite_filter_paths(&c, "地点轴/国籍", "国家").unwrap();
+
+    let out = read(&c);
+    assert_eq!(out["types"][0]["path"], json!("国家"), "旧 roles 路径被改写而非抹掉");
+    assert_eq!(out["excludeTypes"][0]["path"], json!("所在"), "未命中前缀的旧 excludeRoles 仍保留");
 }
 
 /// 前端真正写进 settings.filter_current 的形状(浏览器实测台的持久化原文,单份条件对象):

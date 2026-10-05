@@ -160,7 +160,7 @@ pub fn set_tag_types(app: AppHandle, tag_id: i64, type_ids: Vec<i64>) -> Result<
     with_conn(&app, |c| tags::set_tag_types(c, tag_id, type_ids))
 }
 
-/// 全部已登记类型(标签菜单与筛选「类型」条件的数据源),按登记顺序
+/// 全部已登记类型(标签菜单与筛选「类型」条件的数据源),按路径升序
 #[tauri::command]
 pub fn list_types(app: AppHandle) -> Result<Vec<tags::TypeRef>, String> {
     with_conn(&app, |c| tags::list_types(c).map_err(|e| e.to_string()))

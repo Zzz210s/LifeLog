@@ -14,16 +14,16 @@ fn db() -> Connection {
     c
 }
 
-fn role(path: &str) -> TypeCond {
+fn type_cond(path: &str) -> TypeCond {
     TypeCond { path: path.into() }
 }
 
 fn include(path: &str) -> FilterConditions {
-    FilterConditions { types: vec![role(path)], ..empty() }
+    FilterConditions { types: vec![type_cond(path)], ..empty() }
 }
 
 fn exclude(path: &str) -> FilterConditions {
-    FilterConditions { exclude_types: vec![role(path)], ..empty() }
+    FilterConditions { exclude_types: vec![type_cond(path)], ..empty() }
 }
 
 /// 命中笔记的正文(按正文升序,免得依赖 id 方向)
@@ -57,7 +57,7 @@ fn type_hits_claimed_subtree_and_carriers() {
 
 /// ② 携带只对当前类型生效:携带国籍不等于携带所在(不串味、不向上传播)
 #[test]
-fn role_carry_matches_only_this_type() {
+fn type_carry_matches_only_this_type() {
     let mut c = db();
     create_plain(&mut c, "作者页 #作者/丸尾").unwrap();
     let guo = ensure_path(&c, &["国籍".into()]).unwrap();
@@ -74,7 +74,7 @@ fn role_carry_matches_only_this_type() {
 
 /// ③ 含/排除互补:两侧共用同一份命中集,不存在"既不包含也不排除"的黑洞
 #[test]
-fn role_exclude_is_complementary() {
+fn type_exclude_is_complementary() {
     let mut c = db();
     create_plain(&mut c, "认领本级 #中国").unwrap();
     create_plain(&mut c, "经携带 #作者/丸尾").unwrap();
@@ -95,7 +95,7 @@ fn role_exclude_is_complementary() {
 
 /// ④ 类型没认领任何标签(也没有携带者)时命中 0,不是"退化成全部"
 #[test]
-fn role_without_claims_hits_nothing() {
+fn type_without_claims_hits_nothing() {
     let mut c = db();
     create_plain(&mut c, "甲 #中国").unwrap();
     create_plain(&mut c, "乙 #书").unwrap();
@@ -126,7 +126,7 @@ fn claimed_tag_survives_gc_and_stays_filterable() {
 
 /// ⑥ 子树边界:同前缀无 `/` 的干扰标签不命中;深链子孙命中;携带者祖先不命中
 #[test]
-fn role_subtree_boundary_and_deep_chain() {
+fn type_subtree_boundary_and_deep_chain() {
     let mut c = db();
     create_plain(&mut c, "子 #中国/北京").unwrap();
     create_plain(&mut c, "深 #中国/北京/海淀/中关村/一路").unwrap();
@@ -150,7 +150,7 @@ fn role_subtree_boundary_and_deep_chain() {
 /// ⑦ 大库形态等价性:多类型 × 多认领 × 各自子树 + 携带者,命中集必须与暴力枚举逐值一致。
 /// 物化 id 集合若漏成员/多成员,这条会红。
 #[test]
-fn large_role_set_matches_brute_force() {
+fn large_type_set_matches_brute_force() {
     let mut c = db();
     let guo = ensure_path(&c, &["国籍".into()]).unwrap();
     let suo = ensure_path(&c, &["所在".into()]).unwrap();

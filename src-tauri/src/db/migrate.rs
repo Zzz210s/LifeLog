@@ -90,6 +90,7 @@ pub fn run(conn: &Connection) -> rusqlite::Result<()> {
         }
         if v == migration_hooks::TYPES_VERSION {
             migration_hooks::ensure_is_type_column(conn)?;
+            migration_hooks::carry_over_role_tables(conn)?;
         }
         let fk_off = FK_OFF_VERSIONS.contains(&v);
         if fk_off {

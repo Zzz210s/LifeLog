@@ -67,7 +67,7 @@ try {
   await call('set_tag_types', { tagId: tC, typeIds: [r1] });
   await call('set_tag_types', { tagId: tC, typeIds: [] }); // 取消认领
   const cTypes = claimTypeIds(tC);
-  await call('unset_tag_type_flag', { tagId: r3, isType: true }); // 取消登记:连带删该类型的认领
+  await call('set_tag_type_flag', { tagId: r3, isType: false }); // 取消登记:连带删该类型的认领
   const afterUnreg = { types: typeRows(), claims: claimRows(), bTypes: claimTypeIds(tB) };
   await call('set_tag_type_flag', { tagId: r3, isType: true });
   await call('set_tag_types', { tagId: tB, typeIds: [r1, r2, r3] }); // 复原(后面徽章用例要用)
@@ -182,7 +182,7 @@ try {
 // --- 收尾:筛选还原 + 建议用例恢复(未登记则取消) + 夹具删净 + 库对账 ---
 try {
   if (filterBefore != null) await call('set_setting', { key: 'filter_current', value: filterBefore });
-  if (suoTagId != null && !suoWasType) await call('unset_tag_type_flag', { tagId: suoTagId, isType: true }).catch(() => null);
+  if (suoTagId != null && !suoWasType) await call('set_tag_type_flag', { tagId: suoTagId, isType: false }).catch(() => null);
   await purgeTypeFixtures(call);
   await sleep(500);
   const after = counts();
