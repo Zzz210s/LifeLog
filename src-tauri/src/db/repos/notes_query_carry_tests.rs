@@ -116,6 +116,46 @@ fn exclude_side_shares_carry_hits_and_is_complementary() {
     }
 }
 
+/// ⑦ 大库形态等价性:3 个携带者 × 各自一棵深子树 + 同前缀无 `/` 边界的干扰标签,
+/// 查询命中的笔记集合必须与暴力枚举「携带者子树向下继承」逐值一致。优化把相关
+/// EXISTS 换成一次物化的标签 id 集合,这条用例防物化集合漏成员或多成员。
+#[test]
+fn large_tree_matches_brute_force_carry_expansion() {
+    let mut c = db();
+    let carried = "地点轴/国籍/日本";
+    let japan = ensure_path(&c, &["地点轴".into(), "国籍".into(), "日本".into()]).unwrap();
+    let carriers = ["作者/A", "作者/B", "系列/X"];
+    // (正文, 标签路径, 是否应命中)
+    let mut cases: Vec<(String, String, bool)> = Vec::new();
+    let add = |c: &mut Connection, cases: &mut Vec<(String, String, bool)>, tag: &str, hit: bool| {
+        let label = format!("L{}", cases.len());
+        create_plain(c, &format!("{label} #{tag}")).unwrap();
+        cases.push((label, tag.into(), hit));
+    };
+    add(&mut c, &mut cases, carried, true);
+    add(&mut c, &mut cases, "地点轴/国籍/日本/子", true);
+    add(&mut c, &mut cases, "书", false);
+    for name in carriers {
+        let carrier = ensure_path(&c, &name.split('/').map(Into::into).collect::<Vec<_>>()).unwrap();
+        set_carry(&mut c, carrier, japan).unwrap();
+        add(&mut c, &mut cases, name, true);
+        for d in 0..12 {
+            add(&mut c, &mut cases, &format!("{name}/层{d}"), true);
+        }
+        // 同前缀陷阱:与携带者路径同名开头但下一字符不是 `/`
+        add(&mut c, &mut cases, &format!("{name}尾巴"), false);
+    }
+    // 携带者的祖先也不匹配(携带只向下、不向上)
+    add(&mut c, &mut cases, "作者", false);
+    // 深链:携带者子孙的子孙仍命中
+    add(&mut c, &mut cases, "作者/A/层0/更/深", true);
+
+    let mut expected: Vec<String> =
+        cases.iter().filter(|(_, _, hit)| *hit).map(|(l, _, _)| l.clone()).collect();
+    expected.sort();
+    assert_eq!(hits(&c, &include(carried, true)), expected, "大库形态命中集必须与暴力枚举一致");
+}
+
 /// ⑥ 携带不进侧栏计数:加携带前后 `counts()` 的每一项逐值不变(R1 口径,结构事实)。
 #[test]
 fn sidebar_counts_ignore_carry() {

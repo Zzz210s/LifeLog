@@ -26,15 +26,22 @@ pub(crate) fn tag_predicate(path: &str, self_only: bool, args: &mut Vec<Value>) 
     format!("({direct}) OR {}", carry_predicate(path, args))
 }
 
-/// 「`t` 落在某个携带 `path` 的标签子树内」:一次 EXISTS 子查询,不用递归 CTE(R3)。
-/// `target_type='tag'` 既限定携带行、又避免把笔记链接(target_id 撞号)误当携带;
-/// 携带者子树比较的是 `ca.path`(携带者的路径),同样 substr 前缀、边界靠显式 `/`。
+/// 「`t` 落在某个携带 `path` 的标签子树内」:先把「携带者子树的标签 id」物化成一个
+/// 集合,再用 `t.id IN (...)` 做成员判定。集合子查询**不引用 `t`/`n`**,SQLite 只求值
+/// 一次(QUERY PLAN 里是 `LIST SUBQUERY`),而对每对 (笔记, 标签) 重跑一次相关
+/// `EXISTS`(旧写法,`CORRELATED SCALAR SUBQUERY`)是这条筛选的主要开销:
+/// 真实库副本 ×300 复测(见 .superpowers/t2-carry-perf/bench.mjs)中位耗时
+/// 无携带行 4.52ms -> 2.60ms、1 条携带 7.75ms -> 2.69ms、8 条携带 21.85ms -> 3.41ms,
+/// 已接近整段去掉携带的下限 2.4ms。语义逐值等价:仍是「`d` 与某个携带 `path` 的
+/// `ca` 同路径或在其子树内」,前缀用 substr、边界靠显式 `/`;`target_type='tag'`
+/// 既限定携带行、又避免把笔记链接(target_id 撞号)误当携带。
 fn carry_predicate(path: &str, args: &mut Vec<Value>) -> String {
     args.push(Value::Text(path.to_string())); // 定位被携带标签(按 path 取 id)
-    "EXISTS (SELECT 1 FROM tag_links cl JOIN tags ca ON ca.id = cl.tag_id \
-     WHERE cl.target_type = 'tag' \
-       AND cl.target_id IN (SELECT id FROM tags WHERE path = ?) \
-       AND (t.path = ca.path OR substr(t.path, 1, length(ca.path) + 1) = ca.path || '/'))"
+    "t.id IN (SELECT d.id FROM tags d \
+     JOIN tag_links cl ON cl.target_type = 'tag' \
+     JOIN tags ca ON ca.id = cl.tag_id \
+     WHERE cl.target_id IN (SELECT id FROM tags WHERE path = ?) \
+       AND (d.path = ca.path OR substr(d.path, 1, length(ca.path) + 1) = ca.path || '/'))"
         .to_string()
 }
 
