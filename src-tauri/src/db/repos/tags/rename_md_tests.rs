@@ -80,19 +80,27 @@ fn nested_md_rename_registers_path_and_leaf_plain() {
     assert_fts_matches_tags(&c);
 }
 
-/// ③ 纯文本已被**真实标签**占用:跳过(不夺走),改名本身照样成功
+/// ③ 纯文本已被**真实标签**占用:跳过(不夺走),改名本身照样成功。
+/// 注:同父纯文本同名会触发自动合并(2026-10-06 §6),故把被改名标签放在子级、
+/// 完整路径用别名占住,既挡住别名登记又不制造兄弟重名。
 #[test]
 fn plain_alias_is_skipped_when_a_real_tag_owns_the_name() {
     let mut c = db();
     notes::create_plain(&mut c, "a #郴州市").unwrap();
-    notes::create_plain(&mut c, "b #郴chen州市").unwrap();
     let real = id_at(&c, "郴州市");
-    let id = id_at(&c, "郴chen州市");
+    notes::create_plain(&mut c, "b #工作/郴chen州市").unwrap();
+    alias::add(&c, "工作/郴州市", real).unwrap();
+    let id = id_at(&c, "工作/郴chen州市");
 
     let aliases = rename(&mut c, id, "[郴](chēn)州市").unwrap();
 
-    assert_eq!(aliases, vec!["郴chen州市".to_string()], "纯文本被真实标签占住 -> 跳过");
+    assert_eq!(
+        aliases,
+        vec!["工作/郴chen州市".to_string(), "郴chen州市".to_string()],
+        "纯文本候选被占住 -> 跳过(只剩旧路径与旧叶子名)"
+    );
     assert_eq!(alias::resolve(&c, "郴州市").unwrap(), None, "真实标签不得被别名劫持");
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='工作/[郴](chēn)州市'"), 1);
     let n = notes::create_plain(&mut c, "c #郴州市").unwrap();
     assert_eq!(links(&c, real, n.id), 1, "正文仍归真实标签");
     assert_eq!(links(&c, id, n.id), 0);

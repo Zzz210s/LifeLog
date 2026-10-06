@@ -22,7 +22,16 @@ pub(crate) struct PostWrite<'a> {
 /// 顺序不可换:FTS 聚合只读 tags JOIN tag_links,回收孤儿(无链接)不改变聚合结果,
 /// 但显式重写必须在删除标签之后 —— 否则被删路径会残留在索引串里。
 /// 错误原样上抛,由调用方 `.map_err(|e| e.to_string())` 转中文报错。
+/// 固定顺序执行:① 路径级联(若给) ② FTS 重写(若 notes 非空) ③ 孤儿回收(若 gc),
+/// 再跑一次同父同名自动合并(设计 2026-10-06 §6:任何写入后重名即并)。
 pub(crate) fn finish(conn: &Connection, p: PostWrite<'_>) -> rusqlite::Result<()> {
+    finish_core(conn, p)?;
+    super::auto_merge::sweep(conn).map_err(rusqlite::Error::InvalidParameterName)?;
+    Ok(())
+}
+
+/// [`finish`] 的三步本体:合并核心(merge.rs)复用它以免自动合并递归。
+pub(crate) fn finish_core(conn: &Connection, p: PostWrite<'_>) -> rusqlite::Result<()> {
     if let Some((old, new)) = p.path_change {
         filter_rewrite::rewrite_filter_paths(conn, old, new)?;
     }

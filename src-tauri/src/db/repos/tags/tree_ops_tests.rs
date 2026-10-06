@@ -118,9 +118,9 @@ fn move_into_own_subtree_rejected_and_db_untouched() {
     assert_eq!(count(&c, "SELECT COUNT(*) FROM notes_fts"), 1);
 }
 
-/// ⑥ 同级重名:改名与移动都要拒绝,且原标签保持可用
+/// ⑥ 同级重名:改名/移动撞上兄弟改为**自动整棵并**(设计 2026-10-06 §6);非法名仍拒绝
 #[test]
-fn same_level_duplicate_rejected() {
+fn same_level_duplicate_merges() {
     let mut c = db();
     notes::create_plain(&mut c, "a #工作").unwrap();
     notes::create_plain(&mut c, "b #生活").unwrap();
@@ -128,17 +128,18 @@ fn same_level_duplicate_rejected() {
     notes::create_plain(&mut c, "d #项目A").unwrap();
     let life = id_at(&c, "生活");
     let other = id_at(&c, "项目A");
-
     let work = id_at(&c, "工作");
-    assert!(rename(&mut c, life, "工作").is_err(), "根级已有同名标签");
-    assert!(move_to(&mut c, other, Some(work)).is_err(), "目标父级下已有同名子标签");
 
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='生活' AND name='生活'"), 1);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='项目A' AND parent_id IS NULL"), 1);
+    rename(&mut c, life, "工作").unwrap();
+    move_to(&mut c, other, Some(work)).unwrap();
+
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='工作'"), 1, "根级只一个 工作");
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='工作/项目A'"), 1);
-    assert!(rename(&mut c, life, "工作 计划").is_err(), "非法的标签名一律拒绝");
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='生活'"), 1);
-    // 失败路径整事务回滚,库内不变量必须依然成立
+    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tags WHERE id={life}")), 0, "生活 并入 工作");
+    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tags WHERE id={other}")), 0, "项目A 并入 工作/项目A");
+    assert!(rename(&mut c, work, "工作 计划").is_err(), "非法的标签名一律拒绝");
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='工作'"), 1);
+    // 撞名改走合并后,库内不变量必须依然成立
     assert_fts_matches_tags(&c);
     assert_no_orphan_tags(&c);
 }

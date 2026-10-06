@@ -7,12 +7,25 @@
 //! similar)仍挂在 tree 下:要按子模块显式指路时写 `crate::db::repos::tags::tree::<项>`
 //! (例如测试用的 `tags::tree::counts`),这些子模块不单独上浮到 tags 命名空间。
 pub mod alias;
+pub mod auto_merge;
 pub mod facts;
 pub mod merge;
+pub(crate) mod merge_children;
+pub(crate) mod merge_edges;
 pub mod relation;
 pub mod tree;
 pub(crate) mod fts_tags;
 pub(crate) mod write;
+
+/// Task 2 同父同名自动合并测试(设计 2026-10-06 §6)。
+#[cfg(test)]
+#[path = "auto_merge_tests.rs"]
+mod auto_merge_tests;
+
+/// Task 2 自动合并测试续(回滚 / md 差异 / 空操作 / 改名撞名)。
+#[cfg(test)]
+#[path = "auto_merge_extra_tests.rs"]
+mod auto_merge_extra_tests;
 
 /// 标签写入不变量测试台(E 组判据),随本模块收敛进 tags/。
 #[cfg(test)]

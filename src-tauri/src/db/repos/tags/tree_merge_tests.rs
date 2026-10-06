@@ -88,24 +88,27 @@ fn merge_dedupes_note_linked_to_both_tags() {
     assert_no_orphan_tags(&c);
 }
 
-/// ③ 源有子节点:中文报错且整事务回滚(全库快照逐行不变)
+/// ③ 源带子标签:按设计整棵并(旧行为「源还有子节点就拒绝」已由 2026-10-06 §6 取消),
+/// 子标签搬到目标下且各项不变量仍成立
 #[test]
-fn source_with_children_rejected_and_rolls_back() {
+fn source_with_children_merges_subtree() {
     let mut c = db();
     notes::create_plain(&mut c, "a #源/子").unwrap();
     notes::create_plain(&mut c, "b #目标").unwrap();
     notes::create_plain(&mut c, "c #其它").unwrap();
     let (src, dst) = (id_at(&c, "源"), id_at(&c, "目标"));
-    // 先让别名表与筛选条件有内容,验证失败时它们也不动
+    // 别名表先有内容,验证合并与它共存
     alias::add(&c, "别名X", dst).unwrap();
-    let before = snapshot(&c);
 
-    let err = merge_tags(&mut c, src, dst, true).unwrap_err();
+    let r = merge_tags(&mut c, src, dst, true).unwrap();
 
-    assert_eq!(err, "该标签还有子标签,请先移走或合并子标签");
-    assert_eq!(snapshot(&c), before);
+    assert_eq!(r.affected_notes, 1, "源子树下那条笔记受影响");
+    assert_eq!(r.aliases, vec!["源".to_string()]);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='目标/子'"), 1);
+    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tags WHERE id={src}")), 0, "源已删");
     assert_fts_matches_tags(&c);
     assert_no_orphan_tags(&c);
+    assert_filter_paths_exist(&c);
 }
 
 /// ④ 目标在源子树内:拒绝(子树检查先于子节点检查,给更精确的诊断)

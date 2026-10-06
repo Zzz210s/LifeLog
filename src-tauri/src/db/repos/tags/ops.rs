@@ -24,6 +24,14 @@ pub fn rename(conn: &mut Connection, tag_id: i64, new_name: &str) -> Result<Vec<
     if node.name == new_name {
         return Ok(Vec::new()); // 无变化:回滚空事务
     }
+    // 与兄弟 raw 同名 -> 不改名,直接把本标签整棵并到该兄弟(设计 2026-10-06 §6);
+    // 纯文本同名但 raw 不同的 md 写法由收尾 sweep 兜。旧名登记为别名(与常规改名一致)。
+    if let Some(existing) = crate::db::repos::tags::merge::sibling_by_name(&tx, node.parent_id, &new_name, tag_id)? {
+        let aliases = alias::register_rename(&tx, &node.path, existing).map_err(|e| e.to_string())?;
+        crate::db::repos::tags::auto_merge::merge_pair(&tx, tag_id, existing)?;
+        tx.commit().map_err(|e| e.to_string())?;
+        return Ok(aliases);
+    }
     ensure_sibling_free(&tx, node.parent_id, &new_name, tag_id)?;
     // 新路径从父节点派生(存量平铺根的 path 可能与 name 不一致,不能用自身旧 path 派生)
     let new_path = super::path::child_path(&tx, node.parent_id, &new_name).map_err(|e| e.to_string())?;
@@ -41,6 +49,12 @@ pub fn rename(conn: &mut Connection, tag_id: i64, new_name: &str) -> Result<Vec<
         },
     )
     .map_err(|e| e.to_string())?;
+    // 收尾里的自动合并可能已经把本标签并走(纯文本同名的 md 差异):此时标签已不存在,
+    // 再登记别名只会撞外键 —— 直接提交返回(旧名别名由该次合并前的语义决定,见 merge_pair)。
+    if !alias::tag_exists(&tx, tag_id).map_err(|e| e.to_string())? {
+        tx.commit().map_err(|e| e.to_string())?;
+        return Ok(Vec::new());
+    }
     // 旧名自动登记为别名(D4):与结构变更同事务 —— 任一步失败,别名也不落地;
     // 必须在路径重写之后调:此时 old_path 已无对应标签,登记的是"旧名"本身
     let mut aliases = alias::register_rename(&tx, &node.path, tag_id).map_err(|e| e.to_string())?;
@@ -98,6 +112,12 @@ pub fn move_to_ordered(
         }
     };
     let delta = new_depth - node.depth;
+    // 目标父下已有 raw 同名的兄弟 -> 不移动,直接整棵并到该兄弟(设计 2026-10-06 §6 拖入同名)
+    if let Some(existing) = crate::db::repos::tags::merge::sibling_by_name(&tx, new_parent, &node.name, tag_id)? {
+        crate::db::repos::tags::auto_merge::merge_pair(&tx, tag_id, existing)?;
+        tx.commit().map_err(|e| e.to_string())?;
+        return Ok(());
+    }
     ensure_sibling_free(&tx, new_parent, &node.name, tag_id)?;
     let new_path = super::path::child_path(&tx, new_parent, &node.name).map_err(|e| e.to_string())?;
     let notes = linked_notes(&tx, &ids).map_err(|e| e.to_string())?;

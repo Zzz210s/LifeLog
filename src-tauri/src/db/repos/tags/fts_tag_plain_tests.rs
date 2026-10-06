@@ -9,7 +9,7 @@
 use crate::db::migrate;
 use crate::db::repos::notes::{create_plain, notes_filter::empty, query, FilterConditions};
 use crate::db::repos::tags::invariants_tests::assert_fts_matches_tags;
-use crate::db::repos::tags::rename;
+use crate::db::repos::tags::{alias, rename};
 use rusqlite::{params, Connection};
 
 fn db() -> Connection {
@@ -67,15 +67,19 @@ fn ancestor_md_with_leaf_link_is_searchable_by_display_text() {
     assert_fts_matches_tags(&c);
 }
 
-/// ② 纯文本别名被真实标签占住(改名的纯文本别名会被跳过)-> 显示文本只能靠纯文本路径
+/// ② 纯文本别名被占住(叶子名被真实标签占、完整路径被别的标签别名占)-> 显示文本
+/// 只能靠 `tag_plain` 的**纯文本路径**兜住 —— 同父纯文本同名会触发自动合并(2026-10-06 §6),
+/// 故完整路径用**别名**而非真实标签占位,既挡住别名登记又不制造兄弟重名。
 #[test]
 fn plain_path_covers_display_text_when_plain_alias_is_taken() {
     let mut c = db();
-    create_plain(&mut c, "x #郴州市").unwrap(); // 占住纯文本叶子名
-    create_plain(&mut c, "y #地点/郴州市").unwrap(); // 占住纯文本完整路径
+    let real = create_plain(&mut c, "x #郴州市").unwrap(); // 占住纯文本叶子名
+    let owner = id_at(&c, "郴州市");
+    alias::add(&c, "地点/郴州市", owner).unwrap(); // 占住纯文本完整路径
     let n = create_plain(&mut c, "莽山栈道 #地点/郴chen州市/宜章县").unwrap();
-
+    let _ = real;
     let ancestor = id_at(&c, "地点/郴chen州市");
+
     let aliases = rename(&mut c, ancestor, "[郴](chēn)州市").unwrap();
     assert_eq!(
         aliases,
