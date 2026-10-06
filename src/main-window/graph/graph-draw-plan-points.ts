@@ -3,6 +3,7 @@
  * 低缩放走聚合(同格合并成带计数的圆),否则逐节点出点。
  */
 import type { GraphEdge, GraphNode } from '../../shared/types';
+import { tagLabelPlain } from '../../shared/tag-label';
 import { aggregateBuckets, shouldAggregate } from './graph-aggregate';
 import { lodLevel, screenOf, type Camera } from './graph-camera';
 import { isDimmed, type Emphasis } from './graph-focus';
@@ -92,7 +93,7 @@ export function planPoints(input: {
     // 只在非聚合档判:聚合桶是合并圆,没有单一枢纽语义。
     if ((degree.get(n.id) ?? 0) >= HUB_RING_DEGREE) hubs.push(dot);
     if (level === 'all' || (level === 'hubs' && n.selfCount >= HUB_NOTES)) {
-      labels.push({ id: n.id, x: s.x, y: s.y - r - 4, text: leafOf(n.path) });
+      labels.push({ id: n.id, x: s.x, y: s.y - r - 4, text: tagLabelPlain(leafOf(n.path)) });
     }
   }
   return { dots, labels, hubs };

@@ -39,7 +39,7 @@ export function GraphInfoBar(p: {
         出链 {degrees?.outbound ?? '–'} / 入链 {degrees?.backlinks ?? '–'}
       </div>
       <div className="mt-1 text-muted" data-testid="graph-relation-degrees">
-        关系：出 {p.relationDegrees.outbound} / 入 {p.relationDegrees.backlinks}
+        关系（含子孙）：出 {p.relationDegrees.outbound} / 入 {p.relationDegrees.backlinks}
       </div>
       <div className="mt-2 flex flex-wrap gap-2">
         <button type="button" className={BTN_SECONDARY} onClick={p.onFilterToStream}>

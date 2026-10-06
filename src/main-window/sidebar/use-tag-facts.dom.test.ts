@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
  * 标签关系事实改成批量一次的组件级证据(标签关系统一 spec §7):
- *   一次 `list_tag_facts` 拿全量,不再逐标签调 `list_tag_relations` / `list_tag_carries`;
+ *   一次 `list_tag_facts` 拿全量,不再逐标签调 `list_tag_relations`;
  *   只保留当前可见的标签;出边原样带 remark 供行内小字与悬浮卡片共用;读数失败回空值不抛。
  */
 import { act, createElement } from 'react';
@@ -11,12 +11,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TagFactsBundle } from '../../shared/tag-facts-types';
 import { useTagFacts, type TagFacts } from './use-tag-facts';
 
-const { listTagFacts, listTagRelations, listTagCarries } = vi.hoisted(() => ({
+const { listTagFacts, listTagRelations } = vi.hoisted(() => ({
   listTagFacts: vi.fn<() => Promise<TagFactsBundle>>(),
   listTagRelations: vi.fn(),
-  listTagCarries: vi.fn(),
 }));
-vi.mock('../../shared/api', () => ({ api: { listTagFacts, listTagRelations, listTagCarries } }));
+vi.mock('../../shared/api', () => ({ api: { listTagFacts, listTagRelations } }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -46,7 +45,6 @@ beforeEach(() => {
   listTagFacts.mockReset();
   listTagFacts.mockResolvedValue(BUNDLE);
   listTagRelations.mockReset();
-  listTagCarries.mockReset();
   facts = new Map();
   host = document.createElement('div');
   document.body.appendChild(host);
@@ -64,7 +62,6 @@ describe('useTagFacts(批量一次)', () => {
     await settle();
     expect(listTagFacts).toHaveBeenCalledTimes(1);
     expect(listTagRelations).not.toHaveBeenCalled();
-    expect(listTagCarries).not.toHaveBeenCalled();
   });
 
   it('只保留可见标签;出边原样带 remark', async () => {

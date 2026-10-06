@@ -24,8 +24,8 @@ describe('relationLabel:备注 → 目标,缺备注回退目标名(R12)', () => 
     expect(relationLabel(rel('[国别](国籍)'))).toBe('国别');
   });
 
-  it('目标名含代理对(emoji)时逐字保留,不乱码不漏字', () => {
-    expect(relationLabel(rel('[🗾日本](日出之国)'))).toBe('🗾日本');
+  it('目标名含代理对(补充平面汉字)时逐字保留,不乱码不漏字', () => {
+    expect(relationLabel(rel('[𠀀国](日出之国)'))).toBe('𠀀国');
   });
 
   it('备注本体带行内 md 也剥成纯文本', () => {

@@ -8,7 +8,7 @@ describe('分区注册表', () => {
       'inputAppearance',
       'inputBehavior',
       'notes',
-      'types',
+      'relations',
       'hotkey',
       'startup',
       'general',

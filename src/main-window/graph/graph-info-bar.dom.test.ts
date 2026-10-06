@@ -66,7 +66,7 @@ describe('GraphInfoBar:路径与两个计数 + 两个动作', () => {
     expect(host.textContent).toContain('含子级 414');
   });
 
-  it('标签关系出/入度单独一行(关系：出 N / 入 M)', async () => {
+  it('标签关系出/入度单独一行(关系（含子孙）：出 N / 入 M)', async () => {
     await render(
       createElement(GraphInfoBar, {
         node,
@@ -77,7 +77,7 @@ describe('GraphInfoBar:路径与两个计数 + 两个动作', () => {
       }),
     );
     const row = host.querySelector('[data-testid="graph-relation-degrees"]');
-    expect(row?.textContent?.replace(/\s+/g, ' ').trim()).toBe('关系：出 3 / 入 1');
+    expect(row?.textContent?.replace(/\s+/g, ' ').trim()).toBe('关系（含子孙）：出 3 / 入 1');
   });
 
   it('按钮触发回调,展开态文案随之变化', async () => {

@@ -57,7 +57,7 @@ export function SettingsView({ themeMode, onThemeChange, onReplayTutorial, showR
         return <InputBehaviorPanel />;
       case 'notes':
         return <NotesSection />;
-      case 'types':
+      case 'relations':
         return <RelationSuggestionsSection showRelations={showRelations} onShowRelationsChange={onShowRelationsChange} />;
       case 'hotkey':
         return <AppHotkeySection />;

@@ -1,7 +1,8 @@
 // 标签关系端到端验收(scripts/dev-relations-accept.mjs)的共用件:只读库对账 / 发 IPC / 读 DOM /
-// 画布探针。判定全部留在主脚本(与 types-accept-lib 同风格)。
+// 画布探针。判定全部留在主脚本(与其它 accept-lib 同风格)。
 // 真实库只读;仅夹具清理与设置往返会写库(见 writeSetting/deleteSetting/deleteMergeLogFor)。
 import { DatabaseSync } from 'node:sqlite';
+import { execFileSync } from 'node:child_process';
 import {
   all, get, counts, fmt, ipc, condIds, queryCount, pressEsc, sleep, waitFor, requireApp,
   noteIdOf, tagIdOf, DB_PATH, openTagMenu, timeQuery, xlsxContentDigest, clearChips, EMPTY, appNoteTags,
@@ -12,6 +13,21 @@ export {
   all, get, counts, fmt, ipc, condIds, queryCount, pressEsc, sleep, waitFor, requireApp,
   noteIdOf, tagIdOf, DB_PATH, openTagMenu, timeQuery, xlsxContentDigest, clearChips, EMPTY, setSearch, appNoteTags,
 };
+
+/**
+ * 确认应用跑在 dev 构建上(命令行含 0-cargo-target);打印实际命令行,不打一处含糊。
+ * 自 `types-accept-lib` 迁来(那个文件随类型概念一起删了)。
+ */
+export function assertDevBuild() {
+  const ps = "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'app-lifelog|LifeLog' } | ForEach-Object { $_.CommandLine }";
+  let lines = [];
+  try {
+    lines = execFileSync('powershell', ['-NoProfile', '-Command', ps], { encoding: 'utf8' })
+      .split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+  } catch { /* 取不到就当没确认 */ }
+  console.log('INFO 进程命令行: ' + fmt(lines));
+  return lines.some((l) => l.includes('0-cargo-target'));
+}
 
 // --- 关系条件(新字段 relations/excludeRelations;R10b 旧字段 types 只用于回读探针) ---
 export const relCond = (path) => ({ ...EMPTY, relations: [{ path }] });
@@ -116,10 +132,10 @@ export const clickByLabelIn = (cdp, label) =>
     if (!b) return false; b.click(); return true; })()`);
 export const openSettings = async (cdp) => {
   await clickByLabelIn(cdp, '设置');
-  return waitFor(() => cdp.eval(`!!document.querySelector('[data-section-nav="types"]')`), 20, 200);
+  return waitFor(() => cdp.eval(`!!document.querySelector('[data-section-nav="relations"]')`), 20, 200);
 };
 export const pickRelationSection = (cdp) =>
-  cdp.eval(`(() => { const b = document.querySelector('[data-section-nav="types"]'); if (!b) return false; b.click(); return true; })()`);
+  cdp.eval(`(() => { const b = document.querySelector('[data-section-nav="relations"]'); if (!b) return false; b.click(); return true; })()`);
 export const backToStream = (cdp) =>
   cdp.eval(`(() => { const b = Array.from(document.querySelectorAll('button')).find((x) => x.textContent.trim() === '返回信息流');
     if (!b) return false; b.click(); return true; })()`);
@@ -129,28 +145,37 @@ export const relationDegreesText = (cdp) =>
 export const graphOpened = (cdp) => cdp.eval(`!!document.querySelector('[data-testid="graph-view"] canvas')`);
 
 // --- 画布探针:关系边箭头 = 三顶点路径 fill;备注文字走 fillText ---
+// 除计数外,箭头还**记下尖点与终点坐标**,点层记下填充圆(圆心 + 半径)—— 验收才能断言
+// 「尖到目标圆心距离 > 目标半径」(挡住「画了但被后画的点盖住」)。
 export const installRelationProbe = (cdp) =>
   cdp.eval(`(() => {
-    if (window.__relV === 1) return true;
-    const fresh = () => ({ segs: 0, arrowHeads: 0, texts: [] });
+    if (window.__relV === 2) return true;
+    const fresh = () => ({ segs: 0, arrowHeads: 0, texts: [], arrowTips: [], dots: [] });
     let cur = fresh();
     const st = { get: () => cur };
     const mine = (c) => c.canvas && c.canvas.closest && c.canvas.closest('[data-testid="graph-view"]') !== null;
     const P = CanvasRenderingContext2D.prototype;
     const real = {};
-    for (const m of ['clearRect', 'beginPath', 'moveTo', 'lineTo', 'stroke', 'fill', 'fillText']) real[m] = P[m];
-    let verts = 0;
+    for (const m of ['clearRect', 'beginPath', 'moveTo', 'lineTo', 'arc', 'stroke', 'fill', 'fillText']) real[m] = P[m];
+    let verts = 0, head = null, tail = null, ring = null;
     P.clearRect = function (...a) {
       if (mine(this) && (cur.segs || cur.arrowHeads || cur.texts.length)) cur = fresh();
       return real.clearRect.apply(this, a);
     };
-    P.beginPath = function (...a) { verts = 0; return real.beginPath.apply(this, a); };
-    P.moveTo = function (x, y, ...r) { verts = 1; return real.moveTo.call(this, x, y, ...r); };
-    P.lineTo = function (x, y, ...r) { verts += 1; return real.lineTo.call(this, x, y, ...r); };
+    P.beginPath = function (...a) { verts = 0; head = null; tail = null; ring = null; return real.beginPath.apply(this, a); };
+    P.moveTo = function (x, y, ...r) { verts = 1; head = [x, y]; tail = [x, y]; return real.moveTo.call(this, x, y, ...r); };
+    P.lineTo = function (x, y, ...r) { verts += 1; tail = [x, y]; return real.lineTo.call(this, x, y, ...r); };
+    P.arc = function (x, y, rad, ...r) { if (mine(this)) ring = { x, y, r: rad }; return real.arc.call(this, x, y, rad, ...r); };
     P.stroke = function (...a) { if (mine(this) && verts >= 2) cur.segs += 1; return real.stroke.apply(this, a); };
-    P.fill = function (...a) { if (mine(this) && verts === 3) cur.arrowHeads += 1; return real.fill.apply(this, a); };
+    P.fill = function (...a) {
+      if (mine(this)) {
+        if (verts === 3 && head && tail) { cur.arrowHeads += 1; cur.arrowTips.push({ tip: head, end: tail }); }
+        if (ring) cur.dots.push(ring);
+      }
+      return real.fill.apply(this, a);
+    };
     P.fillText = function (t, ...a) { if (mine(this)) cur.texts.push(String(t)); return real.fillText.call(this, t, ...a); };
-    window.__rel = st; window.__relV = 1; return true;
+    window.__rel = st; window.__relV = 2; return true;
   })()`);
 export const relationFrame = (cdp) => cdp.eval('window.__rel ? window.__rel.get() : null');
 /** 在画布中心连发滚轮缩放(delta < 0 放大);每格等一帧 */

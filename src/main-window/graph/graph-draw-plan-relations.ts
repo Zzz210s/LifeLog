@@ -1,16 +1,22 @@
 /**
  * `drawPlan` 的关系边层(Task 5,自 `graph-draw-plan.ts` 分出,守 200 行红线):
- * 把 `A -> B` 的标签关系折成屏幕线段(恒带箭头),并在缩放够大时把备注文字放在箭头中点。
+ * 把 `A -> B` 的标签关系折成屏幕线段(恒带箭头),并在缩放够大时把备注文字放在箭头附近。
  *
  * 与其它边同一套裁剪与强调口径:两端都不在视口内就丢、任一端暗则暗、任一端是焦点则加粗。
  * 备注只在 `k >= RELATION_REMARK_MIN_K` 时给出(低缩放只画箭头不画字),文本缺失也不画。
- * 文字位置是线段中点(**箭头尖在画布层按目标半径回收**,中点仍按两端点算,免得随半径漂)。
+ * 箭头尖按**目标半径 + `ARROW_RETREAT_GAP`** 回收(半径由调用方给,聚合档给桶半径),
+ * 免得大节点把箭头整只盖住;备注沿箭头法线错开 `RELATION_REMARK_OFFSET` 并带 `dim`,
+ * 画布再给它垫一层胶囊,才不会被节点标签同色同字体地淹掉。
  */
 import { tagLabelPlain } from '../../shared/tag-label';
 import type { RelationEdge } from './graph-relations';
 import { screenOf, type Camera } from './graph-camera';
 import { isDimmed, type Emphasis } from './graph-focus';
-import { RELATION_REMARK_MIN_K } from './graph-draw-plan-metrics';
+import {
+  ARROW_RETREAT_GAP,
+  RELATION_REMARK_MIN_K,
+  RELATION_REMARK_OFFSET,
+} from './graph-draw-plan-metrics';
 import type { Point } from './radial';
 import type { RelationMark, Segment } from './graph-draw-plan-types';
 
@@ -20,8 +26,10 @@ export function planRelations(input: {
   cam: Camera;
   visible: ReadonlySet<number>;
   emphasis: Emphasis;
+  /** 终点圆半径(按标签 id 取;聚合档取桶半径,取不到退回节点半径口径) */
+  radiusOf: (id: number) => number;
 }): { segments: Segment[]; marks: RelationMark[] } {
-  const { relations, points, cam, visible, emphasis } = input;
+  const { relations, points, cam, visible, emphasis, radiusOf } = input;
   const segments: Segment[] = [];
   const marks: RelationMark[] = [];
   const showMarks = cam.k >= RELATION_REMARK_MIN_K;
@@ -32,6 +40,7 @@ export function planRelations(input: {
     if (!visible.has(r.a) && !visible.has(r.b)) continue; // 两端都在视口外
     const a = screenOf(pa, cam);
     const b = screenOf(pb, cam);
+    const dim = isDimmed(r.a, emphasis) || isDimmed(r.b, emphasis);
     segments.push({
       x1: a.x,
       y1: a.y,
@@ -39,14 +48,23 @@ export function planRelations(input: {
       y2: b.y,
       weight: 1,
       emphasized: r.a === emphasis.active || r.b === emphasis.active,
-      dim: isDimmed(r.a, emphasis) || isDimmed(r.b, emphasis),
+      dim,
       arrow: true,
+      pullback: radiusOf(r.b) + ARROW_RETREAT_GAP,
     });
     // 备注只影响显示(设计 R6),行内 md 标记(加粗/链接等)不该画到画布上 —— 与侧栏
     // `relationLabel` 同一口径取纯文本;剥完为空(如 `****`)则不画字。
     const remark = tagLabelPlain(r.remark);
     if (showMarks && remark !== '') {
-      marks.push({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, text: remark });
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const len = Math.hypot(dx, dy) || 1;
+      marks.push({
+        x: (a.x + b.x) / 2 - (dy / len) * RELATION_REMARK_OFFSET,
+        y: (a.y + b.y) / 2 + (dx / len) * RELATION_REMARK_OFFSET,
+        text: remark,
+        dim,
+      });
     }
   }
   return { segments, marks };

@@ -2,7 +2,7 @@
  * 关系图视图外壳(2026-10-05 拆分:接线全部收进 `use-graph-view`):本文件只把接线给出的状态
  * 摆成 覆盖层 + 搜索 + 画布 + 气泡 + 信息条 + 标签菜单,并把容器上的指针/点击事件接上。
  */
-import type { ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { GraphCanvas } from './GraphCanvas';
 import { GraphInfoBar } from './GraphInfoBar';
 import { GraphOverlays } from './GraphOverlays';
@@ -18,6 +18,12 @@ export function GraphView(p: GraphViewInput): ReactNode {
     filtersOpen, setFiltersOpen, force, filters, roots, patch, resetFilters,
     data, relations, nodes, onSearchPick, plan, hoveredNode, selectedNode, selected, expanded, setExpanded, menu, setMenu,
   } = useGraphView(p);
+
+  // 出/入度是边与整棵树的纯函数:同一次渲染里别重算(与同文件其它派生量同一风格)
+  const selectedDegrees = useMemo(
+    () => (selectedNode === null ? null : relationDegrees(relations, data?.nodes ?? [], selectedNode.id)),
+    [relations, data, selectedNode],
+  );
 
   return (
     <div
@@ -61,7 +67,7 @@ export function GraphView(p: GraphViewInput): ReactNode {
       {selectedNode !== null && (
         <GraphInfoBar
           node={selectedNode}
-          relationDegrees={relationDegrees(relations, data?.nodes ?? [], selectedNode.id)}
+          relationDegrees={selectedDegrees ?? { outbound: 0, backlinks: 0 }}
           expanded={expanded === selected}
           onFilterToStream={() => p.onFilterToStream(selectedNode.path)}
           onToggleExpand={() => setExpanded((cur) => (cur === selected ? null : selected))}

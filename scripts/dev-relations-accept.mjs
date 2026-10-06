@@ -18,10 +18,9 @@ import { join } from 'node:path';
 import { rmSync } from 'node:fs';
 import { ensureMain, recorder } from './cdp-lib.mjs';
 import { bindUi } from './no-tabs-accept-lib.mjs';
-import { assertDevBuild } from './types-accept-lib.mjs';
 import { armGraph, closeGraph } from './graph-accept-lib.mjs';
 import {
-  NS, FIX, counts, fmt, ipc, sleep, waitFor, requireApp,
+  NS, FIX, counts, fmt, ipc, sleep, waitFor, requireApp, assertDevBuild,
   noteIdOf, tagIdOf, openTagMenu, pressEsc, xlsxContentDigest,
   danglingTagRows, tagStructRows, ftsTagsOf, relationRows, mergeLogRows, appNoteTags,
   getSettingRaw, writeSetting, deleteSetting, deleteMergeLogFor,
@@ -127,10 +126,25 @@ try {
   await pickSearchItem(cdp);
   await sleep(900);
   const degB = await relationDegreesText(cdp);
-  record('读数7 关系边带箭头;k < 1.2 无备注文字、k ≥ 1.2 出备注;信息条出/入度正确',
-    opened && String(degA).includes('关系：出 3 / 入 0') && String(degB).includes('关系：出 0 / 入 1')
-      && !(low?.texts ?? []).includes(FIX.REMARK) && (hi?.texts ?? []).includes(FIX.REMARK) && (hi?.arrowHeads ?? 0) > 0,
-    `开图=${opened} 甲=「${degA}」 乙=「${degB}」 低缩备注=${(low?.texts ?? []).includes(FIX.REMARK)} 放大备注=${(hi?.texts ?? []).includes(FIX.REMARK)} 箭头头部=${hi?.arrowHeads ?? 0}`);
+  // 箭头尖到目标圆心的距离必须 > 目标半径(挡住「画了但被后画的点盖住」):
+  // 目标 = 离箭头终点最近的那个填充圆(非聚合档下就是目标节点的圆)
+  const tipsClear = (frame) => {
+    const dots = frame?.dots ?? [];
+    const tips = frame?.arrowTips ?? [];
+    if (tips.length === 0 || dots.length === 0) return false;
+    return tips.every((a) => {
+      const target = dots.reduce((best, d) => {
+        const dist = Math.hypot(d.x - a.end[0], d.y - a.end[1]);
+        return best === null || dist < best.dist ? { dist, r: d.r } : best;
+      }, null);
+      return Math.hypot(a.tip[0] - a.end[0], a.tip[1] - a.end[1]) > target.r;
+    });
+  };
+  const clearHi = tipsClear(hi);
+  record('读数7 关系边带箭头;k < 1.2 无备注文字、k ≥ 1.2 出备注且箭头尖不被目标圆盖住;信息条出/入度正确',
+    opened && String(degA).includes('关系（含子孙）：出 3 / 入 0') && String(degB).includes('关系（含子孙）：出 0 / 入 1')
+      && !(low?.texts ?? []).includes(FIX.REMARK) && (hi?.texts ?? []).includes(FIX.REMARK) && (hi?.arrowHeads ?? 0) > 0 && clearHi,
+    `开图=${opened} 甲=「${degA}」 乙=「${degB}」 低缩备注=${(low?.texts ?? []).includes(FIX.REMARK)} 放大备注=${(hi?.texts ?? []).includes(FIX.REMARK)} 箭头头部=${hi?.arrowHeads ?? 0} 箭头尖无遮挡=${clearHi}`);
   await closeGraph(ui);
   await sleep(400);
 

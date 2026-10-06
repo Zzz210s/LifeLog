@@ -12,7 +12,7 @@ import { TagTreeRelationRow } from './TagTreeRelationRow';
 import { SETTINGS_SECTIONS } from './settings-sections';
 import { effectiveTarget, pendingSuggestions, planWrites, setExcludedFor, suggestRelations, type RelationSuggestion } from './relation-suggestions';
 
-const META = SETTINGS_SECTIONS.find((s) => s.id === 'types')!;
+const META = SETTINGS_SECTIONS.find((s) => s.id === 'relations')!;
 /** 每页条数:上百条建议要能一次过完,但一屏不刷太长(R11) */
 const PAGE_SIZE = 20;
 

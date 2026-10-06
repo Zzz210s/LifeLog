@@ -78,6 +78,17 @@ describe('drawPlan:决定画什么(纯函数)', () => {
     expect(one(99).labels).toHaveLength(0);
   });
 
+  it('节点文字剥掉行内 md(与备注同一口径,W3)', () => {
+    const p = drawPlan({
+      ...base,
+      nodes: [{ id: 1, path: '地点轴/[国籍](国别)', depth: 2, parent: null, notes: 200, selfCount: 200, sortOrder: 0 }],
+      edges: [],
+      points: new Map([[1, { x: 0, y: 0 }]]),
+      rootColor: new Map([[1, 'c1']]),
+    });
+    expect(p.labels[0].text).toBe('国籍');
+  });
+
   it('视口裁剪:画布外的节点不进 dots;两端都在视口外的边丢弃,一端可见的仍画', () => {
     const farPoints = new Map(points);
     farPoints.set(9, { x: 100000, y: 100000 });

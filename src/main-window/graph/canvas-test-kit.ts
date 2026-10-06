@@ -18,7 +18,7 @@ import { GraphCanvas } from './GraphCanvas';
 const TOKENS = ['--color-border', '--color-border-strong', '--color-muted', '--color-accent'] as const;
 
 export interface CtxCall {
-  op: 'stroke' | 'arc' | 'fill' | 'fillText';
+  op: 'stroke' | 'arc' | 'fill' | 'fillText' | 'roundRect';
   /** 该次调用发生时的 globalAlpha */
   alpha: number;
   /** 该次调用发生时的 lineWidth */
@@ -62,6 +62,9 @@ export function makeCanvasCtx(): CanvasCtxStub {
     arc: vi.fn((...args: unknown[]) => rec('arc', args)),
     fill: vi.fn((...args: unknown[]) => rec('fill', args)),
     fillText: vi.fn((...args: unknown[]) => rec('fillText', args)),
+    roundRect: vi.fn((...args: unknown[]) => rec('roundRect', args)),
+    rect: vi.fn(),
+    measureText: vi.fn((text: string) => ({ width: String(text).length * 7 })),
     writes,
     calls,
   };

@@ -17,6 +17,7 @@ import { planEdges } from './graph-draw-plan-edges';
 import { planExpanded } from './graph-draw-plan-expanded';
 import { planPoints } from './graph-draw-plan-points';
 import { planRelations } from './graph-draw-plan-relations';
+import { radiusOf as radiusFromNotes } from './graph-draw-plan-metrics';
 import type { RelationEdge } from './graph-relations';
 import type { DrawPlan, ExpandedInput } from './graph-draw-plan-types';
 import type { Emphasis } from './graph-focus';
@@ -61,14 +62,6 @@ export function drawPlan(input: {
 }): DrawPlan {
   const { nodes, edges, points, cam, w, h, rootColor, fallbackColor, emphasis } = input;
   const visible = new Set(cullVisible(points, cam, w, h));
-  const { co, tree } = planEdges({ edges, points, cam, visible, emphasis });
-  const { segments: relations, marks: relationMarks } = planRelations({
-    relations: input.relations ?? [],
-    points,
-    cam,
-    visible,
-    emphasis,
-  });
   const { dots, labels, hubs } = planPoints({
     nodes,
     edges,
@@ -78,6 +71,18 @@ export function drawPlan(input: {
     emphasis,
     rootColor,
     fallbackColor,
+  });
+  // 箭头回收要按**目标半径**:点层先算,把每个圆点的半径(聚合档是桶半径)喂给关系层
+  const radiusById = new Map(dots.map((d) => [d.id, d.r] as const));
+  const notesById = new Map(nodes.map((n) => [n.id, n.notes] as const));
+  const { co, tree } = planEdges({ edges, points, cam, visible, emphasis });
+  const { segments: relations, marks: relationMarks } = planRelations({
+    relations: input.relations ?? [],
+    points,
+    cam,
+    visible,
+    emphasis,
+    radiusOf: (id) => radiusById.get(id) ?? radiusFromNotes(notesById.get(id) ?? 0),
   });
   const { notes, links, overflow } = planExpanded({
     expanded: input.expanded ?? null,

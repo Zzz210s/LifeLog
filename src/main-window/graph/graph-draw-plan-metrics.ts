@@ -33,6 +33,18 @@ export const HUB_NOTES = 100;
  * 补充信息,缩小时把 24 条备注一起画出来会把骨架糊住;箭头方向本身在小比例下就够读。
  */
 export const RELATION_REMARK_MIN_K = 1.2;
+
+/**
+ * 关系边箭头尖离目标圆心的回收余量(屏幕像素):实际回收 = **目标圆半径 + 这个余量**。
+ * 写死常量不行 —— `radiusOf` 上限 9、聚合圆可到 30,固定 10px 会让大圆的箭头体落在圆内被点盖掉。
+ */
+export const ARROW_RETREAT_GAP = 6;
+
+/**
+ * 关系备注沿箭头**法线**错开的距离(屏幕像素):摆在箭头正上方会被那根线和两端节点压住,
+ * 错开后配合底衷胶囊才从标签堆里分离得出来。
+ */
+export const RELATION_REMARK_OFFSET = 9;
 const MIN_R = 2.5;
 const MAX_R = 9;
 
