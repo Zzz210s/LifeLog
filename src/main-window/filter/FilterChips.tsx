@@ -16,7 +16,7 @@ export interface FilterChipsProps {
 function chipClass(kind: Chip['kind']): string {
   // 边框一律用实体令牌:alpha 变体(border-accent/40 之类)不在令牌表里,
   // 会被视觉审计的「颜色全部来自令牌」判失败 —— 那是 pnpm verify 的第 9 项门禁
-  if (kind === 'excludeTag' || kind === 'excludeType')
+  if (kind === 'excludeTag' || kind === 'excludeRelation')
     return 'border-border-strong bg-danger-soft text-danger hover:border-danger';
   if (kind === 'sort' || kind === 'presence')
     return 'border-border bg-chrome text-muted hover:border-accent';

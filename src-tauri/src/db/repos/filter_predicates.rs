@@ -35,22 +35,17 @@ pub(crate) fn tag_predicate(path: &str, self_only: bool, args: &mut Vec<Value>) 
 /// 此时物化集合要先付一次全表构建。语义逐值等价:仍是「`d` 与某个携带 `path` 的
 /// `ca` 同路径或在其子树内」,前缀用 substr、边界靠显式 `/`;`target_type='tag'`
 /// 既限定携带行、又避免把笔记链接(target_id 撞号)误当携带。
-fn carry_predicate(path: &str, args: &mut Vec<Value>) -> String {
-    args.push(Value::Text(path.to_string())); // 定位被携带标签(按 path 取 id)
+///
+/// 关系条件(原「类型条件」,设计 2026-10-06 §2 / §10 R10b)直接复用本谓词:迁移 022 把
+/// `'type'` 边并入 `'tag'` 后,「R 被哪些标签指向」与「谁携带 R」本就是同一件事。
+pub(crate) fn carry_predicate(path: &str, args: &mut Vec<Value>) -> String {
+    args.push(Value::Text(path.to_string())); // 定位被携带/被指向标签(按 path 取 id)
     "t.id IN (SELECT d.id FROM tags d \
      JOIN tag_links cl ON cl.target_type = 'tag' \
      JOIN tags ca ON ca.id = cl.tag_id \
      WHERE cl.target_id IN (SELECT id FROM tags WHERE path = ?) \
        AND (d.path = ca.path OR substr(d.path, 1, length(ca.path) + 1) = ca.path || '/'))"
         .to_string()
-}
-
-/// 关系路径谓词(原「类型条件」,设计 2026-10-06 §2 §10 R10):`'type'` 边已并入 `'tag'`
-/// (迁移 022),「R 被哪些标签认领」与「谁携带 R」本就是同一件事 —— 有边 `A -> R` 的标签 A
-/// 及其全部后代。与标签条件共用同一份 [`carry_predicate`],两条谓词在迁移后取值逐值相同;
-/// 字段与文案的统一留给 Task 3。目标没被任何标签指向时集合为空,命中 0(不退化成全部)。
-pub(crate) fn type_predicate(path: &str, args: &mut Vec<Value>) -> String {
-    carry_predicate(path, args)
 }
 
 /// `笔记 n 挂有满足 m 的标签` 的 EXISTS 包装;取反(排除标签、`NOT`)由调用方加 `NOT `

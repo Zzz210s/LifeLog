@@ -7,9 +7,9 @@ import type { ConditionHits } from '../../shared/tag-facts-types';
 import { AddConditionMenu } from './AddConditionMenu';
 import { ExprDialog } from './ExprDialog';
 import { FilterChips } from './FilterChips';
-import { TypePickDialog } from './TypePickDialog';
+import { RelationPickDialog } from './RelationPickDialog';
 import { TagPickDialog } from './TagPickDialog';
-import { applyTypePick, applyTagPick, chipsOf, summarySegmentsOf, summaryTitleOf } from './filter-chips';
+import { applyRelationPick, applyTagPick, chipsOf, summarySegmentsOf, summaryTitleOf } from './filter-chips';
 import type { CarryPaths } from './filter-chips';
 
 export interface ConditionBarProps {
@@ -30,22 +30,22 @@ export interface ConditionBarProps {
  * 已生效的关键词以 chip 显示、可单删。标签选点入口在侧栏与本栏「添加条件」的标签选择器。
  */
 export function ConditionBar(p: ConditionBarProps): ReactNode {
-  // 两侧已选路径合集:同一标签同时进 tags 与 excludeTags 结果恒空,任一侧已含即禁选;类型同理
+  // 两侧已选路径合集:同一标签同时进 tags 与 excludeTags 结果恒空,任一侧已含即禁选;关系同理
   const pickedPaths = [
     ...p.conditions.tags.map((t) => t.path),
     ...p.conditions.excludeTags.map((t) => t.path),
   ];
-  const pickedTypePaths = [
-    ...p.conditions.types.map((r) => r.path),
-    ...p.conditions.excludeTypes.map((r) => r.path),
+  const pickedRelationPaths = [
+    ...p.conditions.relations.map((r) => r.path),
+    ...p.conditions.excludeRelations.map((r) => r.path),
   ];
   // 两个对话框的开关只由「添加条件」菜单触发,所以留在本组件里
   const [tagPick, setTagPick] = useState<{ exclude: boolean } | null>(null);
-  const [typePick, setTypePick] = useState<{ exclude: boolean } | null>(null);
+  const [relationPick, setRelationPick] = useState<{ exclude: boolean } | null>(null);
   const [exprOpen, setExprOpen] = useState(false);
   // 有携带者的标签路径集合;初值空集 = 加载中(先不标) —— 真实库 0 条携带行时不会闪 +携带
   const [carryPaths, setCarryPaths] = useState<CarryPaths>(new Set());
-  // 标签 / 类型条件的独立命中数(后端单条件计数,与 query_notes 同谓词)
+  // 标签 / 关系条件的独立命中数(后端单条件计数,与 query_notes 同谓词)
   const [hits, setHits] = useState<ConditionHits | null>(null);
   const condKey = filterKey(p.conditions);
 
@@ -67,16 +67,16 @@ export function ConditionBar(p: ConditionBarProps): ReactNode {
     };
   }, [condKey]);
 
-  // 命中数只在真有标签/类型条件时才取(空条件没有可数的 chip)
-  const hasTagType =
+  // 命中数只在真有标签/关系条件时才取(空条件没有可数的 chip)
+  const hasTagRelation =
     p.conditions.tags.length > 0 ||
     p.conditions.excludeTags.length > 0 ||
-    p.conditions.types.length > 0 ||
-    p.conditions.excludeTypes.length > 0;
+    p.conditions.relations.length > 0 ||
+    p.conditions.excludeRelations.length > 0;
 
   useEffect(() => {
     let stale = false;
-    if (!hasTagType) {
+    if (!hasTagRelation) {
       setHits(null);
       return;
     }
@@ -130,7 +130,7 @@ export function ConditionBar(p: ConditionBarProps): ReactNode {
           conditions={p.conditions}
           onPatch={p.onPatch}
           onPickTag={(exclude) => setTagPick({ exclude })}
-          onPickType={(exclude) => setTypePick({ exclude })}
+          onPickRelation={(exclude) => setRelationPick({ exclude })}
           onOpenExpr={() => setExprOpen(true)}
         />
       </div>
@@ -145,14 +145,14 @@ export function ConditionBar(p: ConditionBarProps): ReactNode {
           }}
         />
       )}
-      {typePick && (
-        <TypePickDialog
-          exclude={typePick.exclude}
-          selected={pickedTypePaths}
-          onClose={() => setTypePick(null)}
+      {relationPick && (
+        <RelationPickDialog
+          exclude={relationPick.exclude}
+          selected={pickedRelationPaths}
+          onClose={() => setRelationPick(null)}
           onPick={(path) => {
-            p.onPatch(applyTypePick(p.conditions, path, typePick.exclude));
-            setTypePick(null);
+            p.onPatch(applyRelationPick(p.conditions, path, relationPick.exclude));
+            setRelationPick(null);
           }}
         />
       )}

@@ -21,8 +21,8 @@ describe('EMPTY_FILTER 与 isFilterEmpty', () => {
       keyword: null,
       tags: [],
       excludeTags: [],
-      types: [],
-      excludeTypes: [],
+      relations: [],
+      excludeRelations: [],
       tagPresence: null,
       sort: 'newest',
       expr: null,
@@ -41,8 +41,8 @@ describe('EMPTY_FILTER 与 isFilterEmpty', () => {
     expect(isFilterEmpty(cond({ keyword: '电影' }))).toBe(false);
     expect(isFilterEmpty(cond({ tags: [tag('工作', true)] }))).toBe(false);
     expect(isFilterEmpty(cond({ excludeTags: [tag('临时')] }))).toBe(false);
-    expect(isFilterEmpty(cond({ types: [{ path: '国籍' }] }))).toBe(false);
-    expect(isFilterEmpty(cond({ excludeTypes: [{ path: '所在' }] }))).toBe(false);
+    expect(isFilterEmpty(cond({ relations: [{ path: '国籍' }] }))).toBe(false);
+    expect(isFilterEmpty(cond({ excludeRelations: [{ path: '所在' }] }))).toBe(false);
     expect(isFilterEmpty(cond({ tagPresence: 'none' }))).toBe(false);
   });
 });

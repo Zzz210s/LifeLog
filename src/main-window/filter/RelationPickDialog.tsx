@@ -6,22 +6,22 @@ import { hoverTitle } from '../../shared/truncate-title';
 import type { TypeRef } from '../../shared/types';
 import { BTN_ICON } from '../shell/button-classes';
 
-export interface TypePickDialogProps {
-  /** 模式:false 加入类型条件 / true 排除类型条件 */
+export interface RelationPickDialogProps {
+  /** 模式:false 加入关系条件 / true 排除关系条件 */
   exclude: boolean;
-  /** 两侧(types 与 excludeTypes)已含的路径:渲染为「已添加」不可再选 */
+  /** 两侧(relations 与 excludeRelations)已含的路径:渲染为「已添加」不可再选 */
   selected: string[];
   onClose: () => void;
-  /** 选中回传类型标签完整路径(筛选条件存路径,数据层按 types.tag_id 反查) */
+  /** 选中回传被指向标签的完整路径(筛选条件存路径,数据层按 path 反查) */
   onPick: (path: string) => void;
 }
 
 /**
- * 类型选择器(添加条件 -> 类型/排除类型):数据源是 `list_types`(只列**已登记**的类型)。
- * 类型天然含子级并叠加携带(R4),所以没有「含子级」开关;显示口径与标签选择器一致,
- * 用纯文本形态,回传仍是原始路径。
+ * 关系选择器(添加条件 -> 关系/排除关系):022 起任何标签都可被指向,数据源是全部标签
+ * (`api.listTypes` 现返回全量)。关系天然含子级并叠加继承,所以没有「含子级」开关;
+ * 显示口径与标签选择器一致,用纯文本形态,回传仍是原始路径。
  */
-export function TypePickDialog(p: TypePickDialogProps): ReactNode {
+export function RelationPickDialog(p: RelationPickDialogProps): ReactNode {
   const [rows, setRows] = useState<TypeRef[] | null>(null);
   const [error, setError] = useState('');
 
@@ -33,7 +33,7 @@ export function TypePickDialog(p: TypePickDialogProps): ReactNode {
         if (!dead) setRows(r);
       })
       .catch((e) => {
-        if (!dead) setError('类型加载失败: ' + String(e));
+        if (!dead) setError('关系加载失败: ' + String(e));
       });
     return () => {
       dead = true;
@@ -52,7 +52,7 @@ export function TypePickDialog(p: TypePickDialogProps): ReactNode {
     return () => document.removeEventListener('keydown', onKey, true);
   }, [p]);
 
-  const title = p.exclude ? '排除类型' : '添加类型';
+  const title = p.exclude ? '排除关系' : '添加关系';
 
   return (
     <div
@@ -77,7 +77,7 @@ export function TypePickDialog(p: TypePickDialogProps): ReactNode {
         ) : rows === null ? (
           <p className="py-6 text-center text-label text-muted">加载中…</p>
         ) : rows.length === 0 ? (
-          <p className="py-6 text-center text-label text-muted">还没有类型,在标签菜单里「设为类型」</p>
+          <p className="py-6 text-center text-label text-muted">还没有标签可被指向</p>
         ) : (
           <ul className="max-h-64 overflow-y-auto rounded-md border border-border">
             {rows.map((row) => {

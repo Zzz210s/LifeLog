@@ -21,7 +21,7 @@ const FILES = [
   'filter/ExprDialog.tsx',
   'filter/ExprSyntaxHint.tsx',
   'filter/TagPickDialog.tsx',
-  'filter/TypePickDialog.tsx',
+  'filter/RelationPickDialog.tsx',
   'filter/AddConditionMenu.tsx',
   'shell/TopBarMenu.tsx',
   'sidebar/TagRow.tsx',
@@ -61,7 +61,7 @@ const FILES = [
 const FLOATS: Array<[string, string]> = [
   ['filter/ExprDialog.tsx', 'role="dialog"'],
   ['filter/TagPickDialog.tsx', 'role="dialog"'],
-  ['filter/TypePickDialog.tsx', 'role="dialog"'],
+  ['filter/RelationPickDialog.tsx', 'role="dialog"'],
   ['filter/AddConditionMenu.tsx', 'role="menu"'],
   ['shell/TopBarMenu.tsx', 'role="menu"'],
   ['sidebar/TagMenu.tsx', 'role="menu"'],
@@ -73,7 +73,7 @@ const FLOATS: Array<[string, string]> = [
 const SCRIMS: Array<[string, string]> = [
   ['filter/ExprDialog.tsx', 'bg-overlay'],
   ['filter/TagPickDialog.tsx', 'bg-overlay'],
-  ['filter/TypePickDialog.tsx', 'bg-overlay'],
+  ['filter/RelationPickDialog.tsx', 'bg-overlay'],
   ['tutorial/TutorialOverlay.tsx', 'bg-overlay'],
 ];
 

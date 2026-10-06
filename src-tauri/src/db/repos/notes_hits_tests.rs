@@ -1,7 +1,7 @@
 //! 条件栏命中数(`notes_hits`)测试:与 query_notes 逐值同源(单条件),
 //! 覆盖含子级 / 仅本级、携带继承、类型认领继承与排除侧。
 use super::*;
-use crate::db::repos::notes::notes_filter::{TypeCond, TagCond};
+use crate::db::repos::notes::notes_filter::{RelationCond, TagCond};
 use crate::db::repos::notes;
 use crate::db::repos::tags::set_tag_relation;
 use crate::db::{migrate, repos};
@@ -21,8 +21,8 @@ fn tag(c: &Connection, segs: &[&str]) -> i64 {
 fn tag_cond(path: &str, include_children: bool) -> TagCond {
     TagCond { path: path.into(), include_children }
 }
-fn role_cond(path: &str) -> TypeCond {
-    TypeCond { path: path.into() }
+fn role_cond(path: &str) -> RelationCond {
+    RelationCond { path: path.into() }
 }
 
 /// 单条件查询的真实条数(同一条件走 query_notes),与 hits 读数逐值比对
@@ -57,7 +57,7 @@ fn tag_hits_match_query_for_subtree_and_self_only() {
 
 /// ② 类型条件 = 被认领标签子树 ∪ 经携带命中;排除侧同数;与 query_notes 一致
 #[test]
-fn type_hits_match_query_with_claims_and_carry() {
+fn relation_hits_match_query_with_claims_and_carry() {
     let mut c = db();
     notes::create_plain(&mut c, "甲笔记 #甲").unwrap();
     notes::create_plain(&mut c, "甲子笔记 #甲/子").unwrap();
@@ -69,17 +69,17 @@ fn type_hits_match_query_with_claims_and_carry() {
     set_tag_relation(&mut c, jia, guo).unwrap(); // 甲 携带 国籍 → 甲 子树经携带命中
     set_tag_relation(&mut c, yi, guo).unwrap(); // 乙 被 国籍 认领 → 乙 子树命中
 
-    let cond = FilterConditions { types: vec![role_cond("国籍")], ..Default::default() };
+    let cond = FilterConditions { relations: vec![role_cond("国籍")], ..Default::default() };
     let hits = hits(&c, &FilterConditions {
-        types: vec![role_cond("国籍")],
-        exclude_types: vec![role_cond("国籍")],
+        relations: vec![role_cond("国籍")],
+        exclude_relations: vec![role_cond("国籍")],
         ..Default::default()
     })
     .unwrap();
 
-    assert_eq!(hits.type_hits, vec![q(&c, &cond)]);
-    assert_eq!(hits.type_hits, vec![3], "认领(乙)1 + 携带(甲子树)2");
-    assert_eq!(hits.exclude_type_hits, hits.type_hits, "排除 chip 显示的是该条件自己影响到的条数");
+    assert_eq!(hits.relation_hits, vec![q(&c, &cond)]);
+    assert_eq!(hits.relation_hits, vec![3], "认领(乙)1 + 携带(甲子树)2");
+    assert_eq!(hits.exclude_relation_hits, hits.relation_hits, "排除 chip 显示的是该条件自己影响到的条数");
 }
 
 /// ③ 空条件不给查询:四组读数都是空向量

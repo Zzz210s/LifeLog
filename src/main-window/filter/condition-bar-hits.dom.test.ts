@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
- * 条件栏「命中 N 条」小字(标签类型 spec §5;Task 5 欠账 3):
- * 标签与排除标签 chip 按条件对象原序贴上后端独立计数;没有标签/类型条件时不发请求。
+ * 条件栏「命中 N 条」小字(标签关系 spec §5;Task 5 欠账 3):
+ * 标签与排除标签 chip 按条件对象原序贴上后端独立计数;没有标签/关系条件时不发请求。
  * mock api:不碰真实库。
  */
 import { act, createElement } from 'react';
@@ -47,7 +47,7 @@ beforeEach(() => {
   carriedTagPaths.mockReset();
   carriedTagPaths.mockResolvedValue([]);
   conditionHitCounts.mockReset();
-  conditionHitCounts.mockResolvedValue({ tagHits: [], excludeTagHits: [], typeHits: [], excludeTypeHits: [] });
+  conditionHitCounts.mockResolvedValue({ tagHits: [], excludeTagHits: [], relationHits: [], excludeRelationHits: [] });
   host = document.createElement('div');
   document.body.appendChild(host);
   root = createRoot(host);
@@ -58,13 +58,13 @@ afterEach(() => {
   host.remove();
 });
 
-describe('条件栏:标签/类型命中数', () => {
+describe('条件栏:标签/关系命中数', () => {
   it('标签与排除标签 chip 显示各自的「命中 N 条」小字,按条件对象原序取值', async () => {
     conditionHitCounts.mockResolvedValue({
       tagHits: [3],
       excludeTagHits: [1],
-      typeHits: [],
-      excludeTypeHits: [],
+      relationHits: [],
+      excludeRelationHits: [],
     });
     await render(FULL);
     await act(async () => {
@@ -76,7 +76,7 @@ describe('条件栏:标签/类型命中数', () => {
     expect(conditionHitCounts).toHaveBeenCalledWith(FULL);
   });
 
-  it('没有标签/类型条件时不请求命中数', async () => {
+  it('没有标签/关系条件时不请求命中数', async () => {
     await render();
     expect(conditionHitCounts).not.toHaveBeenCalled();
   });

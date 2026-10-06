@@ -18,6 +18,6 @@ export interface TagFactsBundle {
 export interface ConditionHits {
   tagHits: number[];
   excludeTagHits: number[];
-  typeHits: number[];
-  excludeTypeHits: number[];
+  relationHits: number[];
+  excludeRelationHits: number[];
 }

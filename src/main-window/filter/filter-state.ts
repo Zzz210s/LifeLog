@@ -3,7 +3,7 @@
  * 键名真源在 Rust `db/repos/settings.rs` 的 `FILTER_CURRENT_KEY`,这里是它的镜像常量
  * (与其它 settings 键同一约定:真源在 Rust,前端只是同名字符串)。
  * 落库形状就是一个 `FilterConditions` 对象的 JSON,与 Rust `notes_filter.rs` 的
- * Serialize 同构(六个 camelCase 字段)。
+ * Serialize 同构(八个 camelCase 字段)。
  * 本文件只有纯函数(便于单测);读写 settings 的副作用在 use-filter-state.ts。
  */
 import { EMPTY_FILTER } from '../../shared/filter-conditions';
@@ -35,8 +35,8 @@ export function serializeFilterState(c: FilterConditions): string {
     keyword: c.keyword,
     tags: c.tags.map((t) => ({ path: t.path, includeChildren: t.includeChildren })),
     excludeTags: c.excludeTags.map((t) => ({ path: t.path, includeChildren: t.includeChildren })),
-    types: c.types.map((r) => ({ path: r.path })),
-    excludeTypes: c.excludeTypes.map((r) => ({ path: r.path })),
+    relations: c.relations.map((r) => ({ path: r.path })),
+    excludeRelations: c.excludeRelations.map((r) => ({ path: r.path })),
     tagPresence: c.tagPresence,
     sort: c.sort,
     expr: c.expr,

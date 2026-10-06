@@ -3,7 +3,7 @@
  * 结构非法一律回退 EMPTY_FILTER,绝不把半成品对象放进状态机。
  */
 import { EMPTY_FILTER, validateFilter } from './filter-conditions';
-import type { FilterConditions, TypeCond, TagCond } from './filter-conditions';
+import type { FilterConditions, RelationCond, TagCond } from './filter-conditions';
 
 /**
  * 解析设置里持久化的条件 JSON:空串 / 坏 JSON / 字段类型非法 / 校验不通过一律回退 EMPTY_FILTER;
@@ -28,16 +28,23 @@ export function parseFilterJson(raw: string | null): FilterConditions {
  * 日期范围已取消(D2):旧 JSON 里的 `from`/`to` 静默丢弃(这里只读已知字段)。
  */
 export function normalizeFilter(c: Partial<FilterConditions> | null | undefined): FilterConditions {
+  const rec = (c ?? {}) as Record<string, unknown>;
   return {
     keyword: c?.keyword ?? null,
     tags: Array.isArray(c?.tags) ? c.tags : [],
     excludeTags: Array.isArray(c?.excludeTags) ? c.excludeTags : [],
-    types: Array.isArray(c?.types) ? c.types : [],
-    excludeTypes: Array.isArray(c?.excludeTypes) ? c.excludeTypes : [],
+    relations: looseRelations(rec, ['relations', 'types', 'roles']),
+    excludeRelations: looseRelations(rec, ['excludeRelations', 'excludeTypes', 'excludeRoles']),
     tagPresence: c?.tagPresence === 'any' || c?.tagPresence === 'none' ? c.tagPresence : null,
     sort: c?.sort === 'oldest' ? 'oldest' : 'newest',
     expr: keepExpr(c?.expr ?? null),
   };
+}
+
+/** 宽松关系数组(归一用):按新名 -> 旧名依次取第一个数组;都不是数组则空(R10b 回读) */
+function looseRelations(rec: Record<string, unknown>, keys: string[]): RelationCond[] {
+  for (const k of keys) if (Array.isArray(rec[k])) return rec[k] as RelationCond[];
+  return [];
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
@@ -51,11 +58,12 @@ const keepExpr = (v: string | null): string | null => (v === null || v.trim() ==
 const readNullableString = (v: unknown): string | null | undefined =>
   v === undefined || v === null ? null : typeof v === 'string' ? v : undefined;
 
-/** 类型数组:缺字段 -> 空数组(老库兼容);非数组或项里 path 非字符串 -> null(非法) */
-function readTypeList(v: unknown): TypeCond[] | null {
+/** 关系数组:新字段优先,旧字段名 types/roles 依次回读(缺字段 -> 空数组,老库兼容);
+ *  非数组或项里 path 非字符串 -> null(非法) */
+function readRelationList(v: unknown): RelationCond[] | null {
   if (v === undefined || v === null) return [];
   if (!Array.isArray(v)) return null;
-  const out: TypeCond[] = [];
+  const out: RelationCond[] = [];
   for (const item of v) {
     if (!isRecord(item) || typeof item.path !== 'string') return null;
     out.push({ path: item.path });
@@ -81,22 +89,22 @@ function normalize(data: unknown): FilterConditions | null {
   const keyword = readNullableString(data.keyword);
   const tags = readTagList(data.tags);
   const excludeTags = readTagList(data.excludeTags);
-  const types = readTypeList(data.types ?? data.roles);
-  const excludeTypes = readTypeList(data.excludeTypes ?? data.excludeRoles);
+  const relations = readRelationList(data.relations ?? data.types ?? data.roles);
+  const excludeRelations = readRelationList(data.excludeRelations ?? data.excludeTypes ?? data.excludeRoles);
   const presence = readNullableString(data.tagPresence);
   const sort = readNullableString(data.sort);
   const expr = readNullableString(data.expr);
   if (keyword === undefined || expr === undefined) return null;
   if (tags === null || excludeTags === null || presence === undefined || sort === undefined) return null;
-  if (types === null || excludeTypes === null) return null;
+  if (relations === null || excludeRelations === null) return null;
   if (presence !== null && presence !== 'any' && presence !== 'none') return null;
   if (sort !== null && sort !== 'newest' && sort !== 'oldest') return null;
   return {
     keyword: (keyword ?? '').trim() === '' ? null : keyword,
     tags,
     excludeTags,
-    types,
-    excludeTypes,
+    relations,
+    excludeRelations,
     tagPresence: presence,
     sort: sort === 'oldest' ? 'oldest' : 'newest',
     expr: keepExpr(expr),

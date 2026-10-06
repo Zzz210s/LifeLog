@@ -1,6 +1,6 @@
-//! Task 2 类型筛选口径(spec 2026-10-05 §4 R4):筛类型 R 时,一条笔记命中当且仅当它挂着
-//! 某个标签 X,而 X 落在「被 R 认领的标签」子树内,或落在「携带 R 的标签」子树内 ——
-//! 携带那一跳与标签条件共用同一套子树继承(S1)。排除侧走同一份命中集(无黑洞)。
+//! 关系筛选口径(设计 2026-10-06 §4 R4):筛关系 R 时,一条笔记命中当且仅当它挂着
+//! 某个标签 X,而 X 落在「指向 R 的标签」子树内,或落在「携带 R 的标签」子树内 ——
+//! 指向那一跳与标签条件共用同一套子树继承。排除侧走同一份命中集(无黑洞)。
 //! 夹具开 foreign_keys=ON(与 db::open 一致):级联/回收是真的。本文件只碰内存库(真实库只读)。
 use crate::db::migrate;
 use crate::db::repos::notes::{create_plain, notes_filter::*, query};
@@ -14,16 +14,16 @@ fn db() -> Connection {
     c
 }
 
-fn type_cond(path: &str) -> TypeCond {
-    TypeCond { path: path.into() }
+fn relation_cond(path: &str) -> RelationCond {
+    RelationCond { path: path.into() }
 }
 
 fn include(path: &str) -> FilterConditions {
-    FilterConditions { types: vec![type_cond(path)], ..empty() }
+    FilterConditions { relations: vec![relation_cond(path)], ..empty() }
 }
 
 fn exclude(path: &str) -> FilterConditions {
-    FilterConditions { exclude_types: vec![type_cond(path)], ..empty() }
+    FilterConditions { exclude_relations: vec![relation_cond(path)], ..empty() }
 }
 
 /// 命中笔记的正文(按正文升序,免得依赖 id 方向)
@@ -39,7 +39,7 @@ fn id_at(c: &Connection, path: &str) -> i64 {
 
 /// ① 类型命中 = 被认领标签的子树 ∪ 携带该类型的标签子树;认领与携带两条腿都生效
 #[test]
-fn type_hits_claimed_subtree_and_carriers() {
+fn relation_hits_claimed_subtree_and_carriers() {
     let mut c = db();
     create_plain(&mut c, "认领本级 #中国").unwrap();
     create_plain(&mut c, "认领子级 #中国/北京").unwrap();
@@ -184,3 +184,4 @@ fn large_type_set_matches_brute_force() {
     assert_eq!(hits(&c, &include("国籍")), expected, "命中集必须与暴力枚举一致");
     assert_eq!(hits(&c, &include("所在")), vec!["L8"], "另一个类型只命中自己的认领");
 }
+

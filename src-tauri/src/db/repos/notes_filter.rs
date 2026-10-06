@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 /// 共用谓词真源(与表达式编译器共享,杜绝第二套标签/关键词语义)
 #[path = "filter_predicates.rs"]
 pub(crate) mod filter_predicates;
-pub(crate) use filter_predicates::{keyword_predicate, type_predicate, tag_exists, tag_predicate};
+pub(crate) use filter_predicates::{carry_predicate, keyword_predicate, tag_exists, tag_predicate};
 
 /// 单个标签条件:完整路径 + 是否含子级(前端默认含子级)
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -21,11 +21,11 @@ pub struct TagCond {
     pub include_children: bool,
 }
 
-/// 单个类型条件(2026-10-05 types R4):只有类型标签路径 —— 类型天然含子级并叠加携带,
-/// 没有「仅本级」开关。缺字段时由 `#[serde(default)]` 解析成空,兼容老库 filter_current。
+/// 单个关系条件(原「类型条件」,2026-10-06 §10 R10b):只有被指向标签的路径 —— 关系天然含
+/// 子级并叠加继承,没有「仅本级」开关。缺字段时由 `#[serde(default)]` 解析成空,兼容老库。
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 #[serde(default, rename_all = "camelCase")]
-pub struct TypeCond {
+pub struct RelationCond {
     pub path: String,
 }
 
@@ -40,14 +40,15 @@ pub struct FilterConditions {
     pub keyword: Option<String>,
     pub tags: Vec<TagCond>,
     pub exclude_tags: Vec<TagCond>,
-    /// 类型条件(spec 2026-10-05 §4 R4):命中 = 被该类型认领的标签子树 ∪ 经携带命中。
-    /// 老库 filter_current 缺这两个字段时按「无类型条件」解析(serde default 给空数组);
-    /// `alias` 回读 020 时代的旧字段名(`roles`/`excludeRoles`),否则级联改写(标签改名/移动)
-    /// 会把非空旧条件静默抹成空 —— serde 默认忽略未知字段,读不到就等于没有。
-    #[serde(default, alias = "roles")]
-    pub types: Vec<TypeCond>,
-    #[serde(default, alias = "excludeRoles")]
-    pub exclude_types: Vec<TypeCond>,
+    /// 关系条件(原「类型条件」,2026-10-06 §10 R10b 改名):命中 = 指向该标签的标签子树
+    /// ∪ 经携带/关系继承命中。老库 `filter_current` 缺这两个字段时按「无关系条件」解析
+    /// (serde default 给空数组);`alias` 依次回读旧字段名 `types`(本轮改名来源)与
+    /// `roles`(020 时代),否则级联改写(标签改名/移动)会把非空旧条件静默抹成空 ——
+    /// serde 默认忽略未知字段,读不到就等于没有。
+    #[serde(default, alias = "types", alias = "roles")]
+    pub relations: Vec<RelationCond>,
+    #[serde(default, alias = "excludeTypes", alias = "excludeRoles")]
+    pub exclude_relations: Vec<RelationCond>,
     pub tag_presence: Option<String>,
     pub sort: Option<String>,
     pub expr: Option<String>,
@@ -113,12 +114,12 @@ pub fn where_clause(c: &FilterConditions) -> Result<(String, Vec<Value>), String
         let m = tag_predicate(&t.path, !t.include_children, &mut args);
         clauses.push(format!("NOT {}", tag_exists(&m)));
     }
-    // 类型条件:与标签同一套 EXISTS 包装,排除侧共用同一份谓语(含/排除互补,无黑洞)
-    for r in &c.types {
-        clauses.push(tag_exists(&type_predicate(&r.path, &mut args)));
+    // 关系条件:与标签同一套 EXISTS 包装,排除侧共用同一份谓语(含/排除互补,无黑洞)
+    for r in &c.relations {
+        clauses.push(tag_exists(&carry_predicate(&r.path, &mut args)));
     }
-    for r in &c.exclude_types {
-        let m = type_predicate(&r.path, &mut args);
+    for r in &c.exclude_relations {
+        let m = carry_predicate(&r.path, &mut args);
         clauses.push(format!("NOT {}", tag_exists(&m)));
     }
     match c.tag_presence.as_deref() {
@@ -159,13 +160,13 @@ pub fn validate(c: &FilterConditions) -> Result<(), String> {
             return Err(format!("标签路径不合法: {}", t.path));
         }
     }
-    if c.types.len() > MAX_TAG_ITEMS {
-        return Err(format!("类型最多 {MAX_TAG_ITEMS} 项"));
+    if c.relations.len() > MAX_TAG_ITEMS {
+        return Err(format!("关系最多 {MAX_TAG_ITEMS} 项"));
     }
-    if c.exclude_types.len() > MAX_TAG_ITEMS {
-        return Err(format!("排除类型最多 {MAX_TAG_ITEMS} 项"));
+    if c.exclude_relations.len() > MAX_TAG_ITEMS {
+        return Err(format!("排除关系最多 {MAX_TAG_ITEMS} 项"));
     }
-    for r in c.types.iter().chain(c.exclude_types.iter()) {
+    for r in c.relations.iter().chain(c.exclude_relations.iter()) {
         if crate::tags::validate_tag_path(&r.path).is_err() {
             return Err(format!("标签路径不合法: {}", r.path));
         }
@@ -194,5 +195,5 @@ pub fn validate(c: &FilterConditions) -> Result<(), String> {
 mod notes_filter_md_tests;
 
 #[cfg(test)]
-#[path = "notes_filter_type_tests.rs"]
-mod notes_filter_type_tests;
+#[path = "notes_filter_relation_tests.rs"]
+mod notes_filter_relation_tests;

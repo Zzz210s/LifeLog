@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 /**
- * Task 2 类型条件在条件栏的落笔:添加条件菜单多「类型 / 排除类型」两档,
- * 点开后列已登记类型(api.listTypes),选中即 patch 出 types / excludeTypes。
+ * 关系条件在条件栏的落笔(设计 2026-10-06 §10 R10b):
+ * 添加条件菜单是「关系 / 排除关系」两档,点开后列全部可被指向的标签(api.listTypes),
+ * 选中即 patch 出 relations / excludeRelations。
  */
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
@@ -67,32 +68,32 @@ afterEach(() => {
   host.remove();
 });
 
-describe('条件栏:类型档', () => {
-  it('添加条件菜单有「类型」与「排除类型」两档', async () => {
+describe('条件栏:关系档', () => {
+  it('添加条件菜单有「关系」与「排除关系」两档', async () => {
     await render();
-    expect(menuItems()).toContain('类型');
-    expect(menuItems()).toContain('排除类型');
+    expect(menuItems()).toContain('关系');
+    expect(menuItems()).toContain('排除关系');
   });
 
-  it('点「类型」列出已登记类型,选中回传 types', async () => {
+  it('点「关系」列出全部可被指向的标签,选中回传 relations', async () => {
     await render();
     await click([...host.querySelectorAll<HTMLButtonElement>('button[role="menuitem"]')].find(
-      (b) => b.textContent === '类型'
+      (b) => b.textContent === '关系'
     ) as HTMLButtonElement);
     expect(listTypes).toHaveBeenCalled();
     expect(dialog().textContent).toContain('国籍');
     expect(dialog().textContent).toContain('所在');
 
     await click(buttonWith('国籍'));
-    expect(patches.at(-1)?.types).toEqual([{ path: '地点轴/国籍' }]);
+    expect(patches.at(-1)?.relations).toEqual([{ path: '地点轴/国籍' }]);
   });
 
-  it('点「排除类型」选中回传 excludeTypes', async () => {
+  it('点「排除关系」选中回传 excludeRelations', async () => {
     await render();
     await click([...host.querySelectorAll<HTMLButtonElement>('button[role="menuitem"]')].find(
-      (b) => b.textContent === '排除类型'
+      (b) => b.textContent === '排除关系'
     ) as HTMLButtonElement);
     await click(buttonWith('所在'));
-    expect(patches.at(-1)?.excludeTypes).toEqual([{ path: '地点轴/所在' }]);
+    expect(patches.at(-1)?.excludeRelations).toEqual([{ path: '地点轴/所在' }]);
   });
 });

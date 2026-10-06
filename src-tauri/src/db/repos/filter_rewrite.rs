@@ -32,8 +32,8 @@ fn rewrite_conditions(c: &mut FilterConditions, old: &str, new: &str) -> bool {
             }
         }
     }
-    // 类型条件存的也是标签路径(类型 = 已登记标签),改名/移动时跟着改,否则筛选静默失效
-    for list in [&mut c.types, &mut c.exclude_types] {
+    // 关系条件存的也是标签路径(目标标签),改名/移动时跟着改,否则筛选静默失效
+    for list in [&mut c.relations, &mut c.exclude_relations] {
         for r in list.iter_mut() {
             if let Some(p) = rewrite_path(&r.path, old, new) {
                 r.path = p;
@@ -101,7 +101,7 @@ where
     settings::set(conn, FILTER_CURRENT_KEY, &out)
 }
 
-/// 改名/移动后级联:filter_current 的 tags[] / exclude_tags[] / types[] / exclude_types[] / expr
+/// 改名/移动后级联:filter_current 的 tags[] / exclude_tags[] / relations[] / exclude_relations[] / expr
 /// 按前缀规则改写;有变化才回写,其余字段(keyword / sort / tag_presence / include_children)原样保留。
 pub(crate) fn rewrite_filter_paths(
     conn: &Connection,

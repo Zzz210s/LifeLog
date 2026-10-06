@@ -5,14 +5,14 @@
 import { hasExpr } from './filter-conditions';
 import type { FilterConditions } from './filter-conditions';
 
-/** 就地变更后能否本地重判:仅"引入标签全为仅本级且无排除/无类型/有无标签/表达式"时成立。
- *  表达式与类型都是后端语义(前端不做第二套解析/继承),有一律重查,绝不本地错判。 */
+/** 就地变更后能否本地重判:仅"引入标签全为仅本级且无排除/无关系/有无标签/表达式"时成立。
+ *  表达式与关系都是后端语义(前端不做第二套解析/继承),有一律重查,绝不本地错判。 */
 export function canEvaluateLocally(c: FilterConditions): boolean {
   return (
     !hasExpr(c) &&
     c.excludeTags.length === 0 &&
-    c.types.length === 0 &&
-    c.excludeTypes.length === 0 &&
+    c.relations.length === 0 &&
+    c.excludeRelations.length === 0 &&
     c.tagPresence === null &&
     c.tags.every((t) => !t.includeChildren)
   );

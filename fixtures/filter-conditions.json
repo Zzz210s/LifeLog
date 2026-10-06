@@ -116,8 +116,8 @@
       "keyword": null,
       "tags": [],
       "excludeTags": [],
-      "types": [],
-      "excludeTypes": [],
+      "relations": [],
+      "excludeRelations": [],
       "tagPresence": null,
       "sort": "newest",
       "expr": null
@@ -133,8 +133,8 @@
       "keyword": null,
       "tags": [],
       "excludeTags": [],
-      "types": [],
-      "excludeTypes": [],
+      "relations": [],
+      "excludeRelations": [],
       "tagPresence": null,
       "sort": "newest",
       "expr": null
@@ -150,8 +150,8 @@
       "keyword": "电影",
       "tags": [],
       "excludeTags": [],
-      "types": [],
-      "excludeTypes": [],
+      "relations": [],
+      "excludeRelations": [],
       "tagPresence": null,
       "sort": "oldest",
       "expr": null
@@ -172,8 +172,8 @@
       "keyword": "电影",
       "tags": [],
       "excludeTags": [],
-      "types": [],
-      "excludeTypes": [],
+      "relations": [],
+      "excludeRelations": [],
       "tagPresence": null,
       "sort": "newest",
       "expr": null
@@ -186,8 +186,8 @@
     "raw": {
       "tags": [{ "path": "工作" }],
       "excludeTags": [{ "path": "临时", "includeChildren": false }],
-      "types": [],
-      "excludeTypes": [],
+      "relations": [],
+      "excludeRelations": [],
       "tagPresence": "none"
     },
     "valid": true,
@@ -195,8 +195,8 @@
       "keyword": null,
       "tags": [{ "path": "工作", "includeChildren": false }],
       "excludeTags": [{ "path": "临时", "includeChildren": false }],
-      "types": [],
-      "excludeTypes": [],
+      "relations": [],
+      "excludeRelations": [],
       "tagPresence": "none",
       "sort": "newest",
       "expr": null
@@ -220,8 +220,8 @@
         { "path": "生活/健身", "includeChildren": false }
       ],
       "excludeTags": [],
-      "types": [],
-      "excludeTypes": [],
+      "relations": [],
+      "excludeRelations": [],
       "tagPresence": null,
       "sort": "newest",
       "expr": null
@@ -237,8 +237,8 @@
       "keyword": null,
       "tags": [],
       "excludeTags": [],
-      "types": [],
-      "excludeTypes": [],
+      "relations": [],
+      "excludeRelations": [],
       "tagPresence": null,
       "sort": "newest",
       "expr": null
@@ -254,8 +254,8 @@
       "keyword": null,
       "tags": [],
       "excludeTags": [],
-      "types": [],
-      "excludeTypes": [],
+      "relations": [],
+      "excludeRelations": [],
       "tagPresence": null,
       "sort": "newest",
       "expr": "#工作 AND NOT #临时"
@@ -271,8 +271,8 @@
       "keyword": null,
       "tags": [],
       "excludeTags": [],
-      "types": [],
-      "excludeTypes": [],
+      "relations": [],
+      "excludeRelations": [],
       "tagPresence": "any",
       "sort": "newest",
       "expr": null
@@ -288,8 +288,8 @@
       "keyword": null,
       "tags": [{ "path": "工作", "includeChildren": true }],
       "excludeTags": [],
-      "types": [],
-      "excludeTypes": [],
+      "relations": [],
+      "excludeRelations": [],
       "tagPresence": null,
       "sort": "newest",
       "expr": null
@@ -305,8 +305,8 @@
       "keyword": null,
       "tags": [{ "path": "工作", "includeChildren": true }],
       "excludeTags": [],
-      "types": [],
-      "excludeTypes": [],
+      "relations": [],
+      "excludeRelations": [],
       "tagPresence": null,
       "sort": "newest",
       "expr": null
@@ -321,8 +321,8 @@
       "keyword": null,
       "tags": [],
       "excludeTags": [],
-      "types": [],
-      "excludeTypes": [],
+      "relations": [],
+      "excludeRelations": [],
       "tagPresence": null,
       "sort": "newest",
       "expr": null
@@ -338,8 +338,8 @@
       "keyword": null,
       "tags": [],
       "excludeTags": [{ "path": "临时", "includeChildren": true }],
-      "types": [],
-      "excludeTypes": [],
+      "relations": [],
+      "excludeRelations": [],
       "tagPresence": null,
       "sort": "newest",
       "expr": null
@@ -563,7 +563,7 @@
   },
   {
     "kind": "condition",
-    "why": "类型条件:认领标签子树 + 携带,两侧类型数组都参与归一",
+    "why": "旧字段 types 非空:解析成 relations(R10b 改名回读,漏 alias 会被静默抹掉)",
     "raw": {
       "types": [{ "path": "地点轴/国籍" }],
       "excludeTypes": [{ "path": "所在" }]
@@ -573,8 +573,28 @@
       "keyword": null,
       "tags": [],
       "excludeTags": [],
-      "types": [{ "path": "地点轴/国籍" }],
-      "excludeTypes": [{ "path": "所在" }],
+      "relations": [{ "path": "地点轴/国籍" }],
+      "excludeRelations": [{ "path": "所在" }],
+      "tagPresence": null,
+      "sort": "newest",
+      "expr": null
+    },
+    "empty": false
+  },
+  {
+    "kind": "condition",
+    "why": "最老字段名 roles/excludeRoles 非空:同样回读成 relations(020 时代存量条件)",
+    "raw": {
+      "roles": [{ "path": "国籍" }],
+      "excludeRoles": [{ "path": "所在" }]
+    },
+    "valid": true,
+    "normalized": {
+      "keyword": null,
+      "tags": [],
+      "excludeTags": [],
+      "relations": [{ "path": "国籍" }],
+      "excludeRelations": [{ "path": "所在" }],
       "tagPresence": null,
       "sort": "newest",
       "expr": null
