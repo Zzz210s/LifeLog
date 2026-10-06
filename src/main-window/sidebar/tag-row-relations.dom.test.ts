@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
  * 树行的关系小字 / 悬浮卡片(标签关系统一 spec §7):
- * 行内末尾 `备注 → 目标`(无备注回退目标名),最多 2 个 + `+N`,受开关控制;
+ * 行内紧跟标签名 `备注 → 目标`(无备注回退目标名),最多 2 个 + `+N`,受开关控制;计数导轨仍在行尾;
  * 悬浮卡片走行上的 `data-tip`(瞬时 HoverTip),列出全部关系(不受行内 2 条上限约束)。
  */
 import { act, createElement } from 'react';
@@ -105,11 +105,13 @@ describe('树行关系小字(开关)', () => {
     expect(relationTexts()).toEqual(['国别 → 国籍', '所在', '+2']);
   });
 
-  it('关系小字在名字与计数之后(优先级 名字 → 计数 → 关系)', () => {
+  it('行内顺序为 名字 → 关系小字 → 计数(优先级 2026-10-06 调整)', () => {
     const row = render({ relations: [rel(10, '国籍', '国别')], showRelations: true });
     const html = row.innerHTML;
-    expect(html.indexOf('日本')).toBeLessThan(html.indexOf('data-count-rail'));
-    expect(html.indexOf('data-count-rail')).toBeLessThan(html.indexOf('data-tag-relation'));
+    expect(html.indexOf('日本')).toBeLessThan(html.indexOf('data-tag-relation'));
+    expect(html.indexOf('data-tag-relation')).toBeLessThan(html.indexOf('data-count-rail'));
+    // 关系小字必须落在名字与计数之间(顺序反过来即红)
+    expect(html.slice(html.indexOf('日本'), html.indexOf('data-count-rail'))).toContain('data-tag-relation');
   });
 });
 

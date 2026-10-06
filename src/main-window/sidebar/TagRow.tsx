@@ -146,9 +146,7 @@ export function TagRow(p: TagRowProps): ReactNode {
       {p.excluded && (
         <span className="shrink-0 rounded-xs bg-danger-soft px-1 text-micro text-danger">已排除</span>
       )}
-      <span className={COUNT_RAIL_CLASS} data-count-rail>
-        {p.node.subtreeCount}
-      </span>
+      {/* 关系小字紧跟标签名(离名字最近),计数导轨留行尾(ml-auto 仍把它推到最右) */}
       {p.showRelations === true &&
         relationChips.shown.map((r) => (
           <span
@@ -165,6 +163,9 @@ export function TagRow(p: TagRowProps): ReactNode {
           {'+' + relationChips.extra}
         </span>
       )}
+      <span className={COUNT_RAIL_CLASS} data-count-rail>
+        {p.node.subtreeCount}
+      </span>
     </button>
   );
 }
