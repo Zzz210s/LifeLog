@@ -95,11 +95,21 @@ export interface CarryReport {
 }
 
 /** 类型读数(IPC `list_types` / `list_tag_types`,camelCase 与 Rust TypeRef 一致):
- *  tagId 是类型对应的真实标签 id,path 是它的完整路径,name 是路径末段(改名自动跟随) */
+ *  tagId 是类型对应的真实标签 id,path 是它的完整路径,name 是路径末段(改名自动跟随)
+ *  @deprecated 022 起「类型」概念并入标签关系(见 `RelationRef`);此形状仅供过渡期旧界面使用 */
 export interface TypeRef {
   tagId: number;
   path: string;
   name: string;
+}
+
+/** 一条标签关系边(IPC `list_tag_relations` / `list_tag_facts`):
+ *  读作「本标签具有 toTagId 所表示的属性」;`remark` 是被指向标签名字里的 md 备注(仅显示用) */
+export interface RelationRef {
+  toTagId: number;
+  path: string;
+  name: string;
+  remark: string;
 }
 
 /** 表达式实时校验结果(IPC `validate_expr`);position 是 0 起字符下标,展示时 +1 */

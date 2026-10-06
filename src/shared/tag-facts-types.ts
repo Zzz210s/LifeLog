@@ -1,18 +1,15 @@
-// 标签类型的批量读 / 命中数读数类型(自 shared/types.ts 抽出,守 200 行上限)。
+// 标签关系的批量读 / 命中数读数类型(自 shared/types.ts 抽出,守 200 行上限)。
 // camelCase 与 Rust TagFact / TagFactsBundle / ConditionHits 一致。
-import type { TypeRef } from './types';
+import type { RelationRef } from './types';
 
-/** 单个标签的「类型 / 携带」事实(IPC `list_tag_facts`):
- *  types = 该标签认领的类型;carried = 该标签携带的目标标签路径(前端拿 bundle.types 换算成类型与值) */
+/** 单个标签的关系事实(IPC `list_tag_facts`):relations = 该标签的全部出边(A -> ?) */
 export interface TagFact {
   tagId: number;
-  types: TypeRef[];
-  carried: string[];
+  relations: RelationRef[];
 }
 
-/** 批量事实包(IPC `list_tag_facts`):types 是完整类型表,与 facts 一起给,一次 IPC 取全 */
+/** 批量事实包(IPC `list_tag_facts`):一次 IPC 取全 */
 export interface TagFactsBundle {
-  types: TypeRef[];
   facts: TagFact[];
 }
 

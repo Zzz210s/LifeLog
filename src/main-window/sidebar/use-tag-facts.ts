@@ -9,7 +9,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../shared/api';
 import { tagLabelPlain } from '../../shared/tag-label';
-import { carryFacts } from '../../shared/tag-type-facts';
 import type { CarryFact, TypeChip } from '../../shared/tag-type-facts';
 import type { TagFactsBundle } from '../../shared/tag-facts-types';
 
@@ -29,9 +28,11 @@ async function safe<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
   }
 }
 
-const EMPTY: TagFactsBundle = { types: [], facts: [] };
+const EMPTY: TagFactsBundle = { facts: [] };
 
-/** 全量事实里挑出当前可见的标签:查不到的标签 = 没类型也没携带,不上表 */
+/** 全量事实里挑出当前可见的标签:查不到的标签 = 没有关系,不上表。
+ *  022 起「类型」概念并入标签关系:类型徽章暂不给(关系小字 T4 接入),
+ *  携带小字由出边的目标名(已剥 md)直接给出。 */
 async function loadFacts(ids: readonly number[]): Promise<Map<number, TagFacts>> {
   const bundle = await safe(() => api.listTagFacts(), EMPTY);
   const wanted = new Set(ids);
@@ -39,8 +40,8 @@ async function loadFacts(ids: readonly number[]): Promise<Map<number, TagFacts>>
   for (const fact of bundle.facts) {
     if (!wanted.has(fact.tagId)) continue;
     out.set(fact.tagId, {
-      types: fact.types.map((r) => ({ tagId: r.tagId, name: tagLabelPlain(r.name) })),
-      carry: carryFacts(fact.carried, bundle.types),
+      types: [],
+      carry: fact.relations.map((r) => ({ type: tagLabelPlain(r.name), value: '' })),
     });
   }
   return out;

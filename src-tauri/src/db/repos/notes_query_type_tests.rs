@@ -4,7 +4,7 @@
 //! 夹具开 foreign_keys=ON(与 db::open 一致):级联/回收是真的。本文件只碰内存库(真实库只读)。
 use crate::db::migrate;
 use crate::db::repos::notes::{create_plain, notes_filter::*, query};
-use crate::db::repos::tags::{ensure_path, set_tag_type_flag, set_carry, set_tag_types};
+use crate::db::repos::tags::{ensure_path, set_tag_relation};
 use rusqlite::{params, Connection};
 
 fn db() -> Connection {
@@ -48,9 +48,8 @@ fn type_hits_claimed_subtree_and_carriers() {
     let guo = ensure_path(&c, &["地点轴".into(), "国籍".into()]).unwrap();
     let china = ensure_path(&c, &["中国".into()]).unwrap();
     let author = id_at(&c, "作者/丸尾");
-    set_tag_type_flag(&c, guo, true).unwrap();
-    set_tag_types(&mut c, china, vec![guo]).unwrap();
-    set_carry(&mut c, author, guo).unwrap();
+    set_tag_relation(&mut c, china, guo).unwrap();
+    set_tag_relation(&mut c, author, guo).unwrap();
 
     assert_eq!(hits(&c, &include("地点轴/国籍")), vec!["经携带", "认领子级", "认领本级"]);
 }
@@ -61,11 +60,8 @@ fn type_carry_matches_only_this_type() {
     let mut c = db();
     create_plain(&mut c, "作者页 #作者/丸尾").unwrap();
     let guo = ensure_path(&c, &["国籍".into()]).unwrap();
-    let suo = ensure_path(&c, &["所在".into()]).unwrap();
     let author = id_at(&c, "作者/丸尾");
-    set_tag_type_flag(&c, guo, true).unwrap();
-    set_tag_type_flag(&c, suo, true).unwrap();
-    set_carry(&mut c, author, guo).unwrap();
+    set_tag_relation(&mut c, author, guo).unwrap();
 
     assert_eq!(hits(&c, &include("国籍")), vec!["作者页"]);
     assert_eq!(hits(&c, &include("所在")), Vec::<String>::new(), "别的类型不受这条携带影响");
@@ -82,9 +78,8 @@ fn type_exclude_is_complementary() {
     let guo = ensure_path(&c, &["国籍".into()]).unwrap();
     let china = ensure_path(&c, &["中国".into()]).unwrap();
     let author = id_at(&c, "作者/丸尾");
-    set_tag_type_flag(&c, guo, true).unwrap();
-    set_tag_types(&mut c, china, vec![guo]).unwrap();
-    set_carry(&mut c, author, guo).unwrap();
+    set_tag_relation(&mut c, china, guo).unwrap();
+    set_tag_relation(&mut c, author, guo).unwrap();
 
     let inc = hits(&c, &include("国籍"));
     let exc = hits(&c, &exclude("国籍"));
@@ -99,8 +94,7 @@ fn type_without_claims_hits_nothing() {
     let mut c = db();
     create_plain(&mut c, "甲 #中国").unwrap();
     create_plain(&mut c, "乙 #书").unwrap();
-    let guo = ensure_path(&c, &["国籍".into()]).unwrap();
-    set_tag_type_flag(&c, guo, true).unwrap(); // 登记了,但一条认领都没有
+    ensure_path(&c, &["国籍".into()]).unwrap(); // 标签存在,但一条指向它的边都没有
 
     assert_eq!(hits(&c, &include("国籍")), Vec::<String>::new());
     assert_eq!(hits(&c, &exclude("国籍")), vec!["乙", "甲"], "排除无认领类型 = 全库");
@@ -113,8 +107,7 @@ fn claimed_tag_survives_gc_and_stays_filterable() {
     let mut c = db();
     let guo = ensure_path(&c, &["国籍".into()]).unwrap();
     let japan = ensure_path(&c, &["日本".into()]).unwrap();
-    set_tag_type_flag(&c, guo, true).unwrap();
-    set_tag_types(&mut c, japan, vec![guo]).unwrap();
+    set_tag_relation(&mut c, japan, guo).unwrap();
 
     create_plain(&mut c, "无关 #书").unwrap(); // 触发 gc_orphans
     assert_eq!(id_at(&c, "日本"), japan, "被认领的标签不得被回收");
@@ -136,9 +129,8 @@ fn type_subtree_boundary_and_deep_chain() {
     let guo = ensure_path(&c, &["国籍".into()]).unwrap();
     let china = ensure_path(&c, &["中国".into()]).unwrap();
     let author = id_at(&c, "作者/丸尾");
-    set_tag_type_flag(&c, guo, true).unwrap();
-    set_tag_types(&mut c, china, vec![guo]).unwrap();
-    set_carry(&mut c, author, guo).unwrap();
+    set_tag_relation(&mut c, china, guo).unwrap();
+    set_tag_relation(&mut c, author, guo).unwrap();
 
     assert_eq!(
         hits(&c, &include("国籍")),
@@ -154,15 +146,13 @@ fn large_type_set_matches_brute_force() {
     let mut c = db();
     let guo = ensure_path(&c, &["国籍".into()]).unwrap();
     let suo = ensure_path(&c, &["所在".into()]).unwrap();
-    set_tag_type_flag(&c, guo, true).unwrap();
-    set_tag_type_flag(&c, suo, true).unwrap();
     for claimed in ["中国", "日本", "法国/巴黎", "地点/旧"] {
         let segs: Vec<String> = claimed.split('/').map(Into::into).collect();
         let id = ensure_path(&c, &segs).unwrap();
-        set_tag_types(&mut c, id, vec![guo]).unwrap();
+        set_tag_relation(&mut c, id, guo).unwrap();
     }
     let solo = ensure_path(&c, &["家".into()]).unwrap();
-    set_tag_types(&mut c, solo, vec![suo]).unwrap();
+    set_tag_relation(&mut c, solo, suo).unwrap();
 
     let mut expected: Vec<String> = Vec::new();
     for (label, tag, hit) in [
@@ -184,7 +174,7 @@ fn large_type_set_matches_brute_force() {
     }
     // 携带者:作者/丸尾 携带 国籍 —— 它自己与后代命中,祖先不命中
     let author = ensure_path(&c, &["作者".into(), "丸尾".into()]).unwrap();
-    set_carry(&mut c, author, guo).unwrap();
+    set_tag_relation(&mut c, author, guo).unwrap();
     create_plain(&mut c, "L10 #作者/丸尾").unwrap();
     create_plain(&mut c, "L11 #作者/丸尾/甲").unwrap();
     create_plain(&mut c, "L12 #作者").unwrap();

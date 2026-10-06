@@ -64,11 +64,11 @@ pub fn link_note(conn: &Connection, note_id: i64, tag_id: i64) -> rusqlite::Resu
     Ok(())
 }
 
-/// 精确回收孤儿标签:既无 tag_links(任何方向)、又无子节点、又未被登记为类型、
-/// 又不是任何 'tag'/'type' 行的目标(父节点天生没有链接,不得当孤儿删)。被携带的标签
-/// (如只做类型声明的 `出版年份`)、已登记的类型标签(`地点轴/国籍`)、认领了类型的值标签
-/// (`中国`)都是有用处的空壳:回收它们会让类型/携带静默消失,故必须与"有笔记链接"同等
-/// 对待,不得回收(R2)。'type' 行的 tag_id 侧由上面的通用条件自然覆盖。
+/// 精确回收孤儿标签:既无 tag_links(任何方向)、又无子节点、又不是任何 'tag'/'type' 行的目标
+/// (父节点天生没有链接,不得当孤儿删)。被指向的标签(如只做关系声明的 `地点轴/国籍`)、
+/// 认领了关系的值标签(`中国`)都是有用处的空壳:回收它们会让关系静默消失,
+/// 故必须与"有笔记链接"同等对待,不得回收(R7)。'type' 行已由迁移 022 并入 'tag',
+/// 这里保留 `IN ('tag','type')` 只为兜住历史重放中的极端情形。
 /// 循环删除以覆盖"整条链都成孤儿"的情形(链有多长就循环多少次)。
 pub(crate) fn gc_orphans(conn: &Connection) -> rusqlite::Result<()> {
     loop {
@@ -76,7 +76,6 @@ pub(crate) fn gc_orphans(conn: &Connection) -> rusqlite::Result<()> {
             "DELETE FROM tags
              WHERE NOT EXISTS (SELECT 1 FROM tag_links l WHERE l.tag_id = tags.id)
                AND NOT EXISTS (SELECT 1 FROM tag_links c WHERE c.target_type IN ('tag', 'type') AND c.target_id = tags.id)
-               AND tags.is_type = 0
                AND NOT EXISTS (SELECT 1 FROM tags ch WHERE ch.parent_id = tags.id)",
             [],
         )?;

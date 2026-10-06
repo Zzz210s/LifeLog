@@ -6,12 +6,12 @@ use crate::db::Db;
 use serde::Serialize;
 use tauri::{AppHandle, Manager, State};
 
-/// 删除前的二次确认数据:将影响的子孙标签数、笔记数(已去重)与"被多少标签携带"
+/// 删除前的二次确认数据:将影响的子孙标签数、笔记数(已去重)与「被多少标签指向」
 #[derive(Serialize, Debug, PartialEq)]
 pub struct TagImpact {
     pub tags: i64,
     pub notes: i64,
-    /// 该标签被多少个标签携带(删除确认文案;只数直接携带者)
+    /// 该标签被多少个标签指向(删除确认文案;只数直接入边)
     pub carriers: i64,
 }
 
@@ -75,13 +75,13 @@ pub fn delete_tag(app: AppHandle, tag_id: i64) -> Result<(), String> {
     with_conn(&app, |c| tags::delete_subtree(c, tag_id))
 }
 
-/// 删除前的影响面读数(供二次确认弹窗)。carriers 只数指向该标签本身的直接携带者,
-/// 不含指向其子孙的携带行 —— 删除子树会清掉后者,但读数不把它们算进 N。
+/// 删除前的影响面读数(供二次确认弹窗)。carriers 只数指向该标签本身的直接入边,
+/// 不含指向其子孙的边 —— 删除子树会清掉后者,但读数不把它们算进 N。
 #[tauri::command]
 pub fn tag_impact(app: AppHandle, tag_id: i64) -> Result<TagImpact, String> {
     with_conn(&app, |c| {
         let (tags, notes) = tags::impact(c, tag_id).map_err(|e| e.to_string())?;
-        let carriers = tags::count_carriers(c, tag_id).map_err(|e| e.to_string())?;
+        let carriers = tags::count_relations_to(c, tag_id).map_err(|e| e.to_string())?;
         Ok(TagImpact { tags, notes, carriers })
     })
 }
@@ -124,58 +124,35 @@ pub fn remove_tag_alias(app: AppHandle, alias: String) -> Result<(), String> {
     with_conn(&app, |c| tags::remove(c, &alias).map_err(|e| e.to_string()))
 }
 
-/// 添加标签携带关系(幂等):自携带 / 成环 / 标签不存在都给中文错且不写库
+/// 建立标签关系 A -> B(幂等):自指向 / 成环 / 标签不存在都给中文错且不写库。
+/// 任何标签都可被指向(设计 2026-10-06 R2:is_type 已取消)
 #[tauri::command]
-pub fn set_tag_carry(app: AppHandle, carrier_id: i64, carried_id: i64) -> Result<(), String> {
-    with_conn(&app, |c| tags::set_carry(c, carrier_id, carried_id))
+pub fn set_tag_relation(app: AppHandle, from_tag: i64, to_tag: i64) -> Result<(), String> {
+    with_conn(&app, |c| tags::set_tag_relation(c, from_tag, to_tag))
 }
 
-/// 移除标签携带关系(幂等:不存在也算成功)
+/// 移除标签关系 A -> B(幂等:不存在也算成功)
 #[tauri::command]
-pub fn remove_tag_carry(app: AppHandle, carrier_id: i64, carried_id: i64) -> Result<(), String> {
-    with_conn(&app, |c| tags::remove_carry(c, carrier_id, carried_id))
+pub fn remove_tag_relation(app: AppHandle, from_tag: i64, to_tag: i64) -> Result<(), String> {
+    with_conn(&app, |c| tags::remove_tag_relation(c, from_tag, to_tag))
 }
 
-/// 双向携带读数:carried = 本标签携带的;carriersOf = 携带本标签的(标签菜单「携带…」数据源)
+/// 某标签的全部出边(A -> ?):每项含目标 id / 路径 / 末段名 / 名字备注(仅显示用)
 #[tauri::command]
-pub fn list_tag_carries(app: AppHandle, carrier_id: i64) -> Result<tags::CarryReport, String> {
-    with_conn(&app, |c| tags::list_carries(c, carrier_id).map_err(|e| e.to_string()))
+pub fn list_tag_relations(app: AppHandle, from_tag: i64) -> Result<Vec<tags::RelationRef>, String> {
+    with_conn(&app, |c| tags::list_tag_relations(c, from_tag).map_err(|e| e.to_string()))
 }
 
-/// 有携带者的标签路径集合(去重、升序):条件栏摘要据此决定是否显示 `+携带` 小字
+/// 有入边的标签路径集合(去重、升序):条件栏摘要据此决定是否显示 `+携带` 小字
 #[tauri::command]
 pub fn carried_tag_paths(app: AppHandle) -> Result<Vec<String>, String> {
     with_conn(&app, |c| carry_paths::carried_paths(c).map_err(|e| e.to_string()))
 }
 
-/// 设置或取消「类型」标记(幂等):把该标签登记为类型(受控命名空间),**不动**树结构与排序(R5)
-#[tauri::command]
-pub fn set_tag_type_flag(app: AppHandle, tag_id: i64, is_type: bool) -> Result<(), String> {
-    with_conn(&app, |c| tags::set_tag_type_flag(c, tag_id, is_type))
-}
-
-/// 整体替换某标签的类型认领(不是增量);type_ids 里的每一项必须是已登记的类型标签
-#[tauri::command]
-pub fn set_tag_types(app: AppHandle, tag_id: i64, type_ids: Vec<i64>) -> Result<(), String> {
-    with_conn(&app, |c| tags::set_tag_types(c, tag_id, type_ids))
-}
-
-/// 全部已登记类型(标签菜单与筛选「类型」条件的数据源),按路径升序
-#[tauri::command]
-pub fn list_types(app: AppHandle) -> Result<Vec<tags::TypeRef>, String> {
-    with_conn(&app, |c| tags::list_types(c).map_err(|e| e.to_string()))
-}
-
-/// 全量标签「类型 / 携带」事实(一次 IPC 取全):侧栏逐标签读数会在扁平模式打 1.5k 次
+/// 全量标签关系事实(一次 IPC 取全):侧栏逐标签读数会在扁平模式打 1.5k 次
 #[tauri::command]
 pub fn list_tag_facts(app: AppHandle) -> Result<tags::TagFactsBundle, String> {
     with_conn(&app, |c| tags::tag_facts(c).map_err(|e| e.to_string()))
-}
-
-/// 某标签认领的类型(标签菜单「类型…」回显),按路径升序
-#[tauri::command]
-pub fn list_tag_types(app: AppHandle, tag_id: i64) -> Result<Vec<tags::TypeRef>, String> {
-    with_conn(&app, |c| tags::list_tag_types(c, tag_id).map_err(|e| e.to_string()))
 }
 
 /// 路径前缀补全(输入 `#工作/` 时列出下一级候选)。

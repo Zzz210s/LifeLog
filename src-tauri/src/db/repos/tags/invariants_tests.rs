@@ -51,14 +51,13 @@ pub(crate) fn assert_fts_matches_tags(conn: &Connection) {
     assert!(stale.is_empty(), "notes_fts 残留已不存在的笔记行: {stale:?}");
 }
 
-/// ② 无孤儿标签(无 tag_id 链接、无指向它的 'tag'/'type' 行、未登记为类型、无子节点);失败信息列出全部孤儿路径。
+/// ② 无孤儿标签(无 tag_id 链接、无指向它的关系边、无子节点);失败信息列出全部孤儿路径。
 pub(crate) fn assert_no_orphan_tags(conn: &Connection) {
     let mut stmt = conn
         .prepare(
             "SELECT t.path FROM tags t
               WHERE NOT EXISTS (SELECT 1 FROM tag_links l WHERE l.tag_id = t.id)
                 AND NOT EXISTS (SELECT 1 FROM tag_links lc WHERE lc.target_type IN ('tag', 'type') AND lc.target_id = t.id)
-                AND t.is_type = 0
                 AND NOT EXISTS (SELECT 1 FROM tags c WHERE c.parent_id = t.id)
               ORDER BY t.path",
         )
@@ -97,7 +96,7 @@ pub(crate) fn assert_carry_acyclic(conn: &Connection) {
         .unwrap();
     let cycles: Vec<String> = edges
         .into_iter()
-        .filter(|&(a, b)| super::carry::reaches(conn, b, a).unwrap_or(false))
+        .filter(|&(a, b)| super::relation::reaches(conn, b, a).unwrap_or(false))
         .map(|(a, b)| format!("{a}->{b}"))
         .collect();
     assert!(cycles.is_empty(), "携带图存在环(S3 禁止): {cycles:?}");

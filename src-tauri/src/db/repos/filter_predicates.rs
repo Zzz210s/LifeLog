@@ -45,20 +45,12 @@ fn carry_predicate(path: &str, args: &mut Vec<Value>) -> String {
         .to_string()
 }
 
-/// 类型路径谓词(2026-10-05 types R4):类型 R 的命中 = 「认领了 R 的标签」的子树 ∪
-/// 携带 R 的标签的子树。认领侧把 `tag_links` 的 `'type'` 行与标签子树物化成一个
-/// 标签 id 集合(子查询不引用 `t`/`n`,SQLite 只求值一次);携带侧直接复用
-/// [`carry_predicate`] —— R3 保证携带目标就是类型标签,所以按类型路径查携带行即可,
-/// 与标签条件同一套子树继承。类型没被任何标签认领(也没有携带者)时集合为空,命中 0
-/// (不是退化成全部)。形态与携带那轮一致:一次物化 + `IN`。
+/// 关系路径谓词(原「类型条件」,设计 2026-10-06 §2 §10 R10):`'type'` 边已并入 `'tag'`
+/// (迁移 022),「R 被哪些标签认领」与「谁携带 R」本就是同一件事 —— 有边 `A -> R` 的标签 A
+/// 及其全部后代。与标签条件共用同一份 [`carry_predicate`],两条谓词在迁移后取值逐值相同;
+/// 字段与文案的统一留给 Task 3。目标没被任何标签指向时集合为空,命中 0(不退化成全部)。
 pub(crate) fn type_predicate(path: &str, args: &mut Vec<Value>) -> String {
-    args.push(Value::Text(path.to_string())); // 定位类型标签(按 path 取 id)
-    let claimed = "t.id IN (SELECT d.id FROM tags d \
-         JOIN tags c ON (d.path = c.path OR substr(d.path, 1, length(c.path) + 1) = c.path || '/') \
-         JOIN tag_links tl ON tl.target_type = 'type' AND tl.tag_id = c.id \
-         JOIN tags rt ON rt.id = tl.target_id \
-         WHERE rt.path = ?)";
-    format!("({claimed}) OR {}", carry_predicate(path, args))
+    carry_predicate(path, args)
 }
 
 /// `笔记 n 挂有满足 m 的标签` 的 EXISTS 包装;取反(排除标签、`NOT`)由调用方加 `NOT `

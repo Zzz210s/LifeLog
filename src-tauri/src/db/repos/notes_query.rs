@@ -97,3 +97,7 @@ mod notes_query_carry_tests;
 #[cfg(test)]
 #[path = "notes_query_type_tests.rs"]
 mod notes_query_type_tests;
+
+#[cfg(test)]
+#[path = "notes_query_relation_equiv_tests.rs"]
+mod notes_query_relation_equiv_tests;

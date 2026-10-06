@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { CarryReport, CompleteItem, DbInfo, ExprCheck, GraphData, GraphLinkDegrees, MergeReport, Note, NoteLinks, NoteTitle, ParseResult, TypeRef, TagCount, TagImpact } from './types';
+import type { CarryReport, CompleteItem, DbInfo, ExprCheck, GraphData, GraphLinkDegrees, MergeReport, Note, NoteLinks, NoteTitle, ParseResult, RelationRef, TypeRef, TagCount, TagImpact } from './types';
 import type { ConditionHits, TagFactsBundle } from './tag-facts-types';
 import type { FilterConditions } from './filter-conditions';
 import type { AppHotkeyKind } from './hotkey-match';
@@ -34,26 +34,65 @@ export const api = {
   removeTagAlias: (alias: string) => invoke<void>('remove_tag_alias', { alias }),
   /** 添加标签携带关系(幂等):自携带 / 成环 / 标签不存在都会 reject 中文原因 */
   setTagCarry: (carrierId: number, carriedId: number) =>
-    invoke<void>('set_tag_carry', { carrierId, carriedId }),
+    invoke<void>('set_tag_relation', { fromTag: carrierId, toTag: carriedId }),
   /** 移除标签携带关系(幂等:不存在也算成功) */
   removeTagCarry: (carrierId: number, carriedId: number) =>
-    invoke<void>('remove_tag_carry', { carrierId, carriedId }),
-  /** 双向携带读数:carried 是本标签携带的,carriersOf 是携带本标签的 */
-  listTagCarries: (carrierId: number) => invoke<CarryReport>('list_tag_carries', { carrierId }),
-  /** 有携带者的标签路径集合(去重、升序):条件栏摘要据此决定是否显示 `+携带` 小字 */
+    invoke<void>('remove_tag_relation', { fromTag: carrierId, toTag: carriedId }),
+  /** 双向携带读数:carried 是本标签携带的,carriersOf 是携带本标签的(旧「携带…」面板兼容) */
+  listTagCarries: async (carrierId: number): Promise<CarryReport> => {
+    const [out, facts, tags] = await Promise.all([
+      api.listTagRelations(carrierId),
+      api.listTagFacts(),
+      api.listTags(),
+    ]);
+    const pathOf = new Map(tags.map((t) => [t.id, t.path] as const));
+    const carried = out.map((r) => ({ id: r.toTagId, path: r.path }));
+    const carriersOf = facts.facts
+      .filter((f) => f.relations.some((r) => r.toTagId === carrierId))
+      .map((f) => ({ id: f.tagId, path: pathOf.get(f.tagId) ?? '' }))
+      .filter((r) => r.path !== '')
+      .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+    return { carried, carriersOf };
+  },
+  /** 有入边的标签路径集合(去重、升序):条件栏摘要据此决定是否显示 `+携带` 小字 */
   carriedTagPaths: () => invoke<string[]>('carried_tag_paths'),
-  /** 设置/取消「类型」标记(幂等):把该标签登记为类型,不动它在树里的位置与排序 */
-  setTagTypeFlag: (tagId: number, isType: boolean) =>
-    invoke<void>('set_tag_type_flag', { tagId, isType }),
-  /** 整体替换某标签的类型认领(不是增量);typeIds 每项必须是已登记的类型标签 */
-  setTagTypes: (tagId: number, typeIds: number[]) =>
-    invoke<void>('set_tag_types', { tagId, typeIds }),
-  /** 全部已登记类型(标签菜单与筛选「类型」条件的数据源) */
-  listTypes: () => invoke<TypeRef[]>('list_types'),
-  /** 某标签认领的类型(标签菜单「类型…」回显) */
-  listTagTypes: (tagId: number) => invoke<TypeRef[]>('list_tag_types', { tagId }),
-  /** 全量标签「类型 / 携带」事实(批量只读,一次 IPC 取全):侧栏树行徽章/携带小字/悬浮卡片共用 */
+  /** 设置/取消「类型」标记:022 起任何标签都可被指向,登记不再是前置条件(过渡期空实现) */
+  setTagTypeFlag: async (_tagId: number, _isType: boolean): Promise<void> => {},
+  /** 整体替换某标签的类型认领(过渡期:按关系增量替换,不是后端的整体替换命令) */
+  setTagTypes: async (tagId: number, typeIds: number[]): Promise<void> => {
+    const current = await api.listTagRelations(tagId);
+    const want = new Set(typeIds);
+    const have = new Set(current.map((r) => r.toTagId));
+    for (const r of current) if (!want.has(r.toTagId)) await api.removeTagRelation(tagId, r.toTagId);
+    for (const id of want) if (!have.has(id)) await api.setTagRelation(tagId, id);
+  },
+  /** 全部可被指向的标签(022 起任何标签都可以,旧「类型」候选直接用全量标签) */
+  listTypes: async (): Promise<TypeRef[]> => {
+    const tags = await api.listTags();
+    return tags.map((t) => ({
+      tagId: t.id,
+      path: t.path,
+      name: t.path.split('/').pop() ?? t.path,
+    }));
+  },
+  /** 某标签的全部出边(旧「类型…」回显):映射成旧的 TypeRef 形状 */
+  listTagTypes: async (tagId: number): Promise<TypeRef[]> =>
+    (await api.listTagRelations(tagId)).map((r) => ({
+      tagId: r.toTagId,
+      path: r.path,
+      name: r.name,
+    })),
+  /** 全量标签关系事实(批量只读,一次 IPC 取全):侧栏树行/悬浮卡片共用 */
   listTagFacts: () => invoke<TagFactsBundle>('list_tag_facts'),
+  /** 建立标签关系 A -> B(幂等):自指向 / 成环 / 标签不存在都会 reject 中文原因 */
+  setTagRelation: (fromTag: number, toTag: number) =>
+    invoke<void>('set_tag_relation', { fromTag, toTag }),
+  /** 移除标签关系 A -> B(幂等:不存在也算成功) */
+  removeTagRelation: (fromTag: number, toTag: number) =>
+    invoke<void>('remove_tag_relation', { fromTag, toTag }),
+  /** 某标签的全部出边(A -> ?):每项含目标 id / 路径 / 末段名 / 名字备注 */
+  listTagRelations: (fromTag: number) =>
+    invoke<RelationRef[]>('list_tag_relations', { fromTag }),
   /** 条件栏「命中 N 条」读数:每个标签/类型条件独立计数(不叠加其它条件) */
   conditionHitCounts: (conditions: FilterConditions) =>
     invoke<ConditionHits>('condition_hit_counts', { conditions }),

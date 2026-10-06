@@ -5,7 +5,7 @@
 //! 目标标签不得落在源标签子树内(否则合并后语义自指)。
 use super::tree::{linked_notes, subtree_ids};
 use super::alias;
-use super::carry;
+use super::relation;
 use crate::db::repos::tags::{finish, PostWrite};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
@@ -67,7 +67,7 @@ pub fn merge_tags(
             .map_err(|e| e.to_string())?;
         for row in rows {
             let y = row.map_err(|e| e.to_string())?;
-            if carry::reaches(&tx, y, target_id).map_err(|e| e.to_string())? {
+            if relation::reaches(&tx, y, target_id).map_err(|e| e.to_string())? {
                 doomed.push(y);
             }
         }

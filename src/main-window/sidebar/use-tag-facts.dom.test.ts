@@ -20,12 +20,11 @@ vi.mock('../../shared/api', () => ({ api: { listTagFacts, listTagTypes, listTagC
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const GUO = { tagId: 7, path: '地点轴/国籍', name: '国籍' };
+const REL = { toTagId: 7, path: '地点轴/国籍', name: '国籍', remark: '' };
 const BUNDLE: TagFactsBundle = {
-  types: [GUO],
   facts: [
-    { tagId: 1, types: [GUO], carried: ['地点轴/国籍/日本'] },
-    { tagId: 99, types: [], carried: ['地点轴/国籍/美国'] },
+    { tagId: 1, relations: [REL] },
+    { tagId: 99, relations: [] },
   ],
 };
 
@@ -68,12 +67,12 @@ describe('useTagFacts(批量一次)', () => {
     expect(listTagCarries).not.toHaveBeenCalled();
   });
 
-  it('只保留可见标签;认领类型剥 md;携带目标换算成「类型 -> 值」', async () => {
+  it('只保留可见标签;出边按目标名(已剥 md)给出关系小字', async () => {
     await act(async () => root.render(createElement(Probe)));
     await settle();
     expect([...facts.keys()]).toEqual([1]);
-    expect(facts.get(1)?.types).toEqual([{ tagId: 7, name: '国籍' }]);
-    expect(facts.get(1)?.carry).toEqual([{ type: '国籍', value: '日本' }]);
+    expect(facts.get(1)?.types).toEqual([]);
+    expect(facts.get(1)?.carry).toEqual([{ type: '国籍', value: '' }]);
   });
 
   it('读数失败回空值且不抛', async () => {

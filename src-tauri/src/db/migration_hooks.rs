@@ -196,3 +196,21 @@ pub(crate) fn ensure_is_type_column(conn: &Connection) -> rusqlite::Result<()> {
     }
     Ok(())
 }
+
+/// 022 删除 `tags.is_type`(设计 2026-10-06 §2:「谁能当类型」这条约束取消,任何标签都能被指向)。
+/// 与 021 的 ADD COLUMN 同理:SQLite 的 `ALTER TABLE ... DROP COLUMN` 没有 IF EXISTS,
+/// 重放会报 no such column,故按列存在性决定是否执行。
+/// 列上没有索引/触发器/生成列引用,`DROP COLUMN` 直接可用(不重建表、不触发 tag_links 级联)。
+pub(crate) const RELATIONS_VERSION: i64 = 22;
+
+pub(crate) fn drop_is_type_column(conn: &Connection) -> rusqlite::Result<()> {
+    let n: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info('tags') WHERE name = 'is_type'",
+        [],
+        |r| r.get(0),
+    )?;
+    if n > 0 {
+        conn.execute_batch("ALTER TABLE tags DROP COLUMN is_type")?;
+    }
+    Ok(())
+}
