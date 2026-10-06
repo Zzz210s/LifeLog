@@ -24,8 +24,8 @@ fn facts_group_relations_per_tag_sorted_by_path() {
     let zhong = ensure(&c, "中国");
     let guo = ensure(&c, "地点轴/国籍");
     let suo = ensure(&c, "地点轴/所在");
-    set_tag_relation(&mut c, zhong, guo).unwrap();
-    set_tag_relation(&mut c, zhong, suo).unwrap();
+    set_tag_relation(&mut c, zhong, guo, "").unwrap();
+    set_tag_relation(&mut c, zhong, suo, "").unwrap();
     ensure(&c, "无关标签");
 
     let bundle = tag_facts(&c).unwrap();
@@ -50,8 +50,8 @@ fn facts_sorted_and_follow_cascades() {
     let guo = ensure(&c, "国籍");
     let a = ensure(&c, "甲");
     let b = ensure(&c, "乙");
-    set_tag_relation(&mut c, b, guo).unwrap();
-    set_tag_relation(&mut c, a, guo).unwrap();
+    set_tag_relation(&mut c, b, guo, "").unwrap();
+    set_tag_relation(&mut c, a, guo, "").unwrap();
 
     let ids: Vec<i64> = tag_facts(&c).unwrap().facts.iter().map(|f| f.tag_id).collect();
     assert!(ids.windows(2).all(|w| w[0] < w[1]), "按 tag_id 升序: {ids:?}");

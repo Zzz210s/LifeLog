@@ -57,7 +57,7 @@ fn relation_hits_identical_before_and_after_migration_022() {
         params![china, guo],
     )
     .unwrap();
-    set_tag_relation(&mut c, author, guo).unwrap(); // 携带侧:'tag' 行
+    set_tag_relation(&mut c, author, guo, "").unwrap(); // 携带侧:'tag' 行
 
     let before = old_relation_hits(&c, "地点轴/国籍");
     assert_eq!(before, vec!["经携带", "认领子级", "认领本级"], "改前读数");
@@ -103,8 +103,8 @@ fn field_rename_preserves_where_clause_and_hits() {
     let guo = ensure_path(&c, &["国籍".into()]).unwrap();
     let china = ensure_path(&c, &["中国".into()]).unwrap();
     let author = id_at(&c, "作者/丸尾");
-    set_tag_relation(&mut c, china, guo).unwrap();
-    set_tag_relation(&mut c, author, guo).unwrap();
+    set_tag_relation(&mut c, china, guo, "").unwrap();
+    set_tag_relation(&mut c, author, guo, "").unwrap();
 
     for (new_json, old_json) in [
         (r#"{"relations":[{"path":"国籍"}]}"#, r#"{"types":[{"path":"国籍"}]}"#),

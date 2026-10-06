@@ -39,7 +39,7 @@ fn delete_target_cleans_incoming_edges() {
     let mut c = db();
     let jia = ensure(&c, "甲");
     let target = segs(&c, &["地点轴", "国籍"]);
-    set_tag_relation(&mut c, jia, target).unwrap();
+    set_tag_relation(&mut c, jia, target, "").unwrap();
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tag_links WHERE target_type='tag'"), 1);
 
     let root = id_at(&c, "地点轴");
@@ -68,8 +68,8 @@ fn delete_source_cascades_outgoing_edges() {
     let src = segs(&c, &["作者", "丸尾"]);
     let other = ensure(&c, "甲");
     let guo = ensure(&c, "地点轴/国籍");
-    set_tag_relation(&mut c, src, guo).unwrap();
-    set_tag_relation(&mut c, other, guo).unwrap();
+    set_tag_relation(&mut c, src, guo, "").unwrap();
+    set_tag_relation(&mut c, other, guo, "").unwrap();
 
     delete_subtree(&mut c, src).unwrap();
 
@@ -89,7 +89,7 @@ fn gc_orphans_keeps_relation_target() {
     let guo = ensure(&c, "国籍");
     let junk = ensure(&c, "空壳");
     let carrier = ensure(&c, "作者");
-    set_tag_relation(&mut c, carrier, guo).unwrap();
+    set_tag_relation(&mut c, carrier, guo, "").unwrap();
 
     gc_orphans(&c).unwrap();
 
@@ -113,7 +113,7 @@ fn relation_edges_do_not_change_note_tags_fts_or_export() {
         .unwrap();
     let export_before = notes_export::rows(&c).unwrap();
 
-    set_tag_relation(&mut c, yi, jia).unwrap(); // 乙 -> 甲(target_id = note.id,故意撞号)
+    set_tag_relation(&mut c, yi, jia, "").unwrap(); // 乙 -> 甲(target_id = note.id,故意撞号)
 
     let tags_after = repos::notes::read_full(&c, note.id).unwrap().unwrap().tags;
     let fts_after: String = c
@@ -125,19 +125,19 @@ fn relation_edges_do_not_change_note_tags_fts_or_export() {
     assert_eq!(notes_export::rows(&c).unwrap(), export_before, "导出内容不因关系而变");
 }
 
-/// ⑤ 逐标签读数与批量事实口径一致:都给出 name 与 md 备注(备注只来自被指向标签的名字)
+/// ⑤ 逐标签读数与批量事实口径一致:都给出 name 与**边上的属性名**(不取目标名的 md 备注)
 #[test]
-fn relation_ref_carries_name_and_md_remark() {
+fn relation_ref_carries_edge_remark() {
     let mut c = db();
     let author = ensure(&c, "作者/丸尾");
     let guo = ensure(&c, "[国籍](国别)");
-    set_tag_relation(&mut c, author, guo).unwrap();
+    set_tag_relation(&mut c, author, guo, "国籍").unwrap();
 
     let out = list_tag_relations(&c, author).unwrap();
     let one = &out[0];
     assert_eq!(one.path, "[国籍](国别)");
     assert_eq!(one.name, "[国籍](国别)", "name 是原始末段名");
-    assert_eq!(one.remark, "国别", "remark 取名字里的链接备注");
+    assert_eq!(one.remark, "国籍", "remark 取边上的属性名,不是目标名的 md 备注");
 
     let facts = tag_facts(&c).unwrap();
     assert_eq!(facts.facts.len(), 1);
@@ -153,8 +153,8 @@ fn count_relations_to_counts_direct_incoming() {
     let b = ensure(&c, "乙");
     let target = ensure(&c, "丙");
     assert_eq!(count_relations_to(&c, target).unwrap(), 0);
-    set_tag_relation(&mut c, a, target).unwrap();
-    set_tag_relation(&mut c, b, target).unwrap();
+    set_tag_relation(&mut c, a, target, "").unwrap();
+    set_tag_relation(&mut c, b, target, "").unwrap();
     assert_eq!(count_relations_to(&c, target).unwrap(), 2);
     assert_eq!(count_relations_to(&c, a).unwrap(), 0, "起点自己不算入边");
     assert_eq!(list_tag_relations(&c, target).unwrap().len(), 0, "丙没有出边");

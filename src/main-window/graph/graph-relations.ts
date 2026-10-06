@@ -3,7 +3,8 @@
  *
  * 关系数据不走 `graph_data`(那条命令只交标签骨架与笔记链接),改用前端已有的
  * `list_tag_facts` 批量事实就地摊平 —— 24 条边不值得多一条 IPC,也不给 Rust 侧添接口。
- * 备注取**被指向标签 B 自己的名字备注**(`RelationRef.remark`),仅显示用(R6 不参与筛选/计数)。
+ * 备注取**边上的属性名**(`RelationRef.remark`,迁移 023):`A --(国籍)--> B` 的 `国籍`,
+ * 不是被指向标签自己名字里的 md 备注。仅显示用(R6 不参与筛选/计数)。
  */
 import type { TagFact } from '../../shared/tag-facts-types';
 import type { GraphNode } from '../../shared/types';
@@ -14,7 +15,7 @@ export interface RelationEdge {
   a: number;
   /** 终点标签 id(被指向的属性) */
   b: number;
-  /** 箭头上的文字备注(取 B 的名字备注;缺失为空串,缺失时图上不画字) */
+  /** 箭头上的属性名(边上的 remark;缺失为空串,缺失时图上不画字) */
   remark: string;
 }
 

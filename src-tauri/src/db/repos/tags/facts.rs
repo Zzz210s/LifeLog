@@ -4,6 +4,7 @@
 //!
 //! 命中范围与逐标签读数完全一致:读 `tag_links` 的 `target_type='tag'` 行，
 //! 每条事实的 relations 按目标路径升序;没有任何关系的标签不出现在结果里(前端查不到即空)。
+//! 每条边的**属性名存在边上**(`RelationRef.remark`，迁移 023),不是目标标签名字里的 md 备注。
 use rusqlite::Connection;
 use serde::Serialize;
 use std::collections::BTreeMap;
@@ -26,23 +27,23 @@ pub struct TagFactsBundle {
     pub facts: Vec<TagFact>,
 }
 
-/// 全量标签关系事实(一次查询给全库);按 tag_id 升序
+/// 全量标签关系事实(一次查询给全库);按 tag_id 升序;每项带**边上**的属性名
 pub fn tag_facts(conn: &Connection) -> rusqlite::Result<TagFactsBundle> {
     let mut by_tag: BTreeMap<i64, TagFact> = BTreeMap::new();
     let mut stmt = conn.prepare(
-        "SELECT l.tag_id, t.id, t.path FROM tag_links l JOIN tags t ON t.id = l.target_id \
+        "SELECT l.tag_id, t.id, t.path, l.remark FROM tag_links l JOIN tags t ON t.id = l.target_id \
          WHERE l.target_type = 'tag' ORDER BY l.tag_id, t.path",
     )?;
     let rows = stmt.query_map([], |r| {
-        Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, String>(2)?))
+        Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, String>(2)?, r.get::<_, String>(3)?))
     })?;
     for row in rows {
-        let (tag_id, to_tag_id, path) = row?;
+        let (tag_id, to_tag_id, path, remark) = row?;
         by_tag
             .entry(tag_id)
             .or_insert_with(|| TagFact { tag_id, relations: Vec::new() })
             .relations
-            .push(relation_ref(to_tag_id, &path));
+            .push(relation_ref(to_tag_id, &path, remark));
     }
     Ok(TagFactsBundle { facts: by_tag.into_values().collect() })
 }

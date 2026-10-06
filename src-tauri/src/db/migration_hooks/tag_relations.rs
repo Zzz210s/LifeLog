@@ -77,3 +77,20 @@ pub(crate) fn drop_is_type_column(conn: &Connection) -> rusqlite::Result<()> {
     }
     Ok(())
 }
+
+/// 023 给 `tag_links` 加 `remark`(属性名存在**边**上,设计 2026-10-06 §2 修订)。
+/// 与 021 的 ADD COLUMN 同一限制:SQLite 没有 IF NOT EXISTS,重放会报 duplicate column,
+/// 故按列存在性决定是否执行。存量行取默认空串(显示回退只给目标名,不校验历史数据)。
+pub(crate) const LINK_REMARK_VERSION: i64 = 23;
+
+pub(crate) fn ensure_link_remark_column(conn: &Connection) -> rusqlite::Result<()> {
+    let n: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info('tag_links') WHERE name = 'remark'",
+        [],
+        |r| r.get(0),
+    )?;
+    if n == 0 {
+        conn.execute_batch("ALTER TABLE tag_links ADD COLUMN remark TEXT NOT NULL DEFAULT ''")?;
+    }
+    Ok(())
+}

@@ -12,36 +12,39 @@ pub(crate) fn union_edges(
 ) -> Result<i64, String> {
     let mut added = 0i64;
     // 出边:源 → Y 迁成 目标 → Y。目标已能沿关系方向走到 Y 时,再加 目标→Y 会成环,剔除。
-    for y in column(conn, "SELECT target_id FROM tag_links WHERE tag_id=?1 AND target_type='tag'", source_id)? {
+    let out_sql = "SELECT target_id, remark FROM tag_links WHERE tag_id=?1 AND target_type='tag'";
+    for (y, remark) in column(conn, out_sql, source_id)? {
         if y == target_id || reaches(conn, y, target_id).map_err(|e| e.to_string())? {
             continue;
         }
-        added += insert(conn, target_id, y)?;
+        added += insert(conn, target_id, y, &remark)?;
     }
     // 入边:Y → 源 迁成 Y → 目标。目标本身能到达 Y 时,再加 Y→目标 会成环(Y≠目标已挡自环),剔除。
-    for y in column(conn, "SELECT tag_id FROM tag_links WHERE target_id=?1 AND target_type='tag'", source_id)? {
+    let in_sql = "SELECT tag_id, remark FROM tag_links WHERE target_id=?1 AND target_type='tag'";
+    for (y, remark) in column(conn, in_sql, source_id)? {
         if y == target_id || reaches(conn, target_id, y).map_err(|e| e.to_string())? {
             continue;
         }
-        added += insert(conn, y, target_id)?;
+        added += insert(conn, y, target_id, &remark)?;
     }
     Ok(added)
 }
 
-/// 单列 i64 查询
-fn column(conn: &Connection, sql: &str, id: i64) -> Result<Vec<i64>, String> {
+/// 单列 (id, 属性名) 查询:合并时边的属性名要跟着搬,不能丢
+fn column(conn: &Connection, sql: &str, id: i64) -> Result<Vec<(i64, String)>, String> {
     let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
     let rows = stmt
-        .query_map(params![id], |r| r.get::<_, i64>(0))
+        .query_map(params![id], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))
         .map_err(|e| e.to_string())?;
     rows.collect::<rusqlite::Result<Vec<_>>>().map_err(|e| e.to_string())
 }
 
-/// 插入一条关系边,返回是否真的新增(重复即 0)
-fn insert(conn: &Connection, from: i64, to: i64) -> Result<i64, String> {
+/// 插入一条关系边(带属性名),返回是否真的新增(重复即 0)
+fn insert(conn: &Connection, from: i64, to: i64, remark: &str) -> Result<i64, String> {
     conn.execute(
-        "INSERT OR IGNORE INTO tag_links(tag_id, target_type, target_id) VALUES(?1, 'tag', ?2)",
-        params![from, to],
+        "INSERT OR IGNORE INTO tag_links(tag_id, target_type, target_id, remark) \
+         VALUES(?1, 'tag', ?2, ?3)",
+        params![from, to, remark],
     )
     .map_err(|e| e.to_string())?;
     Ok(conn.changes() as i64)

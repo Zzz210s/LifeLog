@@ -35,7 +35,7 @@ fn set_relation_adds_edge_and_lists_out_edges() {
     let yi = ensure(&c, "乙");
     assert_eq!(relation_edges(&c), 0);
 
-    set_tag_relation(&mut c, jia, yi).unwrap();
+    set_tag_relation(&mut c, jia, yi, "").unwrap();
 
     assert_eq!(relation_edges(&c), 1);
     let out = list_tag_relations(&c, jia).unwrap();
@@ -53,8 +53,8 @@ fn set_relation_is_idempotent() {
     let mut c = db();
     let jia = ensure(&c, "甲");
     let yi = ensure(&c, "乙");
-    set_tag_relation(&mut c, jia, yi).unwrap();
-    set_tag_relation(&mut c, jia, yi).unwrap();
+    set_tag_relation(&mut c, jia, yi, "").unwrap();
+    set_tag_relation(&mut c, jia, yi, "").unwrap();
     assert_eq!(relation_edges(&c), 1);
     assert_eq!(list_tag_relations(&c, jia).unwrap().len(), 1);
 }
@@ -65,7 +65,7 @@ fn any_tag_can_be_a_relation_target() {
     let mut c = db();
     let author = ensure(&c, "作者/丸尾");
     let guo = ensure(&c, "地点轴/国籍");
-    set_tag_relation(&mut c, author, guo).unwrap();
+    set_tag_relation(&mut c, author, guo, "").unwrap();
     assert_eq!(relation_edges(&c), 1);
     assert_eq!(count_relations_to(&c, guo).unwrap(), 1);
     assert_eq!(count_relations_to(&c, author).unwrap(), 0, "出边方不算入边");
@@ -76,7 +76,7 @@ fn any_tag_can_be_a_relation_target() {
 fn set_relation_rejects_self_reference() {
     let mut c = db();
     let jia = ensure(&c, "甲");
-    let err = set_tag_relation(&mut c, jia, jia).unwrap_err();
+    let err = set_tag_relation(&mut c, jia, jia, "").unwrap_err();
     assert!(err.contains("自己"), "要中文提示不能指向自己: {err}");
     assert_eq!(relation_edges(&c), 0);
 }
@@ -87,8 +87,8 @@ fn set_relation_rejects_two_node_cycle() {
     let mut c = db();
     let a = ensure(&c, "甲");
     let b = ensure(&c, "乙");
-    set_tag_relation(&mut c, a, b).unwrap();
-    let err = set_tag_relation(&mut c, b, a).unwrap_err();
+    set_tag_relation(&mut c, a, b, "").unwrap();
+    let err = set_tag_relation(&mut c, b, a, "").unwrap_err();
     assert!(err.contains("循环"), "要中文提示会形成循环: {err}");
     assert_eq!(relation_edges(&c), 1);
 }
@@ -100,9 +100,9 @@ fn set_relation_rejects_three_node_cycle() {
     let a = ensure(&c, "甲");
     let b = ensure(&c, "乙");
     let d = ensure(&c, "丙");
-    set_tag_relation(&mut c, a, b).unwrap();
-    set_tag_relation(&mut c, b, d).unwrap();
-    let err = set_tag_relation(&mut c, d, a).unwrap_err();
+    set_tag_relation(&mut c, a, b, "").unwrap();
+    set_tag_relation(&mut c, b, d, "").unwrap();
+    let err = set_tag_relation(&mut c, d, a, "").unwrap_err();
     assert!(err.contains("循环"), "要中文提示会形成循环: {err}");
     assert_eq!(relation_edges(&c), 2);
 }
@@ -113,7 +113,7 @@ fn remove_relation_deletes_edge_and_is_idempotent() {
     let mut c = db();
     let jia = ensure(&c, "甲");
     let yi = ensure(&c, "乙");
-    set_tag_relation(&mut c, jia, yi).unwrap();
+    set_tag_relation(&mut c, jia, yi, "").unwrap();
     remove_tag_relation(&mut c, jia, yi).unwrap();
     assert_eq!(relation_edges(&c), 0);
     assert!(list_tag_relations(&c, jia).unwrap().is_empty());
@@ -126,9 +126,9 @@ fn remove_relation_deletes_edge_and_is_idempotent() {
 fn set_relation_rejects_missing_tag() {
     let mut c = db();
     let jia = ensure(&c, "甲");
-    let err = set_tag_relation(&mut c, jia, 999_999).unwrap_err();
+    let err = set_tag_relation(&mut c, jia, 999_999, "").unwrap_err();
     assert!(err.contains("不存在"), "目标不存在要给中文错: {err}");
-    let err = set_tag_relation(&mut c, 999_999, jia).unwrap_err();
+    let err = set_tag_relation(&mut c, 999_999, jia, "").unwrap_err();
     assert!(err.contains("不存在"), "起点不存在要给中文错: {err}");
     assert_eq!(relation_edges(&c), 0);
 }

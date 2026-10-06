@@ -2,7 +2,7 @@
 /**
  * 标签关系事实改成批量一次的组件级证据(标签关系统一 spec §7):
  *   一次 `list_tag_facts` 拿全量,不再逐标签调 `list_tag_relations`;
- *   只保留当前可见的标签;出边原样带 remark 供行内小字与悬浮卡片共用;读数失败回空值不抛。
+ *   只保留当前可见的标签;出边原样带边上的属性名 remark 供行内小字与悬浮卡片共用;读数失败回空值不抛。
  */
 import { act, createElement } from 'react';
 import type { ReactNode } from 'react';

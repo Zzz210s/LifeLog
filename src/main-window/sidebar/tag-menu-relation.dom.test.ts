@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * Task 4 菜单收成 5 档 + 「关系…」面板:列出全部出边(`备注 → 目标`,可移除)、
+ * Task 4 菜单收成 5 档 + 「关系…」面板:列出全部出边(`属性名 → 目标`,属性名可改可移除)、
  * 候选添加(排除自己与已建立关系的目标)、Enter/Esc/组合态键盘与就地中文错误。
  * 判别力:主面板不得再出现「合并」「携带」「类型」「设为类型」字样。
  * 候选来源是本地 tagRows,排序走 `#` 补全那套共享引擎(shared/quickpick/model 的 buildList)。
@@ -39,8 +39,11 @@ beforeEach(() => {
   removeTagRelation.mockReset();
   edges = [{ toTagId: 20, path: '关系测试乙', name: '关系测试乙', remark: '' }];
   listTagRelations.mockImplementation(() => Promise.resolve(edges.map((e) => ({ ...e }))));
-  setTagRelation.mockImplementation((_from: number, to: number) => {
-    edges = [...edges, { toTagId: to, path: '关系测试丙', name: '关系测试丙', remark: '' }];
+  setTagRelation.mockImplementation((_from: number, to: number, remark: string) => {
+    const hit = edges.find((e) => e.toTagId === to);
+    edges = hit
+      ? edges.map((e) => (e.toTagId === to ? { ...e, remark } : e))
+      : [...edges, { toTagId: to, path: '关系测试丙', name: '关系测试丙', remark }];
     return Promise.resolve();
   });
   removeTagRelation.mockImplementation((_from: number, to: number) => {
@@ -90,6 +93,15 @@ const candidateTexts = (): string[] =>
 
 const input = (): HTMLInputElement => host.querySelector('input[aria-label="添加关系标签"]') as HTMLInputElement;
 
+/** React 受控输入必须用原生 setter + input 事件,直接改 value 不触发 onChange */
+function setInput(el: HTMLInputElement, v: string): void {
+  const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+  act(() => {
+    setValue?.call(el, v);
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+}
+
 function pressEnter(composing = false): void {
   const ev = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true });
   if (composing) Object.defineProperty(ev, 'isComposing', { value: true });
@@ -115,11 +127,13 @@ describe('Task 4 关系面板', () => {
     expect(candidateTexts()).toContain('关系测试丙');
   });
 
-  it('备注存在时显示 `备注 → 目标`', async () => {
-    edges = [{ toTagId: 20, path: '地点轴/国籍', name: '国籍', remark: '国别' }];
+  it('属性名存在边上:行内输入框带出属性名,箭头后是目标名', async () => {
+    edges = [{ toTagId: 20, path: '地点轴/日本', name: '日本', remark: '国籍' }];
     render();
     await openRelation();
-    expect(host.textContent).toContain('国别 → 国籍');
+    const box = host.querySelector('input[data-relation-remark="20"]') as HTMLInputElement;
+    expect(box.value).toBe('国籍');
+    expect(host.textContent).toContain('→ 日本');
   });
 
   it('候选不含自己与已建立关系的目标', async () => {
@@ -134,7 +148,7 @@ describe('Task 4 关系面板', () => {
     await openRelation();
     pressEnter();
     await flush();
-    expect(setTagRelation).toHaveBeenCalledWith(1, 21);
+    expect(setTagRelation).toHaveBeenCalledWith(1, 21, '');
     expect(host.querySelector('[data-tag-menu]')).not.toBeNull();
   });
 

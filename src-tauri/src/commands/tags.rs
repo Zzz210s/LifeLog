@@ -126,9 +126,15 @@ pub fn remove_tag_alias(app: AppHandle, alias: String) -> Result<(), String> {
 
 /// 建立标签关系 A -> B(幂等):自指向 / 成环 / 标签不存在都给中文错且不写库。
 /// 任何标签都可被指向(设计 2026-10-06 R2:is_type 已取消)
+/// `remark` 是**边上**的属性名(可空 = 只声明有关系);已存在同向边时只改属性名,不增行。
 #[tauri::command]
-pub fn set_tag_relation(app: AppHandle, from_tag: i64, to_tag: i64) -> Result<(), String> {
-    with_conn(&app, |c| tags::set_tag_relation(c, from_tag, to_tag))
+pub fn set_tag_relation(
+    app: AppHandle,
+    from_tag: i64,
+    to_tag: i64,
+    remark: String,
+) -> Result<(), String> {
+    with_conn(&app, |c| tags::set_tag_relation(c, from_tag, to_tag, &remark))
 }
 
 /// 移除标签关系 A -> B(幂等:不存在也算成功)
@@ -137,7 +143,7 @@ pub fn remove_tag_relation(app: AppHandle, from_tag: i64, to_tag: i64) -> Result
     with_conn(&app, |c| tags::remove_tag_relation(c, from_tag, to_tag))
 }
 
-/// 某标签的全部出边(A -> ?):每项含目标 id / 路径 / 末段名 / 名字备注(仅显示用)
+/// 某标签的全部出边(A -> ?):每项含目标 id / 路径 / 末段名 / **边上的属性名**(仅显示用)
 #[tauri::command]
 pub fn list_tag_relations(app: AppHandle, from_tag: i64) -> Result<Vec<tags::RelationRef>, String> {
     with_conn(&app, |c| tags::list_tag_relations(c, from_tag).map_err(|e| e.to_string()))

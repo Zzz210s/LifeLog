@@ -75,13 +75,20 @@ const paneInput = (): HTMLInputElement =>
 const candidateTexts = (): string[] =>
   [...host.querySelectorAll('[data-relation-candidate]')].map((el) => el.textContent?.trim() ?? '');
 
-const typeQuery = (v: string): void => {
+const typeQuery = (v: string): void => setInput(paneInput(), v);
+
+/** React 受控输入必须用原生 setter + input 事件,直接改 value 不触发 onChange */
+function setInput(el: HTMLInputElement, v: string): void {
   const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
   act(() => {
-    setValue?.call(paneInput(), v);
-    paneInput().dispatchEvent(new Event('input', { bubbles: true }));
+    setValue?.call(el, v);
+    el.dispatchEvent(new Event('input', { bubbles: true }));
   });
-};
+}
+
+/** 属性名输入框(边上的 remark;可空 = 只声明有关系,R12) */
+const remarkInput = (): HTMLInputElement =>
+  host.querySelector('input[aria-label="关系属性名"]') as HTMLInputElement;
 
 describe('关系面板·加载与交互细节', () => {
   it('读取未回来时输入禁用,Enter 不会写库', async () => {
@@ -121,6 +128,31 @@ describe('关系面板·加载与交互细节', () => {
     act(() => button.dispatchEvent(ev));
     await flush();
     expect(ev.defaultPrevented).toBe(true);
-    expect(setTagRelation).toHaveBeenCalledWith(1, OTHER.id);
+    expect(setTagRelation).toHaveBeenCalledWith(1, OTHER.id, '');
+  });
+
+  it('属性名输入框:填写的属性名随边一起写入', async () => {
+    renderPane();
+    await flush();
+    expect(remarkInput().disabled).toBe(false);
+    setInput(remarkInput(), '国籍');
+    act(() => paneInput().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })));
+    await flush();
+    expect(setTagRelation).toHaveBeenCalledWith(1, OTHER.id, '国籍');
+  });
+
+  it('当前关系行可编辑属性名:失焦提交 upsert', async () => {
+    listTagRelations.mockResolvedValue([
+      { toTagId: 2, path: '地点/日本', name: '日本', remark: '国籍' },
+    ]);
+    renderPane();
+    await flush();
+    const row = host.querySelector('input[data-relation-remark="2"]') as HTMLInputElement;
+    expect(row.value).toBe('国籍');
+    setInput(row, '出生地');
+    // React 17+ 的 onBlur 实际监听 focusout:派发 'blur' 不会触发 onBlur
+    act(() => row.dispatchEvent(new FocusEvent('focusout', { bubbles: true })));
+    await flush();
+    expect(setTagRelation).toHaveBeenCalledWith(1, 2, '出生地');
   });
 });

@@ -82,7 +82,8 @@ export interface MergeReport {
 }
 
 /** 一条标签关系边(IPC `list_tag_relations` / `list_tag_facts`):
- *  读作「本标签具有 toTagId 所表示的属性」;`remark` 是被指向标签名字里的 md 备注(仅显示用) */
+ *  读作「本标签具有`remark`所表示的属性,值是 toTagId」;`remark` 是**边上**的属性名
+ *  (`A --(国籍)--> B` 的 `国籍`),空串 = 只声明有关系(显示时回退只给目标名) */
 export interface RelationRef {
   toTagId: number;
   path: string;

@@ -66,8 +66,8 @@ fn relation_hits_match_query_with_claims_and_carry() {
     tag(&c, &["甲", "子"]);
     let yi = tag(&c, &["乙"]);
     let guo = tag(&c, &["国籍"]);
-    set_tag_relation(&mut c, jia, guo).unwrap(); // 甲 携带 国籍 → 甲 子树经携带命中
-    set_tag_relation(&mut c, yi, guo).unwrap(); // 乙 被 国籍 认领 → 乙 子树命中
+    set_tag_relation(&mut c, jia, guo, "").unwrap(); // 甲 携带 国籍 → 甲 子树经携带命中
+    set_tag_relation(&mut c, yi, guo, "").unwrap(); // 乙 被 国籍 认领 → 乙 子树命中
 
     let cond = FilterConditions { relations: vec![role_cond("国籍")], ..Default::default() };
     let hits = hits(&c, &FilterConditions {

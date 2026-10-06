@@ -44,7 +44,7 @@ fn fresh_db_has_no_is_type_and_has_merge_log() {
     run(&c).unwrap();
     let v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
     assert_eq!(v, latest_version());
-    assert_eq!(latest_version(), 22);
+    assert_eq!(latest_version(), 23);
     assert!(!col_exists(&c, "tags", "is_type"), "022 后 is_type 列必须消失");
     let n: i64 = c
         .query_row(
@@ -76,11 +76,11 @@ fn upgrade_merges_type_edges_into_tag_and_drops_is_type() {
     )
     .unwrap();
 
-    // run() 从版本 21 续跑:022 钩子删列 + SQL 并边
+    // run() 从版本 21 续跑:022 钩子删列 + SQL 并边,再顺势跑到最新(023)
     run(&c).unwrap();
 
     let v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
-    assert_eq!(v, 22);
+    assert_eq!(v, latest_version());
     assert!(!col_exists(&c, "tags", "is_type"));
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tag_links WHERE target_type='type'"), 0);
     assert_eq!(

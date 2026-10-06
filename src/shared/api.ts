@@ -36,13 +36,14 @@ export const api = {
   carriedTagPaths: () => invoke<string[]>('carried_tag_paths'),
   /** 全量标签关系事实(批量只读,一次 IPC 取全):侧栏树行/悬浮卡片共用 */
   listTagFacts: () => invoke<TagFactsBundle>('list_tag_facts'),
-  /** 建立标签关系 A -> B(幂等):自指向 / 成环 / 标签不存在都会 reject 中文原因 */
-  setTagRelation: (fromTag: number, toTag: number) =>
-    invoke<void>('set_tag_relation', { fromTag, toTag }),
+  /** 建立/改属性名 A -> B(幂等 upsert):属性名存在**边**上,可空(只声明有关系);
+   *  自指向 / 成环 / 标签不存在都会 reject 中文原因 */
+  setTagRelation: (fromTag: number, toTag: number, remark: string) =>
+    invoke<void>('set_tag_relation', { fromTag, toTag, remark }),
   /** 移除标签关系 A -> B(幂等:不存在也算成功) */
   removeTagRelation: (fromTag: number, toTag: number) =>
     invoke<void>('remove_tag_relation', { fromTag, toTag }),
-  /** 某标签的全部出边(A -> ?):每项含目标 id / 路径 / 末段名 / 名字备注 */
+  /** 某标签的全部出边(A -> ?):每项含目标 id / 路径 / 末段名 / 边上的属性名 */
   listTagRelations: (fromTag: number) =>
     invoke<RelationRef[]>('list_tag_relations', { fromTag }),
   /** 条件栏「命中 N 条」读数:每个标签/类型条件独立计数(不叠加其它条件) */

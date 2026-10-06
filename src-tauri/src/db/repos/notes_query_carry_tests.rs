@@ -44,7 +44,7 @@ fn carry_broadens_hits_in_both_modes() {
     create_plain(&mut c, "无关 #书").unwrap();
     let japan = ensure_path(&c, &["地点/国籍/日本".into()]).unwrap();
     let author = tag_id(&c, "作者/丸尾");
-    set_tag_relation(&mut c, author, japan).unwrap();
+    set_tag_relation(&mut c, author, japan, "").unwrap();
 
     // 含子级 / 仅本级:两种模式的命中集都必须含「作者页」(携带与 self_only 无关)
     for children in [false, true] {
@@ -63,7 +63,7 @@ fn carry_inherits_down_carrier_subtree() {
     create_plain(&mut c, "旁人 #读者").unwrap();
     let japan = ensure_path(&c, &["地点/国籍/日本".into()]).unwrap();
     let author = tag_id(&c, "作者");
-    set_tag_relation(&mut c, author, japan).unwrap();
+    set_tag_relation(&mut c, author, japan, "").unwrap();
 
     assert_eq!(hits(&c, &include("地点/国籍/日本", true)), vec!["携带者后代", "携带者本级"]);
 }
@@ -76,7 +76,7 @@ fn carry_matches_only_the_carried_path() {
     let japan = ensure_path(&c, &["地点/国籍/日本".into()]).unwrap();
     ensure_path(&c, &["地点/国籍/法国".into()]).unwrap();
     let author = tag_id(&c, "作者/丸尾");
-    set_tag_relation(&mut c, author, japan).unwrap();
+    set_tag_relation(&mut c, author, japan, "").unwrap();
 
     assert_eq!(hits(&c, &include("地点/国籍/法国", true)), Vec::<String>::new());
 }
@@ -89,7 +89,7 @@ fn self_only_excludes_direct_descendants_but_keeps_carry() {
     create_plain(&mut c, "经携带 #别名甲/子").unwrap();
     let work = ensure_path(&c, &["工作".into()]).unwrap();
     let alias = ensure_path(&c, &["别名甲".into()]).unwrap();
-    set_tag_relation(&mut c, alias, work).unwrap();
+    set_tag_relation(&mut c, alias, work, "").unwrap();
 
     // 仅本级:直系子被排除,经携带的命中
     assert_eq!(hits(&c, &include("工作", false)), vec!["经携带"]);
@@ -105,7 +105,7 @@ fn exclude_side_shares_carry_hits_and_is_complementary() {
     create_plain(&mut c, "无关 #书").unwrap();
     let japan = ensure_path(&c, &["地点/国籍/日本".into()]).unwrap();
     let author = tag_id(&c, "作者/丸尾");
-    set_tag_relation(&mut c, author, japan).unwrap();
+    set_tag_relation(&mut c, author, japan, "").unwrap();
 
     for children in [false, true] {
         let inc = hits(&c, &include("地点/国籍/日本", children));
@@ -137,7 +137,7 @@ fn large_tree_matches_brute_force_carry_expansion() {
     add(&mut c, &mut cases, "书", false);
     for name in carriers {
         let carrier = ensure_path(&c, &name.split('/').map(Into::into).collect::<Vec<_>>()).unwrap();
-        set_tag_relation(&mut c, carrier, japan).unwrap();
+        set_tag_relation(&mut c, carrier, japan, "").unwrap();
         add(&mut c, &mut cases, name, true);
         for d in 0..12 {
             add(&mut c, &mut cases, &format!("{name}/层{d}"), true);
@@ -167,7 +167,7 @@ fn sidebar_counts_ignore_carry() {
 
     let japan = tag_id(&c, "地点/国籍/日本");
     let author = tag_id(&c, "作者/丸尾");
-    set_tag_relation(&mut c, author, japan).unwrap();
+    set_tag_relation(&mut c, author, japan, "").unwrap();
     assert_eq!(tag_id(&c, "地点/国籍/日本"), japan, "携带不动标签 id");
 
     let after = counts(&c).unwrap();

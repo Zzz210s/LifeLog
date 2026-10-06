@@ -1,6 +1,7 @@
 //! 标签关系(relation)数据层(设计 2026-10-06 §2 §4):一条边取代「携带 / 类型 / 设为类型」三个概念。
 //!
-//! `tag_links(tag_id = A, target_type = 'tag', target_id = B)` 读作「A 具有 B 所表示的属性」，
+//! `tag_links(tag_id = A, target_type = 'tag', target_id = B, remark = 属性名)` 读作
+//! 「A 具有「属性名」所表示的属性，值是 B」，如 `作者/丸尾常喜 --(国籍)--> 地点轴/日本`；
 //! 方向固定 A -> B；任何标签都可被指向（`tags.is_type` 已由迁移 022 取消）。
 //! 主键 `(tag_id, target_type, target_id)` 天然去重，重复添加幂等。
 //! `target_id` 上没有外键：删除标签必须显式清理指向它的边（见 ops::delete_subtree / merge_tags）。
@@ -8,35 +9,40 @@
 //! 语义口径（设计 §4，勿在此处自由发挥）:
 //! - 只查一跳，不传递：A→B、B→C ≠ A→C（R1）
 //! - 拒绝自指向与环：A→A、A→B→A、A→B→C→A 一律拒绝（R3）
-//! - 箭头上的文字备注 = 被指向标签 B 自己**名字里的 md 备注**（`[国籍](国别)` 的 `国别`），
-//!   只影响显示，不参与筛选 / FTS / 计数（R6）
+//! - 箭头上的属性名**存在边上**（`tag_links.remark`，迁移 023）：读作「A 具有「属性名」所表示的
+//!   属性，值是 B」，例如 `作者/丸尾常喜 --(国籍)--> 地点轴/日本`。同一个 `地点轴/日本`
+//!   可以既是「国籍」又是「出生地」，所以属性名不能借用目标标签自己名字里的 md 备注
+//!   （`[国籍](国别)` 那只驱动标签名的悬浮显示）。属性名只影响显示，不参与筛选 / FTS / 计数（R6）
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
 use std::collections::HashSet;
 
-use crate::tag_label_plain::{parse_label, LabelToken};
-
-/// 关系边一端(供菜单、侧栏与关系图信息条直读):目标标签 id + 完整路径 + 末段名 + 名字备注
+/// 关系边一端(供菜单、侧栏与关系图信息条直读):目标标签 id + 完整路径 + 末段名 + **边上的属性名**
 #[derive(Serialize, Debug, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct RelationRef {
     pub to_tag_id: i64,
     pub path: String,
     pub name: String,
-    /// B 名字里的 md 备注(`[国籍](国别)` -> `国别`);没有备注时为空串
+    /// 边上的属性名(`tag_links.remark`):`A --(国籍)--> B` 的 `国籍`;空串 = 只声明有关系
     pub remark: String,
 }
 
 /// 关系链深度上限:正常标签体系远达不到，只在数据异常时兜底，避免环上死循环
 const MAX_RELATION_DEPTH: usize = 64;
 
-/// 建立关系 A → B(幂等)：校验两端存在 -> 拒绝自指向 -> 沿关系方向 DFS 查环 -> INSERT OR IGNORE。
+/// 建立关系 A → B(幂等)：校验两端存在 -> 拒绝自指向 -> 沿关系方向 DFS 查环 -> upsert。
 /// 整事务:校验失败或写入失败都零变化。关系行**不**参与 FTS / 路径 / 笔记标签集合，
 /// 故这里有意不调 `tags_write::finish`（与迁移前的携带写入同一口径）。
+///
+/// `remark` 是**边上**的属性名(可空 = 只声明有关系)。已存在同向边时只改这一行的属性名，
+/// 不增行 —— upsert 的 UPDATE 只命中 `target_type='tag'` 行，FTS 的两个聚合触发器都带
+/// `WHEN target_type='note'`，所以不会造成索引漂移(003 那条「禁止 UPDATE」的约束是针对笔记链接的)。
 pub fn set_tag_relation(
     conn: &mut Connection,
     from_tag_id: i64,
     to_tag_id: i64,
+    remark: &str,
 ) -> Result<(), String> {
     if from_tag_id == to_tag_id {
         return Err("不能建立指向自己的关系".into());
@@ -53,8 +59,10 @@ pub fn set_tag_relation(
         return Err(format!("会形成循环：建立「{from}」到「{to}」的关系会让「{from}」绕回自己"));
     }
     tx.execute(
-        "INSERT OR IGNORE INTO tag_links(tag_id, target_type, target_id) VALUES(?1, 'tag', ?2)",
-        params![from_tag_id, to_tag_id],
+        "INSERT INTO tag_links(tag_id, target_type, target_id, remark) VALUES(?1, 'tag', ?2, ?3) \
+         ON CONFLICT(tag_id, target_type, target_id) DO UPDATE SET remark = excluded.remark \
+         WHERE tag_links.remark IS NOT excluded.remark",
+        params![from_tag_id, to_tag_id, remark],
     )
     .map_err(|e| e.to_string())?;
     tx.commit().map_err(|e| e.to_string())
@@ -74,16 +82,16 @@ pub fn remove_tag_relation(
     Ok(())
 }
 
-/// 本标签的全部出边(A → ?)，按目标路径升序
+/// 本标签的全部出边(A → ?)，按目标路径升序；每项带**边上**的属性名
 pub fn list_tag_relations(conn: &Connection, from_tag_id: i64) -> rusqlite::Result<Vec<RelationRef>> {
     let mut stmt = conn.prepare(
-        "SELECT t.id, t.path FROM tag_links l JOIN tags t ON t.id = l.target_id \
+        "SELECT t.id, t.path, l.remark FROM tag_links l JOIN tags t ON t.id = l.target_id \
          WHERE l.tag_id = ?1 AND l.target_type = 'tag' ORDER BY t.path",
     )?;
     let rows = stmt.query_map(params![from_tag_id], |r| {
-        Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?))
+        Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?))
     })?;
-    rows.map(|row| row.map(|(id, path)| relation_ref(id, &path))).collect()
+    rows.map(|row| row.map(|(id, path, remark)| relation_ref(id, &path, remark))).collect()
 }
 
 /// 指向本标签的边数(删除确认文案「该标签被 N 个标签指向」的读数):
@@ -96,10 +104,9 @@ pub fn count_relations_to(conn: &Connection, to_tag_id: i64) -> rusqlite::Result
     )
 }
 
-/// 由 (id, path) 组装一条关系读数：name = 路径末段，remark = 末段名里的 md 备注
-pub(super) fn relation_ref(to_tag_id: i64, path: &str) -> RelationRef {
+/// 由 (id, path, 边上的属性名) 组装一条关系读数：name = 路径末段
+pub(super) fn relation_ref(to_tag_id: i64, path: &str, remark: String) -> RelationRef {
     let name = leaf(path);
-    let remark = remark_of(&name);
     RelationRef { to_tag_id, path: path.to_string(), name, remark }
 }
 
@@ -114,18 +121,8 @@ pub(super) fn leaf(path: &str) -> String {
     path.rsplit('/').next().unwrap_or(path).to_string()
 }
 
-/// 名字里的 md 备注:取名字中第一个非空链接备注(`[国籍](国别)` -> `国别`)。
-/// 与前端 `renderTagLabel` 的 `data-tip` 同一来源(标签名行内 md)，仅用于显示(R6)。
-fn remark_of(name: &str) -> String {
-    parse_label(name)
-        .into_iter()
-        .find_map(|t| match t {
-            LabelToken::Link { title, .. } if !title.is_empty() => Some(title),
-            _ => None,
-        })
-        .unwrap_or_default()
-}
-
+/// 名字里的 md 备注（如 `[国籍](国别)`）由前端的 `renderTagLabel` 直接从标签名解析，
+/// **不再**参与关系显示：属性名存在边上（迁移 023），同一个目标标签可以承担多个属性名。
 /// 沿「关系」方向(A -> B)从 `from` 出发能否到达 `to`。
 /// 迭代 DFS + 已访集合:数据异常成环时也不会死循环;访问节点数超过上限即报错兜底。
 /// 同模块的合并路径(merge)复用它判「迁移后是否成环」，故对 tags 子树可见。
@@ -162,3 +159,7 @@ mod relation_tests;
 #[cfg(test)]
 #[path = "relation_read_tests.rs"]
 mod relation_read_tests;
+
+#[cfg(test)]
+#[path = "relation_remark_tests.rs"]
+mod relation_remark_tests;

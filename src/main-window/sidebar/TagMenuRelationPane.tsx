@@ -1,10 +1,14 @@
 /**
- * 标签菜单「关系…」面板(标签关系统一 spec §5):上半列出本标签的**全部出边**
- * (`备注 → 目标`,可逐条移除),下半输入框 + 候选列表(复用 `#` 补全那套共享打分/排序引擎
- * `shared/quickpick/model`)。写库走 `setTagRelation` / `removeTagRelation`。
+ * 标签菜单「关系…」面板(标签关系统一 spec §5 / 设计 2026-10-06 §2 修订):上半列出本标签的
+ * **全部出边**(`属性名 → 目标`,属性名就地可改、可逐条移除),下半是**属性名输入框 + 目标标签选择器**
+ * (候选复用 `#` 补全那套共享打分/排序引擎 `shared/quickpick/model`)。
+ * 写库走 `setTagRelation` / `removeTagRelation`。
  *
- * 自包含容器:状态与 IPC 都在本文件,TagMenu 只需一行挂载。添加/移除后**保持打开**、
- * 重新读一次出边(读回来的带真实备注,比本地拼更准),不弹 Toast;失败显示后端中文错误。
+ * 属性名存在**边**上(迁移 023),不是目标标签名字里的 md 备注 —— 所以同一个目标(如 `地点轴/日本`)
+ * 可以分别以「国籍」「出生地」两个属性名被指向。属性名可留空 = 只声明「有什么关系」(R12)。
+ *
+ * 自包含容器:状态与 IPC 都在本文件,TagMenu 只需一行挂载。添加/移除/改属性名后**保持打开**、
+ * 重新读一次出边(读回来的带真实属性名,比本地拼更准),不弹 Toast;失败显示后端中文错误。
  */
 import { useEffect, useMemo, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
@@ -36,6 +40,8 @@ export function TagMenuRelationPane(p: TagMenuRelationPaneProps): ReactNode {
   const [outgoing, setOutgoing] = useState<RelationRef[] | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  /** 下一条要建立的边的属性名(可空 = 只声明有关系) */
+  const [remark, setRemark] = useState('');
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
   /** 首帧读数未回来:候选池还不知道该排除谁,输入/候选项一律禁用 */
@@ -84,11 +90,23 @@ export function TagMenuRelationPane(p: TagMenuRelationPaneProps): ReactNode {
     setError('');
     setBusy(true);
     void api
-      .setTagRelation(p.tagId, id)
+      .setTagRelation(p.tagId, id, remark.trim())
       .then(() => {
         setQuery('');
         return reload();
       })
+      .then(setOutgoing)
+      .catch((e) => setError(String(e)))
+      .finally(() => setBusy(false));
+  };
+
+  /** 就地改属性名(upsert 同一条边):写成功后重读,面板不关 */
+  const editRemark = (toTagId: number, next: string): void => {
+    setError('');
+    setBusy(true);
+    void api
+      .setTagRelation(p.tagId, toTagId, next.trim())
+      .then(reload)
       .then(setOutgoing)
       .catch((e) => setError(String(e)))
       .finally(() => setBusy(false));
@@ -126,8 +144,21 @@ export function TagMenuRelationPane(p: TagMenuRelationPaneProps): ReactNode {
         关系:{renderTagLabel(p.path)}
       </p>
       {/* 「当前关系」标题只在 TagMenuRelationList 里渲染一次(容器不再重复) */}
-      <TagMenuRelationList relations={outgoing} busy={busy} onRemove={remove} />
+      <TagMenuRelationList
+        relations={outgoing}
+        busy={busy}
+        onRemove={remove}
+        onEditRemark={editRemark}
+      />
       <p className="mt-1 px-1 text-label text-muted">添加关系</p>
+      <input
+        value={remark}
+        onChange={(e) => setRemark(e.target.value)}
+        disabled={loading || busy}
+        placeholder="属性名(可留空)"
+        aria-label="关系属性名"
+        className="mb-1 h-8 w-full rounded-sm border border-border-strong bg-raised px-2.5 text-ui text-text outline-none"
+      />
       <input
         value={query}
         onChange={(e) => {

@@ -103,6 +103,11 @@ describe('树行关系小字(开关)', () => {
     expect(relationTexts()).toEqual(['国别 → 国籍', '所在']);
   });
 
+  it('属性名来自边:目标标签名字自带 md 备注时,小字仍是边上的属性名', () => {
+    render({ relations: [rel(10, '[日本](日出之国)', '国籍')], showRelations: true });
+    expect(relationTexts()).toEqual(['国籍 → 日本']);
+  });
+
   it('0/1/2 条原样显示,不出现 +N', () => {
     expect(relationTexts()).toEqual([]);
     render({ relations: [rel(10, '国籍', '国别')], showRelations: true });

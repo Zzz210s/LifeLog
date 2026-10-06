@@ -19,6 +19,13 @@ describe('relationLabel:备注 → 目标,缺备注回退目标名(R12)', () => 
     expect(relationLabel(rel('[国籍](国别)', '国别'))).toBe('国别 → 国籍');
   });
 
+  // 2026-10-06 修订(迁移 023):属性名存在**边**上(remark 字段),不再是目标标签名字里的 md 备注。
+  // 判别力:目标名自带 md 备注 `(日出之国)`,边上的属性名是「国籍」 -> 只能出「国籍 → 日本」。
+  it('属性名只认边上的 remark,目标名里的 md 备注不参与显示', () => {
+    expect(relationLabel(rel('[日本](日出之国)', '国籍'))).toBe('国籍 → 日本');
+    expect(relationLabel(rel('[日本](日出之国)'))).toBe('日本');
+  });
+
   // 判别力:目标名**不**经 tagLabelPlain 时这三条都会露出方括号/星号/链接括号
   it('目标名带链接且无备注:回退纯文本目标名(括号全剥)', () => {
     expect(relationLabel(rel('[国别](国籍)'))).toBe('国别');

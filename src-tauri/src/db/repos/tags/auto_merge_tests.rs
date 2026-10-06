@@ -101,8 +101,8 @@ fn merge_unions_out_and_in_edges() {
     let dst = id_at(&c, "目标");
     let x = ensure_path(&c, &segs(&["X"])).unwrap();
     let y = ensure_path(&c, &segs(&["Y"])).unwrap();
-    set_tag_relation(&mut c, src, x).unwrap();
-    set_tag_relation(&mut c, y, src).unwrap();
+    set_tag_relation(&mut c, src, x, "").unwrap();
+    set_tag_relation(&mut c, y, src, "").unwrap();
 
     merge_tags(&mut c, src, dst, false).unwrap();
 

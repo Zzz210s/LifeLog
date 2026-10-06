@@ -13,7 +13,7 @@ import type { RelationRef, TagCount } from '../../shared/types';
 const api = vi.hoisted(() => ({
   listTags: vi.fn<() => Promise<TagCount[]>>(),
   listTagRelations: vi.fn<(id: number) => Promise<RelationRef[]>>(),
-  setTagRelation: vi.fn<(from: number, to: number) => Promise<void>>(),
+  setTagRelation: vi.fn<(from: number, to: number, remark: string) => Promise<void>>(),
 }));
 vi.mock('../../shared/api', () => ({ api }));
 
@@ -139,7 +139,7 @@ describe('关系建议面板', () => {
     expect(host.querySelector('[data-relation-row="作者/甲"]')).toBeNull();
     expect(api.setTagRelation).not.toHaveBeenCalled();
     await click('批量确认');
-    expect(api.setTagRelation).toHaveBeenCalledWith(100, 11);
+    expect(api.setTagRelation).toHaveBeenCalledWith(100, 11, '');
     expect(api.setTagRelation).not.toHaveBeenCalledWith(21, expect.anything());
     expect(api.setTagRelation).toHaveBeenCalledTimes(27);
     expect(host.textContent).toContain('已写入 27 条关系');
@@ -179,6 +179,6 @@ describe('关系建议面板', () => {
     await setFilter('all');
     await click('批量确认');
     expect(api.setTagRelation).toHaveBeenCalledTimes(1);
-    expect(api.setTagRelation).toHaveBeenCalledWith(21, 20);
+    expect(api.setTagRelation).toHaveBeenCalledWith(21, 20, '');
   });
 });
