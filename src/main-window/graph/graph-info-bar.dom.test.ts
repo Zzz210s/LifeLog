@@ -55,6 +55,7 @@ describe('GraphInfoBar:路径与两个计数 + 两个动作', () => {
     await render(
       createElement(GraphInfoBar, {
         node,
+        relationDegrees: { outbound: 3, backlinks: 1 },
         onFilterToStream: () => {},
         onToggleExpand: () => {},
         expanded: false,
@@ -65,12 +66,27 @@ describe('GraphInfoBar:路径与两个计数 + 两个动作', () => {
     expect(host.textContent).toContain('含子级 414');
   });
 
+  it('标签关系出/入度单独一行(关系：出 N / 入 M)', async () => {
+    await render(
+      createElement(GraphInfoBar, {
+        node,
+        relationDegrees: { outbound: 3, backlinks: 1 },
+        onFilterToStream: () => {},
+        onToggleExpand: () => {},
+        expanded: false,
+      }),
+    );
+    const row = host.querySelector('[data-testid="graph-relation-degrees"]');
+    expect(row?.textContent?.replace(/\s+/g, ' ').trim()).toBe('关系：出 3 / 入 1');
+  });
+
   it('按钮触发回调,展开态文案随之变化', async () => {
     const onFilter = vi.fn();
     const onToggle = vi.fn();
     await render(
       createElement(GraphInfoBar, {
         node,
+        relationDegrees: { outbound: 0, backlinks: 0 },
         onFilterToStream: onFilter,
         onToggleExpand: onToggle,
         expanded: false,
@@ -90,6 +106,7 @@ describe('GraphInfoBar:路径与两个计数 + 两个动作', () => {
     await render(
       createElement(GraphInfoBar, {
         node,
+        relationDegrees: { outbound: 0, backlinks: 0 },
         onFilterToStream: () => {},
         onToggleExpand: () => {},
         expanded: true,
@@ -103,6 +120,7 @@ describe('GraphInfoBar:路径与两个计数 + 两个动作', () => {
     await render(
       createElement(GraphInfoBar, {
         node: long,
+        relationDegrees: { outbound: 0, backlinks: 0 },
         onFilterToStream: () => {},
         onToggleExpand: () => {},
         expanded: false,

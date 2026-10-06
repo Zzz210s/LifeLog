@@ -1,4 +1,5 @@
 import type { GraphEdge } from '../../shared/types';
+import type { RelationEdge } from './graph-relations';
 
 export interface Emphasis {
   /**
@@ -24,12 +25,20 @@ export const NO_EMPHASIS: Emphasis = Object.freeze({
   selected: null,
 });
 
-/** 1 跳邻居:父子边与共现边同等对待(图里都是"关系") */
-export function neighborsOf(edges: readonly GraphEdge[], id: number): Set<number> {
+/** 1 跳邻居:父子边、共现边与**标签关系边**同等对待(图里都是"关系") */
+export function neighborsOf(
+  edges: readonly GraphEdge[],
+  id: number,
+  relations: readonly RelationEdge[] = [],
+): Set<number> {
   const out = new Set<number>();
   for (const e of edges) {
     if (e.a === id) out.add(e.b);
     else if (e.b === id) out.add(e.a);
+  }
+  for (const r of relations) {
+    if (r.a === id) out.add(r.b);
+    else if (r.b === id) out.add(r.a);
   }
   return out;
 }
@@ -43,9 +52,12 @@ export function emphasisOf(input: {
   selected: number | null;
   hovered: number | null;
   edges: readonly GraphEdge[];
+  /** 标签关系边:参与邻居集合,与父子/共现边同一套高亮 */
+  relations?: readonly RelationEdge[];
 }): Emphasis {
   const active = input.hovered ?? input.selected;
-  const neighbors = active === null ? new Set<number>() : neighborsOf(input.edges, active);
+  const neighbors =
+    active === null ? new Set<number>() : neighborsOf(input.edges, active, input.relations ?? []);
   return { active, neighbors, selected: input.selected };
 }
 

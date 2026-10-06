@@ -18,6 +18,18 @@ export interface Segment {
   emphasized: boolean;
   /** 弱化(有焦点时,与焦点/邻居都无关的边走暗);画布用 globalAlpha 表达,不改颜色 */
   dim: boolean;
+  /**
+   * 是否在**终点**画箭头(关系边专用:方向表达「A 具有 B 所表示的属性」)。
+   * 笔记链接边与父子/共现边不带这一位 —— 它与链接边同色同宽,箭头是唯一区分处。
+   */
+  arrow?: boolean;
+}
+
+/** 关系边箭头中点上的文字备注(取自被指向标签的名字备注;缺失时不出项) */
+export interface RelationMark {
+  x: number;
+  y: number;
+  text: string;
 }
 
 /** 一个节点圆点:半径随笔记数增长(有上限),颜色由调用方给 */
@@ -80,6 +92,13 @@ export interface DrawPlan {
   tree: Segment[];
   /** 笔记间的 link 边(accent 色;两端笔记都在展开的扇形里才有一条) */
   links: Segment[];
+  /**
+   * 标签关系边(accent 色 1.5px **带箭头**;`A -> B` 读作「A 具有 B 所表示的属性」)。
+   * 与 `links` 分层:这里的 `a`/`b` 是标签 id,不是笔记 id。
+   */
+  relations: Segment[];
+  /** 关系边箭头中点的备注文字(仅 `k >= RELATION_REMARK_MIN_K` 时非空) */
+  relationMarks: RelationMark[];
   dots: Dot[];
   labels: Label[];
   /** 当前展开标签下的笔记小圆;不展开时为空数组 */

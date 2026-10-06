@@ -11,7 +11,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { mountCanvas, type CanvasHarness } from './canvas-test-kit';
 import type { DrawPlan } from './graph-draw-plan';
 
-const empty: DrawPlan = { co: [], tree: [], links: [], hubs: [], dots: [], labels: [], notes: [], overflow: null };
+const empty: DrawPlan = {
+  co: [], tree: [], links: [], relations: [], hubs: [], dots: [], labels: [], notes: [],
+  relationMarks: [], overflow: null,
+};
 
 let h: CanvasHarness;
 beforeEach(() => {
@@ -42,7 +45,10 @@ describe('GraphCanvas:同一 plan 不重绘', () => {
     expect(canvas.width).toBe(400);
     expect(canvas.height).toBe(240);
 
-    const next: DrawPlan = { co: [], tree: [], links: [], hubs: [], dots: [], labels: [], notes: [], overflow: null };
+    const next: DrawPlan = {
+      co: [], tree: [], links: [], relations: [], hubs: [], dots: [], labels: [], notes: [],
+      relationMarks: [], overflow: null,
+    };
     await render(next, 200, 120, 'dark'); // 新 plan -> 重绘
     expect(h.getContext).toHaveBeenCalledTimes(3);
   });
@@ -55,10 +61,12 @@ describe('GraphCanvas:同一 plan 不重绘', () => {
     const plan: DrawPlan = {
       co: [{ x1: 0, y1: 0, x2: 10, y2: 0, weight: 3, emphasized: false, dim: false }],
       links: [],
+      relations: [],
       tree: [{ x1: 0, y1: 0, x2: 0, y2: 10, weight: 1, emphasized: false, dim: false }],
       hubs: [], dots: [{ id: 1, x: 5, y: 6, r: 9, color: 'rgb(1, 2, 3)', dim: false, selected: false }],
       labels: [{ id: 1, x: 5, y: -7, text: '时间' }],
       notes: [],
+      relationMarks: [],
       overflow: null,
     };
     await render(plan, 100, 100, 'light');

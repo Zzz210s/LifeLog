@@ -43,7 +43,7 @@ export interface GraphViewInput {
 }
 
 export function useGraphView(p: GraphViewInput) {
-  const { data, failed, reload } = useGraphData();
+  const { data, relations, failed, reload } = useGraphData();
   // 数据变化自动重载(设计 §6-5):版本不变不动;`reload` 只换 data
   useGraphVersion(p.dataVersion, reload);
   const [selected, setSelected] = useState<number | null>(null);
@@ -120,6 +120,7 @@ export function useGraphView(p: GraphViewInput) {
     nodes,
     edges,
     links,
+    relations,
     points,
     cam: cam.camera,
     size,
@@ -146,6 +147,6 @@ export function useGraphView(p: GraphViewInput) {
   return {
     boxRef, size, themeKey, drag, acts, exp, resetView, count, empty, reload,
     filtersOpen, setFiltersOpen, force, filters, roots, patch, resetFilters,
-    data, nodes, onSearchPick, plan, hoveredNode, selectedNode, selected, expanded, setExpanded, menu, setMenu,
+    data, relations, nodes, onSearchPick, plan, hoveredNode, selectedNode, selected, expanded, setExpanded, menu, setMenu,
   };
 }

@@ -16,6 +16,8 @@ import { cullVisible, type Camera } from './graph-camera';
 import { planEdges } from './graph-draw-plan-edges';
 import { planExpanded } from './graph-draw-plan-expanded';
 import { planPoints } from './graph-draw-plan-points';
+import { planRelations } from './graph-draw-plan-relations';
+import type { RelationEdge } from './graph-relations';
 import type { DrawPlan, ExpandedInput } from './graph-draw-plan-types';
 import type { Emphasis } from './graph-focus';
 import type { Point } from './radial';
@@ -54,10 +56,19 @@ export function drawPlan(input: {
   expanded?: ExpandedInput | null;
   /** 全部已解析的笔记间链接(`graph_data` 里 `kind: 'link'` 的那批;两端都是笔记 id) */
   links?: readonly GraphLink[];
+  /** 标签关系边(前端从 `list_tag_facts` 摊平;两端都是标签 id,带箭头) */
+  relations?: readonly RelationEdge[];
 }): DrawPlan {
   const { nodes, edges, points, cam, w, h, rootColor, fallbackColor, emphasis } = input;
   const visible = new Set(cullVisible(points, cam, w, h));
   const { co, tree } = planEdges({ edges, points, cam, visible, emphasis });
+  const { segments: relations, marks: relationMarks } = planRelations({
+    relations: input.relations ?? [],
+    points,
+    cam,
+    visible,
+    emphasis,
+  });
   const { dots, labels, hubs } = planPoints({
     nodes,
     edges,
@@ -74,5 +85,5 @@ export function drawPlan(input: {
     cam,
     visible,
   });
-  return { co, tree, links, dots, hubs, labels, notes, overflow };
+  return { co, tree, relations, links, dots, hubs, labels, relationMarks, notes, overflow };
 }

@@ -8,7 +8,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { mountCanvas, strokeCalls, type CanvasHarness } from './canvas-test-kit';
 import type { DrawPlan } from './graph-draw-plan';
 
-const empty: DrawPlan = { co: [], tree: [], links: [], hubs: [], dots: [], labels: [], notes: [], overflow: null };
+const empty: DrawPlan = {
+  co: [], tree: [], links: [], relations: [], hubs: [], dots: [], labels: [], notes: [],
+  relationMarks: [], overflow: null,
+};
 
 const seg = (x1: number, y1: number, x2: number, y2: number): DrawPlan['links'][number] => ({
   x1, y1, x2, y2, weight: 1, emphasized: false, dim: false,

@@ -2,10 +2,11 @@
  * 把绘制指令画到 canvas:
  * - 按 devicePixelRatio 设置后备缓冲(尺寸取整,避免半像素模糊)
  * - 颜色一律从主题令牌读,不写死色值;**弱化只改 globalAlpha,不换颜色**(G2)
- * - 线宽:强调边(与焦点相连)2.5,其余按类型(共现 1 / 父子 1.5 / 链接 1.5)
+ * - 线宽:强调边(与焦点相连)2.5,其余按类型(共现 1 / 父子 1.5 / 链接 1.5 / 关系 1.5)
  * - 弱化的归位只在点循环后一处(`ctx.globalAlpha = 1`)——下面三段都不参与弱化,
  *   它们各自不靠「上一段恰好恢复成 1」活着,这一行也就成了可被用例钉住的单点
- * - 绘制顺序:共现边 -> 父子边 -> 链接边 -> 点 -> 选中环 -> 展开的笔记小圆 -> 文字
+ * - 绘制顺序:共现边 -> 父子边 -> 链接边 -> 关系边 -> 点 -> 选中环 -> 展开的笔记小圆 -> 关系备注与文字
+ * - 关系边与链接边同色同宽,只有它在**终点画实心箭头**;箭头尖从目标圆心回收一段,免得被后画的点盖住
  * - `plan` 引用不变且 `themeKey` 不变时**不重绘** —— 设计 §3.3 的「静止 0 CPU」就靠这条。
  *   约定:plan 是 (节点 / 边 / 相机 / 视口尺寸 / 强调态) 的纯函数,尺寸变化必然伴随新 plan 对象,
  *   所以"尺寸变而 plan 未变"按内容未变处理:不重绘,也不动后备缓冲。
@@ -27,6 +28,9 @@ const HUB_RING_WIDTH = 2;
 const EMPHASIS_WIDTH = 2.5;
 /** 选中环离点的间距(屏幕像素):点小时不至于贴在一起 */
 const RING_GAP = 3;
+/** 关系边箭头:边长与箭头尖离目标圆心的回收量(屏幕像素) */
+const ARROW_SIZE = 7;
+const ARROW_PULLBACK = 10;
 
 function strokeAll(
   ctx: CanvasRenderingContext2D,
@@ -51,6 +55,36 @@ function strokeAll(
     ctx.stroke();
   }
   // 这里不归位:每段自己设 alpha,而边之后的绘制对象统一由点循环后的归位接住(见下)
+}
+
+/**
+ * 关系边层:与 `strokeAll` 同一套粗细/透明度口径,但每条线在**终点**多画一个实心箭头 ——
+ * 这是它与同色同宽的笔记链接边唯一的区别(方向 = 「A 具有 B 所表示的属性」)。
+ */
+function strokeRelations(ctx: CanvasRenderingContext2D, segs: readonly Segment[], color: string): void {
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  for (const s of segs) {
+    ctx.lineWidth = s.emphasized ? EMPHASIS_WIDTH : 1.5;
+    ctx.globalAlpha = s.dim && !s.emphasized ? DIM_ALPHA : 1;
+    ctx.beginPath();
+    ctx.moveTo(s.x1, s.y1);
+    ctx.lineTo(s.x2, s.y2);
+    ctx.stroke();
+    if (!s.arrow) continue;
+    const dx = s.x2 - s.x1;
+    const dy = s.y2 - s.y1;
+    const len = Math.hypot(dx, dy) || 1;
+    const back = Math.min(ARROW_PULLBACK, len / 2);
+    const tx = s.x2 - (dx / len) * back;
+    const ty = s.y2 - (dy / len) * back;
+    const ang = Math.atan2(dy, dx);
+    ctx.beginPath();
+    ctx.moveTo(tx, ty);
+    ctx.lineTo(tx - ARROW_SIZE * Math.cos(ang - 0.45), ty - ARROW_SIZE * Math.sin(ang - 0.45));
+    ctx.lineTo(tx - ARROW_SIZE * Math.cos(ang + 0.45), ty - ARROW_SIZE * Math.sin(ang + 0.45));
+    ctx.fill();
+  }
 }
 
 export function GraphCanvas(p: {
@@ -84,6 +118,10 @@ export function GraphCanvas(p: {
     strokeAll(ctx, p.plan.tree, token('--color-border-strong'), 1.5);
     // 笔记间的链接边:accent 色 1.5 —— 与共现/父子边同一根线但醒目一档(D12);零硬编码色值
     strokeAll(ctx, p.plan.links, token('--color-accent'), 1.5);
+    // 标签关系边(带箭头,Task 5):空层不碰令牌,免得给既有用例多记一笔设色
+    if (p.plan.relations.length > 0) {
+      strokeRelations(ctx, p.plan.relations, token('--color-accent'));
+    }
     for (const d of p.plan.dots) {
       ctx.globalAlpha = d.dim ? DIM_ALPHA : 1;
       ctx.fillStyle = d.color;
@@ -145,6 +183,8 @@ export function GraphCanvas(p: {
       ctx.fillText(`+${p.plan.overflow.n}`, p.plan.overflow.x, p.plan.overflow.y);
     }
     for (const l of p.plan.labels) ctx.fillText(l.text, l.x, l.y);
+    // 关系边的文字备注(箭头中点;绘制计划只在 k >= 1.2 时给出)
+    for (const m of p.plan.relationMarks) ctx.fillText(m.text, m.x, m.y);
   }, [p.plan, p.width, p.height, p.themeKey]);
 
   return <canvas ref={ref} style={{ width: p.width, height: p.height }} />;

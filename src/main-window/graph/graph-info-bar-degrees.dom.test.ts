@@ -26,7 +26,7 @@ let root: Root;
 const render = async (n: GraphNode): Promise<void> => {
   await act(async () => {
     root.render(
-      createElement(GraphInfoBar, { node: n, onFilterToStream: () => {}, onToggleExpand: () => {}, expanded: false }) as ReactElement,
+      createElement(GraphInfoBar, { node: n, relationDegrees: { outbound: 0, backlinks: 0 }, onFilterToStream: () => {}, onToggleExpand: () => {}, expanded: false }) as ReactElement,
     );
     await Promise.resolve();
   });

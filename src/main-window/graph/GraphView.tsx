@@ -9,13 +9,14 @@ import { GraphOverlays } from './GraphOverlays';
 import { GraphSearch } from './GraphSearch';
 import { GraphTagMenuHost } from './GraphTagMenuHost';
 import { GraphTip } from './GraphTip';
+import { relationDegrees } from './graph-relations';
 import { useGraphView, type GraphViewInput } from './use-graph-view';
 
 export function GraphView(p: GraphViewInput): ReactNode {
   const {
     boxRef, size, themeKey, drag, acts, exp, resetView, count, empty, reload,
     filtersOpen, setFiltersOpen, force, filters, roots, patch, resetFilters,
-    data, nodes, onSearchPick, plan, hoveredNode, selectedNode, selected, expanded, setExpanded, menu, setMenu,
+    data, relations, nodes, onSearchPick, plan, hoveredNode, selectedNode, selected, expanded, setExpanded, menu, setMenu,
   } = useGraphView(p);
 
   return (
@@ -60,6 +61,7 @@ export function GraphView(p: GraphViewInput): ReactNode {
       {selectedNode !== null && (
         <GraphInfoBar
           node={selectedNode}
+          relationDegrees={relationDegrees(relations, data?.nodes ?? [], selectedNode.id)}
           expanded={expanded === selected}
           onFilterToStream={() => p.onFilterToStream(selectedNode.path)}
           onToggleExpand={() => setExpanded((cur) => (cur === selected ? null : selected))}

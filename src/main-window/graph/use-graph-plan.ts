@@ -16,18 +16,32 @@ import type { GraphEdge, GraphLink, GraphNode } from '../../shared/types';
 import type { Camera } from './graph-camera';
 import { drawPlan, type DrawPlan, type NoteDot } from './graph-draw-plan';
 import { emphasisOf } from './graph-focus';
+import type { RelationEdge } from './graph-relations';
 import type { Point } from './radial';
 import { nodeColors } from './graph-palette';
 import { token } from './token';
 
 /** 尺寸没测出来之前的一帧:空计划(与"画完了但没有东西"是两回事,但渲染结果一样) */
-const EMPTY_PLAN: DrawPlan = { co: [], tree: [], links: [], hubs: [], dots: [], labels: [], notes: [], overflow: null };
+const EMPTY_PLAN: DrawPlan = {
+  co: [],
+  tree: [],
+  links: [],
+  relations: [],
+  hubs: [],
+  dots: [],
+  labels: [],
+  relationMarks: [],
+  notes: [],
+  overflow: null,
+};
 
 export function useGraphPlan(input: {
   nodes: readonly GraphNode[];
   edges: readonly GraphEdge[];
   /** 笔记间链接边(已按 kind 从 edges 里拆出;两端是笔记 id) */
   links: readonly GraphLink[];
+  /** 标签关系边(前端从 `list_tag_facts` 摊平;带箭头,参与强调) */
+  relations: readonly RelationEdge[];
   /** 落点(世界坐标:相机叠加位置记忆之后的那一份) */
   points: Map<number, Point>;
   cam: Camera;
@@ -50,10 +64,13 @@ export function useGraphPlan(input: {
     overflow: { id: number; x: number; y: number; n: number } | null;
   } | null;
 }): DrawPlan {
-  const { nodes, edges, links, points, cam, size, themeKey, dprKey, selected, hovered, expanded } = input;
+  const { nodes, edges, links, relations, points, cam, size, themeKey, dprKey, selected, hovered, expanded } = input;
   const { w, h } = size;
   // 强调态:悬停优先于选中(焦点跟着光标),选中环与信息条仍归 selected(见 graph-focus)
-  const emphasis = useMemo(() => emphasisOf({ selected, hovered, edges }), [selected, hovered, edges]);
+  const emphasis = useMemo(
+    () => emphasisOf({ selected, hovered, edges, relations }),
+    [selected, hovered, edges, relations],
+  );
   return useMemo(
     () =>
       w === 0 || h === 0
@@ -71,7 +88,8 @@ export function useGraphPlan(input: {
             emphasis,
             expanded,
             links,
+            relations,
           }),
-    [nodes, edges, links, points, cam, w, h, themeKey, dprKey, emphasis, expanded],
+    [nodes, edges, links, relations, points, cam, w, h, themeKey, dprKey, emphasis, expanded],
   );
 }

@@ -7,7 +7,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { mountCanvas, strokeCalls, type CanvasHarness } from './canvas-test-kit';
 import type { DrawPlan } from './graph-draw-plan';
 
-const empty: DrawPlan = { co: [], tree: [], links: [], hubs: [], dots: [], labels: [], notes: [], overflow: null };
+const empty: DrawPlan = {
+  co: [], tree: [], links: [], relations: [], hubs: [], dots: [], labels: [], notes: [],
+  relationMarks: [], overflow: null,
+};
 
 let h: CanvasHarness;
 beforeEach(() => {
