@@ -92,7 +92,7 @@ await sleep(400);
 if (rowInfo) shotFiles.push(await shot(cdp, SH('2b-sidebar-closeup'), { x: 0, y: Math.max(0, rowInfo.y - 46), width: 430, height: 230 }, 2));
 log(`INFO 截图② 侧栏 chips=${fmt(chips)} 卡片各行=${fmt(String(tip).split('\n'))}`);
 
-// 3 关系图:k >= 1.2 才画备注;搜索跳转把相机摆到源标签,再放大并对准那条边
+// 3 关系图:默认档 k=0.8 以上就画备注(旧脚本流程:搜索跳转把相机摆到源标签,再对准那条边)
 await armGraph(ui);
 await sleep(3200);
 await installProbe(cdp);

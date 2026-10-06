@@ -7,7 +7,7 @@
  *   4 自动合并:移动成同父同名 → 整棵并(笔记并集/子标签搬/边并集);tag_merge_log 有记录
  *   5 菜单恰五档(重命名/移动/别名/关系…/删除),不含「合并」「携带」「类型」
  *   6 侧栏行内 `备注 → 目标`(2 + `+N`)、开关(新键/旧键回读)、悬浮卡片列全部关系
- *   7 关系图:关系边带箭头;k ≥ 1.2 才画备注文字;信息条「关系:出 N / 入 M」
+ *   7 关系图:关系边带箭头;默认 k 就画备注文字(阈值 0.8),缩到聚合档(0.5)不画;信息条「关系:出 N / 入 M」
  *   8 回归:树 path/depth/sort_order、笔记 tags 列、FTS、导出不因关系而变
  * 夹具一律 `关系测试` 前缀,自建自删;结构对账排除当天时间标签 `时间/%`。
  * 用法:先起 **dev 构建**(WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9333
@@ -84,7 +84,7 @@ try {
     JSON.stringify(items) === JSON.stringify(want) && !/合并|携带|类型/.test((items ?? []).join('')),
     `items=${fmt(items)}`);
 
-  // --- 6 侧栏行内 + 开关 + 悬浮卡片(含旧键回读) ---
+  // --- 6 侧栏行内 + 开关 + 悬浮卡片(新键删掉后默认开;旧键不再回读) ---
   await openSettings(cdp);
   await pickRelationSection(cdp);
   const off = await waitFor(() => relToggleState(cdp), 20, 200);
@@ -95,17 +95,17 @@ try {
   const chips = await relationChipsOf(cdp, FIX.A);
   const tip = await rowTipOf(cdp, FIX.A);
   await deleteSetting('tag_tree_show_relations');
-  await writeSetting('tag_tree_show_carry', 'true'); // 旧键回读
+  await writeSetting('tag_tree_show_carry', 'true'); // 旧键故意留着:默认开不该被它影响
   await cdp.send('Page.reload');
   await waitFor(() => cdp.eval(`!!document.querySelector('[data-testid="unified-input"]')`).catch(() => false), 60, 500);
   await sleep(1200);
-  const chipsOld = await relationChipsOf(cdp, FIX.A);
-  record('读数6 行内 2 + `+1`、悬浮卡片列全部关系、开关生效、旧键 tag_tree_show_carry 回读',
+  const chipsDefault = await relationChipsOf(cdp, FIX.A);
+  record('读数6 行内 2 + `+1`、悬浮卡片列全部关系、开关生效、新键删掉后默认开(旧键不再回读)',
     (chips ?? []).length === 3 && chips[2] === '+1'
       && chips.some((c) => c.includes(`${FIX.REMARK} → ${NS}乙`))
       && String(tip).includes('关系：') && String(tip).includes(FIX.D) && String(tip).includes(`${FIX.REMARK} → ${NS}乙`)
-      && off !== 'true' && on === true && (chipsOld ?? []).length === 3,
-    `chips=${fmt(chips)} 卡片=「${String(tip).split('\n').pop()}」 开关 ${off}->${on} 旧键回读=${fmt(chipsOld)}`);
+      && off !== 'true' && on === true && (chipsDefault ?? []).length === 3,
+    `chips=${fmt(chips)} 卡片=「${String(tip).split('\n').pop()}」 开关 ${off}->${on} 删新键后默认=${fmt(chipsDefault)}`);
 
   // --- 7 关系图 ---
   await armGraph(ui);
@@ -117,8 +117,11 @@ try {
   await pickSearchItem(cdp);
   await sleep(900);
   const degA = await relationDegreesText(cdp);
-  const low = await relationFrame(cdp);
-  await zoomBy(cdp, 12, -120);
+  const def = await relationFrame(cdp); // 默认自适应档(centerOn 不改 k):备注应当已经画出来
+  await zoomBy(cdp, 15, 120); // 缩到 MIN_K=0.5(聚合档):备注应当收起
+  await sleep(700);
+  const out = await relationFrame(cdp);
+  await zoomBy(cdp, 12, -120); // 再放大回去,验箭头无遮挡
   await sleep(700);
   const hi = await relationFrame(cdp);
   await setSearch(cdp, `${NS}乙`);
@@ -141,10 +144,10 @@ try {
     });
   };
   const clearHi = tipsClear(hi);
-  record('读数7 关系边带箭头;k < 1.2 无备注文字、k ≥ 1.2 出备注且箭头尖不被目标圆盖住;信息条出/入度正确',
+  record('读数7 关系边带箭头;默认档就出备注、缩到聚合档(0.5)收起;箭头尖不被目标圆盖住;信息条出/入度正确',
     opened && String(degA).includes('关系（含子孙）：出 3 / 入 0') && String(degB).includes('关系（含子孙）：出 0 / 入 1')
-      && !(low?.texts ?? []).includes(FIX.REMARK) && (hi?.texts ?? []).includes(FIX.REMARK) && (hi?.arrowHeads ?? 0) > 0 && clearHi,
-    `开图=${opened} 甲=「${degA}」 乙=「${degB}」 低缩备注=${(low?.texts ?? []).includes(FIX.REMARK)} 放大备注=${(hi?.texts ?? []).includes(FIX.REMARK)} 箭头头部=${hi?.arrowHeads ?? 0} 箭头尖无遮挡=${clearHi}`);
+      && (def?.texts ?? []).includes(FIX.REMARK) && !(out?.texts ?? []).includes(FIX.REMARK) && (hi?.texts ?? []).includes(FIX.REMARK) && (hi?.arrowHeads ?? 0) > 0 && clearHi,
+    `开图=${opened} 甲=「${degA}」 乙=「${degB}」 默认备注=${(def?.texts ?? []).includes(FIX.REMARK)} 低缩备注=${(out?.texts ?? []).includes(FIX.REMARK)} 放大备注=${(hi?.texts ?? []).includes(FIX.REMARK)} 箭头头部=${hi?.arrowHeads ?? 0} 箭头尖无遮挡=${clearHi}`);
   await closeGraph(ui);
   await sleep(400);
 

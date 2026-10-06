@@ -2,7 +2,7 @@
  * `drawPlan` 的关系边层(Task 5,设计 §8):`A --(B 的备注)--> B`。
  * 钉住四件事:
  * ① 关系边单独一层(`plan.relations`),带 `arrow: true` 标记 —— 与同色同宽的笔记链接边分层可辨;
- * ② 文字备注只在缩放 `k >= 1.2` 时画在箭头附近(沿法线错开);低缩放只画箭头不画字;
+ * ② 文字备注只在缩放 `k >= 0.8` 时画在箭头附近(沿法线错开);更低缩放只画箭头不画字;
  * ③ 备注缺失(空串)的目标不画字;
  * ④ 关系边参与悬停邻居强调:悬停一端,另一端进邻居集合,这条边 `emphasized`。
  */
@@ -66,12 +66,12 @@ describe('drawPlan:关系边层', () => {
     expect(p.relations[0].pullback).toBeGreaterThan(radiusOf(1) + ARROW_RETREAT_GAP);
   });
 
-  it('k < 1.2 只画箭头不画备注;k >= 1.2 备注沿箭头法线错开且带 dim', () => {
-    expect(drawPlan({ ...base, cam: { k: 1, tx: 0, ty: 0 } }).relationMarks).toEqual([]);
-    const hi = drawPlan({ ...base, cam: { k: 1.2, tx: 0, ty: 0 } });
-    // 屏幕坐标 = 世界坐标 × 1.2:甲(60,60) 与 乙(360,60) 的中点是 (210,60),
-    // 法线方向 (0,1),错开 9px -> (210,69);弱化态跟随这条边
-    expect(hi.relationMarks).toEqual([{ x: 210, y: 69, text: '属性', dim: false }]); // 丙 的备注是空串 -> 不出
+  it('k < 0.8 只画箭头不画备注;k >= 0.8 备注沿箭头法线错开且带 dim', () => {
+    expect(drawPlan({ ...base, cam: { k: 0.7, tx: 0, ty: 0 } }).relationMarks).toEqual([]);
+    const hi = drawPlan({ ...base, cam: { k: 0.8, tx: 0, ty: 0 } });
+    // 屏幕坐标 = 世界坐标 × 0.8:甲(50,50) 与 乙(300,50) 的中点是 (140,40),
+    // 法线方向 (0,1),错开 9px -> (140,49);弱化态跟随这条边
+    expect(hi.relationMarks).toEqual([{ x: 140, y: 49, text: '属性', dim: false }]); // 丙 的备注是空串 -> 不出
     expect(hi.relations).toHaveLength(2);
   });
 
