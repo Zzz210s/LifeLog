@@ -13,12 +13,12 @@
  * - 源行不再改透明度(VS Code 源行没有任何半透明处理),拖拽中抑制 hover 高亮。
  */
 import type { CSSProperties, ReactNode } from 'react';
-import { carryLabel, typeBadgeRefs, tagFactsTitle } from '../../shared/tag-type-facts';
-import type { CarryFact, TypeChip } from '../../shared/tag-type-facts';
+import { relationLabel, relationPlan, tagFactsTitle } from '../../shared/tag-relation-facts';
 import { renderTagLabel, tagLabelPlain } from '../../shared/tag-label';
 import { hoverTitle } from '../../shared/truncate-title';
 import type { TagNode } from './tag-tree';
 import { isSelectable } from './tag-tree';
+import type { RelationRef } from '../../shared/types';
 import type { DropZone } from './drag-check';
 
 export interface TagRowProps {
@@ -43,12 +43,10 @@ export interface TagRowProps {
   onDragEnd: () => void;
   onDragOver: (e: React.DragEvent) => void;
   onDrop: (e: React.DragEvent) => void;
-  /** 本行标签被哪些类型认领(带 id 供列表 key;名字已剥 md);徽章最多 2 个 + `+N` */
-  types?: readonly TypeChip[];
-  /** 本行标签携带的「类型 -> 值」;树行只在 showCarry 时显示,悬浮卡片始终列 */
-  carry?: readonly CarryFact[];
-  /** 设置开关「标签树里显示携带」:关时不进树行(悬浮卡片仍在) */
-  showCarry?: boolean;
+  /** 本行标签的全部出边(A -> ?);悬浮卡片始终列,tree 行只在开关打开时显示前 2 条 */
+  relations?: readonly RelationRef[];
+  /** 设置开关「标签树里显示关系」:关时不进树行(悬浮卡片仍在) */
+  showRelations?: boolean;
   /** 行离开(100ms 防抖清落点的入口) */
   onDragLeave: (e: React.DragEvent) => void;
 }
@@ -85,9 +83,8 @@ export function TagRow(p: TagRowProps): ReactNode {
     (selectable ? state : 'cursor-default text-muted' + (p.dragActive ? '' : ' hover:bg-hover')) +
     (p.dropZone === 'child' ? ' bg-accent-soft' : '');
 
-  const typeChips = p.types ?? [];
-  const carries = p.carry ?? [];
-  const badges = typeBadgeRefs(typeChips);
+  const relations = p.relations ?? [];
+  const relationChips = relationPlan(relations);
 
   return (
     <button
@@ -97,13 +94,7 @@ export function TagRow(p: TagRowProps): ReactNode {
       data-drop-target={p.dropZone ?? undefined}
       draggable={p.node.id !== null}
       aria-pressed={selectable ? p.selected : undefined}
-      data-tip={tagFactsTitle(
-        p.node.path,
-        p.node.selfCount,
-        p.node.subtreeCount,
-        typeChips.map((r) => r.name),
-        carries
-      )}
+      data-tip={tagFactsTitle(p.node.path, p.node.selfCount, p.node.subtreeCount, relations)}
       className={rowClass}
       style={
         {
@@ -152,37 +143,28 @@ export function TagRow(p: TagRowProps): ReactNode {
       <span className="min-w-0 truncate" onMouseEnter={hoverTitle(tagLabelPlain(label))}>
         {renderTagLabel(label)}
       </span>
-      {badges.badges.map((b) => (
-        <span
-          key={b.tagId}
-          data-type-badge
-          className="shrink-0 rounded-xs bg-tag px-1 text-micro text-muted"
-        >
-          {b.name}
-        </span>
-      ))}
-      {badges.extra > 0 && (
-        <span data-type-badge className="shrink-0 rounded-xs bg-tag px-1 text-micro text-muted">
-          {'+' + badges.extra}
-        </span>
-      )}
       {p.excluded && (
         <span className="shrink-0 rounded-xs bg-danger-soft px-1 text-micro text-danger">已排除</span>
       )}
       <span className={COUNT_RAIL_CLASS} data-count-rail>
         {p.node.subtreeCount}
       </span>
-      {p.showCarry === true &&
-        carries.map((c, i) => (
+      {p.showRelations === true &&
+        relationChips.shown.map((r) => (
           <span
-            key={i}
-            data-tag-carry
+            key={r.toTagId}
+            data-tag-relation
             className="max-w-[8rem] shrink-0 truncate text-micro text-muted"
-            onMouseEnter={hoverTitle(carryLabel(c))}
+            onMouseEnter={hoverTitle(relationLabel(r))}
           >
-            {carryLabel(c)}
+            {relationLabel(r)}
           </span>
         ))}
+      {p.showRelations === true && relationChips.extra > 0 && (
+        <span data-tag-relation className="shrink-0 text-micro text-muted">
+          {'+' + relationChips.extra}
+        </span>
+      )}
     </button>
   );
 }

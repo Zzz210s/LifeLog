@@ -1,5 +1,5 @@
 /**
- * 携带面板下半的候选列表(自 TagMenuCarryPane 拆出,守 200 行红线):
+ * 关系面板下半的候选列表(自 TagMenuRelationPane 拆出,守 200 行红线):
  * 只负责渲染已排好序的行(高亮段已由上层重定位到纯文本),键盘/鼠标的选中由上层传入下标。
  */
 import type { ReactNode } from 'react';
@@ -8,7 +8,7 @@ import { tagLabelPlain } from '../../shared/tag-label';
 import { ITEM_CLASS } from './tag-menu-ui';
 
 /** 一行候选:数值 id(落库用)+ 完整路径 + 相对纯文本的高亮段 */
-export interface CarryCandidate {
+export interface RelationCandidate {
   id: number;
   path: string;
   ranges: readonly MatchRange[];
@@ -32,12 +32,12 @@ function HighlightedPath(p: { path: string; ranges: readonly MatchRange[] }): Re
   return <>{parts}</>;
 }
 
-export function TagMenuCarryCandidates(p: {
-  rows: readonly CarryCandidate[];
+export function TagMenuRelationCandidates(p: {
+  rows: readonly RelationCandidate[];
   activeIndex: number;
   busy: boolean;
   onHover: (index: number) => void;
-  onPick: (candidate: CarryCandidate) => void;
+  onPick: (candidate: RelationCandidate) => void;
 }): ReactNode {
   return (
     <div className="mt-0.5">
@@ -45,7 +45,7 @@ export function TagMenuCarryCandidates(p: {
         <button
           key={c.id}
           type="button"
-          data-carry-candidate={c.id}
+          data-relation-candidate={c.id}
           disabled={p.busy}
           onMouseEnter={() => p.onHover(i)}
           // 鼠标路径走 mousedown + preventDefault:onClick 之前焦点已被浏览器移到按钮上,输入框一失焦后续打字就落空

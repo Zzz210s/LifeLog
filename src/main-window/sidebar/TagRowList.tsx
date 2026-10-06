@@ -32,10 +32,10 @@ export interface TagRowListProps {
   onContextMenu: (e: React.MouseEvent, node: TagNode) => void;
   /** 拖拽状态与行事件(源行标记、悬停目标高亮与指示线) */
   drag: ReturnType<typeof useTagDrag>;
-  /** 逐标签的「类型 / 携带」事实(缺项 = 还没读到,行内就不显示徽章与携带) */
+  /** 逐标签的关系事实(缺项 = 还没读到,行内就不显示关系小字) */
   facts?: ReadonlyMap<number, TagFacts>;
-  /** 设置开关「标签树里显示携带」 */
-  showCarry?: boolean;
+  /** 设置开关「标签树里显示关系」 */
+  showRelations?: boolean;
 }
 
 export function TagRowList(p: TagRowListProps): ReactNode {
@@ -89,9 +89,8 @@ export function TagRowList(p: TagRowListProps): ReactNode {
             dragSource={sourcePath === node.path}
             dragActive={dragging}
             dropZone={p.drag.over && p.drag.over.path === node.path ? p.drag.over.zone : null}
-            types={node.id === null ? [] : p.facts?.get(node.id)?.types ?? []}
-            carry={node.id === null ? [] : p.facts?.get(node.id)?.carry ?? []}
-            showCarry={p.showCarry === true}
+            relations={node.id === null ? [] : p.facts?.get(node.id)?.relations ?? []}
+            showRelations={p.showRelations === true}
             onDragStart={(e) => p.drag.rowEvents.onDragStartRow(e, node)}
             onDragEnd={p.drag.rowEvents.onDragEnd}
             onDragOver={(e) => p.drag.rowEvents.onDragOverRow(e, node)}

@@ -1,8 +1,8 @@
 /** 标签管理菜单的面板枚举与共享样式(从 TagMenu.tsx 拆出,纯搬移) */
 import { BTN_SECONDARY } from '../shell/button-classes';
 
-/** 菜单当前显示的面板:主面板 + 重命名/移动/删除/别名/合并/携带/类型七个子面板 */
-export type Pane = 'main' | 'rename' | 'move' | 'delete' | 'alias' | 'merge' | 'carry' | 'type';
+/** 菜单当前显示的面板:主面板 + 重命名/移动/删除/别名/关系五个子面板 */
+export type Pane = 'main' | 'rename' | 'move' | 'delete' | 'alias' | 'relation';
 
 /** 菜单项按钮样式(视觉刷新 V5:行高 30 = 6+6+18,圆角取 xs 4px,字号走 --text-ui) */
 export const ITEM_CLASS =

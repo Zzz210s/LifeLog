@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
  * 关系条件在条件栏的落笔(设计 2026-10-06 §10 R10b):
- * 添加条件菜单是「关系 / 排除关系」两档,点开后列全部可被指向的标签(api.listTypes),
+ * 添加条件菜单是「关系 / 排除关系」两档,点开后列全部可被指向的标签(api.listTags),
  * 选中即 patch 出 relations / excludeRelations。
  */
 import { act, createElement } from 'react';
@@ -10,17 +10,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EMPTY_FILTER, type FilterConditions } from '../../shared/filter-conditions';
 import { ConditionBar } from './ConditionBar';
 
-const { carriedTagPaths, listTypes } = vi.hoisted(() => ({
+const { carriedTagPaths, listTags } = vi.hoisted(() => ({
   carriedTagPaths: vi.fn(),
-  listTypes: vi.fn(),
+  listTags: vi.fn(),
 }));
-vi.mock('../../shared/api', () => ({ api: { carriedTagPaths, listTypes } }));
+vi.mock('../../shared/api', () => ({ api: { carriedTagPaths, listTags } }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const TYPES = [
-  { tagId: 7, path: '地点轴/国籍', name: '国籍' },
-  { tagId: 8, path: '地点轴/所在', name: '所在' },
+const TAGS = [
+  { id: 7, path: '地点轴/国籍', depth: 2, sort_order: 0, self_count: 0, subtree_count: 0 },
+  { id: 8, path: '地点轴/所在', depth: 2, sort_order: 1, self_count: 0, subtree_count: 0 },
 ];
 
 let root: Root;
@@ -55,8 +55,8 @@ async function click(el: HTMLElement): Promise<void> {
 beforeEach(() => {
   carriedTagPaths.mockReset();
   carriedTagPaths.mockResolvedValue([]);
-  listTypes.mockReset();
-  listTypes.mockResolvedValue(TYPES);
+  listTags.mockReset();
+  listTags.mockResolvedValue(TAGS);
   patches = [];
   host = document.createElement('div');
   document.body.appendChild(host);
@@ -80,7 +80,7 @@ describe('条件栏:关系档', () => {
     await click([...host.querySelectorAll<HTMLButtonElement>('button[role="menuitem"]')].find(
       (b) => b.textContent === '关系'
     ) as HTMLButtonElement);
-    expect(listTypes).toHaveBeenCalled();
+    expect(listTags).toHaveBeenCalled();
     expect(dialog().textContent).toContain('国籍');
     expect(dialog().textContent).toContain('所在');
 

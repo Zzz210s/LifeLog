@@ -176,7 +176,7 @@ export function App(): ReactNode {
         }}
         theme={theme}
         onReplayTutorial={tutorial.onReplay}
-        tagTreeCarry={{ showCarry: sidebar.showCarry, onShowCarryChange: sidebar.setShowCarry }}
+        tagTreeRelations={{ showRelations: sidebar.showRelations, onShowRelationsChange: sidebar.setShowRelations }}
         onFilterToStream={filterToStream}
         dataVersion={tagsVersion}
         tagMru={tagMru}

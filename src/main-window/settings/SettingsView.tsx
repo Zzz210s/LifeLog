@@ -11,7 +11,7 @@ import { GeneralSection } from './GeneralSection';
 import { InputAppearancePanel } from './InputAppearancePanel';
 import { InputBehaviorPanel } from './InputBehaviorPanel';
 import { NotesSection } from './NotesSection';
-import { TypeSuggestionsSection } from './TypeSuggestionsSection';
+import { RelationSuggestionsSection } from './RelationSuggestionsSection';
 import { SettingsNav } from './settings-nav';
 import { normalizeSection, type SectionId } from './settings-sections';
 import { StartupSection } from './StartupSection';
@@ -25,12 +25,12 @@ export interface SettingsViewProps {
   onThemeChange: (mode: ThemeMode) => void;
   /** 重看新手引导(设计 D6);未传则该行按钮不做事 */
   onReplayTutorial?: () => void;
-  /** 「标签类型」分区里的「标签树里显示携带」当前值(与侧栏同一份状态,透传) */
-  showCarry?: boolean;
-  onShowCarryChange?: (v: boolean) => void;
+  /** 「标签关系」分区里的「标签树里显示关系」当前值(与侧栏同一份状态,透传) */
+  showRelations?: boolean;
+  onShowRelationsChange?: (v: boolean) => void;
 }
 
-export function SettingsView({ themeMode, onThemeChange, onReplayTutorial, showCarry, onShowCarryChange }: SettingsViewProps): ReactNode {
+export function SettingsView({ themeMode, onThemeChange, onReplayTutorial, showRelations, onShowRelationsChange }: SettingsViewProps): ReactNode {
   const [active, setActive] = useState<SectionId>(() => normalizeSection('appearance'));
   const editing = useAppearanceEditing();
 
@@ -58,7 +58,7 @@ export function SettingsView({ themeMode, onThemeChange, onReplayTutorial, showC
       case 'notes':
         return <NotesSection />;
       case 'types':
-        return <TypeSuggestionsSection showCarry={showCarry} onShowCarryChange={onShowCarryChange} />;
+        return <RelationSuggestionsSection showRelations={showRelations} onShowRelationsChange={onShowRelationsChange} />;
       case 'hotkey':
         return <AppHotkeySection />;
       case 'startup':

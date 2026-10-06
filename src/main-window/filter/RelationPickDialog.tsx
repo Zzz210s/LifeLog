@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { api } from '../../shared/api';
 import { renderTagLabel, tagLabelPlain } from '../../shared/tag-label';
 import { hoverTitle } from '../../shared/truncate-title';
-import type { TypeRef } from '../../shared/types';
+import type { TagCount } from '../../shared/types';
 import { BTN_ICON } from '../shell/button-classes';
 
 export interface RelationPickDialogProps {
@@ -18,17 +18,17 @@ export interface RelationPickDialogProps {
 
 /**
  * 关系选择器(添加条件 -> 关系/排除关系):022 起任何标签都可被指向,数据源是全部标签
- * (`api.listTypes` 现返回全量)。关系天然含子级并叠加继承,所以没有「含子级」开关;
+ * (`api.listTags`)。关系天然含子级并叠加继承,所以没有「含子级」开关;
  * 显示口径与标签选择器一致,用纯文本形态,回传仍是原始路径。
  */
 export function RelationPickDialog(p: RelationPickDialogProps): ReactNode {
-  const [rows, setRows] = useState<TypeRef[] | null>(null);
+  const [rows, setRows] = useState<TagCount[] | null>(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
     let dead = false;
     api
-      .listTypes()
+      .listTags()
       .then((r) => {
         if (!dead) setRows(r);
       })
@@ -95,7 +95,9 @@ export function RelationPickDialog(p: RelationPickDialogProps): ReactNode {
                     {picked ? (
                       <span className="shrink-0 text-label text-muted">已添加</span>
                     ) : (
-                      <span className="shrink-0 text-label text-muted">{row.name}</span>
+                      <span className="shrink-0 text-label text-muted">
+                        {row.path.slice(row.path.lastIndexOf('/') + 1)}
+                      </span>
                     )}
                   </button>
                 </li>

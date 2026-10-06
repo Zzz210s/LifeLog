@@ -1,7 +1,8 @@
 /**
  * 侧栏状态与持久化(spec 6.1):整栏显隐、宽度(180-420 钳制)、标签树/扁平模式、
- * 标签树里是否显示携带(标签类型 spec §5,默认关)。
- * 四个设置键 sidebar_visible / sidebar_width / tag_view_mode / tag_tree_show_carry;读取失败或非法值一律回默认。
+ * 标签树里是否显示关系(标签关系统一 spec §7,默认关)。
+ * 四个设置键 sidebar_visible / sidebar_width / tag_view_mode / tag_tree_show_relations;
+ * 读取失败或非法值一律回默认。开关的**旧键** tag_tree_show_carry 仍回读(改名不丢用户设置)。
  * 写入失败静默(不影响本次会话);宽度写入前钳制,拖拽中的高频变更由调用方攒批。
  */
 import { useCallback, useEffect, useState } from 'react';
@@ -17,7 +18,9 @@ const DEFAULT_WIDTH = 240;
 const KEY_VISIBLE = 'sidebar_visible';
 const KEY_WIDTH = 'sidebar_width';
 const KEY_MODE = 'tag_view_mode';
-const KEY_SHOW_CARRY = 'tag_tree_show_carry';
+const KEY_SHOW_RELATIONS = 'tag_tree_show_relations';
+/** 旧键(2026-10-06 由「携带」改名而来):新键读不到时回读它,不让老用户的开关被重置 */
+const KEY_SHOW_RELATIONS_OLD = 'tag_tree_show_carry';
 
 export function clampSidebarWidth(w: number): number {
   return Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, Math.round(w)));
@@ -35,7 +38,7 @@ const parseWidth = (raw: string | null): number => {
 const parseMode = (raw: string | null): TagViewMode => (raw === 'flat' ? 'flat' : 'tree');
 
 /** 开关默认关;只有显式 'true' 才为真(空、拼写、类型一律回默认) */
-const parseShowCarry = (raw: string | null): boolean => raw === 'true';
+const parseShowRelations = (raw: string | null): boolean => raw === 'true';
 
 /** 静默写库:失败不提示不影响会话内状态 */
 const persist = (key: string, value: string): void => {
@@ -50,31 +53,33 @@ export interface SidebarStateApi {
   setWidth: (w: number) => void;
   mode: TagViewMode;
   setMode: (m: TagViewMode) => void;
-  /** 标签树里显示携带(默认关);打开后树行末尾追加 `国籍 → 日本` 小字 */
-  showCarry: boolean;
-  setShowCarry: (v: boolean) => void;
+  /** 标签树里显示关系(默认关);打开后树行末尾追加 `备注 → 目标` 小字 */
+  showRelations: boolean;
+  setShowRelations: (v: boolean) => void;
 }
 
 export function useSidebarState(): SidebarStateApi {
   const [visible, setVisibleState] = useState(true);
   const [width, setWidthState] = useState(DEFAULT_WIDTH);
   const [mode, setModeState] = useState<TagViewMode>('tree');
-  const [showCarry, setShowCarryState] = useState(false);
+  const [showRelations, setShowRelationsState] = useState(false);
 
   // 启动读回(非法值已在解析层回退默认);恢复完成前的默认渲染由主窗 visible:false 掩护
   useEffect(() => {
     void (async () => {
       try {
-        const [v, w, m, c] = await Promise.all([
+        const [v, w, m, rel, relOld] = await Promise.all([
           api.getSetting(KEY_VISIBLE),
           api.getSetting(KEY_WIDTH),
           api.getSetting(KEY_MODE),
-          api.getSetting(KEY_SHOW_CARRY),
+          api.getSetting(KEY_SHOW_RELATIONS),
+          api.getSetting(KEY_SHOW_RELATIONS_OLD),
         ]);
         setVisibleState(parseVisible(v));
         setWidthState(parseWidth(w));
         setModeState(parseMode(m));
-        setShowCarryState(parseShowCarry(c));
+        // 新键优先;新键没写过(null)时回读旧键,改名不丢用户设置
+        setShowRelationsState(parseShowRelations(rel ?? relOld));
       } catch {
         /* 读失败保持默认,不阻断主界面 */
       }
@@ -97,10 +102,10 @@ export function useSidebarState(): SidebarStateApi {
     persist(KEY_MODE, m);
   }, []);
 
-  const setShowCarry = useCallback((v: boolean) => {
-    setShowCarryState(v);
-    persist(KEY_SHOW_CARRY, String(v));
+  const setShowRelations = useCallback((v: boolean) => {
+    setShowRelationsState(v);
+    persist(KEY_SHOW_RELATIONS, String(v));
   }, []);
 
-  return { visible, setVisible, width, setWidth, mode, setMode, showCarry, setShowCarry };
+  return { visible, setVisible, width, setWidth, mode, setMode, showRelations, setShowRelations };
 }

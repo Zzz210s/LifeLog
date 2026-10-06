@@ -1,7 +1,7 @@
-/** 标签菜单纯助手测试(测试先行,G3):别名输入校验 / 合并候选 / 影响面文案 */
+/** 标签菜单纯助手测试(测试先行,G3):别名输入校验 / 移动候选 / 关系候选 */
 import { describe, expect, it } from 'vitest';
 import type { TagCount } from '../../shared/types';
-import { carryCandidates, mergeCandidates, mergeImpactText, validateAliasInput } from './tag-menu-pure';
+import { mergeCandidates, relationCandidates, validateAliasInput } from './tag-menu-pure';
 
 const row = (id: number, path: string, depth: number): TagCount => ({
   id,
@@ -46,7 +46,7 @@ describe('validateAliasInput', () => {
   });
 });
 
-describe('mergeCandidates', () => {
+describe('mergeCandidates(移动面板用)', () => {
   const rows = [
     row(1, '甲', 1),
     row(2, '甲/子', 2),
@@ -70,35 +70,29 @@ describe('mergeCandidates', () => {
   });
 });
 
-describe('carryCandidates', () => {
+describe('relationCandidates', () => {
   const rows = [row(1, '甲', 1), row(2, '乙', 1), row(3, '丙', 1), row(4, '丁', 1)];
 
   it('排除自己', () => {
-    expect(carryCandidates(rows, '甲', []).map((r) => r.path)).toEqual(['乙', '丙', '丁']);
+    expect(relationCandidates(rows, '甲', []).map((r) => r.path)).toEqual(['乙', '丙', '丁']);
   });
 
-  it('排除已携带的标签(自己与已携带同时命中时也不重复)', () => {
-    expect(carryCandidates(rows, '甲', [{ path: '丙' }]).map((r) => r.path)).toEqual(['乙', '丁']);
-    expect(carryCandidates(rows, '乙', [{ path: '乙' }]).map((r) => r.path)).toEqual([
+  it('排除已建立关系的目标(自己与已建立同时命中时也不重复)', () => {
+    expect(relationCandidates(rows, '甲', [{ path: '丙' }]).map((r) => r.path)).toEqual(['乙', '丁']);
+    expect(relationCandidates(rows, '乙', [{ path: '乙' }]).map((r) => r.path)).toEqual([
       '甲',
       '丙',
       '丁',
     ]);
   });
 
+  it('022 起不再按「已登记类型」过滤:任何标签都能当目标', () => {
+    expect(relationCandidates(rows, '甲', []).map((r) => r.id)).toEqual([2, 3, 4]);
+  });
+
   it('保持原路径序,不改动传入数组', () => {
-    const out = carryCandidates(rows, '甲', [{ path: '乙' }]);
+    const out = relationCandidates(rows, '甲', [{ path: '乙' }]);
     expect(out.map((r) => r.id)).toEqual([3, 4]);
     expect(rows.map((r) => r.id)).toEqual([1, 2, 3, 4]);
-  });
-});
-
-describe('mergeImpactText', () => {
-  it('没有关联笔记时明说,不显示「将影响 0 条」', () => {
-    expect(mergeImpactText(0)).toBe('该标签暂无关联笔记');
-  });
-  it('有关联笔记时给条数', () => {
-    expect(mergeImpactText(3)).toBe('将影响 3 条笔记');
-    expect(mergeImpactText(1358)).toBe('将影响 1358 条笔记');
   });
 });

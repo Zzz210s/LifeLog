@@ -1,11 +1,10 @@
 /**
- * 标签菜单第六档「携带…」(spec §6):上半列出本标签当前携带的标签(可逐条移除),
- * 下半输入框 + 候选列表(复用 `#` 补全那套共享打分/排序引擎 `shared/quickpick/model`),
- * 末尾一行只读「被 N 个标签携带」。
+ * 标签菜单「关系…」面板(标签关系统一 spec §5):上半列出本标签的**全部出边**
+ * (`备注 → 目标`,可逐条移除),下半输入框 + 候选列表(复用 `#` 补全那套共享打分/排序引擎
+ * `shared/quickpick/model`)。写库走 `setTagRelation` / `removeTagRelation`。
  *
- * 自包含容器(与别名面板的 hook + 展示侧拆分不同):状态与 IPC 都在本文件,
- * 这样 TagMenu 只需一行挂载,守住它的 200 行红线(候选列表规模小,不值得再拆一层)。
- * 添加/移除后**保持打开**、就地刷新,不弹 Toast;失败显示后端中文错误。
+ * 自包含容器:状态与 IPC 都在本文件,TagMenu 只需一行挂载。添加/移除后**保持打开**、
+ * 重新读一次出边(读回来的带真实备注,比本地拼更准),不弹 Toast;失败显示后端中文错误。
  */
 import { useEffect, useMemo, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
@@ -15,46 +14,40 @@ import type { MruEntry } from '../../shared/quickpick/model';
 import { renderTagLabel, tagLabelPlain } from '../../shared/tag-label';
 import { remapRanges } from '../../shared/tag-label-highlight';
 import { hoverTitle } from '../../shared/truncate-title';
-import type { CarryReport, TypeRef, TagCount } from '../../shared/types';
-import { TagMenuCarriedList } from './TagMenuCarriedList';
-import { TagMenuCarryCandidates } from './TagMenuCarryCandidates';
-import { carryCandidates } from './tag-menu-pure';
+import type { RelationRef, TagCount } from '../../shared/types';
+import { TagMenuRelationList } from './TagMenuRelationList';
+import { TagMenuRelationCandidates } from './TagMenuRelationCandidates';
+import { relationCandidates } from './tag-menu-pure';
 import { BTN_GHOST } from './tag-menu-ui';
 
-export interface TagMenuCarryPaneProps {
-  /** 本标签(携带者)id 与完整路径 */
+export interface TagMenuRelationPaneProps {
+  /** 本标签(关系起点)id 与完整路径 */
   tagId: number;
   path: string;
-  /** 全部标签行(候选池,自身与已携带的由 carryCandidates 剔除) */
+  /** 全部标签行(候选池,自身与已建立关系的由 relationCandidates 剔除) */
   rows: readonly TagCount[];
-  /** 已登记类型(候选只留它们,符合 R3:携带目标必须是类型标签) */
-  types: readonly TypeRef[];
   /** 固定项 / 最近用过(`#` 补全同一套档位;缺省为空档) */
   pinned?: readonly string[];
   mru?: readonly MruEntry[];
   onCancel: () => void;
 }
 
-/** 完整路径的升序比较器:相等返回 0(后端的 carried 就是路径序,本地增量插入保持同一口径) */
-function byPath(a: { path: string }, b: { path: string }): number {
-  return a.path < b.path ? -1 : a.path > b.path ? 1 : 0;
-}
-
-export function TagMenuCarryPane(p: TagMenuCarryPaneProps): ReactNode {
-  const [report, setReport] = useState<CarryReport | null>(null);
+export function TagMenuRelationPane(p: TagMenuRelationPaneProps): ReactNode {
+  const [outgoing, setOutgoing] = useState<RelationRef[] | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
-  /** 首帧读数未回来:候选池还不知道该排除谁,输入/候选项一律禁用(否则会选了已携带的、本地又无处可记) */
-  const loading = report === null;
+  /** 首帧读数未回来:候选池还不知道该排除谁,输入/候选项一律禁用 */
+  const loading = outgoing === null;
+
+  const reload = (): Promise<RelationRef[]> => api.listTagRelations(p.tagId);
 
   useEffect(() => {
     let alive = true;
-    api
-      .listTagCarries(p.tagId)
+    reload()
       .then((r) => {
-        if (alive) setReport(r);
+        if (alive) setOutgoing(r);
       })
       .catch((e) => {
         if (alive) setError(String(e));
@@ -62,11 +55,11 @@ export function TagMenuCarryPane(p: TagMenuCarryPaneProps): ReactNode {
     return () => {
       alive = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [p.tagId]);
 
   const candidates = useMemo(() => {
-    const typeIds = new Set(p.types.map((r) => r.tagId));
-    const pool = carryCandidates(p.rows, p.path, report?.carried ?? [], typeIds);
+    const pool = relationCandidates(p.rows, p.path, outgoing ?? []);
     const byPath = new Map(pool.map((c) => [c.path, c.id] as const));
     const { rows } = buildList({
       items: pool.map((c) => ({ id: c.path, label: c.path })),
@@ -80,40 +73,34 @@ export function TagMenuCarryPane(p: TagMenuCarryPaneProps): ReactNode {
       path: r.item.id,
       ranges: remapRanges(r.item.id, tagLabelPlain(r.item.id), r.ranges),
     }));
-  }, [p.rows, p.path, p.types, p.pinned, p.mru, report, query]);
+  }, [p.rows, p.path, p.pinned, p.mru, outgoing, query]);
 
   useEffect(() => {
     setActiveIndex(0);
   }, [query]);
 
-  const add = (id: number, path: string): void => {
+  const add = (id: number): void => {
     if (loading) return; // 读数未回来时输入/候选已禁用,这是键盘路径的兜底
     setError('');
     setBusy(true);
     void api
-      .setTagCarry(p.tagId, id)
+      .setTagRelation(p.tagId, id)
       .then(() => {
         setQuery('');
-        setReport((prev) =>
-          prev === null
-            ? prev
-            : { ...prev, carried: [...prev.carried, { id, path }].sort(byPath) }
-        );
+        return reload();
       })
+      .then(setOutgoing)
       .catch((e) => setError(String(e)))
       .finally(() => setBusy(false));
   };
 
-  const remove = (id: number): void => {
+  const remove = (toTagId: number): void => {
     setError('');
     setBusy(true);
     void api
-      .removeTagCarry(p.tagId, id)
-      .then(() =>
-        setReport((prev) =>
-          prev === null ? prev : { ...prev, carried: prev.carried.filter((c) => c.id !== id) }
-        )
-      )
+      .removeTagRelation(p.tagId, toTagId)
+      .then(reload)
+      .then(setOutgoing)
       .catch((e) => setError(String(e)))
       .finally(() => setBusy(false));
   };
@@ -129,21 +116,18 @@ export function TagMenuCarryPane(p: TagMenuCarryPaneProps): ReactNode {
     } else if (e.key === 'Enter') {
       e.preventDefault();
       const pick = candidates[activeIndex] ?? candidates[0];
-      if (pick !== undefined && !busy) add(pick.id, pick.path);
+      if (pick !== undefined && !busy) add(pick.id);
     }
   };
-
-  const carriers = report?.carriersOf ?? [];
-  const carrierText = carriers.map((c) => tagLabelPlain(c.path)).join('、');
 
   return (
     <div className="p-1">
       <p className="truncate px-1 py-0.5 text-label font-medium text-muted" onMouseEnter={hoverTitle(tagLabelPlain(p.path))}>
-        携带:{renderTagLabel(p.path)}
+        关系:{renderTagLabel(p.path)}
       </p>
-      {/* 「当前携带」标题只在 TagMenuCarriedList 里渲染一次(容器不再重复) */}
-      <TagMenuCarriedList carried={report?.carried ?? null} busy={busy} onRemove={remove} />
-      <p className="mt-1 px-1 text-label text-muted">添加携带</p>
+      {/* 「当前关系」标题只在 TagMenuRelationList 里渲染一次(容器不再重复) */}
+      <TagMenuRelationList relations={outgoing} busy={busy} onRemove={remove} />
+      <p className="mt-1 px-1 text-label text-muted">添加关系</p>
       <input
         value={query}
         onChange={(e) => {
@@ -153,7 +137,7 @@ export function TagMenuCarryPane(p: TagMenuCarryPaneProps): ReactNode {
         onKeyDown={onKeyDown}
         disabled={loading || busy}
         placeholder="输入标签名或路径…"
-        aria-label="添加携带标签"
+        aria-label="添加关系标签"
         className="h-8 w-full rounded-sm border border-border-strong bg-raised px-2.5 text-ui text-text outline-none"
       />
       {!loading && candidates.length === 0 && (
@@ -161,16 +145,13 @@ export function TagMenuCarryPane(p: TagMenuCarryPaneProps): ReactNode {
           {query.trim() === '' ? '没有可添加的标签' : '没有匹配的标签'}
         </p>
       )}
-      <TagMenuCarryCandidates
+      <TagMenuRelationCandidates
         rows={candidates}
         activeIndex={activeIndex}
         busy={busy || loading}
         onHover={setActiveIndex}
-        onPick={(c) => add(c.id, c.path)}
+        onPick={(c) => add(c.id)}
       />
-      <p className="mt-1 truncate px-1 text-label text-muted" onMouseEnter={hoverTitle(carrierText)}>
-        被 {carriers.length} 个标签携带{carriers.length > 0 ? ':' + carrierText : ''}
-      </p>
       {error !== '' && <p className="mt-1 px-1 text-label text-danger">{error}</p>}
       <div className="mt-1.5 flex justify-end gap-1.5">
         <button type="button" onClick={p.onCancel} className={BTN_GHOST}>

@@ -1,9 +1,8 @@
 // @vitest-environment jsdom
 /**
- * 携带面板「三档排序」的真实数据源接线(T3 修复轮的重要项):
+ * 关系面板「三档排序」的真实数据源接线:
  * 空查询的「最近用过」档必须来自 App 里那一份 `PaletteSettings` 实例,经
- * `Sidebar → TagsSection → TagMenu` 透传 —— 从 TagsSection(侧栏真实入口)一层钉住;
- * 另覆盖加载中禁用输入/候选与鼠标采纳保焦点。
+ * `Sidebar → TagsSection → TagMenu` 透传 —— 从 TagsSection(侧栏真实入口)一层钉住。
  *
  * 判别力:ROWS 的路径序把「出版年份」排在最后,拿不到 mru 就上不了首位。
  */
@@ -17,15 +16,14 @@ import { TagsSection } from './TagsSection';
 import { buildTree } from './tag-tree';
 import type { ManagedNode } from './tag-tree';
 
-const { listTagCarries, setTagCarry, removeTagCarry, listTypes } = vi.hoisted(() => ({
-  listTagCarries: vi.fn(),
-  setTagCarry: vi.fn(),
-  removeTagCarry: vi.fn(),
-  listTypes: vi.fn(),
+const { listTagRelations, setTagRelation, removeTagRelation } = vi.hoisted(() => ({
+  listTagRelations: vi.fn(),
+  setTagRelation: vi.fn(),
+  removeTagRelation: vi.fn(),
 }));
 
 vi.mock('../../shared/api', () => ({
-  api: { listTagCarries, setTagCarry, removeTagCarry, listTypes },
+  api: { listTagRelations, setTagRelation, removeTagRelation },
 }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -39,11 +37,11 @@ const at = (id: number, path: string): TagCount => ({
   subtree_count: 0,
 });
 
-const SELF = at(1, '携带测试甲');
-const CARRIED = at(2, '携带测试乙');
-const OTHER = at(3, '携带测试丙');
+const SELF = at(1, '关系测试甲');
+const EDGE_TARGET = at(2, '关系测试乙');
+const OTHER = at(3, '关系测试丙');
 const PINNABLE = at(4, '出版年份'); // 路径序最后:只有 MRU / 固定项档能把它提到首位
-const ROWS = [SELF, CARRIED, OTHER, PINNABLE];
+const ROWS = [SELF, EDGE_TARGET, OTHER, PINNABLE];
 const node = buildTree([SELF] as never)[0] as ManagedNode;
 
 /** 假 MRU 源:entries 只有「出版年份」一条(次数 3) */
@@ -56,17 +54,13 @@ let root: Root;
 let host: HTMLDivElement;
 
 beforeEach(() => {
-  listTagCarries.mockReset();
-  setTagCarry.mockReset();
-  removeTagCarry.mockReset();
-  // 候选只列已登记类型(R3):丙与出版年份
-  listTypes.mockReset();
-  listTypes.mockResolvedValue([
-    { tagId: OTHER.id, path: OTHER.path, name: OTHER.path },
-    { tagId: PINNABLE.id, path: PINNABLE.path, name: PINNABLE.path },
+  listTagRelations.mockReset();
+  setTagRelation.mockReset();
+  removeTagRelation.mockReset();
+  listTagRelations.mockResolvedValue([
+    { toTagId: EDGE_TARGET.id, path: EDGE_TARGET.path, name: EDGE_TARGET.path, remark: '' },
   ]);
-  listTagCarries.mockResolvedValue({ carried: [CARRIED], carriersOf: [] });
-  setTagCarry.mockResolvedValue(undefined);
+  setTagRelation.mockResolvedValue(undefined);
   host = document.createElement('div');
   document.body.appendChild(host);
   root = createRoot(host);
@@ -84,7 +78,7 @@ const flush = async (): Promise<void> => {
 };
 
 const candidateTexts = (): string[] =>
-  [...host.querySelectorAll('[data-carry-candidate]')].map((el) => el.textContent?.trim() ?? '');
+  [...host.querySelectorAll('[data-relation-candidate]')].map((el) => el.textContent?.trim() ?? '');
 
 const menuItem = (text: string): HTMLElement => {
   const found = [...host.querySelectorAll('[role="menuitem"], button')].find(
@@ -94,8 +88,8 @@ const menuItem = (text: string): HTMLElement => {
   return found as HTMLElement;
 };
 
-/** 侧栏真实入口:右键标签行(contextmenu)-> 点「携带…」 */
-async function openCarryFromSidebar(tag: TagCount, mru: typeof tagMru | null): Promise<void> {
+/** 侧栏真实入口:右键标签行(contextmenu)-> 点「关系…」 */
+async function openRelationFromSidebar(tag: TagCount, mru: typeof tagMru | null): Promise<void> {
   act(() => {
     root.render(
       createElement(TagsSection, {
@@ -115,13 +109,13 @@ async function openCarryFromSidebar(tag: TagCount, mru: typeof tagMru | null): P
   act(() => {
     row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 20, clientY: 20 }));
   });
-  act(() => menuItem('携带…').click());
+  act(() => menuItem('关系…').click());
   await flush();
 }
 
-describe('携带面板·三档排序的数据源接线', () => {
+describe('关系面板·三档排序的数据源接线', () => {
   it('侧栏透传 tagMru:空查询把最近用过的标签排在最前', async () => {
-    await openCarryFromSidebar(SELF, tagMru);
+    await openRelationFromSidebar(SELF, tagMru);
     expect(candidateTexts()[0]).toBe('出版年份');
   });
 
@@ -139,7 +133,7 @@ describe('携带面板·三档排序的数据源接线', () => {
         })
       );
     });
-    act(() => menuItem('携带…').click());
+    act(() => menuItem('关系…').click());
     await flush();
     expect(candidateTexts()[0]).toBe('出版年份');
   });

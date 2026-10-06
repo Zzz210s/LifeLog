@@ -1,13 +1,13 @@
-// 「类型建议」面板的工具条(自 TypeSuggestionsSection 抽出,守 200 行上限):
-// 按建议类型筛选 + 全选 / 全不选 / 批量确认。纯展示,状态与写库完全在父组件。
+// 「关系建议」面板的工具条(自 RelationSuggestionsSection 抽出,守 200 行上限):
+// 按建议目标筛选 + 全选 / 全不选 / 批量确认。纯展示,状态与写库完全在父组件。
 import type { ReactNode } from 'react';
 import { BTN_SECONDARY } from '../shell/button-classes';
 import { SelectInput } from './controls';
 
-export interface TypeSuggestionsToolbarProps {
-  filterType: string;
+export interface RelationSuggestionsToolbarProps {
+  filterTarget: string;
   filterOptions: { value: string; label: string }[];
-  onFilterType: (v: string) => void;
+  onFilterTarget: (v: string) => void;
   /** 当前勾选数(批量确认按钮的括注) */
   selectedCount: number;
   busy: boolean;
@@ -16,14 +16,14 @@ export interface TypeSuggestionsToolbarProps {
   onConfirm: () => void;
 }
 
-export function TypeSuggestionsToolbar(p: TypeSuggestionsToolbarProps): ReactNode {
+export function RelationSuggestionsToolbar(p: RelationSuggestionsToolbarProps): ReactNode {
   return (
     <div className="flex flex-wrap items-center gap-2 border-b border-border py-3">
       <SelectInput
-        value={p.filterType}
-        label="按建议类型筛选"
+        value={p.filterTarget}
+        label="按建议关系筛选"
         options={p.filterOptions}
-        onChange={p.onFilterType}
+        onChange={p.onFilterTarget}
       />
       <button type="button" aria-label="全选可见" className={BTN_SECONDARY} onClick={p.onSelectAll}>
         全选可见

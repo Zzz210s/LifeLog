@@ -29,9 +29,9 @@ export function TagMenuDeletePane(p: TagMenuDeletePaneProps): ReactNode {
             (p.impact.tags > 0 ? `、${p.impact.tags} 个子标签` : '')}
       </p>
       {p.impact !== null && (
-        <p className="mt-1 px-1 text-label text-muted">该标签被 {p.impact.carriers} 个标签携带</p>
+        <p className="mt-1 px-1 text-label text-muted">该标签被 {p.impact.carriers} 个标签指向</p>
       )}
-      {/* 读数口径:N 只数指向本标签的直接携带者;删除子树虽会连带清掉指向子孙的携带行,但不计入 N */}
+      {/* 读数口径:N 只数指向本标签的直接入边;删除子树虽会连带清掉指向子孙的边,但不计入 N */}
       <p className="mt-1 px-1 text-label text-muted">
         只解除这些笔记上的该标签,笔记本身不会被删除;已存在的笔记也不会因删除而重新生成标签。
       </p>

@@ -1,37 +1,37 @@
-// 设置页「标签类型」分区(设计 2026-10-05-tag-types-design.md §6):把启发式建议逐条过一遍,
-// 接受 / 改成别的类型 / 忽略,最后批量写库。
-// 绝不自动写(R6/R10):只有点「批量确认」才调命令;已确认的 (标签,类型) 自动消失。
+// 设置页「标签关系」分区(设计 2026-10-06-tag-relation-design.md §9;规则沿用标签类型建议):
+// 把启发式建议逐条过一遍,接受 / 改成别的目标 / 忽略,最后批量建立关系。
+// 绝不自动写(R6):只有点「批量确认」才调命令;已建立的关系对应的建议自动消失。
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { api } from '../../shared/api';
-import type { TypeRef } from '../../shared/types';
+import type { TagCount } from '../../shared/types';
 import { BTN_SECONDARY } from '../shell/button-classes';
-import { TypeSuggestionRow } from './TypeSuggestionRow';
-import { TypeSuggestionsToolbar } from './TypeSuggestionsToolbar';
+import { RelationSuggestionRow } from './RelationSuggestionRow';
+import { RelationSuggestionsToolbar } from './RelationSuggestionsToolbar';
 import { SettingsSection } from './SettingsSection';
-import { TagTreeCarryRow } from './TagTreeCarryRow';
+import { TagTreeRelationRow } from './TagTreeRelationRow';
 import { SETTINGS_SECTIONS } from './settings-sections';
-import { effectiveType, pendingSuggestions, planWrites, setExcludedFor, suggestTypes, type TypeSuggestion } from './type-suggestions';
+import { effectiveTarget, leaf, pendingSuggestions, planWrites, setExcludedFor, suggestRelations, type RelationSuggestion } from './relation-suggestions';
 
 const META = SETTINGS_SECTIONS.find((s) => s.id === 'types')!;
 /** 每页条数:上百条建议要能一次过完,但一屏不刷太长(R11) */
 const PAGE_SIZE = 20;
 
-type ClaimIndex = Map<number, Set<number>>;
+type ExistingIndex = Map<number, Set<number>>;
 
-export interface TypeSuggestionsSectionProps {
-  /** 设置开关「标签树里显示携带」当前值(默认关);透传给 TagTreeCarryRow */
-  showCarry?: boolean;
-  onShowCarryChange?: (v: boolean) => void;
+export interface RelationSuggestionsSectionProps {
+  /** 设置开关「标签树里显示关系」当前值(默认关);透传给 TagTreeRelationRow */
+  showRelations?: boolean;
+  onShowRelationsChange?: (v: boolean) => void;
 }
 
-export function TypeSuggestionsSection(p: TypeSuggestionsSectionProps = {}): ReactNode {
-  const [all, setAll] = useState<TypeSuggestion[]>([]);
-  const [types, setTypes] = useState<TypeRef[]>([]);
-  const [claimed, setClaimed] = useState<ClaimIndex>(new Map());
+export function RelationSuggestionsSection(p: RelationSuggestionsSectionProps = {}): ReactNode {
+  const [all, setAll] = useState<RelationSuggestion[]>([]);
+  const [targets, setTargets] = useState<TagCount[]>([]);
+  const [existing, setExisting] = useState<ExistingIndex>(new Map());
   const [ignored, setIgnored] = useState<Set<number>>(new Set());
   const [overrides, setOverrides] = useState<Map<number, number>>(new Map());
   const [excluded, setExcluded] = useState<Set<number>>(new Set());
-  const [filterType, setFilterType] = useState('all');
+  const [filterTarget, setFilterTarget] = useState('all');
   const [page, setPage] = useState(0);
   const [status, setStatus] = useState('');
   const [loaded, setLoaded] = useState(false);
@@ -40,15 +40,16 @@ export function TypeSuggestionsSection(p: TypeSuggestionsSectionProps = {}): Rea
   useEffect(() => {
     let alive = true;
     setStatus('');
-    Promise.all([api.listTags(), api.listTypes()])
-      .then(async ([tags, typeList]) => {
-        const rows = suggestTypes(tags);
+    api
+      .listTags()
+      .then(async (tags) => {
+        const rows = suggestRelations(tags);
         const ids = [...new Set(rows.map((r) => r.tagId))];
-        const claims = await Promise.all(ids.map((id) => api.listTagTypes(id)));
+        const edges = await Promise.all(ids.map((id) => api.listTagRelations(id)));
         if (!alive) return;
         setAll(rows);
-        setTypes(typeList);
-        setClaimed(new Map(ids.map((id, i) => [id, new Set(claims[i].map((r) => r.tagId))])));
+        setTargets(tags);
+        setExisting(new Map(ids.map((id, i) => [id, new Set(edges[i].map((r) => r.toTagId))])));
         setLoaded(true);
       })
       .catch((e) => {
@@ -60,18 +61,18 @@ export function TypeSuggestionsSection(p: TypeSuggestionsSectionProps = {}): Rea
   }, []);
 
   const rows = useMemo(
-    () => pendingSuggestions(all, claimed, ignored, overrides),
-    [all, claimed, ignored, overrides],
+    () => pendingSuggestions(all, existing, ignored, overrides),
+    [all, existing, ignored, overrides],
   );
   const visible = useMemo(
-    () => (filterType === 'all' ? rows : rows.filter((r) => String(r.typeTagId) === filterType)),
-    [rows, filterType],
+    () => (filterTarget === 'all' ? rows : rows.filter((r) => String(r.toTagId) === filterTarget)),
+    [rows, filterTarget],
   );
   const filterOptions = useMemo(() => {
     const seen = new Map<number, string>();
-    for (const r of rows) if (!seen.has(r.typeTagId)) seen.set(r.typeTagId, r.typeName);
+    for (const r of rows) if (!seen.has(r.toTagId)) seen.set(r.toTagId, r.toName);
     return [
-      { value: 'all', label: '全部类型' },
+      { value: 'all', label: '全部关系' },
       ...[...seen].map(([id, name]) => ({ value: String(id), label: name })),
     ];
   }, [rows]);
@@ -91,11 +92,9 @@ export function TypeSuggestionsSection(p: TypeSuggestionsSectionProps = {}): Rea
       return next;
     });
 
-  /** 唯一的写库入口:逐标签整体替换认领;作用域 = 当前筛选可见项。
-   *  022 起「谁能当类型」的约束取消(任何标签都能被指向),不再需要先登记类型标签 ——
-   *  旧 `setTagTypeFlag` 已明确不可用,这里只写认领。 */
+  /** 唯一的写库入口:逐条建立关系(set_tag_relation 幂等,不动该标签已有的别的边)。 */
   const confirmBatch = useCallback(async (): Promise<void> => {
-    const plan = planWrites(visible, allSelected, overrides, claimed);
+    const plan = planWrites(visible, allSelected, overrides);
     if (plan.writes.length === 0) {
       setStatus('没有选中的建议(全选与批量确认只作用于当前筛选可见项)');
       return;
@@ -103,22 +102,23 @@ export function TypeSuggestionsSection(p: TypeSuggestionsSectionProps = {}): Rea
     setBusy(true);
     setStatus('');
     try {
-      for (const w of plan.writes) await api.setTagTypes(w.tagId, w.typeIds);
-      setClaimed((prev) => {
+      for (const w of plan.writes) await api.setTagRelation(w.fromId, w.toId);
+      setExisting((prev) => {
         const next = new Map(prev);
-        for (const w of plan.writes) next.set(w.tagId, new Set(w.typeIds));
+        for (const w of plan.writes) {
+          const set = new Set(next.get(w.fromId) ?? []);
+          set.add(w.toId);
+          next.set(w.fromId, set);
+        }
         return next;
       });
-      // 新登记的类型要立刻进「改成别的类型」下拉,否则同批剩下的行看不到它
-      const fresh = await api.listTypes().catch(() => null);
-      if (fresh !== null) setTypes(fresh);
-      setStatus(`已写入 ${plan.writes.length} 条认领`);
+      setStatus(`已写入 ${plan.writes.length} 条关系`);
     } catch (e) {
       setStatus('写入失败: ' + String(e));
     } finally {
       setBusy(false);
     }
-  }, [visible, allSelected, overrides, claimed]);
+  }, [visible, allSelected, overrides]);
 
   return (
     <SettingsSection meta={META}>
@@ -126,14 +126,14 @@ export function TypeSuggestionsSection(p: TypeSuggestionsSectionProps = {}): Rea
         建议只看标签在树里的路径,是启发式、不是语义判断;确认前不会写入任何数据。
         全选与批量确认只作用于当前筛选出来的可见条目。
       </p>
-      <TagTreeCarryRow
-        checked={p.showCarry === true}
-        onChange={(v) => p.onShowCarryChange?.(v)}
+      <TagTreeRelationRow
+        checked={p.showRelations === true}
+        onChange={(v) => p.onShowRelationsChange?.(v)}
       />
-      <TypeSuggestionsToolbar
-        filterType={filterType}
+      <RelationSuggestionsToolbar
+        filterTarget={filterTarget}
         filterOptions={filterOptions}
-        onFilterType={setFilterType}
+        onFilterTarget={setFilterTarget}
         selectedCount={allSelected.size}
         busy={busy}
         onSelectAll={() => setExcluded((prev) => setExcludedFor(prev, visible.map((r) => r.tagId), false))}
@@ -148,18 +148,18 @@ export function TypeSuggestionsSection(p: TypeSuggestionsSectionProps = {}): Rea
         </p>
       )}
       {loaded && rows.length === 0 && (
-        <p className="py-3 text-label text-muted">没有待确认的建议(已确认过的不会再出现)。</p>
+        <p className="py-3 text-label text-muted">没有待确认的建议(已建立过关系的不会再出现)。</p>
       )}
 
       {pageRows.map((row) => (
-        <TypeSuggestionRow
+        <RelationSuggestionRow
           key={row.tagId}
           row={row}
-          types={types}
+          targets={targets}
           checked={!excluded.has(row.tagId)}
-          typeId={effectiveType(row, overrides)}
+          toId={effectiveTarget(row, overrides)}
           onToggle={() => toggle(row.tagId)}
-          onType={(id) => setOverrides((prev) => new Map(prev).set(row.tagId, id))}
+          onTarget={(id) => setOverrides((prev) => new Map(prev).set(row.tagId, id))}
           onIgnore={() => setIgnored((prev) => new Set(prev).add(row.tagId))}
         />
       ))}

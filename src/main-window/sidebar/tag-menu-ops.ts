@@ -1,20 +1,17 @@
 /**
- * 重命名 / 移动 / 删除 / 合并四个写动作(自 TagMenu.tsx 拆出,守 200 行上限):
+ * 重命名 / 移动 / 删除三个写动作(自 TagMenu.tsx 拆出,守 200 行上限):
  * 与 `useTagMenuAliases` 同构 —— 本工厂只管调命令与回报,中文错误就地显示由调用方给的
  * `fail` 负责(它同时解除 busy)。每次渲染重建一份即可:函数体读的是当次渲染的 props。
+ * 合并走了自动合并(同父同名),菜单不再有「合并…」「设类型/类型」出口。
  */
 import { api } from '../../shared/api';
 import { isValidTagPath } from '../../shared/filter-conditions';
-import type { TagCount } from '../../shared/types';
 import type { ManagedNode } from './tag-tree';
 
 export interface TagMenuOps {
   rename(): void;
   move(parentId: number | null, to: string): void;
   remove(): void;
-  merge(target: TagCount, keepAlias: boolean): void;
-  /** 登记/取消登记当前标签为类型(幂等;不动树结构与排序) */
-  makeType(isType: boolean): void;
 }
 
 export interface TagMenuOpsOptions {
@@ -26,7 +23,7 @@ export interface TagMenuOpsOptions {
   setBusy: (v: boolean) => void;
   onError: (message: string) => void;
   onClose: () => void;
-  /** 操作成功:提示文案 + 改名/移动/合并时的路径变化 */
+  /** 操作成功:提示文案 + 改名/移动时的路径变化(删除断链、别名变更不产生) */
   onDone: (message: string, pathChange?: { from: string; to: string }) => void;
 }
 
@@ -59,23 +56,6 @@ export function tagMenuOps(o: TagMenuOpsOptions): TagMenuOps {
       void api
         .deleteTag(o.node.id)
         .then(() => o.onDone('已删除标签'))
-        .catch(o.fail);
-    },
-    /** 合并:成功后回报 源路径 -> 目标路径,让上层级联改写筛选条件(源标签已被删除) */
-    merge: (target: TagCount, keepAlias: boolean): void => {
-      o.setBusy(true);
-      void api
-        .mergeTags(o.node.id, target.id, keepAlias)
-        .then(() => o.onDone('已合并标签', { from: o.node.path, to: target.path }))
-        .catch(o.fail);
-    },
-    /** 类型登记(过渡期):022 删了 is_type,`setTagTypeFlag` 现在明确 reject 中文原因,
-     *  点一下就由 `fail` 就地显示「已取消」说明(不静默吞掉);T4 用关系徽章接替该入口后删除。 */
-    makeType: (isType: boolean): void => {
-      o.setBusy(true);
-      const call = isType ? api.setTagTypeFlag(o.node.id, false) : api.setTagTypeFlag(o.node.id, true);
-      void call
-        .then(() => o.onDone(isType ? '已取消类型登记' : '已登记为类型'))
         .catch(o.fail);
     },
   };

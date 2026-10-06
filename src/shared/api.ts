@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { CarryReport, CompleteItem, DbInfo, ExprCheck, GraphData, GraphLinkDegrees, MergeReport, Note, NoteLinks, NoteTitle, ParseResult, RelationRef, TypeRef, TagCount, TagImpact } from './types';
+import type { CompleteItem, DbInfo, ExprCheck, GraphData, GraphLinkDegrees, MergeReport, Note, NoteLinks, NoteTitle, ParseResult, RelationRef, TagCount, TagImpact } from './types';
 import type { ConditionHits, TagFactsBundle } from './tag-facts-types';
 import type { FilterConditions } from './filter-conditions';
 import type { AppHotkeyKind } from './hotkey-match';
@@ -32,62 +32,8 @@ export const api = {
   addTagAlias: (alias: string, tagId: number) => invoke<void>('add_tag_alias', { alias, tagId }),
   /** 删除别名(幂等:不存在也算成功) */
   removeTagAlias: (alias: string) => invoke<void>('remove_tag_alias', { alias }),
-  /** 添加标签携带关系(幂等):自携带 / 成环 / 标签不存在都会 reject 中文原因 */
-  setTagCarry: (carrierId: number, carriedId: number) =>
-    invoke<void>('set_tag_relation', { fromTag: carrierId, toTag: carriedId }),
-  /** 移除标签携带关系(幂等:不存在也算成功) */
-  removeTagCarry: (carrierId: number, carriedId: number) =>
-    invoke<void>('remove_tag_relation', { fromTag: carrierId, toTag: carriedId }),
-  /** 双向携带读数:carried 是本标签携带的,carriersOf 是携带本标签的(旧「携带…」面板兼容) */
-  listTagCarries: async (carrierId: number): Promise<CarryReport> => {
-    const [out, facts, tags] = await Promise.all([
-      api.listTagRelations(carrierId),
-      api.listTagFacts(),
-      api.listTags(),
-    ]);
-    const pathOf = new Map(tags.map((t) => [t.id, t.path] as const));
-    const carried = out.map((r) => ({ id: r.toTagId, path: r.path }));
-    const carriersOf = facts.facts
-      .filter((f) => f.relations.some((r) => r.toTagId === carrierId))
-      .map((f) => ({ id: f.tagId, path: pathOf.get(f.tagId) ?? '' }))
-      .filter((r) => r.path !== '')
-      .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
-    return { carried, carriersOf };
-  },
   /** 有入边的标签路径集合(去重、升序):条件栏摘要据此决定是否显示 `+携带` 小字 */
   carriedTagPaths: () => invoke<string[]>('carried_tag_paths'),
-  /** 设置/取消「类型」标记:022 已删 `tags.is_type`,「谁能当类型」的登记不再存在(任何标签都能被指向)。
-   *  过渡期**明确 reject 中文原因**而不是静默 resolve —— 点了没反应等于吞掉用户意图;
-   *  侧栏「设为类型」入口由 T4 换成关系徽章后本方法一并删除。 */
-  setTagTypeFlag: (_tagId: number, _isType: boolean): Promise<void> =>
-    Promise.reject('类型登记已随迁移 022 取消(任何标签都能被指向);关系徽章待后续任务接入'),
-  /** 整体替换某标签的类型认领(过渡期兼容层)。
-   *  **已知缺陷(过渡期)**:后端的整体替换原本是一条事务,这里被拆成 N 次顺序 IPC(先删后加),
-   *  中途失败会留下半套边(既没删完也没加完),调用方需自行容忍半写。T4 把类型认领全面换成
-   *  关系读写后,本兼容层连同调用方一起删除,或改由后端提供单事务的关系整体替换命令。 */
-  setTagTypes: async (tagId: number, typeIds: number[]): Promise<void> => {
-    const current = await api.listTagRelations(tagId);
-    const want = new Set(typeIds);
-    const have = new Set(current.map((r) => r.toTagId));
-    for (const r of current) if (!want.has(r.toTagId)) await api.removeTagRelation(tagId, r.toTagId);
-    for (const id of want) if (!have.has(id)) await api.setTagRelation(tagId, id);
-  },
-  /** 全部可被指向的标签(022 起任何标签都可以,旧「类型」候选直接用全量标签) */
-  listTypes: async (): Promise<TypeRef[]> => {
-    const tags = await api.listTags();
-    return tags.map((t) => ({
-      tagId: t.id,
-      path: t.path,
-      name: t.path.split('/').pop() ?? t.path,
-    }));
-  },
-  /** 某标签的全部出边(旧「类型…」回显):映射成旧的 TypeRef 形状 */
-  listTagTypes: async (tagId: number): Promise<TypeRef[]> =>
-    (await api.listTagRelations(tagId)).map((r) => ({
-      tagId: r.toTagId,
-      path: r.path,
-      name: r.name,
-    })),
   /** 全量标签关系事实(批量只读,一次 IPC 取全):侧栏树行/悬浮卡片共用 */
   listTagFacts: () => invoke<TagFactsBundle>('list_tag_facts'),
   /** 建立标签关系 A -> B(幂等):自指向 / 成环 / 标签不存在都会 reject 中文原因 */

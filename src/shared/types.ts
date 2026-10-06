@@ -50,12 +50,12 @@ export interface TagCount {
   subtree_count: number;
 }
 
-/** 删除标签前的二次确认数据:将影响的子孙标签数、去重笔记数与"被多少标签携带" */
+/** 删除标签前的二次确认数据:将影响的子孙标签数、去重笔记数与"被多少标签指向" */
 export interface TagImpact {
   tags: number;
   notes: number;
-  /** 该标签被多少个标签携带(删除确认文案):只数 target_id 就是本标签的直接携带者,
-   *  不含传递携带,也不含指向子标签的携带行(删除子树会一并清掉那些,但这里的 N 不统计它们)。 */
+  /** 该标签被多少个标签指向(删除确认文案):只数 target_id 就是本标签的直接入边,
+   *  不含传递指向,也不含指向子标签的边(删除子树会一并清掉那些,但这里的 N 不统计它们)。 */
   carriers: number;
 }
 
@@ -79,28 +79,6 @@ export interface MergeReport {
   affectedNotes: number;
   /** keepAlias 为真时实际登记的别名(旧完整路径在前、旧叶子名在后) */
   aliases: string[];
-}
-
-/** 携带 / 被携带方向上的一个标签(id + 完整路径,IPC `list_tag_carries`) */
-export interface TagRef {
-  id: number;
-  path: string;
-}
-
-/** 双向携带读数(IPC `list_tag_carries`,camelCase 与 Rust CarryReport 一致):
- *  carried 是本标签携带的;carriersOf 是携带本标签的 */
-export interface CarryReport {
-  carried: TagRef[];
-  carriersOf: TagRef[];
-}
-
-/** 类型读数(IPC `list_types` / `list_tag_types`,camelCase 与 Rust TypeRef 一致):
- *  tagId 是类型对应的真实标签 id,path 是它的完整路径,name 是路径末段(改名自动跟随)
- *  @deprecated 022 起「类型」概念并入标签关系(见 `RelationRef`);此形状仅供过渡期旧界面使用 */
-export interface TypeRef {
-  tagId: number;
-  path: string;
-  name: string;
 }
 
 /** 一条标签关系边(IPC `list_tag_relations` / `list_tag_facts`):

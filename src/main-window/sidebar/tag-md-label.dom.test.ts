@@ -24,7 +24,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TagRow } from './TagRow';
 import { TagMenuDeletePane } from './TagMenuDeletePane';
 import { TagMenuMainPane } from './TagMenuMainPane';
-import { TagMenuMergePane } from './TagMenuMergePane';
 import { buildTree } from './tag-tree';
 import type { TagNode } from './tag-tree';
 
@@ -101,7 +100,7 @@ describe('T1 侧栏树行:预览态 + 原始路径寻址', () => {
 
 describe('T1 标签菜单:标题渲染态,确认文案纯文本', () => {
   it('主面板标题显示预览文本(悬浮仍是纯文本全路径)', () => {
-    mount(createElement(TagMenuMainPane, { path: RAW, isType: false, onPick: () => {}, onMakeType: () => {} }));
+    mount(createElement(TagMenuMainPane, { path: RAW, onPick: () => {} }));
     const title = host.querySelector('p') as HTMLElement;
     expect(title.textContent).toBe(PLAIN);
     expectHoverTitle(title, PLAIN);
@@ -135,28 +134,6 @@ describe('T1 标签菜单:标题渲染态,确认文案纯文本', () => {
         onConfirm: () => {},
       })
     );
-    expect(host.textContent).toContain('该标签被 2 个标签携带');
-  });
-
-  it('合并面板标题与候选行:文案纯文本、候选行渲染态、确认仍回传原始路径', () => {
-    const onConfirm = vi.fn();
-    const target = { id: 2, path: RAW, depth: 1, sort_order: 0, self_count: 1, subtree_count: 1 };
-    mount(
-      createElement(TagMenuMergePane, {
-        path: '工作/会议',
-        candidates: [target],
-        hasChildren: false,
-        impact: { tags: 0, notes: 2 },
-        error: '',
-        busy: false,
-        onCancel: () => {},
-        onConfirm,
-      })
-    );
-    expect(host.querySelector('p')?.textContent).toBe('合并『工作/会议』到');
-    const row = host.querySelector('button') as HTMLElement;
-    expect(row.textContent).toContain(PLAIN);
-    expectHoverTitle(row, PLAIN);
-    expect(host.querySelector('a')).toBeNull();
+    expect(host.textContent).toContain('该标签被 2 个标签指向');
   });
 });

@@ -39,10 +39,10 @@ export interface ViewHostProps {
   onFilterToStream: (path: string) => void;
   /** 标签数据版本(App 的 `tagsVersion`):关系图据此自动重取,不动相机与选中 */
   dataVersion: number;
-  /** 固定标签 + 标签 MRU(App 透传):关系图的标签菜单「携带…」候选与侧栏同一套三档排序 */
+  /** 固定标签 + 标签 MRU(App 透传):关系图的标签菜单「关系…」候选与侧栏同一套三档排序 */
   tagMru?: TagMruSource | null;
-  /** 「标签类型」分区里的「标签树里显示携带」(值来自侧栏状态,与其共用一份 showCarry) */
-  tagTreeCarry?: { showCarry: boolean; onShowCarryChange: (v: boolean) => void };
+  /** 「标签关系」分区里的「标签树里显示关系」(值来自侧栏状态,与其共用一份 showRelations) */
+  tagTreeRelations?: { showRelations: boolean; onShowRelationsChange: (v: boolean) => void };
   onReplayTutorial: () => void;
 }
 
@@ -70,8 +70,8 @@ export function ViewHost(p: ViewHostProps): ReactNode {
           themeMode={p.theme.mode}
           onThemeChange={p.theme.setMode}
           onReplayTutorial={p.onReplayTutorial}
-          showCarry={p.tagTreeCarry?.showCarry}
-          onShowCarryChange={p.tagTreeCarry?.onShowCarryChange}
+          showRelations={p.tagTreeRelations?.showRelations}
+          onShowRelationsChange={p.tagTreeRelations?.onShowRelationsChange}
         />
       )}
       {p.view === 'graph' && (

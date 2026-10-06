@@ -1,5 +1,5 @@
 /**
- * 标签菜单的纯助手(G3 spec §5.1):别名输入校验、合并候选、影响面文案。
+ * 标签菜单的纯助手(G3 spec §5.1):别名输入校验、移动/关系候选。
  * 全部无副作用、不碰 IPC,便于单测;UI 侧只在 TagMenu / 两个新面板里消费。
  */
 import { isValidTagPath } from '../../shared/filter-conditions';
@@ -20,8 +20,8 @@ export function validateAliasInput(text: string): string | null {
 }
 
 /**
- * 合并候选目标:剔除自身与全部子孙(路径前缀判定,与移动面板同一口径),保持原路径序。
- * 合并源必须**无子节点** —— 有子节点时由上层直接显示提示文案,不列候选,故这里不用再管。
+ * 移动候选目标:剔除自身与全部子孙(路径前缀判定),保持原路径序。
+ * 旧「合并…」已由同父同名的自动合并取代,本函数现在只服务于移动面板。
  */
 export function mergeCandidates(
   rows: readonly TagCount[],
@@ -32,20 +32,14 @@ export function mergeCandidates(
   );
 }
 
-/** 合并影响面文案:源标签上挂着的笔记数(0 条时明说,不显示「将影响 0 条」) */
-export function mergeImpactText(notes: number): string {
-  return notes === 0 ? '该标签暂无关联笔记' : `将影响 ${notes} 条笔记`;
-}
-
-/** 携带候选(与 `#` 补全共用同一打分/排序引擎前先剔除):排除自己与已携带的标签,保持原路径序。
- *  后端的自携带/环校验仍是权威,这里只保证候选里不出现这两种必然被拒的项。
- *  传入 `typeIds` 时只保留已登记的类型标签(R3):未登记的不进候选,避免点了必然被后端拒。 */
-export function carryCandidates(
+/** 关系候选(与 `#` 补全共用同一打分/排序引擎前先剔除):排除自己与已建立关系的目标,
+ *  保持原路径序。后端的自指向/成环校验仍是权威,这里只保证候选里不出现这两种必然被拒的项。
+ *  022 起任何标签都能被指向,不再有「只列已登记类型」的过滤。 */
+export function relationCandidates(
   rows: readonly TagCount[],
   selfPath: string,
-  carried: readonly { path: string }[],
-  typeIds?: ReadonlySet<number>
+  outgoing: readonly { path: string }[]
 ): TagCount[] {
-  const skip = new Set<string>([selfPath, ...carried.map((c) => c.path)]);
-  return rows.filter((r) => !skip.has(r.path) && (typeIds === undefined || typeIds.has(r.id)));
+  const skip = new Set<string>([selfPath, ...outgoing.map((c) => c.path)]);
+  return rows.filter((r) => !skip.has(r.path));
 }

@@ -1,21 +1,20 @@
 // @vitest-environment jsdom
 /**
- * 携带面板的加载态与鼠标采纳细节(自 tag-menu-carry-order.dom.test.ts 抽出,守 200 行上限):
+ * 关系面板的加载态与鼠标采纳细节(自 tag-menu-relation.dom.test.ts 抽出,守 200 行上限):
  * 读取未回来时禁用输入与候选、Enter 不写库;查询无命中给空态;候选 mousedown 采纳并 preventDefault。
  */
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { TagCount } from '../../shared/types';
-import { TagMenuCarryPane } from './TagMenuCarryPane';
+import type { RelationRef, TagCount } from '../../shared/types';
+import { TagMenuRelationPane } from './TagMenuRelationPane';
 
-const { listTagCarries, setTagCarry, removeTagCarry, listTypes } = vi.hoisted(() => ({
-  listTagCarries: vi.fn(),
-  setTagCarry: vi.fn(),
-  removeTagCarry: vi.fn(),
-  listTypes: vi.fn(),
+const { listTagRelations, setTagRelation, removeTagRelation } = vi.hoisted(() => ({
+  listTagRelations: vi.fn(),
+  setTagRelation: vi.fn(),
+  removeTagRelation: vi.fn(),
 }));
-vi.mock('../../shared/api', () => ({ api: { listTagCarries, setTagCarry, removeTagCarry, listTypes } }));
+vi.mock('../../shared/api', () => ({ api: { listTagRelations, setTagRelation, removeTagRelation } }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -27,26 +26,21 @@ const at = (id: number, path: string): TagCount => ({
   self_count: 0,
   subtree_count: 0,
 });
-const SELF = at(1, '携带测试甲');
-const OTHER = at(3, '携带测试丙');
-const PINNABLE = at(4, '出版年份');
-const ROWS = [SELF, OTHER, PINNABLE];
+const SELF = at(1, '关系测试甲');
+const OTHER = at(3, '关系测试丙');
+const ROWS = [SELF, OTHER];
+const EDGES: RelationRef[] = [{ toTagId: 2, path: '关系测试乙', name: '关系测试乙', remark: '' }];
 
 let root: Root;
 let host: HTMLDivElement;
 
 beforeEach(() => {
-  listTagCarries.mockReset();
-  setTagCarry.mockReset();
-  removeTagCarry.mockReset();
-  listTypes.mockReset();
-  listTypes.mockResolvedValue([
-    { tagId: OTHER.id, path: OTHER.path, name: OTHER.path },
-    { tagId: PINNABLE.id, path: PINNABLE.path, name: PINNABLE.path },
-  ]);
-  listTagCarries.mockResolvedValue({ carried: [], carriersOf: [] });
-  setTagCarry.mockResolvedValue(undefined);
-  removeTagCarry.mockResolvedValue(undefined);
+  listTagRelations.mockReset();
+  setTagRelation.mockReset();
+  removeTagRelation.mockReset();
+  listTagRelations.mockResolvedValue(EDGES);
+  setTagRelation.mockResolvedValue(undefined);
+  removeTagRelation.mockResolvedValue(undefined);
   host = document.createElement('div');
   document.body.appendChild(host);
   root = createRoot(host);
@@ -66,11 +60,10 @@ const flush = async (): Promise<void> => {
 const renderPane = (): void => {
   act(() => {
     root.render(
-      createElement(TagMenuCarryPane, {
+      createElement(TagMenuRelationPane, {
         tagId: 1,
-        path: '携带测试甲',
+        path: '关系测试甲',
         rows: ROWS,
-        types: [OTHER, PINNABLE].map((r) => ({ tagId: r.id, path: r.path, name: r.path })),
         onCancel: () => {},
       })
     );
@@ -78,9 +71,9 @@ const renderPane = (): void => {
 };
 
 const paneInput = (): HTMLInputElement =>
-  host.querySelector('input[aria-label="添加携带标签"]') as HTMLInputElement;
+  host.querySelector('input[aria-label="添加关系标签"]') as HTMLInputElement;
 const candidateTexts = (): string[] =>
-  [...host.querySelectorAll('[data-carry-candidate]')].map((el) => el.textContent?.trim() ?? '');
+  [...host.querySelectorAll('[data-relation-candidate]')].map((el) => el.textContent?.trim() ?? '');
 
 const typeQuery = (v: string): void => {
   const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
@@ -90,9 +83,9 @@ const typeQuery = (v: string): void => {
   });
 };
 
-describe('携带面板·加载与交互细节', () => {
+describe('关系面板·加载与交互细节', () => {
   it('读取未回来时输入禁用,Enter 不会写库', async () => {
-    listTagCarries.mockReturnValue(new Promise(() => {}));
+    listTagRelations.mockReturnValue(new Promise(() => {}));
     renderPane();
     expect(paneInput().disabled).toBe(true);
     expect(host.textContent).toContain('加载中');
@@ -100,16 +93,16 @@ describe('携带面板·加载与交互细节', () => {
       paneInput().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
     );
     await flush();
-    expect(setTagCarry).not.toHaveBeenCalled();
+    expect(setTagRelation).not.toHaveBeenCalled();
   });
 
-  it('「当前携带」标题恰好渲染一次(容器与列表不重复)', async () => {
-    listTagCarries.mockResolvedValue({ carried: [{ id: 2, path: '携带测试乙' }], carriersOf: [] });
+  it('「当前关系」标题恰好渲染一次;空关系给空态文案', async () => {
+    listTagRelations.mockResolvedValue([]);
     renderPane();
     await flush();
-    const headings = [...host.querySelectorAll('p')].filter((el) => el.textContent === '当前携带');
+    const headings = [...host.querySelectorAll('p')].filter((el) => el.textContent === '当前关系');
     expect(headings).toHaveLength(1);
-    expect(host.textContent).toContain('携带测试乙'); // 列表本身在,不是整段删掉
+    expect(host.textContent).toContain('还没有建立任何关系');
   });
 
   it('查询无命中时给空态文案', async () => {
@@ -123,11 +116,11 @@ describe('携带面板·加载与交互细节', () => {
   it('候选用 mousedown 采纳并 preventDefault(输入框不失焦)', async () => {
     renderPane();
     await flush();
-    const button = host.querySelector('[data-carry-candidate]') as HTMLElement;
+    const button = host.querySelector('[data-relation-candidate]') as HTMLElement;
     const ev = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
     act(() => button.dispatchEvent(ev));
     await flush();
     expect(ev.defaultPrevented).toBe(true);
-    expect(setTagCarry).toHaveBeenCalledWith(1, OTHER.id);
+    expect(setTagRelation).toHaveBeenCalledWith(1, OTHER.id);
   });
 });
