@@ -9,7 +9,7 @@ import { GraphOverlays } from './GraphOverlays';
 import { GraphSearch } from './GraphSearch';
 import { GraphTagMenuHost } from './GraphTagMenuHost';
 import { GraphTip } from './GraphTip';
-import { relationDegrees } from './graph-relations';
+import { relationDegrees, relationRows } from './graph-relations';
 import { useGraphView, type GraphViewInput } from './use-graph-view';
 
 export function GraphView(p: GraphViewInput): ReactNode {
@@ -23,6 +23,11 @@ export function GraphView(p: GraphViewInput): ReactNode {
   const selectedDegrees = useMemo(
     () => (selectedNode === null ? null : relationDegrees(relations, data?.nodes ?? [], selectedNode.id)),
     [relations, data, selectedNode],
+  );
+  // 悬停卡片的简化版档案行(末段名 + 属性名):同一次渲染里只算一次
+  const hoveredRelations = useMemo(
+    () => (hoveredNode === null ? [] : relationRows(relations, data?.nodes ?? [], hoveredNode.id)),
+    [relations, data, hoveredNode],
   );
 
   return (
@@ -63,7 +68,7 @@ export function GraphView(p: GraphViewInput): ReactNode {
       />
       <GraphSearch nodes={nodes} onPick={onSearchPick} />
       <GraphCanvas plan={plan} width={size.w} height={size.h} themeKey={themeKey} />
-      <GraphTip node={hoveredNode} x={acts.tipAt?.x ?? 0} y={acts.tipAt?.y ?? 0} />
+      <GraphTip node={hoveredNode} relations={hoveredRelations} x={acts.tipAt?.x ?? 0} y={acts.tipAt?.y ?? 0} />
       {selectedNode !== null && (
         <GraphInfoBar
           node={selectedNode}

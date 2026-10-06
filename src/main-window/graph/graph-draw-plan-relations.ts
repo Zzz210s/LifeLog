@@ -3,7 +3,9 @@
  * 把 `A -> B` 的标签关系折成屏幕线段(恒带箭头),并在缩放够大时把备注文字放在箭头附近。
  *
  * 与其它边同一套裁剪与强调口径:两端都不在视口内就丢、任一端暗则暗、任一端是焦点则加粗。
- * 备注只在 `k >= RELATION_REMARK_MIN_K` 时给出(低缩放只画箭头不画字),文本缺失也不画。
+ * 备注只在 `k >= RELATION_REMARK_MIN_K` **且该边端点正是当前焦点**(悬停或选中该标签)时给出 ——
+ * 平时只画箭头(2026-10-06 用户口径:属性名只在悬停/选中该标签时显示,复用既有 `emphasis`
+ * 机制,不新造状态),低缩放只画箭头不画字;文本缺失也不画。
  * 箭头尖按**目标半径 + `ARROW_RETREAT_GAP`** 回收(半径由调用方给,聚合档给桶半径),
  * 免得大节点把箭头整只盖住;备注沿箭头法线错开 `RELATION_REMARK_OFFSET` 并带 `dim`,
  * 画布再给它垫一层胶囊,才不会被节点标签同色同字体地淹掉。
@@ -71,8 +73,11 @@ export function planRelations(input: {
     });
     // 备注只影响显示(设计 R6),行内 md 标记(加粗/链接等)不该画到画布上 —— 与侧栏
     // `relationLabel` 同一口径取纯文本;剥完为空(如 `****`)则不画字。
+    // 2026-10-06:只在**该边端点就是焦点**(悬停/选中该标签)时出字 —— 平时只画箭头,
+    // 否则 24 条属性名会把骨架糊住。`emphasis.active` = 悬停优先于选中,复用既有机制。
     const remark = plain === null ? '' : plain[i];
-    if (showMarks && remark !== '') {
+    const hot = emphasis.active !== null && (r.a === emphasis.active || r.b === emphasis.active);
+    if (showMarks && hot && remark !== '') {
       const dx = b.x - a.x;
       const dy = b.y - a.y;
       const len = Math.hypot(dx, dy) || 1;

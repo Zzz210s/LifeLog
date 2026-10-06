@@ -2,7 +2,8 @@
  * `drawPlan` 的关系边层(Task 5,设计 §8):`A --(B 的备注)--> B`。
  * 钉住四件事:
  * ① 关系边单独一层(`plan.relations`),带 `arrow: true` 标记 —— 与同色同宽的笔记链接边分层可辨;
- * ② 文字备注只在缩放 `k >= 0.8` 时画在箭头附近(沿法线错开);更低缩放只画箭头不画字;
+ * ② 文字备注只在缩放 `k >= 0.8` **且该边端点就是当前焦点**(悬停/选中该标签)时画在箭头附近;
+ *    平时只画箭头不画字;更低缩放即使悬停了也不画字;
  * ③ 备注缺失(空串)的目标不画字;
  * ④ 关系边参与悬停邻居强调:悬停一端,另一端进邻居集合,这条边 `emphasized`。
  */
@@ -40,6 +41,9 @@ const base = {
   relations,
 };
 
+/** 悬停 1(甲):它是两条关系边的端点 -> 那两条边的属性名可显示 */
+const hover1 = (): ReturnType<typeof emphasisOf> => emphasisOf({ selected: null, hovered: 1, edges: [], relations });
+
 describe('drawPlan:关系边层', () => {
   it('关系边进 plan.relations 且带箭头标记;note links 层不含它们', () => {
     const p = drawPlan({ ...base, links: [{ a: 1, b: 2 }] });
@@ -66,46 +70,58 @@ describe('drawPlan:关系边层', () => {
     expect(p.relations[0].pullback).toBeGreaterThan(radiusOf(1) + ARROW_RETREAT_GAP);
   });
 
-  it('k < 0.8 只画箭头不画备注;k >= 0.8 备注沿箭头法线错开且带 dim', () => {
-    expect(drawPlan({ ...base, cam: { k: 0.7, tx: 0, ty: 0 } }).relationMarks).toEqual([]);
-    const hi = drawPlan({ ...base, cam: { k: 0.8, tx: 0, ty: 0 } });
+  it('平时(无焦点)只画箭头不画属性名;悬停端点且 k >= 0.8 才出备注', () => {
+    // 平时:箭头仍在,属性名一个都不画
+    const idle = drawPlan({ ...base, cam: { k: 1.2, tx: 0, ty: 0 } });
+    expect(idle.relationMarks).toEqual([]);
+    expect(idle.relations).toHaveLength(2);
+    // 低缩放:即使悬停了也不画字(只画箭头)
+    expect(drawPlan({ ...base, cam: { k: 0.7, tx: 0, ty: 0 }, emphasis: hover1() }).relationMarks).toEqual([]);
+    // 悬停端点 + k 够大:备注沿箭头法线错开
+    const hi = drawPlan({ ...base, cam: { k: 0.8, tx: 0, ty: 0 }, emphasis: hover1() });
     // 屏幕坐标 = 世界坐标 × 0.8:甲(50,50) 与 乙(300,50) 的中点是 (140,40),
     // 法线方向 (0,1),错开 9px -> (140,49);弱化态跟随这条边
     expect(hi.relationMarks).toEqual([{ x: 140, y: 49, text: '属性', dim: false }]); // 丙 的备注是空串 -> 不出
     expect(hi.relations).toHaveLength(2);
   });
 
+  it('选中该标签(未悬停)也出备注:emphasis.active = selected 时同样显示', () => {
+    const em = emphasisOf({ selected: 1, hovered: null, edges: [], relations });
+    const p = drawPlan({ ...base, cam: { k: 1.2, tx: 0, ty: 0 }, emphasis: em });
+    expect(p.relationMarks.map((m) => m.text)).toEqual(['属性']);
+  });
+
   it('备注里的行内 md 标记剥成纯文本再画', () => {
     const p = drawPlan({
       ...base,
       cam: { k: 1.2, tx: 0, ty: 0 },
+      emphasis: hover1(),
       relations: [{ a: 1, b: 2, remark: '**属性**' }],
     });
     expect(p.relationMarks).toEqual([{ x: 210, y: 69, text: '属性', dim: false }]);
   });
 
-  it('悬停不相干的节点:无关边的备注一起被弱化(dim 生效)', () => {
-    // 4 与任何节点都没有关系 -> 悬停它时 1/2/3 全是无关节点, 属性 这条边的备注要跟着暗
+  it('悬停不相干的节点:一条备注都不出(属性名只在悬停/选中该标签时出现)', () => {
+    // 4 与任何节点都没有关系 -> 悬停它时不该冒出别人的属性名
     const withDing: GraphNode[] = [
       ...nodes,
       { id: 4, path: '丁', depth: 1, parent: null, notes: 1, selfCount: 1, sortOrder: 0 },
     ];
     const withDingPoints = new Map(points);
     withDingPoints.set(4, { x: 300, y: 250 });
-    const em = emphasisOf({ selected: null, hovered: 4, edges: [], relations });
     const p = drawPlan({
       ...base,
       nodes: withDing,
       points: withDingPoints,
       cam: { k: 1.2, tx: 0, ty: 0 },
-      emphasis: em,
+      emphasis: emphasisOf({ selected: null, hovered: 4, edges: [], relations }),
     });
-    expect(p.relationMarks.find((m) => m.text === '属性')!.dim).toBe(true);
-    // 与焦点相邻的那条边(悬停 1 时 2 是邻居)不弱化
+    expect(p.relationMarks).toEqual([]);
+    // 悬停 1(端点):同一条边的备注回来,且不被弱化
     const linked = drawPlan({
       ...base,
       cam: { k: 1.2, tx: 0, ty: 0 },
-      emphasis: emphasisOf({ selected: null, hovered: 1, edges: [], relations }),
+      emphasis: hover1(),
     });
     expect(linked.relationMarks.find((m) => m.text === '属性')!.dim).toBe(false);
   });

@@ -5,8 +5,8 @@ import {
   relationPlan,
   relationValue,
   relationValueTip,
-  tagFactsLines,
   tagFactsRows,
+  tagLeafName,
   uniqueRelationValues,
 } from './tag-relation-facts';
 import type { RelationRef } from './types';
@@ -108,9 +108,12 @@ describe('uniqueRelationValues:同值多属性行内去重', () => {
   });
 });
 
-describe('档案卡片:标题两行 + 一条关系一行', () => {
-  it('标题第一行路径(纯文本)、第二行计数(沿用既有口径)', () => {
-    expect(tagFactsLines('[作者/冯骥才](作家)', 1, 1)).toEqual(['作者/冯骥才', '本级 1 / 含子级 1']);
+describe('档案卡片:标题一行 + 一条关系一行', () => {
+  it('标题 = 标签末段名(纯文本,不带路径前缀)', () => {
+    expect(tagLeafName('[作者/冯骥才](作家)')).toBe('冯骥才');
+    expect(tagLeafName('时间/日期/2026')).toBe('2026');
+    expect(tagLeafName('地点/[郴](chēn)州市')).toBe('郴州市');
+    expect(tagLeafName('单段')).toBe('单段');
   });
 
   it('每条关系一行:左列属性名、右列值;同值多属性**都列**(卡片不去重)', () => {

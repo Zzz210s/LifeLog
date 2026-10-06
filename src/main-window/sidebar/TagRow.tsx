@@ -17,8 +17,8 @@ import {
   relationPlan,
   relationValue,
   relationValueTip,
-  tagFactsLines,
   tagFactsRows,
+  tagLeafName,
   uniqueRelationValues,
 } from '../../shared/tag-relation-facts';
 import { renderTagLabel, tagLabelPlain } from '../../shared/tag-label';
@@ -94,6 +94,8 @@ export function TagRow(p: TagRowProps): ReactNode {
   /** 行内按值去重后再截断(同值多属性只占一个小字位;卡片里不去重,另走 factRows) */
   const relationChips = relationPlan(uniqueRelationValues(relations));
   const factRows = tagFactsRows(relations);
+  // 只有带关系的标签才出卡片:没有关系就不挂 data-tip(名字被截断时仍由名字块的原生 title 兜底)
+  const factsTitle = factRows.length > 0 ? tagLeafName(p.node.path) : undefined;
 
   return (
     <button
@@ -103,7 +105,7 @@ export function TagRow(p: TagRowProps): ReactNode {
       data-drop-target={p.dropZone ?? undefined}
       draggable={p.node.id !== null}
       aria-pressed={selectable ? p.selected : undefined}
-      data-tip={tagFactsLines(p.node.path, p.node.selfCount, p.node.subtreeCount).join('\n')}
+      data-tip={factsTitle}
       data-tip-rows={factRows.length > 0 ? JSON.stringify(factRows) : undefined}
       className={rowClass}
       style={
@@ -173,7 +175,7 @@ export function TagRow(p: TagRowProps): ReactNode {
               key={`${r.toTagId}-${i}`}
               data-tag-relation
               data-tip={tip === '' ? undefined : tip}
-              className="min-w-0 max-w-[8rem] shrink truncate text-micro text-muted"
+              className="min-w-0 max-w-[8rem] shrink truncate rounded-xs bg-tag px-1 text-micro text-muted"
               onMouseEnter={hoverTitle(value)}
             >
               {value}

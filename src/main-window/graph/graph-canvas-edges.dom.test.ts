@@ -96,3 +96,30 @@ describe('GraphCanvas:边视觉重做', () => {
     expect(h.ctx.calls.find((c) => c.op === 'fillText')!.dash).toEqual([]);
   });
 });
+
+describe('GraphCanvas:边批次合并(一次 path 一次 stroke)', () => {
+  it('同色同透明度同线宽的多条边合并成一次 stroke,线段一条不少', async () => {
+    const plan: DrawPlan = {
+      ...empty,
+      co: [seg(0, 0, 10, 0), seg(0, 5, 10, 5), seg(0, 9, 10, 9)],
+      tree: [seg(0, 0, 0, 10, { color: 'rgb(7, 7, 7)' }), seg(0, 20, 0, 30, { color: 'rgb(7, 7, 7)' })],
+    };
+    await h.render(plan, 100, 100, 'light');
+    const strokes = strokeCalls(h.ctx.calls);
+    expect(strokes).toHaveLength(2); // 三层 co 一组 + tree 一组
+    expect(strokes.map((c) => c.lineWidth)).toEqual([1, 1.5]);
+    expect(strokes.map((c) => c.alpha)).toEqual([0.5, 0.7]);
+    // 所有线段仍然进了 path(moveTo/lineTo 次数 = 边数),不是丢了边
+    expect(h.ctx.moveTo).toHaveBeenCalledTimes(5);
+    expect(h.ctx.lineTo).toHaveBeenCalledTimes(5);
+  });
+
+  it('颜色 / 透明度 / 线宽任一不同就不合并(强调边与弱化边各成一组)', async () => {
+    const plan: DrawPlan = {
+      ...empty,
+      co: [seg(0, 0, 10, 0), seg(0, 5, 10, 5, { dim: true }), seg(0, 9, 10, 9, { emphasized: true })],
+    };
+    await h.render(plan, 100, 100, 'light');
+    expect(strokeCalls(h.ctx.calls)).toHaveLength(3);
+  });
+});

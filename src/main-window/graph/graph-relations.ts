@@ -7,6 +7,7 @@
  * 不是被指向标签自己名字里的 md 备注。仅显示用(R6 不参与筛选/计数)。
  */
 import type { TagFact } from '../../shared/tag-facts-types';
+import { tagLeafName, type RelationFactLike } from '../../shared/tag-relation-facts';
 import type { GraphNode } from '../../shared/types';
 
 /** 一条标签关系边(方向固定 A -> B) */
@@ -24,6 +25,27 @@ export function relationEdges(facts: readonly TagFact[]): RelationEdge[] {
   const out: RelationEdge[] = [];
   for (const f of facts) {
     for (const r of f.relations) out.push({ a: f.tagId, b: r.toTagId, remark: r.remark });
+  }
+  return out;
+}
+
+/**
+ * 某标签的出边投影成卡片关系行(悬停卡片用,与侧栏 `tagFactsRows` 同一口径):
+ * 目标名取**末段名**(`name` 字段在侧栏是末段名,图上只有完整 path,就地取末段),
+ * 属性名原样带出(`remark`)。目标不在可见集里就跳过 —— 下拉不到的边没有可读的值。
+ */
+export function relationRows(
+  relations: readonly RelationEdge[],
+  nodes: readonly GraphNode[],
+  id: number,
+): RelationFactLike[] {
+  const byId = new Map(nodes.map((n) => [n.id, n] as const));
+  const out: RelationFactLike[] = [];
+  for (const r of relations) {
+    if (r.a !== id) continue;
+    const target = byId.get(r.b);
+    if (target === undefined) continue;
+    out.push({ name: tagLeafName(target.path), remark: r.remark });
   }
   return out;
 }

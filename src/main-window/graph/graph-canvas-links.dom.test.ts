@@ -35,9 +35,9 @@ describe('GraphCanvas:笔记间的链接边', () => {
       ],
     };
     await h.render(plan, 100, 100, 'light');
-    // 前两条是 link 段(1.5),后两条是笔记小圆(1)
-    expect(strokeCalls(h.ctx.calls).map((c) => c.lineWidth)).toEqual([1.5, 1.5, 1, 1]);
-    expect(strokeCalls(h.ctx.calls).map((c) => c.alpha)).toEqual([1, 1, 1, 1]);
+    // 两条 link 段同色同宽同透明 -> 合并成一次 dot-line stroke;后两条是笔记小圆(1)
+    expect(strokeCalls(h.ctx.calls).map((c) => c.lineWidth)).toEqual([1.5, 1, 1]);
+    expect(strokeCalls(h.ctx.calls).map((c) => c.alpha)).toEqual([1, 1, 1]);
     // 设色顺序 = 共现 -> 父子 -> 链接 -> 笔记小圆,第 3 笔是链接层(前两层的令牌没定义 -> transparent)
     expect(h.ctx.writes.strokeStyle[2]).toBe('rgb(44, 44, 44)');
     expect(h.ctx.moveTo).toHaveBeenCalledWith(60, 200);

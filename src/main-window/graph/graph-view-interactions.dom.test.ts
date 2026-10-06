@@ -29,10 +29,10 @@ const DATA = { nodes: NODES, edges: EDGES };
 const { graphData } = vi.hoisted(() => ({
   graphData: vi.fn(async (): Promise<{ nodes: unknown[]; edges: unknown[] }> => ({ nodes: [], edges: [] })),
 }));
-// getSetting 恒 null:模板取默认值(根名在夹具里不存在 -> 一根都不折),graph_positions 也没有记忆
-vi.mock('../../shared/api', () => ({
-  api: { graphData, graphLinkDegrees: vi.fn(async () => ({ outbound: 0, backlinks: 0 })), getSetting: vi.fn(async () => null), setSetting: vi.fn(async () => undefined) },
-}));
+// getSetting 恒 null(模板取默认值,根名不在夹具里 -> 不折);listTagFacts:甲(1) -> 甲/一(2) 一条出边
+// (2 本就被父子边连到 1,不改变弱化),悬停卡片的关系行靠它
+vi.mock('../../shared/api', () => ({ api: { graphData, graphLinkDegrees: vi.fn(async () => ({ outbound: 0, backlinks: 0 })),
+  getSetting: vi.fn(async () => null), setSetting: vi.fn(async () => undefined), listTagFacts: vi.fn(async () => ({ facts: [{ tagId: 1, relations: [{ toTagId: 2, path: '甲/一', name: '一', remark: '国籍' }] }] })) } }));
 
 import { GraphView } from './GraphView';
 
@@ -103,23 +103,25 @@ afterEach(() => {
 });
 
 describe('GraphView:悬停', () => {
-  it('命中节点:气泡给出路径与两个计数,且画布因强调态重建 plan 而重绘', async () => {
+  it('命中节点:简化卡片给出末段名与关系行,且画布因强调态重建 plan 而重绘', async () => {
     const restore = metrics();
     try {
       await mount();
       expect(ctx.writes.globalAlpha).not.toContain(0.2); // 没有焦点:谁都不弱化
       const before = getContext.mock.calls.length;
       await fire('pointermove', at(1));
-      expect(host.textContent).toContain('甲 · 本级 4 条 / 含子级 4 条');
+      const tip = (): Element | null => host.querySelector('[data-testid="hover-tip"]');
+      const cell = (attr: string): string | undefined => tip()?.querySelector(`[${attr}]`)?.textContent ?? undefined;
+      expect(tip()?.textContent).toContain('甲');
+      expect(tip()?.textContent).not.toContain('本级'); // 卡片不带计数行
+      expect([cell('data-tip-row-label'), cell('data-tip-row-value')]).toEqual(['国籍', '一']);
       // emphasis 不在 plan 依赖里时,plan 引用不变 -> 画布判定"没变" -> 这里一次重绘都没有
       expect(getContext.mock.calls.length).toBeGreaterThan(before);
       // 悬停的节点与 1 不相干(丙)必须被弱化:强调态真吃了 hovered,不是只换了个气泡
       expect(ctx.writes.globalAlpha).toContain(0.2);
       await fire('pointermove', { clientX: 2, clientY: 2 }); // 移出:气泡收起
-      expect(host.textContent).not.toContain('本级 4');
-    } finally {
-      restore();
-    }
+      expect(tip()).toBeNull();
+    } finally { restore(); }
   });
 });
 
@@ -141,9 +143,7 @@ describe('GraphView:单击与信息条', () => {
       expect(onFilter).toHaveBeenCalledWith('甲');
       // 覆盖层(data-graph-overlay)上的 click 不该冒泡成画布点击:否则选中先被清、信息条当场消失
       expect(bar()).not.toBeNull();
-    } finally {
-      restore();
-    }
+    } finally { restore(); }
   });
 
   it('单击空白 -> 清选中,信息条消失', async () => {

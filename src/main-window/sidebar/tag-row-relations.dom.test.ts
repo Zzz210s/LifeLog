@@ -88,6 +88,17 @@ describe('悬停那个值:给属性名', () => {
   });
 });
 
+describe('行内值底衬(chip 样式,走令牌)', () => {
+  it('值上有浅色圆角底衬:bg-tag + rounded-xs + 左右内边(与标签名区分)', () => {
+    const row = h.render({ relations: [CN], showRelations: true });
+    const chip = row.querySelector('[data-tag-relation]') as HTMLElement;
+    const ct = tokens(chip);
+    expect(ct).toContain('bg-tag');
+    expect(ct).toContain('rounded-xs');
+    expect(ct).toContain('px-1');
+  });
+});
+
 describe('名字优先不截断(2026-10-06 B 方案)', () => {
   it('名字块 shrink-0(不参与收缩),关系小字可收缩 + 封顶 + truncate(截断先落在小字)', () => {
     const row = h.render({ relations: [CN], showRelations: true });

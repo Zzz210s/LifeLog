@@ -8,7 +8,7 @@
  * 显示分三层(2026-10-06 用户口径:「国籍 → 中国大陆」变成「中国大陆」):
  * - 行内小字 `relationValue` = **只显示值**(如 `中国大陆`),不拼箭头与属性名
  * - 悬停这个值 `relationValueTip` = 属性名(空 = 调用方不挂 data-tip,回退成行级卡片)
- * - 悬停标签名 `tagFactsLines`(路径 / 计数)+ `tagFactsRows`(档案:一条关系一行,左属性名右值)
+ * - 悬停标签名 `tagLeafName`(卡片标题,末段名)+ `tagFactsRows`(档案:一条关系一行,左属性名右值)
  */
 import { tagLabelPlain } from './tag-label';
 import type { RelationRef } from './types';
@@ -24,12 +24,12 @@ export function relationLabel(r: RelationRef): string {
 }
 
 /** 行内小字 = 只显示值(目标标签名,剥掉行内 md) */
-export function relationValue(r: RelationRef): string {
+export function relationValue(r: RelationFactLike): string {
   return tagLabelPlain(r.name);
 }
 
 /** 值上的悬停提示 = 属性名;边上没有属性名给空串(调用方据此不挂 data-tip,R12 不留空提示) */
-export function relationValueTip(r: RelationRef): string {
+export function relationValueTip(r: RelationFactLike): string {
   return tagLabelPlain(r.remark);
 }
 
@@ -60,13 +60,22 @@ export interface FactRow {
   value: string;
 }
 
-/** 档案卡片标题两行:第一行标签路径(纯文本)、第二行计数(沿用既有口径) */
-export function tagFactsLines(path: string, selfCount: number, subtreeCount: number): string[] {
-  return [tagLabelPlain(path), `本级 ${selfCount} / 含子级 ${subtreeCount}`];
+/** 卡片标题 = 标签**末段名**(纯文本,不带路径前缀)。
+ *  取末段在剥 md **之后**:`作者/[冯骥才](作家)` -> `冯骥才`(斜杠是段分隔符,链接语法不跨段)。 */
+export function tagLeafName(path: string): string {
+  const plain = tagLabelPlain(path);
+  const at = plain.lastIndexOf('/');
+  return at < 0 ? plain : plain.slice(at + 1);
+}
+
+/** 关系行的最小投影面(标签事实与图上的关系边都满足):只要能给出目标名与边上的属性名 */
+export interface RelationFactLike {
+  name: string;
+  remark: string;
 }
 
 /** 档案卡片的关系行:**每条关系一行**(不去重);边上没属性名时左列回退显示目标名(R12) */
-export function tagFactsRows(relations: readonly RelationRef[]): FactRow[] {
+export function tagFactsRows(relations: readonly RelationFactLike[]): FactRow[] {
   return relations.map((r) => {
     const value = relationValue(r);
     const label = relationValueTip(r);

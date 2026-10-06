@@ -10,17 +10,23 @@
  *   pan200      200 次指针拖拽的帧间隔中位/p95/max + 每帧调用数中位
  *   hover60     60 次悬停移动(改强调态 -> 必然重建 plan 重绘)同上
  *   heap        进图后 JS 堆增量与进图前后差值
- * 用法:LIFELOG_CDP_PORT=9333 node scripts/graph-perf-probe.mjs [--json 输出路径]
+ *   status      当前图的状态条文案(节点/边计数,用来确认场景)
+ * 场景:
+ *   默认视图(不传) / 展开时间轴(--expand-time:勾选「展开轴 时间」后关面板再测,
+ *   时间轴默认折叠,展开后节点/边约翻倍 —— 逐边 stroke 的代价就在这个场景)
+ * 用法:LIFELOG_CDP_PORT=9333 node scripts/graph-perf-probe.mjs [--json=输出路径] [--expand-time]
  */
 import { writeFileSync } from 'node:fs';
 import { bindMain, ensureMain, sleep } from './cdp-lib.mjs';
 import { bindUi } from './no-tabs-accept-lib.mjs';
 import { armGraph, closeGraph, installPaintCounter, resetPaint, waitFirstDraw } from './graph-accept-lib.mjs';
-import { installG3 } from './graph-accept-g3-lib.mjs';
+import { clickText, graphStatus, installG3, setFilterBox } from './graph-accept-g3-lib.mjs';
 
 const OUT = process.argv.find((a) => a.startsWith('--json='))?.slice(7) ?? null;
 /** 可选:放大布局视口压测(--viewport=2400x1400),看绘制量随可见面积的增长 */
 const VP = process.argv.find((a) => a.startsWith('--viewport='))?.slice(11) ?? null;
+/** 可选:展开时间轴场景(默认折叠;展开后节点/边约翻倍) */
+const EXPAND_TIME = process.argv.includes('--expand-time');
 const VIEW = `document.querySelector('[data-testid="graph-view"]')`;
 const r1 = (v) => (typeof v === 'number' ? Math.round(v * 10) / 10 : v);
 const mb = (b) => Math.round((b / 1048576) * 10) / 10;
@@ -101,6 +107,10 @@ if (VP !== null) {
 }
 await closeGraph(ui);
 await sleep(800);
+// 窗口不获焦时 Chromium 会节流 rAF(实测 hasFocus=false 时帧间隔中位翻倍),
+// 计时口径必须先把窗口提到前台,否则 before/after 比的是焦点状态而不是绘制量。
+await cdp.send('Page.bringToFront');
+await sleep(400);
 
 const heap0 = await cdp.send('Runtime.getHeapUsage');
 
@@ -108,15 +118,26 @@ const heap0 = await cdp.send('Runtime.getHeapUsage');
 await resetPaint(cdp);
 const rows = await armGraph(ui);
 const first = await waitFirstDraw(cdp);
+// 展开时间轴(默认折叠):勾上后关面板再测 —— 展开了才能看到逐边 stroke 的真实代价
+if (EXPAND_TIME) {
+  await clickText(cdp, '过滤器');
+  await sleep(500);
+  await setFilterBox(cdp, '展开轴 时间', true);
+  await sleep(1200);
+  await clickText(cdp, '过滤器');
+  await sleep(600);
+}
 await sleep(2000);
 const heap1 = await cdp.send('Runtime.getHeapUsage');
+const status = await graphStatus(cdp);
 
 // 2) 静止 3 秒
 await cdp.eval('window.__gpReset()');
 await sleep(3000);
 const idle = await readFrames(cdp);
 
-// 3) 缩放 200 帧
+// 3) 缩放 200 帧(再提一次前台:前面的面板开关可能把焦点带走)
+await cdp.send('Page.bringToFront');
 await cdp.eval('window.__gpReset()');
 await drive(cdp, `el.dispatchEvent(new WheelEvent('wheel', { deltaY: i % 2 === 0 ? -120 : 120, clientX: 500, clientY: 350, bubbles: true, cancelable: true }));`, 200);
 const zoom = await readFrames(cdp);
@@ -124,6 +145,7 @@ const zoom = await readFrames(cdp);
 // 4) 平移 200 帧(先按 0 回适配档,再从左上角空白起手 —— 径向图四角是空的,起手点不压节点)
 await cdp.eval(`window.dispatchEvent(new KeyboardEvent('keydown', { key: '0' }))`);
 await sleep(700);
+await cdp.send('Page.bringToFront');
 await cdp.eval('window.__gpReset()');
 await cdp.eval(`(() => {
   const el = ${VIEW};
@@ -141,12 +163,15 @@ const pan = await readFrames(cdp);
 // 5) 悬停移动 60 帧(改强调态,必然重建 plan)
 await cdp.eval(`window.dispatchEvent(new KeyboardEvent('keydown', { key: '0' }))`);
 await sleep(700);
+await cdp.send('Page.bringToFront');
 await cdp.eval('window.__gpReset()');
 await drive(cdp, `el.dispatchEvent(new PointerEvent('pointermove', { clientX: 300 + i * 6, clientY: 250 + i * 4, bubbles: true, pointerId: 1, pointerType: 'mouse', isPrimary: true }));`, 60);
 const hover = await readFrames(cdp);
 
 const viewport = await cdp.eval('({ w: innerWidth, h: innerHeight, dpr: devicePixelRatio, canvas: (() => { const c = document.querySelector(\'[data-testid="graph-view"] canvas\'); return c === null ? null : { w: c.width, h: c.height }; })() })');
 const out = {
+  expandedTimeline: EXPAND_TIME,
+  status,
   viewport,
   firstFrameMs: first.paintMs,
   mountMs: first.mountMs,
