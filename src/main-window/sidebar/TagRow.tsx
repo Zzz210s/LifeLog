@@ -140,19 +140,25 @@ export function TagRow(p: TagRowProps): ReactNode {
         </svg>
       )}
       {!p.flat && !hasChildren && <span className="w-3 shrink-0" />}
-      <span className="min-w-0 truncate" onMouseEnter={hoverTitle(tagLabelPlain(label))}>
+      {/* 名字优先(2026-10-06 B 方案):名字不参与收缩(shrink-0),关系小字让位。
+          max-w-full 只在「名字本身就比整行宽」时才截断(有省略号 + 悬停全文),杜绝静默裁切。 */}
+      <span
+        className="min-w-0 max-w-full shrink-0 truncate"
+        onMouseEnter={hoverTitle(tagLabelPlain(label))}
+      >
         {renderTagLabel(label)}
       </span>
       {p.excluded && (
         <span className="shrink-0 rounded-xs bg-danger-soft px-1 text-micro text-danger">已排除</span>
       )}
-      {/* 关系小字紧跟标签名(离名字最近),计数导轨留行尾(ml-auto 仍把它推到最右) */}
+      {/* 关系小字紧跟标签名(离名字最近),计数导轨留行尾(ml-auto 仍把它推到最右)。
+          小字可收缩(min-w-0 + shrink)并封顶 8rem:宽度不够时先由它省略,名字保持完整;截断时悬停给全文。 */}
       {p.showRelations === true &&
         relationChips.shown.map((r) => (
           <span
             key={r.toTagId}
             data-tag-relation
-            className="max-w-[8rem] shrink-0 truncate text-micro text-muted"
+            className="min-w-0 max-w-[8rem] shrink truncate text-micro text-muted"
             onMouseEnter={hoverTitle(relationLabel(r))}
           >
             {relationLabel(r)}

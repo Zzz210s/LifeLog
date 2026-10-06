@@ -77,6 +77,18 @@ function render(over: { relations?: readonly RelationRef[]; showRelations?: bool
 const relationTexts = (): string[] =>
   [...host.querySelectorAll('[data-tag-relation]')].map((el) => el.textContent ?? '');
 
+const tokens = (el: Element): string[] => el.className.split(/\s+/).filter(Boolean);
+
+/** 名字块:行内唯一文本为标签名「日本」的 span */
+const nameSpan = (row: HTMLElement): HTMLElement =>
+  [...row.querySelectorAll('span')].find((s) => s.textContent === '日本') as HTMLElement;
+
+/** jsdom 里 scrollWidth/clientWidth 恒 0:手动造出「被 CSS 截断」的读数再触发 React 的 onMouseEnter */
+function markTruncated(el: HTMLElement): void {
+  Object.defineProperty(el, 'scrollWidth', { value: 999, configurable: true });
+  Object.defineProperty(el, 'clientWidth', { value: 100, configurable: true });
+}
+
 describe('树行关系小字(开关)', () => {
   const RELS = [rel(10, '国籍', '国别'), rel(11, '所在')];
 
@@ -112,6 +124,35 @@ describe('树行关系小字(开关)', () => {
     expect(html.indexOf('data-tag-relation')).toBeLessThan(html.indexOf('data-count-rail'));
     // 关系小字必须落在名字与计数之间(顺序反过来即红)
     expect(html.slice(html.indexOf('日本'), html.indexOf('data-count-rail'))).toContain('data-tag-relation');
+  });
+});
+
+describe('名字优先不截断(2026-10-06 B 方案)', () => {
+  it('名字块 shrink-0(不参与收缩),关系小字可收缩 + 封顶 + truncate(截断先落在小字)', () => {
+    const row = render({ relations: [rel(10, '国籍', '国别')], showRelations: true });
+    const name = tokens(nameSpan(row));
+    expect(name).toContain('shrink-0');
+    expect(name).not.toContain('shrink');
+    expect(name).toContain('truncate');
+
+    const chip = row.querySelector('[data-tag-relation]') as HTMLElement;
+    const ct = tokens(chip);
+    expect(ct).toContain('shrink');
+    expect(ct).not.toContain('shrink-0');
+    expect(ct).toContain('min-w-0');
+    expect(String(chip.className)).toMatch(/max-w-\[8rem\]/);
+    expect(ct).toContain('truncate');
+  });
+
+  it('关系小字超长:省略号口径,未截断不挂 title、真被截断时悬停给完整文案', () => {
+    const row = render({ relations: [rel(10, '属性', '一段很长很长的箭头备注文字')], showRelations: true });
+    const chip = row.querySelector('[data-tag-relation]') as HTMLElement;
+    const full = '一段很长很长的箭头备注文字 → 属性';
+    expect(chip.textContent).toBe(full);
+    expect(chip.getAttribute('title')).toBeNull();
+    markTruncated(chip);
+    chip.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    expect(chip.getAttribute('title')).toBe(full);
   });
 });
 
