@@ -84,7 +84,9 @@ const tip = await rowTipOf(cdp, SOURCE);
 shotFiles.push(await shot(cdp, SH('2-sidebar-chip')));
 if (rowInfo) shotFiles.push(await shot(cdp, SH('2b-sidebar-closeup'), { x: 0, y: Math.max(0, rowInfo.y - 46), width: 430, height: 230 }, 2));
 log(`INFO 截图② 侧栏 chips=${fmt(chips)} 卡片各行=${fmt(String(tip).split('\n'))}`);
-if (!String(chips).includes(`${REMARK} → 日本`)) log(`FAIL 侧栏小字不是「${REMARK} → 日本」:${fmt(chips)}`);
+if (!String(chips).includes('日本') || String(chips).includes('→')) log(`FAIL 侧栏小字应只有值「日本」(无箭头、无属性名):${fmt(chips)}`);
+const chipTip = await cdp.eval(`document.querySelector('aside ' + ${rowSel(SOURCE)} + ' [data-tag-relation]')?.getAttribute('data-tip') ?? null`);
+if (chipTip !== REMARK) log(`FAIL 值上的悬停属性名应为「${REMARK}」:${fmt(chipTip)}`);
 
 // ④ 关系图:搜索跳转到源标签 → 放大到备注档 → 读画布上的属性名文字 → 截图
 await armGraph(ui);

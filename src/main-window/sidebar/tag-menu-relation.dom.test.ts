@@ -93,15 +93,6 @@ const candidateTexts = (): string[] =>
 
 const input = (): HTMLInputElement => host.querySelector('input[aria-label="添加关系标签"]') as HTMLInputElement;
 
-/** React 受控输入必须用原生 setter + input 事件,直接改 value 不触发 onChange */
-function setInput(el: HTMLInputElement, v: string): void {
-  const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
-  act(() => {
-    setValue?.call(el, v);
-    el.dispatchEvent(new Event('input', { bubbles: true }));
-  });
-}
-
 function pressEnter(composing = false): void {
   const ev = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true });
   if (composing) Object.defineProperty(ev, 'isComposing', { value: true });

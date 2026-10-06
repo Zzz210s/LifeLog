@@ -1,6 +1,4 @@
-// 标签关系端到端验收(scripts/dev-relations-accept.mjs)的共用件:只读库对账 / 发 IPC / 读 DOM /
-// 画布探针。判定全部留在主脚本(与其它 accept-lib 同风格)。
-// 真实库只读;仅夹具清理与设置往返会写库(见 writeSetting/deleteSetting/deleteMergeLogFor)。
+// 标签关系端到端验收(scripts/dev-relations-accept.mjs)的共用件:只读库对账 / 发 IPC / 读 DOM / 画布探针;判定全留在主脚本。
 import { DatabaseSync } from 'node:sqlite';
 import { execFileSync } from 'node:child_process';
 import {
@@ -9,15 +7,10 @@ import {
 } from './carry-accept-lib.mjs';
 import { setSearch } from './graph-accept-g3-lib.mjs';
 
-export {
-  all, get, counts, fmt, ipc, condIds, queryCount, pressEsc, sleep, waitFor, requireApp,
-  noteIdOf, tagIdOf, DB_PATH, openTagMenu, timeQuery, xlsxContentDigest, clearChips, EMPTY, setSearch, appNoteTags,
-};
+export * from './carry-accept-lib.mjs';
+export { setSearch } from './graph-accept-g3-lib.mjs';
 
-/**
- * 确认应用跑在 dev 构建上(命令行含 0-cargo-target);打印实际命令行,不打一处含糊。
- * 自 `types-accept-lib` 迁来(那个文件随类型概念一起删了)。
- */
+/** 确认应用跑在 dev 构建上(命令行含 0-cargo-target);打印实际命令行,不打一处含糊。 */
 export function assertDevBuild() {
   const ps = "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'app-lifelog|LifeLog' } | ForEach-Object { $_.CommandLine }";
   let lines = [];
@@ -42,10 +35,8 @@ export const targetStates = () =>
 export const typeEdgeRows = () => get("SELECT COUNT(*) n FROM tag_links WHERE target_type='type'").n;
 export const relationRows = () =>
   all("SELECT tag_id, target_id FROM tag_links WHERE target_type='tag' ORDER BY tag_id, target_id");
-export const relationRowsFrom = (id) =>
-  get("SELECT COUNT(*) n FROM tag_links WHERE target_type='tag' AND tag_id=?1", id).n;
-export const relationRowsTo = (id) =>
-  get("SELECT COUNT(*) n FROM tag_links WHERE target_type='tag' AND target_id=?1", id).n;
+export const relationRowsFrom = (id) => get("SELECT COUNT(*) n FROM tag_links WHERE target_type='tag' AND tag_id=?1", id).n;
+export const relationRowsTo = (id) => get("SELECT COUNT(*) n FROM tag_links WHERE target_type='tag' AND target_id=?1", id).n;
 export const danglingTagRows = () =>
   get("SELECT COUNT(*) n FROM tag_links WHERE target_type='tag' AND target_id NOT IN (SELECT id FROM tags)").n;
 export const mergeLogRows = () =>
@@ -55,8 +46,7 @@ export const tagStructRows = (ns) =>
   all("SELECT id,path,depth,sort_order FROM tags WHERE path NOT LIKE '时间/%' ORDER BY id")
     .filter((t) => !String(t.path).includes(ns));
 export const ftsTagsOf = (id) => get('SELECT tags FROM notes_fts WHERE rowid=?1', id)?.tags ?? null;
-
-// --- 设置读写(仅往返用;设置表在真实库里) ---
+// --- 设置读写(仅往返用;设置表在真实库里。真实库只读,仅夹具清理与设置往返会写库) ---
 const write = (fn) => {
   const db = new DatabaseSync(DB_PATH);
   try {
@@ -96,7 +86,7 @@ export const FIXTURE_NOTES = [
 export async function raiseFixtures(call) {
   for (const [title, tag] of FIXTURE_NOTES) await call('save_input_note', { content: `${title}\n#${tag}` });
   await sleep(300);
-  // 目标标签的名字备注:纯文本建好后改名成 md 形态(remark 由名字里的链接备注而来)
+  // 目标标签名带 md 备注:验「行内只显示剥壳后的值」;属性名改由边上的 remark 提供(迁移 023),不再取名字备注
   const b = tagIdOf(FIX.B_PLAIN);
   if (b != null) await call('rename_tag', { tagId: b, newName: FIX.B_RAW });
   await sleep(300);
@@ -116,10 +106,24 @@ const sel = (name, value) => `[${name}=' + JSON.stringify(${JSON.stringify(value
 export const relationChipsOf = (cdp, path) =>
   cdp.eval(`(() => { const r = document.querySelector('aside ${sel('data-tag-path', path)}');
     return r ? Array.from(r.querySelectorAll('[data-tag-relation]')).map((x) => x.textContent.trim()) : null; })()`);
-/** 侧栏某行的悬浮卡片文本(data-tip 多行) */
+/** 侧栏某行的悬浮卡片标题(data-tip 多行:路径 + 计数) */
 export const rowTipOf = (cdp, path) =>
   cdp.eval(`(() => { const r = document.querySelector('aside ${sel('data-tag-path', path)}');
     return r ? r.getAttribute('data-tip') : null; })()`);
+/** 侧栏某行 data-tip-rows(档案卡片的关系行 [{label,value}];无关系为 null) */
+export const rowFactsOf = (cdp, path) =>
+  cdp.eval(`(() => { const r = document.querySelector('aside ${sel('data-tag-path', path)}');
+    const raw = r?.getAttribute('data-tip-rows'); if (!raw) return null; try { return JSON.parse(raw); } catch { return null; } })()`);
+/** 行内某元素上合成 mouseover(冒泡到 document 上的 HoverTip 委托);inner 是行内 JS 表达式 */
+export const hoverInside = (cdp, path, inner) =>
+  cdp.eval(`(() => { const r = document.querySelector('aside ${sel('data-tag-path', path)}'); const el = r && (${inner});
+    if (!el) return false; const b = el.getBoundingClientRect();
+    el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, clientX: b.left + b.width / 2, clientY: b.top + b.height / 2 })); return true; })()`);
+/** 当前悬浮气泡读数:标题两行 + 档案卡片关系行(左属性名 / 右值) */
+export const bubbleFactsOf = (cdp) =>
+  cdp.eval(`(() => { const t = document.querySelector('[data-testid="hover-tip"]'); if (!t) return null;
+    return { text: t.textContent, labels: Array.from(t.querySelectorAll('[data-tip-row-label]')).map((x) => x.textContent),
+      values: Array.from(t.querySelectorAll('[data-tip-row-value]')).map((x) => x.textContent) }; })()`);
 /** 标签右键菜单的按钮文案(主面板应为五档) */
 export const menuItemsOf = (cdp) =>
   cdp.eval(`(() => { const m = document.querySelector('[data-tag-menu]');
@@ -144,9 +148,7 @@ export const relationDegreesText = (cdp) =>
   cdp.eval(`document.querySelector('[data-testid="graph-relation-degrees"]')?.textContent ?? null`);
 export const graphOpened = (cdp) => cdp.eval(`!!document.querySelector('[data-testid="graph-view"] canvas')`);
 
-// --- 画布探针:关系边箭头 = 三顶点路径 fill;备注文字走 fillText ---
-// 除计数外,箭头还**记下尖点与终点坐标**,点层记下填充圆(圆心 + 半径)—— 验收才能断言
-// 「尖到目标圆心距离 > 目标半径」(挡住「画了但被后画的点盖住」)。
+// --- 画布探针:关系边箭头 = 三顶点路径 fill;备注文字走 fillText;箭头记尖点/终点、点层记填充圆 ---
 export const installRelationProbe = (cdp) =>
   cdp.eval(`(() => {
     if (window.__relV === 2) return true;

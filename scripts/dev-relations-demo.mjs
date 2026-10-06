@@ -40,7 +40,7 @@ const before = counts();
 const relBefore = relationRows();
 log(`INFO 基线 笔记${before.notes} 标签${before.tags} 关系边${relBefore.length}`);
 
-// 1 夹具(幂等):锚笔记带出两个标签 → 界面「重命名」把子标签改成带备注的 md 名 → 建关系
+// 1 夹具(幂等):锚笔记带出两个标签 → 界面「重命名」把子标签改成带 md 名 → 建关系(属性名写在**边**上,迁移 023)
 if (noteIdOf(NOTE) === null) { await call('save_input_note', { content: `${NOTE}\n#${CHILD_PLAIN}` }); await sleep(900); }
 const rootId = tagIdOf(ROOT);
 let childRow = rootId == null ? null : get('SELECT id, path FROM tags WHERE parent_id = ?1', rootId);
@@ -62,7 +62,7 @@ if (childRow && childRow.path === CHILD_PLAIN && ensured) {
 } else log(`INFO 重命名跳过(已是 md 名或标签未就绪)`);
 const childId = childRow?.id ?? null;
 const hadRel = relBefore.some((r) => r.tag_id === srcId && r.target_id === childId);
-if (!hadRel) { await call('set_tag_relation', { fromTag: srcId, toTag: childId }); await sleep(800); }
+if (!hadRel) { await call('set_tag_relation', { fromTag: srcId, toTag: childId, remark: REMARK }); await sleep(800); }
 log(`INFO 关系 ${SOURCE}(${srcId}) -> ${childId} 已有=${hadRel}`);
 
 // 2 打开「标签树里显示关系」并重载,让改名与开关一起上屏
@@ -86,7 +86,7 @@ await sleep(400);
 const chips = await relationChipsOf(cdp, SOURCE);
 const tip = await rowTipOf(cdp, SOURCE);
 shotFiles.push(await shot(cdp, SH('2-sidebar-chip')));
-// 悬浮卡片:行上 data-tip 由 document 上的 mouseover 委托接管,合成事件即可弹出完整关系文案
+// 悬浮卡片:悬停标签名 → 行级 data-tip(标题两行)+ data-tip-rows(一条关系一行两列)由 document 上的 mouseover 委托接管
 await cdp.eval(`(() => { const r = document.querySelector('aside ' + ${rowSel(SOURCE)}); if (!r) return false; r.dispatchEvent(new MouseEvent('mouseover', { bubbles: true })); return true; })()`);
 await sleep(400);
 if (rowInfo) shotFiles.push(await shot(cdp, SH('2b-sidebar-closeup'), { x: 0, y: Math.max(0, rowInfo.y - 46), width: 430, height: 230 }, 2));

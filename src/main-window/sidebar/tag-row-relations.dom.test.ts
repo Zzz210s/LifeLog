@@ -106,7 +106,7 @@ describe('名字优先不截断(2026-10-06 B 方案)', () => {
   });
 
   it('关系小字被截断时原生 title 仍给完整值(未截断不挂 title)', () => {
-    const row = h.render({ relations: [rel(10, '一段很长很长的目标标签名字', '国籍')], showRelations: true });
+    h.render({ relations: [rel(10, '一段很长很长的目标标签名字', '国籍')], showRelations: true });
     const chip = h.chips()[0];
     expect(chip.textContent).toBe('一段很长很长的目标标签名字');
     expect(chip.getAttribute('title')).toBeNull();

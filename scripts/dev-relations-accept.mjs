@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 /**
  * 标签关系统一端到端读数,覆盖设计 docs/superpowers/specs/2026-10-06-tag-relation-design.md §11 的 1-8:
- *   1 迁移 022:user_version 22 / is_type 列消失 / 目标只有 note+tag / 24 条原边原样 / integrity ok
- *   2 关系:加/移除幂等;自指向 / 2 环 / 3 环被拒(中文);删被指向标签后无悬空边
+ *   1 迁移 022+023:user_version 23 / is_type 列消失 / 目标只有 note+tag / 24 条原边原样 / integrity ok
+ *   2 关系:加/移除幂等;属性名存边上(同向重复 set 只改 remark);自指向 / 2 环 / 3 环被拒;删被指向标签后无悬空边
  *   3 筛选:关系条件命中 = 指向该标签的标签及其子树下的笔记;排除侧互补;旧字段名 types 回读
  *   4 自动合并:移动成同父同名 → 整棵并(笔记并集/子标签搬/边并集);tag_merge_log 有记录
  *   5 菜单恰五档(重命名/移动/别名/关系…/删除),不含「合并」「携带」「类型」
- *   6 侧栏行内 `备注 → 目标`(2 + `+N`)、开关(新键/旧键回读)、悬浮卡片列全部关系
- *   7 关系图:关系边带箭头;默认 k 就画备注文字(阈值 0.8),缩到聚合档(0.5)不画;信息条「关系:出 N / 入 M」
+ *   6 侧栏行内**只显示值**(2 + `+N`)、悬停值给属性名、悬停标签名出档案卡片(标题两行 + 每条关系一行两列)
+ *   7 关系图:关系边带箭头;箭头中点的属性名 = 边上的 remark;默认 k 就画(阈值 0.8),缩到聚合档(0.5)不画
  *   8 回归:树 path/depth/sort_order、笔记 tags 列、FTS、导出不因关系而变
  * 夹具一律 `关系测试` 前缀,自建自删;结构对账排除当天时间标签 `时间/%`。
  * 用法:先起 **dev 构建**(WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9333
@@ -18,18 +18,14 @@ import { join } from 'node:path';
 import { rmSync } from 'node:fs';
 import { ensureMain, recorder } from './cdp-lib.mjs';
 import { bindUi } from './no-tabs-accept-lib.mjs';
-import { armGraph, closeGraph } from './graph-accept-lib.mjs';
 import {
   NS, FIX, counts, fmt, ipc, sleep, waitFor, requireApp, assertDevBuild,
-  noteIdOf, tagIdOf, openTagMenu, pressEsc, xlsxContentDigest,
-  danglingTagRows, tagStructRows, ftsTagsOf, relationRows, mergeLogRows, appNoteTags,
+  noteIdOf, tagIdOf, relationRows, mergeLogRows,
   getSettingRaw, writeSetting, deleteSetting, deleteMergeLogFor,
   raiseFixtures, purgeFixtures, fixtureNoteIds, fixtureTagIds,
-  relationChipsOf, rowTipOf, menuItemsOf, relToggleState, clickByLabelIn, openSettings,
-  pickRelationSection, backToStream, relationDegreesText, installRelationProbe, relationFrame,
-  zoomBy, setSearch, pickSearchItem,
 } from './relations-accept-lib.mjs';
 import { runReadings1to4 } from './relations-accept-data.mjs';
+import { runReadings5to8 } from './relations-accept-ui.mjs';
 
 await requireApp();
 const dev = assertDevBuild();
@@ -65,104 +61,18 @@ try {
   const tA = tagIdOf(FIX.A), tB = tagIdOf(FIX.B_RAW), tD = tagIdOf(FIX.D);
   nA = noteIdOf(`${NS}甲笔记`);
   fixIds = fixtureTagIds();
-  record('夹具就绪(dev 构建已确认;目标标签名带 md 备注)', dev && tA != null && tB != null && nA != null,
-    `dev=${dev} 标签=${fmt({ tA, tB, tD })} 笔记=${fmt({ nA })} 备注=${FIX.REMARK}`);
+  record('夹具就绪(dev 构建已确认;目标标签名带 md 备注,属性名在边上)',
+    dev && tA != null && tB != null && nA != null,
+    `dev=${dev} 标签=${fmt({ tA, tB, tD })} 笔记=${fmt({ nA })} 属性名=${FIX.REMARK}`);
 
-  // --- 1-4 数据层:迁移 022 / 关系增删与环拒绝 / 筛选 / 自动合并 ---
+  // --- 1-4 数据层:迁移 022/023 / 关系增删与环拒绝 / 筛选 / 自动合并 ---
   const data = await runReadings1to4(call, cdp, { base, baseRelations, fixIds, nA });
   for (const x of data.records) record(x.name, x.ok, x.detail);
   structAt8 = data.structAt8;
 
-
-  // --- 5 菜单五档 ---
-  await openTagMenu(cdp, FIX.A);
-  await sleep(300);
-  const items = await menuItemsOf(cdp);
-  await pressEsc(cdp);
-  const want = ['重命名', '移动', '别名…', '关系…', '删除'];
-  record('读数5 菜单恰五档(重命名/移动/别名/关系…/删除),不含「合并」「携带」「类型」「设为类型」',
-    JSON.stringify(items) === JSON.stringify(want) && !/合并|携带|类型/.test((items ?? []).join('')),
-    `items=${fmt(items)}`);
-
-  // --- 6 侧栏行内 + 开关 + 悬浮卡片(新键删掉后默认开;旧键不再回读) ---
-  await openSettings(cdp);
-  await pickRelationSection(cdp);
-  const off = await waitFor(() => relToggleState(cdp), 20, 200);
-  await clickByLabelIn(cdp, '标签树里显示关系');
-  const on = await waitFor(() => cdp.eval(`document.querySelector('button[aria-label="标签树里显示关系"]')?.getAttribute('aria-checked') === 'true'`), 10, 200);
-  await backToStream(cdp);
-  await sleep(500);
-  const chips = await relationChipsOf(cdp, FIX.A);
-  const tip = await rowTipOf(cdp, FIX.A);
-  await deleteSetting('tag_tree_show_relations');
-  await writeSetting('tag_tree_show_carry', 'true'); // 旧键故意留着:默认开不该被它影响
-  await cdp.send('Page.reload');
-  await waitFor(() => cdp.eval(`!!document.querySelector('[data-testid="unified-input"]')`).catch(() => false), 60, 500);
-  await sleep(1200);
-  const chipsDefault = await relationChipsOf(cdp, FIX.A);
-  record('读数6 行内 2 + `+1`、悬浮卡片列全部关系、开关生效、新键删掉后默认开(旧键不再回读)',
-    (chips ?? []).length === 3 && chips[2] === '+1'
-      && chips.some((c) => c.includes(`${FIX.REMARK} → ${NS}乙`))
-      && String(tip).includes('关系：') && String(tip).includes(FIX.D) && String(tip).includes(`${FIX.REMARK} → ${NS}乙`)
-      && off !== 'true' && on === true && (chipsDefault ?? []).length === 3,
-    `chips=${fmt(chips)} 卡片=「${String(tip).split('\n').pop()}」 开关 ${off}->${on} 删新键后默认=${fmt(chipsDefault)}`);
-
-  // --- 7 关系图 ---
-  await armGraph(ui);
-  await sleep(2500);
-  const opened = await cdp.eval(`!!document.querySelector('[data-testid="graph-view"] canvas')`);
-  await installRelationProbe(cdp);
-  await setSearch(cdp, FIX.A);
-  await sleep(400);
-  await pickSearchItem(cdp);
-  await sleep(900);
-  const degA = await relationDegreesText(cdp);
-  const def = await relationFrame(cdp); // 默认自适应档(centerOn 不改 k):备注应当已经画出来
-  await zoomBy(cdp, 15, 120); // 缩到 MIN_K=0.5(聚合档):备注应当收起
-  await sleep(700);
-  const out = await relationFrame(cdp);
-  await zoomBy(cdp, 12, -120); // 再放大回去,验箭头无遮挡
-  await sleep(700);
-  const hi = await relationFrame(cdp);
-  await setSearch(cdp, `${NS}乙`);
-  await sleep(400);
-  await pickSearchItem(cdp);
-  await sleep(900);
-  const degB = await relationDegreesText(cdp);
-  // 箭头尖到目标圆心的距离必须 > 目标半径(挡住「画了但被后画的点盖住」):
-  // 目标 = 离箭头终点最近的那个填充圆(非聚合档下就是目标节点的圆)
-  const tipsClear = (frame) => {
-    const dots = frame?.dots ?? [];
-    const tips = frame?.arrowTips ?? [];
-    if (tips.length === 0 || dots.length === 0) return false;
-    return tips.every((a) => {
-      const target = dots.reduce((best, d) => {
-        const dist = Math.hypot(d.x - a.end[0], d.y - a.end[1]);
-        return best === null || dist < best.dist ? { dist, r: d.r } : best;
-      }, null);
-      return Math.hypot(a.tip[0] - a.end[0], a.tip[1] - a.end[1]) > target.r;
-    });
-  };
-  const clearHi = tipsClear(hi);
-  record('读数7 关系边带箭头;默认档就出备注、缩到聚合档(0.5)收起;箭头尖不被目标圆盖住;信息条出/入度正确',
-    opened && String(degA).includes('关系（含子孙）：出 3 / 入 0') && String(degB).includes('关系（含子孙）：出 0 / 入 1')
-      && (def?.texts ?? []).includes(FIX.REMARK) && !(out?.texts ?? []).includes(FIX.REMARK) && (hi?.texts ?? []).includes(FIX.REMARK) && (hi?.arrowHeads ?? 0) > 0 && clearHi,
-    `开图=${opened} 甲=「${degA}」 乙=「${degB}」 默认备注=${(def?.texts ?? []).includes(FIX.REMARK)} 低缩备注=${(out?.texts ?? []).includes(FIX.REMARK)} 放大备注=${(hi?.texts ?? []).includes(FIX.REMARK)} 箭头头部=${hi?.arrowHeads ?? 0} 箭头尖无遮挡=${clearHi}`);
-  await closeGraph(ui);
-  await sleep(400);
-
-  // --- 8 回归:关系写入不改结构 / 笔记 tags 列 / FTS / 导出 ---
-  const tagsAt8 = await appNoteTags(cdp, `${NS}甲笔记`, nA), ftsAt8 = ftsTagsOf(nA);
-  await call('export_notes', { path: E1 });
-  const d1 = xlsxContentDigest(E1);
-  await call('remove_tag_relation', { fromTag: tA, toTag: tB });
-  await call('set_tag_relation', { fromTag: tA, toTag: tB }); // 幂等回写
-  await call('export_notes', { path: E2 });
-  const d2 = xlsxContentDigest(E2);
-  record('读数8 树 path/depth/sort_order、笔记 tags 列、FTS、导出不因关系而变',
-    JSON.stringify(tagStructRows(NS)) === structAt8 && JSON.stringify(await appNoteTags(cdp, `${NS}甲笔记`, nA)) === JSON.stringify(tagsAt8)
-      && ftsAt8 != null && ftsTagsOf(nA) === ftsAt8 && d1 === d2 && danglingTagRows() === 0,
-    `结构一致=${JSON.stringify(tagStructRows(NS)) === structAt8} 笔记tags=${fmt(tagsAt8)} FTS=${fmt(ftsAt8)} 导出摘要=${d1.slice(0, 16)}==${d2.slice(0, 16)}`);
+  // --- 5-8 UI 层:菜单 / 侧栏行内与档案卡片 / 关系面板 / 关系图 / 回归 ---
+  const uiReadings = await runReadings5to8(cdp, ui, { call, record, nA, structAt8, E1, E2 });
+  for (const x of uiReadings.records) record(x.name, x.ok, x.detail);
 } catch (e) {
   failure = e;
 }

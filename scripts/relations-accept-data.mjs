@@ -11,42 +11,47 @@ export async function runReadings1to4(call, cdp, { base, baseRelations, fixIds, 
   const records = [];
   const tA = tagIdOf(FIX.A), tB = tagIdOf(FIX.B_RAW), tD = tagIdOf(FIX.D);
 
-  // 1 迁移 022
+  // 1 迁移 022+023
   const states = targetStates().map((x) => `${x.target_type}:${x.n}`).join(',');
   const onlyNoteTag = targetStates().every((x) => x.target_type === 'note' || x.target_type === 'tag');
   records.push({
-    name: '读数1 迁移 022:版本 22 / is_type 列消失 / 目标只有 note+tag / 24 条原边原样 / integrity ok',
-    ok: base.version === 22 && !hasIsTypeColumn() && typeEdgeRows() === 0 && onlyNoteTag
+    name: '读数1 迁移 022+023:版本 23 / is_type 列消失 / 目标只有 note+tag / 24 条原边原样 / integrity ok',
+    ok: base.version === 23 && !hasIsTypeColumn() && typeEdgeRows() === 0 && onlyNoteTag
       && JSON.stringify(relationRows()) === JSON.stringify(baseRelations) && base.integrity === 'ok',
     detail: `version=${base.version} is_type列=${hasIsTypeColumn()} type边=${typeEdgeRows()} 目标=${states} 关系边=${relationRows().length} integrity=${base.integrity}`,
   });
 
-  // 2 增删幂等 + 环拒绝 + 无悬空
-  await call('set_tag_relation', { fromTag: tA, toTag: tB });
-  await call('set_tag_relation', { fromTag: tA, toTag: tB }); // 幂等
+  // 2 增删幂等 + 属性名 upsert 到边上(迁移 023) + 环拒绝 + 无悬空
+  /** 边上存的属性名(迁移 023 后不再取目标标签名字里的 md 备注) */
+  const edgeRemark = (from, to) => get("SELECT remark FROM tag_links WHERE tag_id=?1 AND target_type='tag' AND target_id=?2", from, to)?.remark ?? null;
+  await call('set_tag_relation', { fromTag: tA, toTag: tB, remark: FIX.REMARK });
+  await call('set_tag_relation', { fromTag: tA, toTag: tB, remark: `${NS}别名属性` }); // 同向边 upsert:只改属性名不增行
+  const remarkUpsert = edgeRemark(tA, tB);
+  await call('set_tag_relation', { fromTag: tA, toTag: tB, remark: FIX.REMARK });
   const idem = relationRowsFrom(tA);
-  const selfMsg = await call('set_tag_relation', { fromTag: tA, toTag: tA }).then(() => '', (e) => String(e));
-  const cy2 = await call('set_tag_relation', { fromTag: tB, toTag: tA }).then(() => '', (e) => String(e));
+  const selfMsg = await call('set_tag_relation', { fromTag: tA, toTag: tA, remark: '' }).then(() => '', (e) => String(e));
+  const cy2 = await call('set_tag_relation', { fromTag: tB, toTag: tA, remark: '' }).then(() => '', (e) => String(e));
   const tC0 = tagIdOf(FIX.C);
-  await call('set_tag_relation', { fromTag: tB, toTag: tC0 });
-  const cy3 = await call('set_tag_relation', { fromTag: tC0, toTag: tA }).then(() => '', (e) => String(e));
+  await call('set_tag_relation', { fromTag: tB, toTag: tC0, remark: '' });
+  const cy3 = await call('set_tag_relation', { fromTag: tC0, toTag: tA, remark: '' }).then(() => '', (e) => String(e));
   await call('remove_tag_relation', { fromTag: tB, toTag: tC0 });
-  await call('set_tag_relation', { fromTag: tA, toTag: tC0 });
-  await call('set_tag_relation', { fromTag: tA, toTag: tD });
+  await call('set_tag_relation', { fromTag: tA, toTag: tC0, remark: '' });
+  await call('set_tag_relation', { fromTag: tA, toTag: tD, remark: '' });
   await call('remove_tag_relation', { fromTag: tA, toTag: tD });
-  await call('set_tag_relation', { fromTag: tA, toTag: tD }); // 移除后再加
+  await call('set_tag_relation', { fromTag: tA, toTag: tD, remark: '' }); // 移除后再加
   const outA = relationRowsFrom(tA);
   await call('delete_tag', { tagId: tC0 });
   await sleep(400);
   const afterDel = { dangling: danglingTagRows(), toC: relationRowsTo(tC0), fromA: relationRowsFrom(tA) };
   await call('save_input_note', { content: `${NS}丙笔记二\n#${FIX.C}` });
   await sleep(400);
-  await call('set_tag_relation', { fromTag: tA, toTag: tagIdOf(FIX.C) });
+  await call('set_tag_relation', { fromTag: tA, toTag: tagIdOf(FIX.C), remark: '' });
   records.push({
-    name: '读数2 加/移除幂等;自指向与 2/3 环被拒(中文);删被指向标签后无悬空边',
-    ok: idem === 1 && outA === 3 && selfMsg.includes('自己') && cy2.includes('循环') && cy3.includes('循环')
+    name: '读数2 加/移除幂等;属性名在边上(同向重复 set 只改 remark 不增行);自指向与 2/3 环被拒(中文);删被指向标签后无悬空边',
+    ok: idem === 1 && remarkUpsert === `${NS}别名属性` && edgeRemark(tA, tB) === FIX.REMARK && outA === 3
+      && selfMsg.includes('自己') && cy2.includes('循环') && cy3.includes('循环')
       && afterDel.dangling === 0 && afterDel.toC === 0 && afterDel.fromA === 2 && relationRowsFrom(tA) === 3,
-    detail: `A出边=${idem}->${outA};自指向=「${selfMsg}」;2环=「${cy2}」;3环=「${cy3}」;删丙后 悬空=${afterDel.dangling} 丙入边=${afterDel.toC} A出边=${afterDel.fromA}`,
+    detail: `A出边=${idem}->${outA};属性名 upsert=${remarkUpsert}->${edgeRemark(tA, tB)};自指向=「${selfMsg}」;2环=「${cy2}」;3环=「${cy3}」;删丙后 悬空=${afterDel.dangling} 丙入边=${afterDel.toC} A出边=${afterDel.fromA}`,
   });
 
   // 3 筛选
@@ -64,7 +69,7 @@ export async function runReadings1to4(call, cdp, { base, baseRelations, fixIds, 
 
   // 4 自动合并(移动成同父同名)
   const rootDup = tagIdOf(FIX.DUP), parent = tagIdOf(FIX.PARENT);
-  await call('set_tag_relation', { fromTag: rootDup, toTag: tD });
+  await call('set_tag_relation', { fromTag: rootDup, toTag: tD, remark: '' });
   await call('move_tag', { tagId: rootDup, newParentId: parent });
   await sleep(600);
   const merged = tagIdOf(FIX.DUP_CHILD);
