@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_RELATION_CHIPS, relationLabel, relationPlan, tagFactsTitle } from './tag-relation-facts';
+import {
+  MAX_RELATION_CHIPS,
+  relationLabel,
+  relationPlan,
+  relationValue,
+  relationValueTip,
+  tagFactsLines,
+  tagFactsRows,
+  uniqueRelationValues,
+} from './tag-relation-facts';
 import type { RelationRef } from './types';
 
 const rel = (name: string, remark = ''): RelationRef => ({
@@ -58,21 +67,65 @@ describe('relationPlan:最多 2 个 + `+N`', () => {
   });
 });
 
-describe('悬浮卡片文案', () => {
-  it('有关系:两行,第二行列全部(不受行内 2 条上限约束)', () => {
-    const text = tagFactsTitle('地点轴/国籍/日本', 3, 7, [
-      rel('国籍', '国别'),
-      rel('所在'),
-      rel('产地'),
-    ]);
-    expect(text.split('\n')).toEqual([
-      '地点轴/国籍/日本(本级 3 / 含子级 7)',
-      '关系：国别 → 国籍、所在、产地',
+// 2026-10-06 改口径(用户原话:「国籍 → 中国大陆」变成「中国大陆」):行内只显示值
+ describe('relationValue:行内只显示值', () => {
+  it('只给目标标签名,不含箭头也不含属性名', () => {
+    expect(relationValue(rel('中国大陆', '国籍'))).toBe('中国大陆');
+    expect(relationValue(rel('中国大陆', '国籍'))).not.toContain('→');
+    expect(relationValue(rel('中国大陆', '国籍'))).not.toContain('国籍');
+    expect(relationValue(rel('日本'))).toBe('日本');
+  });
+
+  it('目标名的行内 md 剥成纯文本(带链接 / 星号 / 代理对)', () => {
+    expect(relationValue(rel('[日本](日出之国)', '国籍'))).toBe('日本');
+    expect(relationValue(rel('**中国大陆**', '国籍'))).toBe('中国大陆');
+    expect(relationValue(rel('[𠀀国](日出之国)'))).toBe('𠀀国');
+  });
+});
+
+describe('relationValueTip:悬停值给属性名', () => {
+  it('有属性名给属性名(剥 md),无属性名给空串(调用方据此不挂 data-tip)', () => {
+    expect(relationValueTip(rel('中国大陆', '国籍'))).toBe('国籍');
+    expect(relationValueTip(rel('中国大陆', '**出生地**'))).toBe('出生地');
+    expect(relationValueTip(rel('所在'))).toBe('');
+  });
+});
+
+describe('uniqueRelationValues:同值多属性行内去重', () => {
+  it('同目标值的多条关系只留第一条(属性名跟着第一条走)', () => {
+    const rels = [rel('中国大陆', '国籍'), rel('中国大陆', '出生地'), rel('日本', '国籍')];
+    expect(uniqueRelationValues(rels).map(relationValue)).toEqual(['中国大陆', '日本']);
+    expect(uniqueRelationValues(rels)[0].remark).toBe('国籍');
+  });
+
+  it('同值经**显示名**判定(目标名带不带 md 算同一个值)', () => {
+    expect(uniqueRelationValues([rel('[日本](日出之国)'), rel('日本')])).toHaveLength(1);
+  });
+
+  it('不同目标全部保留,顺序原样;空表给空表', () => {
+    expect(uniqueRelationValues([rel('日本'), rel('中国大陆')]).map(relationValue)).toEqual(['日本', '中国大陆']);
+    expect(uniqueRelationValues([])).toEqual([]);
+  });
+});
+
+describe('档案卡片:标题两行 + 一条关系一行', () => {
+  it('标题第一行路径(纯文本)、第二行计数(沿用既有口径)', () => {
+    expect(tagFactsLines('[作者/冯骥才](作家)', 1, 1)).toEqual(['作者/冯骥才', '本级 1 / 含子级 1']);
+  });
+
+  it('每条关系一行:左列属性名、右列值;同值多属性**都列**(卡片不去重)', () => {
+    expect(tagFactsRows([rel('中国大陆', '国籍'), rel('中国大陆', '出生地'), rel('日本', '国籍')])).toEqual([
+      { label: '国籍', value: '中国大陆' },
+      { label: '出生地', value: '中国大陆' },
+      { label: '国籍', value: '日本' },
     ]);
   });
 
-  it('无关系:只有路径与计数行', () => {
-    expect(tagFactsTitle('工作', 0, 0, [])).toBe('工作(本级 0 / 含子级 0)');
-    expect(tagFactsTitle('中国', 1, 2, [])).not.toContain('关系');
+  it('边上没有属性名:左列回退显示目标名(R12 不留空行),右列为空', () => {
+    expect(tagFactsRows([rel('所在'), rel('中国大陆', '国籍')])).toEqual([
+      { label: '所在', value: '' },
+      { label: '国籍', value: '中国大陆' },
+    ]);
+    expect(tagFactsRows([])).toEqual([]);
   });
 });

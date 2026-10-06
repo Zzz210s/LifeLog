@@ -13,7 +13,14 @@
  * - 源行不再改透明度(VS Code 源行没有任何半透明处理),拖拽中抑制 hover 高亮。
  */
 import type { CSSProperties, ReactNode } from 'react';
-import { relationLabel, relationPlan, tagFactsTitle } from '../../shared/tag-relation-facts';
+import {
+  relationPlan,
+  relationValue,
+  relationValueTip,
+  tagFactsLines,
+  tagFactsRows,
+  uniqueRelationValues,
+} from '../../shared/tag-relation-facts';
 import { renderTagLabel, tagLabelPlain } from '../../shared/tag-label';
 import { hoverTitle } from '../../shared/truncate-title';
 import type { TagNode } from './tag-tree';
@@ -84,7 +91,9 @@ export function TagRow(p: TagRowProps): ReactNode {
     (p.dropZone === 'child' ? ' bg-accent-soft' : '');
 
   const relations = p.relations ?? [];
-  const relationChips = relationPlan(relations);
+  /** 行内按值去重后再截断(同值多属性只占一个小字位;卡片里不去重,另走 factRows) */
+  const relationChips = relationPlan(uniqueRelationValues(relations));
+  const factRows = tagFactsRows(relations);
 
   return (
     <button
@@ -94,7 +103,8 @@ export function TagRow(p: TagRowProps): ReactNode {
       data-drop-target={p.dropZone ?? undefined}
       draggable={p.node.id !== null}
       aria-pressed={selectable ? p.selected : undefined}
-      data-tip={tagFactsTitle(p.node.path, p.node.selfCount, p.node.subtreeCount, relations)}
+      data-tip={tagFactsLines(p.node.path, p.node.selfCount, p.node.subtreeCount).join('\n')}
+      data-tip-rows={factRows.length > 0 ? JSON.stringify(factRows) : undefined}
       className={rowClass}
       style={
         {
@@ -152,18 +162,24 @@ export function TagRow(p: TagRowProps): ReactNode {
         <span className="shrink-0 rounded-xs bg-danger-soft px-1 text-micro text-danger">已排除</span>
       )}
       {/* 关系小字紧跟标签名(离名字最近),计数导轨留行尾(ml-auto 仍把它推到最右)。
-          小字可收缩(min-w-0 + shrink)并封顶 8rem:宽度不够时先由它省略,名字保持完整;截断时悬停给全文。 */}
+          小字只显示**值**(目标标签名),属性名降级到悬停 data-tip(信息位常给,不依赖截断);
+          小字可收缩(min-w-0 + shrink)并封顶 8rem:宽度不够时先由它省略,名字保持完整。 */}
       {p.showRelations === true &&
-        relationChips.shown.map((r) => (
-          <span
-            key={r.toTagId}
-            data-tag-relation
-            className="min-w-0 max-w-[8rem] shrink truncate text-micro text-muted"
-            onMouseEnter={hoverTitle(relationLabel(r))}
-          >
-            {relationLabel(r)}
-          </span>
-        ))}
+        relationChips.shown.map((r, i) => {
+          const value = relationValue(r);
+          const tip = relationValueTip(r);
+          return (
+            <span
+              key={`${r.toTagId}-${i}`}
+              data-tag-relation
+              data-tip={tip === '' ? undefined : tip}
+              className="min-w-0 max-w-[8rem] shrink truncate text-micro text-muted"
+              onMouseEnter={hoverTitle(value)}
+            >
+              {value}
+            </span>
+          );
+        })}
       {p.showRelations === true && relationChips.extra > 0 && (
         <span data-tag-relation className="shrink-0 text-micro text-muted">
           {'+' + relationChips.extra}

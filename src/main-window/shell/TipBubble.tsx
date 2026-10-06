@@ -6,6 +6,7 @@
  * (`data-testid="hover-tip"`),既有用例继续当"抽取没改行为"的证据。
  * `pointer-events-none`:气泡不吃鼠标,压住画布也不影响命中检测。
  */
+import { Fragment } from 'react';
 import type { ReactNode } from 'react';
 
 /** 锚点与气泡之间的空隙;HoverTip 算贴边夹取时也要用同一个数,故导出 */
@@ -17,6 +18,8 @@ export function TipBubble(p: {
   y: number;
   /** 挂在锚点上方(默认下方):下方空间不够时翻上去 */
   above?: boolean;
+  /** 结构化附加行(标签档案卡片):一条一行,左列 muted 属性名、右列值(行内 md 已剥) */
+  rows?: readonly { label: string; value: string }[];
 }): ReactNode {
   const style =
     p.above === true
@@ -29,6 +32,18 @@ export function TipBubble(p: {
       style={style}
     >
       {p.text}
+      {p.rows !== undefined && p.rows.length > 0 && (
+        <div className="mt-1 grid grid-cols-[auto_1fr] items-baseline gap-x-3" data-tip-row-list>
+          {p.rows.map((r, i) => (
+            <Fragment key={i}>
+              <span data-tip-row-label className="text-muted">
+                {r.label}
+              </span>
+              <span data-tip-row-value>{r.value}</span>
+            </Fragment>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

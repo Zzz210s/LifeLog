@@ -35,7 +35,7 @@ export interface TagsSectionProps {
   onFilterTags: () => void;
   /** 管理(改名/移动/删除)成功后通知上层刷新标签与筛选条件 */
   onTagsMutated: (pathChange?: { from: string; to: string }) => void;
-  /** 设置开关「标签树里显示关系」(默认关,在设置页「标签关系」分区);打开后行尾追加 `备注 → 目标` 小字 */
+  /** 设置开关「标签树里显示关系」(默认关,在设置页「标签关系」分区);打开后行尾追加关系的**值**小字 */
   showRelations?: boolean;
 }
 

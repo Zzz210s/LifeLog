@@ -13,7 +13,7 @@ export function TagTreeRelationRow({ checked, onChange }: TagTreeRelationRowProp
   return (
     <SettingsRow
       label="标签树里显示关系"
-      hint="打开后,侧栏标签行末尾追加「备注 → 目标」小字;标签悬浮卡片始终显示"
+      hint="打开后,侧栏标签行末尾追加关系的值(悬停值看属性名);悬停标签名出档案卡片,一行一条关系"
     >
       <Toggle checked={checked} label="标签树里显示关系" onChange={onChange} />
     </SettingsRow>

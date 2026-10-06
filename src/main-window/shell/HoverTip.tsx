@@ -9,13 +9,39 @@ import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { TIP_GAP, TipBubble } from './TipBubble';
 
+interface TipRow {
+  label: string;
+  value: string;
+}
+
 interface Tip {
   text: string;
+  /** 档案卡片的附加行(锚点上的 data-tip-rows) */
+  rows: TipRow[];
   x: number;
   /** 目标的上下边(视口坐标),用于贴边翻转 */
   top: number;
   bottom: number;
   above: boolean;
+}
+
+/** 锚点上的 `data-tip-rows` = JSON 的 `[{label, value}]`(标签档案卡片);缺省/坏数据当没有 */
+function parseRows(el: Element): TipRow[] {
+  const raw = el.getAttribute('data-tip-rows') ?? '';
+  if (raw === '') return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    const out: TipRow[] = [];
+    for (const r of parsed) {
+      if (typeof r !== 'object' || r === null) continue;
+      const { label, value } = r as Partial<TipRow>;
+      if (typeof label === 'string' && typeof value === 'string') out.push({ label, value });
+    }
+    return out;
+  } catch {
+    return [];
+  }
 }
 
 const EDGE = 8;
@@ -35,6 +61,7 @@ export function HoverTip(): ReactNode {
       const half = Math.min(r.width / 2 + TIP_GAP, window.innerWidth / 2 - EDGE);
       setTip({
         text,
+        rows: parseRows(el),
         x: Math.min(Math.max(r.left + r.width / 2, EDGE + half), window.innerWidth - EDGE - half),
         top: r.top,
         bottom: r.bottom,
@@ -57,6 +84,7 @@ export function HoverTip(): ReactNode {
   return (
     <TipBubble
       text={tip.text}
+      rows={tip.rows}
       x={tip.x}
       y={tip.above ? tip.top : tip.bottom}
       above={tip.above}

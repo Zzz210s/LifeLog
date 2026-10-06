@@ -52,7 +52,7 @@ export interface SidebarStateApi {
   setWidth: (w: number) => void;
   mode: TagViewMode;
   setMode: (m: TagViewMode) => void;
-  /** 标签树里显示关系(默认开);打开后树行末尾追加 `备注 → 目标` 小字 */
+  /** 标签树里显示关系(默认开);打开后树行末尾追加关系的**值**小字(悬停该值看属性名) */
   showRelations: boolean;
   setShowRelations: (v: boolean) => void;
 }
