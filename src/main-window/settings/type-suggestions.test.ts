@@ -114,30 +114,24 @@ describe('pendingSuggestions(幂等与忽略)', () => {
 });
 
 describe('planWrites(批量写库计划)', () => {
-  it('只给选中的行出写入项,并标出需先登记的类型标签', () => {
-    const plan = planWrites(ROWS, new Set([21]), new Map(), new Map(), new Set([11]));
-    expect(plan.registerTypeIds).toEqual([20]);
+  it('只给选中的行出写入项', () => {
+    const plan = planWrites(ROWS, new Set([21]), new Map(), new Map());
     expect(plan.writes).toEqual([{ tagId: 21, typeIds: [20] }]);
   });
 
   it('整体替换语义:合并该标签原有认领,不覆盖掉别的类型', () => {
     const claimed = new Map([[2, new Set([11, 7])]]);
-    const plan = planWrites(ROWS, new Set([2]), new Map(), claimed, new Set([11]));
+    const plan = planWrites(ROWS, new Set([2]), new Map(), claimed);
     expect(plan.writes).toEqual([{ tagId: 2, typeIds: [7, 11] }]);
-    expect(plan.registerTypeIds).toEqual([]);
   });
 
   it('改过类型时按改后的类型写入', () => {
-    const plan = planWrites(ROWS, new Set([2]), new Map([[2, 55]]), new Map([[2, new Set([11])]]), new Set([11]));
+    const plan = planWrites(ROWS, new Set([2]), new Map([[2, 55]]), new Map([[2, new Set([11])]]));
     expect(plan.writes).toEqual([{ tagId: 2, typeIds: [11, 55] }]);
-    expect(plan.registerTypeIds).toEqual([55]);
   });
 
   it('一个都没选时不产生任何写入', () => {
-    expect(planWrites(ROWS, new Set(), new Map(), new Map(), new Set())).toEqual({
-      registerTypeIds: [],
-      writes: [],
-    });
+    expect(planWrites(ROWS, new Set(), new Map(), new Map())).toEqual({ writes: [] });
   });
 });
 

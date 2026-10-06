@@ -105,29 +105,25 @@ export function setExcludedFor(
 }
 
 export interface WritePlan {
-  /** 需先登记为类型的标签 id(被选中条目用到但尚未登记) */
-  registerTypeIds: number[];
   /** 每个选中标签要写的类型集合(set_tag_types 是整体替换,故含其原有认领) */
   writes: { tagId: number; typeIds: number[] }[];
 }
 
-/** 把「选中的行 + 改过的类型 + 已有认领」算成写库计划(纯函数,不碰 API) */
+/** 把「选中的行 + 改过的类型 + 已有认领」算成写库计划(纯函数,不碰 API)。
+ *  022 起任何标签都能被指向,不再有「先登记类型标签」这一步(旧 registerTypeIds 已删)。 */
 export function planWrites(
   rows: readonly TypeSuggestion[],
   selected: ReadonlySet<number>,
   overrides: ReadonlyMap<number, number>,
   claimed: ReadonlyMap<number, ReadonlySet<number>>,
-  registered: ReadonlySet<number>,
 ): WritePlan {
-  const register = new Set<number>();
   const writes: WritePlan['writes'] = [];
   for (const row of rows) {
     if (!selected.has(row.tagId)) continue;
     const typeTagId = effectiveType(row, overrides);
-    if (!registered.has(typeTagId)) register.add(typeTagId);
     const merged = new Set(claimed.get(row.tagId) ?? []);
     merged.add(typeTagId); // 保留该标签原有的其他认领,不能覆盖掉
     writes.push({ tagId: row.tagId, typeIds: [...merged].sort((a, b) => a - b) });
   }
-  return { registerTypeIds: [...register], writes };
+  return { writes };
 }

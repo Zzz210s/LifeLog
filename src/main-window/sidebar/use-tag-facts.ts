@@ -31,8 +31,9 @@ async function safe<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
 const EMPTY: TagFactsBundle = { facts: [] };
 
 /** 全量事实里挑出当前可见的标签:查不到的标签 = 没有关系,不上表。
- *  022 起「类型」概念并入标签关系:类型徽章暂不给(关系小字 T4 接入),
- *  携带小字由出边的目标名(已剥 md)直接给出。 */
+ *  022 起「类型」概念并入标签关系,这里是**过渡期状态**:types 一律置空(侧栏类型徽章暂时
+ *  消失,不代表「该标签没有类型」);待 T4 把关系徽章接进来后,改从关系的出边恢复。
+ *  携带小字由出边的目标名(已剥 md)直接给出,不受影响。 */
 async function loadFacts(ids: readonly number[]): Promise<Map<number, TagFacts>> {
   const bundle = await safe(() => api.listTagFacts(), EMPTY);
   const wanted = new Set(ids);
@@ -40,7 +41,7 @@ async function loadFacts(ids: readonly number[]): Promise<Map<number, TagFacts>>
   for (const fact of bundle.facts) {
     if (!wanted.has(fact.tagId)) continue;
     out.set(fact.tagId, {
-      types: [],
+      types: [], // 过渡期:类型徽章待 T4 接关系后恢复(见上方 loadFacts 说明)
       carry: fact.relations.map((r) => ({ type: tagLabelPlain(r.name), value: '' })),
     });
   }

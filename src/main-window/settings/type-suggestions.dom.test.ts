@@ -14,7 +14,6 @@ const api = vi.hoisted(() => ({
   listTags: vi.fn<() => Promise<TagCount[]>>(),
   listTypes: vi.fn<() => Promise<TypeRef[]>>(),
   listTagTypes: vi.fn<(id: number) => Promise<TypeRef[]>>(),
-  setTagTypeFlag: vi.fn<(id: number, isType: boolean) => Promise<void>>(),
   setTagTypes: vi.fn<(id: number, typeIds: number[]) => Promise<void>>(),
 }));
 vi.mock('../../shared/api', () => ({ api }));
@@ -63,7 +62,6 @@ beforeEach(() => {
   api.listTags.mockResolvedValue(TAGS);
   api.listTypes.mockResolvedValue([]);
   api.listTagTypes.mockImplementation((id) => Promise.resolve(claimed.get(id) ?? []));
-  api.setTagTypeFlag.mockResolvedValue();
   api.setTagTypes.mockResolvedValue();
 });
 
@@ -108,7 +106,6 @@ describe('类型建议面板', () => {
   it('未确认前零写入;每条带依据文案;首页 20 条', async () => {
     await render();
     expect(api.setTagTypes).not.toHaveBeenCalled();
-    expect(api.setTagTypeFlag).not.toHaveBeenCalled();
     expect(host.querySelectorAll('[data-type-row]').length).toBe(20);
     expect(host.textContent).toContain('来自路径 地点/*');
     await click('下一页');
@@ -131,14 +128,12 @@ describe('类型建议面板', () => {
     expect(rows).toEqual(['作者/甲']);
   });
 
-  it('确认后只写被接受的:忽略的不写,未登记的类型先登记', async () => {
+  it('确认后只写被接受的:忽略的不写,已确认的条目不写', async () => {
     await render();
     await click('忽略 作者/甲');
     expect(host.querySelector('[data-type-row="作者/甲"]')).toBeNull();
     expect(api.setTagTypes).not.toHaveBeenCalled();
     await click('批量确认');
-    expect(api.setTagTypeFlag).toHaveBeenCalledWith(11, true);
-    expect(api.setTagTypeFlag).toHaveBeenCalledWith(40, true);
     expect(api.setTagTypes).toHaveBeenCalledWith(100, [11]);
     expect(api.setTagTypes).not.toHaveBeenCalledWith(21, expect.anything());
     expect(api.setTagTypes).toHaveBeenCalledTimes(27);
@@ -182,16 +177,12 @@ describe('类型建议面板', () => {
     expect(api.setTagTypes).toHaveBeenCalledWith(21, [20]);
   });
 
-  it('批量确认后新登记的类型立刻进「改成别的类型」下拉', async () => {
-    const registered: TypeRef[] = [];
-    api.setTagTypeFlag.mockImplementation(async (id) => {
-      registered.push({ tagId: id, path: '作者', name: '作者' });
-    });
-    api.listTypes.mockImplementation(() => Promise.resolve([...registered]));
-    await render();
+  it('批量确认后重读类型表刷新「改成别的类型」下拉', async () => {
+    await render(); // 挂载时类型表为空
     await setFilter('20');
-    await click('批量确认'); // 只写可见的 作者/甲,顺带登记类型 20
-    expect(api.setTagTypeFlag).toHaveBeenCalledWith(20, true);
+    // 确认前把新类型放进类型表:刷新若发生,下拉就能看到它
+    api.listTypes.mockResolvedValue([{ tagId: 20, path: '作者', name: '作者' }]);
+    await click('批量确认');
     await setFilter('all');
     const other = host.querySelector('[aria-label="类型 地点/城市01"]') as HTMLSelectElement;
     expect([...other.options].map((o) => o.value)).toContain('20');

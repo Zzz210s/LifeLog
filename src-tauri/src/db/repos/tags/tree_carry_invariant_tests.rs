@@ -1,8 +1,8 @@
 //! 携带无环检查台的自证(自 tree_carry_tests.rs 抽出,守 200 行上限):
-//! 绕开 set_carry 的环校验直接造 2 环,检查台必须报警。
+//! 绕开 set_tag_relation 的环校验直接造 2 环,检查台必须报警。
 use super::*;
 
-/// 变异自证:直接插 甲→乙、乙→甲(绕开 set_carry 的环校验),无环检查台必须报警(能查 2 环)
+/// 变异自证:直接插 甲→乙、乙→甲(绕开 set_tag_relation 的环校验),无环检查台必须报警(能查 2 环)
 #[test]
 fn carry_acyclic_invariant_catches_manual_two_cycle() {
     let c = db();

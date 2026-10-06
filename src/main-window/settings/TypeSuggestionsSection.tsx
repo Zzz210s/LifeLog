@@ -91,9 +91,11 @@ export function TypeSuggestionsSection(p: TypeSuggestionsSectionProps = {}): Rea
       return next;
     });
 
-  /** 唯一的写库入口:先登记缺的类型标签(幂等),再逐标签整体替换认领;作用域 = 当前筛选可见项 */
+  /** 唯一的写库入口:逐标签整体替换认领;作用域 = 当前筛选可见项。
+   *  022 起「谁能当类型」的约束取消(任何标签都能被指向),不再需要先登记类型标签 ——
+   *  旧 `setTagTypeFlag` 已明确不可用,这里只写认领。 */
   const confirmBatch = useCallback(async (): Promise<void> => {
-    const plan = planWrites(visible, allSelected, overrides, claimed, new Set(types.map((r) => r.tagId)));
+    const plan = planWrites(visible, allSelected, overrides, claimed);
     if (plan.writes.length === 0) {
       setStatus('没有选中的建议(全选与批量确认只作用于当前筛选可见项)');
       return;
@@ -101,7 +103,6 @@ export function TypeSuggestionsSection(p: TypeSuggestionsSectionProps = {}): Rea
     setBusy(true);
     setStatus('');
     try {
-      for (const id of plan.registerTypeIds) await api.setTagTypeFlag(id, true);
       for (const w of plan.writes) await api.setTagTypes(w.tagId, w.typeIds);
       setClaimed((prev) => {
         const next = new Map(prev);
@@ -117,7 +118,7 @@ export function TypeSuggestionsSection(p: TypeSuggestionsSectionProps = {}): Rea
     } finally {
       setBusy(false);
     }
-  }, [visible, allSelected, overrides, claimed, types]);
+  }, [visible, allSelected, overrides, claimed]);
 
   return (
     <SettingsSection meta={META}>

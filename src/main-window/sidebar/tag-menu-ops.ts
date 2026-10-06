@@ -69,7 +69,8 @@ export function tagMenuOps(o: TagMenuOpsOptions): TagMenuOps {
         .then(() => o.onDone('已合并标签', { from: o.node.path, to: target.path }))
         .catch(o.fail);
     },
-    /** 类型登记是即时的幂等写:不做二次确认,成功后回报成功文案(上层刷新类型表与标签事实) */
+    /** 类型登记(过渡期):022 删了 is_type,`setTagTypeFlag` 现在明确 reject 中文原因,
+     *  点一下就由 `fail` 就地显示「已取消」说明(不静默吞掉);T4 用关系徽章接替该入口后删除。 */
     makeType: (isType: boolean): void => {
       o.setBusy(true);
       const call = isType ? api.setTagTypeFlag(o.node.id, false) : api.setTagTypeFlag(o.node.id, true);

@@ -56,9 +56,15 @@ export const api = {
   },
   /** 有入边的标签路径集合(去重、升序):条件栏摘要据此决定是否显示 `+携带` 小字 */
   carriedTagPaths: () => invoke<string[]>('carried_tag_paths'),
-  /** 设置/取消「类型」标记:022 起任何标签都可被指向,登记不再是前置条件(过渡期空实现) */
-  setTagTypeFlag: async (_tagId: number, _isType: boolean): Promise<void> => {},
-  /** 整体替换某标签的类型认领(过渡期:按关系增量替换,不是后端的整体替换命令) */
+  /** 设置/取消「类型」标记:022 已删 `tags.is_type`,「谁能当类型」的登记不再存在(任何标签都能被指向)。
+   *  过渡期**明确 reject 中文原因**而不是静默 resolve —— 点了没反应等于吞掉用户意图;
+   *  侧栏「设为类型」入口由 T4 换成关系徽章后本方法一并删除。 */
+  setTagTypeFlag: (_tagId: number, _isType: boolean): Promise<void> =>
+    Promise.reject('类型登记已随迁移 022 取消(任何标签都能被指向);关系徽章待后续任务接入'),
+  /** 整体替换某标签的类型认领(过渡期兼容层)。
+   *  **已知缺陷(过渡期)**:后端的整体替换原本是一条事务,这里被拆成 N 次顺序 IPC(先删后加),
+   *  中途失败会留下半套边(既没删完也没加完),调用方需自行容忍半写。T4 把类型认领全面换成
+   *  关系读写后,本兼容层连同调用方一起删除,或改由后端提供单事务的关系整体替换命令。 */
   setTagTypes: async (tagId: number, typeIds: number[]): Promise<void> => {
     const current = await api.listTagRelations(tagId);
     const want = new Set(typeIds);
