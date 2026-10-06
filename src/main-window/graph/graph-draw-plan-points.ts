@@ -7,6 +7,7 @@ import { tagLabelPlain } from '../../shared/tag-label';
 import { aggregateBuckets, shouldAggregate } from './graph-aggregate';
 import { lodLevel, screenOf, type Camera } from './graph-camera';
 import { isDimmed, type Emphasis } from './graph-focus';
+import { edgeDegrees } from './graph-plan-cache';
 import type { Point } from './radial';
 import { aggregateRadius, HUB_NOTES, HUB_RING_DEGREE, radiusOf } from './graph-draw-plan-metrics';
 import type { Dot, Label } from './graph-draw-plan-types';
@@ -35,11 +36,8 @@ export function planPoints(input: {
   const dots: Dot[] = [];
   const hubs: Dot[] = [];
   // degree = tree + co edges per node (both express how many relations it has)
-  const degree = new Map<number, number>();
-  for (const e of edges) {
-    degree.set(e.a, (degree.get(e.a) ?? 0) + 1);
-    degree.set(e.b, (degree.get(e.b) ?? 0) + 1);
-  }
+  // 逐帧不变的派生件:同一个 edges 引用只建一次表(见 graph-plan-cache)
+  const degree = edgeDegrees(edges);
   const labels: Label[] = [];
   const level = lodLevel(cam.k);
   // 低缩放聚合(设计 D1/D2):同格节点合并成一个带计数的圆,避免多个点挤占同一块像素。

@@ -15,9 +15,10 @@
  */
 import { useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
-import type { DrawPlan } from './graph-draw-plan';
+import type { Dot, DrawPlan } from './graph-draw-plan';
 import { CO_ALPHA, CO_DASH, DIM_ALPHA, EDGE_DIM_ALPHA, AXIS_DIM_ALPHA, LINK_DASH, TREE_ALPHA } from './graph-edge-style';
 import { strokeAll, strokeRelations } from './graph-canvas-strokes';
+import { drawRelationMarks } from './graph-canvas-remarks';
 import { NOTE_R } from './graph-notes';
 import { token } from './token';
 
@@ -26,10 +27,6 @@ const HUB_RING_GAP = 3;
 const HUB_RING_WIDTH = 2;
 /** 选中环离点的间距(屏幕像素):点小时不至于贴在一起 */
 const RING_GAP = 3;
-/** 关系备注底衬胶囊:左右内边距 / 高度 / 圆角(屏幕像素) */
-const REMARK_PAD_X = 4;
-const REMARK_H = 16;
-const REMARK_RADIUS = 4;
 
 export function GraphCanvas(p: {
   plan: DrawPlan;
@@ -75,7 +72,13 @@ export function GraphCanvas(p: {
     }
     // 聚合圆的计数(设计 D1):低缩放时一个圆代表多个节点,把数字画在圆心上。
     // 颜色取画布底(与圆形成对比),字号固定 11px 屏幕像素。
-    const agg = p.plan.dots.filter((d) => (d.count ?? 1) > 1);
+    // 聚合圆与选中环在同一遍循环里分开收:两趟 filter 每帧多一个数组(2026-10-06 性能轮)
+    const agg: Dot[] = [];
+    const rings: Dot[] = [];
+    for (const d of p.plan.dots) {
+      if ((d.count ?? 1) > 1) agg.push(d);
+      if (d.selected) rings.push(d);
+    }
     if (agg.length > 0) {
       ctx.globalAlpha = 1;
       ctx.fillStyle = token('--color-raised');
@@ -100,7 +103,6 @@ export function GraphCanvas(p: {
       }
     }
     // 选中环:accent 描边,与弱化解耦(选中的点即使被弱化也要看得见环)
-    const rings = p.plan.dots.filter((d) => d.selected);
     if (rings.length > 0) {
       ctx.strokeStyle = token('--color-accent');
       ctx.lineWidth = 2;
@@ -127,31 +129,8 @@ export function GraphCanvas(p: {
       ctx.fillText(`+${p.plan.overflow.n}`, p.plan.overflow.x, p.plan.overflow.y);
     }
     // 关系备注画在节点标签**之前**:标签是读图主体,备注是补充信息,先画才不会反过来压住标签。
-    // 每条备注垫一层底衷胶囊(raised 底 + border 描边)再写字 —— 否则 12px muted 字直接压在
-    // 同字体同色的标签堆上,肉眼读不出(2026-10-05 截图复核的 C1);`dim` 让弱化也作用到它。
-    if (p.plan.relationMarks.length > 0) {
-      ctx.textBaseline = 'middle';
-      for (const m of p.plan.relationMarks) {
-        ctx.globalAlpha = m.dim ? DIM_ALPHA : 1;
-        const w = ctx.measureText(m.text).width;
-        const x = m.x - w / 2 - REMARK_PAD_X;
-        ctx.fillStyle = token('--color-raised');
-        ctx.beginPath();
-        if (typeof ctx.roundRect === 'function') {
-          ctx.roundRect(x, m.y - REMARK_H / 2, w + REMARK_PAD_X * 2, REMARK_H, REMARK_RADIUS);
-        } else {
-          ctx.rect(x, m.y - REMARK_H / 2, w + REMARK_PAD_X * 2, REMARK_H);
-        }
-        ctx.fill();
-        ctx.strokeStyle = token('--color-border');
-        ctx.lineWidth = 1;
-        ctx.stroke();
-        ctx.fillStyle = token('--color-muted');
-        ctx.fillText(m.text, m.x, m.y);
-      }
-      ctx.globalAlpha = 1;
-      ctx.textBaseline = 'alphabetic'; // 还原:后面的节点标签按 alphabetic 基线算 y
-    }
+    // 底衬胶囊、字宽缓存与令牌读数在 graph-canvas-remarks(空层不碰令牌)
+    drawRelationMarks(ctx, p.plan.relationMarks);
     for (const l of p.plan.labels) ctx.fillText(l.text, l.x, l.y);
   }, [p.plan, p.width, p.height, p.themeKey]);
 

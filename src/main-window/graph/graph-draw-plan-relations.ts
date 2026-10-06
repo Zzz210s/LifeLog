@@ -20,6 +20,20 @@ import {
 import type { Point } from './radial';
 import type { RelationMark, Segment } from './graph-draw-plan-types';
 
+/**
+ * 备注纯文本表:一行 md 标记(加粗/链接等)的剥除是**逐帧不变的活**(备注取自库里的属性名),
+ * 而 `relations` 数组在相机移动期间引用不变 —— 按引用缓一次就够(WeakMap,数据一换自动失效)。
+ */
+const plainCache = new WeakMap<readonly RelationEdge[], string[]>();
+
+function plainRemarks(relations: readonly RelationEdge[]): string[] {
+  const hit = plainCache.get(relations);
+  if (hit !== undefined) return hit;
+  const out = relations.map((r) => tagLabelPlain(r.remark));
+  plainCache.set(relations, out);
+  return out;
+}
+
 export function planRelations(input: {
   relations: readonly RelationEdge[];
   points: Map<number, Point>;
@@ -33,7 +47,10 @@ export function planRelations(input: {
   const segments: Segment[] = [];
   const marks: RelationMark[] = [];
   const showMarks = cam.k >= RELATION_REMARK_MIN_K;
-  for (const r of relations) {
+  // 备注纯文本按 relations 引用缓存(逐帧不变的 md 剥除,见 plainRemarks)
+  const plain = showMarks ? plainRemarks(relations) : null;
+  for (let i = 0; i < relations.length; i += 1) {
+    const r = relations[i];
     const pa = points.get(r.a);
     const pb = points.get(r.b);
     if (!pa || !pb) continue; // 位置未知(布局未覆盖)
@@ -54,7 +71,7 @@ export function planRelations(input: {
     });
     // 备注只影响显示(设计 R6),行内 md 标记(加粗/链接等)不该画到画布上 —— 与侧栏
     // `relationLabel` 同一口径取纯文本;剥完为空(如 `****`)则不画字。
-    const remark = tagLabelPlain(r.remark);
+    const remark = plain === null ? '' : plain[i];
     if (showMarks && remark !== '') {
       const dx = b.x - a.x;
       const dy = b.y - a.y;

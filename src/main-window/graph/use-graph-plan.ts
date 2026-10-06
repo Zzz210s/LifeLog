@@ -18,7 +18,7 @@ import { drawPlan, type DrawPlan, type NoteDot } from './graph-draw-plan';
 import { emphasisOf } from './graph-focus';
 import type { RelationEdge } from './graph-relations';
 import type { Point } from './radial';
-import { nodeColors } from './graph-palette';
+import { cachedNodeColors } from './graph-plan-cache';
 import { token } from './token';
 
 /** 尺寸没测出来之前的一帧:空计划(与"画完了但没有东西"是两回事,但渲染结果一样) */
@@ -82,8 +82,9 @@ export function useGraphPlan(input: {
             cam,
             w,
             h,
-            // D4 按根轴分类着色:色值全部从主题令牌读(亮暗切换靠 themeKey 重建 plan)
-            rootColor: nodeColors(nodes, (slot) => token(`--color-graph-${slot + 1}`)),
+            // D4 按根轴分类着色:色值全部从主题令牌读(亮暗切换靠 themeKey 重建 plan);
+            // 轴色表按 nodes 引用 + themeKey 缓存 —— 相机每帧重建 plan 时不再重读令牌(见 graph-plan-cache)
+            rootColor: cachedNodeColors(nodes, (slot) => token(`--color-graph-${slot + 1}`), themeKey),
             fallbackColor: token('--color-muted'),
             emphasis,
             expanded,

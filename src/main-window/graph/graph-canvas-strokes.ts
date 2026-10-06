@@ -40,7 +40,9 @@ export function strokeAll(
   const dash = opts.dash ?? SOLID_DASH;
   let current = color;
   ctx.strokeStyle = color; // 空层也设一次:与既有「三层各取一次色」口径一致
-  ctx.setLineDash([...dash]);
+  // 线型**每层一次**:实测 8 次/帧(4 层各两次),不是每条边一次;`setLineDash` 不留用入参,
+  // 所以直接给模块常量而不每帧复制一份(2026-10-06 性能轮,少 4 次小分配/帧)
+  ctx.setLineDash(dash as number[]);
   for (const s of segs) {
     const want = s.color ?? color;
     if (want !== current) {
@@ -70,7 +72,7 @@ export function strokeRelations(
 ): void {
   ctx.strokeStyle = color;
   ctx.fillStyle = color;
-  ctx.setLineDash([...SOLID_DASH]);
+  ctx.setLineDash(SOLID_DASH as number[]);
   for (const s of segs) {
     ctx.lineWidth = s.emphasized ? EMPHASIS_WIDTH : 1.5;
     ctx.globalAlpha = s.alpha ?? (s.dim && !s.emphasized ? EDGE_DIM_ALPHA : 1);
