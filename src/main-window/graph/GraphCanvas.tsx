@@ -3,6 +3,8 @@
  * - 按 devicePixelRatio 设置后备缓冲(尺寸取整,避免半像素模糊)
  * - 颜色一律从主题令牌读,不写死色值;**弱化只改 globalAlpha,不换颜色**(G2)
  * - 线宽:强调边(与焦点相连)2.5,其余按类型(共现 1 / 父子 1.5 / 链接 1.5 / 关系 1.5)
+ * - 线型(2026-10-06 边视觉重做):父子边**实线取父节点轴色**、共现边**中性色虚线**、
+ *   笔记链接边 **accent 点线**、关系边 accent 实线 + 箭头
  * - 弱化的归位只在点循环后一处(`ctx.globalAlpha = 1`)——下面三段都不参与弱化,
  *   它们各自不靠「上一段恰好恢复成 1」活着,这一行也就成了可被用例钉住的单点
  * - 绘制顺序:共现边 -> 父子边 -> 链接边 -> 关系边 -> 点 -> 选中环 -> 展开的笔记小圆 -> 关系备注 -> 文字
@@ -14,7 +16,8 @@
 import { useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import type { DrawPlan } from './graph-draw-plan';
-import { CO_ALPHA, DIM_ALPHA, strokeAll, strokeRelations } from './graph-canvas-strokes';
+import { CO_ALPHA, CO_DASH, DIM_ALPHA, EDGE_DIM_ALPHA, AXIS_DIM_ALPHA, LINK_DASH, TREE_ALPHA } from './graph-edge-style';
+import { strokeAll, strokeRelations } from './graph-canvas-strokes';
 import { NOTE_R } from './graph-notes';
 import { token } from './token';
 
@@ -54,11 +57,11 @@ export function GraphCanvas(p: {
     if (el.height !== bh) el.height = bh;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, p.width, p.height);
-    // 三档(设计 D5):共现边最弱(1px + 60%),父子边居中(1.5px),链接边最醒目(accent)
-    strokeAll(ctx, p.plan.co, token('--color-border'), 1, CO_ALPHA);
-    strokeAll(ctx, p.plan.tree, token('--color-border-strong'), 1.5);
-    // 笔记间的链接边:accent 色 1.5 —— 与共现/父子边同一根线但醒目一档(D12);零硬编码色值
-    strokeAll(ctx, p.plan.links, token('--color-accent'), 1.5);
+    // 四档边(2026-10-06 重做):共现 = 中性灰虚线 50%;父子 = 父节点轴色实线 70%;
+    // 笔记链接 = accent 点线;关系边 = accent 实线 + 箭头。零硬编码色值,全走令牌/轴色。
+    strokeAll(ctx, p.plan.co, token('--color-border'), 1, CO_ALPHA, { dimAlpha: EDGE_DIM_ALPHA, dash: CO_DASH });
+    strokeAll(ctx, p.plan.tree, token('--color-border-strong'), 1.5, TREE_ALPHA, { dimAlpha: AXIS_DIM_ALPHA });
+    strokeAll(ctx, p.plan.links, token('--color-accent'), 1.5, 1, { dimAlpha: EDGE_DIM_ALPHA, dash: LINK_DASH });
     // 标签关系边(带箭头,Task 5):空层不碰令牌,免得给既有用例多记一笔设色
     if (p.plan.relations.length > 0) {
       strokeRelations(ctx, p.plan.relations, token('--color-accent'));

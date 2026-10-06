@@ -45,6 +45,7 @@ const ctxStub = {
   setTransform: (): void => {}, clearRect: (): void => {}, beginPath: (): void => {},
   moveTo: (): void => {}, lineTo: (): void => {}, stroke: (): void => {},
   arc: (): void => {}, fill: (): void => {}, fillText: (): void => {},
+  setLineDash: (): void => {},
   strokeStyle: '', lineWidth: 0, font: '', textAlign: '' as CanvasTextAlign,
   set fillStyle(v: string) { paint.push(v); },
   get fillStyle(): string { return paint[paint.length - 1] ?? ''; },

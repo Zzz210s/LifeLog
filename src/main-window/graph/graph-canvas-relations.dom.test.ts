@@ -73,7 +73,7 @@ describe('GraphCanvas:关系边', () => {
       { ...empty, relations: [{ ...arrowSeg(0, 0, 100, 0), dim: true }] },
       100, 100, 'light',
     );
-    expect(strokeCalls(h.ctx.calls)[0].alpha).toBe(0.2);
+    expect(strokeCalls(h.ctx.calls)[0].alpha).toBe(0.15);
     expect(h.ctx.fill).toHaveBeenCalledTimes(1);
   });
 

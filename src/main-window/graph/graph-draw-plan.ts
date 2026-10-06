@@ -18,6 +18,7 @@ import { planExpanded } from './graph-draw-plan-expanded';
 import { planPoints } from './graph-draw-plan-points';
 import { planRelations } from './graph-draw-plan-relations';
 import { radiusOf as radiusFromNotes } from './graph-draw-plan-metrics';
+import { rootAxisOf } from './graph-palette';
 import type { RelationEdge } from './graph-relations';
 import type { DrawPlan, ExpandedInput } from './graph-draw-plan-types';
 import type { Emphasis } from './graph-focus';
@@ -75,7 +76,11 @@ export function drawPlan(input: {
   // 箭头回收要按**目标半径**:点层先算,把每个圆点的半径(聚合档是桶半径)喂给关系层
   const radiusById = new Map(dots.map((d) => [d.id, d.r] as const));
   const notesById = new Map(nodes.map((n) => [n.id, n.notes] as const));
-  const { co, tree } = planEdges({ edges, points, cam, visible, emphasis });
+  // 父子边取父节点轴色、并按「焦点所在轴」定同轴强调(2026-10-06 边视觉重做):
+  // 根轴名从节点路径推,轴色由调用方的 rootColor 给(令牌值),两处都不在这里碰色值。
+  const axisOf = new Map(nodes.map((n) => [n.id, rootAxisOf(n.path)] as const));
+  const focusAxis = emphasis.active === null ? null : axisOf.get(emphasis.active) ?? null;
+  const { co, tree } = planEdges({ edges, points, cam, visible, emphasis, rootColor, axisOf, focusAxis });
   const { segments: relations, marks: relationMarks } = planRelations({
     relations: input.relations ?? [],
     points,

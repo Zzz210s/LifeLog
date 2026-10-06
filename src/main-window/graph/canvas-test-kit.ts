@@ -1,7 +1,7 @@
 /**
  * `GraphCanvas` 用例的共享测试件(仅测试引用,不进应用代码):
  * - `makeCanvasCtx`:画布上下文替身 —— `writes` 按属性记赋值顺序,`calls` 记 stroke / arc / fill /
- *   fillText **发生时刻**的 `globalAlpha` 与 `lineWidth`(从未赋值取画布默认值 1)
+ *   fillText **发生时刻**的 `globalAlpha`、`lineWidth` 与 `setLineDash` 线型(从未赋值取画布默认值 1 / [])
  * - `mountCanvas`:jsdom 里的挂载件(DPR 固定 2),给出 `render` / `cleanup`
  *
  * 为什么要时序快照:「上一段画完有没有把 alpha 归位」「这条边用了多粗的线」看代码看不出来,
@@ -23,11 +23,19 @@ export interface CtxCall {
   alpha: number;
   /** 该次调用发生时的 lineWidth */
   lineWidth: number;
+  /** 该次调用发生时的 setLineDash 线型(实线为空数组) */
+  dash: readonly number[];
   args: unknown[];
 }
 
 export interface CanvasCtxStub extends Record<string, unknown> {
-  writes: { fillStyle: string[]; strokeStyle: string[]; globalAlpha: number[]; lineWidth: number[] };
+  writes: {
+    fillStyle: string[];
+    strokeStyle: string[];
+    globalAlpha: number[];
+    lineWidth: number[];
+    setLineDash: number[][];
+  };
   calls: CtxCall[];
 }
 
@@ -47,13 +55,25 @@ export function makeCanvasCtx(): CanvasCtxStub {
     strokeStyle: [] as string[],
     globalAlpha: [] as number[],
     lineWidth: [] as number[],
+    setLineDash: [] as number[][],
   };
   const calls: CtxCall[] = [];
+  let dash: readonly number[] = [];
   const rec = (op: CtxCall['op'], args: unknown[]): void => {
-    calls.push({ op, alpha: last(writes.globalAlpha, 1), lineWidth: last(writes.lineWidth, 1), args });
+    calls.push({
+      op,
+      alpha: last(writes.globalAlpha, 1),
+      lineWidth: last(writes.lineWidth, 1),
+      dash,
+      args,
+    });
   };
   const stub: Record<string, unknown> = {
     setTransform: vi.fn(),
+    setLineDash: vi.fn((d: readonly number[]) => {
+      dash = [...d];
+      writes.setLineDash.push(dash as number[]);
+    }),
     clearRect: vi.fn(),
     beginPath: vi.fn(),
     moveTo: vi.fn(),

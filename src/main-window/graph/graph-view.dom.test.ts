@@ -129,6 +129,7 @@ const ctxStub = {
   setTransform: (): void => {}, clearRect: (): void => {}, beginPath: (): void => {},
   moveTo: (): void => {}, lineTo: (): void => {}, stroke: (): void => {},
   arc: (): void => {}, fill: (): void => {}, fillText: (): void => {},
+  setLineDash: (): void => {},
   strokeStyle: '', fillStyle: '', lineWidth: 0, font: '', textAlign: '' as CanvasTextAlign,
 };
 

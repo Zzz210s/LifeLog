@@ -97,8 +97,9 @@ describe('GraphCanvas:同一 plan 不重绘', () => {
       ],
     };
     await render(plan, 100, 100, 'light');
-    // 一条 co(暗)边与两个点(一亮一暗) -> 0.2 出现两次, 1 至少两次
-    expect(h.ctx.writes.globalAlpha.filter((a) => a === 0.2)).toHaveLength(2);
+    // 一条 co(暗)边(非轴色边弱化档 0.15)与一个暗点(点弱化档 0.2)
+    expect(h.ctx.writes.globalAlpha.filter((a) => a === 0.2)).toHaveLength(1);
+    expect(h.ctx.writes.globalAlpha.filter((a) => a === 0.15)).toHaveLength(1);
     expect(h.ctx.writes.globalAlpha).toContain(1);
     // 颜色不因弱化而变:两个点同色
     expect(h.ctx.writes.fillStyle).toEqual(['rgb(1, 2, 3)', 'rgb(1, 2, 3)', 'transparent']);

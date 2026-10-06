@@ -44,7 +44,9 @@ describe('drawPlan:决定画什么(纯函数)', () => {
     const p = drawPlan(base);
     expect(p.tree).toHaveLength(1);
     expect(p.co).toHaveLength(1);
-    expect(p.tree[0]).toEqual({ x1: 200, y1: 150, x2: 300, y2: 150, weight: 1, emphasized: false, dim: false });
+    expect(p.tree[0]).toEqual({
+      x1: 200, y1: 150, x2: 300, y2: 150, weight: 1, emphasized: false, dim: false, color: 'c1',
+    });
   });
 
   it('LOD:缩小到 0.5 时不出文字,放大到 1.5 时每个可见节点都有文字', () => {

@@ -38,7 +38,8 @@ describe('GraphCanvas:强调边与弱化归位', () => {
     await h.render(plan, 100, 100, 'light');
     // 顺序 = co 三条 + tree 两条
     expect(strokeCalls(h.ctx.calls).map((c) => c.lineWidth)).toEqual([1, 2.5, 1, 1.5, 2.5]);
-    expect(strokeCalls(h.ctx.calls).map((c) => c.alpha)).toEqual([0.6, 0.6, 0.2, 1, 1]);
+    // 共现基础 0.5(强调也 0.5)/ 弱化 0.15;父子基础 0.7(强调也不淡)
+    expect(strokeCalls(h.ctx.calls).map((c) => c.alpha)).toEqual([0.5, 0.5, 0.15, 0.7, 0.7]);
   });
 
   it('弱化归位:暗点之后紧随的选中环、笔记小圆、+N 与文字都是满不透明', async () => {
@@ -55,7 +56,7 @@ describe('GraphCanvas:强调边与弱化归位', () => {
     expect(h.ctx.calls.filter((c) => c.op === 'fillText').map((c) => c.alpha)).toEqual([1, 1]); // +N、标签
   });
 
-  it('弱化归位:图里一个点都没有时,只剩暗边的图也不让文字继承那 0.2', async () => {
+  it('弱化归位:图里一个点都没有时,只剩暗边的图也不让文字继承那 0.15', async () => {
     const plan: DrawPlan = {
       ...empty,
       co: [seg(0, false, true)],
@@ -63,7 +64,7 @@ describe('GraphCanvas:强调边与弱化归位', () => {
       labels: [{ id: 1, x: 5, y: -7, text: '时间' }],
     };
     await h.render(plan, 100, 100, 'light');
-    expect(strokeCalls(h.ctx.calls).map((c) => c.alpha)).toEqual([0.2]);
+    expect(strokeCalls(h.ctx.calls).map((c) => c.alpha)).toEqual([0.15]);
     expect(h.ctx.calls.filter((c) => c.op === 'fillText').map((c) => c.alpha)).toEqual([1, 1]);
   });
 });
