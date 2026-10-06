@@ -14,7 +14,7 @@
  * 纪律:先对**库副本**跑 dry-run,逐项对账后再对真库 --apply。
  */
 import { DatabaseSync } from 'node:sqlite';
-import { copyFileSync, existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { tagLabelPlain } from '../src/shared/tag-label-plain.ts';
 
 const [dbPath, ...flags] = process.argv.slice(2);
@@ -140,6 +140,15 @@ if (!APPLY) {
 }
 
 // ---------- 执行 ----------
+/**
+ * 备份必须在**写之前**,且用 `VACUUM INTO` 生成单文件全量快照。
+ * 库是 WAL 模式:`copyFileSync` 只拷 .db、丢掉 -wal 里尚未 checkpoint 的事务 ——
+ * 实测拷出来的副本 `user_version` 退回 22、下游查询报 `no such column: l.remark`(整个迁移 023 没了)。
+ */
+const backupPath = dbPath.replace(/\.db$/, '--pre-flatten-backup.db');
+if (existsSync(backupPath)) rmSync(backupPath);
+db.exec(`VACUUM INTO '${backupPath.replace(/'/g, "''")}'`);
+console.log('已备份(VACUUM INTO):', backupPath);
 const nextSort = () => (db.prepare('SELECT COALESCE(MAX(sort_order), 0) + 1 v FROM tags WHERE parent_id IS NULL').get().v ?? 1);
 db.exec('BEGIN');
 try {
@@ -183,8 +192,3 @@ console.log(`  标签 ${before.tags} -> ${after.tags}(应 = 原 - 合并数 + 1 
 console.log(`  链接 ${before.links} -> ${after.links}(应 = 原 + 新增轴链接 - 合并去重)`);
 console.log(`  根标签 ${before.roots} -> ${after.roots}`);
 console.log('  完整性:', db.prepare('PRAGMA integrity_check').get());
-if (dbPath.endsWith('.db') && existsSync(dbPath)) {
-  const backup = dbPath.replace(/\.db$/, `--pre-flatten-backup.db`);
-  copyFileSync(dbPath, backup);
-  console.log('  备份已写:', backup);
-}
