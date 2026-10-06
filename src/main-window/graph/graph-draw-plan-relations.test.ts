@@ -57,6 +57,15 @@ describe('drawPlan:关系边层', () => {
     expect(hi.relations).toHaveLength(2);
   });
 
+  it('备注里的行内 md 标记剥成纯文本再画', () => {
+    const p = drawPlan({
+      ...base,
+      cam: { k: 1.2, tx: 0, ty: 0 },
+      relations: [{ a: 1, b: 2, remark: '**属性**' }],
+    });
+    expect(p.relationMarks).toEqual([{ x: 210, y: 60, text: '属性' }]);
+  });
+
   it('两端都在视口外的关系边丢弃,一端可见仍画(与其它边同口径)', () => {
     const far = new Map(points);
     far.set(9, { x: 100000, y: 100000 });

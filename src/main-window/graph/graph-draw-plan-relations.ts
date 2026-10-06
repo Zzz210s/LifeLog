@@ -6,6 +6,7 @@
  * 备注只在 `k >= RELATION_REMARK_MIN_K` 时给出(低缩放只画箭头不画字),文本缺失也不画。
  * 文字位置是线段中点(**箭头尖在画布层按目标半径回收**,中点仍按两端点算,免得随半径漂)。
  */
+import { tagLabelPlain } from '../../shared/tag-label';
 import type { RelationEdge } from './graph-relations';
 import { screenOf, type Camera } from './graph-camera';
 import { isDimmed, type Emphasis } from './graph-focus';
@@ -41,8 +42,11 @@ export function planRelations(input: {
       dim: isDimmed(r.a, emphasis) || isDimmed(r.b, emphasis),
       arrow: true,
     });
-    if (showMarks && r.remark !== '') {
-      marks.push({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, text: r.remark });
+    // 备注只影响显示(设计 R6),行内 md 标记(加粗/链接等)不该画到画布上 —— 与侧栏
+    // `relationLabel` 同一口径取纯文本;剥完为空(如 `****`)则不画字。
+    const remark = tagLabelPlain(r.remark);
+    if (showMarks && remark !== '') {
+      marks.push({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, text: remark });
     }
   }
   return { segments, marks };

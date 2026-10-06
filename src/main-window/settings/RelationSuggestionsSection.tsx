@@ -10,7 +10,7 @@ import { RelationSuggestionsToolbar } from './RelationSuggestionsToolbar';
 import { SettingsSection } from './SettingsSection';
 import { TagTreeRelationRow } from './TagTreeRelationRow';
 import { SETTINGS_SECTIONS } from './settings-sections';
-import { effectiveTarget, leaf, pendingSuggestions, planWrites, setExcludedFor, suggestRelations, type RelationSuggestion } from './relation-suggestions';
+import { effectiveTarget, pendingSuggestions, planWrites, setExcludedFor, suggestRelations, type RelationSuggestion } from './relation-suggestions';
 
 const META = SETTINGS_SECTIONS.find((s) => s.id === 'types')!;
 /** 每页条数:上百条建议要能一次过完,但一屏不刷太长(R11) */

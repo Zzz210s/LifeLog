@@ -18,6 +18,19 @@ describe('relationLabel:备注 → 目标,缺备注回退目标名(R12)', () => 
   it('备注与目标里的行内 md 都剥成纯文本', () => {
     expect(relationLabel(rel('[国籍](国别)', '国别'))).toBe('国别 → 国籍');
   });
+
+  // 判别力:目标名**不**经 tagLabelPlain 时这三条都会露出方括号/星号/链接括号
+  it('目标名带链接且无备注:回退纯文本目标名(括号全剥)', () => {
+    expect(relationLabel(rel('[国别](国籍)'))).toBe('国别');
+  });
+
+  it('目标名含代理对(emoji)时逐字保留,不乱码不漏字', () => {
+    expect(relationLabel(rel('[🗾日本](日出之国)'))).toBe('🗾日本');
+  });
+
+  it('备注本体带行内 md 也剥成纯文本', () => {
+    expect(relationLabel(rel('国籍', '**国别**'))).toBe('国别 → 国籍');
+  });
 });
 
 describe('relationPlan:最多 2 个 + `+N`', () => {

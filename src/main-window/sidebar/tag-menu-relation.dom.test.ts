@@ -39,7 +39,7 @@ beforeEach(() => {
   removeTagRelation.mockReset();
   edges = [{ toTagId: 20, path: '关系测试乙', name: '关系测试乙', remark: '' }];
   listTagRelations.mockImplementation(() => Promise.resolve(edges.map((e) => ({ ...e }))));
-  setTagRelation.mockImplementation((from: number, to: number) => {
+  setTagRelation.mockImplementation((_from: number, to: number) => {
     edges = [...edges, { toTagId: to, path: '关系测试丙', name: '关系测试丙', remark: '' }];
     return Promise.resolve();
   });
