@@ -2,7 +2,7 @@
  * 把绘制指令画到 canvas:
  * - 按 devicePixelRatio 设置后备缓冲(尺寸取整,避免半像素模糊)
  * - 颜色一律从主题令牌读,不写死色值;**弱化只改 globalAlpha,不换颜色**(G2)
- * - 线宽:强调边(与焦点相连)2.5,其余按类型(共现 1 / 父子 1.5 / 链接 1.5 / 关系 1.5)
+ * - 线宽:强调边(与焦点相连)2.5,其余按类型(共现 1.25 / 父子 1.5 / 链接 1.5 / 关系 1.5)
  * - 线型(2026-10-06 边视觉重做):父子边**实线取父节点轴色**、共现边**中性色虚线**、
  *   笔记链接边 **accent 点线**、关系边 accent 实线 + 箭头
  * - 弱化的归位只在点循环后一处(`ctx.globalAlpha = 1`)——下面三段都不参与弱化,
@@ -54,9 +54,9 @@ export function GraphCanvas(p: {
     if (el.height !== bh) el.height = bh;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, p.width, p.height);
-    // 四档边(2026-10-06 重做):共现 = 中性灰虚线 50%;父子 = 父节点轴色实线 70%;
+    // 四档边(2026-10-06 重做):共现 = border-strong 虚线 65%;父子 = 父节点轴色实线 70%;
     // 笔记链接 = accent 点线;关系边 = accent 实线 + 箭头。零硬编码色值,全走令牌/轴色。
-    strokeAll(ctx, p.plan.co, token('--color-border'), 1, CO_ALPHA, { dimAlpha: EDGE_DIM_ALPHA, dash: CO_DASH });
+    strokeAll(ctx, p.plan.co, token('--color-border-strong'), 1.25, CO_ALPHA, { dimAlpha: EDGE_DIM_ALPHA, dash: CO_DASH });
     strokeAll(ctx, p.plan.tree, token('--color-border-strong'), 1.5, TREE_ALPHA, { dimAlpha: AXIS_DIM_ALPHA });
     strokeAll(ctx, p.plan.links, token('--color-accent'), 1.5, 1, { dimAlpha: EDGE_DIM_ALPHA, dash: LINK_DASH });
     // 标签关系边(带箭头,Task 5):空层不碰令牌,免得给既有用例多记一笔设色

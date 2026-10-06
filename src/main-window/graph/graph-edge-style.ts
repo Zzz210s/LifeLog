@@ -15,13 +15,13 @@ export const AXIS_DIM_ALPHA = 0.25;
 /** 同轴边在悬停/选中时的满不透明读数(计划层写进 `Segment.alpha`) */
 export const AXIS_HOT_ALPHA = 1;
 
-/** 共现(弱关联)边基础不透明度:设计取中性灰虚线的 50% */
-export const CO_ALPHA = 0.5;
+/** 共现(弱关联)边基础不透明度:2026-10-06 由 0.5 提到 0.65(用户要它更亮)*/
+export const CO_ALPHA = 0.65;
 /** 父子(轴色)边基础不透明度:设计要它比节点淡,约 70% */
 export const TREE_ALPHA = 0.7;
 
-/** 共现边虚线间距(屏幕像素):4 实 4 空 */
-export const CO_DASH: readonly number[] = [4, 4];
+/** 共现边虚线间距(屏幕像素):6 实 3 空(2026-10-06 由 4/4 加长,线段更易读) */
+export const CO_DASH: readonly number[] = [6, 3];
 /** 笔记链接边点线间距(屏幕像素):1 实 4 空 */
 export const LINK_DASH: readonly number[] = [1, 4];
 /** 实线:画布层用它显式复位 `setLineDash` */

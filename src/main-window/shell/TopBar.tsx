@@ -17,10 +17,12 @@ export interface TopBarProps {
   exported: boolean;
   onToggleSidebar: () => void;
   onOpenSettings: () => void;
+  /** 常驻「关系图」入口:由 App 注入 `commands.execute('graph.open')`,不另造入口逻辑 */
+  onOpenGraph?: () => void;
   onBack: () => void;
 }
 
-export function TopBar({ view, sidebarVisible, menuItems, exporting, exported, onToggleSidebar, onOpenSettings, onBack }: TopBarProps): ReactNode {
+export function TopBar({ view, sidebarVisible, menuItems, exporting, exported, onToggleSidebar, onOpenSettings, onOpenGraph, onBack }: TopBarProps): ReactNode {
   return (
     // relative:溢出菜单的 absolute 锚点(菜单在 header 底边上,而不是按钮上)
     <header className="relative flex h-11 shrink-0 items-center justify-between border-b border-border px-4">
@@ -45,6 +47,23 @@ export function TopBar({ view, sidebarVisible, menuItems, exporting, exported, o
           <>
             <ExportNotice exporting={exporting} exported={exported} />
             <TopBarMenu items={menuItems} />
+            {/* 常驻关系图图标按钮(2026-10-06):就在 ⋯ 旁边,点击走 graph.open 同一通道 */}
+            <button
+              type="button"
+              onClick={() => onOpenGraph?.()}
+              title="关系图"
+              aria-label="关系图"
+              className={BTN_ICON}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="h-4 w-4">
+                <circle cx="12" cy="5" r="2.5" />
+                <circle cx="5" cy="18" r="2.5" />
+                <circle cx="19" cy="18" r="2.5" />
+                <line x1="10.6" y1="7" x2="6.4" y2="15.6" />
+                <line x1="13.4" y1="7" x2="17.6" y2="15.6" />
+                <line x1="7.5" y1="18" x2="16.5" y2="18" />
+              </svg>
+            </button>
           </>
         )}
         {view === 'stream' ? (

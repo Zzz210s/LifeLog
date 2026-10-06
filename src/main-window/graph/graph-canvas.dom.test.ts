@@ -77,8 +77,8 @@ describe('GraphCanvas:同一 plan 不重绘', () => {
     expect(h.ctx.arc).toHaveBeenCalledWith(5, 6, 9, 0, Math.PI * 2);
     expect(h.ctx.fill).toHaveBeenCalledTimes(1);
     expect(h.ctx.fillText).toHaveBeenCalledWith('时间', 5, -7);
-    // 三层边各取一次色:共现 border / 父子 border-strong / 链接 accent(link 层空也照设,与另两层同一手法)
-    expect(h.ctx.writes.strokeStyle).toEqual(['rgb(11, 11, 11)', 'rgb(22, 22, 22)', 'rgb(44, 44, 44)']);
+    // 三层边各取一次色:共现 border-strong / 父子 border-strong / 链接 accent(link 层空也照设,与另两层同一手法)
+    expect(h.ctx.writes.strokeStyle).toEqual(['rgb(22, 22, 22)', 'rgb(22, 22, 22)', 'rgb(44, 44, 44)']);
     expect(h.ctx.writes.fillStyle).toEqual(['rgb(1, 2, 3)', 'rgb(33, 33, 33)']);
   });
 

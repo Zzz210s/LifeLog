@@ -22,6 +22,7 @@ import { tagMenuOps } from './tag-menu-ops';
 import type { Pane } from './tag-menu-ui';
 import type { ManagedNode } from './tag-tree';
 import { useTagMenuAliases } from './use-tag-menu-aliases';
+import { useTagMenuRelations } from './use-tag-menu-relations';
 
 export interface TagMenuProps {
   /** 目标标签(id 必非 null:上层 TagsSection 已拦结构节点,ManagedNode 类型固化这一约束) */
@@ -45,6 +46,8 @@ export function TagMenu(p: TagMenuProps): ReactNode {
   const [busy, setBusy] = useState(false);
   const [newName, setNewName] = useState(p.node.name);
   const [impact, setImpact] = useState<TagImpact | null>(null);
+  // 主面板「直接列出关系」的读数(打开菜单就读,不靠进子面板)
+  const mainRelations = useTagMenuRelations(p.node.id);
 
   // Esc 关闭 / 点击菜单外关闭:统一走 shell/use-dismiss(与 AddConditionMenu、TopBarMenu 同一实现)。
   // 菜单本体只在打开时挂载,故 open 恒 true(useDismiss 的 ref 现读保证回调不闭包旧 props)。
@@ -89,7 +92,7 @@ export function TagMenu(p: TagMenuProps): ReactNode {
       className="fixed z-50 max-h-80 w-56 overflow-y-auto rounded-lg border border-border bg-raised p-1 shadow-lg"
       style={{ left: p.x, top: p.y }}
     >
-      {pane === 'main' && <TagMenuMainPane path={p.node.path} onPick={pickPane} />}
+      {pane === 'main' && <TagMenuMainPane path={p.node.path} onPick={pickPane} relations={mainRelations ?? undefined} />}
       {pane === 'rename' && (
         <TagMenuRenamePane
           newName={newName}

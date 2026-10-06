@@ -2,7 +2,7 @@
 /**
  * 画布上的 link 层(L4):accent 色、线宽 1.5、画在点**下面**(线穿过小圆时圆还看得见)。
  * 靠 canvas-test-kit 的调用时序快照,不看代码:设色的第 3 笔就是 link 层
- * (共现 border -> 父子 border-strong -> 链接 accent -> 笔记小圆 border-strong)。
+ * (共现 border-strong -> 父子 border-strong -> 链接 accent -> 笔记小圆 border-strong)。
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { mountCanvas, strokeCalls, type CanvasHarness } from './canvas-test-kit';

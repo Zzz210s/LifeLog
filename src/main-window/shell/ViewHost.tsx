@@ -33,6 +33,8 @@ export interface ViewHostProps {
   topBarMenu: { menuItems: readonly TopBarMenuItem[]; exporting: boolean; exported: boolean };
   onToggleSidebar: () => void;
   onOpenSettings: () => void;
+  /** 顶栏常驻「关系图」图标按钮(App 注入 `commands.execute('graph.open')`) */
+  onOpenGraph: () => void;
   /** 回信息流:顶栏返回与关系图退出是同一条路 */
   onBack: () => void;
   /** 关系图「筛到信息流」:上层采纳标签并切回信息流 */
@@ -62,6 +64,7 @@ export function ViewHost(p: ViewHostProps): ReactNode {
         exported={p.topBarMenu.exported}
         onToggleSidebar={p.onToggleSidebar}
         onOpenSettings={p.onOpenSettings}
+        onOpenGraph={p.onOpenGraph}
         onBack={p.onBack}
       />
       <StreamView {...p.stream} visible={p.view === 'stream'} dataVersion={p.dataVersion} />

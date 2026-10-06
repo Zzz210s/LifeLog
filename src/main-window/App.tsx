@@ -141,6 +141,7 @@ export function App(): ReactNode {
         topBarMenu={{ menuItems, exporting, exported }}
         onToggleSidebar={() => sidebar.setVisible(!sidebar.visible)}
         onOpenSettings={openSettings}
+        onOpenGraph={() => void commands.execute('graph.open')}
         onBack={backToStream}
         stream={{
           conditions,

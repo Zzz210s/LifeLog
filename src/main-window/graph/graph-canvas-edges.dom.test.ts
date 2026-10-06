@@ -2,7 +2,7 @@
 /**
  * 2026-10-06 关系图**边视觉重做**的画布口径(时序快照,不看代码):
  * - 父子(轴色)边:取段上 `color`(父节点根轴色)、实线、1.5px、70%
- * - 共现边:`--color-border` **虚线(4/4)**、1px、50%
+ * - 共现边:`--color-border-strong` **虚线(6/3)**、1.25px、65%(2026-10-06 提亮加粗加长)
  * - 笔记链接边:accent **点线(1/4)**、1.5px
  * - 关系边:accent 实线 + 终点箭头(与链接边同色同宽,箭头是唯一区别)
  * - 弱化:轴色边 25%、非轴色边 15%;计划层给 `alpha = 1` 的同轴边满不透明
@@ -30,7 +30,7 @@ beforeEach(() => {
 afterEach(() => h.cleanup());
 
 describe('GraphCanvas:边视觉重做', () => {
-  it('父子边取段上轴色、实线 1.5 / 70%;共现边虚线 4/4、1px / 50%', async () => {
+  it('父子边取段上轴色、实线 1.5 / 70%;共现边虚线 6/3、1.25 / 65%,色走 border-strong', async () => {
     const plan: DrawPlan = {
       ...empty,
       co: [seg(0, 0, 10, 0)],
@@ -38,12 +38,12 @@ describe('GraphCanvas:边视觉重做', () => {
     };
     await h.render(plan, 100, 100, 'light');
     const strokes = strokeCalls(h.ctx.calls);
-    expect(strokes.map((c) => c.lineWidth)).toEqual([1, 1.5]);
-    expect(strokes.map((c) => c.dash)).toEqual([[4, 4], []]);
-    expect(strokes.map((c) => c.alpha)).toEqual([0.5, 0.7]);
-    // 设色顺序:共现层默认 border -> 父子层默认 border-strong -> 该段自己的轴色 -> 链接层 accent
+    expect(strokes.map((c) => c.lineWidth)).toEqual([1.25, 1.5]);
+    expect(strokes.map((c) => c.dash)).toEqual([[6, 3], []]);
+    expect(strokes.map((c) => c.alpha)).toEqual([0.65, 0.7]);
+    // 设色顺序:共现层默认 border-strong -> 父子层默认 border-strong -> 该段自己的轴色 -> 链接层 accent
     expect(h.ctx.writes.strokeStyle).toEqual([
-      'rgb(11, 11, 11)', 'rgb(22, 22, 22)', 'rgb(7, 7, 7)', 'rgb(44, 44, 44)',
+      'rgb(22, 22, 22)', 'rgb(22, 22, 22)', 'rgb(7, 7, 7)', 'rgb(44, 44, 44)',
     ]);
   });
 
@@ -107,8 +107,8 @@ describe('GraphCanvas:边批次合并(一次 path 一次 stroke)', () => {
     await h.render(plan, 100, 100, 'light');
     const strokes = strokeCalls(h.ctx.calls);
     expect(strokes).toHaveLength(2); // 三层 co 一组 + tree 一组
-    expect(strokes.map((c) => c.lineWidth)).toEqual([1, 1.5]);
-    expect(strokes.map((c) => c.alpha)).toEqual([0.5, 0.7]);
+    expect(strokes.map((c) => c.lineWidth)).toEqual([1.25, 1.5]);
+    expect(strokes.map((c) => c.alpha)).toEqual([0.65, 0.7]);
     // 所有线段仍然进了 path(moveTo/lineTo 次数 = 边数),不是丢了边
     expect(h.ctx.moveTo).toHaveBeenCalledTimes(5);
     expect(h.ctx.lineTo).toHaveBeenCalledTimes(5);
