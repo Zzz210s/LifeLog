@@ -77,6 +77,16 @@ export function sortsFromLegacy(sort: 'newest' | 'oldest' | null | undefined): S
   return sort === 'oldest' ? [{ kind: 'time', dir: 'asc', enabled: true }] : [];
 }
 
+/**
+ * 衍生旧镜像(只用于降级读取与命令勾选态,不参与 `filterKey`):
+ * 第一条**启用的时间条件**方向定 `sort`,没有则 `newest`(标签条件不影响它)。
+ * 序列化与落态(applyFilterPatch)共用这一份口径,避免两套派生逻辑漂移。
+ */
+export function sortMirror(sorts: SortCond[]): 'newest' | 'oldest' {
+  const first = sorts.find((s) => s.enabled && s.kind === 'time');
+  return first !== undefined && first.kind === 'time' && first.dir === 'asc' ? 'oldest' : 'newest';
+}
+
 /** 表达式是否为空(全空白视为没有表达式,与后端 trim 口径一致) */
 export function hasExpr(c: FilterConditions): boolean {
   return (c.expr ?? '').trim() !== '';

@@ -10,6 +10,7 @@ import type { ConditionHits } from '../../shared/tag-facts-types';
 import { tagLabelPlain } from '../../shared/tag-label';
 import { CARRY_MARK, exprSegments, showCarry, truncateExpr } from './expr-tag-spans';
 import type { CarryPaths, SummarySegment } from './expr-tag-spans';
+import { sortChipLabel } from './sort-conditions';
 
 // 截断与表达式片段(含标签叶子定位)的真源在 expr-tag-spans.ts,这里转发给既有调用点
 export { EXPR_TEXT_MAX, truncateExpr } from './expr-tag-spans';
@@ -45,10 +46,8 @@ const exprLabel = (text: string, truncate: boolean): string =>
 /** 关系 chip 文案:`关系:国籍`(与 `标签` 的 `#中国` 视觉区分) */
 const chipRelation = (r: RelationCond): string => `关系:${tagLabelPlain(r.path)}`;
 
-/** 排序 chip 文案(仅非默认时出现) */
-export const SORT_CHIP_LABEL = '最早在前';
-/** 每个收窄来源一个 chip;排序仅在非默认(最早在前)时出现。
- *  hits 给定(后端 `condition_hit_counts`)时,四个标签/关系数组按索引贴上独立命中数 */
+/** 每个收窄来源一个 chip;hits 给定(后端 `condition_hit_counts`)时,
+ *  四个标签/关系数组按索引贴上独立命中数 */
 export function chipsOf(c: FilterConditions, hits: ConditionHits | null = null): Chip[] {
   const chips: Chip[] = [];
   const kw = (c.keyword ?? '').trim();
@@ -105,12 +104,17 @@ export function chipsOf(c: FilterConditions, hits: ConditionHits | null = null):
       remove: { ...c, expr: null },
     });
   }
-  if (c.sort === 'oldest') {
-    chips.push({ kind: 'sort', label: SORT_CHIP_LABEL, remove: { ...c, sort: 'newest' } });
-  }
+  // 每条启用排序一个 chip(停用的不出);单删 = 从数组移除该项
+  c.sorts.forEach((s) => {
+    if (!s.enabled) return;
+    chips.push({
+      kind: 'sort',
+      label: sortChipLabel(s),
+      remove: { ...c, sorts: c.sorts.filter((x) => x !== s) },
+    });
+  });
   return chips;
 }
-
 /** 中文一句话摘要:'关键词「电影」;标签 工作+携带;无标签;最早在前';空条件为空串(含子级不进摘要) */
 export function summaryOf(c: FilterConditions, carryPaths: CarryPaths = null): string {
   return plainOf(summarySegmentsOf(c, true, carryPaths));
@@ -148,7 +152,8 @@ export function summarySegmentsOf(
   if (c.tagPresence !== null) {
     groups.push([{ text: c.tagPresence === 'none' ? '无标签' : '有标签', carry: false }]);
   }
-  if (c.sort === 'oldest') groups.push([{ text: SORT_CHIP_LABEL, carry: false }]);
+  const enabledSorts = c.sorts.filter((s) => s.enabled).length;
+  if (enabledSorts > 0) groups.push([{ text: `${enabledSorts} 条排序`, carry: false }]);
   const out: SummarySegment[] = [];
   groups.forEach((g, i) => {
     if (i > 0) out.push({ text: ';', carry: false });

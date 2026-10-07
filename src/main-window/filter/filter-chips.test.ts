@@ -44,12 +44,13 @@ describe('表达式 chip 与摘要', () => {
   });
 });
 
-const c = { ...EMPTY_FILTER, keyword: '电影', tags: [{ path: '工作', includeChildren: true }], tagPresence: 'none' as const, sort: 'oldest' as const };
+const ASC = [{ kind: 'time', dir: 'asc', enabled: true }] as const;
+const c = { ...EMPTY_FILTER, keyword: '电影', tags: [{ path: '工作', includeChildren: true }], tagPresence: 'none' as const, sort: 'oldest' as const, sorts: [...ASC] };
 
 describe('chipsOf', () => {
   it('每个收窄来源一个 chip,标签只显路径、含子级用标记与 title 表达', () => {
     const chips = chipsOf(c);
-    expect(chips.map((x) => x.label)).toEqual(['关键词:电影', '⊢ #工作', '无标签', '最早在前']);
+    expect(chips.map((x) => x.label)).toEqual(['关键词:电影', '⊢ #工作', '无标签', '排序: 旧 -> 新']);
     expect(chips.find((x) => x.kind === 'tag')!.title).toBe('含子级');
     expect(chips.find((x) => x.kind === 'tag')!.label).not.toContain('含子级');
   });
@@ -67,7 +68,7 @@ describe('chipsOf', () => {
 });
 
 describe('summaryOf', () => {
-  it('中文一句话', () => { expect(summaryOf(c)).toBe('关键词「电影」;标签 工作+携带;无标签;最早在前'); });
+  it('中文一句话', () => { expect(summaryOf(c)).toBe('关键词「电影」;标签 工作+携带;无标签;1 条排序'); });
   it('空条件为空串', () => { expect(summaryOf(EMPTY_FILTER)).toBe(''); });
   it('摘要不出现含子级注释', () => { expect(summaryOf(c)).not.toContain('含子级'); });
 });
@@ -90,9 +91,30 @@ describe('chipsOf 补充', () => {
     expect(Object.keys(EMPTY_FILTER)).not.toContain('from');
     expect(Object.keys(EMPTY_FILTER)).not.toContain('to');
   });
-  it('排序非默认才出 chip;关键词空白不出 chip', () => {
+  it('排序 chip:每条启用的排序一个,文案随维度变', () => {
     expect(chipsOf({ ...EMPTY_FILTER, keyword: '   ' })).toEqual([]);
-    expect(chipsOf({ ...EMPTY_FILTER, sort: 'oldest' as const }).map((x) => x.label)).toEqual(['最早在前']);
+    const sorts = [
+      { kind: 'tag' as const, path: '地点', dir: 'asc' as const, enabled: true },
+      { kind: 'time' as const, dir: 'asc' as const, enabled: true },
+    ];
+    expect(chipsOf({ ...EMPTY_FILTER, sorts }).map((x) => x.label)).toEqual([
+      '排序: 地点 选项顺序',
+      '排序: 旧 -> 新',
+    ]);
+  });
+
+  it('停用的排序不出 chip;单删只移除该项', () => {
+    const sorts = [
+      { kind: 'time' as const, dir: 'desc' as const, enabled: false },
+      { kind: 'tag' as const, path: '地点', dir: 'asc' as const, enabled: true },
+    ];
+    const chips = chipsOf({ ...EMPTY_FILTER, sorts });
+    expect(chips.map((x) => x.label)).toEqual(['排序: 地点 选项顺序']);
+    expect(chips[0].remove.sorts).toEqual([sorts[0]]);
+  });
+
+  it('空数组(默认时间降序)不出 chip', () => {
+    expect(chipsOf(EMPTY_FILTER)).toEqual([]);
   });
 });
 
@@ -105,8 +127,18 @@ describe('summaryOf 补充', () => {
     };
     expect(summaryOf(cc)).toBe('标签 工作+携带、生活/健身+携带;排除 临时+携带');
   });
-  it('仅有排序也入摘要(与 isFilterEmpty 的收窄口径解耦)', () => {
-    expect(summaryOf({ ...EMPTY_FILTER, sort: 'oldest' as const })).toBe('最早在前');
+  it('仅有排序也入摘要:N 条排序(与 isFilterEmpty 的收窄口径解耦)', () => {
+    expect(summaryOf({ ...EMPTY_FILTER, sorts: [...ASC] })).toBe('1 条排序');
+    expect(
+      summaryOf({
+        ...EMPTY_FILTER,
+        sorts: [...ASC, { kind: 'tag', path: '地点', dir: 'asc', enabled: true }],
+      })
+    ).toBe('2 条排序');
+  });
+
+  it('排序全停用不进摘要', () => {
+    expect(summaryOf({ ...EMPTY_FILTER, sorts: [{ kind: 'time', dir: 'asc', enabled: false }] })).toBe('');
   });
 });
 

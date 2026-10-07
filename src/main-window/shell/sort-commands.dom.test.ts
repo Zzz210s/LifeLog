@@ -82,11 +82,12 @@ describe('新命令:勾选态随 conditions.sort 翻转', () => {
 });
 
 describe('新命令:run', () => {
-  it('sort.newest / sort.oldest 把排序补丁交给 onPatch', async () => {
+  it('sort.newest / sort.oldest 把排序补丁交给 onPatch(一键复位为单条时间排序,只走 sorts)', async () => {
     await callRun(h, 'sort.oldest');
-    expect(h.onPatch).toHaveBeenLastCalledWith({ sort: 'oldest' });
+    expect(h.onPatch).toHaveBeenLastCalledWith({ sorts: [{ kind: 'time', dir: 'asc', enabled: true }] });
     await callRun(h, 'sort.newest');
-    expect(h.onPatch).toHaveBeenLastCalledWith({ sort: 'newest' });
+    // 空数组 = 有效的时间降序(与 sortsFromLegacy 同一口径)
+    expect(h.onPatch).toHaveBeenLastCalledWith({ sorts: [] });
     expect(h.onPatch).toHaveBeenCalledTimes(2);
   });
 

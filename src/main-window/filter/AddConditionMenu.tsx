@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { FilterConditions } from '../../shared/filter-conditions';
 import { useDismiss } from '../shell/use-dismiss';
+import { SortPanel } from './SortPanel';
 
 export interface AddConditionMenuProps {
   conditions: FilterConditions;
@@ -116,21 +117,7 @@ export function AddConditionMenu(p: AddConditionMenuProps): ReactNode {
               ))}
             </>
           )}
-          {pane === 'sort' && (
-            <>
-              {(['newest', 'oldest'] as const).map((v) => (
-                <button
-                  key={v}
-                  type="button"
-                  role="menuitem"
-                  className={ITEM_CLASS + (p.conditions.sort === v ? ' bg-accent-soft text-accent-text' : '')}
-                  onClick={() => act(() => p.onPatch({ sort: v }))}
-                >
-                  {v === 'newest' ? '最新在前' : '最早在前'}
-                </button>
-              ))}
-            </>
-          )}
+          {pane === 'sort' && <SortPanel conditions={p.conditions} onPatch={p.onPatch} />}
         </div>
       )}
     </div>

@@ -6,7 +6,7 @@
  * Serialize 同构(八个 camelCase 字段)。
  * 本文件只有纯函数(便于单测);读写 settings 的副作用在 use-filter-state.ts。
  */
-import { EMPTY_FILTER, sortsFromLegacy } from '../../shared/filter-conditions';
+import { EMPTY_FILTER, sortMirror, sortsFromLegacy } from '../../shared/filter-conditions';
 import type { FilterConditions, SortCond } from '../../shared/filter-conditions';
 import { parseFilterJson } from '../../shared/filter-conditions-parse';
 import { applyTagPick } from './filter-chips';
@@ -29,12 +29,6 @@ export function parseFilterState(raw: string | null): FilterConditions {
   return { ...parseFilterJson(raw) };
 }
 
-/** 旧构建优雅降级用的 `sort` 镜像 = 第一条可用的时间条件方向;没有则 newest(派生,不参与比较) */
-function mirrorSort(sorts: SortCond[]): 'newest' | 'oldest' {
-  const first = sorts.find((s) => s.enabled && s.kind === 'time');
-  return first?.kind === 'time' && first.dir === 'asc' ? 'oldest' : 'newest';
-}
-
 /** 排序列序列化:友类型联合原样落库(kind/dir/enabled,标签轴额外带 path) */
 const serializeSort = (s: SortCond) =>
   s.kind === 'tag' ? { kind: s.kind, path: s.path, dir: s.dir, enabled: s.enabled } : { ...s };
@@ -48,23 +42,27 @@ export function serializeFilterState(c: FilterConditions): string {
     relations: c.relations.map((r) => ({ path: r.path })),
     excludeRelations: c.excludeRelations.map((r) => ({ path: r.path })),
     tagPresence: c.tagPresence,
-    sort: mirrorSort(c.sorts),
+    sort: sortMirror(c.sorts),
     sorts: c.sorts.map(serializeSort),
     expr: c.expr,
   });
 }
 
 /**
- * 落态前的兼容折算:旧的单值 `sort` 入口(UI 尚未迁到 `sorts` 前)折算成一条时间排序 ——
- * `filterKey` 只认 `sorts`,不折算的话旧入口改动不触发重查、排序不生效。
- * 只要 patch 带了 `sort` 就当它是旧入口的整体写入(chip 移除的 `{...c, sort:'newest'}` 也走这条),
- * 覆盖同包里继承来的 `sorts`;T2 迁到 `sorts` 后不再带 `sort` 的 patch 走直通。
+ * 落态兼容(设计 §4.2/§4.7):
+ * - patch 带 `sorts` 时以 `sorts` 为权威,并**落态即同步**旧 `sort` 镜像
+ *   (读口仍按 `conditions.sort` 取命令勾选态与文案;镜像本身不参与 `filterKey`)。
+ * - patch 只带旧 `sort`(旧构建/旧调用点降级通道)时折算成一条时间排序,不碰 `sort` 本身。
  */
 export function applyFilterPatch(
   cur: FilterConditions,
   value: Partial<FilterConditions>
 ): FilterConditions {
   const next = { ...cur, ...value };
+  if (value.sorts !== undefined) {
+    next.sort = sortMirror(value.sorts);
+    return next;
+  }
   if (value.sort !== undefined) {
     next.sorts = sortsFromLegacy(value.sort === 'oldest' ? 'oldest' : 'newest');
   }

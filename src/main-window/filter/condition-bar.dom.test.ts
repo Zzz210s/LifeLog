@@ -27,6 +27,7 @@ const FULL: FilterConditions = {
   tagPresence: 'none',
   expr: '#工作 AND NOT #临时',
   sort: 'oldest',
+  sorts: [{ kind: 'time', dir: 'asc', enabled: true }],
 };
 
 let root: Root;
@@ -78,7 +79,7 @@ describe('条件栏:只剩 chips 与摘要', () => {
     await render(FULL);
     expect(buttons().length).toBeGreaterThan(0); // 断言不是"整栏没按钮"这种假绿
     for (const b of buttons()) {
-      expect(buttonText(b)).not.toMatch(/排序|导出|添加条件/);
+      expect(b.textContent ?? '').not.toMatch(/排序|导出|添加条件/);
     }
     // 剩下的按钮只能是 chip 自己的单删 × 与表达式编辑入口
     for (const b of buttons()) {

@@ -23,6 +23,7 @@ const FILES = [
   'filter/TagPickDialog.tsx',
   'filter/RelationPickDialog.tsx',
   'filter/AddConditionMenu.tsx',
+  'filter/SortPanel.tsx',
   'shell/TopBarMenu.tsx',
   'sidebar/TagRow.tsx',
   'sidebar/TagsHeader.tsx',

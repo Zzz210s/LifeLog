@@ -84,24 +84,30 @@ describe('filter-state 默认值与退化(单份条件)', () => {
   });
 });
 
-describe('applyFilterPatch(旧 sort 入口折算 + 写侧镜像)', () => {
-  it('patch 带 sort 时折成 sorts;chip 移除的 {...c, sort:"newest"} 能清掉已有 sorts', () => {
+describe('applyFilterPatch(旧 sort 降级通道 + sorts 权威)', () => {
+  it('只带旧 sort 的 patch 折算成 sorts(降级通道)', () => {
     const oldest = applyFilterPatch(cond({}), { sort: 'oldest' });
     expect(oldest.sort).toBe('oldest');
     expect(oldest.sorts).toEqual(ASC);
-    // chip 移除:整个条件对象被 spread 进来(sorts 继承自主前态),sort 仍是权威入口
-    const cleared = applyFilterPatch(cond({ sort: 'oldest', sorts: ASC }), {
-      ...cond({ sort: 'oldest', sorts: ASC }),
-      sort: 'newest',
-    });
+  });
+
+  it('带 sorts 的 patch 以 sorts 为准,旧 sort 不再覆盖它(T2 的 chip 移除路径)', () => {
+    const withSorts = cond({ sort: 'oldest', sorts: ASC });
+    // chip 移除:整对象被 spread 进来(sort 仍是旧的 oldest),sorts 才是权威
+    const cleared = applyFilterPatch(withSorts, { ...withSorts, sorts: [] });
     expect(cleared.sorts).toEqual([]);
+    expect(cleared.sort).toBe('newest'); // 镜像随 sorts 同步
     expect(serializeFilterState(cleared)).toContain('"sort":"newest"');
   });
 
-  it('patch 不带 sort 时 sorts 原样直通(T2 的新入口)', () => {
+  it('patch 带 sorts 时落态即同步旧镜像(读口仍按 conditions.sort 取勾选态/文案)', () => {
     const next = applyFilterPatch(cond({}), { sorts: ASC });
     expect(next.sorts).toEqual(ASC);
-    expect(next.sort).toBe('newest'); // 旧镜像由序列化时派生,不在落态时改写
+    expect(next.sort).toBe('oldest');
+    const tag = applyFilterPatch(cond({ sort: 'oldest' }), {
+      sorts: [{ kind: 'tag', path: '地点', dir: 'asc', enabled: true }],
+    });
+    expect(tag.sort).toBe('newest'); // 没有启用的时间条件 -> newest
   });
 
   it('派生镜像:第一条启用时间条件定 sort,没有则 newest', () => {

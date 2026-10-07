@@ -21,6 +21,7 @@ import { useUnifiedFilterSync } from './use-unified-filter-sync';
 import { useQuickOpen } from '../palette/use-quick-open';
 import { NoteStream } from '../stream/NoteStream';
 import { ConditionBar } from '../filter/ConditionBar';
+import { sortHintLabel } from '../filter/sort-conditions';
 import { ErrorBars } from './ErrorBars';
 import type { ErrorKind } from './ErrorBar';
 import type { ErrorMap } from './errors';
@@ -107,7 +108,7 @@ export function StreamView(p: StreamViewProps): ReactNode {
   // `/` 模式的提示行文案:命中数取 query_notes 返回的长度,排序文案跟随条件
   const stat =
     mode === 'filter'
-      ? `/ 关键词筛选 · 命中 ${p.notes.length} 条 · ${p.conditions.sort === 'oldest' ? '最早在前' : '最新在前'}`
+      ? `/ 关键词筛选 · 命中 ${p.notes.length} 条 · ${sortHintLabel(p.conditions.sorts)}`
       : undefined;
 
   /** 采纳一行:决策在纯函数 `effectFor` 里,执行(滚/补丁/命令 + MRU 记账)都在这里 */

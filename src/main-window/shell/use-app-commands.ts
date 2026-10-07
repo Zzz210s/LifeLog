@@ -11,6 +11,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { confirm } from '@tauri-apps/plugin-dialog';
 import { COMMANDS, withRuns } from '../../shared/commands';
 import type { CommandRegistry, CommandRuns } from '../../shared/commands';
+import { sortsFromLegacy } from '../../shared/filter-conditions';
 import type { FilterConditions } from '../../shared/filter-conditions';
 import { api } from '../../shared/api';
 import type { ThemeMode } from '../../shared/theme-mode';
@@ -92,8 +93,9 @@ export function useAppCommands(options: AppCommandsOptions): AppCommands {
         sidebar.setVisible(focusSnapshot.current);
         focusSnapshot.current = null;
       },
-      'sort.newest': () => latest.current.onPatch({ sort: 'newest' }),
-      'sort.oldest': () => latest.current.onPatch({ sort: 'oldest' }),
+      // 一键复位:清空多排序条件,设为单条时间排序(T2;设计 §4.7)。UI 统一写 sorts,旧 sort 镜像由落态派生
+      'sort.newest': () => latest.current.onPatch({ sorts: sortsFromLegacy('newest') }),
+      'sort.oldest': () => latest.current.onPatch({ sorts: sortsFromLegacy('oldest') }),
       // 状态上抛给条件栏/顶栏菜单(Task 2 消费;本任务只发信号)
       'filter.addCondition': () => setAddConditionOpen(true),
       'export.all': async () => {
