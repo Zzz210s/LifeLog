@@ -1,6 +1,11 @@
-//! 统一实体(`entities` / `edges`)的仓库层。阶段 1 只放标签 id 偏移常量,
-//! 后续任务按需追加子模块(`reconcile` 由 T1.2、`fts` 由 T3.1)——
-//! 先声明后建文件会让迁移 024 落地的瞬间编译不过。
+//! 统一实体(`entities` / `edges`)的仓库层。阶段 1 只放标签 id 偏移常量与缓存对账,
+//! 后续任务按需追加子模块(`fts` 由 T3.1)——先声明后建文件会让迁移 024 落地的瞬间编译不过。
+
+pub mod reconcile;
+pub mod reconcile_mirror;
+
+#[cfg(test)]
+mod reconcile_tests;
 
 /// 标签实体 id 相对老 `tags.id` 的整体偏移(spec §12 D1)。
 /// 真库 `max(tags.id)=845`、`max(notes.id)=1399`,偏移后两个区间永久不撞。
