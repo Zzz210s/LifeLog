@@ -1,9 +1,9 @@
 //! 共享测试向量(仓库根 `fixtures/tag-grammar.json`)的 Rust 侧断言。
 //! 这份 JSON 是**两侧唯一真源**:定义"笔记源码 -> 保存后的正文 + 标签集合",
 //! 前端契约测试读同一文件(见 `src/shared/fixtures.test.ts`)。
-//! 断言对象就是保存路径本身:`tags::extract_tags`(抽标签)+ `db::repos::notes::strip_tags`(剥标签),
+//! 断言对象就是保存路径本身:`tags::extract_tags`(抽标签)+ `db::repos::notes::notes_parse::strip_tags`(剥标签),
 //! 因此任何语法漂移都会让两侧测试同时变红,而不是靠人肉对齐边界用例。
-use crate::db::repos::notes::strip_tags;
+use crate::db::repos::notes::notes_parse::strip_tags;
 use crate::tags::extract_tags;
 use serde::Deserialize;
 

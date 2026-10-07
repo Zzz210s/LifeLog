@@ -1,5 +1,5 @@
 //! strip_tags 行为测试(自 notes_tests.rs 拆出):标签剥离语义不回归 + 行结构/缩进保留
-use super::strip_tags;
+use super::notes_parse::strip_tags;
 
 #[test]
 fn strips_tags_but_keeps_line_indent() {

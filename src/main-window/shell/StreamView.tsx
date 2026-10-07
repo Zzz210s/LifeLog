@@ -21,6 +21,7 @@ import { effectFor } from '../unified/unified-accept';
 import { useUnifiedFilterSync } from './use-unified-filter-sync';
 import { useQuickOpen } from '../palette/use-quick-open';
 import { NoteStream } from '../stream/NoteStream';
+import type { GroupedView } from '../data/use-stream-feed';
 import { ConditionBar } from '../filter/ConditionBar';
 import { sortHintLabel } from '../filter/sort-conditions';
 import { ErrorBars } from './ErrorBars';
@@ -35,6 +36,10 @@ export interface StreamViewProps {
   hasMore: boolean;
   loading: boolean;
   queryFailed: boolean;
+  /** 分组渲染接线(非空 = 分组模式;degraded 时恒 null,平铺兜底) */
+  grouping: GroupedView | null;
+  /** 顶部提示(degraded / slow 文案) */
+  notice: string | null;
   filterEmpty: boolean;
   errors: ErrorMap;
   onPatch: (value: Partial<FilterConditions>) => void;
@@ -168,6 +173,8 @@ export function StreamView(p: StreamViewProps): ReactNode {
         editingId={p.editingId}
         hasMore={p.hasMore}
         loading={p.loading}
+        grouping={p.grouping}
+        notice={p.notice}
         onLoadMore={p.onLoadMore}
         onTagClick={p.onToggleTag}
         onEdit={p.onEdit}

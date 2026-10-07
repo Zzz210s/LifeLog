@@ -9,6 +9,7 @@ import type { FilterConditions, GroupItem } from '../../shared/filter-conditions
 import type { ConditionHits } from '../../shared/tag-facts-types';
 import { tagLabelPlain } from '../../shared/tag-label';
 import { truncateExpr } from './expr-tag-spans';
+import { groupChipLabel } from './group-by';
 import { sortChipLabel } from './sort-conditions';
 
 // 表达式截断与片段类型的真源在 expr-tag-spans.ts;摘要真源在 filter-summary.ts —— 这里转发
@@ -20,7 +21,7 @@ export { applyRelationPick, applyTagPick } from './filter-pick';
 
 /** chip 种类与文案一一对应;remove 是删掉该 chip 后的条件对象(完整替换用) */
 export type Chip = {
-  kind: 'keyword' | 'tag' | 'excludeTag' | 'relation' | 'excludeRelation' | 'presence' | 'sort' | 'expr';
+  kind: 'keyword' | 'tag' | 'excludeTag' | 'relation' | 'excludeRelation' | 'presence' | 'sort' | 'group' | 'expr';
   label: string;
   /** 悬浮提示(标签 chip 用它区分含子级/仅本级;表达式 chip 放未截断原文) */
   title?: string;
@@ -100,6 +101,10 @@ export function chipsOf(c: FilterConditions, hits: ConditionHits | null = null):
       remove: { ...n, sorts: n.sorts.filter((x) => x !== s) },
     });
   });
+  // 分组 chip(设计 §9 拍板 13:分组不算收窄条件,不影响命中数);单删 = groupBy 置空
+  if (n.groupBy !== null) {
+    chips.push({ kind: 'group', label: groupChipLabel(n.groupBy), remove: { ...n, groupBy: null } });
+  }
   return chips;
 }
 

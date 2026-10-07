@@ -82,6 +82,8 @@ ${HELPERS}
     chipAccentText: chips.filter((c) => cs(c).color === tokens['--color-accent-text']).length,
     iconButton: read(document.querySelector('#root header button')),
     composer: read(document.querySelector('#root [data-testid="unified-input"]')),
+    groupHeader: read(document.querySelector('#root [data-testid="group-header"]')),
+    groupSections: document.querySelectorAll('#root [data-testid="group-section"]').length,
     contrast: body ? { fg: cs(body).color, bg: effBg(body), ratio: ratio(cs(body).color, effBg(body)), fontSize: cs(body).fontSize } : null,
     contrastMuted: muted ? { fg: cs(muted).color, bg: effBg(muted), ratio: ratio(cs(muted).color, effBg(muted)) } : null,
   };

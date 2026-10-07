@@ -11,6 +11,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { BASE, ensureMain, recorder, sleep } from './cdp-lib.mjs';
 import { auditCardStates } from './audit-visual-card.mjs';
+import { recordGroupHeader } from './audit-visual-group.mjs';
 import { READY_JS } from './audit-visual-ready.mjs';
 import { recordTopBarMenu } from './audit-visual-menu.mjs';
 import {
@@ -110,6 +111,7 @@ r.record(
 // unified-dropdown.dom.test.ts 钉住，模态浮层的 12px + 阴影由上面的菜单/对话框两条覆盖。
 
 // 7) 卡片三态(实现抽到 audit-visual-card.mjs:本文件已顶 200 行红线)
+await recordGroupHeader(js, r);
 await auditCardStates({ cdp, js, sleep, r });
 
 // 8) 正文对比度(亮暗两态)

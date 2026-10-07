@@ -6,6 +6,8 @@ import { BTN_SECONDARY } from '../shell/button-classes';
 import { EditPanel, type EditPanelProps } from '../editor/EditPanel';
 
 import { NoteItem } from './NoteItem';
+import { GroupLog } from './GroupLog';
+import type { GroupedView } from '../data/use-stream-feed';
 import { useEditHandoff } from './use-edit-handoff';
 
 export interface NoteStreamProps {
@@ -44,6 +46,10 @@ export interface NoteStreamProps {
   backlinkCounts?: Readonly<Record<number, number>>;
   /** 笔记 MRU(`[[` 候选排序与采纳记账;与主窗共用一份实例) */
   noteMru?: EditPanelProps['noteMru'];
+  /** 分组渲染接线(非空 = 分组模式;不传/传 null = 平铺,原行为不变) */
+  grouping?: GroupedView | null;
+  /** 顶部提示(degraded/slow 文案);null 不渲染 */
+  notice?: string | null;
 }
 
 /** 时间流:滚动到底自动加载;被编辑条目原位展开为就地源码编辑框 */
@@ -85,6 +91,56 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
   const onEmptyAction =
     empty === 'failed' ? p.onRetry : empty === 'no-match' ? p.onClearFilters : p.onShowInput;
 
+  /** 单条渲染(平铺与分组共用):编辑中 -> 就地编辑面板,否则卡片。key 在元素内部给 */
+  const renderNote = (n: Note): ReactNode =>
+    n.id === p.editingId ? (
+      <EditPanel
+        key={n.id}
+        note={n}
+        backlinkCount={p.backlinkCounts?.[n.id]}
+        noteMru={p.noteMru}
+        caretHint={handoff.caretHint}
+        onSaved={p.onEditSaved}
+        onCancel={p.onEditCancel}
+        onSwitchNote={(id) => {
+          const next = p.notes.find((x) => x.id === id);
+          if (next) openEdit(next, 'panel');
+          else p.onEditCancel();
+        }}
+        onErrorFallback={p.onLinkError}
+        onMounted={() => {
+          handoff.settle(scroller);
+          // 取证(2026-10-03):流还跳时,这几个值能直接定位是哪一步没生效。
+          // scrollAt800 是关键 —— 浏览器把"光标滚动祖先"带进视野发生在挂载之后,
+          // 只看挂载那一刻(nowScroll)会漏掉这次晚到的跳动。
+          const w = window as unknown as { __editCaretLog?: Array<Record<string, unknown>> };
+          w.__editCaretLog = w.__editCaretLog ?? [];
+          const entry = w.__editCaretLog[w.__editCaretLog.length - 1];
+          if (entry) {
+            entry.nowScroll = scroller?.scrollTop ?? null;
+            window.setTimeout(() => {
+              entry.scrollAt800 = scroller?.scrollTop ?? null;
+            }, 800);
+          }
+        }}
+      />
+    ) : (
+      <NoteItem
+        key={n.id}
+        note={n}
+        activeTags={p.activeTags}
+        onTagClick={p.onTagClick}
+        onEdit={(caret, clickY) => openEdit(n, 'click', caret, clickY)}
+        onDelete={() => p.onDelete(n)}
+        onToggleTask={(index) => p.onToggleTask(n, index)}
+        onLinkError={p.onLinkError}
+        onOpenNote={p.onOpenNote}
+        onUnresolvedNote={p.onUnresolvedNote}
+        backlinkCount={p.backlinkCounts?.[n.id]}
+        onCellSaved={p.onEditSaved}
+      />
+    );
+
   return (
     <div ref={setScroller} className="scroll-gutter flex-1 overflow-y-auto">
       {empty !== null && (
@@ -98,59 +154,28 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
           </button>
         </div>
       )}
-      {/* 卡片流容器(视觉刷新 V2):卡片之间用 gap-2(8px)分隔,不再逐条画分隔线;
-          容器自带 px-4 py-3,与卡片内边距对齐 */}
-      <ul className="flex flex-col gap-2 px-4 py-3">
-        {p.notes.map((n) =>
-          n.id === p.editingId ? (
-            <EditPanel
-                key={n.id}
-                note={n}
-                backlinkCount={p.backlinkCounts?.[n.id]}
-                noteMru={p.noteMru}
-                caretHint={handoff.caretHint}
-                onSaved={p.onEditSaved}
-                onCancel={p.onEditCancel}
-                onSwitchNote={(id) => {
-                  const next = p.notes.find((x) => x.id === id);
-                  if (next) openEdit(next, 'panel');
-                  else p.onEditCancel();
-                }}
-                onErrorFallback={p.onLinkError}
-                onMounted={() => {
-                  handoff.settle(scroller);
-                  // 取证(2026-10-03):流还跳时,这几个值能直接定位是哪一步没生效。
-                  // scrollAt800 是关键 —— 浏览器把"光标滚动祖先"带进视野发生在挂载之后,
-                  // 只看挂载那一刻(nowScroll)会漏掉这次晚到的跳动。
-                  const w = window as unknown as { __editCaretLog?: Array<Record<string, unknown>> };
-                  w.__editCaretLog = w.__editCaretLog ?? [];
-                  const entry = w.__editCaretLog[w.__editCaretLog.length - 1];
-                  if (entry) {
-                    entry.nowScroll = scroller?.scrollTop ?? null;
-                    window.setTimeout(() => {
-                      entry.scrollAt800 = scroller?.scrollTop ?? null;
-                    }, 800);
-                  }
-                }}
-              />
-          ) : (
-            <NoteItem
-              key={n.id}
-              note={n}
-              activeTags={p.activeTags}
-              onTagClick={p.onTagClick}
-              onEdit={(caret, clickY) => openEdit(n, 'click', caret, clickY)}
-              onDelete={() => p.onDelete(n)}
-              onToggleTask={(index) => p.onToggleTask(n, index)}
-              onLinkError={p.onLinkError}
-              onOpenNote={p.onOpenNote}
-              onUnresolvedNote={p.onUnresolvedNote}
-              backlinkCount={p.backlinkCounts?.[n.id]}
-              onCellSaved={p.onEditSaved}
-            />
-          )
-        )}
-      </ul>
+      {p.notice != null && (
+        <div
+          data-testid="stream-notice"
+          className="border-b border-border px-4 py-1 text-label text-muted"
+        >
+          {p.notice}
+        </div>
+      )}
+      {p.grouping != null ? (
+        <GroupLog
+          groups={p.grouping.groups}
+          collapsed={p.grouping.collapsed}
+          loadingGroup={p.grouping.loadingGroup}
+          onToggle={p.grouping.onToggle}
+          onLoadMore={p.grouping.onLoadMore}
+          renderNote={renderNote}
+        />
+      ) : (
+        /* 卡片流容器(视觉刷新 V2):卡片之间用 gap-2(8px)分隔,不再逐条画分隔线;
+           容器自带 px-4 py-3,与卡片内边距对齐 */
+        <ul className="flex flex-col gap-2 px-4 py-3">{p.notes.map(renderNote)}</ul>
+      )}
       {p.loading && (
         <div className="py-3 text-center text-xs text-muted">加载中...</div>
       )}

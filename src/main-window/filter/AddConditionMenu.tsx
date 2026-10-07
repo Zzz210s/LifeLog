@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { addGroupItem, migrateFlat, uiGroups } from '../../shared/filter-conditions';
 import type { FilterConditions } from '../../shared/filter-conditions';
 import { useDismiss } from '../shell/use-dismiss';
+import { GroupByPanel } from './GroupByPanel';
 import { SortPanel } from './SortPanel';
 
 export interface AddConditionMenuProps {
@@ -109,6 +110,9 @@ export function AddConditionMenu(p: AddConditionMenuProps): ReactNode {
               <button type="button" role="menuitem" className={ITEM_CLASS} onClick={() => setPane('sort')}>
                 排序
               </button>
+              <button type="button" role="menuitem" className={ITEM_CLASS} onClick={() => setPane('group')}>
+                分组
+              </button>
               <button
                 type="button"
                 role="menuitem"
@@ -177,6 +181,7 @@ export function AddConditionMenu(p: AddConditionMenuProps): ReactNode {
             </>
           )}
           {pane === 'sort' && <SortPanel conditions={p.conditions} onPatch={p.onPatch} />}
+          {pane === 'group' && <GroupByPanel conditions={p.conditions} onPatch={p.onPatch} />}
         </div>
       )}
     </div>

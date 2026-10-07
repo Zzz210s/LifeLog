@@ -57,8 +57,20 @@ describe('条件栏:添加条件菜单受控', () => {
       '有无标签',
       '条件组',
       '排序',
+      '分组',
       '表达式(高级)',
     ]);
+  });
+
+  it('分组子面板:点「分组」渲染分组面板(默认不分组,不改筛选条件)', async () => {
+    await m.render(FULL_BAR_COND, true);
+    const btn = [...(m.menu() as HTMLElement).querySelectorAll<HTMLButtonElement>('button[role="menuitem"]')].find(
+      (b) => b.textContent === '分组'
+    ) as HTMLButtonElement;
+    act(() => btn.click());
+    const panel = m.host().querySelector('[data-testid="group-panel"]');
+    expect(panel).not.toBeNull();
+    expect(panel?.textContent).toContain('默认:不分组');
   });
 
   it('有无标签子面板:文案是「无标签」,不再叫「无自定义标签」', async () => {

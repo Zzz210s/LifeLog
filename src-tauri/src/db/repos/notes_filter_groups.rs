@@ -102,9 +102,8 @@ fn flat_items(c: &FilterConditions) -> Vec<GroupItem> {
     for r in &c.exclude_relations {
         items.push(GroupItem::ExcludeRelation { path: r.path.clone() });
     }
-    match c.tag_presence.as_deref() {
-        Some(v @ ("any" | "none")) => items.push(GroupItem::Presence { value: v.to_string() }),
-        _ => {}
+    if let Some(v @ ("any" | "none")) = c.tag_presence.as_deref() {
+        items.push(GroupItem::Presence { value: v.to_string() });
     }
     if c.expr.as_deref().map(str::trim).is_some_and(|e| !e.is_empty()) {
         items.push(GroupItem::Expr { value: c.expr.clone().unwrap_or_default() });

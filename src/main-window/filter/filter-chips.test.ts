@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { EMPTY_FILTER, allItems, itemPaths } from '../../shared/filter-conditions';
-import { EXPR_TEXT_MAX, applyTagPick, chipsOf, summaryOf, summaryTitleOf, truncateExpr } from './filter-chips';
+import { EXPR_TEXT_MAX, chipsOf, summaryOf, summaryTitleOf, truncateExpr } from './filter-chips';
 
 const EXPR = '#工作 AND NOT #临时';
 
