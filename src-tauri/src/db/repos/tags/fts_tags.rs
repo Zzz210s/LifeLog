@@ -13,18 +13,20 @@
 //! 既有不变量「改名后旧路径不得残留」(`tree_time_ops_tests::time_root_can_be_renamed_and_fts_follows`
 //! 明钉),故不扩到祖先链。
 //!
-//! 四处必须逐字一致,分叉就是"按显示文本搜不到、旧名仍命中"的静默漂移:
+//! 三处必须逐字一致,分叉就是"按显示文本搜不到、旧名仍命中"的静默漂移:
 //!   ① 迁移 018 重建的六个触发器(副本由 [`tests`] 的守卫逐条比对)
 //!   ② 结构变更后的显式重写 [`super::tree::refresh_fts`]
-//!   ③ 维护命令的整体重建 `commands::maintenance::rebuild`
-//!   ④ 不变量测试台 [`super::invariants_tests::assert_fts_matches_tags`]
-//! 阶段定位(计划 T3.1/T3.2):`TAGS_AGG` 是阶段 3 前 `notes_fts` 的**活口径**,阶段 4 删
-//! `notes_fts` 后退役;`entities_fts` 侧的新真源见
+//!   ③ 不变量测试台 [`super::invariants_tests::assert_fts_matches_tags`]
+//! （旧第③处"维护命令整体重建"已随 T4.4 切到 `entities_fts`/`ENTITIES_AGG`,不再消费本常量。）
+//! 阶段定位（计划 T3.1/T3.2/T4.4）:`TAGS_AGG` 是阶段 3 前 `notes_fts` 的**活口径**;
+//! T4.4 起 `notes_fts` 不再有生产读方,本常量只剩测试守卫与双写对照,
+//! 故标 `#[cfg(test)]`;T4.7 删 `notes_fts` 时一并删除本文件。`entities_fts` 侧的真源见
 //! [`crate::db::repos::entities::fts::ENTITIES_AGG`](两分支:笔记同本口径,标签取自身路径)。
 //! 约束:表别名固定为 `n`(notes)——表达式只引用 `n.id`,调用方负责这么写别名。
 
 /// 单条笔记的 tags 列聚合表达式(不含外层 `SELECT ... FROM notes n` 与 WHERE 部分)。
 /// 每段用 `COALESCE(' ' || ..., '')` 拼:空段整段消失,不会留下多余空格(trim 只兜两端)。
+#[cfg(test)]
 pub(crate) const TAGS_AGG: &str = concat!(
     "trim(COALESCE((SELECT group_concat(t.path, ' ' ORDER BY t.path) ",
     "FROM tags t JOIN tag_links l ON l.tag_id = t.id ",

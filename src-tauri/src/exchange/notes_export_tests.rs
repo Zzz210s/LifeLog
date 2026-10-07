@@ -81,7 +81,9 @@ fn md_tag_name_exports_as_plain_text() {
     let mut c = db();
     create_plain(&mut c, "莽山栈道 #地点/郴chen州市/宜章县").unwrap();
     let id: i64 = c
-        .query_row("SELECT id FROM tags WHERE path='地点/郴chen州市'", [], |r| r.get(0))
+        .query_row("SELECT id FROM entities WHERE kind='tag' AND path='地点/郴chen州市'", [], |r| {
+            r.get(0)
+        })
         .unwrap();
     rename(&mut c, id, "[郴](chēn)州市").unwrap();
 

@@ -29,12 +29,14 @@ pub fn fit_cell(content: &str) -> String {
 /// 且不同父级下的同名末级(如 工作/会议 与 生活/会议)无法区分。
 /// 显示口径是**纯文本形态**(tag-label-md T6):导出是给人看的文件,
 /// md 名字只写可见文本(`[郴](chēn)州市` -> `郴州市`),不把 md 源码写进去。
+/// T4.4 起读统一实体:tagging 边方向 = 笔记 -> 标签(spec §2.1),
+/// 故 source_id 是笔记 id、target_id 是标签实体 id。
 fn note_tags(conn: &Connection) -> Result<HashMap<i64, String>, String> {
     let mut stmt = conn
         .prepare(
-            "SELECT l.target_id, t.path FROM tag_links l
-             JOIN tags t ON t.id = l.tag_id
-             WHERE l.target_type = 'note' ORDER BY l.target_id, t.path",
+            "SELECT l.source_id, t.path FROM edges l
+             JOIN entities t ON t.id = l.target_id
+             WHERE l.kind = 'tagging' ORDER BY l.source_id, t.path",
         )
         .map_err(|e| e.to_string())?;
     let rows = stmt
@@ -57,11 +59,11 @@ fn note_tags(conn: &Connection) -> Result<HashMap<i64, String>, String> {
 pub const HEADERS: [&str; 2] = ["正文", "标签"];
 
 /// 导出行数据(核心行为单点):标签聚合、正文/标签截断。
-/// 排序与信息流一致(D1):按 notes.id 降序(最新在前)。
+/// 排序与信息流一致(D1):按笔记实体 id 降序(最新在前)。
 pub fn rows(conn: &Connection) -> Result<Vec<Row>, String> {
     let tags = note_tags(conn)?;
     let mut stmt = conn
-        .prepare("SELECT n.id, n.content FROM notes n ORDER BY n.id DESC")
+        .prepare("SELECT e.id, e.content FROM entities e WHERE e.kind = 'note' ORDER BY e.id DESC")
         .map_err(|e| e.to_string())?;
     let mapped = stmt
         .query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))
