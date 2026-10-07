@@ -29,9 +29,9 @@ mod filter_fixtures_tests;
 mod hotkey_fixtures_tests;
 
 // 升级回归断言:当前解析输出 == fixtures/upgrade-regression.baseline.json(冻结基线)
-#[cfg(test)]
-#[path = "upgrade_regression_tests.rs"]
-mod upgrade_regression_tests;
+#[cfg(test)] #[path = "upgrade_regression_tests.rs"] mod upgrade_regression_tests;
+// 共享向量 fixtures/entity-link-targets.json 的 Rust 侧断言(D6 `[[ ]]` 目标裁决)
+#[cfg(test)] #[path = "note_link_fixtures_tests.rs"] mod note_link_fixtures_tests;
 
 // 标签名的行内 md 纯文本形态(label_plain)与界面改名校验(validate_label):
 // 经 tags 上浮为 tags::label_plain / tags::validate_label,与正文语法 parse_tag_path 并列

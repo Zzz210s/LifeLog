@@ -23,13 +23,17 @@ fn db() -> Connection {
     c
 }
 
-/// 链接四态:已解析 / 未解析(target NULL)/ 自指 / 已解析的反向
+/// 链接四态:已解析 / 未解析(target NULL)/ 自指 / 已解析的反向。
+/// T4.6 起 `link_edges`(经 `all_resolved`)读 `edges(kind='link')`,而 `link_degrees` 仍读老
+/// `note_links` —— 过渡期两表并存,夹具两边都写,保证两边读数一致。
 fn with_links() -> Connection {
     let c = db();
     c.execute_batch(
         "INSERT INTO note_links(id,source_id,target_id,raw_title,created_at) VALUES
            (1,1,2,'乙','2026-01-01'),(2,2,1,'甲','2026-01-01'),
-           (3,1,NULL,'没有这条笔记','2026-01-01'),(4,2,2,'自己','2026-01-01');",
+           (3,1,NULL,'没有这条笔记','2026-01-01'),(4,2,2,'自己','2026-01-01');
+         INSERT INTO edges(source_id,target_id,kind,created_at) VALUES
+           (1,2,'link','2026-01-01'),(2,1,'link','2026-01-01');",
     )
     .unwrap();
     c

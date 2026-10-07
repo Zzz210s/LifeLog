@@ -12,7 +12,7 @@
  * 点击分发在 MarkdownBody(事件委托):id 非空跳转,空则拿**目标**标题预填统一输入框的 `@`。
  */
 import type { RendererRule, StateInline } from 'markdown-it';
-import { MAX_TITLE_CHARS, normalizeTitle, splitAlias } from './note-link-syntax';
+import { MAX_TITLE_CHARS, normalizeTitle, splitAlias, titleOf } from './note-link-syntax';
 import type { NoteLink } from './types';
 
 /** chip 携带的解析结果:id 与目标的当前显示首行 */
@@ -34,6 +34,39 @@ export function noteLinkEnv(links: readonly NoteLink[] | undefined): NoteLinkEnv
     if (l.targetId !== null) map.set(normalizeTitle(l.rawTitle), { id: l.targetId, title: l.title ?? l.rawTitle });
   }
   return { links: map };
+}
+
+/** 一条参与 `[[ ]]` 目标裁决的实体(D6):标签给 `name`(单段名),笔记给 `content`(首行参与匹配) */
+export interface LinkCandidate {
+  id: number;
+  kind: 'note' | 'tag';
+  name?: string | null;
+  content?: string | null;
+}
+
+/**
+ * `[[X]]` 目标裁决(D6):先在 `name` 命中的标签里取 id 最小,再在笔记首行里取 id 最小;
+ * 标签优先;都没命中返回 null。`excludeId` 用来跳过来源自己(自指)。
+ * 与 Rust `note_links::resolve_target` 同口径 —— 共享向量 `fixtures/entity-link-targets.json`
+ * 两侧各跑一遍(`entity-link-targets.test.ts` / `note_link_fixtures_tests.rs`)。
+ */
+export function resolveLinkTarget(
+  candidates: readonly LinkCandidate[],
+  rawTitle: string,
+  excludeId: number | null = null
+): number | null {
+  const key = normalizeTitle(rawTitle);
+  if (key === '') return null;
+  let tag: number | null = null;
+  let note: number | null = null;
+  for (const c of candidates) {
+    if (c.id === excludeId) continue;
+    const ck = c.kind === 'tag' ? normalizeTitle(c.name ?? '') : titleOf(c.content ?? '');
+    if (ck !== key) continue;
+    if (c.kind === 'tag') tag = tag === null || c.id < tag ? c.id : tag;
+    else note = note === null || c.id < note ? c.id : note;
+  }
+  return tag ?? note;
 }
 
 /** `[[` 与 `]]` 之间的合法内容:只判**目标**部分(设计 A2),显示文本不参与合法性判定 */

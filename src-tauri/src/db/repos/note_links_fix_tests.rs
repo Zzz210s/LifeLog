@@ -17,6 +17,11 @@ fn count(c: &Connection, sql: &str) -> i64 {
 
 fn seed(c: &Connection, rows: &str) {
     c.execute_batch(&format!("INSERT INTO notes(id, content, created_at) VALUES {rows};")).unwrap();
+    c.execute_batch(
+        "INSERT OR IGNORE INTO entities(id, kind, content, created_at)
+         SELECT n.id, 'note', n.content, n.created_at FROM notes n;",
+    )
+    .unwrap();
 }
 
 #[test]
@@ -27,6 +32,7 @@ fn tag_shaped_title_writes_no_row() {
     let n = note_links::replace(&c, 1, &["#甲".into(), "#工作/软件".into()]).unwrap();
     assert_eq!(n, 0);
     assert_eq!(count(&c, "SELECT COUNT(*) FROM note_links"), 0, "空归一化 key 不落行(兜底)");
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM edges WHERE kind='link'"), 0, "新边同样不落");
 }
 
 #[test]
@@ -42,6 +48,7 @@ fn duplicate_normalized_titles_are_one_row() {
     );
     let raw: String = c.query_row("SELECT raw_title FROM note_links", [], |r| r.get(0)).unwrap();
     assert_eq!(raw, "Hello", "保留首见的原文写法");
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM edges WHERE kind='link'"), 1, "边只落一条");
 }
 
 #[test]
