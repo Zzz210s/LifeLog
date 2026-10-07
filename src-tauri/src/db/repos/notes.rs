@@ -53,9 +53,17 @@ fn create_with(
         names.push(p.to_string());
     }
     let tx = conn.transaction()?;
+    // 阶段 4 过渡:老 `notes` 行继续写(`note_links` 的外键仍指向它,见迁移 019),
+    // 同时按同一 id 落一行 `entities(kind='note')` 作新读路径的真源;027 下架老表后只剩实体行。
     tx.execute("INSERT INTO notes(content) VALUES(?1)", params![text])?;
     let id = tx.last_insert_rowid();
-    // 006 起 tags 为树:按路径自动建父级并做增量链接(孤儿回收已收窄为"无链接且无子")
+    tx.execute(
+        "INSERT OR IGNORE INTO entities(id, kind, content, created_at)
+         SELECT n.id, 'note', n.content, n.created_at FROM notes n WHERE n.id = ?1",
+        params![id],
+    )?;
+    // 006 起 tags 为树:按路径自动建父级并做增量链接(孤儿回收已收窄为"无链接且无子");
+    // 阶段 4 起链接落在 edges(kind='tagging'),方向 笔记 -> 标签(见 T4.1)。
     crate::db::repos::tags::link_paths(&tx, id, &names)?;
     // 链接紧随标签之后(D6):两步同一事务,任一步 `?` 失败连上面的 INSERT 一起回滚;
     // 扫的是**已剥标签、即刚落库的那份正文**(text),与 update 路径同一口径。

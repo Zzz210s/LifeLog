@@ -8,6 +8,7 @@ use rusqlite::Connection;
 fn db() -> Connection {
     let c = Connection::open_in_memory().unwrap();
     migrate::run(&c).unwrap();
+    crate::db::repos::tags::test_support::install_entity_views(&c);
     c
 }
 
@@ -85,16 +86,20 @@ fn update_keeps_legacy_tag_used_by_other_note() {
     let mut c = db();
     let a = notes::create_plain(&mut c, "a").unwrap();
     let b = notes::create_plain(&mut c, "b").unwrap();
-    // 模拟 006 原样保留的存量平铺标签(先建笔记再插标签,否则会被无引用回收扫掉)
+    // 模拟 006 原样保留的存量平铺标签(先建笔记再插标签,否则会被无引用回收扫掉)。
+    // 夹具直接建新表:标签实体 id 带 TAG_ID_OFFSET,链接是 tagging 边(笔记 -> 标签)。
+    let legacy = crate::db::repos::entities::TAG_ID_OFFSET + 1;
     c.execute(
-        "INSERT INTO tags(name, parent_id, path, depth) VALUES('工作 计划', NULL, '工作 计划', 1)",
-        [],
+        "INSERT INTO entities(id, kind, name, content, created_at, path, depth) \
+         VALUES(?1, 'tag', '工作 计划', '', datetime('now','localtime'), '工作 计划', 1)",
+        rusqlite::params![legacy],
     )
     .unwrap();
-    let legacy = id_at(&c, "工作 计划");
     c.execute(
-        "INSERT INTO tag_links(tag_id, target_type, target_id) VALUES(?1, 'note', ?2), (?1, 'note', ?3)",
-        rusqlite::params![legacy, a.id, b.id],
+        "INSERT INTO edges(source_id, target_id, kind, remark, created_at) \
+         VALUES(?1, ?3, 'tagging', '', datetime('now','localtime')), \
+                (?2, ?3, 'tagging', '', datetime('now','localtime'))",
+        rusqlite::params![a.id, b.id, legacy],
     )
     .unwrap();
 

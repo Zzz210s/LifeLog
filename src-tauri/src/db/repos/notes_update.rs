@@ -6,7 +6,7 @@ use super::read_full;
 use rusqlite::{params, Connection};
 
 /// 替换笔记标签集合(事务内):路径经校验后建/复用节点并做增量链接,最后收窄回收孤儿。
-/// tag_links 触发器负责将聚合结果同步进 FTS tags 列。
+/// 阶段 4 起增量链接落在 `edges(kind='tagging')`(方向 笔记 -> 标签),由 edges 触发器同步 FTS。
 fn set_tags(tx: &rusqlite::Transaction<'_>, id: i64, paths: &[String]) -> rusqlite::Result<()> {
     crate::db::repos::tags::link_paths(tx, id, paths)
 }
@@ -24,6 +24,11 @@ pub fn update(conn: &mut Connection, id: i64, content: &str) -> rusqlite::Result
     if rows == 0 {
         return Ok(None); // 无该行:回滚空事务
     }
+    // 阶段 4 过渡:实体行同步同值(新读路径以 entities 为真源;027 下架老表后只剩它)
+    tx.execute(
+        "UPDATE entities SET content=?1 WHERE id=?2 AND kind='note'",
+        params![text, id],
+    )?;
     // 审计:替换语义会把"正文里没出现的标签"一并移除 —— UI 编辑路径会回显全部标签所以正常不触发,
     // 但脚本/裸命令按正文重建内容时会静默抹掉标签(本库曾因此丢过 10 条笔记的标签,靠快照才发现)。
     // 这里只记一条日志,不改语义。
@@ -48,8 +53,8 @@ pub fn update(conn: &mut Connection, id: i64, content: &str) -> rusqlite::Result
 /// 读取笔记当前标签的完整路径(树语义真源,供 update 的「标签被移除」审计日志对读)。
 fn tag_paths(conn: &rusqlite::Connection, id: i64) -> rusqlite::Result<Vec<String>> {
     let mut stmt = conn.prepare(
-        "SELECT t.path FROM tag_links l JOIN tags t ON t.id = l.tag_id
-         WHERE l.target_type='note' AND l.target_id=?1 ORDER BY t.path",
+        "SELECT t.path FROM edges l JOIN entities t ON t.id = l.target_id
+         WHERE l.kind='tagging' AND l.source_id=?1 ORDER BY t.path",
     )?;
     let rows = stmt.query_map(params![id], |r| r.get(0))?;
     rows.collect()

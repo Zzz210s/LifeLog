@@ -49,10 +49,11 @@ pub(crate) fn fold_tag_rows(
 #[cfg(test)]
 pub fn recent(conn: &Connection, limit: u32) -> rusqlite::Result<Vec<Note>> {
     let mut stmt = conn.prepare(&format!(
-        "SELECT {} FROM notes n
-         LEFT JOIN tag_links l ON l.target_type = 'note' AND l.target_id = n.id
-         LEFT JOIN tags t ON t.id = l.tag_id
-         WHERE n.id IN (SELECT id FROM notes ORDER BY id DESC LIMIT ?1)
+        "SELECT {} FROM entities n
+         LEFT JOIN edges l ON l.kind = 'tagging' AND l.source_id = n.id
+         LEFT JOIN entities t ON t.id = l.target_id
+         WHERE n.kind = 'note'
+           AND n.id IN (SELECT id FROM entities WHERE kind = 'note' ORDER BY id DESC LIMIT ?1)
          ORDER BY n.id DESC, t.path",
         columns()
     ))?;
@@ -60,24 +61,25 @@ pub fn recent(conn: &Connection, limit: u32) -> rusqlite::Result<Vec<Note>> {
     fold_tag_rows(rows)
 }
 
-/// 删除笔记(事务):先删 tag_links 再删 note,最后精确回收"无链接且无子节点"的孤儿标签
-/// (父节点天生没有 tag_links 行,旧实现的"无链接即孤儿"会连带删掉整棵子树)。
+/// 删除笔记(事务):删老 `notes` 行(`note_links` 外键级联)与实体行(`edges` 外键级联),
+/// 最后精确回收"无出边且无入边"的孤儿标签(父节点天生没有入边,旧实现的"无链接即孤儿"
+/// 会连带删掉整棵子树)。老 `tag_links` 不再是写目标,不再清它(阶段 4 已切到 edges)。
 pub fn delete(conn: &mut Connection, id: i64) -> rusqlite::Result<()> {
     let tx = conn.transaction()?;
-    tx.execute("DELETE FROM tag_links WHERE target_type='note' AND target_id=?1", params![id])?;
     tx.execute("DELETE FROM notes WHERE id=?1", params![id])?;
+    tx.execute("DELETE FROM entities WHERE id=?1 AND kind='note'", params![id])?;
     crate::db::repos::tags::gc_orphans(&tx)?;
     tx.commit()
 }
 
-/// 读取单条完整笔记(含 tag_links 全量标签的**完整路径**,按 path 升序);无该 id 返回 None。
+/// 读取单条完整笔记(含 tagging 边全量标签的**完整路径**,按 path 升序);无该 id 返回 None。
 /// 路径是树语义真源(同名末级可能出现在多个父级下),update/create 事务内共用。
 pub(crate) fn read_full(conn: &Connection, id: i64) -> rusqlite::Result<Option<Note>> {
     let mut stmt = conn.prepare(&format!(
-        "SELECT {} FROM notes n
-         LEFT JOIN tag_links l ON l.target_type = 'note' AND l.target_id = n.id
-         LEFT JOIN tags t ON t.id = l.tag_id
-         WHERE n.id = ?1 ORDER BY t.path",
+        "SELECT {} FROM entities n
+         LEFT JOIN edges l ON l.kind = 'tagging' AND l.source_id = n.id
+         LEFT JOIN entities t ON t.id = l.target_id
+         WHERE n.kind = 'note' AND n.id = ?1 ORDER BY t.path",
         columns()
     ))?;
     let rows = stmt.query_map(params![id], map_note_row)?;
@@ -103,7 +105,8 @@ pub const COMPLETE_NOTES_LIMIT: usize = 200;
 /// 全部笔记的**显示首行**(`links::display_title` 口径:只裁首尾空白、大小写与标签词元原样保留);
 /// 首行剥标签后为空的不进池;按 id 升序(池的顺序即空查询时的展示序,设计 N9)。
 pub fn all_titles(conn: &Connection) -> rusqlite::Result<Vec<NoteTitle>> {
-    let mut stmt = conn.prepare("SELECT id, content FROM notes ORDER BY id")?;
+    let mut stmt =
+        conn.prepare("SELECT id, content FROM entities WHERE kind = 'note' ORDER BY id")?;
     let rows = stmt.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))?;
     let mut out = Vec::new();
     for row in rows {

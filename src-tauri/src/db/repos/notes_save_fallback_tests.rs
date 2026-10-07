@@ -15,6 +15,7 @@ const MD_LEAF: &str = "地点/中国大陆/湖南省/[郴](chēn)州市/宜章�
 fn db() -> Connection {
     let c = Connection::open_in_memory().unwrap();
     migrate::run(&c).unwrap();
+    crate::db::repos::tags::test_support::install_entity_views(&c);
     c
 }
 
