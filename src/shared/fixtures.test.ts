@@ -64,8 +64,13 @@ interface ExprCase {
   src: string;
   valid: boolean;
 }
+interface UpgradeCase {
+  why: string;
+  content: string;
+}
 
 const tagCases = readFixture('tag-grammar.json') as TagCase[];
+const upgradeCases = readFixture('upgrade-regression.json') as UpgradeCase[];
 const filterCases = readFixture('filter-conditions.json') as Array<{ kind: string }>;
 const ofKind = <T>(kind: string): T[] =>
   filterCases.filter((e) => e.kind === kind) as unknown as T[];
@@ -92,6 +97,26 @@ describe('fixtures/tag-grammar.json(前端契约:语法由后端实现)', () => 
     // 编辑面板经 use-source-tags 调该命令(面板自己不拼命令名、更不实现语法)
     expect(readSource('../main-window/editor/use-source-tags.ts')).toMatch(/parseNoteSource/);
     expect(readSource('../main-window/editor/EditPanel.tsx')).toMatch(/useSourceTagCount/);
+  });
+});
+
+describe('fixtures/upgrade-regression.json(升级回归输入契约)', () => {
+  it('结构合法:why 非空且正文为字符串;基线同长且不含正文', () => {
+    expect(upgradeCases.length).toBeGreaterThanOrEqual(30);
+    for (const c of upgradeCases) {
+      expect(typeof c.why, JSON.stringify(c)).toBe('string');
+      expect(c.why.length, JSON.stringify(c)).toBeGreaterThan(0);
+      expect(typeof c.content, c.why).toBe('string');
+    }
+    // 基线由 Rust 侧生成(gen-upgrade-baseline)并冻结;前端不解析、只做结构契约
+    const baseline = readFixture('upgrade-regression.baseline.json') as Array<
+      Record<string, unknown>
+    >;
+    expect(baseline.length).toBe(upgradeCases.length);
+    for (const e of baseline) {
+      expect('content' in e, JSON.stringify(e).slice(0, 80)).toBe(false);
+      expect(typeof e.content_sha256, JSON.stringify(e).slice(0, 80)).toBe('string');
+    }
   });
 });
 

@@ -1,0 +1,467 @@
+[
+  {
+    "source": "fixture",
+    "why": "普通正文:单行无任何记号",
+    "content_sha256": "af7aca8d38f7da2a2606e6c4b38c5f15f6a8a6f42d47242319647fbf4847a216",
+    "tags": [],
+    "links": [],
+    "title": "今天下午去公园散步",
+    "display_title": "今天下午去公园散步",
+    "sha256": "4fff5428cb19d639a87ce0b5bd276d6b06790385b2917bf00212c20a3e90e1b1"
+  },
+  {
+    "source": "fixture",
+    "why": "普通正文:多行多段",
+    "content_sha256": "7833de65a6352c8c44a06b34cd5c41eb72eb9e3ce46308d2138795fc8cd2f81c",
+    "tags": [],
+    "links": [],
+    "title": "上午整理房间",
+    "display_title": "上午整理房间",
+    "sha256": "8b19756b509b851b5f145832660e2b13254032d158f956d1e654aff675f37512"
+  },
+  {
+    "source": "fixture",
+    "why": "普通正文:首行缩进(缩进不影响标题)",
+    "content_sha256": "d58d89f01d7c427c0974c288cd8d72c3203bf8b18636f58f5ca50d181f17237f",
+    "tags": [],
+    "links": [],
+    "title": "第一行缩进",
+    "display_title": "第一行缩进",
+    "sha256": "174edc7db31b4c85a88a89718e6b2fc63b2d4bd9eee7a5a305ccc49b70eedc46"
+  },
+  {
+    "source": "fixture",
+    "why": "空正文:空串",
+    "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tags": [],
+    "links": [],
+    "title": "",
+    "display_title": "",
+    "sha256": "71e58ddbe9c8c018476c38600b7bea5c0598313badba92f4d892ec1a1044b0e1"
+  },
+  {
+    "source": "fixture",
+    "why": "空正文:只有空白与换行",
+    "content_sha256": "eae68eab438b90851392b1fcf0df01b326ce9910867bc3cab45cb13be4744e18",
+    "tags": [],
+    "links": [],
+    "title": "",
+    "display_title": "",
+    "sha256": "71e58ddbe9c8c018476c38600b7bea5c0598313badba92f4d892ec1a1044b0e1"
+  },
+  {
+    "source": "fixture",
+    "why": "只有标签行:单标签",
+    "content_sha256": "b049962cbcaadef03aa7f21ad1c3225b292c325bc125b4a22e6e95d454f1441e",
+    "tags": [
+      "工作"
+    ],
+    "links": [],
+    "title": "",
+    "display_title": "#工作",
+    "sha256": "e3436ca6c31ebe1318c160e9cefebb07b2ea9857d2ae73274dd905b120b88e7f"
+  },
+  {
+    "source": "fixture",
+    "why": "只有标签行:多段路径",
+    "content_sha256": "97224cc4d3741c6c643578c833e418cbad4710b720fa529516bed194c68d75f7",
+    "tags": [
+      "工作/项目A/会议"
+    ],
+    "links": [],
+    "title": "",
+    "display_title": "#工作/项目A/会议",
+    "sha256": "4881a876fa543413365a0bc145ab35a070ab716d4d8d8c18dd202626a770b507"
+  },
+  {
+    "source": "fixture",
+    "why": "只有标签行:多层路径(层级不设上限)",
+    "content_sha256": "6bfdbce64ec3759588a2a698ff7c4e923291c518dbf9a2a3e9d07c56ccd24bdb",
+    "tags": [
+      "a/b/c/d/e"
+    ],
+    "links": [],
+    "title": "",
+    "display_title": "#a/b/c/d/e",
+    "sha256": "3dba4e6709d8713a3eab0669dd680518693a6705dc1d5cfbfa1392a76fece7dd"
+  },
+  {
+    "source": "fixture",
+    "why": "标签:行内与正文混排(前导是 CJK)",
+    "content_sha256": "6fad9744c9069cf5d6e381f1e78ad12c8ed6e1654a93fb3b9326fcd1bba07882",
+    "tags": [
+      "工作"
+    ],
+    "links": [],
+    "title": "今天 很累",
+    "display_title": "今天#工作 很累",
+    "sha256": "8e8ef2104af43c2dd91d525169661919f41bdd810fffefddee7236f753655249"
+  },
+  {
+    "source": "fixture",
+    "why": "标签:行内多个标签,按首现序去重",
+    "content_sha256": "5389f7da29763e2b7b209c3bf4c83b9ceeb0657b6de8f0997fe1e23fadab39dc",
+    "tags": [
+      "工作",
+      "生活/心情"
+    ],
+    "links": [],
+    "title": "今天 很累 也",
+    "display_title": "今天 #工作 很累 #生活/心情 也 #工作",
+    "sha256": "321c037c09e309a3e56b5970ce4d836eb22f84e6478a206162ebf7e84107000a"
+  },
+  {
+    "source": "fixture",
+    "why": "标签:名称内嵌点号(v1.0)",
+    "content_sha256": "d5951cf338be9f70b71518d5ad32e437898ae65e0c6e22fad1f12efb7f6c82d3",
+    "tags": [
+      "版本/v1.0"
+    ],
+    "links": [],
+    "title": "已发布",
+    "display_title": "#版本/v1.0 已发布",
+    "sha256": "3a0db637165c9fefb19e5e291fcc4b016e36331cb4e4a90ce33c2a759ad5d65e"
+  },
+  {
+    "source": "fixture",
+    "why": "标签:名称内嵌间隔号",
+    "content_sha256": "eb7feb29e9ac8692b1ec784cff9f26fb328567723ecefcb269a27175638764ee",
+    "tags": [
+      "人名/阿·明"
+    ],
+    "links": [],
+    "title": "的记录",
+    "display_title": "#人名/阿·明 的记录",
+    "sha256": "450ad4e3a7b1565ec408eb3895aea6b7b4215d15fef9fbc82a44374a6a039b07"
+  },
+  {
+    "source": "fixture",
+    "why": "标签:句末句点只作终止符",
+    "content_sha256": "6bf3e17d8a90fef3db026c165ded2b18236abf506f7392ddfca1ac2b26f11bbd",
+    "tags": [
+      "工作"
+    ],
+    "links": [],
+    "title": ". 然后回家",
+    "display_title": "#工作. 然后回家",
+    "sha256": "aafcdf03ffdb72cb86873e85e96c68d1b7f9c2aff764c5e75c5c4869bb7ebb2a"
+  },
+  {
+    "source": "fixture",
+    "why": "标签:逗号终止名称",
+    "content_sha256": "513d70ff0372707bb821307a3bd3df13f497a964e419fabaeff219ae05df881d",
+    "tags": [
+      "工作"
+    ],
+    "links": [],
+    "title": ",今天很累",
+    "display_title": "#工作,今天很累",
+    "sha256": "bb3ac75c4c64b0626bb526b0ffc70ed24149e4ad2e4284a422cc23d6fe939a93"
+  },
+  {
+    "source": "fixture",
+    "why": "向量 tag-grammar:行首 # + 空白是 Markdown 标题",
+    "content_sha256": "326c5bd3bfd957c83d98efdcdce6408a01eb17ba0f98e8bf6b00538175927155",
+    "tags": [],
+    "links": [],
+    "title": "# 标题",
+    "display_title": "# 标题",
+    "sha256": "6098d72d56f340532c0e9dd3a7779bf3c93fd48168192a89000a8462bf412f77"
+  },
+  {
+    "source": "fixture",
+    "why": "向量 tag-grammar:## + 空白同样是标题",
+    "content_sha256": "ce6310e355505849263c40a39a9939ede5919c75c65700f0acf4953f2e6a9e91",
+    "tags": [],
+    "links": [],
+    "title": "## 标题",
+    "display_title": "## 标题",
+    "sha256": "1d7fb8ed5bd365f6b6e5ebe3a3d87ab6b766e805d6945488b303b9c56c98a357"
+  },
+  {
+    "source": "fixture",
+    "why": "向量 tag-grammar:## 后紧跟名称(# 前是 # 一律排除)",
+    "content_sha256": "28ffd9282a184744e383b2960e063971e9f08b29aa5d54473ffbb38019d8764d",
+    "tags": [],
+    "links": [],
+    "title": "##标题",
+    "display_title": "##标题",
+    "sha256": "958ecedc0d1b6b08fc50f72e6793d53774c02e4a622b4a69060fa6fe01f6e4c1"
+  },
+  {
+    "source": "fixture",
+    "why": "向量 tag-grammar:ASCII 字母数字之后的 # 不算标签",
+    "content_sha256": "5a35348bd257b23ff9dbc6ad84324d097be86ef9ae7c737d88ba3022c6606b53",
+    "tags": [],
+    "links": [],
+    "title": "abc#tag",
+    "display_title": "abc#tag",
+    "sha256": "3d766e51a27de6adbd20b162e5972448e89d19611bb75f5550c49b4003e40b6b"
+  },
+  {
+    "source": "fixture",
+    "why": "向量 tag-grammar:语言名 C# 不是标签",
+    "content_sha256": "d86dd06aea77e58e9e3183933957eec4b38151bdc27b5de9e130246b7099ad12",
+    "tags": [],
+    "links": [],
+    "title": "我用 c# 写",
+    "display_title": "我用 C# 写",
+    "sha256": "282abcedd38aaf71c13d9211fac7c114f26095d7ede63e429652abc92efea237"
+  },
+  {
+    "source": "fixture",
+    "why": "向量 tag-grammar:URL 片段前导是 ASCII 字母",
+    "content_sha256": "19105d8d8725844e939db52e8166d649cca596ffbd538e5a8da9fd0be532e731",
+    "tags": [],
+    "links": [],
+    "title": "见 https://x.com/a#frag",
+    "display_title": "见 https://x.com/a#frag",
+    "sha256": "3e3589cada04af2f473a7ee9ba5a2de45798f0797f11a52ecf88395de01e3f15"
+  },
+  {
+    "source": "fixture",
+    "why": "标签:反斜杠转义的下一个字符不作起点",
+    "content_sha256": "1e9d8583d2cb624b20dc9faa51c1255781240dfe71f2191fc8382b201406b52a",
+    "tags": [],
+    "links": [],
+    "title": "\\#工作 只是字面",
+    "display_title": "\\#工作 只是字面",
+    "sha256": "18c770668bb67a4d02344063183edaffef7298fa65a9bae91b18d67e6b215461"
+  },
+  {
+    "source": "fixture",
+    "why": "标签:行内代码里的 # 不算",
+    "content_sha256": "1b95197b1017c50ec3789c38f8ef42d31d059f4aa6dc254188196be66861ec28",
+    "tags": [],
+    "links": [],
+    "title": "写法是 `#工作` 这样",
+    "display_title": "写法是 `#工作` 这样",
+    "sha256": "7704c1b20b072e2602ec5b1cf9317799dbd1f48b2210a979d63c514808d2f516"
+  },
+  {
+    "source": "fixture",
+    "why": "标签:围栏代码块整段跳过",
+    "content_sha256": "c7629c0ea7904665536333be8407e087d17bc8027c55b7f30703268d7bd6558a",
+    "tags": [],
+    "links": [],
+    "title": "```",
+    "display_title": "```",
+    "sha256": "b08eb1ffcf66e855744b2d07cc816f232c0ccb1659065719d7a350be532bc73c"
+  },
+  {
+    "source": "fixture",
+    "why": "标签:波浪号围栏同样跳过",
+    "content_sha256": "29baca191139e75af8f23b64a8e2e666e2326f78894338bedd035e322a41a8a3",
+    "tags": [],
+    "links": [],
+    "title": "~~~",
+    "display_title": "~~~",
+    "sha256": "5babba6d9d91ea73330e991d8c8cce2e3511363f65a6497077de92077ea50118"
+  },
+  {
+    "source": "fixture",
+    "why": "向量 note-links:基本 [[标题]]",
+    "content_sha256": "356aec3639dcb599c8775664e334a0cc15d486bc804060d4369a023d489f81bd",
+    "tags": [],
+    "links": [
+      "今天聚会"
+    ],
+    "title": "看 [[今天聚会]] 那条",
+    "display_title": "看 [[今天聚会]] 那条",
+    "sha256": "b0f2b866f837edeb37334f436be67db7becff3b7d92ff4563393ec821b1d049c"
+  },
+  {
+    "source": "fixture",
+    "why": "链接:别名 [[目标|别名]]",
+    "content_sha256": "0444ac01619cb7c4d16a6d014fc08dee8a6dcc9824dcc621b91247644fb5a85d",
+    "tags": [],
+    "links": [
+      "目标"
+    ],
+    "title": "参考 [[目标|别名]] 说明",
+    "display_title": "参考 [[目标|别名]] 说明",
+    "sha256": "ced1cacee15bf6bc20c49219ae68fb044ae4a30c7a5ae34c5ff76a6e6b33e267"
+  },
+  {
+    "source": "fixture",
+    "why": "链接:两条链接按首现序",
+    "content_sha256": "25ca8a26e76ea4445499c17a47d642f48b736edc193bda536ef8ca76d52d2c4c",
+    "tags": [],
+    "links": [
+      "甲",
+      "乙"
+    ],
+    "title": "[[甲]] 与 [[乙]]",
+    "display_title": "[[甲]] 与 [[乙]]",
+    "sha256": "db1fefe161ff83b95f762bd4aa15d997492e07241c4b4ce195027543cf3544bc"
+  },
+  {
+    "source": "fixture",
+    "why": "链接:目标首尾空白裁掉",
+    "content_sha256": "f3bac0841cd19da50eb15e7e2ce529f60c2ec16d10d68f3415fe80ddba12ef04",
+    "tags": [],
+    "links": [
+      "甲"
+    ],
+    "title": "[[ 甲 ]]",
+    "display_title": "[[  甲  ]]",
+    "sha256": "b3e49939a8e85a949a8291eb5a7cfccce40dce1b40dc1d37c78c30161ce091af"
+  },
+  {
+    "source": "fixture",
+    "why": "链接:显示为空等价无别名",
+    "content_sha256": "76c456fb35563be7a4d85258b60950020defb6a4cb5bc0947857f5a582335f5a",
+    "tags": [],
+    "links": [
+      "甲"
+    ],
+    "title": "[[甲|]]",
+    "display_title": "[[甲|]]",
+    "sha256": "38c531c3c2ccded6af630544e07dde0df127fecb2f6c8461c305ab4b58d1375e"
+  },
+  {
+    "source": "fixture",
+    "why": "向量 note-links:围栏里整段不算",
+    "content_sha256": "7a25bbbb50dd6a87d11c512fef54ad92b6c3a0682d6b0714d946ff4c54a96fd8",
+    "tags": [],
+    "links": [],
+    "title": "```",
+    "display_title": "```",
+    "sha256": "b08eb1ffcf66e855744b2d07cc816f232c0ccb1659065719d7a350be532bc73c"
+  },
+  {
+    "source": "fixture",
+    "why": "向量 note-links:行内代码里不算",
+    "content_sha256": "ffba280a78c37505cd2a962f160dd7f2a67da5e421586d7e17fa647f5a3e3850",
+    "tags": [],
+    "links": [],
+    "title": "`[[甲]]`",
+    "display_title": "`[[甲]]`",
+    "sha256": "ee66a9649d773fe0451fea840934909f025a2ea3f22931ef9acdc9d0084c8602"
+  },
+  {
+    "source": "fixture",
+    "why": "向量 note-links:转义不算",
+    "content_sha256": "2a13a7746c69f75d2ba194079fb24913623171cb5573a280557717be6757298f",
+    "tags": [],
+    "links": [],
+    "title": "\\[[甲]]",
+    "display_title": "\\[[甲]]",
+    "sha256": "0e8e21976dbdb0c3979202759f634d10c7a139e836d3955d0c18c21b773b7b89"
+  },
+  {
+    "source": "fixture",
+    "why": "向量 note-links:嵌套整串不算",
+    "content_sha256": "1a0560b50deb3cb5938d30569d74287b19094bcbe4c2e8bc73244d64a82a6704",
+    "tags": [],
+    "links": [],
+    "title": "[[甲[[乙]]",
+    "display_title": "[[甲[[乙]]",
+    "sha256": "1faf51c7b9ce7e325aecda2283754980bd71bf8bfcf8f7a8398fc7c009bfb363"
+  },
+  {
+    "source": "fixture",
+    "why": "向量 note-links:# 开头的标签形整串不算",
+    "content_sha256": "67cb53993cc951b895cd106f130f859f79755df4c05336f165709d88369a19b2",
+    "tags": [],
+    "links": [],
+    "title": "参考 [[#工作/]]",
+    "display_title": "参考 [[#工作/]]",
+    "sha256": "9117003952984ce35fc5181c5472bd8539e32b5bf9f7cfd25159f03d9430fe6e"
+  },
+  {
+    "source": "fixture",
+    "why": "围栏+行内+转义混合:标签与链接都跳过",
+    "content_sha256": "094594e041acc194009faa4a30f70097dc03994dfa0ccbf7ac79065567f7eb82",
+    "tags": [
+      "算标签"
+    ],
+    "links": [
+      "算链接"
+    ],
+    "title": "```rust",
+    "display_title": "```rust",
+    "sha256": "376be846cec4a791ce1524b3cc94627230ce02817ec9802a57a14d602e69c7d8"
+  },
+  {
+    "source": "fixture",
+    "why": "表格:标准 Markdown 表格里的标签与链接",
+    "content_sha256": "5ff7f994ff2dd4e8e3d49e7c31031110fb4890adcf3ebc29bdf938d6f96cf759",
+    "tags": [
+      "工作/项目A",
+      "生活"
+    ],
+    "links": [
+      "会议纪要"
+    ],
+    "title": "| 名称 | 备注 |",
+    "display_title": "| 名称 | 备注 |",
+    "sha256": "eb74e1578465032e09dc0bc4c85122284b9c339c74e85e3004e98fccdd683579"
+  },
+  {
+    "source": "fixture",
+    "why": "表格:单元格里的别名链接",
+    "content_sha256": "23c0534ae93aaa4d5cc0c4be9f7de04cba6a44d7aa5fcb4ff1a19caf4a56d088",
+    "tags": [],
+    "links": [
+      "目标"
+    ],
+    "title": "| 项 | 指 |",
+    "display_title": "| 项 | 指 |",
+    "sha256": "4dc1175c8a5d4c23971e474adaddd250d76d1809014fca7a8c0e36ecba301fd6"
+  },
+  {
+    "source": "fixture",
+    "why": "空行开头的正文:首个非空行才是标题",
+    "content_sha256": "e2f037dc30b58cdfe27d2f71c03cac93afd6095e97ba8442e2a7a7e33ea1233e",
+    "tags": [
+      "标签"
+    ],
+    "links": [],
+    "title": "真正的首行",
+    "display_title": "真正的首行 #标签",
+    "sha256": "8a4df2470a97469157d89a9a8cbb7fec5129c950bcca333cc132ceebcfe869f5"
+  },
+  {
+    "source": "fixture",
+    "why": "CRLF 正文(Windows 换行)",
+    "content_sha256": "e54ea5080b2525582b8affcb6f3cfd2994386b932bdfd5237e8fa311ad027e12",
+    "tags": [
+      "工作"
+    ],
+    "links": [
+      "目标"
+    ],
+    "title": "第一行",
+    "display_title": "第一行 #工作",
+    "sha256": "2894edc1813c2108539177e641ad437d443ea9014e86c0928a0182ff6836934c"
+  },
+  {
+    "source": "fixture",
+    "why": "标签与链接同篇:两集合互不干扰",
+    "content_sha256": "f35c975973d2fc66f37aef4d23fc6a3fb9568010186c15bf86d10b4569fefd0f",
+    "tags": [
+      "工作/会议"
+    ],
+    "links": [
+      "目标",
+      "另一个目标"
+    ],
+    "title": "",
+    "display_title": "#工作/会议",
+    "sha256": "66c982aadac984daf761ed0d35232893d775607b3c09d9978b20ef733cc45971"
+  },
+  {
+    "source": "fixture",
+    "why": "标签:正文里的 # 全部被剥掉后只剩空白",
+    "content_sha256": "78e091a146730afa3137fcf97acfe3fcdcbce85e494292c171e798fa80ed3375",
+    "tags": [
+      "甲",
+      "乙"
+    ],
+    "links": [],
+    "title": "",
+    "display_title": "#甲 #乙",
+    "sha256": "b377edb52f5822c8d027a0a3985c674bfeb0e8f4921c23ef54c68f3257fd66e3"
+  }
+]
