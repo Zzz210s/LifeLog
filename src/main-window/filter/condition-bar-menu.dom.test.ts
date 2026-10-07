@@ -62,7 +62,7 @@ describe('条件栏:添加条件菜单受控', () => {
     ]);
   });
 
-  it('分组子面板:点「分组」渲染分组面板(默认不分组,不改筛选条件)', async () => {
+  it('分组子面板:点「分组」渲染分组面板,且**组选择列表消失**(两者共用 pane 的旧缺陷)', async () => {
     await m.render(FULL_BAR_COND, true);
     const btn = [...(m.menu() as HTMLElement).querySelectorAll<HTMLButtonElement>('button[role="menuitem"]')].find(
       (b) => b.textContent === '分组'
@@ -71,6 +71,27 @@ describe('条件栏:添加条件菜单受控', () => {
     const panel = m.host().querySelector('[data-testid="group-panel"]');
     expect(panel).not.toBeNull();
     expect(panel?.textContent).toContain('默认:不分组');
+    // 旧缺陷:分组与「条件组」共用 pane='group',点「分组」时「条件落进哪一组」列表会与面板同时出现
+    expect((m.menu() as HTMLElement).textContent).not.toContain('条件落进哪一组');
+  });
+
+  it('条件组子面板:点「条件组」只渲染组选择列表,不渲染分组面板', async () => {
+    await m.render(FULL_BAR_COND, true);
+    const btn = [...(m.menu() as HTMLElement).querySelectorAll<HTMLButtonElement>('button[role="menuitem"]')].find(
+      (b) => b.textContent === '条件组'
+    ) as HTMLButtonElement;
+    act(() => btn.click());
+    expect((m.menu() as HTMLElement).textContent).toContain('条件落进哪一组');
+    expect(m.host().querySelector('[data-testid="group-panel"]')).toBeNull();
+  });
+
+  it('条件栏自带「添加条件」触发按钮(默认渲染):点击把受控开关回传 true', async () => {
+    await m.render(FULL_BAR_COND);
+    const trigger = m.host().querySelector('button[aria-label="添加条件"]') as HTMLButtonElement;
+    expect(trigger).not.toBeNull();
+    expect(trigger.getAttribute('aria-haspopup')).toBe('menu');
+    act(() => trigger.click());
+    expect(m.opens()).toEqual([true]);
   });
 
   it('有无标签子面板:文案是「无标签」,不再叫「无自定义标签」', async () => {

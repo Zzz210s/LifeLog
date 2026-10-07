@@ -32,10 +32,9 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   },
   {
     id: 'topbar',
-    // 注意锚点是**触发按钮**不是菜单面板:`[data-testid="topbar-menu"]` 只在菜单展开时进 DOM,
-    // 而引导是模态的、点覆盖层会把菜单关掉 —— 高亮面板既拿不到也留不住
-    selectors: ['[aria-label="更多操作"]'],
+    // 锚点是视图导航组(2026-10-07 删掉顶栏 `⋯` 后换的):三个图标常驻,不在展开态才进 DOM
+    selectors: ['[aria-label="视图导航"]'],
     title: '还有这些',
-    body: '这个菜单里是排序、导出整库(Excel)、添加条件;齿轮进设置。另外 Ctrl+Shift+Q 随时唤起输入栏,托盘左键也能。',
+    body: '右上角切换信息流 / 关系图 / 设置。排序与添加条件在条件栏(信息流顶部);导出整库(Excel)在命令面板。另外 Ctrl+Shift+Q 随时唤起输入栏,托盘左键也能。',
   },
 ];

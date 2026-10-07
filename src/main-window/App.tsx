@@ -8,7 +8,6 @@ import { Sidebar } from './sidebar/Sidebar';
 import { useSidebarState } from './sidebar/use-sidebar-state';
 import { ViewHost } from './shell/ViewHost';
 import { useFilterState } from './filter/use-filter-state';
-import { topBarMenuItems } from './shell/TopBarMenu';
 import { useAppErrors } from './shell/use-app-errors';
 import { useAppCommands } from './shell/use-app-commands';
 import { useAddConditionMenu } from './shell/use-add-condition-menu';
@@ -109,8 +108,6 @@ export function App(): ReactNode {
   });
   // 「添加条件」命令的一次性信号 -> 条件栏菜单开关(打开即复位)
   const addCondition = useAddConditionMenu(commands);
-  // 顶栏溢出菜单五条:标题与勾选态取自命令表,执行走同一条 commands.execute(与 `>` 一致)
-  const menuItems = topBarMenuItems({ sort: conditions.sort, exporting, run: (id) => void commands.execute(id) });
 
   // 候选控制器/装饰 + 快捷键接线(prefill 是唯一入口;采纳副作用在 StreamView)
   const { controller, decorations, tagMru, unified, prefill } = useMainPalette({
@@ -138,7 +135,7 @@ export function App(): ReactNode {
       <ViewHost
         view={view}
         sidebarVisible={sidebar.visible}
-        topBarMenu={{ menuItems, exporting, exported }}
+        topBar={{ exporting, exported }}
         onToggleSidebar={() => sidebar.setVisible(!sidebar.visible)}
         onOpenSettings={openSettings}
         onOpenGraph={() => void commands.execute('graph.open')}

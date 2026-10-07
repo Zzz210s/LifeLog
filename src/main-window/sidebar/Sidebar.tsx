@@ -77,6 +77,7 @@ export function Sidebar(p: SidebarProps): ReactNode {
         mode={p.sidebar.mode}
         onModeChange={p.sidebar.setMode}
         showRelations={p.sidebar.showRelations}
+        onShowRelationsChange={p.sidebar.setShowRelations}
         onTagsMutated={p.onTagsMutated}
         onFilterTags={() => p.onPrefill(TAG_PREFIX)}
       />

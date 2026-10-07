@@ -9,6 +9,7 @@ import { ExprDialog } from './ExprDialog';
 import { FilterChips } from './FilterChips';
 import { FilterGroupBar } from './FilterGroupBar';
 import { RelationPickDialog } from './RelationPickDialog';
+import { SortMenuButton } from './SortMenuButton';
 import { TagPickDialog } from './TagPickDialog';
 import { applyRelationPick, applyTagPick, chipsOf, summarySegmentsOf, summaryTitleOf } from './filter-chips';
 import type { CarryPaths } from './filter-chips';
@@ -24,9 +25,11 @@ export interface ConditionBarProps {
 }
 
 /**
- * 条件栏(Task 2 瘦身):只剩条件 chips + 中文摘要。
- * 排序 / 添加条件 / 导出三个按钮已搬走 —— 排序与添加条件走 `>` 命令,鼠标入口在顶栏溢出菜单(Task 3);
- * 「添加条件」下拉的浮层仍锚在本栏,开关由上层给(受控),本栏不再放触发按钮。
+ * 条件栏:条件 chips + 中文摘要 + 两个就近的鼠标入口(排序 / 添加条件)。
+ *
+ * 视图内动作留在本栏(2026-10-07 盘点):排序图标按钮打开 `SortPanel`,「添加条件」按钮打开
+ * `AddConditionMenu` 浮层(它与 `>添加条件` 命令共用同一个受控开关)。原先这两个入口挂在顶栏 `⋯`
+ * 溢出菜单里,已按报告移回。
  * 关键词输入框更早已删(计划 1/3):`/` 模式在唯一输入框里做实时筛选,
  * 已生效的关键词以 chip 显示、可单删。标签选点入口在侧栏与本栏「添加条件」的标签选择器。
  */
@@ -121,8 +124,8 @@ export function ConditionBar(p: ConditionBarProps): ReactNode {
             )}
           </span>
         )}
+        <SortMenuButton conditions={p.conditions} onPatch={p.onPatch} />
         <AddConditionMenu
-          showTrigger={false}
           open={p.addConditionOpen}
           onOpenChange={p.onAddConditionOpenChange}
           conditions={p.conditions}

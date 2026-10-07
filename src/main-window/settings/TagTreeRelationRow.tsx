@@ -1,6 +1,6 @@
 // 设置页「标签关系」分区的一行:标签树里显示关系(默认关)。
-// 值、写库都在侧栏状态(use-sidebar-state 的 showRelations,持久化键 tag_tree_show_relations;
-// 旧键 tag_tree_show_carry 仍回读),由 App 经 SettingsView 透传 —— 同一份状态,开关一拨侧栏树即时跟随。
+// 值、写库都在侧栏状态(use-sidebar-state 的 showRelations,持久化键 tag_tree_show_relations),
+// 由 App 经 SettingsView 透传 —— 同一份状态,开关一拨侧栏树即时跟随(侧栏头部也有同一开关)。
 import type { ReactNode } from 'react';
 import { SettingsRow, Toggle } from './controls';
 

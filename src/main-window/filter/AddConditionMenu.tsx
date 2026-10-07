@@ -19,19 +19,21 @@ export interface AddConditionMenuProps {
   /** 受控开关:命令与顶栏菜单(Task 3)、条件栏都把开关放在上层 */
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** 是否渲染「添加条件」按钮:条件栏里鼠标入口已搬到顶栏菜单,只留浮层(默认渲染) */
+  /** 是否渲染「添加条件」按钮:条件栏里鼠标入口已搬回本栏(2026-10-07),默认渲染 */
   showTrigger?: boolean;
 }
 
-type Pane = 'main' | 'presence' | 'sort' | 'group';
+type Pane = 'main' | 'presence' | 'sort' | 'group' | 'groupBy';
 
 const ITEM_CLASS =
   'block w-full rounded-xs px-2.5 py-1.5 text-left text-ui text-muted hover:bg-accent-soft hover:text-accent-text';
 
 /** 「添加条件」下拉:主面板六项(无日期入口,spec D2);有无标签/排序/条件组切换到子面板直接生效。
- * 开关受控(open/onOpenChange),方便 `>` 命令与顶栏菜单从别处打开它;`showTrigger=false` 时只渲染浮层。
+ * 开关受控(open/onOpenChange),方便 `>` 命令与条件栏按钮从别处打开它;`showTrigger=false` 时只渲染浮层。
  * 条件组(设计 2026-10-06 §5.5):「条件组」子面板选**落笔到第几组**(或新建一组),
- * 主面板的标签/关系/有无标签就落进那一组;组内 / 组间 且或 的切换在条件栏的组头上。 */
+ * 主面板的标签/关系/有无标签就落进那一组;组内 / 组间 且或 的切换在条件栏的组头上。
+ * 「分组」走独立 pane(`groupBy`,2026-10-07 修):原先它与「条件组」共用 pane,点「分组」会同时渲染
+ * 组选择列表与 GroupByPanel 两块。 */
 export function AddConditionMenu(p: AddConditionMenuProps): ReactNode {
   const [pane, setPane] = useState<Pane>('main');
   const [target, setTarget] = useState(0);
@@ -72,6 +74,7 @@ export function AddConditionMenu(p: AddConditionMenuProps): ReactNode {
         <button
           type="button"
           onClick={() => p.onOpenChange(!p.open)}
+          aria-label="添加条件"
           aria-haspopup="menu"
           aria-expanded={p.open}
           className="h-8 rounded-sm border border-border px-2.5 text-ui text-muted hover:border-accent hover:text-accent-text"
@@ -85,6 +88,7 @@ export function AddConditionMenu(p: AddConditionMenuProps): ReactNode {
       {p.open && (
         <div
           role="menu"
+          data-testid="add-condition-menu"
           className="absolute left-0 top-full z-20 mt-1 rounded-lg border border-border bg-raised p-1 shadow-lg"
         >
           {pane === 'main' && (
@@ -110,7 +114,7 @@ export function AddConditionMenu(p: AddConditionMenuProps): ReactNode {
               <button type="button" role="menuitem" className={ITEM_CLASS} onClick={() => setPane('sort')}>
                 排序
               </button>
-              <button type="button" role="menuitem" className={ITEM_CLASS} onClick={() => setPane('group')}>
+              <button type="button" role="menuitem" className={ITEM_CLASS} onClick={() => setPane('groupBy')}>
                 分组
               </button>
               <button
@@ -181,7 +185,7 @@ export function AddConditionMenu(p: AddConditionMenuProps): ReactNode {
             </>
           )}
           {pane === 'sort' && <SortPanel conditions={p.conditions} onPatch={p.onPatch} />}
-          {pane === 'group' && <GroupByPanel conditions={p.conditions} onPatch={p.onPatch} />}
+          {pane === 'groupBy' && <GroupByPanel conditions={p.conditions} onPatch={p.onPatch} />}
         </div>
       )}
     </div>

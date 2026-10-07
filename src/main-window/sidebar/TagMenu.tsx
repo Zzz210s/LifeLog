@@ -49,7 +49,7 @@ export function TagMenu(p: TagMenuProps): ReactNode {
   // 主面板「直接列出关系」的读数(打开菜单就读,不靠进子面板)
   const mainRelations = useTagMenuRelations(p.node.id);
 
-  // Esc 关闭 / 点击菜单外关闭:统一走 shell/use-dismiss(与 AddConditionMenu、TopBarMenu 同一实现)。
+  // Esc 关闭 / 点击菜单外关闭:统一走 shell/use-dismiss(与 AddConditionMenu 同一实现)。
   // 菜单本体只在打开时挂载,故 open 恒 true(useDismiss 的 ref 现读保证回调不闭包旧 props)。
   const menuRef = useRef<HTMLDivElement>(null);
   useDismiss(true, menuRef, p.onClose);

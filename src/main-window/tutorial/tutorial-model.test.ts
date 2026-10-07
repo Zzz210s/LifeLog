@@ -7,7 +7,7 @@ describe('tutorial-model', () => {
       ['input', ['[data-testid="unified-input"]']],
       ['prefix', ['[data-testid="prefix-hint"]']],
       ['tags', ['[data-testid="tag-list"]', '[data-testid="sidebar"]']],
-      ['topbar', ['[aria-label="更多操作"]']], // 溢出菜单的**触发按钮**:面板只在展开时存在
+      ['topbar', ['[aria-label="视图导航"]']], // 视图导航组:三个图标常驻,不依赖展开态
     ]);
   });
 

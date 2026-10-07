@@ -44,11 +44,11 @@ const topBar = (over: Partial<Parameters<typeof TopBar>[0]> = {}) =>
   createElement(TopBar, {
     view: 'stream',
     sidebarVisible: true,
-    menuItems: [],
     exporting: false,
     exported: false,
     onToggleSidebar: () => {},
     onOpenSettings: () => {},
+    onOpenGraph: () => {},
     onBack: () => {},
     ...over,
   });
@@ -61,9 +61,9 @@ describe('V4 顶栏:44 高 + 图标/次按钮两档', () => {
     expect(tokens(header)).not.toContain('h-12');
   });
 
-  it('侧栏开关与设置入口 = 图标档(28×28 / rounded-sm),不再 rounded-md', async () => {
+  it('侧栏开关与导航组图标 = 图标档(28×28 / rounded-sm),不再 rounded-md', async () => {
     await render(topBar());
-    for (const label of ['隐藏侧栏', '设置']) {
+    for (const label of ['隐藏侧栏', '信息流', '关系图', '设置']) {
       const btn = byLabel(label);
       for (const token of ['h-7', 'w-7', 'rounded-sm', 'text-muted', 'hover:bg-hover', 'items-center']) {
         expect(tokens(btn), label).toContain(token);
@@ -74,25 +74,29 @@ describe('V4 顶栏:44 高 + 图标/次按钮两档', () => {
     expect(byLabel('隐藏侧栏').getAttribute('aria-pressed')).toBe('true');
   });
 
-  it('设置页顶栏右侧是次按钮档(32 / rounded-sm / text-ui),文案不变', async () => {
+  it('设置页顶栏右侧不再有「返回信息流」文字按钮;导航组仍在且高亮在设置', async () => {
     await render(topBar({ view: 'settings' }));
-    const back = [...host.querySelectorAll('button')].find((b) => b.textContent === '返回信息流') as HTMLElement;
-    for (const token of ['h-8', 'rounded-sm', 'text-ui', 'border']) expect(tokens(back)).toContain(token);
-    expect(tokens(back)).not.toContain('rounded-md');
-    expect(tokens(back)).not.toContain('text-xs');
+    expect([...host.querySelectorAll('button')].some((b) => b.textContent === '返回信息流')).toBe(false);
+    const nav = host.querySelector('[data-testid="view-nav"]') as HTMLElement;
+    expect(nav).not.toBeNull();
+    expect(byLabel('设置').getAttribute('aria-current')).toBe('page');
   });
 
-  it('回归:三个入口仍各自回调', async () => {
+  it('回归:布局开关与导航组仍各自回调', async () => {
     const calls: string[] = [];
     await render(
       topBar({
         onToggleSidebar: () => calls.push('toggle'),
         onOpenSettings: () => calls.push('settings'),
+        onOpenGraph: () => calls.push('graph'),
+        onBack: () => calls.push('stream'),
       })
     );
     await act(async () => byLabel('隐藏侧栏').click());
     await act(async () => byLabel('设置').click());
-    expect(calls).toEqual(['toggle', 'settings']);
+    await act(async () => byLabel('关系图').click());
+    await act(async () => byLabel('信息流').click());
+    expect(calls).toEqual(['toggle', 'settings', 'graph', 'stream']);
   });
 });
 
@@ -135,6 +139,8 @@ describe('V4 标签分区头部:图标按钮 28 档', () => {
       mode: 'tree',
       onModeChange: () => {},
       onFilterTags: () => {},
+      showRelations: true,
+      onToggleRelations: () => {},
       searchOpen: false,
       query: '',
       onQueryChange: () => {},
@@ -143,12 +149,13 @@ describe('V4 标签分区头部:图标按钮 28 档', () => {
       ...over,
     });
 
-  it('搜索/树-扁平/筛选三个图标档按钮(28×28 / rounded-sm),按钮里无文字', async () => {
+  it('搜索/树-扁平/显示关系/筛选四个图标档按钮(28×28 / rounded-sm),按钮里无文字', async () => {
     await render(header());
     const buttons = [...host.querySelectorAll('button')] as HTMLElement[];
     expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual([
       '搜索标签',
       '切换为扁平列表',
+      '标签树里显示关系',
       '筛选标签',
     ]);
     for (const btn of buttons) {
@@ -158,19 +165,19 @@ describe('V4 标签分区头部:图标按钮 28 档', () => {
     }
   });
 
-  it('回归:搜索开/关、模式切换与筛选标签回调不变', async () => {
+  it('回归:搜索开/关、模式切换、显示关系与筛选标签回调不变', async () => {
     const calls: string[] = [];
     await render(
       header({
         onToggleSearch: () => calls.push('search'),
         onModeChange: (m: string) => calls.push('mode:' + m),
+        onToggleRelations: () => calls.push('relations'),
         onFilterTags: () => calls.push('filter'),
       })
     );
-    const [search, mode, filter] = [...host.querySelectorAll('button')] as HTMLElement[];
-    await act(async () => search.click());
-    await act(async () => mode.click());
-    await act(async () => filter.click());
-    expect(calls).toEqual(['search', 'mode:flat', 'filter']);
+    for (const label of ['搜索标签', '切换为扁平列表', '标签树里显示关系', '筛选标签']) {
+      await act(async () => byLabel(label).click());
+    }
+    expect(calls).toEqual(['search', 'mode:flat', 'relations', 'filter']);
   });
 });

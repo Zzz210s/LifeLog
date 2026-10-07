@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 /**
- * 侧栏标签分区的三个按钮改成图标(精简批次 Task 4 + 拾枝 ① 的放大镜):只有 svg,没有文字节点。
- * `aria-label` 与 `title` 一字不改 —— 无障碍与验收脚本(CDP 按 aria-label 定位)都靠它,
+ * 侧栏标签分区头部:四个图标按钮(2026-10-07 从三个加了一个「标签树里显示关系」)。
+ * `aria-label` 与 `title` 是无障碍与验收脚本(CDP 按 aria-label 定位)的定位锚点;
  * 图标只换形态、不改语义。图标风格照仓内既有:viewBox 0 0 16 16 / stroke=currentColor /
  * h-3.5 w-3.5 / aria-hidden。放大镜默认收起(不渲染 input),展开后 Esc 清空并收起。
+ * 「筛选标签」图标同期从漏斗换成筛选/条件语义的递减线条,与放大镜一眼区分。
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { act, createElement } from 'react';
@@ -21,12 +22,14 @@ let modeCalls: string[];
 let filterCalls: number;
 let searchCalls: number;
 let closeCalls: number;
+let relationCalls: number;
 
 beforeEach(() => {
   modeCalls = [];
   filterCalls = 0;
   searchCalls = 0;
   closeCalls = 0;
+  relationCalls = 0;
   host = document.createElement('div');
   document.body.appendChild(host);
   root = createRoot(host);
@@ -37,7 +40,11 @@ afterEach(() => {
   host.remove();
 });
 
-const render = async (mode: 'tree' | 'flat', searchOpen = false): Promise<void> => {
+const render = async (
+  mode: 'tree' | 'flat',
+  searchOpen = false,
+  showRelations = true
+): Promise<void> => {
   await act(async () =>
     root.render(
       createElement(TagsHeader, {
@@ -46,6 +53,10 @@ const render = async (mode: 'tree' | 'flat', searchOpen = false): Promise<void> 
         onModeChange: (m: 'tree' | 'flat') => modeCalls.push(m),
         onFilterTags: () => {
           filterCalls += 1;
+        },
+        showRelations,
+        onToggleRelations: () => {
+          relationCalls += 1;
         },
         searchOpen,
         query: '',
@@ -64,20 +75,22 @@ const render = async (mode: 'tree' | 'flat', searchOpen = false): Promise<void> 
 const buttons = (): HTMLButtonElement[] => [...host.querySelectorAll('button')] as HTMLButtonElement[];
 
 describe('侧栏标签分区头部:按钮图标化', () => {
-  it('树模式:三个按钮都是纯图标,aria-label/title 仍是原值', async () => {
+  it('树模式:四个按钮都是纯图标,aria-label/title 仍是原值', async () => {
     await render('tree');
-    const [search, mode, filter] = buttons();
-    expect(buttons()).toHaveLength(3);
+    const [search, mode, relations, filter] = buttons();
+    expect(buttons()).toHaveLength(4);
     expect([
       search.getAttribute('aria-label'),
       mode.getAttribute('aria-label'),
+      relations.getAttribute('aria-label'),
       filter.getAttribute('aria-label'),
-    ]).toEqual(['搜索标签', '切换为扁平列表', '筛选标签']);
+    ]).toEqual(['搜索标签', '切换为扁平列表', '标签树里显示关系', '筛选标签']);
     expect([
       search.getAttribute('title'),
       mode.getAttribute('title'),
+      relations.getAttribute('title'),
       filter.getAttribute('title'),
-    ]).toEqual(['搜索标签', '切换为扁平列表', FILTER_TITLE]);
+    ]).toEqual(['搜索标签', '切换为扁平列表', '标签树里显示关系', FILTER_TITLE]);
     for (const b of buttons()) {
       expect(b.textContent).toBe('');
       const svg = b.querySelector('svg');
@@ -97,14 +110,29 @@ describe('侧栏标签分区头部:按钮图标化', () => {
     expect(mode.querySelector('svg')).not.toBeNull();
   });
 
-  it('回归:三个入口仍各自回调', async () => {
+  it('「标签树里显示关系」按当前值 aria-pressed,点击回调一次', async () => {
+    await render('tree', false, true);
+    const on = buttons()[2];
+    expect(on.getAttribute('aria-pressed')).toBe('true');
+    expect(String(on.className)).toContain('bg-selected');
+    await act(async () => on.click());
+    expect(relationCalls).toBe(1);
+    await render('tree', false, false);
+    const off = buttons()[2];
+    expect(off.getAttribute('aria-pressed')).toBe('false');
+    expect(String(off.className)).not.toContain('bg-selected');
+  });
+
+  it('回归:四个入口仍各自回调', async () => {
     await render('tree');
-    const [search, mode, filter] = buttons();
+    const [search, mode, relations, filter] = buttons();
     await act(async () => search.click());
     await act(async () => mode.click());
+    await act(async () => relations.click());
     await act(async () => filter.click());
     expect(searchCalls).toBe(1);
     expect(modeCalls).toEqual(['flat']);
+    expect(relationCalls).toBe(1);
     expect(filterCalls).toBe(1);
   });
 

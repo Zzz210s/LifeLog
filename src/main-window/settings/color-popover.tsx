@@ -17,7 +17,10 @@ export function ColorPopover({ value, allowTransparent, label, onChange, onClose
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key !== 'Escape') return;
+      // 先吃掉:不要让 Esc 冒泡到窗口级(设置页的 Esc 返回、输入栏的隐藏都在那里)
+      e.stopPropagation();
+      onClose();
     };
     const onDown = (e: PointerEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) onClose();

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
- * 条件栏(Task 2 瘦身):只留条件 chips —— 外壳样式与 chips 的显示 / 单删 / 语义色。
- * 排序 / 添加条件 / 导出的按钮全部搬走(排序与添加条件走 `>` 命令,鼠标入口是顶栏溢出菜单);
+ * 条件栏:条件 chips + 中文摘要 + 两个就近鼠标入口(排序 / 添加条件)。
+ * 2026-10-07 盘点:排序与添加条件从顶栏 `⋯` 移回本栏(与 `>` 命令同一通道);
  * 摘要与受控菜单在 `condition-bar-menu.dom.test.ts`(拆分守 200 行红线)。
  * chips 口径沿用旧 filter-bar-style.dom.test.ts 里仍然有效的回归项。
  */
@@ -28,16 +28,17 @@ afterEach(() => {
   m.unmount();
 });
 
-describe('条件栏:只剩 chips', () => {
-  it('不渲染排序 / 导出 / 添加条件按钮(鼠标入口在顶栏溢出菜单)', async () => {
+describe('条件栏:chips + 两个就近入口', () => {
+  it('带排序图标按钮与「添加条件」按钮;其余按钮只能是 chip 的单删 / 编辑', async () => {
     await m.render(FULL_BAR_COND);
     const buttons = m.buttons();
     expect(buttons.length).toBeGreaterThan(0); // 断言不是"整栏没按钮"这种假绿
-    for (const b of buttons) {
-      expect(b.textContent ?? '').not.toMatch(/排序|导出|添加条件/);
-    }
+    expect(m.host().querySelector('button[aria-label="排序"]')).not.toBeNull();
+    expect(m.host().querySelector('button[aria-label="添加条件"]')).not.toBeNull();
     // 剩下的按钮只能是 chip 自己的单删 × 与表达式编辑入口(条件组工具条的组头按钮另算)
-    const chipButtons = buttons.filter((b) => b.closest('[data-testid="filter-group-bar"]') === null);
+    const chipButtons = buttons
+      .filter((b) => b.closest('[data-testid="filter-group-bar"]') === null)
+      .filter((b) => !['排序', '添加条件'].includes(b.getAttribute('aria-label') ?? ''));
     for (const b of chipButtons) {
       expect(buttonTextOf(b)).toMatch(/移除条件|编辑条件/);
     }

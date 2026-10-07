@@ -18,7 +18,6 @@ import type { MainView } from '../settings/settings-model';
 import { SettingsView } from '../settings/SettingsView';
 import { StreamView, type StreamViewProps } from './StreamView';
 import { TopBar } from './TopBar';
-import type { TopBarMenuItem } from './TopBarMenu';
 import { contentColumnClass } from './content-column';
 
 export interface ViewHostProps {
@@ -29,8 +28,8 @@ export interface ViewHostProps {
   theme: ThemeModeController;
   /** 侧栏显隐:决定内容区列宽,也是顶栏开关的当前态 */
   sidebarVisible: boolean;
-  /** 顶栏溢出菜单(条目由 App 从命令表构造)与导出反馈 */
-  topBarMenu: { menuItems: readonly TopBarMenuItem[]; exporting: boolean; exported: boolean };
+  /** 顶栏导出反馈(App 注入) */
+  topBar: { exporting: boolean; exported: boolean };
   onToggleSidebar: () => void;
   onOpenSettings: () => void;
   /** 顶栏常驻「关系图」图标按钮(App 注入 `commands.execute('graph.open')`) */
@@ -59,9 +58,8 @@ export function ViewHost(p: ViewHostProps): ReactNode {
       <TopBar
         view={p.view}
         sidebarVisible={p.sidebarVisible}
-        menuItems={p.topBarMenu.menuItems}
-        exporting={p.topBarMenu.exporting}
-        exported={p.topBarMenu.exported}
+        exporting={p.topBar.exporting}
+        exported={p.topBar.exported}
         onToggleSidebar={p.onToggleSidebar}
         onOpenSettings={p.onOpenSettings}
         onOpenGraph={p.onOpenGraph}
@@ -73,6 +71,7 @@ export function ViewHost(p: ViewHostProps): ReactNode {
           themeMode={p.theme.mode}
           onThemeChange={p.theme.setMode}
           onReplayTutorial={p.onReplayTutorial}
+          onBack={p.onBack}
           showRelations={p.tagTreeRelations?.showRelations}
           onShowRelationsChange={p.tagTreeRelations?.onShowRelationsChange}
         />
