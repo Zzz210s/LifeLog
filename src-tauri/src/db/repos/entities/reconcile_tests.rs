@@ -54,6 +54,10 @@ fn consistent_v24_passes_five_and_mirror() {
     let c = consistent_v24();
     assert_cache_matches_edges(&c);
     assert_mirror_matches_legacy(&c);
+    assert!(
+        super::reconcile_mirror::TAGS_MIRROR.contains(&TAG_ID_OFFSET.to_string()),
+        "镜像 SQL 的 id 偏移必须与 TAG_ID_OFFSET 一致"
+    );
     let n = counts(&c).unwrap();
     assert_eq!(n.tags, Some(3));
     assert_eq!(n.entities_tag, Some(3));
