@@ -1,13 +1,12 @@
 //! 标签树仓库层(MVP-2 Task 3):建路径、链接、孤儿回收;结构变更见 ops,查询见 query。
-//! 树真源是 parent_id,path 为冗余但受唯一索引约束,结构变更必须同步维护 path/depth;
-//! 路径前缀比较一律用 substr 而非 LIKE(存量标签名可能含 % 或 _),ensure_path/link_note 收在调用方事务里。
-//! 空标签回收策略:既无 tag_links、无指向它的携带行、又无子节点的容器才回收(link_paths 与 delete_subtree 一致)。
+//! T4.1 起树真源是 `edges(kind='child')`,`entities.parent_id/path/depth` 是派生缓存
+//! (写路径同事务维护,见 ensure/ops/merge);路径前缀比较一律用 substr 而非 LIKE
+//! (存量标签名可能含 % 或 _),ensure_path/link_note 收在调用方事务里。
+//! 空标签回收策略:既无出边、又无 `child` 以外的入边才回收(link_paths 与 delete_subtree 一致)。
 //! 路径 -> id 的解析漏斗与链接替换已拆到 link.rs(replace::replace_links),本文件只留树本身。
 use rusqlite::{params, Connection};
 
 use crate::db::repos::entities::fts::ENTITIES_AGG;
-
-use super::fts_tags::TAGS_AGG;
 
 /// 前缀补全返回上限:前缀过短时不一次吐全库
 const COMPLETE_LIMIT: i64 = 50;
@@ -16,9 +15,10 @@ const COMPLETE_LIMIT: i64 = 50;
 pub fn subtree_ids(conn: &Connection, tag_id: i64) -> rusqlite::Result<Vec<i64>> {
     let mut stmt = conn.prepare(
         "WITH RECURSIVE sub(id, depth) AS (
-           SELECT id, depth FROM tags WHERE id = ?1
+           SELECT id, depth FROM entities WHERE id = ?1 AND kind = 'tag'
            UNION ALL
-           SELECT t.id, t.depth FROM tags t JOIN sub s ON t.parent_id = s.id
+           SELECT t.id, t.depth FROM entities t JOIN sub s ON t.parent_id = s.id
+             WHERE t.kind = 'tag'
          ) SELECT id FROM sub ORDER BY depth DESC, id",
     )?;
     let rows = stmt.query_map(params![tag_id], |r| r.get(0))?;
@@ -32,23 +32,26 @@ pub(crate) fn linked_notes(conn: &Connection, tag_ids: &[i64]) -> rusqlite::Resu
     }
     let marks = vec!["?"; tag_ids.len()].join(",");
     let mut stmt = conn.prepare(&format!(
-        "SELECT DISTINCT target_id FROM tag_links
-         WHERE target_type = 'note' AND tag_id IN ({marks}) ORDER BY target_id"
+        "SELECT DISTINCT source_id FROM edges
+         WHERE kind = 'tagging' AND target_id IN ({marks}) ORDER BY source_id"
     ))?;
     let rows = stmt.query_map(rusqlite::params_from_iter(tag_ids.iter()), |r| r.get(0))?;
     rows.collect()
 }
 
-/// 结构变更(改名/移动/删除树)不经过 tag_links 触发器,需按当前链接聚合显式重写 FTS 行。
-/// 聚合口径的唯一真源是 [`super::fts_tags::TAGS_AGG`](路径 + 纯文本路径 + 别名;时间标签已是普通标签,
-/// 与其它标签同权,见 D3),与迁移 018 重建的触发器、维护命令的 rebuild 逐字一致。
+/// 结构变更(改名/移动/删除树)或别名变化后,显式重写受影响笔记的 `notes_fts` 行。
+/// T4.1 起标签数据已迁到 `entities`/`edges`,聚合口径改用 [`ENTITIES_AGG`](与阶段 3
+/// 冻结的 `TAGS_AGG` 逐字等价,见记忆 #1321 的全量 sha256 基线);老 `tags`/`tag_links`
+/// 不再同步,故不能再走 `TAGS_AGG`。与 `refresh_entities_fts` 并存到 4.7 删 `notes_fts`。
 pub(crate) fn refresh_fts(conn: &Connection, note_ids: &[i64]) -> rusqlite::Result<()> {
     for id in note_ids {
         conn.execute("DELETE FROM notes_fts WHERE rowid = ?1", params![id])?;
         conn.execute(
             &format!(
                 "INSERT INTO notes_fts(rowid, content, tags)
-                 SELECT n.id, n.content, {TAGS_AGG} FROM notes n WHERE n.id = ?1"
+                 SELECT n.id, n.content,
+                        COALESCE((SELECT {ENTITIES_AGG} FROM entities e WHERE e.id = n.id), '')
+                 FROM notes n WHERE n.id = ?1"
             ),
             params![id],
         )?;
@@ -59,8 +62,6 @@ pub(crate) fn refresh_fts(conn: &Connection, note_ids: &[i64]) -> rusqlite::Resu
 /// `entities_fts` 的显式重写:标签实体自身也进索引,结构变更(改名/移动/删除/合并)后按
 /// 受影响实体 id 重写。聚合口径真源 = [`ENTITIES_AGG`](笔记:tagging 边指向标签的
 /// 路径+纯文本+别名;标签:自身路径+纯文本+别名);与 `refresh_fts`(notes_fts)并存到阶段 4。
-/// T3.2 落 026 触发器前没有非测试调用方,阶段 4 起由 `finish()` 与维护重建接管。
-#[allow(dead_code)]
 pub(crate) fn refresh_entities_fts(conn: &Connection, entity_ids: &[i64]) -> rusqlite::Result<()> {
     for id in entity_ids {
         conn.execute("DELETE FROM entities_fts WHERE rowid = ?1", params![id])?;
@@ -75,28 +76,30 @@ pub(crate) fn refresh_entities_fts(conn: &Connection, entity_ids: &[i64]) -> rus
     Ok(())
 }
 
-/// 链接笔记到标签(幂等)。tag_links 触发器负责把聚合路径同步进 FTS。
+/// 链接笔记到标签(幂等)。方向 = 笔记 -> 标签(spec §2.1),同向同类边由唯一约束去重。
 pub fn link_note(conn: &Connection, note_id: i64, tag_id: i64) -> rusqlite::Result<()> {
     conn.execute(
-        "INSERT OR IGNORE INTO tag_links(tag_id, target_type, target_id) VALUES(?1, 'note', ?2)",
-        params![tag_id, note_id],
+        "INSERT OR IGNORE INTO edges(source_id, target_id, kind, remark, created_at)
+         VALUES(?1, ?2, 'tagging', '', datetime('now', 'localtime'))",
+        params![note_id, tag_id],
     )?;
     Ok(())
 }
 
-/// 精确回收孤儿标签:既无 tag_links(任何方向)、又无子节点、又不是任何 'tag'/'type' 行的目标
-/// (父节点天生没有链接,不得当孤儿删)。被指向的标签(如只做关系声明的 `地点轴/国籍`)、
-/// 认领了关系的值标签(`中国`)都是有用处的空壳:回收它们会让关系静默消失,
-/// 故必须与"有笔记链接"同等对待,不得回收(R7)。'type' 行已由迁移 022 并入 'tag',
-/// 这里保留 `IN ('tag','type')` 只为兜住历史重放中的极端情形。
+/// 精确回收孤儿标签:既无出边(子节点 / 出关系)、又无 `child` 以外的入边才回收。
+/// 有父节点的标签天生有一条入 `child` 边,不得当孤儿删;被笔记链接(`tagging` 入边)、
+/// 被别的标签指向(`relation` 入边,如只做关系声明的 `地点轴/国籍`)都是有用处的空壳,
+/// 回收它们会让链接/关系静默消失,故与"有子节点/有出关系"同等对待(R7)。
 /// 循环删除以覆盖"整条链都成孤儿"的情形(链有多长就循环多少次)。
 pub(crate) fn gc_orphans(conn: &Connection) -> rusqlite::Result<()> {
     loop {
         let n = conn.execute(
-            "DELETE FROM tags
-             WHERE NOT EXISTS (SELECT 1 FROM tag_links l WHERE l.tag_id = tags.id)
-               AND NOT EXISTS (SELECT 1 FROM tag_links c WHERE c.target_type IN ('tag', 'type') AND c.target_id = tags.id)
-               AND NOT EXISTS (SELECT 1 FROM tags ch WHERE ch.parent_id = tags.id)",
+            "DELETE FROM entities
+             WHERE kind = 'tag'
+               AND NOT EXISTS (SELECT 1 FROM edges x WHERE x.source_id = entities.id)
+               AND NOT EXISTS (
+                 SELECT 1 FROM edges y
+                 WHERE y.target_id = entities.id AND y.kind <> 'child')",
             [],
         )?;
         if n == 0 {
@@ -112,6 +115,8 @@ mod ensure;
 mod link;
 #[path = "ops.rs"]
 mod ops;
+#[path = "ops_delete.rs"]
+mod ops_delete;
 #[path = "ops_sql.rs"]
 mod ops_sql;
 #[path = "path.rs"]
@@ -123,7 +128,8 @@ mod replace;
 #[path = "similar.rs"]
 mod similar;
 pub use ensure::ensure_path;
-pub use ops::{delete_subtree, move_beside, move_to, rename};
+pub use ops::{move_beside, move_to, rename};
+pub use ops_delete::delete_subtree;
 // 路径 -> id 的解析漏斗:解析顺序与别名优先级的唯一实现(见 link.rs)
 pub(crate) use link::link_paths;
 // `complete`(纯标签路径补全)现在只被 complete_with_aliases 与仓库层测试使用,不再向命令层导出;

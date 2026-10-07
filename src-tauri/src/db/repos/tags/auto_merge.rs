@@ -25,7 +25,9 @@ pub(crate) fn merge_pair(
 ) -> Result<(), String> {
     let kids: Vec<i64> = {
         let mut stmt = conn
-            .prepare("SELECT id FROM tags WHERE parent_id = ?1 ORDER BY id")
+            .prepare(
+                "SELECT id FROM entities WHERE kind = 'tag' AND parent_id = ?1 ORDER BY id",
+            )
             .map_err(|e| e.to_string())?;
         let rows = stmt.query_map(params![source_id], |r| r.get(0)).map_err(|e| e.to_string())?;
         rows.collect::<rusqlite::Result<Vec<_>>>().map_err(|e| e.to_string())?
@@ -33,7 +35,7 @@ pub(crate) fn merge_pair(
     let note_links = note_links_of_subtree(conn, source_id)?;
     let edges: i64 = conn
         .query_row(
-            "SELECT COUNT(*) FROM tag_links WHERE target_type='tag' AND (tag_id=?1 OR target_id=?1)",
+            "SELECT COUNT(*) FROM edges WHERE kind='relation' AND (source_id=?1 OR target_id=?1)",
             params![source_id],
             |r| r.get(0),
         )
@@ -58,7 +60,8 @@ pub(crate) fn merge_pair(
 fn next_duplicate(conn: &Connection) -> Result<Option<(i64, i64)>, String> {
     let group = conn
         .query_row(
-            "SELECT COALESCE(parent_id, 0), tag_plain(name) FROM tags
+            "SELECT COALESCE(parent_id, 0), tag_plain(name) FROM entities
+             WHERE kind = 'tag'
              GROUP BY 1, 2 HAVING COUNT(*) > 1 LIMIT 1",
             [],
             |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)),
@@ -70,7 +73,8 @@ fn next_duplicate(conn: &Connection) -> Result<Option<(i64, i64)>, String> {
     };
     let mut stmt = conn
         .prepare(
-            "SELECT id FROM tags WHERE COALESCE(parent_id, 0) = ?1 AND tag_plain(name) = ?2
+            "SELECT id FROM entities
+             WHERE kind = 'tag' AND COALESCE(parent_id, 0) = ?1 AND tag_plain(name) = ?2
              ORDER BY id",
         )
         .map_err(|e| e.to_string())?;
@@ -90,7 +94,7 @@ fn note_links_of_subtree(conn: &Connection, tag_id: i64) -> Result<i64, String> 
     let marks = vec!["?"; ids.len()].join(",");
     conn.query_row(
         &format!(
-            "SELECT COUNT(*) FROM tag_links WHERE target_type='note' AND tag_id IN ({marks})"
+            "SELECT COUNT(*) FROM edges WHERE kind='tagging' AND target_id IN ({marks})"
         ),
         rusqlite::params_from_iter(ids.iter()),
         |r| r.get(0),

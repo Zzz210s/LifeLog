@@ -7,6 +7,7 @@ use rusqlite::Connection;
 fn db() -> Connection {
     let c = Connection::open_in_memory().unwrap();
     migrate::run(&c).unwrap();
+    crate::db::repos::tags::test_support::install_entity_views(&c);
     c
 }
 
@@ -21,12 +22,7 @@ fn id_at(c: &Connection, path: &str) -> i64 {
 
 /// 模拟 006 原样保留的存量平铺根(name == path,parent NULL,depth 1)
 fn seed_legacy(c: &Connection, name: &str) -> i64 {
-    c.execute(
-        "INSERT INTO tags(name, parent_id, path, depth) VALUES(?1, NULL, ?1, 1)",
-        [name],
-    )
-    .unwrap();
-    id_at(c, name)
+    ensure_path(c, &[name.to_string()]).unwrap()
 }
 
 fn dump(c: &Connection) -> Vec<String> {
@@ -70,11 +66,7 @@ fn rename_legacy_flat_root_does_not_create_phantom_prefix() {
 /// 存量行必须带链接或子节点,否则会被 gc_orphans(create/link_paths 收尾)回收掉
 fn seed_legacy_linked(c: &Connection, name: &str, note_id: i64) -> i64 {
     let id = seed_legacy(c, name);
-    c.execute(
-        "INSERT INTO tag_links(tag_id, target_type, target_id) VALUES(?1, 'note', ?2)",
-        rusqlite::params![id, note_id],
-    )
-    .unwrap();
+    link_note(c, note_id, id).unwrap();
     id
 }
 

@@ -66,18 +66,26 @@ pub(crate) fn merge_core(
     attach_children(conn, source_id, target_id)?;
     // ② 笔记链接整行转移:目标已有同一笔记的链接时被主键挡下,不计入 movedLinks
     conn.execute(
-        "UPDATE OR IGNORE tag_links SET tag_id = ?1 WHERE tag_id = ?2 AND target_type = 'note'",
+        "UPDATE OR IGNORE edges SET target_id = ?1 WHERE kind = 'tagging' AND target_id = ?2",
         params![target_id, source_id],
     )
     .map_err(|e| e.to_string())?;
     let moved_links = conn.changes() as i64;
     // ③ 出边/入边取并集(会成环/变自环的边按 R3 剔除)
     union_edges(conn, source_id, target_id)?;
-    // ④ 清掉源残余的链接行(被 IGNORE 的重复笔记链接 + 被剔除的关系边)
-    conn.execute("DELETE FROM tag_links WHERE tag_id = ?1", params![source_id])
-        .map_err(|e| e.to_string())?;
+    // ④ 清掉源残余的边(被 IGNORE 的重复笔记链接 + 被剔除的关系边 + 源的入 child 边)
     conn.execute(
-        "DELETE FROM tag_links WHERE target_type = 'tag' AND target_id = ?1",
+        "DELETE FROM edges WHERE kind = 'tagging' AND target_id = ?1",
+        params![source_id],
+    )
+    .map_err(|e| e.to_string())?;
+    conn.execute(
+        "DELETE FROM edges WHERE kind = 'relation' AND (source_id = ?1 OR target_id = ?1)",
+        params![source_id],
+    )
+    .map_err(|e| e.to_string())?;
+    conn.execute(
+        "DELETE FROM edges WHERE kind = 'child' AND target_id = ?1",
         params![source_id],
     )
     .map_err(|e| e.to_string())?;
@@ -87,14 +95,15 @@ pub(crate) fn merge_core(
     } else {
         Vec::new()
     };
-    // ⑥ 删除源标签(外键级联兜底清理残余链接行)
-    conn.execute("DELETE FROM tags WHERE id = ?1", params![source_id])
+    // ⑥ 删除源标签实体(外键级联兜底清理残余边)
+    conn.execute("DELETE FROM entities WHERE id = ?1 AND kind = 'tag'", params![source_id])
         .map_err(|e| e.to_string())?;
     // ⑦ 统一收尾:筛选条件级联 -> 受影响笔记 FTS 重写 -> 孤儿回收
     finish_core(
         conn,
         PostWrite {
             notes: &notes,
+            entities: &ids,
             path_change: Some((source_path.as_str(), target_path.as_str())),
             gc: true,
         },
@@ -109,9 +118,11 @@ pub(crate) fn merge_core(
 
 /// 标签路径;不存在返回 None(供"标签不存在"中文报错)
 fn path_of(conn: &Connection, id: i64) -> rusqlite::Result<Option<String>> {
-    conn.query_row("SELECT path FROM tags WHERE id = ?1", params![id], |r| {
-        r.get(0)
-    })
+    conn.query_row(
+        "SELECT path FROM entities WHERE id = ?1 AND kind = 'tag'",
+        params![id],
+        |r| r.get(0),
+    )
     .optional()
 }
 
@@ -124,8 +135,8 @@ pub(crate) fn sibling_by_name(
     exclude: i64,
 ) -> Result<Option<i64>, String> {
     conn.query_row(
-        "SELECT id FROM tags
-         WHERE COALESCE(parent_id, 0) = COALESCE(?1, 0) AND name = ?2 AND id <> ?3
+        "SELECT id FROM entities
+         WHERE kind = 'tag' AND COALESCE(parent_id, 0) = COALESCE(?1, 0) AND name = ?2 AND id <> ?3
          ORDER BY id LIMIT 1",
         params![parent, name, exclude],
         |r| r.get(0),

@@ -1,6 +1,9 @@
 //! 合并时把源的子标签整棵搬到目标下(设计 2026-10-06 §6;路径物化见记忆 #989:
 //! 只改 parent_id 会留脏 path,必须同时重写整棵子树的 path 并按层差调 depth)。
-//! 与目标已有子标签 **raw 名**相同的先递归整棵并 —— 唯一索引 idx_tags_sibling_name 不允许两行同名兄弟。
+//! T4.1 起标签行在 `entities(kind='tag')`、父子真源在 `edges(kind='child')`:
+//! 派生列与边同事务维护。
+//! 与目标已有子标签 **raw 名**相同的先递归整棵并 —— 唯一索引 idx_entities_sibling_name
+//! 不允许两行同名兄弟。
 use super::auto_merge::merge_pair;
 use super::merge::sibling_by_name;
 use rusqlite::{params, Connection};
@@ -25,25 +28,33 @@ pub(crate) fn attach_children(
     let (src_depth, src_path) = depth_path(conn, source_id)?;
     let (dst_depth, dst_path) = depth_path(conn, target_id)?;
     shift_descendant_depths(conn, source_id, dst_depth - src_depth)?;
-    // ③ 依次挂到目标末尾,保留彼此相对顺序
+    // ③ 父子边整批改挂到目标(剩余子标签的入 child 边)
+    conn.execute(
+        "UPDATE edges SET source_id = ?2 WHERE kind = 'child' AND source_id = ?1",
+        params![source_id, target_id],
+    )
+    .map_err(|e| e.to_string())?;
+    // ④ 依次挂到目标末尾,保留彼此相对顺序
     let base: i64 = conn
         .query_row(
-            "SELECT COALESCE(MAX(sort_order), -1) + 1 FROM tags WHERE parent_id = ?1",
+            "SELECT COALESCE(MAX(sort_order), -1) + 1 FROM entities
+             WHERE kind = 'tag' AND parent_id = ?1",
             params![target_id],
             |r| r.get(0),
         )
         .map_err(|e| e.to_string())?;
     for (i, cid) in remaining.iter().enumerate() {
         conn.execute(
-            "UPDATE tags SET parent_id = ?1, sort_order = ?2 WHERE id = ?3",
+            "UPDATE entities SET parent_id = ?1, sort_order = ?2 WHERE id = ?3 AND kind = 'tag'",
             params![target_id, base + i as i64, cid],
         )
         .map_err(|e| e.to_string())?;
     }
-    // ④ 子树 path 前缀重写(只改后代,不含源自己 —— 源的 path 由调用方删除处理)
+    // ⑤ 子树 path 前缀重写(只改后代,不含源自己 —— 源的 path 由调用方删除处理)
     conn.execute(
-        "UPDATE tags SET path = ?2 || substr(path, length(?1) + 1)
-         WHERE length(path) > length(?1) AND substr(path, 1, length(?1) + 1) = ?1 || '/'",
+        "UPDATE entities SET path = ?2 || substr(path, length(?1) + 1)
+         WHERE kind = 'tag'
+           AND length(path) > length(?1) AND substr(path, 1, length(?1) + 1) = ?1 || '/'",
         params![src_path, dst_path],
     )
     .map_err(|e| e.to_string())?;
@@ -52,7 +63,10 @@ pub(crate) fn attach_children(
 
 fn child_rows(conn: &Connection, parent: i64) -> Result<Vec<(i64, String)>, String> {
     let mut stmt = conn
-        .prepare("SELECT id, name FROM tags WHERE parent_id = ?1 ORDER BY sort_order, path")
+        .prepare(
+            "SELECT id, name FROM entities WHERE kind = 'tag' AND parent_id = ?1
+             ORDER BY sort_order, path",
+        )
         .map_err(|e| e.to_string())?;
     let rows = stmt
         .query_map(params![parent], |r| Ok((r.get(0)?, r.get(1)?)))
@@ -62,16 +76,21 @@ fn child_rows(conn: &Connection, parent: i64) -> Result<Vec<(i64, String)>, Stri
 
 fn child_ids(conn: &Connection, parent: i64) -> Result<Vec<i64>, String> {
     let mut stmt = conn
-        .prepare("SELECT id FROM tags WHERE parent_id = ?1 ORDER BY sort_order, path")
+        .prepare(
+            "SELECT id FROM entities WHERE kind = 'tag' AND parent_id = ?1
+             ORDER BY sort_order, path",
+        )
         .map_err(|e| e.to_string())?;
     let rows = stmt.query_map(params![parent], |r| r.get(0)).map_err(|e| e.to_string())?;
     rows.collect::<rusqlite::Result<Vec<_>>>().map_err(|e| e.to_string())
 }
 
 fn depth_path(conn: &Connection, id: i64) -> Result<(i64, String), String> {
-    conn.query_row("SELECT depth, path FROM tags WHERE id = ?1", params![id], |r| {
-        Ok((r.get(0)?, r.get(1)?))
-    })
+    conn.query_row(
+        "SELECT depth, path FROM entities WHERE id = ?1 AND kind = 'tag'",
+        params![id],
+        |r| Ok((r.get(0)?, r.get(1)?)),
+    )
     .map_err(|e| format!("标签不存在: {id} ({e})"))
 }
 
@@ -81,9 +100,9 @@ fn shift_descendant_depths(conn: &Connection, tag_id: i64, delta: i64) -> Result
     }
     conn.execute(
         "WITH RECURSIVE sub(id) AS (
-           SELECT id FROM tags WHERE parent_id = ?1
-           UNION ALL SELECT t.id FROM tags t JOIN sub s ON t.parent_id = s.id
-         ) UPDATE tags SET depth = depth + ?2 WHERE id IN (SELECT id FROM sub)",
+           SELECT id FROM entities WHERE parent_id = ?1
+           UNION ALL SELECT t.id FROM entities t JOIN sub s ON t.parent_id = s.id
+         ) UPDATE entities SET depth = depth + ?2 WHERE id IN (SELECT id FROM sub)",
         params![tag_id, delta],
     )
     .map_err(|e| e.to_string())?;

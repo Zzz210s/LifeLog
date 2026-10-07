@@ -7,12 +7,7 @@ use super::*;
 fn ensure_path_reconciles_legacy_flat_name_with_slash() {
     let c = db();
     // 006 迁移把存量标签原样保留为根:name == path == '待定/TBD',depth=1,parent=NULL
-    c.execute(
-        "INSERT INTO tags(name, parent_id, path, depth) VALUES('待定/TBD', NULL, '待定/TBD', 1)",
-        [],
-    )
-    .unwrap();
-    let legacy = id_at(&c, "待定/TBD");
+    let legacy = ensure_path(&c, &segs(&["待定/TBD"])).unwrap();
 
     let leaf = ensure_path(&c, &segs(&["待定", "TBD"])).unwrap();
 
@@ -35,11 +30,7 @@ fn ensure_path_reconciles_legacy_flat_name_with_slash() {
 #[test]
 fn create_with_legacy_flat_name_builds_two_level_tree() {
     let mut c = db();
-    c.execute(
-        "INSERT INTO tags(name, parent_id, path, depth) VALUES('待定/TBD', NULL, '待定/TBD', 1)",
-        [],
-    )
-    .unwrap();
+    ensure_path(&c, &segs(&["待定/TBD"])).unwrap();
     let n = notes::create_plain(&mut c, "记一笔 #待定/TBD").unwrap();
     assert_eq!(n.tags, vec!["待定/TBD"]);
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags"), 2);
@@ -65,8 +56,11 @@ fn gc_orphans_keeps_parents_with_children_and_prunes_dead_chain() {
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags"), 2, "父节点有子节点,不是孤儿");
 
     // 解链后叶与父逐层收敛回收
-    c.execute("DELETE FROM tag_links WHERE target_id=?1 AND target_type='note'", [n.id])
-        .unwrap();
+    c.execute(
+        "DELETE FROM edges WHERE kind='tagging' AND source_id=?1",
+        [n.id],
+    )
+    .unwrap();
     gc_orphans(&c).unwrap();
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags"), 0);
 }

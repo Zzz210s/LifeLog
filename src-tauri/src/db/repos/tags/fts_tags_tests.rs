@@ -15,6 +15,7 @@ use rusqlite::{params, Connection};
 fn db() -> Connection {
     let c = Connection::open_in_memory().unwrap();
     migrate::run(&c).unwrap();
+    crate::db::repos::tags::test_support::install_entity_views(&c);
     c
 }
 
@@ -118,6 +119,11 @@ fn migration_018_replay_is_a_noop() {
     create_plain(&mut c, "甲 #地点/郴chen州市/宜章县").unwrap();
     let old = id_at(&c, "地点/郴chen州市");
     rename(&mut c, old, "[郴](chēn)州市").unwrap();
+
+    // 018 的 SQL 要在老表上建触发器(视图上不能建),夹具把视图物化成同名真表;
+    // 先重放一次恢复被替换掉的触发器,再验“再重放是空操作”。
+    crate::db::repos::tags::test_support::materialize_legacy(&c);
+    c.execute_batch(MIGRATION_018_SQL).unwrap();
     let once = snapshot(&c);
     assert!(once.contains("郴州市"), "回填后索引串里必须有纯文本路径或别名:{once}");
 

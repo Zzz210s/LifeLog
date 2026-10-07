@@ -17,6 +17,10 @@ pub mod tree;
 pub(crate) mod fts_tags;
 pub(crate) mod write;
 
+/// T4.1 测试夹具:老表换成 entities/edges 视图(见文件头)。
+#[cfg(test)]
+pub(crate) mod test_support;
+
 /// Task 2 同父同名自动合并测试(设计 2026-10-06 §6)。
 #[cfg(test)]
 #[path = "auto_merge_tests.rs"]

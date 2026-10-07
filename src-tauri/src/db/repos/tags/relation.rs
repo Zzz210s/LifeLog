@@ -1,10 +1,10 @@
 //! 标签关系(relation)数据层(设计 2026-10-06 §2 §4):一条边取代「携带 / 类型 / 设为类型」三个概念。
 //!
-//! `tag_links(tag_id = A, target_type = 'tag', target_id = B, remark = 属性名)` 读作
+//! `edges(kind='relation', source_id = A, target_id = B, remark = 属性名)` 读作
 //! 「A 具有「属性名」所表示的属性，值是 B」，如 `作者/丸尾常喜 --(国籍)--> 地点轴/日本`；
 //! 方向固定 A -> B；任何标签都可被指向（`tags.is_type` 已由迁移 022 取消）。
-//! 主键 `(tag_id, target_type, target_id)` 天然去重，重复添加幂等。
-//! `target_id` 上没有外键：删除标签必须显式清理指向它的边（见 ops::delete_subtree / merge_tags）。
+//! 唯一约束 `(source_id, kind, target_id)` 天然去重，重复添加幂等。
+//! 两端有外键：删除标签时指向它的边由 `ON DELETE CASCADE` 清理。
 //!
 //! 语义口径（设计 §4，勿在此处自由发挥）:
 //! - 只查一跳，不传递：A→B、B→C ≠ A→C（R1）
@@ -59,9 +59,10 @@ pub fn set_tag_relation(
         return Err(format!("会形成循环：建立「{from}」到「{to}」的关系会让「{from}」绕回自己"));
     }
     tx.execute(
-        "INSERT INTO tag_links(tag_id, target_type, target_id, remark) VALUES(?1, 'tag', ?2, ?3) \
-         ON CONFLICT(tag_id, target_type, target_id) DO UPDATE SET remark = excluded.remark \
-         WHERE tag_links.remark IS NOT excluded.remark",
+        "INSERT INTO edges(source_id, target_id, kind, remark, created_at)
+         VALUES(?1, ?2, 'relation', ?3, datetime('now', 'localtime'))
+         ON CONFLICT(source_id, kind, target_id) DO UPDATE SET remark = excluded.remark
+         WHERE edges.remark IS NOT excluded.remark",
         params![from_tag_id, to_tag_id, remark],
     )
     .map_err(|e| e.to_string())?;
@@ -75,7 +76,7 @@ pub fn remove_tag_relation(
     to_tag_id: i64,
 ) -> Result<(), String> {
     conn.execute(
-        "DELETE FROM tag_links WHERE tag_id = ?1 AND target_type = 'tag' AND target_id = ?2",
+        "DELETE FROM edges WHERE source_id = ?1 AND kind = 'relation' AND target_id = ?2",
         params![from_tag_id, to_tag_id],
     )
     .map_err(|e| e.to_string())?;
@@ -85,8 +86,8 @@ pub fn remove_tag_relation(
 /// 本标签的全部出边(A → ?)，按目标路径升序；每项带**边上**的属性名
 pub fn list_tag_relations(conn: &Connection, from_tag_id: i64) -> rusqlite::Result<Vec<RelationRef>> {
     let mut stmt = conn.prepare(
-        "SELECT t.id, t.path, l.remark FROM tag_links l JOIN tags t ON t.id = l.target_id \
-         WHERE l.tag_id = ?1 AND l.target_type = 'tag' ORDER BY t.path",
+        "SELECT t.id, t.path, l.remark FROM edges l JOIN entities t ON t.id = l.target_id \
+         WHERE l.source_id = ?1 AND l.kind = 'relation' AND t.kind = 'tag' ORDER BY t.path",
     )?;
     let rows = stmt.query_map(params![from_tag_id], |r| {
         Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?))
@@ -98,7 +99,7 @@ pub fn list_tag_relations(conn: &Connection, from_tag_id: i64) -> rusqlite::Resu
 /// 只数 `target_id` 就是本标签的直接入边 —— 不含传递，也**不含指向子孙标签的边**。
 pub fn count_relations_to(conn: &Connection, to_tag_id: i64) -> rusqlite::Result<i64> {
     conn.query_row(
-        "SELECT COUNT(*) FROM tag_links WHERE target_type = 'tag' AND target_id = ?1",
+        "SELECT COUNT(*) FROM edges WHERE kind = 'relation' AND target_id = ?1",
         params![to_tag_id],
         |r| r.get(0),
     )
@@ -112,8 +113,12 @@ pub(super) fn relation_ref(to_tag_id: i64, path: &str, remark: String) -> Relati
 
 /// 标签路径;不存在返回 None(供"标签不存在"中文报错)
 fn path_of(conn: &Connection, id: i64) -> rusqlite::Result<Option<String>> {
-    conn.query_row("SELECT path FROM tags WHERE id = ?1", params![id], |r| r.get(0))
-        .optional()
+    conn.query_row(
+        "SELECT path FROM entities WHERE id = ?1 AND kind = 'tag'",
+        params![id],
+        |r| r.get(0),
+    )
+    .optional()
 }
 
 /// 路径末段(标签名);`/` 是路径分隔符，单段路径即整串
@@ -142,7 +147,7 @@ pub(super) fn reaches(conn: &Connection, from: i64, to: i64) -> rusqlite::Result
             )));
         }
         let mut stmt = conn.prepare(
-            "SELECT target_id FROM tag_links WHERE tag_id = ?1 AND target_type = 'tag'",
+            "SELECT target_id FROM edges WHERE source_id = ?1 AND kind = 'relation'",
         )?;
         let rows = stmt.query_map(params![cur], |r| r.get::<_, i64>(0))?;
         for row in rows {

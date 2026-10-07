@@ -8,6 +8,7 @@ use rusqlite::Connection;
 fn db() -> Connection {
     let c = Connection::open_in_memory().unwrap();
     migrate::run(&c).unwrap();
+    crate::db::repos::tags::test_support::install_entity_views(&c);
     c
 }
 
@@ -125,11 +126,8 @@ fn complete_returns_prefix_paths_and_treats_chars_literally() {
     notes::create_plain(&mut c, "a #工作/项目A").unwrap();
     notes::create_plain(&mut c, "b #生活").unwrap();
     // 存量根名可能含 % / _(006 原样保留),故前缀比较用 substr 而非 LIKE
-    c.execute_batch(
-        "INSERT INTO tags(name, parent_id, path, depth) VALUES('a%b', NULL, 'a%b', 1);
-         INSERT INTO tags(name, parent_id, path, depth) VALUES('abc', NULL, 'abc', 1);",
-    )
-    .unwrap();
+    ensure_path(&c, &["a%b".to_string()]).unwrap();
+    ensure_path(&c, &["abc".to_string()]).unwrap();
     assert_eq!(complete(&c, "工").unwrap(), vec!["工作", "工作/项目A"]);
     assert_eq!(complete(&c, "工作/").unwrap(), vec!["工作/项目A"]);
     assert_eq!(complete(&c, "a%").unwrap(), vec!["a%b"]);

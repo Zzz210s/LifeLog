@@ -2,6 +2,7 @@
 //! 后续任务按需追加子模块(`fts` 由 T3.1)——先声明后建文件会让迁移 024 落地的瞬间编译不过。
 
 pub mod fts;
+pub mod ids;
 pub mod reconcile;
 pub mod reconcile_mirror;
 

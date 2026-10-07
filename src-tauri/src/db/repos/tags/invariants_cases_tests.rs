@@ -9,6 +9,7 @@ use rusqlite::{params, Connection};
 fn rename_cascades_filter_and_keeps_invariants() {
     let mut c = Connection::open_in_memory().unwrap();
     crate::db::migrate::run(&c).unwrap();
+    crate::db::repos::tags::test_support::install_entity_views(&c);
     crate::db::repos::notes::create_plain(&mut c, "会议记录 #工作/项目A").unwrap();
     let filter = r##"{"keyword":null,"tags":[{"path":"工作/项目A","includeChildren":true}],"excludeTags":[{"path":"工作","includeChildren":false}],"tagPresence":null,"sort":"newest","expr":"#工作/项目A"}"##;
     crate::db::repos::settings::set(&c, FILTER_CURRENT_KEY, filter).unwrap();
@@ -29,13 +30,17 @@ fn rename_cascades_filter_and_keeps_invariants() {
 fn fts_invariant_catches_manual_update_drift() {
     let mut c = Connection::open_in_memory().unwrap();
     crate::db::migrate::run(&c).unwrap();
+    crate::db::repos::tags::test_support::install_entity_views(&c);
     let note = crate::db::repos::notes::create_plain(&mut c, "x #甲").unwrap();
     let jia = id_at(&c, "甲");
     let yi = crate::db::repos::tags::ensure_path(&c, &["乙".to_string()]).unwrap();
 
-    // 变异:绕开所有仓库层入口,直接改链接表
-    c.execute("UPDATE tag_links SET tag_id = ?1 WHERE tag_id = ?2", params![yi, jia])
-        .unwrap();
+    // 变异:绕开所有仓库层入口,直接改边表(edges 的 UPDATE 不刷新 FTS)
+    c.execute(
+        "UPDATE edges SET target_id = ?1 WHERE kind = 'tagging' AND target_id = ?2",
+        params![yi, jia],
+    )
+    .unwrap();
 
     let err = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| assert_fts_matches_tags(&c)))
         .expect_err("测试台必须抓到 UPDATE 造成的 FTS 漂移");

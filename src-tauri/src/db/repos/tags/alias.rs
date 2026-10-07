@@ -1,15 +1,17 @@
 //! 标签别名仓库层(spec 2026-09-20 §3.2):别名不是节点 —— 不进树、不计入计数,
 //! 但**参与 FTS 标签列**(2026-09-26 T4:让 md 标签的显示文本与旧名可搜);
-//! 删除目标标签时由 tag_aliases 的 ON DELETE CASCADE 清理
+//! T4.1 起落 `entity_aliases`(`tag_id` -> `entity_id`),目标标签实体删除时由外键 CASCADE 清理
 //! (db::open 已开 foreign_keys=ON)。
 //! 解析必须可预测(D2):只有别名表里登记过的**原样字符串**才会被归一,不做模糊猜测。
+use super::write::refresh_notes_for;
 use rusqlite::{params, Connection, OptionalExtension};
 
 /// 命中别名则返回目标标签的**当前路径**(路径随改名/移动实时变化,故每次联表取),
 /// 未命中返回 None。path 先 trim:与解析器口径一致(登记时禁止空白,故 trim 不会误命中)。
 pub fn resolve(conn: &Connection, path: &str) -> rusqlite::Result<Option<String>> {
     conn.query_row(
-        "SELECT t.path FROM tag_aliases a JOIN tags t ON t.id = a.tag_id WHERE a.alias = ?1",
+        "SELECT t.path FROM entity_aliases a JOIN entities t ON t.id = a.entity_id
+         WHERE t.kind = 'tag' AND a.alias = ?1",
         params![path.trim()],
         |r| r.get(0),
     )
@@ -18,7 +20,8 @@ pub fn resolve(conn: &Connection, path: &str) -> rusqlite::Result<Option<String>
 
 /// 该标签的全部别名(按 alias 升序),供标签菜单展示
 pub fn list_for_tag(conn: &Connection, tag_id: i64) -> rusqlite::Result<Vec<String>> {
-    let mut stmt = conn.prepare("SELECT alias FROM tag_aliases WHERE tag_id = ?1 ORDER BY alias")?;
+    let mut stmt =
+        conn.prepare("SELECT alias FROM entity_aliases WHERE entity_id = ?1 ORDER BY alias")?;
     let rows = stmt.query_map(params![tag_id], |r| r.get(0))?;
     rows.collect()
 }
@@ -37,10 +40,14 @@ pub fn add(conn: &Connection, alias: &str, tag_id: i64) -> rusqlite::Result<()> 
 
 /// 删除别名:不存在也不报错(重复删除幂等)
 pub fn remove(conn: &Connection, alias: &str) -> rusqlite::Result<()> {
+    let owner = alias_owner(conn, alias.trim())?;
     conn.execute(
-        "DELETE FROM tag_aliases WHERE alias = ?1",
+        "DELETE FROM entity_aliases WHERE alias = ?1",
         params![alias.trim()],
     )?;
+    if let Some(id) = owner {
+        refresh_notes_for(conn, &[id])?;
+    }
     Ok(())
 }
 
@@ -97,7 +104,7 @@ pub fn register_candidates(
 /// sqlite 的 `FOREIGN KEY constraint failed`(英文),对界面无意义
 pub fn tag_exists(conn: &Connection, tag_id: i64) -> rusqlite::Result<bool> {
     let n: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM tags WHERE id = ?1",
+        "SELECT COUNT(*) FROM entities WHERE id = ?1 AND kind = 'tag'",
         params![tag_id],
         |r| r.get(0),
     )?;
@@ -121,20 +128,38 @@ fn check_alias(alias: &str) -> rusqlite::Result<()> {
 /// 写入别名行(不做语义判定):冲突即"重复登记更新指向"。
 /// 必须用 upsert 而不是 `INSERT OR REPLACE`:REPLACE 的隐式删除默认不触发 DELETE 触发器
 /// (recursive_triggers 关闭,实测只触发 INSERT),别名改指向时 FTS 标签列里的旧名会残留;
-/// upsert 走 UPDATE 触发器,旧/新两侧都会被重写(迁移 018 的 tag_aliases_au)。
+/// upsert 走 UPDATE 触发器,旧/新两侧都会被重写(迁移 026 的 entity_aliases_au)。
 fn put(conn: &Connection, alias: &str, tag_id: i64) -> rusqlite::Result<()> {
+    // 改指向时旧目标的 notes_fts 也要重算,故先记录旧主人
+    let old = alias_owner(conn, alias)?;
     conn.execute(
-        "INSERT INTO tag_aliases(alias, tag_id) VALUES(?1, ?2)
-         ON CONFLICT(alias) DO UPDATE SET tag_id = excluded.tag_id",
+        "INSERT INTO entity_aliases(alias, entity_id) VALUES(?1, ?2)
+         ON CONFLICT(alias) DO UPDATE SET entity_id = excluded.entity_id",
         params![alias, tag_id],
     )?;
-    Ok(())
+    // 026 的 entity_aliases 触发器只刷 entities_fts;notes_fts 的 tags 列聚合含别名,
+    // 必须显式重算受影响笔记(T4.1 起老 tag_aliases 触发器已不跟随新表)。
+    let mut affected = vec![tag_id];
+    if let Some(o) = old {
+        affected.push(o);
+    }
+    refresh_notes_for(conn, &affected)
+}
+
+/// 别名当前指向的实体(不存在返回 None)
+fn alias_owner(conn: &Connection, alias: &str) -> rusqlite::Result<Option<i64>> {
+    conn.query_row(
+        "SELECT entity_id FROM entity_aliases WHERE alias = ?1",
+        params![alias],
+        |r| r.get(0),
+    )
+    .optional()
 }
 
 /// 是否已有同名**标签路径**(别名不得劫持真实标签)
 fn tag_path_exists(conn: &Connection, path: &str) -> rusqlite::Result<bool> {
     let n: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM tags WHERE path = ?1",
+        "SELECT COUNT(*) FROM entities WHERE kind = 'tag' AND path = ?1",
         params![path],
         |r| r.get(0),
     )?;
@@ -150,7 +175,7 @@ fn available(conn: &Connection, name: &str, tag_id: i64) -> rusqlite::Result<boo
     }
     let owner: Option<i64> = conn
         .query_row(
-            "SELECT tag_id FROM tag_aliases WHERE alias = ?1",
+            "SELECT entity_id FROM entity_aliases WHERE alias = ?1",
             params![name],
             |r| r.get(0),
         )

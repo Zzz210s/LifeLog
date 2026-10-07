@@ -13,7 +13,8 @@ use rusqlite::{params, Connection};
 fn existing_id(conn: &Connection, path: &str) -> rusqlite::Result<Option<i64>> {
     use rusqlite::OptionalExtension;
     conn.query_row(
-        "SELECT id FROM tags WHERE path = ?1 AND (parent_id IS NOT NULL OR instr(path, '/') = 0)",
+        "SELECT id FROM entities WHERE kind='tag' AND path = ?1
+         AND (parent_id IS NOT NULL OR instr(path, '/') = 0)",
         params![path],
         |r| r.get(0),
     )

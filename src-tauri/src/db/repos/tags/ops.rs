@@ -3,8 +3,8 @@
 //! 时间标签已是普通标签(D3):不再有"时间子树不可改名/移动/删除"的守卫。
 //! 底层 SQL 动作见 tags_tree_ops_sql。
 use super::ops_sql::{
-    apply_sibling_order, ensure_sibling_free, load, rewrite_subtree_paths, shift_subtree_depths,
-    subtree_note_ids, Anchor,
+    apply_sibling_order, ensure_sibling_free, load, repoint_child, rewrite_subtree_paths,
+    shift_subtree_depths, Anchor,
 };
 use super::{linked_notes, subtree_ids};
 use crate::db::repos::tags::alias;
@@ -35,15 +35,20 @@ pub fn rename(conn: &mut Connection, tag_id: i64, new_name: &str) -> Result<Vec<
     ensure_sibling_free(&tx, node.parent_id, &new_name, tag_id)?;
     // 新路径从父节点派生(存量平铺根的 path 可能与 name 不一致,不能用自身旧 path 派生)
     let new_path = super::path::child_path(&tx, node.parent_id, &new_name).map_err(|e| e.to_string())?;
-    let notes = subtree_note_ids(&tx, tag_id)?;
-    tx.execute("UPDATE tags SET name = ?1 WHERE id = ?2", params![new_name, tag_id])
-        .map_err(|e| super::path::unique_conflict(e, "已存在同名标签"))?;
+    let ids = subtree_ids(&tx, tag_id).map_err(|e| e.to_string())?;
+    let notes = linked_notes(&tx, &ids).map_err(|e| e.to_string())?;
+    tx.execute(
+        "UPDATE entities SET name = ?1 WHERE id = ?2 AND kind = 'tag'",
+        params![new_name, tag_id],
+    )
+    .map_err(|e| super::path::unique_conflict(e, "已存在同名标签"))?;
     rewrite_subtree_paths(&tx, &node.path, &new_path)
         .map_err(|e| super::path::unique_conflict(e, "已存在同名标签"))?;
     finish(
         &tx,
         PostWrite {
             notes: &notes,
+            entities: &ids,
             path_change: Some((node.path.as_str(), new_path.as_str())),
             gc: false, // 仅改名:没有节点被移走,不产生空容器
         },
@@ -104,7 +109,11 @@ pub fn move_to_ordered(
                 return Err("不能移动到自身或其子孙下".into());
             }
             let parent_depth: i64 = tx
-                .query_row("SELECT depth FROM tags WHERE id = ?1", params![p], |r| r.get(0))
+                .query_row(
+                    "SELECT depth FROM entities WHERE id = ?1 AND kind = 'tag'",
+                    params![p],
+                    |r| r.get(0),
+                )
                 .optional()
                 .map_err(|e| e.to_string())?
                 .ok_or_else(|| format!("目标父标签不存在: {p}"))?;
@@ -122,10 +131,11 @@ pub fn move_to_ordered(
     let new_path = super::path::child_path(&tx, new_parent, &node.name).map_err(|e| e.to_string())?;
     let notes = linked_notes(&tx, &ids).map_err(|e| e.to_string())?;
     tx.execute(
-        "UPDATE tags SET parent_id = ?1, path = ?2, depth = ?3 WHERE id = ?4",
+        "UPDATE entities SET parent_id = ?1, path = ?2, depth = ?3 WHERE id = ?4 AND kind = 'tag'",
         params![new_parent, new_path, new_depth, tag_id],
     )
     .map_err(|e| super::path::unique_conflict(e, "该层级下已有同名标签"))?;
+    repoint_child(&tx, tag_id, new_parent).map_err(|e| e.to_string())?;
     rewrite_subtree_paths(&tx, &node.path, &new_path)
         .map_err(|e| super::path::unique_conflict(e, "该层级下已有同名标签"))?;
     shift_subtree_depths(&tx, tag_id, delta).map_err(|e| e.to_string())?;
@@ -135,6 +145,7 @@ pub fn move_to_ordered(
         &tx,
         PostWrite {
             notes: &notes,
+            entities: &ids,
             path_change: Some((node.path.as_str(), new_path.as_str())),
             gc: true, // 移走最后的子节点后,旧父级会变成无链接无子节点的空容器
         },
@@ -159,38 +170,7 @@ pub fn move_beside(
 }
 
 /// 删除子树:先解链再删标签,最后按剩余链接重写受影响笔记的 FTS。整事务,失败回滚。
-/// 末尾与 link_paths 一致地回收空容器:祖先可能因此变成"无链接且无子节点"的空标签,
-/// 不回收就会在标签面板里时有时无地残留。
-pub fn delete_subtree(conn: &mut Connection, tag_id: i64) -> Result<(), String> {
-    let tx = conn.transaction().map_err(|e| e.to_string())?;
-    let ids = subtree_ids(&tx, tag_id).map_err(|e| e.to_string())?;
-    if ids.is_empty() {
-        return Err(format!("标签不存在: {tag_id}"));
-    }
-    let notes = linked_notes(&tx, &ids).map_err(|e| e.to_string())?;
-    let marks = vec!["?"; ids.len()].join(",");
-    let args = || rusqlite::params_from_iter(ids.iter());
-    tx.execute(
-        &format!("DELETE FROM tag_links WHERE target_type = 'note' AND tag_id IN ({marks})"),
-        args(),
-    )
-    .map_err(|e| e.to_string())?;
-    // R5:tag_links 在 target_id 上没有外键,指向被删标签(含子树)的 'tag'/'type' 行必须显式清理,
-    // 否则删完会留下 target_id 指向不存在标签的悬空行。tag_id 方向由外键 CASCADE 兜底,不必手清。
-    tx.execute(
-        &format!("DELETE FROM tag_links WHERE target_type IN ('tag', 'type') AND target_id IN ({marks})"),
-        args(),
-    )
-    .map_err(|e| e.to_string())?;
-    // tag_links 触发器已按"链接移除后"的聚合重写 FTS,此处再显式重写一次兜底
-    tx.execute(&format!("DELETE FROM tags WHERE id IN ({marks})"), args())
-        .map_err(|e| e.to_string())?;
-    // 删除标签**不**重写 filter_current 条件(S7):已删路径自然筛不出笔记,由用户自行调整。
-    finish(&tx, PostWrite { notes: &notes, path_change: None, gc: true })
-        .map_err(|e| e.to_string())?;
-    tx.commit().map_err(|e| e.to_string())
-}
-
+/// 实现见 ops_delete.rs(为守 200 行上限拆出)。
 #[cfg(test)]
 #[path = "rename_md_tests.rs"]
 mod rename_md_tests;

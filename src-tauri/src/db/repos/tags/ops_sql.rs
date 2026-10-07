@@ -1,7 +1,10 @@
 //! 标签树结构变更的底层动作(自 tags_tree_ops.rs 拆出以守 200 行上限):
-//! 结构操作所需的最小行读取、同级重名校验、子树 path/depth 重写、受影响笔记收集。
+//! 结构操作所需的最小行读取、同级重名校验、子树 path/depth 重写、父子边重挂。
+//! T4.1 起标签行在 `entities(kind='tag')`,树真源是 `edges(kind='child')`。
 //! 全部函数式(接收 `&Connection`),事务由调用方(tags_tree_ops)打开。
 use rusqlite::{params, Connection, OptionalExtension};
+
+use super::ensure::link_child;
 
 /// 标签行(结构操作所需的最小字段集)
 pub(crate) struct Node {
@@ -14,7 +17,7 @@ pub(crate) struct Node {
 /// 读取单个标签行;不存在时报中文错(界面直接展示)
 pub(crate) fn load(conn: &Connection, tag_id: i64) -> Result<Node, String> {
     conn.query_row(
-        "SELECT name, parent_id, path, depth FROM tags WHERE id = ?1",
+        "SELECT name, parent_id, path, depth FROM entities WHERE id = ?1 AND kind = 'tag'",
         params![tag_id],
         |r| {
             Ok(Node {
@@ -39,8 +42,9 @@ pub(crate) fn ensure_sibling_free(
 ) -> Result<(), String> {
     let n: i64 = conn
         .query_row(
-            "SELECT COUNT(*) FROM tags
-             WHERE COALESCE(parent_id, 0) = COALESCE(?1, 0) AND name = ?2 AND id <> ?3",
+            "SELECT COUNT(*) FROM entities
+             WHERE kind = 'tag' AND COALESCE(parent_id, 0) = COALESCE(?1, 0)
+               AND name = ?2 AND id <> ?3",
             params![parent, name, id],
             |r| r.get(0),
         )
@@ -55,9 +59,10 @@ pub(crate) fn ensure_sibling_free(
 /// 不用 LIKE(名称可能含 %) —— substr 比较前缀、substr 截取剩余段。
 pub(crate) fn rewrite_subtree_paths(conn: &Connection, old: &str, new: &str) -> rusqlite::Result<()> {
     conn.execute(
-        "UPDATE tags SET path = ?2 || substr(path, length(?1) + 1)
-         WHERE path = ?1
-            OR (length(path) > length(?1) AND substr(path, 1, length(?1) + 1) = ?1 || '/')",
+        "UPDATE entities SET path = ?2 || substr(path, length(?1) + 1)
+         WHERE kind = 'tag' AND (
+           path = ?1
+           OR (length(path) > length(?1) AND substr(path, 1, length(?1) + 1) = ?1 || '/'))",
         params![old, new],
     )?;
     Ok(())
@@ -70,18 +75,25 @@ pub(crate) fn shift_subtree_depths(conn: &Connection, tag_id: i64, delta: i64) -
     }
     conn.execute(
         "WITH RECURSIVE sub(id) AS (
-           SELECT id FROM tags WHERE parent_id = ?1
-           UNION ALL SELECT t.id FROM tags t JOIN sub s ON t.parent_id = s.id
-         ) UPDATE tags SET depth = depth + ?2 WHERE id IN (SELECT id FROM sub)",
+           SELECT id FROM entities WHERE parent_id = ?1
+           UNION ALL SELECT t.id FROM entities t JOIN sub s ON t.parent_id = s.id
+         ) UPDATE entities SET depth = depth + ?2 WHERE id IN (SELECT id FROM sub)",
         params![tag_id, delta],
     )?;
     Ok(())
 }
 
-/// 结构变更前收集受影响笔记:先取子树标签 id,再取这些标签链接到的笔记
-pub(crate) fn subtree_note_ids(conn: &Connection, tag_id: i64) -> Result<Vec<i64>, String> {
-    let ids = super::subtree_ids(conn, tag_id).map_err(|e| e.to_string())?;
-    super::linked_notes(conn, &ids).map_err(|e| e.to_string())
+/// 重挂标签的父指针边:先断开旧的入 child 边,再按新父建(新父为 None 只断不建)
+pub(crate) fn repoint_child(
+    conn: &Connection,
+    child_id: i64,
+    parent: Option<i64>,
+) -> rusqlite::Result<()> {
+    conn.execute("DELETE FROM edges WHERE kind = 'child' AND target_id = ?1", params![child_id])?;
+    if let Some(p) = parent {
+        link_child(conn, p, child_id)?;
+    }
+    Ok(())
 }
 
 /// 同级落点锚点(S8):插到 siblings 里 `id` 这个兄弟的之前/之后
@@ -102,7 +114,8 @@ pub(crate) fn apply_sibling_order(
 ) -> Result<(), String> {
     let mut stmt = conn
         .prepare(
-            "SELECT id FROM tags WHERE COALESCE(parent_id, 0) = COALESCE(?1, 0) AND id <> ?2
+            "SELECT id FROM entities
+             WHERE kind = 'tag' AND COALESCE(parent_id, 0) = COALESCE(?1, 0) AND id <> ?2
              ORDER BY sort_order, path",
         )
         .map_err(|e| e.to_string())?;
@@ -129,7 +142,7 @@ pub(crate) fn apply_sibling_order(
     ordered.insert(idx.min(ordered.len()), tag_id);
     for (i, id) in ordered.iter().enumerate() {
         conn.execute(
-            "UPDATE tags SET sort_order = ?2 WHERE id = ?1",
+            "UPDATE entities SET sort_order = ?2 WHERE id = ?1 AND kind = 'tag'",
             params![id, i as i64],
         )
         .map_err(|e| e.to_string())?;

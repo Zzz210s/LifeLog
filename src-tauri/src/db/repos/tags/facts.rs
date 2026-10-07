@@ -2,7 +2,7 @@
 //! 侧栏树行小字、悬浮卡片与关系图都要按标签读全部出边。后端另有逐标签读数
 //! (`list_tag_relations`)，但扁平模式 741 个标签会打约 1.5k 次 IPC；这里一次返回全量事实。
 //!
-//! 命中范围与逐标签读数完全一致:读 `tag_links` 的 `target_type='tag'` 行，
+//! 命中范围与逐标签读数完全一致:读 `edges(kind='relation')` 的行，
 //! 每条事实的 relations 按目标路径升序;没有任何关系的标签不出现在结果里(前端查不到即空)。
 //! 每条边的**属性名存在边上**(`RelationRef.remark`，迁移 023),不是目标标签名字里的 md 备注。
 use rusqlite::Connection;
@@ -31,8 +31,8 @@ pub struct TagFactsBundle {
 pub fn tag_facts(conn: &Connection) -> rusqlite::Result<TagFactsBundle> {
     let mut by_tag: BTreeMap<i64, TagFact> = BTreeMap::new();
     let mut stmt = conn.prepare(
-        "SELECT l.tag_id, t.id, t.path, l.remark FROM tag_links l JOIN tags t ON t.id = l.target_id \
-         WHERE l.target_type = 'tag' ORDER BY l.tag_id, t.path",
+        "SELECT l.source_id, t.id, t.path, l.remark FROM edges l JOIN entities t ON t.id = l.target_id \
+         WHERE l.kind = 'relation' AND t.kind = 'tag' ORDER BY l.source_id, t.path",
     )?;
     let rows = stmt.query_map([], |r| {
         Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, String>(2)?, r.get::<_, String>(3)?))

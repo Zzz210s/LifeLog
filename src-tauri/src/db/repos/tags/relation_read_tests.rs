@@ -13,6 +13,7 @@ use rusqlite::{params, Connection};
 fn db() -> Connection {
     let c = Connection::open_in_memory().unwrap();
     migrate::run(&c).unwrap();
+    crate::db::repos::tags::test_support::install_entity_views(&c);
     c.pragma_update(None, "foreign_keys", "ON").unwrap();
     c
 }
@@ -98,15 +99,19 @@ fn gc_orphans_keeps_relation_target() {
 }
 
 /// ④ 读方审计:插入关系边后笔记的 tags 列 / FTS / 导出全不变。
-/// 刻意让**目标标签 id 等于这条笔记 id**(首个标签与首条笔记都拿 id 1):
-/// 任何漏掉 `target_type='note'` 的读方都会把关系边当成这条笔记的链接(强变异敏感)。
+/// 标签 id 在偏移区间、笔记 id 在原值区间:任何漏掉 `kind`/方向的读方都可能把关系边
+/// 当成这条笔记的链接(强变异敏感)。
 #[test]
 fn relation_edges_do_not_change_note_tags_fts_or_export() {
     let mut c = db();
     let note = notes::create_plain(&mut c, "记录 #甲").unwrap();
     let jia = id_at(&c, "甲");
     let yi = ensure(&c, "乙");
-    assert_eq!(jia, note.id, "测试前提:首个标签与首条笔记都拿到 id 1");
+    assert!(
+        jia >= crate::db::repos::entities::TAG_ID_OFFSET
+            && note.id < crate::db::repos::entities::TAG_ID_OFFSET,
+        "测试前提:标签与笔记 id 落在不重叠的两个区间"
+    );
     let tags_before = repos::notes::read_full(&c, note.id).unwrap().unwrap().tags;
     let fts_before: String = c
         .query_row("SELECT tags FROM notes_fts WHERE rowid=?1", params![note.id], |r| r.get(0))

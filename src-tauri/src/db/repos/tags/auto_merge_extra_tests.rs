@@ -9,6 +9,7 @@ use rusqlite::Connection;
 fn db() -> Connection {
     let c = Connection::open_in_memory().unwrap();
     migrate::run(&c).unwrap();
+    crate::db::repos::tags::test_support::install_entity_views(&c);
     c
 }
 
@@ -56,7 +57,8 @@ fn merge_failure_rolls_back_whole_transaction() {
     notes::create_plain(&mut c, "b #Q/A").unwrap();
     let moved = id_at(&c, "Q/A");
     c.execute_batch(&format!(
-        "CREATE TRIGGER boom BEFORE DELETE ON tags WHEN OLD.id = {moved}
+        "CREATE TRIGGER boom BEFORE DELETE ON entities
+           WHEN OLD.kind = 'tag' AND OLD.id = {moved}
          BEGIN SELECT RAISE(ABORT, 'boom'); END;"
     ))
     .unwrap();

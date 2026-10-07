@@ -42,7 +42,7 @@ pub(super) fn fuzzy_paths(
 /// 全量标签路径(路径升序)。只在前缀 + 别名候选占不满展示上限时才被调用(见调用方),
 /// 量级是标签总数(百级),不构成每击键都扫表的负担。
 fn all_paths(conn: &Connection) -> rusqlite::Result<Vec<String>> {
-    let mut stmt = conn.prepare("SELECT path FROM tags ORDER BY path")?;
+    let mut stmt = conn.prepare("SELECT path FROM entities WHERE kind='tag' ORDER BY path")?;
     let rows = stmt.query_map([], |r| r.get(0))?;
     rows.collect()
 }

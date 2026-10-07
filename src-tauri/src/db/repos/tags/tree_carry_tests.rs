@@ -13,6 +13,7 @@ use rusqlite::{params, Connection};
 fn db() -> Connection {
     let c = Connection::open_in_memory().unwrap();
     migrate::run(&c).unwrap();
+    crate::db::repos::tags::test_support::install_entity_views(&c);
     c
 }
 
@@ -48,7 +49,8 @@ fn gc_orphans_keeps_carried_tag() {
     let junk = ensure_path(&c, &segs(&["空壳"])).unwrap();
     // 直接建携带行:本用例只关心 gc 判据,不经过 set_tag_relation 的校验与事务
     c.execute(
-        "INSERT INTO tag_links(tag_id, target_type, target_id) VALUES(?1, 'tag', ?2)",
+        "INSERT INTO edges(source_id, target_id, kind, remark, created_at)
+         VALUES(?1, ?2, 'relation', '', datetime('now', 'localtime'))",
         params![carrier, carried],
     )
     .unwrap();
