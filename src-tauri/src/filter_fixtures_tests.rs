@@ -3,7 +3,8 @@
 //! (见 `src/shared/fixtures.test.ts`:isValidTagPath / parseFilterJson / applyTagPick),
 //! Rust 侧喂给真源实现(tags::parse_tag_path / notes_filter::validate / where_clause / expr::validate)。
 //! 后端仍是唯一权威,这里只做"同一份向量两边判定一致"的漂移探测。
-use crate::db::repos::notes::notes_filter::{oldest_first, validate, where_clause};
+use crate::db::repos::notes::notes_filter::{validate, where_clause};
+use crate::db::repos::notes::notes_sort::{effective_sorts, oldest_first};
 use crate::db::repos::notes::FilterConditions;
 use crate::tags::parse_tag_path;
 use serde::Deserialize;
@@ -119,6 +120,19 @@ fn conditions_match_shared_fixture() {
             e.why
         );
         assert_eq!(oldest_first(&raw), n["sort"] == "oldest", "第 {i} 条排序不一致");
+        // normalized.sorts 是「归一后的存储数组」([] = 默认);Rust 不归一只在查询时合成,
+        // 故空数组时按旧 sort 推期望,非空时逐个比对 —— 两侧的合成规则由这份向量钉住
+        let expected_sorts = if n["sorts"].as_array().is_some_and(|a| a.is_empty()) {
+            let dir = if n["sort"] == "oldest" { "asc" } else { "desc" };
+            serde_json::json!([{ "kind": "time", "dir": dir, "enabled": true }])
+        } else {
+            n["sorts"].clone()
+        };
+        assert_eq!(
+            serde_json::to_value(effective_sorts(&raw)).unwrap(),
+            expected_sorts,
+            "第 {i} 条生效排序数组不一致"
+        );
         let has_kw = raw
             .keyword
             .as_deref()

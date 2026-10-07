@@ -1,12 +1,13 @@
 //! 当前筛选条件的路径级联(取代已删的 saved_views_rewrite 与标签页时代的 tabs_rewrite;
 //! spec 2026-09-17 S6/S7,2026-09-25 改单份条件):
 //! 标签改名/移动时,同一事务里同步重写 `settings.filter_current` 这一份条件对象 ——
-//! 按前缀规则重写 tags[] / exclude_tags[] 与表达式里的标签 token(与 tags 表的子树路径
+//! 按前缀规则重写 tags[] / exclude_tags[] / relations[] / exclude_relations[] / sorts[].path
+//! 与表达式里的标签 token(与 tags 表的子树路径
 //! 重写同款口径:段边界由显式 `/` 保证,`工作X` 不会被 `工作` 误伤)。
 //! 删除标签**不**改写(已删路径自然筛不出笔记,由用户自行调整)。
 //! 键缺失 / 坏 JSON 跳过(不动、不失败);调用方(tags_write::finish)把本模块收进结构变更事务内,
 //! 任一步失败整体回滚。
-use super::notes::FilterConditions;
+use super::notes::{notes_filter::SortCond, FilterConditions};
 use super::settings::{self, FILTER_CURRENT_KEY};
 use crate::expr::lexer::{lex_spans, Token};
 use rusqlite::Connection;
@@ -20,8 +21,8 @@ fn rewrite_path(path: &str, old: &str, new: &str) -> Option<String> {
     path.strip_prefix(&sep).map(|rest| format!("{new}/{rest}"))
 }
 
-/// 条件对象按前缀规则改写:两侧标签列表 + 两侧类型列表 + 表达式文本;有变化返回 true
-/// (include_children / keyword / sort 等其余字段原样保留)
+/// 条件对象按前缀规则改写:两侧标签列表 + 两侧关系列表 + 排序的标签轴 + 表达式文本;
+/// 有变化返回 true(include_children / keyword / sort 等其余字段原样保留)
 fn rewrite_conditions(c: &mut FilterConditions, old: &str, new: &str) -> bool {
     let mut changed = false;
     for list in [&mut c.tags, &mut c.exclude_tags] {
@@ -37,6 +38,15 @@ fn rewrite_conditions(c: &mut FilterConditions, old: &str, new: &str) -> bool {
         for r in list.iter_mut() {
             if let Some(p) = rewrite_path(&r.path, old, new) {
                 r.path = p;
+                changed = true;
+            }
+        }
+    }
+    // 排序的标签轴也是路径:漏这一段就是排序静默失效(筛选会重查,排序不会报错)
+    for s in c.sorts.iter_mut() {
+        if let SortCond::Tag { path, .. } = s {
+            if let Some(p) = rewrite_path(path, old, new) {
+                *path = p;
                 changed = true;
             }
         }

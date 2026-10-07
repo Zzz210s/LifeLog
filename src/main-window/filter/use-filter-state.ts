@@ -13,6 +13,7 @@ import { api } from '../../shared/api';
 import { filterKey } from '../../shared/filter-conditions';
 import type { FilterConditions } from '../../shared/filter-conditions';
 import {
+  applyFilterPatch,
   FILTER_KEY,
   defaultFilterState,
   parseFilterState,
@@ -104,7 +105,8 @@ export function useFilterState(): FilterStateApi {
   }, []);
 
   const patch = useCallback((value: Partial<FilterConditions>) => {
-    setConditions((c) => ({ ...c, ...value }));
+    // 旧的单值 sort 入口在此折算成 sorts(filterKey 只认 sorts),T2 迁到 sorts 后自然走直通
+    setConditions((c) => applyFilterPatch(c, value));
   }, []);
 
   const toggleTag = useCallback((path: string) => {

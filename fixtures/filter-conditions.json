@@ -120,6 +120,7 @@
       "excludeRelations": [],
       "tagPresence": null,
       "sort": "newest",
+      "sorts": [],
       "expr": null
     },
     "empty": true
@@ -137,6 +138,7 @@
       "excludeRelations": [],
       "tagPresence": null,
       "sort": "newest",
+      "sorts": [],
       "expr": null
     },
     "empty": true
@@ -154,6 +156,9 @@
       "excludeRelations": [],
       "tagPresence": null,
       "sort": "oldest",
+      "sorts": [
+        { "kind": "time", "dir": "asc", "enabled": true }
+      ],
       "expr": null
     },
     "empty": false
@@ -176,6 +181,7 @@
       "excludeRelations": [],
       "tagPresence": null,
       "sort": "newest",
+      "sorts": [],
       "expr": null
     },
     "empty": false
@@ -199,6 +205,7 @@
       "excludeRelations": [],
       "tagPresence": "none",
       "sort": "newest",
+      "sorts": [],
       "expr": null
     },
     "empty": false
@@ -224,6 +231,7 @@
       "excludeRelations": [],
       "tagPresence": null,
       "sort": "newest",
+      "sorts": [],
       "expr": null
     },
     "empty": false
@@ -241,6 +249,7 @@
       "excludeRelations": [],
       "tagPresence": null,
       "sort": "newest",
+      "sorts": [],
       "expr": null
     },
     "empty": true
@@ -258,6 +267,7 @@
       "excludeRelations": [],
       "tagPresence": null,
       "sort": "newest",
+      "sorts": [],
       "expr": "#工作 AND NOT #临时"
     },
     "empty": false
@@ -275,6 +285,7 @@
       "excludeRelations": [],
       "tagPresence": "any",
       "sort": "newest",
+      "sorts": [],
       "expr": null
     },
     "empty": false
@@ -292,6 +303,7 @@
       "excludeRelations": [],
       "tagPresence": null,
       "sort": "newest",
+      "sorts": [],
       "expr": null
     },
     "empty": false,
@@ -309,6 +321,7 @@
       "excludeRelations": [],
       "tagPresence": null,
       "sort": "newest",
+      "sorts": [],
       "expr": null
     }
   },
@@ -325,6 +338,7 @@
       "excludeRelations": [],
       "tagPresence": null,
       "sort": "newest",
+      "sorts": [],
       "expr": null
     },
     "empty": true,
@@ -342,6 +356,7 @@
       "excludeRelations": [],
       "tagPresence": null,
       "sort": "newest",
+      "sorts": [],
       "expr": null
     }
   },
@@ -577,6 +592,7 @@
       "excludeRelations": [{ "path": "所在" }],
       "tagPresence": null,
       "sort": "newest",
+      "sorts": [],
       "expr": null
     },
     "empty": false
@@ -597,8 +613,153 @@
       "excludeRelations": [{ "path": "所在" }],
       "tagPresence": null,
       "sort": "newest",
+      "sorts": [],
       "expr": null
     },
     "empty": false
+  },
+  {
+    "kind": "condition",
+    "why": "显式排序条件数组(时间 + 标签轴)原样归一;enabled=false 保留在列表里",
+    "raw": {
+      "sorts": [
+        {
+          "kind": "time",
+          "dir": "desc",
+          "enabled": true
+        },
+        {
+          "kind": "tag",
+          "path": "地点",
+          "dir": "asc",
+          "enabled": false
+        }
+      ]
+    },
+    "valid": true,
+    "normalized": {
+      "keyword": null,
+      "tags": [],
+      "excludeTags": [],
+      "relations": [],
+      "excludeRelations": [],
+      "tagPresence": null,
+      "sort": "newest",
+      "sorts": [
+        {
+          "kind": "time",
+          "dir": "desc",
+          "enabled": true
+        },
+        {
+          "kind": "tag",
+          "path": "地点",
+          "dir": "asc",
+          "enabled": false
+        }
+      ],
+      "expr": null
+    },
+    "empty": true
+  },
+  {
+    "kind": "condition",
+    "why": "排序项缺 enabled 默认启用(与 Rust serde 默认同口径)",
+    "raw": {
+      "sorts": [
+        {
+          "kind": "time",
+          "dir": "asc"
+        }
+      ]
+    },
+    "valid": true,
+    "normalized": {
+      "keyword": null,
+      "tags": [],
+      "excludeTags": [],
+      "relations": [],
+      "excludeRelations": [],
+      "tagPresence": null,
+      "sort": "newest",
+      "sorts": [
+        {
+          "kind": "time",
+          "dir": "asc",
+          "enabled": true
+        }
+      ],
+      "expr": null
+    },
+    "empty": true
+  },
+  {
+    "kind": "condition",
+    "why": "排序条件超过 5 条上限:整体非法,前端回退 EMPTY_FILTER,后端 validate 报错",
+    "raw": {
+      "sorts": [
+        {
+          "kind": "time",
+          "dir": "desc",
+          "enabled": true
+        },
+        {
+          "kind": "time",
+          "dir": "desc",
+          "enabled": true
+        },
+        {
+          "kind": "time",
+          "dir": "desc",
+          "enabled": true
+        },
+        {
+          "kind": "time",
+          "dir": "desc",
+          "enabled": true
+        },
+        {
+          "kind": "time",
+          "dir": "desc",
+          "enabled": true
+        },
+        {
+          "kind": "time",
+          "dir": "desc",
+          "enabled": true
+        }
+      ]
+    },
+    "valid": false
+  },
+  {
+    "kind": "condition",
+    "why": "排序方向非法(sideways):整体非法",
+    "raw": {
+      "sorts": [
+        {
+          "kind": "tag",
+          "path": "地点",
+          "dir": "sideways",
+          "enabled": true
+        }
+      ]
+    },
+    "valid": false
+  },
+  {
+    "kind": "condition",
+    "why": "排序标签轴路径非法(a//b):整体非法",
+    "raw": {
+      "sorts": [
+        {
+          "kind": "tag",
+          "path": "a//b",
+          "dir": "asc",
+          "enabled": true
+        }
+      ]
+    },
+    "valid": false
   }
 ]

@@ -19,6 +19,14 @@ export interface RelationCond {
   path: string;
 }
 
+/** 排序方向:desc = 新 -> 旧 / 选项顺序;asc = 旧 -> 新 / 选项倒序(需按维度出文案) */
+export type SortDir = 'desc' | 'asc';
+
+/** 排序条件(有序数组元素,下标即优先级):时间(notes.id)或标签轴子树(恒含子级) */
+export type SortCond =
+  | { kind: 'time'; dir: SortDir; enabled: boolean }
+  | { kind: 'tag'; path: string; dir: SortDir; enabled: boolean };
+
 export interface FilterConditions {
   keyword: string | null;
   tags: TagCond[];
@@ -28,8 +36,11 @@ export interface FilterConditions {
   relations: RelationCond[];
   excludeRelations: RelationCond[];
   tagPresence: 'any' | 'none' | null;
-  /** 创建顺序(实现为按 `notes.id`,与 created_at 同序);旧 JSON 的同名字段语义不变 */
+  /** 创建顺序(实现为按 `notes.id`,与 created_at 同序);**只读兼容位** ——
+   *  旧构建仍按它降级;写侧由 `sorts` 派生镜像,`filterKey` 不认它(设计 D2 §4.2) */
   sort: 'newest' | 'oldest';
+  /** 有序排序条件(下标 = 优先级;空数组 = 默认时间降序);旧 JSON 缺字段时由 `sort` 合成 */
+  sorts: SortCond[];
   /** 高级表达式原文(spec 3.3;null=无表达式);语义校验走 IPC `validate_expr`,前端不解析 */
   expr: string | null;
 }
@@ -50,8 +61,21 @@ export const EMPTY_FILTER: FilterConditions = {
   excludeRelations: [],
   tagPresence: null,
   sort: 'newest',
+  sorts: [],
   expr: null,
 };
+
+/** 排序条件条数上限(与 Rust `notes_filter::MAX_SORT_CONDS` 一致) */
+export const MAX_SORT_CONDS = 5;
+
+/**
+ * 旧单值 `sort` 折算成排序数组:仅 `oldest` 携带信息(合成一条时间升序),
+ * `newest` 是默认值 -> 空数组(空数组经 `effective_sorts` 语义等价于时间降序)。
+ * 两侧(归一/写侧 UI 兼容位)共用,杜绝两套合成口径。
+ */
+export function sortsFromLegacy(sort: 'newest' | 'oldest' | null | undefined): SortCond[] {
+  return sort === 'oldest' ? [{ kind: 'time', dir: 'asc', enabled: true }] : [];
+}
 
 /** 表达式是否为空(全空白视为没有表达式,与后端 trim 口径一致) */
 export function hasExpr(c: FilterConditions): boolean {
@@ -75,12 +99,16 @@ export function isFilterEmpty(c: FilterConditions): boolean {
 export function filterKey(c: FilterConditions): string {
   return JSON.stringify([
     c.keyword ?? '',
-    c.sort,
     c.tagPresence ?? '',
     c.tags.map((t) => [t.path, t.includeChildren]),
     c.excludeTags.map((t) => [t.path, t.includeChildren]),
     c.relations.map((r) => r.path),
     c.excludeRelations.map((r) => r.path),
+    // 排序只认 sorts(旧 sort 是写侧派生镜像,不参与比较);enabled 停用项也要参与,
+    // 否则勾掉/勾回不触发重查
+    c.sorts.map((s) =>
+      s.kind === 'tag' ? ['tag', s.path, s.dir, s.enabled] : ['time', s.dir, s.enabled]
+    ),
     // 表达式按 trim 后的值参与比较:尾随空白不触发重复查询(后端按原文解析,只把全空白视为未设置)
     (c.expr ?? '').trim(),
   ]);
@@ -134,6 +162,11 @@ export function validateFilter(c: FilterConditions): string | null {
     if (!isValidTagPath(r.path)) return `标签路径不合法:${r.path}`;
   }
   if (c.sort !== 'newest' && c.sort !== 'oldest') return '排序取值非法';
+  if (c.sorts.length > MAX_SORT_CONDS) return `排序条件最多 ${MAX_SORT_CONDS} 条`;
+  for (const s of c.sorts) {
+    if (s.dir !== 'asc' && s.dir !== 'desc') return '排序方向非法';
+    if (s.kind === 'tag' && !isValidTagPath(s.path)) return `标签路径不合法:${s.path}`;
+  }
   if (c.tagPresence !== null && c.tagPresence !== 'any' && c.tagPresence !== 'none') {
     return '标签有无取值非法';
   }

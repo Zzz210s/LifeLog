@@ -50,6 +50,7 @@ describe('useFilterState 启动读回与退化', () => {
       tags: [{ path: '工作', includeChildren: true }],
       tagPresence: 'none',
       sort: 'oldest',
+      sorts: [{ kind: 'time', dir: 'asc', enabled: true }],
       expr: 'a>1',
     });
     getSetting.mockResolvedValueOnce(JSON.stringify(stored));

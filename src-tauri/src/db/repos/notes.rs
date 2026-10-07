@@ -146,6 +146,12 @@ pub use notes_read::{all_titles, pick_titles, NoteTitle};
 /// 条件对象(结构化筛选真源)与条件 -> SQL 片段生成 / 校验
 #[path = "notes_filter.rs"]
 pub mod notes_filter;
+/// 排序数据模型(SortCond / 生效排序 / 校验;自 notes_filter.rs 拆出守 200 行)
+#[path = "notes_sort.rs"]
+pub mod notes_sort;
+/// 标签树序键与「按标签轴排序」SQL 片段(排序后端专用)
+#[path = "tag_order.rs"]
+pub mod tag_order;
 pub use notes_filter::{validate as validate_conditions, FilterConditions};
 
 /// 查询/更新拆分模块(守 200 行上限);re-export 保持 repos::notes::* 路径不变

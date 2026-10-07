@@ -1,5 +1,6 @@
 //! 条件对象 -> SQL 片段生成与校验的纯函数测试(测试先行 TDD;不依赖数据库)
 use super::notes_filter::*;
+use super::notes_sort::oldest_first;
 
 fn tag(path: &str, include_children: bool) -> TagCond {
     TagCond { path: path.into(), include_children }

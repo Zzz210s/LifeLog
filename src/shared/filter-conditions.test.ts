@@ -10,10 +10,17 @@ import {
   validateFilter,
 } from './filter-conditions';
 import { normalizeFilter } from './filter-conditions-parse';
-import type { FilterConditions, TagCond } from './filter-conditions';
+import type { FilterConditions, SortCond, TagCond } from './filter-conditions';
 
 const tag = (path: string, includeChildren = false): TagCond => ({ path, includeChildren });
 const cond = (patch: Partial<FilterConditions>): FilterConditions => ({ ...EMPTY_FILTER, ...patch });
+const timeSort = (dir: 'asc' | 'desc', enabled = true): SortCond => ({ kind: 'time', dir, enabled });
+const tagSort = (path: string, dir: 'asc' | 'desc', enabled = true): SortCond => ({
+  kind: 'tag',
+  path,
+  dir,
+  enabled,
+});
 
 describe('EMPTY_FILTER 与 isFilterEmpty', () => {
   it('默认条件为空、最新在前', () => {
@@ -25,6 +32,7 @@ describe('EMPTY_FILTER 与 isFilterEmpty', () => {
       excludeRelations: [],
       tagPresence: null,
       sort: 'newest',
+      sorts: [],
       expr: null,
     });
     expect(isFilterEmpty(EMPTY_FILTER)).toBe(true);
@@ -63,6 +71,20 @@ describe('filterKey', () => {
     expect(filterKey(cond({ expr: '#工作' }))).not.toBe(filterKey(cond({ expr: '#生活' })));
     expect(filterKey(cond({ expr: '#工作' }))).not.toBe(filterKey(EMPTY_FILTER));
     expect(filterKey(cond({ expr: '#工作 ' }))).toBe(filterKey(cond({ expr: '#工作' })));
+  });
+
+  it('排序只认 sorts:方向/轴路径/启用态逐字段敏感,旧 sort 投射不参与', () => {
+    expect(filterKey(cond({ sorts: [timeSort('asc')] }))).not.toBe(
+      filterKey(cond({ sorts: [timeSort('desc')] }))
+    );
+    expect(filterKey(cond({ sorts: [tagSort('地点', 'asc')] }))).not.toBe(
+      filterKey(cond({ sorts: [tagSort('地点', 'desc')] }))
+    );
+    expect(filterKey(cond({ sorts: [tagSort('地点', 'asc', false)] }))).not.toBe(
+      filterKey(cond({ sorts: [tagSort('地点', 'asc', true)] }))
+    );
+    // 旧 sort 是写侧派生镜像:单独变化不改键
+    expect(filterKey(cond({ sort: 'oldest' }))).toBe(filterKey(EMPTY_FILTER));
   });
 });
 
@@ -123,6 +145,15 @@ describe('validateFilter', () => {
     expect(validateFilter(cond({ expr: '#工作'.repeat(100) }))).toBeNull();
     expect(validateFilter(cond({ expr: 'x'.repeat(MAX_EXPR_CHARS + 1) }))).toContain('表达式最多 500 字符');
     expect(validateFilter(cond({ expr: '   ' }))).toBeNull();
+  });
+
+  it('排序条件:上限 5 条、方向取值、标签轴路径(T1)', () => {
+    expect(validateFilter(cond({ sorts: [timeSort('desc'), tagSort('地点', 'asc', false)] }))).toBeNull();
+    expect(
+      validateFilter(cond({ sorts: Array.from({ length: 6 }, () => timeSort('desc')) }))
+    ).toContain('排序条件最多 5 条');
+    expect(validateFilter(cond({ sorts: [timeSort('sideways' as 'asc')] }))).toContain('排序方向非法');
+    expect(validateFilter(cond({ sorts: [tagSort('a//b', 'asc')] }))).toContain('标签路径不合法');
   });
 
   it('合法条件返回 null(含上限边界)', () => {

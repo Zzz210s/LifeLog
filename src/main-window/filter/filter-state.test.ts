@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { EMPTY_FILTER, filterKey } from '../../shared/filter-conditions';
 import type { FilterConditions } from '../../shared/filter-conditions';
-import { FILTER_KEY, parseFilterState, serializeFilterState, toggleFilterTag } from './filter-state';
+import { FILTER_KEY, applyFilterPatch, parseFilterState, serializeFilterState, toggleFilterTag } from './filter-state';
 
 const cond = (patch: Partial<FilterConditions>): FilterConditions => ({ ...EMPTY_FILTER, ...patch });
+
+const ASC: FilterConditions['sorts'] = [{ kind: 'time', dir: 'asc', enabled: true }];
 
 describe('filter-state 默认值与退化(单份条件)', () => {
   it('settings 键与 Rust 侧约定一致', () => {
@@ -41,7 +43,14 @@ describe('filter-state 默认值与退化(单份条件)', () => {
       extra: '未知字段',
     });
     expect(parseFilterState(raw)).toEqual(
-      cond({ keyword: '电影', tags: [{ path: '工作', includeChildren: true }], tagPresence: 'none', sort: 'oldest', expr: 'a>1' })
+      cond({
+        keyword: '电影',
+        tags: [{ path: '工作', includeChildren: true }],
+        tagPresence: 'none',
+        sort: 'oldest',
+        sorts: [{ kind: 'time', dir: 'asc', enabled: true }],
+        expr: 'a>1',
+      })
     );
   });
 
@@ -52,6 +61,7 @@ describe('filter-state 默认值与退化(单份条件)', () => {
       excludeTags: [{ path: '私人', includeChildren: false }],
       tagPresence: 'any',
       sort: 'oldest',
+      sorts: [{ kind: 'time', dir: 'asc', enabled: true }],
       expr: 'a>1',
     });
     const raw = serializeFilterState(c);
@@ -62,6 +72,7 @@ describe('filter-state 默认值与退化(单份条件)', () => {
       'keyword',
       'relations',
       'sort',
+      'sorts',
       'tagPresence',
       'tags',
     ]);
@@ -70,6 +81,33 @@ describe('filter-state 默认值与退化(单份条件)', () => {
     // 往返幂等:再序列化一次字节一致
     expect(serializeFilterState(parseFilterState(raw))).toBe(raw);
     expect(serializeFilterState(EMPTY_FILTER)).toBe(JSON.stringify(EMPTY_FILTER));
+  });
+});
+
+describe('applyFilterPatch(旧 sort 入口折算 + 写侧镜像)', () => {
+  it('patch 带 sort 时折成 sorts;chip 移除的 {...c, sort:"newest"} 能清掉已有 sorts', () => {
+    const oldest = applyFilterPatch(cond({}), { sort: 'oldest' });
+    expect(oldest.sort).toBe('oldest');
+    expect(oldest.sorts).toEqual(ASC);
+    // chip 移除:整个条件对象被 spread 进来(sorts 继承自主前态),sort 仍是权威入口
+    const cleared = applyFilterPatch(cond({ sort: 'oldest', sorts: ASC }), {
+      ...cond({ sort: 'oldest', sorts: ASC }),
+      sort: 'newest',
+    });
+    expect(cleared.sorts).toEqual([]);
+    expect(serializeFilterState(cleared)).toContain('"sort":"newest"');
+  });
+
+  it('patch 不带 sort 时 sorts 原样直通(T2 的新入口)', () => {
+    const next = applyFilterPatch(cond({}), { sorts: ASC });
+    expect(next.sorts).toEqual(ASC);
+    expect(next.sort).toBe('newest'); // 旧镜像由序列化时派生,不在落态时改写
+  });
+
+  it('派生镜像:第一条启用时间条件定 sort,没有则 newest', () => {
+    expect(JSON.parse(serializeFilterState(cond({ sorts: ASC }))).sort).toBe('oldest');
+    expect(JSON.parse(serializeFilterState(cond({ sorts: [{ kind: 'tag', path: '地点', dir: 'asc', enabled: true }] }))).sort).toBe('newest');
+    expect(JSON.parse(serializeFilterState(cond({ sorts: [{ kind: 'time', dir: 'asc', enabled: false }] }))).sort).toBe('newest');
   });
 });
 

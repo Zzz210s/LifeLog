@@ -2,10 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { EMPTY_FILTER } from './filter-conditions';
 import { canEvaluateLocally, matchesTagsByPath } from './filter-conditions-local';
 import { normalizeFilter, parseFilterJson } from './filter-conditions-parse';
-import type { FilterConditions, TagCond } from './filter-conditions';
+import type { FilterConditions, SortCond, TagCond } from './filter-conditions';
 
 const tag = (path: string, includeChildren = false): TagCond => ({ path, includeChildren });
 const cond = (patch: Partial<FilterConditions>): FilterConditions => ({ ...EMPTY_FILTER, ...patch });
+const timeSort = (dir: 'asc' | 'desc' = 'asc'): SortCond => ({ kind: 'time', dir, enabled: true });
 
 describe('parseFilterJson', () => {
   it('空串、null、坏 JSON 一律回退默认', () => {
@@ -45,6 +46,7 @@ describe('parseFilterJson', () => {
       excludeRelations: [],
       tagPresence: 'any',
       sort: 'oldest',
+      sorts: [{ kind: 'time', dir: 'asc', enabled: true }],
       expr: '#工作 AND NOT #临时',
     });
     // 只有旧日期键也不回退默认:归一后就是空条件(合法;迁移 014 起 filter_last 键也已删除)
@@ -59,7 +61,20 @@ describe('parseFilterJson', () => {
 
   it('缺字段走各自默认,空白关键词归一为 null', () => {
     expect(parseFilterJson(JSON.stringify({ keyword: '  ' }))).toEqual(EMPTY_FILTER);
-    expect(parseFilterJson(JSON.stringify({ sort: 'oldest' }))).toEqual(cond({ sort: 'oldest' }));
+    expect(parseFilterJson(JSON.stringify({ sort: 'oldest' }))).toEqual(
+      cond({ sort: 'oldest', sorts: [timeSort('asc')] })
+    );
+    expect(parseFilterJson(JSON.stringify({ sorts: [{ kind: 'time', dir: 'desc' }] }))).toEqual(
+      cond({ sorts: [{ kind: 'time', dir: 'desc', enabled: true }] })
+    );
+    // 显式 sorts 优先于旧 sort;非数组 sorts 由旧 sort 合成(存量条件不被抹掉)
+    expect(
+      parseFilterJson(JSON.stringify({ sort: 'oldest', sorts: [{ kind: 'tag', path: '地点', dir: 'desc', enabled: false }] }))
+    ).toEqual(cond({ sort: 'oldest', sorts: [{ kind: 'tag', path: '地点', dir: 'desc', enabled: false }] }));
+    expect(parseFilterJson(JSON.stringify({ sort: 'oldest', sorts: '坏值' }))).toEqual(
+      cond({ sort: 'oldest', sorts: [timeSort('asc')] })
+    );
+    expect(parseFilterJson(JSON.stringify({ sorts: [] }))).toEqual(EMPTY_FILTER);
     expect(parseFilterJson(JSON.stringify({ tags: [{ path: '工作' }] }))).toEqual(
       cond({ tags: [tag('工作')] })
     );
@@ -96,11 +111,16 @@ describe('normalizeFilter(应用保存视图时归一)', () => {
   });
 
   it('合法字段原样保留,非法 sort/tagPresence 按默认处理', () => {
-    const c = cond({ tags: [tag('工作', true)], tagPresence: 'any', sort: 'oldest' });
+    const c = cond({
+      tags: [tag('工作', true)],
+      tagPresence: 'any',
+      sort: 'oldest',
+      sorts: [timeSort('asc')],
+    });
     expect(normalizeFilter(c)).toEqual(c);
     expect(
       normalizeFilter({ ...c, sort: 'sideways' as unknown as FilterConditions['sort'] })
-    ).toEqual(cond({ tags: [tag('工作', true)], tagPresence: 'any' }));
+    ).toEqual(cond({ tags: [tag('工作', true)], tagPresence: 'any', sorts: [timeSort('asc')] }));
     expect(
       normalizeFilter({ tagPresence: 'some' as unknown as FilterConditions['tagPresence'] })
     ).toEqual(EMPTY_FILTER);

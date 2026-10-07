@@ -154,6 +154,22 @@ fn rewrite_filter_paths_reads_frontend_persisted_shape() {
     assert_eq!(out["sort"], json!("newest"));
 }
 
+/// 排序的标签轴也是路径:改名/移动后必须跟着改,漏了就是排序静默失效(2026-10-06 T1)
+#[test]
+fn rewrite_filter_paths_rewrites_sort_axis_paths() {
+    let c = db();
+    let raw = "{\"keyword\":null,\"tags\":[],\"excludeTags\":[],\"tagPresence\":null,\"sort\":\"newest\",\"sorts\":[{\"kind\":\"tag\",\"path\":\"工作/项目A\",\"dir\":\"asc\",\"enabled\":true},{\"kind\":\"time\",\"dir\":\"desc\",\"enabled\":false}],\"expr\":null}";
+    settings::set(&c, FILTER_CURRENT_KEY, raw).unwrap();
+
+    rewrite_filter_paths(&c, "工作", "职业").unwrap();
+
+    let out = read(&c);
+    assert_eq!(out["sorts"][0]["path"], json!("职业/项目A"));
+    assert_eq!(out["sorts"][0]["dir"], json!("asc"), "方向与启用态原样保留");
+    assert_eq!(out["sorts"][0]["enabled"], json!(true));
+    assert_eq!(out["sorts"][1]["kind"], json!("time"), "时间条件不动");
+}
+
 #[test]
 fn rewrite_filter_paths_is_noop_without_key_or_with_bad_json() {
     let c = db();

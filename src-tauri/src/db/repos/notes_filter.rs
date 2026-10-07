@@ -12,6 +12,8 @@ use serde::{Deserialize, Serialize};
 #[path = "filter_predicates.rs"]
 pub(crate) mod filter_predicates;
 pub(crate) use filter_predicates::{carry_predicate, keyword_predicate, tag_exists, tag_predicate};
+/// 排序数据模型与生效排序的唯一入口(自本文件拆出守 200 行;`sorts` 字段形状见那边)
+pub use super::notes_sort::{validate_sorts, SortCond};
 
 /// 单个标签条件:完整路径 + 是否含子级(前端默认含子级)
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -51,6 +53,9 @@ pub struct FilterConditions {
     pub exclude_relations: Vec<RelationCond>,
     pub tag_presence: Option<String>,
     pub sort: Option<String>,
+    /// 有序排序条件(下标即优先级;空数组 = 默认时间降序)。旧 `filter_current` 缺字段时
+    /// `#[serde(default)]` 给空数组,再由 `effective_sorts` 从旧 `sort` 合成 —— 存量排序不被抹掉。
+    pub sorts: Vec<SortCond>,
     pub expr: Option<String>,
 }
 
@@ -64,12 +69,6 @@ const MAX_KEYWORD_CHARS: usize = 200;
 #[allow(dead_code)]
 pub fn empty() -> FilterConditions {
     FilterConditions::default()
-}
-
-/// 排序方向:仅显式 `oldest` 为最早在前,其余(含缺失)最新在前
-/// (排序真源是 `notes.id`,与 created_at 同序;见 D1)
-pub fn oldest_first(c: &FilterConditions) -> bool {
-    c.sort.as_deref() == Some("oldest")
 }
 
 /// "挂了任意一个标签"的谓词(时间标签已是普通标签,D3:它也计数):
@@ -176,6 +175,7 @@ pub fn validate(c: &FilterConditions) -> Result<(), String> {
             return Err("排序取值非法".into());
         }
     }
+    validate_sorts(c)?;
     if let Some(p) = c.tag_presence.as_deref() {
         if p != "any" && p != "none" {
             return Err("标签有无取值非法".into());

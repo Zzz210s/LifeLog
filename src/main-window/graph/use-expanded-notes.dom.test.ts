@@ -124,6 +124,7 @@ describe('useExpandedNotes:取数口径', () => {
       excludeRelations: [],
       tagPresence: null,
       sort: 'newest',
+      sorts: [],
       expr: null,
     });
     expect(api?.layer?.dots).toHaveLength(NOTE_LIMIT);

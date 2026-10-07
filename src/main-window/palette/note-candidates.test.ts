@@ -57,6 +57,7 @@ describe('note-candidates:查询条件', () => {
       excludeRelations: [],
       tagPresence: null,
       sort: 'newest',
+      sorts: [],
       expr: null,
     });
     expect(searchConditions('牛奶').keyword).toBe('牛奶');
