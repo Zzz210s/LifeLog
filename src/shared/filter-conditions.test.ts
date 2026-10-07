@@ -3,13 +3,14 @@ import {
   EMPTY_FILTER,
   MAX_EXPR_CHARS,
   MAX_FILTER_TAG_ITEMS,
+  allItems,
   filterKey,
   hasExpr,
   isFilterEmpty,
   isValidTagPath,
   validateFilter,
 } from './filter-conditions';
-import { normalizeFilter } from './filter-conditions-parse';
+import { normalizeFilter } from './filter-conditions-normalize';
 import type { FilterConditions, SortCond, TagCond } from './filter-conditions';
 
 const tag = (path: string, includeChildren = false): TagCond => ({ path, includeChildren });
@@ -34,6 +35,8 @@ describe('EMPTY_FILTER 与 isFilterEmpty', () => {
       sort: 'newest',
       sorts: [],
       expr: null,
+      groupOp: 'and',
+      groups: [],
     });
     expect(isFilterEmpty(EMPTY_FILTER)).toBe(true);
   });
@@ -91,9 +94,12 @@ describe('filterKey', () => {
 describe('表达式字段', () => {
   it('表达式字段进入空条件与归一化', () => {
     expect(EMPTY_FILTER.expr).toBeNull();
-    expect(normalizeFilter({ ...EMPTY_FILTER, expr: '   ' }).expr).toBeNull();
-    expect(normalizeFilter({ ...EMPTY_FILTER, expr: ' #工作 ' }).expr).toBe(' #工作 ');
-    expect(normalizeFilter({}).expr).toBeNull();
+    // 表达式归一到 groups 里的 expr 项:空白项被丢弃,非空文本原样保留(含首尾空白)
+    expect(allItems(normalizeFilter({ ...EMPTY_FILTER, expr: '   ' }))).toEqual([]);
+    expect(allItems(normalizeFilter({ ...EMPTY_FILTER, expr: ' #工作 ' }))).toEqual([
+      { kind: 'expr', value: ' #工作 ' },
+    ]);
+    expect(allItems(normalizeFilter({}))).toEqual([]);
   });
 
   it('hasExpr:全空白视为无表达式', () => {
@@ -138,7 +144,12 @@ describe('validateFilter', () => {
     expect(validateFilter(cond({ tags: [tag('')] }))).toContain('标签路径不合法');
     expect(validateFilter(cond({ tags: [tag('a//b')] }))).toContain('标签路径不合法');
     expect(validateFilter(cond({ sort: 'sideways' as FilterConditions['sort'] }))).toContain('排序');
-    expect(validateFilter(cond({ tagPresence: 'some' as FilterConditions['tagPresence'] }))).toContain('标签有无');
+    // 非法「有无标签」取值:平铺兼容位在归一里被丢弃,故以组内项注入(与线上落库形态一致)
+    expect(
+      validateFilter(
+        cond({ groups: [{ op: 'and', items: [{ kind: 'presence', value: 'some' as 'any' }] }] })
+      )
+    ).toContain('标签有无');
   });
 
   it('表达式长度上限与 Rust expr::MAX_LEN 同口径(500 字)', () => {

@@ -7,7 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act } from 'react';
 import type { FilterConditions } from '../../shared/filter-conditions';
-import { EMPTY_FILTER } from '../../shared/filter-conditions';
+import { EMPTY_FILTER, normalizeGroups } from '../../shared/filter-conditions';
 import { NOTE, installGeometryStubs, mountStreamView, row } from './__fixtures__/stream-view-harness';
 import { QUICK_OPEN_CLEARED_TEXT } from '../palette/quick-open';
 
@@ -16,7 +16,7 @@ const { getSetting, setSetting, saveInputNote, carriedTagPaths, conditionHitCoun
   setSetting: vi.fn(async (_key: string, _value: string) => {}),
   saveInputNote: vi.fn(async (_s: string) => 1),
   carriedTagPaths: vi.fn(async (): Promise<string[]> => []),
-  conditionHitCounts: vi.fn(async () => ({ tagHits: [], excludeTagHits: [], relationHits: [], excludeRelationHits: [] })),
+  conditionHitCounts: vi.fn(async () => ({ groups: [{ op: 'and' as const, itemHits: [], groupHit: null }] })),
 }));
 vi.mock('../../shared/api', () => ({ api: { getSetting, setSetting, saveInputNote, carriedTagPaths, conditionHitCounts } }));
 
@@ -44,10 +44,9 @@ describe('采纳副作用(StreamView 执行)', () => {
     const m = await mountStreamView({ rows: [row('UI测试')], onPatch });
     await m.type('#UI测试');
     await m.press('Enter');
-    expect(onPatch).toHaveBeenCalledWith({
-      tags: [{ path: 'UI测试', includeChildren: true }],
-      excludeTags: [],
-    });
+    expect(onPatch).toHaveBeenCalledWith(
+      normalizeGroups({ ...EMPTY_FILTER, tags: [{ path: 'UI测试', includeChildren: true }] })
+    );
     expect(m.chips()).toEqual(['⊢ #UI测试']);
   });
 
@@ -58,10 +57,13 @@ describe('采纳副作用(StreamView 执行)', () => {
     await m.type('#UI测试A');
     await m.press('Enter');
     expect(m.chips()).toEqual(['⊢ #UI测试A']);
-    expect(onPatch).toHaveBeenCalledWith({
-      tags: [{ path: 'UI测试A', includeChildren: true }],
-      excludeTags: [],
-    });
+    expect(onPatch).toHaveBeenCalledWith(
+      normalizeGroups({
+        ...excluded,
+        tags: [{ path: 'UI测试A', includeChildren: true }],
+        excludeTags: [],
+      })
+    );
   });
 
   it('`@` 选笔记 -> 滚到该条(元素在滚动容器外时滚到中间)', async () => {

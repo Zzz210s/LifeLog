@@ -14,6 +14,7 @@
  * 这种补丁必须**两侧都给**:容器只 patch `tags` 的话,排除项会留在原地。
  */
 import type { FilterConditions } from '../../shared/filter-conditions';
+import { itemPaths, normalizeGroups, removePathItems } from '../../shared/filter-conditions';
 import type { InputMode } from '../../shared/input-prefix';
 import type { ListRow } from '../../shared/quickpick/model';
 import { applyTagPick } from '../filter/filter-chips';
@@ -41,15 +42,12 @@ export function effectFor(mode: InputMode, row: AcceptRow, conditions: FilterCon
   if (mode === 'open') return { kind: 'scroll-to-note', id: Number(id) };
   if (mode === 'command') return { kind: 'run-command', id };
   if (mode !== 'tag') return { kind: 'none' }; // 记录模式 / 实时筛选模式没有采纳副作用
-  const next = applyTagPick(conditions, id, { exclude: false, includeChildren: true });
-  // 排除侧已有同一路径:这次采纳把它移到包含侧(补丁两侧都给,见文件头)
-  const excluded = conditions.excludeTags.some((t) => t.path === id);
-  if (next === conditions && !excluded) return { kind: 'none' }; // 该标签已在包含侧(同侧去重的引用相等出口)
-  return {
-    kind: 'filter-patch',
-    patch: {
-      tags: next.tags,
-      excludeTags: excluded ? conditions.excludeTags.filter((t) => t.path !== id) : conditions.excludeTags,
-    },
-  };
+  const inTags = itemPaths(conditions, 'tag').includes(id);
+  const excluded = itemPaths(conditions, 'excludeTag').includes(id);
+  if (inTags && !excluded) return { kind: 'none' }; // 该标签已在包含侧
+  // 排除侧已有同一路径:这次采纳把它移到包含侧(两侧都给,见文件头)
+  const cleared = excluded ? removePathItems(conditions, 'excludeTag', id) : normalizeGroups(conditions);
+  const next = inTags ? cleared : applyTagPick(cleared, id, { exclude: false, includeChildren: true });
+  // 直接给整份新条件(groups 权威):applyFilterPatch 见到 groups 即以其为准,不会把平铺字段二次并入
+  return { kind: 'filter-patch', patch: next };
 }

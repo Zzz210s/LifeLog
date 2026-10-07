@@ -1,13 +1,19 @@
 /**
- * 单份筛选条件的持久化(spec 2026-09-25 §2):settings 键 `filter_current`。
- * 键名真源在 Rust `db/repos/settings.rs` 的 `FILTER_CURRENT_KEY`,这里是它的镜像常量
- * (与其它 settings 键同一约定:真源在 Rust,前端只是同名字符串)。
- * 落库形状就是一个 `FilterConditions` 对象的 JSON,与 Rust `notes_filter.rs` 的
- * Serialize 同构(八个 camelCase 字段)。
+ * 单份筛选条件的持久化(spec 2026-09-25 §2;条件组化 2026-10-06 §5):settings 键 `filter_current`。
+ * 键名真源在 Rust `db/repos/settings.rs` 的 `FILTER_CURRENT_KEY`,这里是它的镜像常量。
+ * 落库形状 = `{ groupOp, groups, sort, sorts }` —— **只写新字段**,旧平铺字段不再落库(单向迁移)。
  * 本文件只有纯函数(便于单测);读写 settings 的副作用在 use-filter-state.ts。
  */
-import { EMPTY_FILTER, sortMirror, sortsFromLegacy } from '../../shared/filter-conditions';
-import type { FilterConditions, SortCond } from '../../shared/filter-conditions';
+import {
+  EMPTY_FILTER,
+  addGroupItem,
+  mapGroupItems,
+  normalizeGroups,
+  removePathItems,
+  sortMirror,
+  sortsFromLegacy,
+} from '../../shared/filter-conditions';
+import type { FilterConditions, GroupItem, SortCond } from '../../shared/filter-conditions';
 import { parseFilterJson } from '../../shared/filter-conditions-parse';
 import { applyTagPick } from './filter-chips';
 
@@ -22,8 +28,7 @@ export function defaultFilterState(): FilterConditions {
 /**
  * 解析持久化的 filter_current:空串/坏 JSON/非法条件一律退化为空条件 ——
  * 解析与归一完全复用 shared 的 parseFilterJson,不在这里维护第二套口径。
- * **返回副本**:parseFilterJson 在退化路径上会直接返回模块级的 `EMPTY_FILTER` 常量本身,
- * 而本函数的产物会长期存在状态里(持有共享对象 = 潜在的别名改写风险,见评审 M3)。
+ * **返回副本**:parseFilterJson 在退化路径上会直接返回模块级的 `EMPTY_FILTER` 常量本身。
  */
 export function parseFilterState(raw: string | null): FilterConditions {
   return { ...parseFilterJson(raw) };
@@ -33,26 +38,84 @@ export function parseFilterState(raw: string | null): FilterConditions {
 const serializeSort = (s: SortCond) =>
   s.kind === 'tag' ? { kind: s.kind, path: s.path, dir: s.dir, enabled: s.enabled } : { ...s };
 
-/** 序列化为落库文本:只写约定的九个字段,未知字段一律不落地(前向兼容) */
+/** 条件组序列化:item 形状已与落库一致(kind 判别联合) */
+const serializeGroup = (g: FilterConditions['groups'][number]) => ({
+  op: g.op,
+  items: g.items.map((it) => ({ ...it })),
+});
+
+/** 序列化为落库文本:只写 `groupOp` / `groups` / `sort` / `sorts`(平铺字段不再写) */
 export function serializeFilterState(c: FilterConditions): string {
+  const n = normalizeGroups(c);
   return JSON.stringify({
-    keyword: c.keyword,
-    tags: c.tags.map((t) => ({ path: t.path, includeChildren: t.includeChildren })),
-    excludeTags: c.excludeTags.map((t) => ({ path: t.path, includeChildren: t.includeChildren })),
-    relations: c.relations.map((r) => ({ path: r.path })),
-    excludeRelations: c.excludeRelations.map((r) => ({ path: r.path })),
-    tagPresence: c.tagPresence,
-    sort: sortMirror(c.sorts),
-    sorts: c.sorts.map(serializeSort),
-    expr: c.expr,
+    groupOp: n.groupOp,
+    groups: n.groups.map(serializeGroup),
+    sort: sortMirror(n.sorts),
+    sorts: n.sorts.map(serializeSort),
+  });
+}
+
+/** 平铺字段名(旧调用点的降级通道:补丁带这些且不带 groups 时并入第 0 组) */
+const FLAT_FIELDS = [
+  'keyword',
+  'tags',
+  'excludeTags',
+  'relations',
+  'excludeRelations',
+  'tagPresence',
+  'expr',
+] as const;
+
+/** 按种类整段替换(保持该 kind 原位置;没有则追加到末尾) */
+function replaceKind(items: GroupItem[], kind: GroupItem['kind'], next: GroupItem[]): GroupItem[] {
+  const firstIdx = items.findIndex((it) => it.kind === kind);
+  const rest = items.filter((it) => it.kind !== kind);
+  if (next.length === 0) return rest;
+  if (firstIdx < 0) return [...rest, ...next];
+  const before = items.slice(0, firstIdx).filter((it) => it.kind !== kind);
+  return [...before, ...next, ...rest.slice(before.length)];
+}
+
+/**
+ * 旧平铺字段补丁并入第 0 组(设计与 `normalizeGroups` 的「搬进 groups[0]」同义,
+ * 但用于**在线补丁**而不是回读:关键字/表达式/有无标签按种类唯一,标签/关系整段替换)。
+ * 顺序按旧 `where_clause` 口径,保证 chip 与摘要的次序不变。
+ */
+function applyFlatPatch(c: FilterConditions, v: Partial<FilterConditions>): FilterConditions {
+  const tagItems = (list: { path: string; includeChildren: boolean }[] | undefined, kind: GroupItem['kind']) =>
+    (list ?? []).map((t) => ({ kind, path: t.path, includeChildren: t.includeChildren }) as GroupItem);
+  const pathItems = (list: { path: string }[] | undefined, kind: GroupItem['kind']) =>
+    (list ?? []).map((r) => ({ kind, path: r.path }) as GroupItem);
+  return mapGroupItems(c, 0, (start) => {
+    let items = start;
+    if (v.keyword !== undefined) {
+      const kw = v.keyword ?? '';
+      items = replaceKind(items, 'keyword', kw.trim() === '' ? [] : [{ kind: 'keyword', value: kw }]);
+    }
+    if (v.tags !== undefined) items = replaceKind(items, 'tag', tagItems(v.tags, 'tag'));
+    if (v.excludeTags !== undefined) items = replaceKind(items, 'excludeTag', tagItems(v.excludeTags, 'excludeTag'));
+    if (v.relations !== undefined) items = replaceKind(items, 'relation', pathItems(v.relations, 'relation'));
+    if (v.excludeRelations !== undefined) {
+      items = replaceKind(items, 'excludeRelation', pathItems(v.excludeRelations, 'excludeRelation'));
+    }
+    if (v.tagPresence !== undefined) {
+      const tp = v.tagPresence;
+      items = replaceKind(items, 'presence', tp === null ? [] : [{ kind: 'presence', value: tp }]);
+    }
+    if (v.expr !== undefined) {
+      const ex = v.expr ?? '';
+      items = replaceKind(items, 'expr', ex.trim() === '' ? [] : [{ kind: 'expr', value: ex }]);
+    }
+    return items;
   });
 }
 
 /**
- * 落态兼容(设计 §4.2/§4.7):
- * - patch 带 `sorts` 时以 `sorts` 为权威,并**落态即同步**旧 `sort` 镜像
- *   (读口仍按 `conditions.sort` 取命令勾选态与文案;镜像本身不参与 `filterKey`)。
- * - patch 只带旧 `sort`(旧构建/旧调用点降级通道)时折算成一条时间排序,不碰 `sort` 本身。
+ * 落态兼容(设计 §4.2/§5.2):
+ * - patch 带 `groups`(新形态,含 chip 移除整对象透传)时以它为准,平铺字段一律忽略;
+ * - patch 只带平铺字段(统一输入框关键词 / 侧栏勾选 / 表达式 / 有无标签的降级通道)时
+ *   并入第 0 组(在线口径;旧 JSON 回读的「前插新组」在 parse 的 `normalizeGroups` 里);
+ * - patch 带 `sorts` 时以 `sorts` 为权威并**落态即同步**旧 `sort` 镜像。
  */
 export function applyFilterPatch(
   cur: FilterConditions,
@@ -61,32 +124,35 @@ export function applyFilterPatch(
   const next = { ...cur, ...value };
   if (value.sorts !== undefined) {
     next.sort = sortMirror(value.sorts);
-    return next;
+    return normalizeGroups(next);
   }
   if (value.sort !== undefined) {
     next.sorts = sortsFromLegacy(value.sort === 'oldest' ? 'oldest' : 'newest');
   }
-  return next;
+  const hasFlat = FLAT_FIELDS.some((k) => value[k] !== undefined);
+  if (value.groups === undefined && hasFlat) return applyFlatPatch(next, value);
+  return normalizeGroups(next);
 }
 
 /**
- * 标签选中开关:未选中则加入(默认"含子级"),已选中则移除;
- * 排除侧已有该路径时**移到包含侧** —— 与侧栏 toggleTagPick、统一输入框 `#` 同一口径
- * (沿用了标签页时代 toggleActiveTag 的语义,只少了"当前页"那层状态机外壳)。
+ * 标签选中开关(侧栏点标签 / 统一输入框同一口径):
+ * 未选中则加入第 0 组(默认"含子级"),已选中则移除;排除侧已有该路径时**移到包含侧** ——
+ * 与 `tag-tree.ts::toggleTagPick` 同语义;遗留数据两侧同路径时按旧口径只清排除侧、保留包含侧原值。
  */
 export function toggleFilterTag(c: FilterConditions, path: string): FilterConditions {
-  if (c.excludeTags.some((t) => t.path === path)) {
-    // 走 applyTagPick 而不是裸 spread:与侧栏/统一输入框共用去重(遗留数据里万一两侧同路径,
-    // 结果也不会出现重复的 tags 项)
-    const moved = applyTagPick(
-      { ...c, excludeTags: c.excludeTags.filter((t) => t.path !== path) },
+  const n = normalizeGroups(c);
+  const has = (kind: GroupItem['kind']): boolean =>
+    n.groups.some((g) => g.items.some((it) => it.kind === kind && 'path' in it && it.path === path));
+  const inTags = has('tag');
+  const inExclude = has('excludeTag');
+  if (inTags && inExclude) return removePathItems(n, 'excludeTag', path);
+  if (inTags) return removePathItems(n, 'tag', path);
+  if (inExclude) {
+    return addGroupItem(removePathItems(n, 'excludeTag', path), {
+      kind: 'tag',
       path,
-      { exclude: false, includeChildren: true }
-    );
-    return { ...c, tags: moved.tags, excludeTags: moved.excludeTags };
+      includeChildren: true,
+    });
   }
-  const tags = c.tags.some((t) => t.path === path)
-    ? c.tags.filter((t) => t.path !== path)
-    : applyTagPick(c, path, { exclude: false, includeChildren: true }).tags;
-  return { ...c, tags };
+  return applyTagPick(n, path, { exclude: false, includeChildren: true });
 }

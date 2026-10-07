@@ -31,6 +31,15 @@ fn read(conn: &Connection) -> Value {
     serde_json::from_str(&raw).unwrap()
 }
 
+/// 归一后的组内项(级联改写回写的是新形态:平铺字段搬进 groups[0])
+fn items(out: &Value) -> &Vec<Value> {
+    out["groups"][0]["items"].as_array().unwrap()
+}
+
+fn item<'a>(out: &'a Value, kind: &str) -> &'a Value {
+    items(out).iter().find(|it| it["kind"] == json!(kind)).expect("kind 项存在")
+}
+
 #[test]
 fn rewrite_expr_paths_follows_prefix_rule() {
     assert_eq!(
@@ -65,15 +74,15 @@ fn rewrite_filter_paths_rewrites_tags_and_expr() {
     rewrite_filter_paths(&c, "工作", "职业").unwrap();
 
     let out = read(&c);
-    assert_eq!(out["tags"][0]["path"], json!("职业/项目A"));
-    assert_eq!(out["tags"][0]["includeChildren"], json!(true), "其余字段原样保留");
-    assert_eq!(out["excludeTags"][0]["path"], json!("职业"));
+    assert_eq!(item(&out, "tag")["path"], json!("职业/项目A"));
+    assert_eq!(item(&out, "tag")["includeChildren"], json!(true), "其余字段原样保留");
+    assert_eq!(item(&out, "excludeTag")["path"], json!("职业"));
     assert_eq!(
-        out["expr"],
+        item(&out, "expr")["value"],
         json!("#职业 AND NOT #工作2 AND #=职业/项目A"),
         "表达式 token 级前缀改写,非本前缀的 #工作2 不动"
     );
-    assert_eq!(out["keyword"], json!("复盘"), "关键词不参与路径改写");
+    assert_eq!(item(&out, "keyword")["value"], json!("复盘"), "关键词不参与路径改写");
     assert_eq!(out["sort"], json!("oldest"), "排序不动");
     assert_eq!(out["tagPresence"], json!(null), "标签有无不动");
 }
@@ -102,9 +111,9 @@ fn rewrite_filter_paths_rewrites_relation_paths() {
     rewrite_filter_paths(&c, "地点轴/国籍", "国家").unwrap();
 
     let out = read(&c);
-    assert_eq!(out["relations"][0]["path"], json!("国家"));
-    assert_eq!(out["relations"][1]["path"], json!("不识别的标签"), "未命中前缀的不动");
-    assert_eq!(out["excludeRelations"][0]["path"], json!("国家/子级"));
+    assert_eq!(item(&out, "relation")["path"], json!("国家"));
+    assert_eq!(items(&out)[1]["path"], json!("不识别的标签"), "未命中前缀的不动");
+    assert_eq!(item(&out, "excludeRelation")["path"], json!("国家/子级"));
 }
 
 /// 非空旧字段名 `types`/`excludeTypes`(R10b 改名的来源字段):级联必须读懂并只改路径,
@@ -119,8 +128,8 @@ fn rewrite_filter_paths_reads_legacy_type_field_names() {
     rewrite_filter_paths(&c, "地点轴/国籍", "国家").unwrap();
 
     let out = read(&c);
-    assert_eq!(out["relations"][0]["path"], json!("国家"), "旧 types 路径被改写而非抹掉");
-    assert_eq!(out["excludeRelations"][0]["path"], json!("所在"), "未命中前缀的旧 excludeTypes 仍保留");
+    assert_eq!(item(&out, "relation")["path"], json!("国家"), "旧 types 路径被改写而非抹掉");
+    assert_eq!(item(&out, "excludeRelation")["path"], json!("所在"), "未命中前缀的旧 excludeTypes 仍保留");
 }
 
 /// 老库更早的旧字段名(`roles`/`excludeRoles`):级联必须读懂并只改路径,不得把整条条件抹成空。
@@ -133,8 +142,8 @@ fn rewrite_filter_paths_reads_legacy_role_field_names() {
     rewrite_filter_paths(&c, "地点轴/国籍", "国家").unwrap();
 
     let out = read(&c);
-    assert_eq!(out["relations"][0]["path"], json!("国家"), "旧 roles 路径被改写而非抹掉");
-    assert_eq!(out["excludeRelations"][0]["path"], json!("所在"), "未命中前缀的旧 excludeRoles 仍保留");
+    assert_eq!(item(&out, "relation")["path"], json!("国家"), "旧 roles 路径被改写而非抹掉");
+    assert_eq!(item(&out, "excludeRelation")["path"], json!("所在"), "未命中前缀的旧 excludeRoles 仍保留");
 }
 
 /// 前端真正写进 settings.filter_current 的形状(浏览器实测台的持久化原文,单份条件对象):
@@ -148,9 +157,9 @@ fn rewrite_filter_paths_reads_frontend_persisted_shape() {
     rewrite_filter_paths(&c, "待办", "待办清单").unwrap();
 
     let out = read(&c);
-    assert_eq!(out["tags"][0]["path"], json!("待办清单"));
-    assert_eq!(out["tags"][0]["includeChildren"], json!(true));
-    assert_eq!(out["excludeTags"], json!([]), "空排除列表原样保留");
+    assert_eq!(item(&out, "tag")["path"], json!("待办清单"));
+    assert_eq!(item(&out, "tag")["includeChildren"], json!(true));
+    assert_eq!(out["tags"], json!([]), "平铺字段归一后清空(写侧只写 groups)");
     assert_eq!(out["sort"], json!("newest"));
 }
 

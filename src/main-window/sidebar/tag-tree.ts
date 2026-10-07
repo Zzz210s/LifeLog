@@ -6,8 +6,9 @@
  * (拾枝 ①:侧栏头部放大镜按钮用 `filterTree` 收窄 —— 只看不筛,与统一输入框不同。)
  */
 import type { TagCount } from '../../shared/types';
+import { normalizeGroups } from '../../shared/filter-conditions';
 import type { FilterConditions } from '../../shared/filter-conditions';
-import { applyTagPick } from '../filter/filter-chips';
+import { toggleFilterTag } from '../filter/filter-state';
 
 /** 树节点:id 为 null 表示父行缺失时补出的结构节点(不可右键管理) */
 export interface TagNode {
@@ -160,18 +161,7 @@ export function toggleTagPick(
   c: FilterConditions,
   path: string
 ): Partial<FilterConditions> {
-  if (c.excludeTags.some((t) => t.path === path)) {
-    const moved = applyTagPick(
-      { ...c, excludeTags: c.excludeTags.filter((t) => t.path !== path) },
-      path,
-      { exclude: false, includeChildren: true }
-    );
-    return { tags: moved.tags, excludeTags: moved.excludeTags };
-  }
-  if (c.tags.some((t) => t.path === path)) {
-    return { tags: c.tags.filter((t) => t.path !== path) };
-  }
-  return { tags: applyTagPick(c, path, { exclude: false, includeChildren: true }).tags };
+  return toggleFilterTag(c, path);
 }
 
 /**
@@ -187,14 +177,16 @@ export function rewriteTagPaths(
   const rewrite = (path: string): string =>
     path === from ? to : path.startsWith(from + '/') ? to + path.slice(from.length) : path;
   let changed = false;
-  const map = (list: typeof c.tags) =>
-    list.map((t) => {
-      const next = rewrite(t.path);
-      if (next === t.path) return t;
+  const n = normalizeGroups(c);
+  const groups = n.groups.map((g) => ({
+    ...g,
+    items: g.items.map((it) => {
+      if (!('path' in it)) return it;
+      const next = rewrite(it.path);
+      if (next === it.path) return it;
       changed = true;
-      return { ...t, path: next };
-    });
-  const tags = map(c.tags);
-  const excludeTags = map(c.excludeTags);
-  return changed ? { ...c, tags, excludeTags } : c;
+      return { ...it, path: next };
+    }),
+  }));
+  return changed ? { ...n, groups } : c;
 }

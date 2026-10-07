@@ -3,7 +3,7 @@
  * 显示成 `关系:国籍`,与 `标签` 的 `#中国` 视觉区分;命中数小字照旧。
  */
 import { describe, expect, it } from 'vitest';
-import { EMPTY_FILTER, type FilterConditions } from '../../shared/filter-conditions';
+import { EMPTY_FILTER, itemPaths, normalizeGroups, type FilterConditions } from '../../shared/filter-conditions';
 import { applyRelationPick, chipsOf, summaryOf, summaryTitleOf } from './filter-chips';
 import { parseFilterState, serializeFilterState } from './filter-state';
 
@@ -27,7 +27,7 @@ describe('关系条件:chip 与摘要', () => {
 
   it('删掉关系 chip 的条件对象里关系为空', () => {
     const chip = chipsOf(cond({ relations: [{ path: '国籍' }] }))[0];
-    expect(chip.remove.relations).toEqual([]);
+    expect(itemPaths(chip.remove, 'relation')).toEqual([]);
   });
 
   it('关系与标签可以共存,摘要里两者都在', () => {
@@ -43,20 +43,20 @@ describe('关系条件:chip 与摘要', () => {
 describe('关系条件持久化(设置写入/读回)', () => {
   it('relations/excludeRelations 落库后原样读回;旧字段名存量条件也读回', () => {
     const c = cond({ relations: [{ path: '国籍' }], excludeRelations: [{ path: '地点轴/所在' }] });
-    expect(parseFilterState(serializeFilterState(c))).toEqual(c);
+    expect(parseFilterState(serializeFilterState(c))).toEqual(normalizeGroups(c));
     const raw = serializeFilterState(c);
-    expect(raw).toContain('"relations"');
+    expect(raw).toContain('"kind":"relation"');
     expect(raw).not.toContain('"types"');
-    expect(parseFilterState('{"types":[{"path":"国籍"}]}').relations).toEqual([{ path: '国籍' }]);
+    expect(itemPaths(parseFilterState('{"types":[{"path":"国籍"}]}'), 'relation')).toEqual(['国籍']);
   });
 });
 
 describe('applyRelationPick', () => {
   it('同一关系不重复添加;排除侧独立', () => {
     const once = applyRelationPick(EMPTY_FILTER, '国籍', false);
-    expect(once.relations).toEqual([{ path: '国籍' }]);
-    expect(applyRelationPick(once, '国籍', false).relations).toHaveLength(1);
-    expect(applyRelationPick(once, '所在', true).excludeRelations).toEqual([{ path: '所在' }]);
-    expect(applyRelationPick(once, '所在', true).relations).toHaveLength(1);
+    expect(itemPaths(once, 'relation')).toEqual(['国籍']);
+    expect(itemPaths(applyRelationPick(once, '国籍', false), 'relation')).toHaveLength(1);
+    expect(itemPaths(applyRelationPick(once, '所在', true), 'excludeRelation')).toEqual(['所在']);
+    expect(itemPaths(applyRelationPick(once, '所在', true), 'relation')).toHaveLength(1);
   });
 });

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { EMPTY_FILTER } from './filter-conditions';
+import { EMPTY_FILTER, allItems, normalizeGroups } from './filter-conditions';
 import { canEvaluateLocally, matchesTagsByPath } from './filter-conditions-local';
-import { normalizeFilter, parseFilterJson } from './filter-conditions-parse';
+import { normalizeFilter } from './filter-conditions-normalize';
+import { parseFilterJson } from './filter-conditions-parse';
 import type { FilterConditions, SortCond, TagCond } from './filter-conditions';
 
 const tag = (path: string, includeChildren = false): TagCond => ({ path, includeChildren });
@@ -38,17 +39,17 @@ describe('parseFilterJson', () => {
       expr: '#工作 AND NOT #临时',
       unknownField: 42,
     });
-    expect(parseFilterJson(raw)).toEqual({
-      keyword: '电影',
-      tags: [{ path: '工作', includeChildren: true }],
-      excludeTags: [{ path: '临时', includeChildren: false }],
-      relations: [],
-      excludeRelations: [],
-      tagPresence: 'any',
-      sort: 'oldest',
-      sorts: [{ kind: 'time', dir: 'asc', enabled: true }],
-      expr: '#工作 AND NOT #临时',
-    });
+    // 归一后平铺字段搬进 groups[0](顺序 = 旧 where_clause 口径),from/to 与未知字段不进结果
+    const parsed = parseFilterJson(raw);
+    expect(allItems(parsed)).toEqual([
+      { kind: 'keyword', value: '电影' },
+      { kind: 'tag', path: '工作', includeChildren: true },
+      { kind: 'excludeTag', path: '临时', includeChildren: false },
+      { kind: 'presence', value: 'any' },
+      { kind: 'expr', value: '#工作 AND NOT #临时' },
+    ]);
+    expect(parsed.sort).toBe('oldest');
+    expect(parsed.sorts).toEqual([{ kind: 'time', dir: 'asc', enabled: true }]);
     // 只有旧日期键也不回退默认:归一后就是空条件(合法;迁移 014 起 filter_last 键也已删除)
     expect(parseFilterJson(JSON.stringify({ from: '2026-08-01', to: '2026-09-13' }))).toEqual(EMPTY_FILTER);
   });
@@ -75,16 +76,19 @@ describe('parseFilterJson', () => {
       cond({ sort: 'oldest', sorts: [timeSort('asc')] })
     );
     expect(parseFilterJson(JSON.stringify({ sorts: [] }))).toEqual(EMPTY_FILTER);
-    expect(parseFilterJson(JSON.stringify({ tags: [{ path: '工作' }] }))).toEqual(
-      cond({ tags: [tag('工作')] })
-    );
+    expect(allItems(parseFilterJson(JSON.stringify({ tags: [{ path: '工作' }] })))).toEqual([
+      { kind: 'tag', path: '工作', includeChildren: false },
+    ]);
   });
 });
 
 describe('本地重判(就地更新用)', () => {
   it('仅本级且无排除/有无标签/表达式时可本地判定', () => {
     expect(canEvaluateLocally(EMPTY_FILTER)).toBe(true);
-    expect(canEvaluateLocally(cond({ tags: [tag('a')], keyword: 'x' }))).toBe(true);
+    expect(canEvaluateLocally(cond({ tags: [tag('a')] }))).toBe(true);
+    // 2026-10-06 条件组口径收紧:组内项必须全是「仅本级引入标签」;
+    // 同组出现关键词项(或任何非标签项)一律重查后端(安全方向的收紧,非错判)
+    expect(canEvaluateLocally(cond({ tags: [tag('a')], keyword: 'x' }))).toBe(false);
     expect(canEvaluateLocally(cond({ tags: [tag('a', true)] }))).toBe(false);
     expect(canEvaluateLocally(cond({ excludeTags: [tag('x')] }))).toBe(false);
     expect(canEvaluateLocally(cond({ tagPresence: 'any' }))).toBe(false);
@@ -106,7 +110,7 @@ describe('normalizeFilter(应用保存视图时归一)', () => {
     expect(normalizeFilter(null)).toEqual(EMPTY_FILTER);
     expect(normalizeFilter({})).toEqual(EMPTY_FILTER);
     expect(normalizeFilter({ keyword: '电影', sort: null as unknown as undefined })).toEqual(
-      cond({ keyword: '电影' })
+      normalizeGroups(cond({ keyword: '电影' }))
     );
   });
 
@@ -117,10 +121,14 @@ describe('normalizeFilter(应用保存视图时归一)', () => {
       sort: 'oldest',
       sorts: [timeSort('asc')],
     });
-    expect(normalizeFilter(c)).toEqual(c);
+    expect(normalizeFilter(c)).toEqual(normalizeGroups(c));
     expect(
       normalizeFilter({ ...c, sort: 'sideways' as unknown as FilterConditions['sort'] })
-    ).toEqual(cond({ tags: [tag('工作', true)], tagPresence: 'any', sorts: [timeSort('asc')] }));
+    ).toEqual(
+      normalizeGroups(
+        cond({ tags: [tag('工作', true)], tagPresence: 'any', sorts: [timeSort('asc')] })
+      )
+    );
     expect(
       normalizeFilter({ tagPresence: 'some' as unknown as FilterConditions['tagPresence'] })
     ).toEqual(EMPTY_FILTER);

@@ -13,11 +13,18 @@ export interface TagFactsBundle {
   facts: TagFact[];
 }
 
-/** 条件栏「命中 N 条」读数(IPC `condition_hit_counts`):四组与条件对象里的四个数组同序,
- *  每个数只算该条件自己的命中集(不叠加其它条件) */
+/** 条件栏「命中 N 条」读数(IPC `condition_hit_counts`):**按组 / 按项**同序。
+ *  AND 组给逐项独立读数(每项只算自己的命中集,不叠加其它条件);
+ *  OR 组的逐项读数会产生误导(设计 §5.4),故 `itemHits` 为空,只给 `groupHit`(整组谓词 COUNT)。 */
+export interface GroupHits {
+  op: 'and' | 'or';
+  /** 与组内 items 同序;仅 op==='and' 有意义(OR 组为空数组) */
+  itemHits: number[];
+  /** 整组命中数(OR 组必给;AND 组为 null,不白跑一次 COUNT) */
+  groupHit: number | null;
+}
+
+/** 条件栏读数:每个条件组一条,顺序与条件对象 `groups` 一致 */
 export interface ConditionHits {
-  tagHits: number[];
-  excludeTagHits: number[];
-  relationHits: number[];
-  excludeRelationHits: number[];
+  groups: GroupHits[];
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EMPTY_FILTER, type FilterConditions } from '../../shared/filter-conditions';
+import { EMPTY_FILTER, normalizeGroups, type FilterConditions } from '../../shared/filter-conditions';
 import { effectFor } from './unified-accept';
 
 // 条件向量按真类型标注:brief 原文的 `as never` 在 `{ ...cond }` 展开处会报 TS2698(never 不可展开)
@@ -12,7 +12,10 @@ describe('采纳副作用(设计 §4 表)', () => {
   });
   it('# 选标签 -> 加进筛选条件(含子级)', () => {
     expect(effectFor('tag', { id: '工作/项目A', label: '工作/项目A', ranges: [] } as never, cond))
-      .toEqual({ kind: 'filter-patch', patch: { tags: [{ path: '工作/项目A', includeChildren: true }], excludeTags: [] } });
+      .toEqual({
+        kind: 'filter-patch',
+        patch: normalizeGroups({ ...cond, tags: [{ path: '工作/项目A', includeChildren: true }] }),
+      });
   });
   it('> 选命令 -> 跑该命令', () => {
     expect(effectFor('command', { id: 'export.all', label: '导出整库', ranges: [] } as never, cond))
@@ -28,7 +31,12 @@ describe('采纳副作用(设计 §4 表)', () => {
     expect(effectFor('tag', { id: '工作/项目A', label: '工作/项目A', ranges: [] } as never, only))
       .toEqual({
         kind: 'filter-patch',
-        patch: { tags: [{ path: '工作/项目A', includeChildren: true }], excludeTags: [] },
+        // 采纳后整份新条件:含子级引入项进 groups,排除项被移除
+        patch: normalizeGroups({
+          ...cond,
+          tags: [{ path: '工作/项目A', includeChildren: true }],
+          excludeTags: [],
+        }),
       });
   });
   it('记录模式与筛选模式没有采纳副作用', () => {

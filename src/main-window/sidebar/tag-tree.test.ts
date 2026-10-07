@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildTree, filterTree, flattenTree, isManageable, isSelectable, rewriteTagPaths, toggleTagPick } from './tag-tree';
-import { EMPTY_FILTER } from '../../shared/filter-conditions';
+import { EMPTY_FILTER, itemPaths } from '../../shared/filter-conditions';
 import type { FilterConditions } from '../../shared/filter-conditions';
 
 const rows = [
@@ -148,25 +148,20 @@ describe('toggleTagPick(侧栏行点击的两侧判定)', () => {
     excludeTags: [{ path: '生活', includeChildren: false }],
   };
   it('路径在排除侧:采纳 = 移到包含侧(与统一输入框 `#` 同口径,2026-09-24 计划 2/3 定死)', () => {
-    const next = toggleTagPick(base, '生活');
-    expect(next.tags).toEqual([
-      { path: '工作', includeChildren: true },
-      { path: '生活', includeChildren: true },
-    ]);
-    expect(next.excludeTags).toHaveLength(0); // 同一路径不再留在排除侧(两侧并存的结果恒空)
+    // toggleTagPick 的声明返回 Partial 是历史签名,实现返回整份归一条件(toggleFilterTag)
+    const next = toggleTagPick(base, '生活') as FilterConditions;
+    expect(itemPaths(next, 'tag')).toEqual(['工作', '生活']);
+    expect(itemPaths(next, 'excludeTag')).toHaveLength(0); // 同一路径不再留在排除侧(两侧并存的结果恒空)
   });
   it('路径在引入侧:点击移除引入项(不动排除侧)', () => {
-    const next = toggleTagPick(base, '工作');
-    expect(next.tags).toHaveLength(0);
-    expect(next.excludeTags).toBeUndefined();
+    const next = toggleTagPick(base, '工作') as FilterConditions;
+    expect(itemPaths(next, 'tag')).toHaveLength(0);
+    expect(itemPaths(next, 'excludeTag')).toEqual(['生活']);
   });
   it('两侧都不在:点击经 applyTagPick 加入引入侧(含子级,不清既有项)', () => {
-    const next = toggleTagPick(base, 'todo');
-    expect(next.tags).toEqual([
-      { path: '工作', includeChildren: true },
-      { path: 'todo', includeChildren: true },
-    ]);
-    expect(next.excludeTags).toBeUndefined();
+    const next = toggleTagPick(base, 'todo') as FilterConditions;
+    expect(itemPaths(next, 'tag')).toEqual(['工作', 'todo']);
+    expect(itemPaths(next, 'excludeTag')).toEqual(['生活']);
   });
 });
 
@@ -178,13 +173,13 @@ describe('rewriteTagPaths', () => {
   };
   it('改名:条件里的标签路径按前缀级联改写(含排除侧)', () => {
     const next = rewriteTagPaths(base, '工作', 'WORK');
-    expect(next.tags[0].path).toBe('WORK/项目A');
-    expect(next.excludeTags[0].path).toBe('WORK');
+    expect(itemPaths(next, 'tag')[0]).toBe('WORK/项目A');
+    expect(itemPaths(next, 'excludeTag')[0]).toBe('WORK');
   });
   it('移动:旧路径整段前缀替换为新路径', () => {
     const next = rewriteTagPaths(base, '工作/项目A', '生活/项目A');
-    expect(next.tags[0].path).toBe('生活/项目A');
-    expect(next.excludeTags[0].path).toBe('工作'); // 不受影响
+    expect(itemPaths(next, 'tag')[0]).toBe('生活/项目A');
+    expect(itemPaths(next, 'excludeTag')[0]).toBe('工作'); // 不受影响
   });
   it('无命中返回原对象(不触发重查)', () => {
     expect(rewriteTagPaths(base, '别的', 'x')).toBe(base);

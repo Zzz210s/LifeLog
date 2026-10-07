@@ -121,14 +121,18 @@
       "tagPresence": null,
       "sort": "newest",
       "sorts": [],
-      "expr": null
+      "expr": null,
+      "groupOp": "and",
+      "groups": []
     },
     "empty": true
   },
   {
     "kind": "condition",
     "why": "全空白关键词归一为 null",
-    "raw": { "keyword": "  " },
+    "raw": {
+      "keyword": "  "
+    },
     "valid": true,
     "normalized": {
       "keyword": null,
@@ -139,17 +143,22 @@
       "tagPresence": null,
       "sort": "newest",
       "sorts": [],
-      "expr": null
+      "expr": null,
+      "groupOp": "and",
+      "groups": []
     },
     "empty": true
   },
   {
     "kind": "condition",
     "why": "关键词 + 最早在前",
-    "raw": { "keyword": "电影", "sort": "oldest" },
+    "raw": {
+      "keyword": "电影",
+      "sort": "oldest"
+    },
     "valid": true,
     "normalized": {
-      "keyword": "电影",
+      "keyword": null,
       "tags": [],
       "excludeTags": [],
       "relations": [],
@@ -157,9 +166,25 @@
       "tagPresence": null,
       "sort": "oldest",
       "sorts": [
-        { "kind": "time", "dir": "asc", "enabled": true }
+        {
+          "kind": "time",
+          "dir": "asc",
+          "enabled": true
+        }
       ],
-      "expr": null
+      "expr": null,
+      "groupOp": "and",
+      "groups": [
+        {
+          "op": "and",
+          "items": [
+            {
+              "kind": "keyword",
+              "value": "电影"
+            }
+          ]
+        }
+      ]
     },
     "empty": false
   },
@@ -174,7 +199,7 @@
     },
     "valid": true,
     "normalized": {
-      "keyword": "电影",
+      "keyword": null,
       "tags": [],
       "excludeTags": [],
       "relations": [],
@@ -182,7 +207,19 @@
       "tagPresence": null,
       "sort": "newest",
       "sorts": [],
-      "expr": null
+      "expr": null,
+      "groupOp": "and",
+      "groups": [
+        {
+          "op": "and",
+          "items": [
+            {
+              "kind": "keyword",
+              "value": "电影"
+            }
+          ]
+        }
+      ]
     },
     "empty": false
   },
@@ -190,8 +227,17 @@
     "kind": "condition",
     "why": "includeChildren 缺失补 false;排除标签与有无标签",
     "raw": {
-      "tags": [{ "path": "工作" }],
-      "excludeTags": [{ "path": "临时", "includeChildren": false }],
+      "tags": [
+        {
+          "path": "工作"
+        }
+      ],
+      "excludeTags": [
+        {
+          "path": "临时",
+          "includeChildren": false
+        }
+      ],
       "relations": [],
       "excludeRelations": [],
       "tagPresence": "none"
@@ -199,14 +245,36 @@
     "valid": true,
     "normalized": {
       "keyword": null,
-      "tags": [{ "path": "工作", "includeChildren": false }],
-      "excludeTags": [{ "path": "临时", "includeChildren": false }],
+      "tags": [],
+      "excludeTags": [],
       "relations": [],
       "excludeRelations": [],
-      "tagPresence": "none",
+      "tagPresence": null,
       "sort": "newest",
       "sorts": [],
-      "expr": null
+      "expr": null,
+      "groupOp": "and",
+      "groups": [
+        {
+          "op": "and",
+          "items": [
+            {
+              "kind": "tag",
+              "path": "工作",
+              "includeChildren": false
+            },
+            {
+              "kind": "excludeTag",
+              "path": "临时",
+              "includeChildren": false
+            },
+            {
+              "kind": "presence",
+              "value": "none"
+            }
+          ]
+        }
+      ]
     },
     "empty": false
   },
@@ -215,31 +283,53 @@
     "why": "includeChildren 显式 true 保留,缺失的补 false",
     "raw": {
       "tags": [
-        { "path": "工作", "includeChildren": true },
-        { "path": "生活/健身" }
+        {
+          "path": "工作",
+          "includeChildren": true
+        },
+        {
+          "path": "生活/健身"
+        }
       ]
     },
     "valid": true,
     "normalized": {
       "keyword": null,
-      "tags": [
-        { "path": "工作", "includeChildren": true },
-        { "path": "生活/健身", "includeChildren": false }
-      ],
+      "tags": [],
       "excludeTags": [],
       "relations": [],
       "excludeRelations": [],
       "tagPresence": null,
       "sort": "newest",
       "sorts": [],
-      "expr": null
+      "expr": null,
+      "groupOp": "and",
+      "groups": [
+        {
+          "op": "and",
+          "items": [
+            {
+              "kind": "tag",
+              "path": "工作",
+              "includeChildren": true
+            },
+            {
+              "kind": "tag",
+              "path": "生活/健身",
+              "includeChildren": false
+            }
+          ]
+        }
+      ]
     },
     "empty": false
   },
   {
     "kind": "condition",
     "why": "全空白表达式归一为 null",
-    "raw": { "expr": "   " },
+    "raw": {
+      "expr": "   "
+    },
     "valid": true,
     "normalized": {
       "keyword": null,
@@ -250,14 +340,18 @@
       "tagPresence": null,
       "sort": "newest",
       "sorts": [],
-      "expr": null
+      "expr": null,
+      "groupOp": "and",
+      "groups": []
     },
     "empty": true
   },
   {
     "kind": "condition",
     "why": "表达式原文保留(语义交后端)",
-    "raw": { "expr": "#工作 AND NOT #临时" },
+    "raw": {
+      "expr": "#工作 AND NOT #临时"
+    },
     "valid": true,
     "normalized": {
       "keyword": null,
@@ -268,14 +362,28 @@
       "tagPresence": null,
       "sort": "newest",
       "sorts": [],
-      "expr": "#工作 AND NOT #临时"
+      "expr": null,
+      "groupOp": "and",
+      "groups": [
+        {
+          "op": "and",
+          "items": [
+            {
+              "kind": "expr",
+              "value": "#工作 AND NOT #临时"
+            }
+          ]
+        }
+      ]
     },
     "empty": false
   },
   {
     "kind": "condition",
     "why": "有标签(any)不算空条件",
-    "raw": { "tagPresence": "any" },
+    "raw": {
+      "tagPresence": "any"
+    },
     "valid": true,
     "normalized": {
       "keyword": null,
@@ -283,28 +391,60 @@
       "excludeTags": [],
       "relations": [],
       "excludeRelations": [],
-      "tagPresence": "any",
+      "tagPresence": null,
       "sort": "newest",
       "sorts": [],
-      "expr": null
+      "expr": null,
+      "groupOp": "and",
+      "groups": [
+        {
+          "op": "and",
+          "items": [
+            {
+              "kind": "presence",
+              "value": "any"
+            }
+          ]
+        }
+      ]
     },
     "empty": false
   },
   {
     "kind": "condition",
     "why": "引入标签重复选择(applyPick 两次)只留一条",
-    "raw": { "tags": [{ "path": "工作", "includeChildren": true }] },
+    "raw": {
+      "tags": [
+        {
+          "path": "工作",
+          "includeChildren": true
+        }
+      ]
+    },
     "valid": true,
     "normalized": {
       "keyword": null,
-      "tags": [{ "path": "工作", "includeChildren": true }],
+      "tags": [],
       "excludeTags": [],
       "relations": [],
       "excludeRelations": [],
       "tagPresence": null,
       "sort": "newest",
       "sorts": [],
-      "expr": null
+      "expr": null,
+      "groupOp": "and",
+      "groups": [
+        {
+          "op": "and",
+          "items": [
+            {
+              "kind": "tag",
+              "path": "工作",
+              "includeChildren": true
+            }
+          ]
+        }
+      ]
     },
     "empty": false,
     "applyPick": {
@@ -315,14 +455,27 @@
     },
     "afterPick": {
       "keyword": null,
-      "tags": [{ "path": "工作", "includeChildren": true }],
+      "tags": [],
       "excludeTags": [],
       "relations": [],
       "excludeRelations": [],
       "tagPresence": null,
       "sort": "newest",
       "sorts": [],
-      "expr": null
+      "expr": null,
+      "groupOp": "and",
+      "groups": [
+        {
+          "op": "and",
+          "items": [
+            {
+              "kind": "tag",
+              "path": "工作",
+              "includeChildren": true
+            }
+          ]
+        }
+      ]
     }
   },
   {
@@ -339,7 +492,9 @@
       "tagPresence": null,
       "sort": "newest",
       "sorts": [],
-      "expr": null
+      "expr": null,
+      "groupOp": "and",
+      "groups": []
     },
     "empty": true,
     "applyPick": {
@@ -351,13 +506,26 @@
     "afterPick": {
       "keyword": null,
       "tags": [],
-      "excludeTags": [{ "path": "临时", "includeChildren": true }],
+      "excludeTags": [],
       "relations": [],
       "excludeRelations": [],
       "tagPresence": null,
       "sort": "newest",
       "sorts": [],
-      "expr": null
+      "expr": null,
+      "groupOp": "and",
+      "groups": [
+        {
+          "op": "and",
+          "items": [
+            {
+              "kind": "excludeTag",
+              "path": "临时",
+              "includeChildren": true
+            }
+          ]
+        }
+      ]
     }
   },
   {
@@ -365,27 +533,69 @@
     "why": "引入标签超过 20 项上限:整体非法,前端回退 EMPTY_FILTER,后端 validate 报错",
     "raw": {
       "tags": [
-        { "path": "t0" },
-        { "path": "t1" },
-        { "path": "t2" },
-        { "path": "t3" },
-        { "path": "t4" },
-        { "path": "t5" },
-        { "path": "t6" },
-        { "path": "t7" },
-        { "path": "t8" },
-        { "path": "t9" },
-        { "path": "t10" },
-        { "path": "t11" },
-        { "path": "t12" },
-        { "path": "t13" },
-        { "path": "t14" },
-        { "path": "t15" },
-        { "path": "t16" },
-        { "path": "t17" },
-        { "path": "t18" },
-        { "path": "t19" },
-        { "path": "t20" }
+        {
+          "path": "t0"
+        },
+        {
+          "path": "t1"
+        },
+        {
+          "path": "t2"
+        },
+        {
+          "path": "t3"
+        },
+        {
+          "path": "t4"
+        },
+        {
+          "path": "t5"
+        },
+        {
+          "path": "t6"
+        },
+        {
+          "path": "t7"
+        },
+        {
+          "path": "t8"
+        },
+        {
+          "path": "t9"
+        },
+        {
+          "path": "t10"
+        },
+        {
+          "path": "t11"
+        },
+        {
+          "path": "t12"
+        },
+        {
+          "path": "t13"
+        },
+        {
+          "path": "t14"
+        },
+        {
+          "path": "t15"
+        },
+        {
+          "path": "t16"
+        },
+        {
+          "path": "t17"
+        },
+        {
+          "path": "t18"
+        },
+        {
+          "path": "t19"
+        },
+        {
+          "path": "t20"
+        }
       ]
     },
     "valid": false
@@ -580,20 +790,44 @@
     "kind": "condition",
     "why": "旧字段 types 非空:解析成 relations(R10b 改名回读,漏 alias 会被静默抹掉)",
     "raw": {
-      "types": [{ "path": "地点轴/国籍" }],
-      "excludeTypes": [{ "path": "所在" }]
+      "types": [
+        {
+          "path": "地点轴/国籍"
+        }
+      ],
+      "excludeTypes": [
+        {
+          "path": "所在"
+        }
+      ]
     },
     "valid": true,
     "normalized": {
       "keyword": null,
       "tags": [],
       "excludeTags": [],
-      "relations": [{ "path": "地点轴/国籍" }],
-      "excludeRelations": [{ "path": "所在" }],
+      "relations": [],
+      "excludeRelations": [],
       "tagPresence": null,
       "sort": "newest",
       "sorts": [],
-      "expr": null
+      "expr": null,
+      "groupOp": "and",
+      "groups": [
+        {
+          "op": "and",
+          "items": [
+            {
+              "kind": "relation",
+              "path": "地点轴/国籍"
+            },
+            {
+              "kind": "excludeRelation",
+              "path": "所在"
+            }
+          ]
+        }
+      ]
     },
     "empty": false
   },
@@ -601,20 +835,44 @@
     "kind": "condition",
     "why": "最老字段名 roles/excludeRoles 非空:同样回读成 relations(020 时代存量条件)",
     "raw": {
-      "roles": [{ "path": "国籍" }],
-      "excludeRoles": [{ "path": "所在" }]
+      "roles": [
+        {
+          "path": "国籍"
+        }
+      ],
+      "excludeRoles": [
+        {
+          "path": "所在"
+        }
+      ]
     },
     "valid": true,
     "normalized": {
       "keyword": null,
       "tags": [],
       "excludeTags": [],
-      "relations": [{ "path": "国籍" }],
-      "excludeRelations": [{ "path": "所在" }],
+      "relations": [],
+      "excludeRelations": [],
       "tagPresence": null,
       "sort": "newest",
       "sorts": [],
-      "expr": null
+      "expr": null,
+      "groupOp": "and",
+      "groups": [
+        {
+          "op": "and",
+          "items": [
+            {
+              "kind": "relation",
+              "path": "国籍"
+            },
+            {
+              "kind": "excludeRelation",
+              "path": "所在"
+            }
+          ]
+        }
+      ]
     },
     "empty": false
   },
@@ -658,7 +916,9 @@
           "enabled": false
         }
       ],
-      "expr": null
+      "expr": null,
+      "groupOp": "and",
+      "groups": []
     },
     "empty": true
   },
@@ -689,7 +949,9 @@
           "enabled": true
         }
       ],
-      "expr": null
+      "expr": null,
+      "groupOp": "and",
+      "groups": []
     },
     "empty": true
   },
@@ -757,6 +1019,279 @@
           "path": "a//b",
           "dir": "asc",
           "enabled": true
+        }
+      ]
+    },
+    "valid": false
+  },
+  {
+    "kind": "condition",
+    "why": "旧平铺非空 + groups 非空:平铺前插成 groups[0](op=and),存量条件不丢",
+    "raw": {
+      "tags": [
+        {
+          "path": "工作",
+          "includeChildren": true
+        }
+      ],
+      "groups": [
+        {
+          "op": "or",
+          "items": [
+            {
+              "kind": "tag",
+              "path": "生活",
+              "includeChildren": false
+            }
+          ]
+        }
+      ]
+    },
+    "valid": true,
+    "normalized": {
+      "keyword": null,
+      "tags": [],
+      "excludeTags": [],
+      "relations": [],
+      "excludeRelations": [],
+      "tagPresence": null,
+      "sort": "newest",
+      "sorts": [],
+      "expr": null,
+      "groupOp": "and",
+      "groups": [
+        {
+          "op": "and",
+          "items": [
+            {
+              "kind": "tag",
+              "path": "工作",
+              "includeChildren": true
+            }
+          ]
+        },
+        {
+          "op": "or",
+          "items": [
+            {
+              "kind": "tag",
+              "path": "生活",
+              "includeChildren": false
+            }
+          ]
+        }
+      ]
+    },
+    "empty": false
+  },
+  {
+    "kind": "condition",
+    "why": "空组丢弃:空 AND 组与空 OR 组都不进归一结果(OR 空组不当假)",
+    "raw": {
+      "groups": [
+        {
+          "op": "and",
+          "items": []
+        },
+        {
+          "op": "or",
+          "items": []
+        },
+        {
+          "op": "and",
+          "items": [
+            {
+              "kind": "tag",
+              "path": "工作",
+              "includeChildren": true
+            }
+          ]
+        }
+      ]
+    },
+    "valid": true,
+    "normalized": {
+      "keyword": null,
+      "tags": [],
+      "excludeTags": [],
+      "relations": [],
+      "excludeRelations": [],
+      "tagPresence": null,
+      "sort": "newest",
+      "sorts": [],
+      "expr": null,
+      "groupOp": "and",
+      "groups": [
+        {
+          "op": "and",
+          "items": [
+            {
+              "kind": "tag",
+              "path": "工作",
+              "includeChildren": true
+            }
+          ]
+        }
+      ]
+    },
+    "empty": false
+  },
+  {
+    "kind": "condition",
+    "why": "OR 组合:组内 op=or、组间 groupOp=or 原样保留",
+    "raw": {
+      "groupOp": "or",
+      "groups": [
+        {
+          "op": "and",
+          "items": [
+            {
+              "kind": "tag",
+              "path": "地点",
+              "includeChildren": true
+            }
+          ]
+        },
+        {
+          "op": "or",
+          "items": [
+            {
+              "kind": "tag",
+              "path": "作者",
+              "includeChildren": true
+            },
+            {
+              "kind": "tag",
+              "path": "状态",
+              "includeChildren": true
+            }
+          ]
+        }
+      ]
+    },
+    "valid": true,
+    "normalized": {
+      "keyword": null,
+      "tags": [],
+      "excludeTags": [],
+      "relations": [],
+      "excludeRelations": [],
+      "tagPresence": null,
+      "sort": "newest",
+      "sorts": [],
+      "expr": null,
+      "groupOp": "or",
+      "groups": [
+        {
+          "op": "and",
+          "items": [
+            {
+              "kind": "tag",
+              "path": "地点",
+              "includeChildren": true
+            }
+          ]
+        },
+        {
+          "op": "or",
+          "items": [
+            {
+              "kind": "tag",
+              "path": "作者",
+              "includeChildren": true
+            },
+            {
+              "kind": "tag",
+              "path": "状态",
+              "includeChildren": true
+            }
+          ]
+        }
+      ]
+    },
+    "empty": false
+  },
+  {
+    "kind": "condition",
+    "why": "groups 缺失 + 平铺非空:由平铺合成 groups[0](含关键词/标签/有无标签)",
+    "raw": {
+      "keyword": "电影",
+      "tags": [
+        {
+          "path": "工作"
+        }
+      ],
+      "tagPresence": "none"
+    },
+    "valid": true,
+    "normalized": {
+      "keyword": null,
+      "tags": [],
+      "excludeTags": [],
+      "relations": [],
+      "excludeRelations": [],
+      "tagPresence": null,
+      "sort": "newest",
+      "sorts": [],
+      "expr": null,
+      "groupOp": "and",
+      "groups": [
+        {
+          "op": "and",
+          "items": [
+            {
+              "kind": "keyword",
+              "value": "电影"
+            },
+            {
+              "kind": "tag",
+              "path": "工作",
+              "includeChildren": false
+            },
+            {
+              "kind": "presence",
+              "value": "none"
+            }
+          ]
+        }
+      ]
+    },
+    "empty": false
+  },
+  {
+    "kind": "condition",
+    "why": "组内 op 取值非法(xor):整体非法,回退 EMPTY_FILTER",
+    "raw": {
+      "groups": [
+        {
+          "op": "xor",
+          "items": []
+        }
+      ]
+    },
+    "valid": false
+  },
+  {
+    "kind": "condition",
+    "why": "groupOp 取值非法(xor):整体非法",
+    "raw": {
+      "groupOp": "xor"
+    },
+    "valid": false
+  },
+  {
+    "kind": "condition",
+    "why": "组内项 kind 非法(未知判别):整体非法",
+    "raw": {
+      "groups": [
+        {
+          "op": "and",
+          "items": [
+            {
+              "kind": "date",
+              "value": "2026"
+            }
+          ]
         }
       ]
     },

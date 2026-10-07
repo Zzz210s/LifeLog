@@ -3,7 +3,7 @@
 //! (见 `src/shared/fixtures.test.ts`:isValidTagPath / parseFilterJson / applyTagPick),
 //! Rust 侧喂给真源实现(tags::parse_tag_path / notes_filter::validate / where_clause / expr::validate)。
 //! 后端仍是唯一权威,这里只做"同一份向量两边判定一致"的漂移探测。
-use crate::db::repos::notes::notes_filter::{validate, where_clause};
+use crate::db::repos::notes::notes_filter::{normalize_groups, validate, where_clause};
 use crate::db::repos::notes::notes_sort::{effective_sorts, oldest_first};
 use crate::db::repos::notes::FilterConditions;
 use crate::tags::parse_tag_path;
@@ -99,18 +99,21 @@ fn expressions_match_shared_fixture() {
     }
 }
 
-/// condition:反序列化(缺失补默认)+ 校验 + 收窄/空判定与 fixture 声明一致。
+/// condition:反序列化(缺失补默认)+ 校验 + 归一(条件组)+ 收窄/空判定与 fixture 声明一致。
 /// 说明:前端 parseFilterJson 对**整体非法**的对象回退 EMPTY_FILTER,后端不静默回退
 /// (由 query_notes 前置 validate 拦截),故 valid=false 的条目只断言 validate 报错。
 #[test]
 fn conditions_match_shared_fixture() {
     for (i, e) in entries().iter().filter(|e| e.kind == "condition").enumerate() {
-        let raw: FilterConditions = serde_json::from_value(e.raw.clone().unwrap())
-            .unwrap_or_else(|err| panic!("第 {i} 条反序列化失败:{err}"));
+        let parsed = serde_json::from_value::<FilterConditions>(e.raw.clone().unwrap());
         if e.valid == Some(false) {
-            assert!(validate(&raw).is_err(), "第 {i} 条:非法条件对象必须被 validate 拦下");
+            // 形状非法(如未知 item kind)在反序列化就被拒;取值非法(如 op=xor)由 validate 拦
+            if let Ok(c) = parsed {
+                assert!(validate(&c).is_err(), "第 {i} 条:非法条件对象必须被 validate 拦下");
+            }
             continue;
         }
+        let mut raw = parsed.unwrap_or_else(|err| panic!("第 {i} 条反序列化失败:{err}"));
         validate(&raw).unwrap_or_else(|err| panic!("第 {i} 条:validate 报错:{err}"));
         let n = e.normalized.as_ref().unwrap();
         assert_eq!(
@@ -133,34 +136,25 @@ fn conditions_match_shared_fixture() {
             expected_sorts,
             "第 {i} 条生效排序数组不一致"
         );
-        let has_kw = raw
-            .keyword
-            .as_deref()
-            .map(str::trim)
-            .is_some_and(|k| !k.is_empty());
-        assert_eq!(has_kw, !n["keyword"].is_null(), "第 {i} 条关键词有无不一致");
+        // 归一(旧平铺 -> groups[0],空组丢弃,平铺清空)后与 fixture 声明逐值一致:
+        // 这是「一种形态」的跨语言钉住,前端 normalizeGroups 与后端 normalize_groups 必须同结果
+        normalize_groups(&mut raw);
         assert_eq!(
-            raw.expr.as_deref().map(str::trim).is_some_and(|s| !s.is_empty()),
-            !n["expr"].is_null(),
-            "第 {i} 条表达式有无不一致"
+            serde_json::to_value(&raw.groups).unwrap(),
+            n["groups"],
+            "第 {i} 条归一 groups 不一致(为何:{})",
+            e.why
         );
-        assert_eq!(
-            raw.tag_presence.as_deref(),
-            n["tagPresence"].as_str(),
-            "第 {i} 条标签有无取值不一致"
+        assert_eq!(raw.group_op, n["groupOp"].as_str().unwrap(), "第 {i} 条 groupOp 不一致");
+        assert!(
+            raw.keyword.is_none()
+                && raw.tags.is_empty()
+                && raw.exclude_tags.is_empty()
+                && raw.relations.is_empty()
+                && raw.exclude_relations.is_empty()
+                && raw.tag_presence.is_none()
+                && raw.expr.is_none(),
+            "第 {i} 条:归一后平铺字段必须清空"
         );
-        // 标签列表:顺序保留、不去重(去重是选择器落笔的职责,后端不做第二套)
-        for (key, list) in [("tags", &raw.tags), ("excludeTags", &raw.exclude_tags)] {
-            let rows = n[key].as_array().unwrap();
-            assert_eq!(list.len(), rows.len(), "第 {i} 条 {key} 条数不一致");
-            for (j, t) in list.iter().enumerate() {
-                assert_eq!(t.path, rows[j]["path"].as_str().unwrap(), "第 {i} 条 {key}[{j}] 路径");
-                assert_eq!(
-                    t.include_children,
-                    rows[j]["includeChildren"].as_bool().unwrap(),
-                    "第 {i} 条 {key}[{j}] includeChildren"
-                );
-            }
-        }
     }
 }

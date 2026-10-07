@@ -126,6 +126,8 @@ describe('useExpandedNotes:取数口径', () => {
       sort: 'newest',
       sorts: [],
       expr: null,
+      groupOp: 'and',
+      groups: [],
     });
     expect(api?.layer?.dots).toHaveLength(NOTE_LIMIT);
     // 每个小圆带**笔记 id**(L4 的 link 边靠它在两个圆之间连线):第 i 个圆就是第一页第 i 条笔记

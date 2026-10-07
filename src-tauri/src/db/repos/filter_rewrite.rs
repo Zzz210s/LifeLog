@@ -1,13 +1,13 @@
 //! 当前筛选条件的路径级联(取代已删的 saved_views_rewrite 与标签页时代的 tabs_rewrite;
 //! spec 2026-09-17 S6/S7,2026-09-25 改单份条件):
 //! 标签改名/移动时,同一事务里同步重写 `settings.filter_current` 这一份条件对象 ——
-//! 按前缀规则重写 tags[] / exclude_tags[] / relations[] / exclude_relations[] / sorts[].path
-//! 与表达式里的标签 token(与 tags 表的子树路径
+//! 深度遍历 `groups[].items` 的四种路径与表达式项,以及 `sorts[].path`(与 tags 表的子树路径
 //! 重写同款口径:段边界由显式 `/` 保证,`工作X` 不会被 `工作` 误伤)。
 //! 删除标签**不**改写(已删路径自然筛不出笔记,由用户自行调整)。
 //! 键缺失 / 坏 JSON 跳过(不动、不失败);调用方(tags_write::finish)把本模块收进结构变更事务内,
 //! 任一步失败整体回滚。
 use super::notes::{notes_filter::SortCond, FilterConditions};
+use super::notes::notes_filter_groups::{normalize_groups, GroupItem};
 use super::settings::{self, FILTER_CURRENT_KEY};
 use crate::expr::lexer::{lex_spans, Token};
 use rusqlite::Connection;
@@ -21,24 +21,33 @@ fn rewrite_path(path: &str, old: &str, new: &str) -> Option<String> {
     path.strip_prefix(&sep).map(|rest| format!("{new}/{rest}"))
 }
 
-/// 条件对象按前缀规则改写:两侧标签列表 + 两侧关系列表 + 排序的标签轴 + 表达式文本;
-/// 有变化返回 true(include_children / keyword / sort 等其余字段原样保留)
+/// 条件对象按前缀规则改写:深度遍历 `groups[].items` 里的四种 path 与 `expr` 项 +
+/// 排序的标签轴;有变化返回 true(其余字段原样保留)。
+/// 平铺旧字段先经 `normalize_groups` 搬进 `groups[0]`,因此回读兼容位里的条件也照改。
 fn rewrite_conditions(c: &mut FilterConditions, old: &str, new: &str) -> bool {
     let mut changed = false;
-    for list in [&mut c.tags, &mut c.exclude_tags] {
-        for t in list.iter_mut() {
-            if let Some(p) = rewrite_path(&t.path, old, new) {
-                t.path = p;
-                changed = true;
-            }
-        }
-    }
-    // 关系条件存的也是标签路径(目标标签),改名/移动时跟着改,否则筛选静默失效
-    for list in [&mut c.relations, &mut c.exclude_relations] {
-        for r in list.iter_mut() {
-            if let Some(p) = rewrite_path(&r.path, old, new) {
-                r.path = p;
-                changed = true;
+    normalize_groups(c);
+    for g in c.groups.iter_mut() {
+        for it in g.items.iter_mut() {
+            match it {
+                GroupItem::Tag { path, .. }
+                | GroupItem::ExcludeTag { path, .. }
+                | GroupItem::Relation { path }
+                | GroupItem::ExcludeRelation { path } => {
+                    if let Some(p) = rewrite_path(path, old, new) {
+                        *path = p;
+                        changed = true;
+                    }
+                }
+                GroupItem::Expr { value } => {
+                    let out = rewrite_expr_paths(value, old, new);
+                    if out != *value {
+                        *value = out;
+                        changed = true;
+                    }
+                }
+                // 关键词 / 有无标签没有路径可改
+                GroupItem::Keyword { .. } | GroupItem::Presence { .. } => {}
             }
         }
     }
@@ -49,13 +58,6 @@ fn rewrite_conditions(c: &mut FilterConditions, old: &str, new: &str) -> bool {
                 *path = p;
                 changed = true;
             }
-        }
-    }
-    if let Some(src) = c.expr.as_deref() {
-        let out = rewrite_expr_paths(src, old, new);
-        if out != src {
-            c.expr = Some(out);
-            changed = true;
         }
     }
     changed

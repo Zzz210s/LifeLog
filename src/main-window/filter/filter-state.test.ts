@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EMPTY_FILTER, filterKey } from '../../shared/filter-conditions';
+import { EMPTY_FILTER, allItems, filterKey, itemPaths, normalizeGroups } from '../../shared/filter-conditions';
 import type { FilterConditions } from '../../shared/filter-conditions';
 import { FILTER_KEY, applyFilterPatch, parseFilterState, serializeFilterState, toggleFilterTag } from './filter-state';
 
@@ -43,14 +43,16 @@ describe('filter-state 默认值与退化(单份条件)', () => {
       extra: '未知字段',
     });
     expect(parseFilterState(raw)).toEqual(
-      cond({
-        keyword: '电影',
-        tags: [{ path: '工作', includeChildren: true }],
-        tagPresence: 'none',
-        sort: 'oldest',
-        sorts: [{ kind: 'time', dir: 'asc', enabled: true }],
-        expr: 'a>1',
-      })
+      normalizeGroups(
+        cond({
+          keyword: '电影',
+          tags: [{ path: '工作', includeChildren: true }],
+          tagPresence: 'none',
+          sort: 'oldest',
+          sorts: [{ kind: 'time', dir: 'asc', enabled: true }],
+          expr: 'a>1',
+        })
+      )
     );
   });
 
@@ -65,22 +67,16 @@ describe('filter-state 默认值与退化(单份条件)', () => {
       expr: 'a>1',
     });
     const raw = serializeFilterState(c);
-    expect(Object.keys(JSON.parse(raw)).sort()).toEqual([
-      'excludeRelations',
-      'excludeTags',
-      'expr',
-      'keyword',
-      'relations',
-      'sort',
-      'sorts',
-      'tagPresence',
-      'tags',
-    ]);
-    expect(JSON.parse(raw)).toEqual(c);
-    expect(parseFilterState(raw)).toEqual(c);
+    expect(Object.keys(JSON.parse(raw)).sort()).toEqual(['groupOp', 'groups', 'sort', 'sorts']);
+    // 落库形状 = 四个权威字段(平铺兼容位不写);语义由 parseFilterState 还原后与归一条件一致
+    const n = normalizeGroups(c);
+    expect(JSON.parse(raw)).toEqual({ groupOp: n.groupOp, groups: n.groups, sort: n.sort, sorts: n.sorts });
+    expect(parseFilterState(raw)).toEqual(n);
     // 往返幂等:再序列化一次字节一致
     expect(serializeFilterState(parseFilterState(raw))).toBe(raw);
-    expect(serializeFilterState(EMPTY_FILTER)).toBe(JSON.stringify(EMPTY_FILTER));
+    expect(serializeFilterState(EMPTY_FILTER)).toBe(
+      JSON.stringify({ groupOp: 'and', groups: [], sort: 'newest', sorts: [] })
+    );
   });
 });
 
@@ -120,15 +116,15 @@ describe('applyFilterPatch(旧 sort 降级通道 + sorts 权威)', () => {
 describe('filter-state toggleFilterTag(与侧栏点标签同口径)', () => {
   it('未选中则加入(默认含子级),已选中则移除', () => {
     const on = toggleFilterTag(EMPTY_FILTER, '健康');
-    expect(on.tags).toEqual([{ path: '健康', includeChildren: true }]);
-    expect(toggleFilterTag(on, '健康').tags).toEqual([]);
+    expect(allItems(on)).toEqual([{ kind: 'tag', path: '健康', includeChildren: true }]);
+    expect(itemPaths(toggleFilterTag(on, '健康'), 'tag')).toEqual([]);
   });
 
   it('排除侧命中就移到包含侧', () => {
     const c = cond({ excludeTags: [{ path: '健康', includeChildren: false }] });
     const moved = toggleFilterTag(c, '健康');
-    expect(moved.tags).toEqual([{ path: '健康', includeChildren: true }]);
-    expect(moved.excludeTags).toEqual([]);
+    expect(allItems(moved)).toEqual([{ kind: 'tag', path: '健康', includeChildren: true }]);
+    expect(itemPaths(moved, 'excludeTag')).toEqual([]);
   });
 
   it('遗留数据里两侧同路径时不造出重复的 tags 项', () => {
@@ -137,16 +133,16 @@ describe('filter-state toggleFilterTag(与侧栏点标签同口径)', () => {
       excludeTags: [{ path: '健康', includeChildren: false }],
     });
     const moved = toggleFilterTag(c, '健康');
-    expect(moved.tags).toEqual([{ path: '健康', includeChildren: false }]);
-    expect(moved.excludeTags).toEqual([]);
+    expect(allItems(moved)).toEqual([{ kind: 'tag', path: '健康', includeChildren: false }]);
+    expect(itemPaths(moved, 'excludeTag')).toEqual([]);
   });
 
   it('只动标签字段,其它条件原样保留', () => {
     const c = cond({ keyword: '电影', sort: 'oldest', expr: 'a>1' });
     const on = toggleFilterTag(c, '健康');
-    expect(on.keyword).toBe('电影');
+    expect(allItems(on)).toContainEqual({ kind: 'keyword', value: '电影' });
+    expect(allItems(on)).toContainEqual({ kind: 'expr', value: 'a>1' });
     expect(on.sort).toBe('oldest');
-    expect(on.expr).toBe('a>1');
   });
 
   it('退化时返回的是副本,不是共享的 EMPTY_FILTER 常量(别名风险)', () => {
@@ -170,8 +166,8 @@ describe('filter-state toggleFilterTag(与侧栏点标签同口径)', () => {
       expr: null,
     });
     const c = parseFilterState(fromRust);
-    expect(c.keyword).toBe('电影');
-    expect(c.tags).toEqual([{ path: '书籍/小说', includeChildren: true }]);
+    expect(allItems(c)).toContainEqual({ kind: 'keyword', value: '电影' });
+    expect(itemPaths(c, 'tag')).toEqual(['书籍/小说']);
     expect(c.sort).toBe('newest'); // null 归一成默认,不是整串退化
     expect(filterKey(c)).toBe(filterKey({ ...EMPTY_FILTER, keyword: '电影', tags: [{ path: '书籍/小说', includeChildren: true }] }));
   });

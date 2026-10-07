@@ -189,7 +189,7 @@ describe('V5 添加条件下拉:菜单浮层口径(受控:直接以 open: true �
   it('回归:点「标签」回传 includeChildren=false', () => {
     const props = open();
     act(() => (button('标签') as HTMLElement).click());
-    expect(props.onPickTag).toHaveBeenCalledWith(false);
+    expect(props.onPickTag).toHaveBeenCalledWith(false, 0);
   });
 
   it('回归:「表达式(高级)」入口仍打开对话框', () => {

@@ -79,10 +79,13 @@ fn merge_rewrites_filter_conditions_and_expr_tokens() {
 
     let raw = settings::get(&c, FILTER_CURRENT_KEY).unwrap().unwrap();
     let conds: Value = serde_json::from_str(&raw).unwrap();
-    assert_eq!(conds["tags"][0]["path"], "事业");
-    assert_eq!(conds["excludeTags"][0]["path"], "事业");
-    assert_eq!(conds["expr"], "#事业 AND NOT #=事业");
-    assert_eq!(conds["tags"][0]["includeChildren"], true, "其余条件字段原样保留");
+    // 级联回写的是新形态:平铺字段归一进 groups[0],断言从组内项读
+    let items = conds["groups"][0]["items"].as_array().unwrap();
+    let find = |k: &str| -> Value { items.iter().find(|it| it["kind"] == json!(k)).unwrap().clone() };
+    assert_eq!(find("tag")["path"], "事业");
+    assert_eq!(find("excludeTag")["path"], "事业");
+    assert_eq!(find("expr")["value"], "#事业 AND NOT #=事业");
+    assert_eq!(find("tag")["includeChildren"], true, "其余条件字段原样保留");
     assert_eq!(conds["sort"], "newest");
     assert_fts_matches_tags(&c);
     assert_no_orphan_tags(&c);

@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { api } from '../../shared/api';
-import { filterKey } from '../../shared/filter-conditions';
+import { filterKey, itemPaths } from '../../shared/filter-conditions';
 import type { FilterConditions } from '../../shared/filter-conditions';
 import type { ConditionHits } from '../../shared/tag-facts-types';
 import { AddConditionMenu } from './AddConditionMenu';
 import { ExprDialog } from './ExprDialog';
 import { FilterChips } from './FilterChips';
+import { FilterGroupBar } from './FilterGroupBar';
 import { RelationPickDialog } from './RelationPickDialog';
 import { TagPickDialog } from './TagPickDialog';
 import { applyRelationPick, applyTagPick, chipsOf, summarySegmentsOf, summaryTitleOf } from './filter-chips';
@@ -31,17 +32,14 @@ export interface ConditionBarProps {
  */
 export function ConditionBar(p: ConditionBarProps): ReactNode {
   // 两侧已选路径合集:同一标签同时进 tags 与 excludeTags 结果恒空,任一侧已含即禁选;关系同理
-  const pickedPaths = [
-    ...p.conditions.tags.map((t) => t.path),
-    ...p.conditions.excludeTags.map((t) => t.path),
-  ];
+  const pickedPaths = [...itemPaths(p.conditions, 'tag'), ...itemPaths(p.conditions, 'excludeTag')];
   const pickedRelationPaths = [
-    ...p.conditions.relations.map((r) => r.path),
-    ...p.conditions.excludeRelations.map((r) => r.path),
+    ...itemPaths(p.conditions, 'relation'),
+    ...itemPaths(p.conditions, 'excludeRelation'),
   ];
-  // 两个对话框的开关只由「添加条件」菜单触发,所以留在本组件里
-  const [tagPick, setTagPick] = useState<{ exclude: boolean } | null>(null);
-  const [relationPick, setRelationPick] = useState<{ exclude: boolean } | null>(null);
+  // 两个对话框的开关只由「添加条件」菜单触发,所以留在本组件里;group = 落笔到第几组
+  const [tagPick, setTagPick] = useState<{ exclude: boolean; group: number } | null>(null);
+  const [relationPick, setRelationPick] = useState<{ exclude: boolean; group: number } | null>(null);
   const [exprOpen, setExprOpen] = useState(false);
   // 有携带者的标签路径集合;初值空集 = 加载中(先不标) —— 真实库 0 条携带行时不会闪 +携带
   const [carryPaths, setCarryPaths] = useState<CarryPaths>(new Set());
@@ -69,10 +67,10 @@ export function ConditionBar(p: ConditionBarProps): ReactNode {
 
   // 命中数只在真有标签/关系条件时才取(空条件没有可数的 chip)
   const hasTagRelation =
-    p.conditions.tags.length > 0 ||
-    p.conditions.excludeTags.length > 0 ||
-    p.conditions.relations.length > 0 ||
-    p.conditions.excludeRelations.length > 0;
+    itemPaths(p.conditions, 'tag').length > 0 ||
+    itemPaths(p.conditions, 'excludeTag').length > 0 ||
+    itemPaths(p.conditions, 'relation').length > 0 ||
+    itemPaths(p.conditions, 'excludeRelation').length > 0;
 
   useEffect(() => {
     let stale = false;
@@ -129,18 +127,25 @@ export function ConditionBar(p: ConditionBarProps): ReactNode {
           onOpenChange={p.onAddConditionOpenChange}
           conditions={p.conditions}
           onPatch={p.onPatch}
-          onPickTag={(exclude) => setTagPick({ exclude })}
-          onPickRelation={(exclude) => setRelationPick({ exclude })}
+          onPickTag={(exclude, group) => setTagPick({ exclude, group })}
+          onPickRelation={(exclude, group) => setRelationPick({ exclude, group })}
           onOpenExpr={() => setExprOpen(true)}
         />
       </div>
+      <FilterGroupBar conditions={p.conditions} onPatch={p.onPatch} hits={hits} />
       {tagPick && (
         <TagPickDialog
           exclude={tagPick.exclude}
           selected={pickedPaths}
           onClose={() => setTagPick(null)}
           onPick={(path, includeChildren) => {
-            p.onPatch(applyTagPick(p.conditions, path, { exclude: tagPick.exclude, includeChildren }));
+            p.onPatch(
+              applyTagPick(p.conditions, path, {
+                exclude: tagPick.exclude,
+                includeChildren,
+                group: tagPick.group,
+              })
+            );
             setTagPick(null);
           }}
         />
@@ -151,7 +156,7 @@ export function ConditionBar(p: ConditionBarProps): ReactNode {
           selected={pickedRelationPaths}
           onClose={() => setRelationPick(null)}
           onPick={(path) => {
-            p.onPatch(applyRelationPick(p.conditions, path, relationPick.exclude));
+            p.onPatch(applyRelationPick(p.conditions, path, relationPick.exclude, relationPick.group));
             setRelationPick(null);
           }}
         />

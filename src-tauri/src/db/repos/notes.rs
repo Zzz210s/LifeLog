@@ -146,6 +146,12 @@ pub use notes_read::{all_titles, pick_titles, NoteTitle};
 /// 条件对象(结构化筛选真源)与条件 -> SQL 片段生成 / 校验
 #[path = "notes_filter.rs"]
 pub mod notes_filter;
+/// 条件组模型 + 归一(自 notes_filter.rs 拆出守 200 行)
+#[path = "notes_filter_groups.rs"]
+pub mod notes_filter_groups;
+/// 条件组 -> SQL 谓词编译与校验(自 notes_filter_groups.rs 再拆出)
+#[path = "notes_filter_groups_compile.rs"]
+pub mod notes_filter_groups_compile;
 /// 排序数据模型(SortCond / 生效排序 / 校验;自 notes_filter.rs 拆出守 200 行)
 #[path = "notes_sort.rs"]
 pub mod notes_sort;
@@ -166,6 +172,10 @@ pub use notes_update::update;
 #[cfg(test)]
 #[path = "notes_filter_tests.rs"]
 mod notes_filter_tests;
+
+#[cfg(test)]
+#[path = "notes_filter_groups_tests.rs"]
+mod notes_filter_groups_tests;
 
 #[cfg(test)]
 #[path = "notes_tests.rs"]

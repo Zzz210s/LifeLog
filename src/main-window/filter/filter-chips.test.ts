@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EMPTY_FILTER } from '../../shared/filter-conditions';
+import { EMPTY_FILTER, allItems, itemPaths } from '../../shared/filter-conditions';
 import { EXPR_TEXT_MAX, applyTagPick, chipsOf, summaryOf, summarySegmentsOf, summaryTitleOf, truncateExpr } from './filter-chips';
 
 const EXPR = '#工作 AND NOT #临时';
@@ -10,8 +10,8 @@ describe('表达式 chip 与摘要', () => {
     const chip = chips.find((c) => c.kind === 'expr')!;
     expect(chip.label).toContain('表达式');
     expect(chip.label).toBe(`表达式:${EXPR}`);
-    expect(chip.remove.expr).toBeNull();
-    expect(chip.remove.keyword).toBeNull();
+    // 删掉表达式这一项后条件为空(旧平铺字段断言在新模型下已恒真,换成组内项)
+    expect(allItems(chip.remove)).toEqual([]);
   });
 
   it('摘要里带截断的表达式原文', () => {
@@ -61,8 +61,8 @@ describe('chipsOf', () => {
   });
   it('删除某 chip 后条件对象不含该项', () => {
     const keywordChip = chipsOf(c).find((x) => x.kind === 'keyword')!;
-    expect(keywordChip.remove.keyword).toBeNull();
-    expect(keywordChip.remove.tags).toHaveLength(1);
+    expect(allItems(keywordChip.remove).some((it) => it.kind === 'keyword')).toBe(false);
+    expect(itemPaths(keywordChip.remove, 'tag')).toHaveLength(1);
   });
   it('空条件没有 chip', () => { expect(chipsOf(EMPTY_FILTER)).toEqual([]); });
 });
@@ -83,8 +83,12 @@ describe('chipsOf 补充', () => {
     const chips = chipsOf(cc);
     expect(chips.map((x) => x.label)).toEqual(['排除 #临时', '有标签']);
     expect(chips.find((x) => x.kind === 'excludeTag')!.title).toBe('仅本级');
-    expect(chips.find((x) => x.kind === 'excludeTag')!.remove.excludeTags).toEqual([]);
-    expect(chips.find((x) => x.kind === 'presence')!.remove.tagPresence).toBeNull();
+    const exclRemove = chips.find((x) => x.kind === 'excludeTag')!.remove;
+    expect(itemPaths(exclRemove, 'excludeTag')).toEqual([]);
+    expect(allItems(exclRemove)).toContainEqual({ kind: 'presence', value: 'any' });
+    const presRemove = chips.find((x) => x.kind === 'presence')!.remove;
+    expect(allItems(presRemove).some((it) => it.kind === 'presence')).toBe(false);
+    expect(itemPaths(presRemove, 'excludeTag')).toEqual(['临时']);
   });
   it('日期已取消:条件对象无日期字段,自然无日期 chip', () => {
     expect(chipsOf(EMPTY_FILTER).some((x) => (x.kind as string) === 'date')).toBe(false);
@@ -146,16 +150,16 @@ describe('applyTagPick 补充', () => {
   it('已存在同路径(含子级开关不同)不重复也不改写', () => {
     const once = applyTagPick(EMPTY_FILTER, '工作', { exclude: false, includeChildren: true });
     const twice = applyTagPick(once, '工作', { exclude: false, includeChildren: false });
-    expect(twice.tags).toHaveLength(1);
-    expect(twice.tags[0]).toEqual({ path: '工作', includeChildren: true });
+    expect(itemPaths(twice, 'tag')).toHaveLength(1);
+    expect(allItems(twice)).toEqual([{ kind: 'tag', path: '工作', includeChildren: true }]);
   });
   it('排除侧同样不重复;引入与排除互不影响', () => {
     const a = applyTagPick(EMPTY_FILTER, '临时', { exclude: true, includeChildren: false });
     const b = applyTagPick(a, '临时', { exclude: true, includeChildren: true });
-    expect(b.excludeTags).toHaveLength(1);
+    expect(itemPaths(b, 'excludeTag')).toHaveLength(1);
     const c2 = applyTagPick(b, '工作', { exclude: false, includeChildren: true });
-    expect(c2.excludeTags).toHaveLength(1);
-    expect(c2.tags).toHaveLength(1);
+    expect(itemPaths(c2, 'excludeTag')).toHaveLength(1);
+    expect(itemPaths(c2, 'tag')).toHaveLength(1);
   });
 });
 
@@ -192,10 +196,10 @@ describe('applyTagPick', () => {
   it('不重复添加同一路径', () => {
     const once = applyTagPick(EMPTY_FILTER, '工作', { exclude: false, includeChildren: true });
     const twice = applyTagPick(once, '工作', { exclude: false, includeChildren: true });
-    expect(twice.tags).toHaveLength(1);
+    expect(itemPaths(twice, 'tag')).toHaveLength(1);
   });
   it('排除项进入 excludeTags', () => {
     const r = applyTagPick(EMPTY_FILTER, '临时', { exclude: true, includeChildren: true });
-    expect(r.excludeTags[0]).toEqual({ path: '临时', includeChildren: true });
+    expect(allItems(r)).toEqual([{ kind: 'excludeTag', path: '临时', includeChildren: true }]);
   });
 });

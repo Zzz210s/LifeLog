@@ -9,8 +9,9 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act } from 'react';
-import { EMPTY_FILTER, filterKey } from '../../shared/filter-conditions';
+import { EMPTY_FILTER, allItems, filterKey, itemPaths, normalizeGroups } from '../../shared/filter-conditions';
 import type { FilterConditions } from '../../shared/filter-conditions';
+import { parseFilterState } from './filter-state';
 import { mountFilterState } from './__fixtures__/filter-state-harness';
 import type { MountedState } from './__fixtures__/filter-state-harness';
 
@@ -24,12 +25,17 @@ const cond = (patch: Partial<FilterConditions>): FilterConditions => ({ ...EMPTY
 
 let h: MountedState;
 
-/** 最后一次写库的载荷 */
+/** 最后一次写库的条件对象(落库形状 = { groupOp, groups, sort, sorts },经 parseFilterState 还原) */
 const written = (): FilterConditions =>
-  JSON.parse(setSetting.mock.calls[setSetting.mock.calls.length - 1][1]) as FilterConditions;
+  parseFilterState(setSetting.mock.calls[setSetting.mock.calls.length - 1][1]);
+/** 条件对象里的关键词值(新模型里关键词是组内项,不再是平铺字段) */
+const keywordOf = (c: FilterConditions): string | null => {
+  const it = allItems(c).find((x) => x.kind === 'keyword');
+  return it !== undefined && it.kind === 'keyword' ? it.value : null;
+};
 /** 历次写库载荷的关键词(用于"若有写回,值必须是库值"这类不钉实现的断言) */
 const writtenKeywords = (): (string | null)[] =>
-  setSetting.mock.calls.map((call) => (JSON.parse(call[1]) as FilterConditions).keyword);
+  setSetting.mock.calls.map((call) => keywordOf(parseFilterState(call[1])));
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -58,7 +64,7 @@ describe('useFilterState 启动读回与退化', () => {
     await h.settle();
     expect(getSetting).toHaveBeenCalledWith('filter_current');
     expect(filterKey(h.shown())).toBe(filterKey(stored));
-    expect(h.shown()).toEqual(stored);
+    expect(h.shown()).toEqual(normalizeGroups(stored));
   });
 
   it('库值为空:保持默认空条件且不写回', async () => {
@@ -79,7 +85,7 @@ describe('useFilterState 启动读回与退化', () => {
 
     await act(async () => release(JSON.stringify(cond({ keyword: '库里的' }))));
     await h.settle();
-    expect(h.shown().keyword).toBe('库里的');
+    expect(keywordOf(h.shown())).toBe('库里的');
     await h.advance(500);
     // 恢复后是否再冗余回写一次是实现细节(等值抑制可能拦下),但**若写,值必须是库里的**
     expect(writtenKeywords().every((k) => k === '库里的')).toBe(true);
@@ -98,7 +104,7 @@ describe('useFilterState 写回节流与卸载补写', () => {
     await h.advance(1);
     expect(setSetting).toHaveBeenCalledTimes(1);
     expect(setSetting.mock.calls[0][0]).toBe('filter_current');
-    expect(written().keyword).toBe('AB');
+    expect(keywordOf(written())).toBe('AB');
     expect(written().sort).toBe('oldest');
   });
 
@@ -108,7 +114,7 @@ describe('useFilterState 写回节流与卸载补写', () => {
     await act(async () => h.api().patch({ keyword: '未落盘' }));
     h.unmount();
     expect(setSetting).toHaveBeenCalledTimes(1);
-    expect(written().keyword).toBe('未落盘');
+    expect(keywordOf(written())).toBe('未落盘');
   });
 });
 
@@ -121,7 +127,7 @@ describe('useFilterState reload 与标签开关', () => {
     getSetting.mockResolvedValueOnce(JSON.stringify(cond({ keyword: 'Rust 改写的' })));
     await act(async () => h.api().reload());
     await h.settle();
-    expect(h.shown().keyword).toBe('Rust 改写的'); // 本地态被替换
+    expect(keywordOf(h.shown())).toBe('Rust 改写的'); // 本地态被替换
     expect(setSetting).not.toHaveBeenCalled(); // 挂起的旧值写回被取消
     await h.advance(500);
     expect(writtenKeywords().every((k) => k === 'Rust 改写的')).toBe(true); // 绝不是「本地改了」
@@ -129,16 +135,16 @@ describe('useFilterState reload 与标签开关', () => {
     getSetting.mockResolvedValueOnce(null);
     await act(async () => h.api().reload());
     await h.settle();
-    expect(h.shown().keyword).toBe('Rust 改写的'); // 键缺失:状态一动不动
+    expect(keywordOf(h.shown())).toBe('Rust 改写的'); // 键缺失:状态一动不动
   });
 
   it('toggleTag 与侧栏同口径,并进入写回队列', async () => {
     h.mount();
     await h.settle();
     await act(async () => h.api().toggleTag('健康'));
-    expect(h.shown().tags).toEqual([{ path: '健康', includeChildren: true }]);
+    expect(allItems(h.shown())).toEqual([{ kind: 'tag', path: '健康', includeChildren: true }]);
     await h.advance(500);
-    expect(written().tags).toEqual([{ path: '健康', includeChildren: true }]);
+    expect(itemPaths(written(), 'tag')).toEqual(['健康']);
   });
 
   it('toggleTag:排除侧命中就移到包含侧', async () => {
@@ -148,8 +154,8 @@ describe('useFilterState reload 与标签开关', () => {
     h.mount();
     await h.settle();
     await act(async () => h.api().toggleTag('健康'));
-    expect(h.shown().tags).toEqual([{ path: '健康', includeChildren: true }]);
-    expect(h.shown().excludeTags).toEqual([]);
+    expect(allItems(h.shown())).toEqual([{ kind: 'tag', path: '健康', includeChildren: true }]);
+    expect(itemPaths(h.shown(), 'excludeTag')).toEqual([]);
   });
 });
 
@@ -164,7 +170,7 @@ describe('useFilterState 错误分支(读/写失败都不静默变味)', () => {
 
     await act(async () => h.api().patch({ keyword: '照常写' }));
     await h.advance(500);
-    expect(written().keyword).toBe('照常写');
+    expect(keywordOf(written())).toBe('照常写');
   });
 
   it('写库失败:静默吞掉,界面状态不回滚,下一次改动仍会写', async () => {
@@ -174,12 +180,12 @@ describe('useFilterState 错误分支(读/写失败都不静默变味)', () => {
     await act(async () => h.api().patch({ keyword: '第一次' }));
     await h.advance(500);
     expect(setSetting).toHaveBeenCalledTimes(1);
-    expect(h.shown().keyword).toBe('第一次'); // 写失败不回滚本次会话的筛选
+    expect(keywordOf(h.shown())).toBe('第一次'); // 写失败不回滚本次会话的筛选
 
     await act(async () => h.api().patch({ keyword: '第二次' }));
     await h.advance(500);
     expect(setSetting).toHaveBeenCalledTimes(2);
-    expect(written().keyword).toBe('第二次');
+    expect(keywordOf(written())).toBe('第二次');
   });
 
   it('reload 读库失败:保留当前状态,并且闸门已放行(后续改动仍写)', async () => {
@@ -189,10 +195,10 @@ describe('useFilterState 错误分支(读/写失败都不静默变味)', () => {
     getSetting.mockRejectedValueOnce(new Error('IPC 挂了'));
     await act(async () => h.api().reload());
     await h.settle();
-    expect(h.shown().keyword).toBe('库里的'); // 读失败不动状态
+    expect(keywordOf(h.shown())).toBe('库里的'); // 读失败不动状态
 
     await act(async () => h.api().patch({ keyword: '之后' }));
     await h.advance(500);
-    expect(written().keyword).toBe('之后');
+    expect(keywordOf(written())).toBe('之后');
   });
 });

@@ -47,7 +47,7 @@ beforeEach(() => {
   carriedTagPaths.mockReset();
   carriedTagPaths.mockResolvedValue([]);
   conditionHitCounts.mockReset();
-  conditionHitCounts.mockResolvedValue({ tagHits: [], excludeTagHits: [], relationHits: [], excludeRelationHits: [] });
+  conditionHitCounts.mockResolvedValue({ groups: [{ op: 'and', itemHits: [], groupHit: null }] });
   host = document.createElement('div');
   document.body.appendChild(host);
   root = createRoot(host);
@@ -61,10 +61,7 @@ afterEach(() => {
 describe('条件栏:标签/关系命中数', () => {
   it('标签与排除标签 chip 显示各自的「命中 N 条」小字,按条件对象原序取值', async () => {
     conditionHitCounts.mockResolvedValue({
-      tagHits: [3],
-      excludeTagHits: [1],
-      relationHits: [],
-      excludeRelationHits: [],
+      groups: [{ op: 'and', itemHits: [3, 1], groupHit: null }],
     });
     await render(FULL);
     await act(async () => {

@@ -8,6 +8,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { FilterConditions } from '../../shared/filter-conditions';
+import { itemPaths } from '../../shared/filter-conditions';
 import type { TagMruSource } from '../../shared/tag-mru';
 import type { TagCount } from '../../shared/types';
 import { TagMenu } from './TagMenu';
@@ -55,10 +56,10 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
 
   const tree = useMemo(() => buildTree(p.tagRows), [p.tagRows]);
   const shown = useMemo(() => filterTree(tree, search.query), [tree, search.query]);
-  const activePaths = useMemo(() => new Set(p.conditions.tags.map((t) => t.path)), [p.conditions.tags]);
+  const activePaths = useMemo(() => new Set(itemPaths(p.conditions, 'tag')), [p.conditions]);
   const excludedPaths = useMemo(
-    () => new Set(p.conditions.excludeTags.map((t) => t.path)),
-    [p.conditions.excludeTags]
+    () => new Set(itemPaths(p.conditions, 'excludeTag')),
+    [p.conditions]
   );
 
   const toggleExpand = useCallback((path: string) => {

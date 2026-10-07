@@ -1,9 +1,11 @@
 /**
  * 持久化文本解析:filter_current 等外部来源(settings 键、Migrate 结果、IPC 入参)都要先过这里;
  * 结构非法一律回退 EMPTY_FILTER,绝不把半成品对象放进状态机。
+ * 条件组(设计 2026-10-06 §5):`groups` 缺失/空 -> 由旧平铺字段合成 `groups[0]`;
+ * 归一后平铺字段清空,存量条件**绝不静默丢失**(仓内教训 R10b)。
  */
-import { EMPTY_FILTER, sortsFromLegacy, validateFilter } from './filter-conditions';
-import type { FilterConditions, RelationCond, SortCond, TagCond } from './filter-conditions';
+import { EMPTY_FILTER, normalizeGroups, sortsFromLegacy, validateFilter } from './filter-conditions';
+import type { FilterConditions, FilterGroup, GroupItem, RelationCond, SortCond, TagCond } from './filter-conditions';
 
 /**
  * 解析设置里持久化的条件 JSON:空串 / 坏 JSON / 字段类型非法 / 校验不通过一律回退 EMPTY_FILTER;
@@ -22,54 +24,19 @@ export function parseFilterJson(raw: string | null): FilterConditions {
   return parsed;
 }
 
-/**
- * 应用保存视图/其它外部来源的条件时归一:与 EMPTY_FILTER 合并补齐缺字段,
- * 非法或缺失的 sort/tagPresence 回退默认 —— 防半成品对象(如 null sort)进状态机。
- * 日期范围已取消(D2):旧 JSON 里的 `from`/`to` 静默丢弃(这里只读已知字段)。
- */
-export function normalizeFilter(c: Partial<FilterConditions> | null | undefined): FilterConditions {
-  const rec = (c ?? {}) as Record<string, unknown>;
-  return {
-    keyword: c?.keyword ?? null,
-    tags: Array.isArray(c?.tags) ? c.tags : [],
-    excludeTags: Array.isArray(c?.excludeTags) ? c.excludeTags : [],
-    relations: looseRelations(rec, ['relations', 'types', 'roles']),
-    excludeRelations: looseRelations(rec, ['excludeRelations', 'excludeTypes', 'excludeRoles']),
-    tagPresence: c?.tagPresence === 'any' || c?.tagPresence === 'none' ? c.tagPresence : null,
-    sort: c?.sort === 'oldest' ? 'oldest' : 'newest',
-    sorts: looseSorts(rec, c?.sort === 'oldest' ? 'oldest' : 'newest'),
-    expr: keepExpr(c?.expr ?? null),
-  };
-}
-
-/** 归一用排序数组:结构合法就用它;不是数组或任一项非法 -> 由旧 sort 合成(宽松,不丢存量条件) */
-function looseSorts(rec: Record<string, unknown>, legacy: 'newest' | 'oldest'): SortCond[] {
-  const read = readSortList(rec.sorts);
-  const sorts = read ?? sortsFromLegacy(legacy);
-  // 空数组 + 旧 sort:oldest 是矛盾态(写侧不会产出);按 effective_sorts 口径合成,
-  // 否则 filterKey 只认 sorts 会把它当默认,旧排序被静默抹掉
-  return sorts.length === 0 ? sortsFromLegacy(legacy) : sorts;
-}
-
-/** 宽松关系数组(归一用):按新名 -> 旧名依次取第一个数组;都不是数组则空(R10b 回读) */
-function looseRelations(rec: Record<string, unknown>, keys: string[]): RelationCond[] {
-  for (const k of keys) if (Array.isArray(rec[k])) return rec[k] as RelationCond[];
-  return [];
-}
-
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
 
 /** 空白表达式一律归一为 null(仅空判断用 trim;非空文本原样保留 —— 后端也按原文解析,
- *  这样错误位置下的字符下标与用户看到的串一致) */
-const keepExpr = (v: string | null): string | null => (v === null || v.trim() === '' ? null : v);
+ *  这样错误位置下的字符下标与用户看到的串一致)。归一模块(loose 口径)也用它。 */
+export const keepExpr = (v: string | null): string | null =>
+  v === null || v.trim() === '' ? null : v;
 
 /** 缺失/ null -> null;字符串原样;其它类型 -> undefined(非法) */
 const readNullableString = (v: unknown): string | null | undefined =>
   v === undefined || v === null ? null : typeof v === 'string' ? v : undefined;
 
-/** 关系数组:新字段优先,旧字段名 types/roles 依次回读(缺字段 -> 空数组,老库兼容);
- *  非数组或项里 path 非字符串 -> null(非法) */
+/** 关系数组:非数组或项里 path 非字符串 -> null(非法);缺失 -> 空数组 */
 function readRelationList(v: unknown): RelationCond[] | null {
   if (v === undefined || v === null) return [];
   if (!Array.isArray(v)) return null;
@@ -98,7 +65,7 @@ function readTagList(v: unknown): TagCond[] | null {
  * 数组里任一项形状非法 -> undefined(非法,整条条件回退 EMPTY_FILTER)。
  * 缺失 `enabled` 默认 true(与 Rust serde 默认对齐)。
  */
-function readSortList(v: unknown): SortCond[] | null | undefined {
+export function readSortList(v: unknown): SortCond[] | null | undefined {
   if (v === undefined || v === null) return null;
   if (!Array.isArray(v)) return null;
   const out: SortCond[] = [];
@@ -118,6 +85,49 @@ function readSortList(v: unknown): SortCond[] | null | undefined {
   return out;
 }
 
+/** 组内项数组:非数组 -> undefined(非法);缺失 -> 空数组;任一项形状非法 -> undefined */
+function readItems(v: unknown): GroupItem[] | undefined {
+  if (v === undefined || v === null) return [];
+  if (!Array.isArray(v)) return undefined;
+  const out: GroupItem[] = [];
+  for (const it of v) {
+    if (!isRecord(it)) return undefined;
+    const kind = it.kind;
+    if (kind === 'keyword' || kind === 'expr') {
+      if (typeof it.value !== 'string') return undefined;
+      out.push({ kind, value: it.value });
+    } else if (kind === 'tag' || kind === 'excludeTag') {
+      if (typeof it.path !== 'string') return undefined;
+      if (it.includeChildren !== undefined && typeof it.includeChildren !== 'boolean') return undefined;
+      out.push({ kind, path: it.path, includeChildren: it.includeChildren === true });
+    } else if (kind === 'relation' || kind === 'excludeRelation') {
+      if (typeof it.path !== 'string') return undefined;
+      out.push({ kind, path: it.path });
+    } else if (kind === 'presence') {
+      if (it.value !== 'any' && it.value !== 'none') return undefined;
+      out.push({ kind: 'presence', value: it.value });
+    } else {
+      return undefined;
+    }
+  }
+  return out;
+}
+
+/** 条件组数组:缺失 -> null(由平铺字段合成);非数组 -> null;任一项/项内形状非法 -> undefined */
+function readGroups(v: unknown): FilterGroup[] | null | undefined {
+  if (v === undefined || v === null) return null;
+  if (!Array.isArray(v)) return null;
+  const out: FilterGroup[] = [];
+  for (const g of v) {
+    if (!isRecord(g)) return undefined;
+    if (g.op !== undefined && g.op !== 'and' && g.op !== 'or') return undefined;
+    const items = readItems(g.items);
+    if (items === undefined) return undefined;
+    out.push({ op: g.op === 'or' ? 'or' : 'and', items });
+  }
+  return out;
+}
+
 /** 把任意 JSON 值规整为条件对象;结构非法返回 null(未知字段含 from/to 一律忽略) */
 function normalize(data: unknown): FilterConditions | null {
   if (!isRecord(data)) return null;
@@ -130,15 +140,18 @@ function normalize(data: unknown): FilterConditions | null {
   const sort = readNullableString(data.sort);
   const sorts = readSortList(data.sorts);
   const expr = readNullableString(data.expr);
+  const groups = readGroups(data.groups);
+  const groupOp = data.groupOp;
   if (keyword === undefined || expr === undefined) return null;
   if (tags === null || excludeTags === null || presence === undefined || sort === undefined) return null;
   if (relations === null || excludeRelations === null) return null;
-  if (sorts === undefined) return null;
+  if (sorts === undefined || groups === undefined) return null;
+  if (groupOp !== undefined && groupOp !== null && groupOp !== 'and' && groupOp !== 'or') return null;
   if (presence !== null && presence !== 'any' && presence !== 'none') return null;
   if (sort !== null && sort !== 'newest' && sort !== 'oldest') return null;
   const legacy: 'newest' | 'oldest' = sort === 'oldest' ? 'oldest' : 'newest';
   const sortList = sorts ?? sortsFromLegacy(legacy);
-  return {
+  return normalizeGroups({
     keyword: (keyword ?? '').trim() === '' ? null : keyword,
     tags,
     excludeTags,
@@ -148,5 +161,7 @@ function normalize(data: unknown): FilterConditions | null {
     sort: legacy,
     sorts: sortList.length === 0 ? sortsFromLegacy(legacy) : sortList,
     expr: keepExpr(expr),
-  };
+    groupOp: groupOp === 'or' ? 'or' : 'and',
+    groups: groups ?? [],
+  });
 }

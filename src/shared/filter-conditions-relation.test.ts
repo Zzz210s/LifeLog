@@ -7,13 +7,17 @@
 import { describe, expect, it } from 'vitest';
 import {
   EMPTY_FILTER,
+  allItems,
   filterKey,
   isFilterEmpty,
+  itemPaths,
+  normalizeGroups,
   validateFilter,
   type FilterConditions,
 } from './filter-conditions';
 import { canEvaluateLocally } from './filter-conditions-local';
-import { normalizeFilter, parseFilterJson } from './filter-conditions-parse';
+import { normalizeFilter } from './filter-conditions-normalize';
+import { parseFilterJson } from './filter-conditions-parse';
 
 const cond = (patch: Partial<FilterConditions>): FilterConditions => ({ ...EMPTY_FILTER, ...patch });
 
@@ -28,41 +32,44 @@ describe('关系条件:向后兼容(旧字段名回读)', () => {
       expr: null,
     });
     const c = parseFilterJson(raw);
-    expect(c.relations).toEqual([]);
-    expect(c.excludeRelations).toEqual([]);
-    expect(c.keyword).toBe('电影');
+    expect(itemPaths(c, 'relation')).toEqual([]);
+    expect(itemPaths(c, 'excludeRelation')).toEqual([]);
+    expect(allItems(c)).toEqual([
+      { kind: 'keyword', value: '电影' },
+      { kind: 'tag', path: '工作', includeChildren: true },
+    ]);
   });
 
   it('旧字段 types 非空 -> 回读为 relations(漏回读会被静默抹掉)', () => {
     const raw = JSON.stringify({ types: [{ path: '国籍' }], excludeTypes: [{ path: '所在' }] });
     expect(parseFilterJson(raw)).toEqual(
-      cond({ relations: [{ path: '国籍' }], excludeRelations: [{ path: '所在' }] })
+      normalizeGroups(cond({ relations: [{ path: '国籍' }], excludeRelations: [{ path: '所在' }] }))
     );
   });
 
   it('最老字段名 roles/excludeRoles 非空 -> 同样回读为 relations', () => {
     const raw = JSON.stringify({ roles: [{ path: '国籍' }], excludeRoles: [{ path: '所在' }] });
     expect(parseFilterJson(raw)).toEqual(
-      cond({ relations: [{ path: '国籍' }], excludeRelations: [{ path: '所在' }] })
+      normalizeGroups(cond({ relations: [{ path: '国籍' }], excludeRelations: [{ path: '所在' }] }))
     );
   });
 
   it('新旧字段同时存在:新字段优先,旧字段不叠加(明确口径)', () => {
     const raw = JSON.stringify({ relations: [{ path: '新' }], types: [{ path: '旧' }] });
-    expect(parseFilterJson(raw).relations).toEqual([{ path: '新' }]);
+    expect(itemPaths(parseFilterJson(raw), 'relation')).toEqual(['新']);
   });
 
   it('normalizeFilter 对缺关系字段的外部对象补空数组,旧字段名也认', () => {
-    expect(normalizeFilter({ keyword: '电影' }).relations).toEqual([]);
-    expect(normalizeFilter({ keyword: '电影' }).excludeRelations).toEqual([]);
+    expect(itemPaths(normalizeFilter({ keyword: '电影' }), 'relation')).toEqual([]);
+    expect(itemPaths(normalizeFilter({ keyword: '电影' }), 'excludeRelation')).toEqual([]);
     const legacy = { keyword: '电影', types: [{ path: '国籍' }] } as unknown as FilterConditions;
-    expect(normalizeFilter(legacy).relations).toEqual([{ path: '国籍' }]);
+    expect(itemPaths(normalizeFilter(legacy), 'relation')).toEqual(['国籍']);
   });
 
   it('关系字段照常解析;非法路径整条回退默认', () => {
     const raw = JSON.stringify({ relations: [{ path: '国籍' }], excludeRelations: [{ path: '所在' }] });
     expect(parseFilterJson(raw)).toEqual(
-      cond({ relations: [{ path: '国籍' }], excludeRelations: [{ path: '所在' }] })
+      normalizeGroups(cond({ relations: [{ path: '国籍' }], excludeRelations: [{ path: '所在' }] }))
     );
     expect(parseFilterJson(JSON.stringify({ relations: [{ path: 'a b' }] }))).toBe(EMPTY_FILTER);
     expect(parseFilterJson(JSON.stringify({ relations: [{ path: 42 }] }))).toBe(EMPTY_FILTER);

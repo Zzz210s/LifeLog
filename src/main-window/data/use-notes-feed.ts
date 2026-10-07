@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../../shared/api';
 import type { Note } from '../../shared/types';
 import { filterKey } from '../../shared/filter-conditions';
-import { normalizeFilter } from '../../shared/filter-conditions-parse';
+import { normalizeFilter } from '../../shared/filter-conditions-normalize';
 import type { FilterConditions } from '../../shared/filter-conditions';
 import type { ErrorKind } from '../shell/ErrorBar';
 import { PAGE, mergeNotes } from '../stream/notes-list';

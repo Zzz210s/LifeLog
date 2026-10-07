@@ -10,6 +10,7 @@ import { useCallback, useMemo, useRef } from 'react';
 import type { ReactNode, RefObject } from 'react';
 import type { Note } from '../../shared/types';
 import type { FilterConditions } from '../../shared/filter-conditions';
+import { itemPaths } from '../../shared/filter-conditions';
 import type { RowDecoration } from '../palette/PaletteRow';
 import type { PaletteController } from '../palette/use-palette';
 import { noteMruOf } from '../palette/palette-mru';
@@ -163,7 +164,7 @@ export function StreamView(p: StreamViewProps): ReactNode {
         onRetry={p.onRetry}
         onClearFilters={p.onClearFilters}
         onShowInput={p.onShowInput}
-        activeTags={p.conditions.tags.map((tag) => tag.path)}
+        activeTags={itemPaths(p.conditions, 'tag')}
         editingId={p.editingId}
         hasMore={p.hasMore}
         loading={p.loading}

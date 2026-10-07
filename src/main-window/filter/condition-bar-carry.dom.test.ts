@@ -46,7 +46,7 @@ const summaryText = (): string =>
 beforeEach(() => {
   carriedTagPaths.mockReset();
   conditionHitCounts.mockReset();
-  conditionHitCounts.mockResolvedValue({ tagHits: [], excludeTagHits: [], relationHits: [], excludeRelationHits: [] });
+  conditionHitCounts.mockResolvedValue({ groups: [{ op: 'and', itemHits: [], groupHit: null }] });
   host = document.createElement('div');
   document.body.appendChild(host);
   root = createRoot(host);

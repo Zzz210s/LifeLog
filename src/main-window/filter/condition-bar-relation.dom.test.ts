@@ -7,7 +7,7 @@
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { EMPTY_FILTER, type FilterConditions } from '../../shared/filter-conditions';
+import { EMPTY_FILTER, itemPaths, type FilterConditions } from '../../shared/filter-conditions';
 import { ConditionBar } from './ConditionBar';
 
 const { carriedTagPaths, listTags } = vi.hoisted(() => ({
@@ -85,7 +85,7 @@ describe('条件栏:关系档', () => {
     expect(dialog().textContent).toContain('所在');
 
     await click(buttonWith('国籍'));
-    expect(patches.at(-1)?.relations).toEqual([{ path: '地点轴/国籍' }]);
+    expect(itemPaths(patches.at(-1) as FilterConditions, 'relation')).toEqual(['地点轴/国籍']);
   });
 
   it('点「排除关系」选中回传 excludeRelations', async () => {
@@ -94,6 +94,6 @@ describe('条件栏:关系档', () => {
       (b) => b.textContent === '排除关系'
     ) as HTMLButtonElement);
     await click(buttonWith('所在'));
-    expect(patches.at(-1)?.excludeRelations).toEqual([{ path: '地点轴/所在' }]);
+    expect(itemPaths(patches.at(-1) as FilterConditions, 'excludeRelation')).toEqual(['地点轴/所在']);
   });
 });

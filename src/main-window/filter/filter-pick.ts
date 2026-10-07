@@ -1,29 +1,30 @@
 /**
  * 标签 / 关系选择落笔的纯函数(自 filter-chips.ts 抽出,守 200 行上限)。
- * 同一路径已存在(不论含子级开关)则原样返回,不重复添加;排除与引入是两套独立数组。
+ * 条件组化(设计 2026-10-06 §5.5):落笔进**指定组**(默认第 0 组;越界 -> 新建一组),
+ * 组内同路径已存在则原样返回(不重复添加);排除与引入是两套独立 kind。
  */
-import type { FilterConditions } from '../../shared/filter-conditions';
+import { addGroupItem } from '../../shared/filter-conditions';
+import type { FilterConditions, GroupItem } from '../../shared/filter-conditions';
 
-/** 关系选择落笔:exclude=false 进 relations、true 进 excludeRelations;同一路径已存在则原样返回 */
-export function applyRelationPick(c: FilterConditions, path: string, exclude: boolean): FilterConditions {
-  if (exclude) {
-    if (c.excludeRelations.some((r) => r.path === path)) return c;
-    return { ...c, excludeRelations: [...c.excludeRelations, { path }] };
-  }
-  if (c.relations.some((r) => r.path === path)) return c;
-  return { ...c, relations: [...c.relations, { path }] };
+/** 关系选择落笔:exclude=false 进 relation、true 进 excludeRelation;同组内同路径已存在则原样返回 */
+export function applyRelationPick(
+  c: FilterConditions,
+  path: string,
+  exclude: boolean,
+  group = 0
+): FilterConditions {
+  const item: GroupItem = exclude ? { kind: 'excludeRelation', path } : { kind: 'relation', path };
+  return addGroupItem(c, item, group);
 }
 
-/** 标签选择落笔:exclude=false 进 tags、true 进 excludeTags;同一路径已存在则原样返回 */
+/** 标签选择落笔:exclude=false 进 tag、true 进 excludeTag;同组内同路径已存在则原样返回 */
 export function applyTagPick(
   c: FilterConditions,
   path: string,
-  opts: { exclude: boolean; includeChildren: boolean }
+  opts: { exclude: boolean; includeChildren: boolean; group?: number }
 ): FilterConditions {
-  if (opts.exclude) {
-    if (c.excludeTags.some((t) => t.path === path)) return c;
-    return { ...c, excludeTags: [...c.excludeTags, { path, includeChildren: opts.includeChildren }] };
-  }
-  if (c.tags.some((t) => t.path === path)) return c;
-  return { ...c, tags: [...c.tags, { path, includeChildren: opts.includeChildren }] };
+  const item: GroupItem = opts.exclude
+    ? { kind: 'excludeTag', path, includeChildren: opts.includeChildren }
+    : { kind: 'tag', path, includeChildren: opts.includeChildren };
+  return addGroupItem(c, item, opts.group ?? 0);
 }

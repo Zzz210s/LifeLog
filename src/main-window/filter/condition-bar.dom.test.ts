@@ -9,7 +9,7 @@
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { EMPTY_FILTER, type FilterConditions } from '../../shared/filter-conditions';
+import { EMPTY_FILTER, itemPaths, type FilterConditions } from '../../shared/filter-conditions';
 import { ConditionBar } from './ConditionBar';
 import { summaryOf, summaryTitleOf } from './filter-chips';
 
@@ -61,7 +61,7 @@ const buttonText = (b: HTMLButtonElement): string =>
 beforeEach(() => {
   carriedTagPaths.mockReset();
   carriedTagPaths.mockResolvedValue([]);
-  conditionHitCounts.mockResolvedValue({ tagHits: [], excludeTagHits: [], relationHits: [], excludeRelationHits: [] });
+  conditionHitCounts.mockResolvedValue({ groups: [{ op: 'and', itemHits: [], groupHit: null }] });
   patches = [];
   opens = [];
   host = document.createElement('div');
@@ -81,8 +81,9 @@ describe('条件栏:只剩 chips 与摘要', () => {
     for (const b of buttons()) {
       expect(b.textContent ?? '').not.toMatch(/排序|导出|添加条件/);
     }
-    // 剩下的按钮只能是 chip 自己的单删 × 与表达式编辑入口
-    for (const b of buttons()) {
+    // 剩下的按钮只能是 chip 自己的单删 × 与表达式编辑入口(条件组工具条的组头按钮另算)
+    const chipButtons = buttons().filter((b) => b.closest('[data-testid="filter-group-bar"]') === null);
+    for (const b of chipButtons) {
       expect(buttonText(b)).toMatch(/移除条件|编辑条件/);
     }
   });
@@ -103,7 +104,8 @@ describe('条件栏:条件 chips 的显示与单删', () => {
     act(() => removeBtn.click());
     expect(patches.length).toBe(1);
     expect(patches[0].keyword).toBeNull();
-    expect(patches[0].tags).toEqual(FULL.tags);
+    expect(itemPaths(patches[0] as FilterConditions, 'tag')).toEqual(['工作']);
+    expect(itemPaths(patches[0] as FilterConditions, 'excludeTag')).toEqual(['临时']);
   });
 
   it('tags / excludeTags 各自一个 chip,标签文案即路径', async () => {
@@ -176,7 +178,7 @@ describe('条件栏:添加条件菜单受控', () => {
     expect(menu()).toBeNull();
     await render(FULL, true);
     expect(menu()).not.toBeNull();
-    expect(items()).toEqual(['标签', '排除标签', '关系', '排除关系', '有无标签', '排序', '表达式(高级)']);
+    expect(items()).toEqual(['标签', '排除标签', '关系', '排除关系', '有无标签', '条件组', '排序', '表达式(高级)']);
   });
 
   it('有无标签子面板:文案是「无标签」,不再叫「无自定义标签」', async () => {
