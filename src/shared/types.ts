@@ -166,5 +166,31 @@ export interface GraphData {
 }
 
 /** 筛选条件对象与前端默认值统一从 `filter-conditions.ts` 取(避免两处定义漂移) */
-export type { FilterConditions, TagCond } from './filter-conditions';
+export type { FilterConditions, GroupByCond, TagCond } from './filter-conditions';
 export { EMPTY_FILTER } from './filter-conditions';
+
+/**
+ * 分组骨架的一项(IPC `group_skeleton`;字段与 Rust `GroupSkeleton` 逐字一致)。
+ * `key` = 一级子标签路径,null = 「无该轴标签」哨兵组(恒最后);`label` = 末段名;
+ * `count` 是**该组在当前条件下的总数**(不是已加载数);`orderKey` 是组间树序键。
+ */
+export interface GroupSkeleton {
+  key: string | null;
+  label: string;
+  count: number;
+  orderKey: string;
+}
+
+/** 骨架结果:`degraded`(组数 > 300,退化为平铺)/ `slow`(聚合 > 200ms,提示加筛选)由后端判定 */
+export interface GroupSkeletonResult {
+  groups: GroupSkeleton[];
+  elapsedMs: number;
+  degraded: boolean;
+  slow: boolean;
+}
+
+/** 一组首屏/续页(IPC `query_grouped` / `query_group_page` 的分组形状) */
+export interface GroupPage {
+  key: string | null;
+  notes: Note[];
+}

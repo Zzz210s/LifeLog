@@ -158,6 +158,18 @@ pub mod notes_sort;
 /// 标签树序键与「按标签轴排序」SQL 片段(排序后端专用)
 #[path = "tag_order.rs"]
 pub mod tag_order;
+/// 分页/排序/折叠的公共件(平铺与分组共用,自 notes_query.rs 拆出守 200 行)
+#[path = "notes_page.rs"]
+pub mod notes_page;
+/// 分组键的 SQL 片段(轴 -> 一级子标签)
+#[path = "notes_group_key.rs"]
+pub mod notes_group_key;
+/// 分组数据模型 + 组骨架聚合 + 行折叠
+#[path = "notes_group.rs"]
+pub mod notes_group;
+/// 分组首屏与组内续页查询
+#[path = "notes_group_query.rs"]
+pub mod notes_group_query;
 pub use notes_filter::{validate as validate_conditions, FilterConditions};
 
 /// 查询/更新拆分模块(守 200 行上限);re-export 保持 repos::notes::* 路径不变

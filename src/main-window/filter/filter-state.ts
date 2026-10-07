@@ -1,7 +1,7 @@
 /**
  * 单份筛选条件的持久化(spec 2026-09-25 §2;条件组化 2026-10-06 §5):settings 键 `filter_current`。
  * 键名真源在 Rust `db/repos/settings.rs` 的 `FILTER_CURRENT_KEY`,这里是它的镜像常量。
- * 落库形状 = `{ groupOp, groups, sort, sorts }` —— **只写新字段**,旧平铺字段不再落库(单向迁移)。
+ * 落库形状 = `{ groupOp, groups, sort, sorts, groupBy }` —— **只写新字段**,旧平铺字段不再落库(单向迁移)。
  * 本文件只有纯函数(便于单测);读写 settings 的副作用在 use-filter-state.ts。
  */
 import {
@@ -44,7 +44,7 @@ const serializeGroup = (g: FilterConditions['groups'][number]) => ({
   items: g.items.map((it) => ({ ...it })),
 });
 
-/** 序列化为落库文本:只写 `groupOp` / `groups` / `sort` / `sorts`(平铺字段不再写) */
+/** 序列化为落库文本:只写 `groupOp` / `groups` / `sort` / `sorts` / `groupBy`(平铺字段不再写) */
 export function serializeFilterState(c: FilterConditions): string {
   const n = normalizeGroups(c);
   return JSON.stringify({
@@ -52,6 +52,7 @@ export function serializeFilterState(c: FilterConditions): string {
     groups: n.groups.map(serializeGroup),
     sort: sortMirror(n.sorts),
     sorts: n.sorts.map(serializeSort),
+    groupBy: n.groupBy === null ? null : { ...n.groupBy },
   });
 }
 

@@ -85,5 +85,10 @@ export function validateFilter(c: FilterConditions): string | null {
     if (s.dir !== 'asc' && s.dir !== 'desc') return '排序方向非法';
     if (s.kind === 'tag' && !isValidTagPath(s.path)) return `标签路径不合法:${s.path}`;
   }
+  // 分组轴与方向(与 Rust `validate_group_by` 同口径;分组不是收窄条件,错了只会分错组)
+  if (n.groupBy !== null) {
+    if (n.groupBy.dir !== 'asc' && n.groupBy.dir !== 'desc') return '分组方向非法';
+    if (!isValidTagPath(n.groupBy.path)) return `标签路径不合法:${n.groupBy.path}`;
+  }
   return null;
 }

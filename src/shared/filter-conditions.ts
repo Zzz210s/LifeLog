@@ -56,6 +56,14 @@ export interface RelationCond {
 /** 排序方向:desc = 新 -> 旧 / 选项顺序;asc = 旧 -> 新 / 选项倒序(需按维度出文案) */
 export type SortDir = 'desc' | 'asc';
 
+/** 分组条件(设计 2026-10-06 §6):轴(任意标签路径)+ 组间方向。
+ *  组键 = 轴下**一级子标签**(多值取树序第一,无该标签的笔记恒最后一组);
+ *  `asc` = 选项顺序(树序),`desc` = 选项倒序。 */
+export interface GroupByCond {
+  path: string;
+  dir: SortDir;
+}
+
 /** 排序条件(有序数组元素,下标即优先级):时间(notes.id)或标签轴子树(恒含子级) */
 export type SortCond =
   | { kind: 'time'; dir: SortDir; enabled: boolean }
@@ -74,6 +82,8 @@ export interface FilterConditions {
   sort: 'newest' | 'oldest';
   /** 有序排序条件(下标 = 优先级;空数组 = 默认时间降序);旧 JSON 缺字段时由 `sort` 合成 */
   sorts: SortCond[];
+  /** 分组条件(null = 不分组);落点与 `sorts` 同键(filter_current)。分组**不算收窄条件** */
+  groupBy: GroupByCond | null;
   /** 高级表达式原文(spec 3.3;null=无表达式);归一到 groups 里的 expr 项 */
   expr: string | null;
   /** 组间关系(默认 'and';组内关系每组一个 `FilterGroup.op`) */
@@ -92,6 +102,7 @@ export const EMPTY_FILTER: FilterConditions = {
   tagPresence: null,
   sort: 'newest',
   sorts: [],
+  groupBy: null,
   expr: null,
   groupOp: 'and',
   groups: [],
@@ -153,5 +164,7 @@ export function filterKey(c: FilterConditions): string {
     n.sorts.map((s) =>
       s.kind === 'tag' ? ['tag', s.path, s.dir, s.enabled] : ['time', s.dir, s.enabled]
     ),
+    // 分组轴/方向变化必须重查(值变才重查的唯一判据就是这里)
+    n.groupBy === null ? null : [n.groupBy.path, n.groupBy.dir],
   ]);
 }

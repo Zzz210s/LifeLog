@@ -67,15 +67,21 @@ describe('filter-state 默认值与退化(单份条件)', () => {
       expr: 'a>1',
     });
     const raw = serializeFilterState(c);
-    expect(Object.keys(JSON.parse(raw)).sort()).toEqual(['groupOp', 'groups', 'sort', 'sorts']);
-    // 落库形状 = 四个权威字段(平铺兼容位不写);语义由 parseFilterState 还原后与归一条件一致
+    expect(Object.keys(JSON.parse(raw)).sort()).toEqual(['groupBy', 'groupOp', 'groups', 'sort', 'sorts']);
+    // 落库形状 = 五个权威字段(平铺兼容位不写);语义由 parseFilterState 还原后与归一条件一致
     const n = normalizeGroups(c);
-    expect(JSON.parse(raw)).toEqual({ groupOp: n.groupOp, groups: n.groups, sort: n.sort, sorts: n.sorts });
+    expect(JSON.parse(raw)).toEqual({
+      groupOp: n.groupOp,
+      groups: n.groups,
+      sort: n.sort,
+      sorts: n.sorts,
+      groupBy: n.groupBy,
+    });
     expect(parseFilterState(raw)).toEqual(n);
     // 往返幂等:再序列化一次字节一致
     expect(serializeFilterState(parseFilterState(raw))).toBe(raw);
     expect(serializeFilterState(EMPTY_FILTER)).toBe(
-      JSON.stringify({ groupOp: 'and', groups: [], sort: 'newest', sorts: [] })
+      JSON.stringify({ groupOp: 'and', groups: [], sort: 'newest', sorts: [], groupBy: null })
     );
   });
 });

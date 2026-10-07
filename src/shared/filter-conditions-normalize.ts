@@ -6,7 +6,7 @@
  */
 import { normalizeGroups, sortsFromLegacy } from './filter-conditions';
 import type { FilterConditions, FilterGroup, RelationCond, SortCond } from './filter-conditions';
-import { keepExpr, readSortList } from './filter-conditions-parse';
+import { keepExpr, readGroupBy, readSortList } from './filter-conditions-parse';
 
 export function normalizeFilter(c: Partial<FilterConditions> | null | undefined): FilterConditions {
   const rec = (c ?? {}) as Record<string, unknown>;
@@ -19,6 +19,8 @@ export function normalizeFilter(c: Partial<FilterConditions> | null | undefined)
     tagPresence: c?.tagPresence === 'any' || c?.tagPresence === 'none' ? c.tagPresence : null,
     sort: c?.sort === 'oldest' ? 'oldest' : 'newest',
     sorts: looseSorts(rec, c?.sort === 'oldest' ? 'oldest' : 'newest'),
+    // 宽松口径:分组形状非法只丢分组(不丢整份条件)
+    groupBy: readGroupBy(rec.groupBy) ?? null,
     expr: keepExpr(c?.expr ?? null),
     groupOp: rec.groupOp === 'or' ? 'or' : 'and',
     groups: Array.isArray(rec.groups) ? (rec.groups as FilterGroup[]) : [],

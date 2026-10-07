@@ -34,6 +34,7 @@ describe('EMPTY_FILTER 与 isFilterEmpty', () => {
       tagPresence: null,
       sort: 'newest',
       sorts: [],
+      groupBy: null,
       expr: null,
       groupOp: 'and',
       groups: [],
@@ -88,6 +89,20 @@ describe('filterKey', () => {
     );
     // 旧 sort 是写侧派生镜像:单独变化不改键
     expect(filterKey(cond({ sort: 'oldest' }))).toBe(filterKey(EMPTY_FILTER));
+  });
+
+  it('分组只认 groupBy:轴路径/方向逐字段敏感、不分组与不分组同键', () => {
+    const gb = (path: string, dir: 'asc' | 'desc') => ({ path, dir });
+    expect(filterKey(cond({ groupBy: gb('地点', 'asc') }))).toBe(
+      filterKey(cond({ groupBy: gb('地点', 'asc') }))
+    );
+    expect(filterKey(cond({ groupBy: gb('地点', 'asc') }))).not.toBe(
+      filterKey(cond({ groupBy: gb('地点', 'desc') }))
+    );
+    expect(filterKey(cond({ groupBy: gb('地点', 'asc') }))).not.toBe(
+      filterKey(cond({ groupBy: gb('状态', 'asc') }))
+    );
+    expect(filterKey(cond({ groupBy: gb('地点', 'asc') }))).not.toBe(filterKey(EMPTY_FILTER));
   });
 });
 

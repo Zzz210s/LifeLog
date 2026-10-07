@@ -61,6 +61,7 @@ describe('useExpandedNotes:取数口径', () => {
       tagPresence: null,
       sort: 'newest',
       sorts: [],
+      groupBy: null,
       expr: null,
       groupOp: 'and',
       groups: [],

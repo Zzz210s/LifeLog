@@ -55,6 +55,54 @@ pub fn condition_hit_counts(
     repos::notes_hits::hits(&conn, &conditions)
 }
 
+/// 分组骨架(只读):组名 + 每组总数 + 组间顺序键 + `degraded`/`slow` 标志位。
+/// 与 `query_notes` 共用同一套条件编译;无 `groupBy` 时报错(调用方不该发这个请求)
+#[tauri::command]
+pub fn group_skeleton(
+    app: AppHandle,
+    conditions: repos::notes::FilterConditions,
+) -> Result<repos::notes::notes_group::SkeletonResult, String> {
+    repos::notes::validate_conditions(&conditions)?;
+    let group_by = conditions.group_by.clone().ok_or("没有分组条件")?;
+    let db: State<Db> = app.state();
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    repos::notes::notes_group::skeleton(&conn, &conditions, &group_by)
+}
+
+/// 分组首屏:一次窗口函数取全所有组的前 `PER_GROUP` 条(组内排序走 `sorts`)
+#[tauri::command]
+pub fn query_grouped(
+    app: AppHandle,
+    conditions: repos::notes::FilterConditions,
+) -> Result<Vec<repos::notes::notes_group::GroupPage>, String> {
+    repos::notes::validate_conditions(&conditions)?;
+    let group_by = conditions.group_by.clone().ok_or("没有分组条件")?;
+    let db: State<Db> = app.state();
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    repos::notes::notes_group_query::query_grouped(&conn, &conditions, &group_by)
+}
+
+/// 组内续页:offset 作用域是**组内**(折叠/展开别的组不影响本组 offset)
+#[tauri::command]
+pub fn query_group_page(
+    app: AppHandle,
+    conditions: repos::notes::FilterConditions,
+    group_key: Option<String>,
+    offset: Option<i64>,
+) -> Result<Vec<repos::notes::Note>, String> {
+    repos::notes::validate_conditions(&conditions)?;
+    let group_by = conditions.group_by.clone().ok_or("没有分组条件")?;
+    let db: State<Db> = app.state();
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    repos::notes::notes_group_query::query_group_page(
+        &conn,
+        &conditions,
+        &group_by,
+        group_key.as_deref(),
+        offset.unwrap_or(0),
+    )
+}
+
 /// 一页笔记的被引用计数(`target_id -> 引用条数`):**一次 `IN (...)` 批量取全**,
 /// 前端把 Map 分给各卡(设计 §3.0:50 张卡不能 50 次查询)。
 #[tauri::command]

@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { CompleteItem, DbInfo, ExprCheck, GraphData, GraphLinkDegrees, MergeReport, Note, NoteLinks, NoteTitle, ParseResult, RelationRef, TagCount, TagImpact } from './types';
+import type { CompleteItem, DbInfo, ExprCheck, GraphData, GraphLinkDegrees, GroupPage, GroupSkeletonResult, MergeReport, Note, NoteLinks, NoteTitle, ParseResult, RelationRef, TagCount, TagImpact } from './types';
 import type { ConditionHits, TagFactsBundle } from './tag-facts-types';
 import type { FilterConditions } from './filter-conditions';
 import type { AppHotkeyKind } from './hotkey-match';
@@ -9,6 +9,15 @@ export const api = {
   /** 条件对象查询:offset 为行偏移,页大小由后端固定(前端 PAGE 与之一致) */
   queryNotes: (conditions: FilterConditions, offset: number) =>
     invoke<Note[]>('query_notes', { conditions, offset }),
+  /** 分组骨架(只读):组名 + 每组总数 + 组间顺序键 + degraded/slow 标志位 */
+  groupSkeleton: (conditions: FilterConditions) =>
+    invoke<GroupSkeletonResult>('group_skeleton', { conditions }),
+  /** 分组首屏:一次取全所有组的前 20 条(组内排序走条件的 sorts) */
+  queryGrouped: (conditions: FilterConditions) =>
+    invoke<GroupPage[]>('query_grouped', { conditions }),
+  /** 某组续页:offset 作用域是**组内**(折叠/展开别的组不影响本组 offset);key=null 取哨兵组 */
+  queryGroupPage: (conditions: FilterConditions, groupKey: string | null, offset: number) =>
+    invoke<Note[]>('query_group_page', { conditions, groupKey, offset }),
   /** 实时校验表达式:合法给中文预览,非法给中文原因与 0 起出错字符下标 */
   validateExpr: (text: string) => invoke<ExprCheck>('validate_expr', { text }),
   /** 标签树全量计数(完整路径);标签面板与树形选择器数据源 */

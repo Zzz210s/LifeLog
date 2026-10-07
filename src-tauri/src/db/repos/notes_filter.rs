@@ -34,6 +34,22 @@ pub struct RelationCond {
     pub path: String,
 }
 
+/// 分组条件(设计 2026-10-06 §6):轴(任意标签路径)+ 组间方向。
+/// 组键 = 轴下**一级子标签**(多值取树序第一,无值恒最后一组);
+/// `desc` = 选项倒序(组间顺序反转,哨兵组不受影响)。缺字段时 `#[serde(default)]` 补默认。
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default, rename_all = "camelCase")]
+pub struct GroupByCond {
+    pub path: String,
+    pub dir: String,
+}
+
+impl Default for GroupByCond {
+    fn default() -> Self {
+        Self { path: String::new(), dir: "asc".to_string() }
+    }
+}
+
 /// 流查询条件对象;字段名与前端 `FilterConditions` 完全一致(JSON camelCase)。
 /// 平铺字段(`keyword` / `tags` / `exclude_tags` / `relations` / `exclude_relations` /
 /// `tag_presence` / `expr`)只为回读旧 `filter_current`,编译前一经 `normalize_groups` 即清空。
@@ -52,6 +68,8 @@ pub struct FilterConditions {
     pub sort: Option<String>,
     /// 有序排序条件(下标即优先级;空数组 = 默认时间降序)
     pub sorts: Vec<SortCond>,
+    /// 分组条件(`None` = 不分组);落点与 `sorts` 同键(filter_current)
+    pub group_by: Option<GroupByCond>,
     pub expr: Option<String>,
     /// 组间关系(默认 `and`;组内关系看每个 `FilterGroup.op`)
     pub group_op: String,
@@ -83,6 +101,17 @@ pub(crate) fn expr_error_message(src: &str, e: &crate::expr::lexer::ExprError) -
     }
 }
 
+/// 分组条件校验:方向取值 + 轴路径合法性(轴不要求已存在,空轴由 validate_tag_path 拦下)
+pub fn validate_group_by(g: &GroupByCond) -> Result<(), String> {
+    if g.dir != "asc" && g.dir != "desc" {
+        return Err("分组方向非法".into());
+    }
+    if crate::tags::validate_tag_path(&g.path).is_err() {
+        return Err(format!("标签路径不合法: {}", g.path));
+    }
+    Ok(())
+}
+
 /// 校验(后端为唯一权威;前端只做即时提示):条件组走 `validate_groups`,排序走 `validate_sorts`
 pub fn validate(c: &FilterConditions) -> Result<(), String> {
     // 旧单值 sort 是只读兼容位:非法取值仍要拦(与 `validate_sorts` 的 sorts 检查同口径)
@@ -93,6 +122,9 @@ pub fn validate(c: &FilterConditions) -> Result<(), String> {
     }
     validate_groups(c)?;
     validate_sorts(c)?;
+    if let Some(g) = &c.group_by {
+        validate_group_by(g)?;
+    }
     Ok(())
 }
 

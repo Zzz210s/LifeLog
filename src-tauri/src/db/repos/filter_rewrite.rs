@@ -1,8 +1,8 @@
 //! 当前筛选条件的路径级联(取代已删的 saved_views_rewrite 与标签页时代的 tabs_rewrite;
 //! spec 2026-09-17 S6/S7,2026-09-25 改单份条件):
 //! 标签改名/移动时,同一事务里同步重写 `settings.filter_current` 这一份条件对象 ——
-//! 深度遍历 `groups[].items` 的四种路径与表达式项,以及 `sorts[].path`(与 tags 表的子树路径
-//! 重写同款口径:段边界由显式 `/` 保证,`工作X` 不会被 `工作` 误伤)。
+//! 深度遍历 `groups[].items` 的四种路径与表达式项,以及 `sorts[].path`、`groupBy.path`
+//! (与 tags 表的子树路径重写同款口径:段边界由显式 `/` 保证,`工作X` 不会被 `工作` 误伤)。
 //! 删除标签**不**改写(已删路径自然筛不出笔记,由用户自行调整)。
 //! 键缺失 / 坏 JSON 跳过(不动、不失败);调用方(tags_write::finish)把本模块收进结构变更事务内,
 //! 任一步失败整体回滚。
@@ -58,6 +58,13 @@ fn rewrite_conditions(c: &mut FilterConditions, old: &str, new: &str) -> bool {
                 *path = p;
                 changed = true;
             }
+        }
+    }
+    // 分组的轴同样是路径,且它**不是**收窄条件(改不掉不会报错、只会分错组)
+    if let Some(gb) = c.group_by.as_mut() {
+        if let Some(p) = rewrite_path(&gb.path, old, new) {
+            gb.path = p;
+            changed = true;
         }
     }
     changed
@@ -126,3 +133,7 @@ pub(crate) fn rewrite_filter_paths(
 #[cfg(test)]
 #[path = "filter_rewrite_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "notes_group_rewrite_tests.rs"]
+mod notes_group_rewrite_tests;

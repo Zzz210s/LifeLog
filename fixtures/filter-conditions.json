@@ -121,6 +121,7 @@
       "tagPresence": null,
       "sort": "newest",
       "sorts": [],
+      "groupBy": null,
       "expr": null,
       "groupOp": "and",
       "groups": []
@@ -143,6 +144,7 @@
       "tagPresence": null,
       "sort": "newest",
       "sorts": [],
+      "groupBy": null,
       "expr": null,
       "groupOp": "and",
       "groups": []
@@ -172,6 +174,7 @@
           "enabled": true
         }
       ],
+      "groupBy": null,
       "expr": null,
       "groupOp": "and",
       "groups": [
@@ -207,6 +210,7 @@
       "tagPresence": null,
       "sort": "newest",
       "sorts": [],
+      "groupBy": null,
       "expr": null,
       "groupOp": "and",
       "groups": [
@@ -252,6 +256,7 @@
       "tagPresence": null,
       "sort": "newest",
       "sorts": [],
+      "groupBy": null,
       "expr": null,
       "groupOp": "and",
       "groups": [
@@ -302,6 +307,7 @@
       "tagPresence": null,
       "sort": "newest",
       "sorts": [],
+      "groupBy": null,
       "expr": null,
       "groupOp": "and",
       "groups": [
@@ -340,6 +346,7 @@
       "tagPresence": null,
       "sort": "newest",
       "sorts": [],
+      "groupBy": null,
       "expr": null,
       "groupOp": "and",
       "groups": []
@@ -362,6 +369,7 @@
       "tagPresence": null,
       "sort": "newest",
       "sorts": [],
+      "groupBy": null,
       "expr": null,
       "groupOp": "and",
       "groups": [
@@ -394,6 +402,7 @@
       "tagPresence": null,
       "sort": "newest",
       "sorts": [],
+      "groupBy": null,
       "expr": null,
       "groupOp": "and",
       "groups": [
@@ -431,6 +440,7 @@
       "tagPresence": null,
       "sort": "newest",
       "sorts": [],
+      "groupBy": null,
       "expr": null,
       "groupOp": "and",
       "groups": [
@@ -462,6 +472,7 @@
       "tagPresence": null,
       "sort": "newest",
       "sorts": [],
+      "groupBy": null,
       "expr": null,
       "groupOp": "and",
       "groups": [
@@ -492,6 +503,7 @@
       "tagPresence": null,
       "sort": "newest",
       "sorts": [],
+      "groupBy": null,
       "expr": null,
       "groupOp": "and",
       "groups": []
@@ -512,6 +524,7 @@
       "tagPresence": null,
       "sort": "newest",
       "sorts": [],
+      "groupBy": null,
       "expr": null,
       "groupOp": "and",
       "groups": [
@@ -811,6 +824,7 @@
       "tagPresence": null,
       "sort": "newest",
       "sorts": [],
+      "groupBy": null,
       "expr": null,
       "groupOp": "and",
       "groups": [
@@ -856,6 +870,7 @@
       "tagPresence": null,
       "sort": "newest",
       "sorts": [],
+      "groupBy": null,
       "expr": null,
       "groupOp": "and",
       "groups": [
@@ -916,6 +931,7 @@
           "enabled": false
         }
       ],
+      "groupBy": null,
       "expr": null,
       "groupOp": "and",
       "groups": []
@@ -949,6 +965,7 @@
           "enabled": true
         }
       ],
+      "groupBy": null,
       "expr": null,
       "groupOp": "and",
       "groups": []
@@ -1057,6 +1074,7 @@
       "tagPresence": null,
       "sort": "newest",
       "sorts": [],
+      "groupBy": null,
       "expr": null,
       "groupOp": "and",
       "groups": [
@@ -1119,6 +1137,7 @@
       "tagPresence": null,
       "sort": "newest",
       "sorts": [],
+      "groupBy": null,
       "expr": null,
       "groupOp": "and",
       "groups": [
@@ -1179,6 +1198,7 @@
       "tagPresence": null,
       "sort": "newest",
       "sorts": [],
+      "groupBy": null,
       "expr": null,
       "groupOp": "or",
       "groups": [
@@ -1233,6 +1253,7 @@
       "tagPresence": null,
       "sort": "newest",
       "sorts": [],
+      "groupBy": null,
       "expr": null,
       "groupOp": "and",
       "groups": [
@@ -1294,6 +1315,59 @@
           ]
         }
       ]
+    },
+    "valid": false
+  },
+  {
+    "kind": "condition",
+    "why": "分组条件(groupBy):轴 + 方向原样回读;不分组时 normalized.groupBy = null",
+    "raw": {
+      "groupOp": "and",
+      "groups": [],
+      "sorts": [],
+      "groupBy": {
+        "path": "地点",
+        "dir": "desc"
+      }
+    },
+    "valid": true,
+    "normalized": {
+      "keyword": null,
+      "tags": [],
+      "excludeTags": [],
+      "relations": [],
+      "excludeRelations": [],
+      "tagPresence": null,
+      "sort": "newest",
+      "sorts": [],
+      "groupBy": {
+        "path": "地点",
+        "dir": "desc"
+      },
+      "expr": null,
+      "groupOp": "and",
+      "groups": []
+    },
+    "empty": true
+  },
+  {
+    "kind": "condition",
+    "why": "分组方向非法 -> 整体回退 EMPTY_FILTER(与 Rust validate_group_by 同为权威拦截)",
+    "raw": {
+      "groupBy": {
+        "path": "地点",
+        "dir": "sideways"
+      }
+    },
+    "valid": false
+  },
+  {
+    "kind": "condition",
+    "why": "分组轴路径非法(空段)-> 整体回退;缺 dir 落 asc",
+    "raw": {
+      "groupBy": {
+        "path": "地点//中国"
+      }
     },
     "valid": false
   }
