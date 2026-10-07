@@ -96,7 +96,8 @@ export const readGroups = (cdp) =>
       label: s.querySelector('[data-testid="group-header"] span:nth-child(2)')?.textContent.trim() ?? null,
       count: Number((s.querySelector('[data-testid="group-count"]')?.textContent ?? '').replace(/[^0-9]/g, '')) || 0,
       expanded: s.querySelector('[data-testid="group-header"]')?.getAttribute('aria-expanded') === 'true',
-      notes: s.querySelectorAll('li').length,
+      // 只数组内一级卡片(li 内部还有 chip 的嵌套 li,用 querySelectorAll('li') 会多算)
+      notes: s.querySelector(':scope > ul')?.children.length ?? 0,
       more: !!s.querySelector('[data-testid="group-more"]'),
     }))`
   );

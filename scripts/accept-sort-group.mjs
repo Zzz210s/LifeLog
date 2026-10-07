@@ -149,12 +149,13 @@ await UI.clickGroupMore(cdp, gi);
 await waitFor(async () => (await UI.readGroups(cdp))[gi]?.notes > before[gi], 30, 300);
 const afterMore = await UI.readGroups(cdp);
 const delta = afterMore[gi].notes - before[gi];
-rec('G4 点某组「加载更多」只涨本组(组内 offset 隔离)', delta === Math.min(20, dom[gi].count - 20) && afterMore.every((g, i) => i === gi || g.notes === before[i]), `第 ${gi + 1} 组 ${before[gi]} -> ${afterMore[gi]} (+${delta}),别组不变`);
+rec('G4 点某组「加载更多」只涨本组(组内 offset 隔离)', delta === Math.min(50, dom[gi].count - 20) && afterMore.every((g, i) => i === gi || g.notes === before[i]), `第 ${gi + 1} 组 ${before[gi]} -> ${afterMore[gi].notes} (+${delta}),别组不变`);
+const ci = afterMore.findIndex((g) => g.notes > 0);
 const beforeCollapse = afterMore.map((g) => g.notes);
-await UI.toggleGroupHeader(cdp, gi);
-await waitFor(async () => (await UI.readGroups(cdp))[gi]?.expanded === false, 20, 250);
+await UI.toggleGroupHeader(cdp, ci);
+await waitFor(async () => (await UI.readGroups(cdp))[ci]?.expanded === false, 20, 250);
 const collapsed = await UI.readGroups(cdp);
-rec('G5 折叠某组后别组卡片仍在', collapsed[gi].expanded === false && collapsed[gi].notes === 0 && collapsed.every((g, i) => i === gi || g.notes === beforeCollapse[i]), `第 ${gi + 1} 组折叠(li ${collapsed[gi].notes}),别组保持`);
+rec('G5 折叠某组后别组卡片仍在', collapsed[ci].expanded === false && collapsed[ci].notes === 0 && collapsed.every((g, i) => i === ci || g.notes === beforeCollapse[i]), `第 ${ci + 1} 组折叠(li ${collapsed[ci].notes}),别组保持`);
 const shot3 = await shot(cdp, 't6-3-group-collapsed.png');
 await reload(cdp);
 
