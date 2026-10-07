@@ -74,9 +74,10 @@ fn short_keyword_like_branch_has_no_time_tag_exception() {
     let c = FilterConditions { keyword: Some("11".into()), ..empty() };
     let (sql, args) = where_clause(&c).unwrap();
     assert!(sql.contains("n.content LIKE ?"), "{sql}");
-    assert!(sql.contains("AND t.path LIKE ?"), "{sql}");
+    assert!(sql.contains("t.path LIKE ?"), "{sql}");
+    assert!(sql.contains("t.name LIKE ?"), "2 字标签名靠名字分支胞底(spec §4.1):{sql}");
     assert!(!sql.contains("时间排序"), "时间标签不再被排除:{sql}");
-    assert_eq!(texts(&args), vec!["%11%", "%11%"]);
+    assert_eq!(texts(&args), vec!["%11%", "%11%", "%11%"]);
 }
 
 /// 参数向量的文本视图(断言生成的路径边界)

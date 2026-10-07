@@ -60,6 +60,9 @@ pub(crate) fn tag_exists(m: &str) -> String {
 /// 正文/标签子串 LIKE。时间标签已是普通标签(D3),FTS 与 LIKE 两侧都一视同仁地
 /// 参与关键词匹配,不再有"排除时间子树"的例外。
 /// LIKE 通配符只出现在这条既有分支,标签路径匹配永不用。
+/// <3 字退化同时比 `t.path` 与 `t.name`(spec §4.1):trigram 对 2 字命中不到,而名字是
+/// 单段名、路径是完整路径;阶段 3 这里仍指活表 `tags`(T4.3 接 `entities_fts` 时二者
+/// 换成 `entities.name` / 新表别名)。
 pub(crate) fn keyword_predicate(k: &str, args: &mut Vec<Value>) -> String {
     if k.chars().count() >= 3 {
         args.push(Value::Text(format!("\"{}\"*", k.replace('"', "\"\""))));
@@ -67,9 +70,10 @@ pub(crate) fn keyword_predicate(k: &str, args: &mut Vec<Value>) -> String {
     } else {
         let pat = format!("%{k}%");
         args.push(Value::Text(pat.clone()));
+        args.push(Value::Text(pat.clone()));
         args.push(Value::Text(pat));
         "(n.content LIKE ? OR EXISTS (SELECT 1 FROM tag_links l JOIN tags t ON t.id = l.tag_id \
-         WHERE l.target_type = 'note' AND l.target_id = n.id AND t.path LIKE ?))"
+         WHERE l.target_type = 'note' AND l.target_id = n.id AND (t.path LIKE ? OR t.name LIKE ?)))"
             .to_string()
     }
 }

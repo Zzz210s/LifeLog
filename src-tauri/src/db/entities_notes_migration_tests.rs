@@ -17,15 +17,16 @@ fn seeded_v24() -> Connection {
     c
 }
 
-/// ① 新库跑到最新:`user_version=25`,完整性 ok,无外键违规,空库笔记实体为 0
+/// ① 新库跑到最新:`user_version == latest_version()`(含 026),完整性 ok,无外键违规,空库笔记实体为 0
 #[test]
-fn fresh_run_reaches_v25_clean() {
+fn fresh_run_reaches_latest_clean() {
     let c = Connection::open_in_memory().unwrap();
     run(&c).unwrap();
-    assert_eq!(latest_version(), 25);
+    assert!(latest_version() >= 26, "024/025/026 已注册");
     let v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
-    assert_eq!(v, 25);
+    assert_eq!(v, latest_version());
     assert!(table_exists(&c, "entities") && table_exists(&c, "edges"));
+    assert!(table_exists(&c, "entity_aliases") && table_exists(&c, "entities_fts"), "026 建了 FTS 与别名表");
     let ok: String = c
         .query_row("PRAGMA integrity_check", [], |r| r.get(0))
         .unwrap();

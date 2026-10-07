@@ -141,7 +141,7 @@ fn tag_tree_readings_unchanged_by_024() {
     );
 }
 
-/// ④ 形状不变:触发器仍是 8 个老名字,`notes`/`note_links` 列集合未被 024 添加新列
+/// ④ 形状不变:024 只增新表,不增删触发器/不改老表列 —— 单独跑 024(025/026 会按计划加新触发器)
 #[test]
 fn legacy_triggers_and_columns_unchanged_by_024() {
     let c = Connection::open_in_memory().unwrap();
@@ -154,7 +154,7 @@ fn legacy_triggers_and_columns_unchanged_by_024() {
         columns(&c, "notes"),
         columns(&c, "note_links"),
     );
-    run(&c).unwrap();
+    apply(&c, MIGRATIONS[23], 24).unwrap();
     let after = (
         dump(&c, triggers_sql),
         columns(&c, "notes"),

@@ -20,6 +20,7 @@ const LEGACY_TRIGGERS: [&str; 8] = [
 
 /// `seed_v23` + `seed_notes`，再补两个空壳：4「空壳」挂 1 下（有父、无链接、无子）、
 /// 5「孤立根」（无父无链接无子）。老 `gc_orphans` 要回收「有父但无链接无子」，新口径必须同样回收。
+/// 跑 `run()` 到最新版（含 026）；下列断言都不依赖 026 的产物。
 fn seeded_v25() -> Connection {
     let c = Connection::open_in_memory().unwrap();
     migrate_to_v23(&c);
@@ -179,10 +180,17 @@ fn legacy_counts_unchanged_by_phase2() {
     assert_eq!(count(&c, "SELECT COUNT(*) FROM edges"), 8, "child 3 + tagging 3 + relation 1 + link 1");
 }
 
-/// ⑨ 触发器仍是 8 个老名字：阶段 2 不新增/重命名触发器。
+/// ⑨ 阶段 2 本身不动触发器：单独跑 024 + 025（026 才会加 9 个新触发器）
 #[test]
 fn legacy_triggers_unchanged_in_phase2() {
-    let c = seeded_v25();
+    let c = Connection::open_in_memory().unwrap();
+    migrate_to_v23(&c);
+    seed_v23(&c);
+    seed_notes(&c);
+    add_tag(&c, 4, "空壳", Some(1), "地点轴/空壳", 2);
+    add_tag(&c, 5, "孤立根", None, "孤立根", 1);
+    apply(&c, MIGRATIONS[23], 24).unwrap();
+    apply(&c, MIGRATIONS[24], 25).unwrap();
     let mut s = c.prepare("SELECT name FROM sqlite_master WHERE type='trigger' ORDER BY name").unwrap();
     let names: Vec<String> = s.query_map([], |r| r.get::<_, String>(0)).unwrap().map(|x| x.unwrap()).collect();
     assert_eq!(names, LEGACY_TRIGGERS.map(String::from));

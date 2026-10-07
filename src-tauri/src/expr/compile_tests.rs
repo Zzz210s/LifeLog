@@ -60,10 +60,11 @@ fn or_and_parens_map_to_boolean_sql() {
 fn short_keyword_uses_like_on_content_and_tags() {
     let (sql, args) = frag("复盘");
     assert!(sql.contains("n.content LIKE ?"), "{sql}");
-    assert!(sql.contains("AND t.path LIKE ?"), "标签侧同样参与匹配:{sql}");
+    assert!(sql.contains("t.path LIKE ?"), "标签侧同样参与匹配:{sql}");
+    assert!(sql.contains("t.name LIKE ?"), "2 字标签名靠名字分支胞底(spec §4.1):{sql}");
     assert!(!sql.contains("时间排序"), "不再有时间子树例外:{sql}");
     assert!(!sql.contains("复盘"), "关键词值不得进 SQL:{sql}");
-    assert_eq!(args.len(), 2);
+    assert_eq!(args.len(), 3);
 }
 
 #[test]

@@ -129,6 +129,10 @@ pub fn validate(c: &FilterConditions) -> Result<(), String> {
 }
 
 #[cfg(test)]
+#[path = "filter_predicates_short_tests.rs"]
+mod filter_predicates_short_tests;
+
+#[cfg(test)]
 #[path = "notes_filter_md_tests.rs"]
 mod notes_filter_md_tests;
 

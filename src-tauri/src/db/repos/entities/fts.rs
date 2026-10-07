@@ -39,3 +39,9 @@ pub(crate) const ENTITIES_AGG: &str = concat!(
     "COALESCE(' ' || (SELECT group_concat(a.alias, ' ' ORDER BY a.alias) ",
     "FROM entity_aliases a WHERE a.entity_id = e.id), '') END)"
 );
+
+/// 迁移 026 的原始文本(`include_str!`):守卫用例
+/// `entities_fts_migration_tests::agg_segments_appear_in_026_text` 按 `COALESCE(` 切段,
+/// 逐段比对它包含同一份 [`ENTITIES_AGG`]。SQLite 无法在 `.sql` 与 Rust 间共享字符串字面量,
+/// `include_str!` + 守卫是既有约定(见 018 的同类守卫)。
+pub(crate) const MIGRATION_026_SQL: &str = include_str!("../../migrations/026_entities_fts.sql");

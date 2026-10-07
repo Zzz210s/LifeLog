@@ -87,3 +87,7 @@ mod entities_notes_migration_tests;
 #[cfg(test)]
 #[path = "entities_phase2_tests.rs"]
 mod entities_phase2_tests;
+
+#[cfg(test)]
+#[path = "entities_fts_migration_tests.rs"]
+mod entities_fts_migration_tests;

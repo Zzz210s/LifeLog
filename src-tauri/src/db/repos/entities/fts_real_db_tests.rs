@@ -1,8 +1,8 @@
 //! T3.1 真库全量等价证据(真库只读,须显式 `--ignored` + `LIFELOG_FTS_DB=<库副本路径>`)。
 //! 对每条笔记分别用 `TAGS_AGG`(老 notes_fts 口径)与 `ENTITIES_AGG`(新口径)算聚合串,
 //! 按 id 升序拼串后取 sha256;两个摘要必须相同 —— 收口只搬家、不改语义。
-//! 副本会先迁到 v25;`entity_aliases` 是 026 才建的表,本用例按 026 口径临时补建并回填
-//! (只在空表时灌,避免重复跑翻倍),这样新口径的别名段与老 `tag_aliases` 等价。
+//! 副本会先迁到最新(含 026,它建好 `entity_aliases` 并从 `tag_aliases` 回填),
+//! 故新口径的别名段与老 `tag_aliases` 等价,本用例不再手工补建。
 use crate::db::migrate;
 use crate::db::repos::entities::fts::ENTITIES_AGG;
 use crate::db::repos::tags::fts_tags::TAGS_AGG;
@@ -20,13 +20,6 @@ fn real_db_note_aggregate_is_unchanged() {
     let c = Connection::open(&path).unwrap();
     sql_functions::register(&c).unwrap();
     migrate::run(&c).unwrap();
-    c.execute_batch(
-        "CREATE TABLE IF NOT EXISTS entity_aliases(entity_id INTEGER NOT NULL, alias TEXT NOT NULL);
-         INSERT INTO entity_aliases(entity_id, alias)
-           SELECT tag_id + 1000000000, alias FROM tag_aliases
-           WHERE NOT EXISTS (SELECT 1 FROM entity_aliases);",
-    )
-    .unwrap();
 
     let ids: Vec<i64> = {
         let mut stmt = c.prepare("SELECT id FROM entities WHERE kind='note' ORDER BY id").unwrap();

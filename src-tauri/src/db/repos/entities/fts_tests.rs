@@ -21,16 +21,14 @@ fn agg(c: &Connection, id: i64) -> String {
     .unwrap()
 }
 
-/// 小库:v25(`entities`/`edges`)+ 手建 `entity_aliases` / `entities_fts`(026 才建,这里按同 DDL 预置)。
+/// 小库:v25 -> v26(`entities`/`edges` + 026 建的 `entity_aliases` / `entities_fts`)。
 /// 老表(`notes`/`tags`/`tag_links`/`tag_aliases`)摆同一份语义,供旧新口径逐字节对账。
 /// 标签 3(`生活`)没有 `tagging` 边,用来钉「只算被链接的标签」。
 fn db() -> Connection {
     let c = Connection::open_in_memory().unwrap();
     migrate::run(&c).unwrap();
     c.execute_batch(
-        "CREATE TABLE entity_aliases(entity_id INTEGER NOT NULL, alias TEXT NOT NULL);
-         CREATE VIRTUAL TABLE entities_fts USING fts5(name, content, tag_paths, tokenize='trigram');
-         INSERT INTO entities(id,kind,name,content,created_at,path,depth) VALUES
+        "INSERT INTO entities(id,kind,name,content,created_at,path,depth) VALUES
            (1,'note',NULL,'正文','2026-01-01',NULL,NULL),
            (1000000001,'tag','地点','','2026-01-01','地点',1),
            (1000000002,'tag','[郴](chēn)州市','','2026-01-01','地点/[郴](chēn)州市',2),
@@ -38,8 +36,8 @@ fn db() -> Connection {
          INSERT INTO edges(source_id,target_id,kind,created_at) VALUES
            (1,1000000001,'tagging','2026-01-01'),(1,1000000002,'tagging','2026-01-01'),
            (1000000001,1000000003,'child','2026-01-01');
-         INSERT INTO entity_aliases(entity_id,alias) VALUES
-           (1000000001,'地方'),(1000000002,'郴');
+         INSERT INTO entity_aliases(alias, entity_id) VALUES
+           ('地方',1000000001),('郴',1000000002);
          INSERT INTO notes(id,content,created_at) VALUES(1,'正文','2026-01-01');
          INSERT INTO tags(id,name,parent_id,path,depth,sort_order) VALUES
            (1,'地点',NULL,'地点',1,0),
