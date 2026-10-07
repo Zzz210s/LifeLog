@@ -6,7 +6,9 @@
 //! 解析一律复用产品实现:`tags::extract_tags_known`(严格,不带库内兜底)与
 //! `links::{link_spans, title_of, display_title}` —— 本模块**不实现第二套语法**。
 //! 基线不存正文,只存 `content_sha256` + 三元组 + 三元组摘要 `sha256`
-//! (公开仓库:真库正文与其首行都属于用户内容,不能入库)。
+//! (公开仓库:真库正文与其首行都属于用户内容,不入库;向量是合成/边界语料)。
+//! 真库补充基线用 `gen-upgrade-baseline -- --db <真库>` 生成,落到仓库外的快照区
+//! `F:\0-code\_lifelog-snapshots\upgrade-baseline-real-<stamp>.json`,与仓库分支线 diff 时用。
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
