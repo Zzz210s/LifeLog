@@ -11,6 +11,7 @@ import type { ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { vi } from 'vitest';
 import type { FilterConditions } from '../../../shared/filter-conditions';
+import { parseFilterState } from '../filter-state';
 import { useFilterState } from '../use-filter-state';
 import type { FilterStateApi } from '../use-filter-state';
 
@@ -27,6 +28,16 @@ export interface MountedState {
   /** 屏幕上正在生效的条件(与生产里查询/侧栏选中态同源) */
   shown: () => FilterConditions;
 }
+
+/** 最后一次写库的条件对象(落库形状 = { groupOp, groups, sort, sorts },经 parseFilterState 还原) */
+export const lastWritten = (calls: Array<[string, string]>): FilterConditions =>
+  parseFilterState(calls[calls.length - 1][1]);
+
+/** 条件对象里的关键词值(新模型里关键词是组内项,不再是平铺字段) */
+export const keywordOf = (c: FilterConditions): string | null => {
+  const it = c.groups.flatMap((g) => g.items).find((x) => x.kind === 'keyword');
+  return it !== undefined && it.kind === 'keyword' ? it.value : null;
+};
 
 export function mountFilterState(): MountedState {
   const host = document.createElement('div');
