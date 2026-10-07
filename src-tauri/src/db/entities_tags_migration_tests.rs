@@ -14,9 +14,9 @@ const OFFSET_LITERAL: i64 = 1_000_000_000;
 fn fresh_run_reaches_v24_clean() {
     let c = Connection::open_in_memory().unwrap();
     run(&c).unwrap();
-    assert_eq!(latest_version(), 24);
+    assert!(latest_version() >= 24, "本用例只要求跑过 024;后续迁移会继续抬升");
     let v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
-    assert_eq!(v, 24);
+    assert_eq!(v, latest_version(), "新库应跑到最新版本");
     assert!(table_exists(&c, "entities") && table_exists(&c, "edges"));
     let ok: String = c
         .query_row("PRAGMA integrity_check", [], |r| r.get(0))

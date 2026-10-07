@@ -41,9 +41,9 @@ fn add_tag(c: &Connection, id: i64, path: &str) {
 fn fresh_db_has_remark_column() {
     let c = Connection::open_in_memory().unwrap();
     run(&c).unwrap();
+    assert!(latest_version() >= 23, "本用例只要求跑过 023;后续迁移会继续抬升");
     let v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
-    assert_eq!(latest_version(), 24);
-    assert_eq!(v, 24);
+    assert_eq!(v, latest_version(), "新库应跑到最新版本");
     assert!(col_exists(&c, "tag_links", "remark"), "023 后 tag_links 必须有 remark 列");
 }
 

@@ -111,11 +111,14 @@ pub fn check_5_dangling(conn: &Connection) -> rusqlite::Result<Vec<String>> {
     run_named(conn, "5")
 }
 
+/// 单条命名对账的函数签名(`n` 由调用点的字符串给出)。
+type CheckFn = fn(&Connection) -> rusqlite::Result<Vec<String>>;
+
 /// 跑 spec §3 ①–⑤ 五条 modern 对账;任一命中即带序号/标题/命中行 panic。
 /// 只依赖 `entities`/`edges`,阶段 4 删掉老表后仍可跑。
 pub fn assert_cache_matches_edges(conn: &Connection) {
     let blocks = parse_checks(RECONCILE_SQL, "modern");
-    let checks: [(&str, fn(&Connection) -> rusqlite::Result<Vec<String>>); 5] = [
+    let checks: [(&str, CheckFn); 5] = [
         ("1", check_1_parent_child),
         ("2", check_2_path),
         ("3", check_3_depth),

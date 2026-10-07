@@ -52,3 +52,41 @@ pub(crate) fn seed_v23(c: &Connection) {
     c.execute("INSERT INTO tag_aliases(alias,tag_id) VALUES('东瀛',2)", [])
         .unwrap();
 }
+
+/// 025 用的笔记夹具:2 条笔记 + 2 条额外 note 型 `tag_links`(`seed_v23` 已有 501→标签2)
+/// + 2 条 `note_links`(501→502 已解析、502→NULL 未解析)。正文含 `[[ ]]` 便于阶段 4 重解析。
+pub(crate) fn seed_notes(c: &Connection) {
+    c.execute(
+        "INSERT INTO notes(id, content, created_at) \
+         VALUES(501,'第一条 [[第二条]]','2026-01-01T00:00:00.000')",
+        [],
+    )
+    .unwrap();
+    c.execute(
+        "INSERT INTO notes(id, content, created_at) VALUES(502,'第二条','2026-01-02T00:00:00.000')",
+        [],
+    )
+    .unwrap();
+    c.execute(
+        "INSERT INTO tag_links(tag_id,target_type,target_id,remark) VALUES(3,'note',501,'')",
+        [],
+    )
+    .unwrap();
+    c.execute(
+        "INSERT INTO tag_links(tag_id,target_type,target_id,remark) VALUES(2,'note',502,'')",
+        [],
+    )
+    .unwrap();
+    c.execute(
+        "INSERT INTO note_links(source_id,target_id,raw_title,created_at) \
+         VALUES(501,502,'第二条','2026-01-01T00:00:00.000')",
+        [],
+    )
+    .unwrap();
+    c.execute(
+        "INSERT INTO note_links(source_id,target_id,raw_title,created_at) \
+         VALUES(502,NULL,'未解析','2026-01-02T00:00:00.000')",
+        [],
+    )
+    .unwrap();
+}

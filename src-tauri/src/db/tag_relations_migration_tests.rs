@@ -44,7 +44,7 @@ fn fresh_db_has_no_is_type_and_has_merge_log() {
     run(&c).unwrap();
     let v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
     assert_eq!(v, latest_version());
-    assert_eq!(latest_version(), 24);
+    assert!(latest_version() >= 22, "本用例只要求跑过 022;后续迁移会继续抬升");
     assert!(!col_exists(&c, "tags", "is_type"), "022 后 is_type 列必须消失");
     let n: i64 = c
         .query_row(

@@ -79,3 +79,7 @@ mod entities_tags_edges_tests;
 #[cfg(test)]
 #[path = "entities_phase1_tests.rs"]
 mod entities_phase1_tests;
+
+#[cfg(test)]
+#[path = "entities_notes_migration_tests.rs"]
+mod entities_notes_migration_tests;
