@@ -27,10 +27,11 @@ fn axis_db() -> Connection {
     create_plain(&mut c, "E1 #地点").unwrap();
     create_plain(&mut c, "F1 无地点标签").unwrap();
     c.execute(
-        "UPDATE tags SET sort_order = CASE path
+        "UPDATE entities SET sort_order = CASE path
              WHEN '地点/中国大陆' THEN 0 WHEN '地点/日本' THEN 1 WHEN '地点/美国' THEN 2
              ELSE sort_order END
-         WHERE parent_id = (SELECT id FROM tags WHERE path = '地点')",
+         WHERE kind = 'tag'
+           AND parent_id = (SELECT id FROM entities WHERE kind = 'tag' AND path = '地点')",
         [],
     )
     .unwrap();

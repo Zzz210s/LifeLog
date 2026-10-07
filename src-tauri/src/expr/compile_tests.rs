@@ -45,11 +45,11 @@ fn or_and_parens_map_to_boolean_sql() {
     assert!(sql.starts_with("(("), "{sql}");
     assert!(sql.contains(" OR "), "{sql}");
     assert!(sql.contains(") AND EXISTS ("), "{sql}");
-    // 每个标签叶子 = 一个外层 tag_links EXISTS;携带段已改成不相关的 `IN (SELECT ...)`
+    // 每个标签叶子 = 一个外层 tagging 边 EXISTS;携带段已改成不相关的 `IN (SELECT ...)`
     // (一次物化标签 id 集合,不再贡献第二个相关 EXISTS;见 filter_predicates::carry_predicate)
     assert_eq!(sql.matches("EXISTS (").count(), 3, "{sql}");
     assert_eq!(
-        sql.matches("t.id IN (SELECT d.id FROM tags d").count(),
+        sql.matches("t.id IN (SELECT d.id FROM entities d").count(),
         3,
         "三个标签各一段物化携带集合:{sql}"
     );
@@ -70,7 +70,7 @@ fn short_keyword_uses_like_on_content_and_tags() {
 #[test]
 fn long_keyword_uses_fts() {
     let (sql, args) = frag("会议记录复盘");
-    assert!(sql.contains("notes_fts MATCH ?"), "{sql}");
+    assert!(sql.contains("entities_fts MATCH ?"), "{sql}");
     assert_eq!(args.len(), 1);
 }
 

@@ -7,10 +7,10 @@ use rusqlite::types::Value;
 
 /// 树序键递归 CTE 主体(不含 `WITH RECURSIVE` 前缀;多条排序条件共用一份 ord)
 pub const ORD_BODY: &str = "ord(id, key) AS (
-  SELECT id, printf('%06d', sort_order) FROM tags WHERE parent_id IS NULL
+  SELECT id, printf('%06d', sort_order) FROM entities WHERE kind='tag' AND parent_id IS NULL
   UNION ALL
-  SELECT t.id, o.key || '/' || printf('%06d', t.sort_order)
-  FROM tags t JOIN ord o ON t.parent_id = o.id
+  SELECT e.id, o.key || '/' || printf('%06d', e.sort_order)
+  FROM entities e JOIN ord o ON e.parent_id = o.id
 )";
 
 /// 一条标签轴排序的片段:CTE 定义 + 与 `notes` 的 LEFT JOIN + 键列名
@@ -31,11 +31,11 @@ pub fn axis_sql(index: usize, path: &str, args: &mut Vec<Value>) -> AxisSql {
     AxisSql {
         cte: format!(
             "axis{index}(note_id, key) AS (
-               SELECT l.target_id, MIN(o.key)
-               FROM tag_links l JOIN tags t ON t.id = l.tag_id JOIN ord o ON o.id = t.id
-               WHERE l.target_type = 'note'
+               SELECT l.source_id, MIN(o.key)
+               FROM edges l JOIN entities t ON t.id = l.target_id JOIN ord o ON o.id = t.id
+               WHERE l.kind = 'tagging'
                  AND (t.path = ? OR substr(t.path, 1, length(?) + 1) = ? || '/')
-               GROUP BY l.target_id
+               GROUP BY l.source_id
              )"
         ),
         join: format!("LEFT JOIN axis{index} ax{index} ON ax{index}.note_id = n.id"),

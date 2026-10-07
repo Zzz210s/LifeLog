@@ -85,8 +85,7 @@ pub fn empty() -> FilterConditions {
 
 /// "挂了任意一个标签"的谓词(时间标签已是普通标签,D3:它也计数)
 pub(crate) fn any_tag() -> String {
-    "EXISTS (SELECT 1 FROM tag_links l WHERE l.target_type = 'note' AND l.target_id = n.id)"
-        .to_string()
+    "EXISTS (SELECT 1 FROM edges l WHERE l.kind = 'tagging' AND l.source_id = n.id)".to_string()
 }
 
 /// 表达式非法的用户可见中文原因(**两条路径共用同一份文案**):

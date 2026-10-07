@@ -1,14 +1,14 @@
 //! 只读:被携带的标签路径集合(条件栏摘要 `+携带` 小字的数据源)。
-//! 「被携带」= `tag_links` 里 `target_type='tag'` 的 `target_id` 指向的标签,
-//! 方向与 `filter_predicates::carry_predicate` 一致(携带者 `tag_id` -> 被携带 `target_id`)。
-//! JOIN tags 顺带排掉悬空行,`DISTINCT` 去重、路径升序;笔记链接是 `target_type='note'` 行,不参与。
+//! 「被携带」= `edges` 里 `kind='relation'` 的 `target_id` 指向的标签实体,
+//! 方向与 `filter_predicates::carry_predicate` 一致(携带者 `source_id` -> 被携带 `target_id`)。
+//! JOIN entities 顺带排掉悬空行,`DISTINCT` 去重、路径升序;`tagging` 边是笔记挂标签,不参与。
 use rusqlite::Connection;
 
 /// 有携带者的标签路径(去重、升序);无携带关系时返回空表
 pub fn carried_paths(conn: &Connection) -> rusqlite::Result<Vec<String>> {
     let mut stmt = conn.prepare(
-        "SELECT DISTINCT t.path FROM tag_links l JOIN tags t ON t.id = l.target_id \
-         WHERE l.target_type = 'tag' ORDER BY t.path",
+        "SELECT DISTINCT t.path FROM edges l JOIN entities t ON t.id = l.target_id \
+         AND t.kind = 'tag' WHERE l.kind = 'relation' ORDER BY t.path",
     )?;
     let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
     rows.collect()

@@ -56,7 +56,7 @@ pub fn hits(conn: &Connection, c: &FilterConditions) -> Result<ConditionHits, St
 /// 数满足谓词的笔记数(谓词自带 EXISTS 包装 / NOT / IN;值只进参数向量)
 fn count_predicate(conn: &Connection, predicate: &str, args: Vec<Value>) -> Result<i64, String> {
     conn.query_row(
-        &format!("SELECT COUNT(*) FROM notes n WHERE ({predicate})"),
+        &format!("SELECT COUNT(*) FROM entities n WHERE n.kind='note' AND ({predicate})"),
         rusqlite::params_from_iter(args),
         |r| r.get(0),
     )

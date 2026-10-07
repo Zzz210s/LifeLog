@@ -36,10 +36,10 @@ pub fn group_key_cte(path: &str, args: &mut Vec<Value>) -> String {
                   ELSE substr(x.tpath, 1, ? + x.slash) END AS key,
              substr(o.key, 1, ?) AS gok,
              ROW_NUMBER() OVER (PARTITION BY x.note_id ORDER BY o.key) AS rn
-      FROM (SELECT l.target_id AS note_id, t.id AS tid, t.path AS tpath,
+      FROM (SELECT l.source_id AS note_id, t.id AS tid, t.path AS tpath,
                    instr(substr(t.path, ? + 2), '/') AS slash
-            FROM tag_links l JOIN tags t ON t.id = l.tag_id
-            WHERE l.target_type = 'note'
+            FROM edges l JOIN entities t ON t.id = l.target_id
+            WHERE l.kind = 'tagging'
               AND (t.path = ? OR substr(t.path, 1, ? + 1) = ? || '/')) x
       JOIN ord o ON o.id = x.tid
     ) WHERE rn = 1

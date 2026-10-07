@@ -18,7 +18,8 @@ fn db() -> Connection {
 }
 
 fn tag_id(c: &Connection, path: &str) -> i64 {
-    c.query_row("SELECT id FROM tags WHERE path=?1", [path], |r| r.get(0)).unwrap()
+    c.query_row("SELECT id FROM entities WHERE kind='tag' AND path=?1", [path], |r| r.get(0))
+        .unwrap()
 }
 
 fn cond(path: &str, include_children: bool) -> TagCond {

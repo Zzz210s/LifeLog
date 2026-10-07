@@ -19,7 +19,7 @@ fn tag_include_children_uses_prefix() {
     assert!(sql.contains("t.path = ? OR substr(t.path, 1, length(?) + 1) = ? || '/'"));
     // 携带段:一次 EXISTS 子查询(不用递归 CTE),target 按 path 定位
     assert!(
-        sql.contains("cl.target_id IN (SELECT id FROM tags WHERE path = ?)"),
+        sql.contains("cl.target_id IN (SELECT id FROM entities WHERE kind = 'tag' AND path = ?)"),
         "缺携带子查询:{sql}"
     );
     assert_eq!(args.len(), 4, "含子级直接段 3 个 + 携带定位 1 个");
@@ -56,13 +56,13 @@ fn exclude_tag_uses_not_exists() {
 fn tag_presence_counts_all_tags() {
     let c = FilterConditions { tag_presence: Some("none".into()), ..empty() };
     let (sql, _) = where_clause(&c).unwrap();
-    assert!(sql.contains("NOT (EXISTS (SELECT 1 FROM tag_links l"), "{sql}");
+    assert!(sql.contains("NOT (EXISTS (SELECT 1 FROM edges l"), "{sql}");
     assert!(!sql.contains("时间排序"), "不再有时间子树例外:{sql}");
 
     let c = FilterConditions { tag_presence: Some("any".into()), ..empty() };
     let (sql, _) = where_clause(&c).unwrap();
     assert!(
-        sql.contains("1=1 AND (((EXISTS (SELECT 1 FROM tag_links l"),
+        sql.contains("1=1 AND (((EXISTS (SELECT 1 FROM edges l"),
         "any 谓词外层的组括号:{sql}"
     );
     assert!(!sql.contains("NOT (EXISTS"), "any 不得带排除:{sql}");

@@ -45,8 +45,9 @@ fn axis_db() -> Connection {
     create_plain(&mut c, "B2 #轴/B").unwrap();
     // ensure_path 新建兄弟一律 sort_order=0(默认值),这里按「用户拖过顺序」写入显式树序
     c.execute(
-        "UPDATE tags SET sort_order = CASE path WHEN '轴/A' THEN 0 ELSE 1 END
-         WHERE parent_id = (SELECT id FROM tags WHERE path = '轴')",
+        "UPDATE entities SET sort_order = CASE path WHEN '轴/A' THEN 0 ELSE 1 END
+         WHERE kind = 'tag'
+           AND parent_id = (SELECT id FROM entities WHERE kind = 'tag' AND path = '轴')",
         [],
     )
     .unwrap();

@@ -38,9 +38,9 @@ pub fn query_grouped(
         "page AS (
            SELECT n.id AS id, g.key AS gk, g.gok AS gg,
                   ROW_NUMBER() OVER (PARTITION BY g.key ORDER BY {}) AS rn
-           FROM notes n
+           FROM entities n
            LEFT JOIN grp g ON g.note_id = n.id{}
-           WHERE {frag}
+           WHERE n.kind='note' AND {frag}
          )",
         order.inner, order.joins
     );
@@ -49,9 +49,9 @@ pub fn query_grouped(
     let tail = format!(
         "SELECT p.gk, n.id, n.content, n.created_at, t.path
          FROM page p
-         JOIN notes n ON n.id = p.id
-         LEFT JOIN tag_links l ON l.target_type = 'note' AND l.target_id = n.id
-         LEFT JOIN tags t ON t.id = l.tag_id
+         JOIN entities n ON n.id = p.id
+         LEFT JOIN edges l ON l.kind = 'tagging' AND l.source_id = n.id
+         LEFT JOIN entities t ON t.id = l.target_id
          WHERE p.rn <= {PER_GROUP}
          ORDER BY (p.gk IS NULL), p.gg, p.gk, p.rn, t.path"
     );
@@ -105,9 +105,9 @@ pub fn query_group_page(
     let page_body = format!(
         "page AS (
            SELECT n.id AS id{}
-           FROM notes n
+           FROM entities n
            LEFT JOIN grp g ON g.note_id = n.id{}
-           WHERE {frag} AND {group_pred}
+           WHERE n.kind='note' AND {frag} AND {group_pred}
            ORDER BY {}
            LIMIT {PAGE_SIZE} OFFSET ?
          )",

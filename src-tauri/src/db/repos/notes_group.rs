@@ -92,9 +92,9 @@ pub fn skeleton(
         &ctes,
         &format!(
             "SELECT g.key AS key, COUNT(*) AS cnt, MIN(g.gok) AS gok
-         FROM notes n
+         FROM entities n
          LEFT JOIN grp g ON g.note_id = n.id
-         WHERE {frag}
+         WHERE n.kind='note' AND {frag}
          GROUP BY g.key
          ORDER BY (g.key IS NULL), gok {dir}, g.key {dir}"
         ),

@@ -22,7 +22,8 @@ fn hits(c: &Connection, k: &str) -> Vec<i64> {
 fn two_char_tag_name_matches_via_name_like() {
     let mut c = db();
     let n = create_plain(&mut c, "莽山栈道 #湖南").unwrap();
-    c.execute("UPDATE tags SET path = '区划' WHERE name = '湖南'", []).unwrap();
+    c.execute("UPDATE entities SET path = '区划' WHERE kind = 'tag' AND name = '湖南'", [])
+        .unwrap();
     assert_eq!(hits(&c, "湖南"), vec![n.id], "2 字标签名必须经 t.name LIKE 命中");
     assert!(hits(&c, "湖北").is_empty(), "不误伤其它 2 字关键词");
 }
