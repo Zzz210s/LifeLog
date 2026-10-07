@@ -1,4 +1,5 @@
 pub mod carry_paths;
+pub mod entities;
 pub mod filter_rewrite;
 pub mod graph;
 pub mod note_links;

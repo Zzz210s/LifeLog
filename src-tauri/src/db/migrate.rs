@@ -29,6 +29,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("migrations/021_tag_types.sql"),
     include_str!("migrations/022_tag_relations.sql"),
     include_str!("migrations/023_tag_link_remark.sql"),
+    include_str!("migrations/024_entities_tags.sql"),
 ];
 
 /// 012 的位次(1 起)与它删除的列名:SQLite 没有 `DROP COLUMN IF EXISTS`,
@@ -176,3 +177,15 @@ mod tag_relations_migration_tests;
 #[cfg(test)]
 #[path = "tag_link_remark_migration_tests.rs"]
 mod tag_link_remark_migration_tests;
+
+#[cfg(test)]
+#[path = "entities_tags_fixture.rs"]
+mod entities_tags_fixture;
+
+#[cfg(test)]
+#[path = "entities_tags_migration_tests.rs"]
+mod entities_tags_migration_tests;
+
+#[cfg(test)]
+#[path = "entities_tags_edges_tests.rs"]
+mod entities_tags_edges_tests;
