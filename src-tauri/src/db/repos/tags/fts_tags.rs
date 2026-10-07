@@ -18,6 +18,9 @@
 //!   ② 结构变更后的显式重写 [`super::tree::refresh_fts`]
 //!   ③ 维护命令的整体重建 `commands::maintenance::rebuild`
 //!   ④ 不变量测试台 [`super::invariants_tests::assert_fts_matches_tags`]
+//! 阶段定位(计划 T3.1/T3.2):`TAGS_AGG` 是阶段 3 前 `notes_fts` 的**活口径**,阶段 4 删
+//! `notes_fts` 后退役;`entities_fts` 侧的新真源见
+//! [`crate::db::repos::entities::fts::ENTITIES_AGG`](两分支:笔记同本口径,标签取自身路径)。
 //! 约束:表别名固定为 `n`(notes)——表达式只引用 `n.id`,调用方负责这么写别名。
 
 /// 单条笔记的 tags 列聚合表达式(不含外层 `SELECT ... FROM notes n` 与 WHERE 部分)。

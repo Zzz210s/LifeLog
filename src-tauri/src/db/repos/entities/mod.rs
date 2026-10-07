@@ -1,11 +1,22 @@
 //! 统一实体(`entities` / `edges`)的仓库层。阶段 1 只放标签 id 偏移常量与缓存对账,
 //! 后续任务按需追加子模块(`fts` 由 T3.1)——先声明后建文件会让迁移 024 落地的瞬间编译不过。
 
+pub mod fts;
 pub mod reconcile;
 pub mod reconcile_mirror;
 
 #[cfg(test)]
 mod reconcile_tests;
+
+/// T3.1 `ENTITIES_AGG` 行为读数与收口等价证据。
+#[cfg(test)]
+#[path = "fts_tests.rs"]
+mod fts_tests;
+
+/// T3.1 真库全量 sha256 等价证据(`--ignored`)。
+#[cfg(test)]
+#[path = "fts_real_db_tests.rs"]
+mod fts_real_db_tests;
 
 /// 标签实体 id 相对老 `tags.id` 的整体偏移(spec §12 D1)。
 /// 真库 `max(tags.id)=845`、`max(notes.id)=1399`,偏移后两个区间永久不撞。

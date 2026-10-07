@@ -5,6 +5,8 @@
 //! 路径 -> id 的解析漏斗与链接替换已拆到 link.rs(replace::replace_links),本文件只留树本身。
 use rusqlite::{params, Connection};
 
+use crate::db::repos::entities::fts::ENTITIES_AGG;
+
 use super::fts_tags::TAGS_AGG;
 
 /// 前缀补全返回上限:前缀过短时不一次吐全库
@@ -54,6 +56,24 @@ pub(crate) fn refresh_fts(conn: &Connection, note_ids: &[i64]) -> rusqlite::Resu
     Ok(())
 }
 
+/// `entities_fts` 的显式重写:标签实体自身也进索引,结构变更(改名/移动/删除/合并)后按
+/// 受影响实体 id 重写。聚合口径真源 = [`ENTITIES_AGG`](笔记:tagging 边指向标签的
+/// 路径+纯文本+别名;标签:自身路径+纯文本+别名);与 `refresh_fts`(notes_fts)并存到阶段 4。
+/// T3.2 落 026 触发器前没有非测试调用方,阶段 4 起由 `finish()` 与维护重建接管。
+#[allow(dead_code)]
+pub(crate) fn refresh_entities_fts(conn: &Connection, entity_ids: &[i64]) -> rusqlite::Result<()> {
+    for id in entity_ids {
+        conn.execute("DELETE FROM entities_fts WHERE rowid = ?1", params![id])?;
+        conn.execute(
+            &format!(
+                "INSERT INTO entities_fts(rowid, name, content, tag_paths)
+                 SELECT e.id, COALESCE(e.name, ''), e.content, {ENTITIES_AGG} FROM entities e WHERE e.id = ?1"
+            ),
+            params![id],
+        )?;
+    }
+    Ok(())
+}
 
 /// 链接笔记到标签(幂等)。tag_links 触发器负责把聚合路径同步进 FTS。
 pub fn link_note(conn: &Connection, note_id: i64, tag_id: i64) -> rusqlite::Result<()> {
