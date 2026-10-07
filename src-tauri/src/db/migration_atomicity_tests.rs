@@ -1,5 +1,5 @@
 //! 迁移事务原子性测试:单条迁移的 SQL 与 user_version 必须同批提交,失败整库回滚。
-use super::{apply, run, MIGRATIONS};
+use super::{apply, latest_version, run};
 
 fn count_of(conn: &rusqlite::Connection, sql: &str) -> i64 {
     conn.query_row(sql, [], |r| r.get(0)).unwrap()
@@ -9,10 +9,13 @@ fn count_of(conn: &rusqlite::Connection, sql: &str) -> i64 {
 fn failed_migration_rolls_back_whole_database() {
     let conn = rusqlite::Connection::open_in_memory().unwrap();
     run(&conn).unwrap();
-    conn.execute_batch("INSERT INTO tags(name, path, depth) VALUES('原有', '原有', 1);")
-        .unwrap();
+    conn.execute_batch(
+        "INSERT INTO entities(id, kind, name, content, created_at, path, depth)
+         VALUES(1000000001, 'tag', '原有', '', '2026-01-01', '原有', 1);",
+    )
+    .unwrap();
     let before = count_of(&conn, "PRAGMA user_version");
-    let tags_before = count_of(&conn, "SELECT COUNT(*) FROM tags");
+    let tags_before = count_of(&conn, "SELECT COUNT(*) FROM entities WHERE kind='tag'");
 
     // 夹具:同批次前半建表成功、后半表名错误,整批必须回滚
     let err = apply(
@@ -35,6 +38,6 @@ fn failed_migration_rolls_back_whole_database() {
         before,
         "失败迁移不得推进版本号"
     );
-    assert_eq!(count_of(&conn, "SELECT COUNT(*) FROM tags"), tags_before);
-    assert_eq!(MIGRATIONS.len() as i64, before, "前置 run 应已到最新版本");
+    assert_eq!(count_of(&conn, "SELECT COUNT(*) FROM entities WHERE kind='tag'"), tags_before);
+    assert_eq!(latest_version(), before, "前置 run 应已到最新版本");
 }

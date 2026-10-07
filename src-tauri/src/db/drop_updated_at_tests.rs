@@ -1,8 +1,8 @@
 //! 迁移 012(spec 2026-09-17 S3):删除 notes.updated_at 列。
-//! ① 新库跑到最新版本后 notes 不再有该列,created_at 仍在
-//! ② 旧库(仍有 updated_at 且有数据)升级:只删列,笔记/标签/链接/FTS 行数不变
-//! ③ 幂等:把 user_version 退回 11 再跑一次 run() 不报错(守卫跳过 DROP COLUMN)
-//! ④ 删列后触发器仍完好:新插入建 FTS 行、更新重写 FTS
+//! 阶段 4(027)后 `notes` 整表下架,本文件改对 `entities` 断言(实体从老笔记投影而来):
+//! ① 新库跑到最新版本后 `entities` 不再有 `updated_at`,created_at 仍在
+//! ② 旧库(仍有 updated_at 且有数据)升级:正文/时间逐字节不动,实体行与索引行都在
+//! ③ 删列后触发器仍完好:新插入建索引行、更新重写索引
 use super::*;
 use crate::db::repos::notes::{create_plain, update};
 
@@ -33,62 +33,56 @@ fn count(conn: &Connection, sql: &str) -> i64 {
     conn.query_row(sql, [], |r| r.get(0)).unwrap()
 }
 
-fn has_updated_at(conn: &Connection) -> bool {
-    let n = count(
+/// `entities` 上是否还有该列(过渡期列与 `updated_at` 都不该存在)
+fn has_column(conn: &Connection, column: &str) -> bool {
+    count(
         conn,
-        "SELECT COUNT(*) FROM pragma_table_info('notes') WHERE name='updated_at'",
-    );
-    n > 0
+        &format!("SELECT COUNT(*) FROM pragma_table_info('entities') WHERE name='{column}'"),
+    ) > 0
 }
 
 #[test]
 fn fresh_db_has_no_updated_at_but_keeps_created_at() {
     let conn = db();
     assert_eq!(count(&conn, "PRAGMA user_version"), latest_version());
-    assert!(!has_updated_at(&conn), "012 后 notes 不应再有 updated_at");
-    let created = count(
-        &conn,
-        "SELECT COUNT(*) FROM pragma_table_info('notes') WHERE name='created_at'",
-    );
-    assert_eq!(created, 1, "created_at 必须保留");
+    assert!(!has_column(&conn, "updated_at"), "实体上不应有 updated_at");
+    assert!(has_column(&conn, "created_at"), "created_at 必须保留");
+    // 027 已把老 notes 表整个下架
+    assert_eq!(count(&conn, "SELECT COUNT(*) FROM sqlite_master WHERE name='notes'"), 0);
 }
 
 #[test]
 fn upgrading_legacy_db_drops_column_without_touching_data() {
     let c = db_at_011();
-    assert!(has_updated_at(&c), "前置:旧库仍有 updated_at");
+    assert!(
+        count(&c, "SELECT COUNT(*) FROM pragma_table_info('notes') WHERE name='updated_at'") > 0,
+        "前置:旧库仍有 updated_at"
+    );
     run(&c).unwrap();
 
     assert_eq!(count(&c, "PRAGMA user_version"), latest_version());
-    assert!(!has_updated_at(&c));
-    // 数据一字不动:笔记行、FTS 行都还在,正文可读
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM notes"), 1);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM notes_fts"), 1);
-    let content: String = c.query_row("SELECT content FROM notes", [], |r| r.get(0)).unwrap();
-    assert_eq!(content, "历史 #甲"); // 裸 SQL 插入不剥离标签,正文逐字节不动
-}
-
-#[test]
-fn rerunning_012_is_a_noop() {
-    let c = db();
-    // 直接把版本退回 11,模拟"同一迁移再跑一次"(真实 run() 靠 user_version 不会重跑)
-    c.pragma_update(None, "user_version", DROP_UPDATED_AT_VERSION - 1)
+    // 数据一字不动:笔记实体、索引行都还在,正文可读
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE kind='note'"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities_fts WHERE content <> ''"), 1);
+    let content: String = c
+        .query_row("SELECT content FROM entities WHERE kind='note'", [], |r| r.get(0))
         .unwrap();
-    run(&c).unwrap();
-    assert_eq!(count(&c, "PRAGMA user_version"), latest_version());
-    assert!(!has_updated_at(&c));
+    assert_eq!(content, "历史 #甲"); // 裸 SQL 插入不剥离标签,正文逐字节不动
 }
 
 #[test]
 fn triggers_survive_the_drop_column() {
     let mut c = db();
-    // notes_ai 触发器仍建 FTS 行
+    // entities_ai 触发器仍建索引行
     let n = create_plain(&mut c, "新笔记 #乙").unwrap();
-    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM notes_fts WHERE rowid={}", n.id)), 1);
-    // notes_au 触发器仍按当前链接重写 FTS
+    assert_eq!(
+        count(&c, &format!("SELECT COUNT(*) FROM entities_fts WHERE rowid={}", n.id)),
+        1
+    );
+    // entities_au 触发器仍按当前链接重写索引
     update(&mut c, n.id, "改后 #丙").unwrap().unwrap();
     let tags: String = c
-        .query_row("SELECT tags FROM notes_fts WHERE rowid=?1", [n.id], |r| r.get(0))
+        .query_row("SELECT tag_paths FROM entities_fts WHERE rowid=?1", [n.id], |r| r.get(0))
         .unwrap();
-    assert!(tags.contains("丙") && !tags.contains("乙"), "FTS tags 未随更新收敛: {tags}");
+    assert!(tags.contains("丙") && !tags.contains("乙"), "FTS 未随更新收敛: {tags}");
 }

@@ -17,18 +17,14 @@ pub fn update(conn: &mut Connection, id: i64, content: &str) -> rusqlite::Result
     // 解析入口与 create 同一处:严格语法优先,严格失败处按库内已有路径兜底
     let (names, text) = super::parse_saved(conn, content)?;
     let tx = conn.transaction()?;
+    // 阶段 4:老 `notes` 表已下架,正文只落 `entities`。
     let rows = tx.execute(
-        "UPDATE notes SET content=?1 WHERE id=?2",
+        "UPDATE entities SET content=?1 WHERE id=?2 AND kind='note'",
         params![text, id],
     )?;
     if rows == 0 {
         return Ok(None); // 无该行:回滚空事务
     }
-    // 阶段 4 过渡:实体行同步同值(新读路径以 entities 为真源;027 下架老表后只剩它)
-    tx.execute(
-        "UPDATE entities SET content=?1 WHERE id=?2 AND kind='note'",
-        params![text, id],
-    )?;
     // 审计:替换语义会把"正文里没出现的标签"一并移除 —— UI 编辑路径会回显全部标签所以正常不触发,
     // 但脚本/裸命令按正文重建内容时会静默抹掉标签(本库曾因此丢过 10 条笔记的标签,靠快照才发现)。
     // 这里只记一条日志,不改语义。

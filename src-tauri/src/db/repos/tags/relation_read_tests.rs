@@ -114,7 +114,7 @@ fn relation_edges_do_not_change_note_tags_fts_or_export() {
     );
     let tags_before = repos::notes::read_full(&c, note.id).unwrap().unwrap().tags;
     let fts_before: String = c
-        .query_row("SELECT tags FROM notes_fts WHERE rowid=?1", params![note.id], |r| r.get(0))
+        .query_row("SELECT tag_paths FROM entities_fts WHERE rowid=?1", params![note.id], |r| r.get(0))
         .unwrap();
     let export_before = notes_export::rows(&c).unwrap();
 
@@ -122,7 +122,7 @@ fn relation_edges_do_not_change_note_tags_fts_or_export() {
 
     let tags_after = repos::notes::read_full(&c, note.id).unwrap().unwrap().tags;
     let fts_after: String = c
-        .query_row("SELECT tags FROM notes_fts WHERE rowid=?1", params![note.id], |r| r.get(0))
+        .query_row("SELECT tag_paths FROM entities_fts WHERE rowid=?1", params![note.id], |r| r.get(0))
         .unwrap();
     assert_eq!(tags_after, vec!["甲".to_string()], "关系边不得混进笔记的 tags 列");
     assert_eq!(tags_before, tags_after, "插入关系边不得改变笔记的 tags 列");

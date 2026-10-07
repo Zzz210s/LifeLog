@@ -4,10 +4,8 @@
 //!
 //! 阶段 4(T4.6):边落 `edges(kind='link')`,目标裁决先按 `entities.name` 命中标签(D6);
 //! 未解析链接**不落边**(D2 选项 A),出链列表读时从正文重解析。
-//! 过渡期仍双写老 `note_links`(旧读方 `graph::link_degrees` 还读它,027 删净):
-//! 目标不是笔记(标签实体或未解析)时老表 target_id 写 NULL —— 老表外键只认 `notes.id`。
+//! 老 `note_links` 过渡镜像已在 027 随老表一起下架,本层不再写它。
 // 读取(出链/入链/边)拆到 note_links_read.rs 并在此**再导出**,调用方路径不变。
-use crate::db::repos::entities::ids::is_tag_entity;
 use crate::links::{normalize_title, title_of};
 use rusqlite::{params, Connection};
 
@@ -87,12 +85,11 @@ pub fn resolve_key(cands: &[LinkCandidate], key: &str, exclude: Option<i64>) -> 
 ///
 /// - 目标裁决走 [`resolve_target`](D6):标签优先、同类 id 最小;都没命中 → 未解析
 /// - 自指跳过(判据沿用旧实现:标题归一化后等于本笔记自己的首行,且没有别人命中)
-/// - **未解析链接不落 `edges`**(D2 选项 A);老 `note_links` 仍按旧口径写一行(过渡镜像)
+/// - **未解析链接不落 `edges`**(D2 选项 A)
 /// - 同一条笔记里写重复的**同一个归一化标题**只处理一次
 ///
 /// 返回**解析成功**(`edges` 落边)的条数。
 pub fn replace(conn: &Connection, source_id: i64, titles: &[String]) -> rusqlite::Result<usize> {
-    conn.execute("DELETE FROM note_links WHERE source_id = ?1", params![source_id])?;
     conn.execute(
         "DELETE FROM edges WHERE kind = 'link' AND source_id = ?1",
         params![source_id],
@@ -120,13 +117,6 @@ pub fn replace(conn: &Connection, source_id: i64, titles: &[String]) -> rusqlite
             )?;
             resolved += 1;
         }
-        // 过渡镜像:老表的 target_id 外键只认 `notes.id`,标签实体(带偏移)只能写 NULL。
-        let legacy = target.filter(|id| !is_tag_entity(*id));
-        conn.execute(
-            "INSERT INTO note_links(source_id, target_id, raw_title, created_at)
-             VALUES(?1, ?2, ?3, datetime('now','localtime'))",
-            params![source_id, legacy, raw],
-        )?;
     }
     Ok(resolved)
 }
@@ -162,10 +152,6 @@ fn own_title(conn: &Connection, id: i64) -> rusqlite::Result<Option<String>> {
 #[cfg(test)]
 #[path = "note_links_tests.rs"]
 mod note_links_tests;
-
-#[cfg(test)]
-#[path = "note_links_legacy_tests.rs"]
-mod note_links_legacy_tests;
 
 #[cfg(test)]
 #[path = "note_links_fix_tests.rs"]

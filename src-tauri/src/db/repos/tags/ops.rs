@@ -6,7 +6,7 @@ use super::ops_sql::{
     apply_sibling_order, ensure_sibling_free, load, repoint_child, rewrite_subtree_paths,
     shift_subtree_depths, Anchor,
 };
-use super::{linked_notes, subtree_ids};
+use super::subtree_ids;
 use crate::db::repos::tags::alias;
 use crate::db::repos::tags::{finish, PostWrite};
 use rusqlite::{params, Connection, OptionalExtension};
@@ -36,7 +36,6 @@ pub fn rename(conn: &mut Connection, tag_id: i64, new_name: &str) -> Result<Vec<
     // 新路径从父节点派生(存量平铺根的 path 可能与 name 不一致,不能用自身旧 path 派生)
     let new_path = super::path::child_path(&tx, node.parent_id, &new_name).map_err(|e| e.to_string())?;
     let ids = subtree_ids(&tx, tag_id).map_err(|e| e.to_string())?;
-    let notes = linked_notes(&tx, &ids).map_err(|e| e.to_string())?;
     tx.execute(
         "UPDATE entities SET name = ?1 WHERE id = ?2 AND kind = 'tag'",
         params![new_name, tag_id],
@@ -47,7 +46,6 @@ pub fn rename(conn: &mut Connection, tag_id: i64, new_name: &str) -> Result<Vec<
     finish(
         &tx,
         PostWrite {
-            notes: &notes,
             entities: &ids,
             path_change: Some((node.path.as_str(), new_path.as_str())),
             gc: false, // 仅改名:没有节点被移走,不产生空容器
@@ -129,7 +127,6 @@ pub fn move_to_ordered(
     }
     ensure_sibling_free(&tx, new_parent, &node.name, tag_id)?;
     let new_path = super::path::child_path(&tx, new_parent, &node.name).map_err(|e| e.to_string())?;
-    let notes = linked_notes(&tx, &ids).map_err(|e| e.to_string())?;
     tx.execute(
         "UPDATE entities SET parent_id = ?1, path = ?2, depth = ?3 WHERE id = ?4 AND kind = 'tag'",
         params![new_parent, new_path, new_depth, tag_id],
@@ -144,7 +141,6 @@ pub fn move_to_ordered(
     finish(
         &tx,
         PostWrite {
-            notes: &notes,
             entities: &ids,
             path_change: Some((node.path.as_str(), new_path.as_str())),
             gc: true, // 移走最后的子节点后,旧父级会变成无链接无子节点的空容器

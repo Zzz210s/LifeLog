@@ -3,7 +3,7 @@
 use super::*;
 use crate::db::migrate;
 use crate::db::repos::notes;
-use crate::db::repos::tags::invariants_tests::{assert_fts_matches_tags, assert_no_orphan_tags};
+use crate::db::repos::tags::invariants_tests::{assert_fts_matches_edges, assert_no_orphan_tags};
 use rusqlite::Connection;
 
 fn db() -> Connection {
@@ -44,7 +44,7 @@ fn snapshot(c: &Connection) -> String {
         "{:?}\n{:?}\n{:?}",
         rows("SELECT id||'|'||name||'|'||COALESCE(parent_id,0)||'|'||path||'|'||depth FROM tags ORDER BY id"),
         rows("SELECT tag_id||'|'||target_type||'|'||target_id FROM tag_links ORDER BY tag_id,target_type,target_id"),
-        rows("SELECT source_tag_id||'|'||target_tag_id||'|'||note_links FROM tag_merge_log ORDER BY id"),
+        rows("SELECT source_entity_id||'|'||target_entity_id||'|'||note_links FROM entity_merge_log ORDER BY id"),
     )
 }
 
@@ -68,8 +68,8 @@ fn merge_failure_rolls_back_whole_transaction() {
 
     assert!(!err.is_empty(), "报错非空: {err}");
     assert_eq!(snapshot(&c), before, "整段回滚,零变化");
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tag_merge_log"), 0, "日志也不落地");
-    assert_fts_matches_tags(&c);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entity_merge_log"), 0, "日志也不落地");
+    assert_fts_matches_edges(&c);
 }
 
 /// ⑥ 纯文本同名:raw 名不同(md 写法差异)也判同名并自动合并
@@ -86,8 +86,8 @@ fn sweep_merges_plain_equal_md_variants() {
     assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tags WHERE id={x}")), 0, "md 形态并入纯文本");
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='P/郴州市'"), 1);
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='P/[郴](chēn)州市'"), 0);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tag_merge_log"), 1);
-    assert_fts_matches_tags(&c);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entity_merge_log"), 1);
+    assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
 }
 
@@ -102,7 +102,7 @@ fn sweep_without_duplicates_is_noop() {
     assert_eq!(auto_merge::sweep(&c).unwrap(), 0);
 
     assert_eq!(snapshot(&c), before);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tag_merge_log"), 0);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entity_merge_log"), 0);
 }
 
 /// ⑨ 整棵并时子级 raw 撞名:两棵子树各自的同名子标签也递归并(唯一索引不允许两行同名兄弟)
@@ -121,9 +121,9 @@ fn merge_recursively_merges_colliding_children() {
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='目标/子'"), 1);
     assert_eq!(links(&c, target_child), 2, "两棵子树的笔记并到同一个子标签");
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path LIKE '源%'"), 0, "旧子树无残留");
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tag_merge_log"), 1, "嵌套的自动合并留一条日志(外层是手动合并,不记)");
-    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tag_merge_log WHERE source_tag_id={src_child} AND target_tag_id={target_child}")), 1);
-    assert_fts_matches_tags(&c);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entity_merge_log"), 1, "嵌套的自动合并留一条日志(外层是手动合并,不记)");
+    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM entity_merge_log WHERE source_entity_id={src_child} AND target_entity_id={target_child}")), 1);
+    assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
 }
 
@@ -140,7 +140,7 @@ fn rename_onto_existing_sibling_merges() {
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='P/乙'"), 1);
     assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tags WHERE id={jia}")), 0, "被改名者并入");
     assert_eq!(links(&c, id_at(&c, "P/乙")), 2);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tag_merge_log"), 1);
-    assert_fts_matches_tags(&c);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entity_merge_log"), 1);
+    assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
 }

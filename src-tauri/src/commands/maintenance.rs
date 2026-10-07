@@ -22,20 +22,22 @@ pub fn quit_app(app: AppHandle) {
 
 /// 幂等整体重建:DELETE 起手,再由 `entities` 全表回填 `entities_fts`。
 ///
-/// 聚合口径的唯一 SQL 实现是视图 `entities_fts_src`(迁移 026 建立、触发器与重建共用),
-/// 与 Rust 真源 [`crate::db::repos::entities::fts::ENTITIES_AGG`] 逐段一致。
-/// 直接 `INSERT ... SELECT FROM entities_fts_src` 等于跑一遍迁移 026 的整体重建,
-/// 故本命令是「索引与正文疑似不一致」时的自愈入口(见 `entities_fts` 为普通 FTS5
-/// 表的设计说明)。阶段 4 起 `notes_fts` 退役,不再由本命令维护。
+/// 聚合口径的唯一真源是 [`crate::db::repos::entities::fts::ENTITIES_AGG`]
+/// (阶段 4 起 027 的 9 个触发器也引用同一段表达式;026 的过渡视图 `entities_fts_src`
+/// 已随 027 下架)。直接 `INSERT ... SELECT` 等于跑一遍整体重建,
+/// 故本命令是「索引与正文疑似不一致」时的自愈入口。
 ///
 /// 两条语句必须在同一事务内(与 `migrate::apply` 同口径的 `unchecked_transaction`):
 /// 进程死在两条之间会留下空 `entities_fts`,3 字以上关键词会静默搜不到。
 pub fn rebuild(conn: &rusqlite::Connection) -> rusqlite::Result<usize> {
+    use crate::db::repos::entities::fts::ENTITIES_AGG;
     let tx = conn.unchecked_transaction()?;
     tx.execute("DELETE FROM entities_fts", [])?;
     let written = tx.execute(
-        "INSERT INTO entities_fts(rowid, name, content, tag_paths)
-         SELECT id, name, content, tag_paths FROM entities_fts_src",
+        &format!(
+            "INSERT INTO entities_fts(rowid, name, content, tag_paths)
+             SELECT e.id, COALESCE(e.name, ''), e.content, {ENTITIES_AGG} FROM entities e"
+        ),
         [],
     )?;
     tx.commit()?;

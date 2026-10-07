@@ -3,7 +3,7 @@
 //! 守卫(018 副本 == 共享常量)与重放幂等见 `tags::fts_tags_tests`。
 use super::{run, MIGRATIONS};
 use crate::db::repos::notes::{notes_filter::empty, query, FilterConditions};
-use crate::db::repos::tags::invariants_tests::assert_fts_matches_tags;
+use crate::db::repos::tags::invariants_tests::assert_fts_matches_edges;
 use rusqlite::Connection;
 
 /// 018 之前的位次(1 起);旧库 = 应用到 017
@@ -45,8 +45,14 @@ fn seed(conn: &Connection) {
     .unwrap();
 }
 
+/// 升级前(v17)读老 `notes_fts`(此时尚无 `entities_fts`)
 fn fts(conn: &Connection) -> String {
     conn.query_row("SELECT tags FROM notes_fts WHERE rowid=1", [], |r| r.get(0)).unwrap()
+}
+
+/// 升级后读 `entities_fts`(阶段 4 的索引真源)
+fn entity_fts(conn: &Connection) -> String {
+    conn.query_row("SELECT tag_paths FROM entities_fts WHERE rowid=1", [], |r| r.get(0)).unwrap()
 }
 
 fn hits(conn: &Connection, keyword: &str) -> usize {
@@ -61,7 +67,7 @@ fn v17_index_has_no_plain_path() {
     let c = db_at_017();
     seed(&c);
     assert!(fts(&c).contains("[郴](chēn)州市"), "旧索引串是原始 md 路径:{}", fts(&c));
-    assert_eq!(hits(&c, "郴州市"), 0, "前置:升级前显示文本搜不到");
+    assert!(!fts(&c).contains("郴州市"), "前置:升级前显示文本不在老索引串里");
 }
 
 /// 升级到 18:回填后按显示文本命中;版本号 / 触发器 / 不变量都对齐
@@ -72,10 +78,14 @@ fn upgrade_to_18_backfills_plain_paths() {
     run(&c).unwrap();
     let version: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
     assert_eq!(version, super::latest_version(), "升级后应停在最新版本");
-    assert!(fts(&c).contains("地点/中国大陆/湖南省/郴州市/宜章县"), "回填纯文本路径:{}", fts(&c));
+    assert!(
+        entity_fts(&c).contains("地点/中国大陆/湖南省/郴州市/宜章县"),
+        "回填纯文本路径:{}",
+        entity_fts(&c)
+    );
     assert_eq!(hits(&c, "郴州市"), 1, "显示文本命中(纯文本路径)");
     assert_eq!(hits(&c, "chēn"), 1, "注解字面量仍命中");
     // 祖先标签的旧名不进索引(别名口径仍是 T4 的"直接链接的标签",见 fts_tag_plain_tests)
     assert_eq!(hits(&c, "郴chen州市"), 0, "祖先旧名不进索引");
-    assert_fts_matches_tags(&c);
+    assert_fts_matches_edges(&c);
 }

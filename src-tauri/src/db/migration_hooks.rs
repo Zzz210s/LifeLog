@@ -143,3 +143,6 @@ pub(crate) fn carry_over_filter_current(conn: &Connection) -> rusqlite::Result<(
 
 mod tag_relations;
 pub(crate) use tag_relations::*;
+
+mod entity_ids;
+pub(crate) use entity_ids::*;

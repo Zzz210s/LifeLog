@@ -37,6 +37,10 @@ mod drop_updated_at_tests;
 mod migrate_tests;
 
 #[cfg(test)]
+#[path = "backfill_hook_tests.rs"]
+mod backfill_hook_tests;
+
+#[cfg(test)]
 #[path = "filter_current_migration_tests.rs"]
 mod filter_current_migration_tests;
 
@@ -89,5 +93,17 @@ mod entities_notes_migration_tests;
 mod entities_phase2_tests;
 
 #[cfg(test)]
+#[path = "entities_phase2_counts_tests.rs"]
+mod entities_phase2_counts_tests;
+
+#[cfg(test)]
 #[path = "entities_fts_migration_tests.rs"]
 mod entities_fts_migration_tests;
+
+#[cfg(test)]
+#[path = "drop_legacy_migration_tests.rs"]
+mod drop_legacy_migration_tests;
+
+#[cfg(test)]
+#[path = "entity_ids_hook_tests.rs"]
+mod entity_ids_hook_tests;

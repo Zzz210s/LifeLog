@@ -2,8 +2,8 @@
 //!
 //! T4.3 起节点与树/共现边统一读 `entities`/`edges`:节点 = `entities(kind='tag')`(id 为标签实体 id),
 //! 父子边 = `edges(kind='child')`,共现边 = `edges(kind='tagging')` 自连接。
-//! 笔记间链接边仍由 `note_links::all_resolved` 供给(计划 T4.6 把它改读 `edges(kind='link')`,签名不动),
-//! 故 `link_degrees` 的链接侧仍读 `note_links`,只有「哪些笔记挂着该标签」走 `edges(kind='tagging')`。
+//! 笔记间链接边由 `note_links::all_resolved` 供给(读 `edges(kind='link')`,签名不动),
+//! `link_degrees` 的链接侧同样读 `edges(kind='link')`,标签侧走 `edges(kind='tagging')`。
 //! `GraphLink` 的 `a`/`b` 是**笔记实体 id**,与标签实体 id 是两套命名空间(前端按 `kind` 分流)。
 //!
 //! 口径与标签侧保持一致:
@@ -123,6 +123,7 @@ pub fn link_edges(conn: &Connection) -> SqlResult<Vec<GraphLink>> {
 /// 某标签(含子孙)的「出链 N / 入链 M」:一条 SQL 取两个计数,零额外 IPC 也能给信息条。
 /// `COUNT(DISTINCT nl.id)`:一条笔记同时挂祖先与子孙标签时 `tagging` 边重复出现,
 /// 不去重就会把同一条链接按标签数算好几遍(与 `nodes` 的去重口径同源)。
+/// 阶段 4 起链接侧读 `edges(kind='link')`(`note_links` 已随 027 下架)。
 /// 标签实体不存在时两数都是 0(不报错)。
 pub fn link_degrees(conn: &Connection, tag_id: i64) -> SqlResult<LinkDegrees> {
     conn.query_row(
@@ -134,11 +135,11 @@ pub fn link_degrees(conn: &Connection, tag_id: i64) -> SqlResult<LinkDegrees> {
          SELECT
            (SELECT COUNT(DISTINCT nl.id) FROM sub
               JOIN edges tl ON tl.kind = 'tagging' AND tl.target_id = sub.leaf
-              JOIN note_links nl ON nl.source_id = tl.source_id
-              WHERE nl.target_id IS NOT NULL AND nl.source_id <> nl.target_id),
+              JOIN edges nl ON nl.kind = 'link' AND nl.source_id = tl.source_id
+              WHERE nl.source_id <> nl.target_id),
            (SELECT COUNT(DISTINCT nl.id) FROM sub
               JOIN edges tl ON tl.kind = 'tagging' AND tl.target_id = sub.leaf
-              JOIN note_links nl ON nl.target_id = tl.source_id
+              JOIN edges nl ON nl.kind = 'link' AND nl.target_id = tl.source_id
               WHERE nl.source_id <> nl.target_id)",
         [tag_id],
         |r| {

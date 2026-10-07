@@ -1,12 +1,10 @@
-//! T3.1 `ENTITIES_AGG`(`entities_fts.tag_paths` 的唯一真源)的行为读数与收口等价证据。
+//! T3.1 `ENTITIES_AGG`(`entities_fts.tag_paths` 的唯一真源)的行为读数。
 //! ① 笔记分支 == 手写期望串(仅 `tagging` 边指向标签的路径 + 纯文本形态 + 别名);
 //! ② 标签分支 == 自身完整路径(+ 纯文本形态 + 自身别名),普通标签不多空格;
-//! ③ `refresh_entities_fts` 写出的行 == `ENTITIES_AGG` 直算的行;
-//! ④ 收口不变量:同一条笔记,`TAGS_AGG`(notes_fts 旧口径)与 `ENTITIES_AGG` 逐字节相同。
-//! 真库全量 sha256 证据见 [`super::fts_real_db_tests`]。
+//! ③ `refresh_entities_fts` 写出的行 == `ENTITIES_AGG` 直算的行。
+//! (阶段 3 的「与老 `TAGS_AGG` 逐字节相同」对账随 027 下架老索引而退役,见 git 历史。)
 use crate::db::migrate;
 use crate::db::repos::entities::fts::ENTITIES_AGG;
-use crate::db::repos::tags::fts_tags::TAGS_AGG;
 use crate::db::repos::tags::invariants_tests::assert_fts_matches_edges;
 use crate::db::repos::tags::tree::refresh_entities_fts;
 use rusqlite::{params, Connection};
@@ -21,8 +19,7 @@ fn agg(c: &Connection, id: i64) -> String {
     .unwrap()
 }
 
-/// 小库:v25 -> v26(`entities`/`edges` + 026 建的 `entity_aliases` / `entities_fts`)。
-/// 老表(`notes`/`tags`/`tag_links`/`tag_aliases`)摆同一份语义,供旧新口径逐字节对账。
+/// 小库:在最新库(27)上直接摆 `entities`/`edges`/`entity_aliases` / `entities_fts`。
 /// 标签 3(`生活`)没有 `tagging` 边,用来钉「只算被链接的标签」。
 fn db() -> Connection {
     let c = Connection::open_in_memory().unwrap();
@@ -37,15 +34,7 @@ fn db() -> Connection {
            (1,1000000001,'tagging','2026-01-01'),(1,1000000002,'tagging','2026-01-01'),
            (1000000001,1000000003,'child','2026-01-01');
          INSERT INTO entity_aliases(alias, entity_id) VALUES
-           ('地方',1000000001),('郴',1000000002);
-         INSERT INTO notes(id,content,created_at) VALUES(1,'正文','2026-01-01');
-         INSERT INTO tags(id,name,parent_id,path,depth,sort_order) VALUES
-           (1,'地点',NULL,'地点',1,0),
-           (2,'[郴](chēn)州市',1,'地点/[郴](chēn)州市',2,0),
-           (3,'生活',1,'生活',2,0);
-         INSERT INTO tag_links(tag_id,target_type,target_id,remark) VALUES
-           (1,'note',1,''),(2,'note',1,'');
-         INSERT INTO tag_aliases(alias,tag_id) VALUES ('地方',1),('郴',2);",
+           ('地方',1000000001),('郴',1000000002);",
     )
     .unwrap();
     c
@@ -75,7 +64,7 @@ fn entities_agg_tag_branch_uses_full_path() {
     );
 }
 
-/// ③ refresh_entities_fts 写出的行 == 直算;name/content 也按 026 的实体口径落库。
+/// ③ refresh_entities_fts 写出的行 == 直算;name/content 也按实体口径落库。
 #[test]
 fn refresh_entities_fts_matches_the_direct_aggregate() {
     let c = db();
@@ -104,14 +93,4 @@ fn refresh_entities_fts_matches_the_direct_aggregate() {
         assert_eq!(tag_paths, agg(&c, id), "实体 {id} 的 tag_paths 必须 == ENTITIES_AGG 直算");
     }
     assert_fts_matches_edges(&c);
-}
-
-/// ④ 收口不改语义:同一条笔记,旧 `TAGS_AGG` 与新 `ENTITIES_AGG` 逐字节相同。
-#[test]
-fn entities_agg_note_branch_equals_tags_agg_byte_for_byte() {
-    let c = db();
-    let old: String = c
-        .query_row(&format!("SELECT {TAGS_AGG} FROM notes n WHERE n.id = 1"), [], |r| r.get(0))
-        .unwrap();
-    assert_eq!(agg(&c, 1), old, "收口后笔记口径必须与 TAGS_AGG 逐字节相同");
 }

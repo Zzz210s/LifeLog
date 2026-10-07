@@ -1,7 +1,6 @@
 //! 006 标签树迁移测试:①存量平铺标签根化 ②tag_links 不变 ③FTS 聚合路径
 //! ④幂等 ⑤非法名(含空格)保留。失败回滚见 migration_atomicity_tests。
 use super::{apply, latest_version, run, MIGRATIONS};
-use crate::db::repos::notes::{notes_filter::*, query};
 use rusqlite::Connection;
 
 /// 006 在迁移序列中的位次(1 起);旧库 = 应用到 006 之前。
@@ -62,6 +61,7 @@ fn migration_006_turns_flat_tags_into_roots() {
     .unwrap();
 
     run(&conn).unwrap();
+    super::entities_tags_fixture::legacy_read_views(&conn);
 
     let mut stmt = conn
         .prepare("SELECT id, name, parent_id, path, depth FROM tags ORDER BY id")
@@ -132,18 +132,16 @@ fn migration_006_indexes_tag_paths_for_search() {
     )
     .unwrap();
 
-    // 触发器聚合的是完整路径,而非节点名
+    // 触发器聚合的是完整路径,而非节点名(此用例停在 v6,读老 notes_fts)
     assert_eq!(text(&conn, "SELECT tags FROM notes_fts WHERE rowid=1"), "工作/项目A");
-    let hit = query(
-        &conn,
-        &FilterConditions {
-            keyword: Some("项目A".into()),
-            ..empty()
-        },
-        0,
-    )
-    .unwrap();
-    assert_eq!(hit.len(), 1, "标签路径应能被 FTS 搜到");
+    let hits: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM notes_fts WHERE notes_fts MATCH '\"工作/项目A\"*'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(hits, 1, "标签路径应能被 FTS 搜到");
 }
 
 #[test]
@@ -159,15 +157,17 @@ fn migration_006_is_idempotent() {
         (
             count(c, "SELECT COUNT(*) FROM tags"),
             count(c, "SELECT COUNT(*) FROM tag_links"),
-            count(c, "SELECT COUNT(*) FROM notes_fts"),
+            count(c, "SELECT COUNT(*) FROM entities_fts"),
             text(c, "SELECT path FROM tags WHERE id = 1"),
             count(c, "PRAGMA user_version"),
         )
     };
 
     run(&conn).unwrap();
+    super::entities_tags_fixture::legacy_read_views(&conn);
     let first = snapshot(&conn);
-    run(&conn).unwrap(); // user_version 已是最新,应为 no-op
+    run(&conn).unwrap();
+    super::entities_tags_fixture::legacy_read_views(&conn); // user_version 已是最新,应为 no-op
 
     assert_eq!(snapshot(&conn), first);
 }
@@ -181,6 +181,7 @@ fn migration_006_keeps_legacy_names_with_spaces() {
     .unwrap();
 
     run(&conn).unwrap();
+    super::entities_tags_fixture::legacy_read_views(&conn);
 
     for name in ["工作 计划", "a.b", "待定/TBD"] {
         let n = count(

@@ -109,10 +109,10 @@ fn migration_success_reports_backup_path_and_no_warning() {
     assert_eq!(
         scalar(
             &report.conn,
-            "SELECT COUNT(*) FROM pragma_table_info('tags') WHERE name='path'"
+            "SELECT COUNT(*) FROM pragma_table_info('entities') WHERE name='path'"
         ),
         1,
-        "006 应已生效"
+        "标签树的 path 缓存应已生效(006 的形态在实体上)"
     );
 }
 
@@ -133,5 +133,5 @@ fn backup_failure_becomes_warning_and_migration_still_runs() {
     );
     // 备份失败不影响迁移结果
     assert_eq!(scalar(&report.conn, "PRAGMA user_version"), latest_version());
-    assert_eq!(scalar(&report.conn, "SELECT COUNT(*) FROM notes"), 1);
+    assert_eq!(scalar(&report.conn, "SELECT COUNT(*) FROM entities WHERE kind='note'"), 1);
 }

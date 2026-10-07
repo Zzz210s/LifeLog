@@ -14,11 +14,9 @@
 //!
 //! 收口范围:本常量是 `entities_fts` 侧唯一真源 —— 结构变更后的显式重写
 //! [`crate::db::repos::tags::tree::refresh_entities_fts`]、不变量测试台
-//! [`crate::db::repos::tags::invariants_tests::assert_fts_matches_edges`] 已引用它。
-//! 迁移 026 的九个触发器与整体重建 SQL 由 T3.2 写成同一段(那段 `include_str!` 的
-//! `MIGRATION_026_SQL` 守卫随 026 一起落,本任务不建 026 文件);维护命令的 `entities_fts`
-//! 重建在阶段 4 随 `notes_fts` 下架时接入。旧 `TAGS_AGG`(notes_fts 口径)在阶段 4 前保持
-//! 不变,避免应用读错表 —— 两者的逐字节等价由 `fts_tests` 与真库 sha256 用例钉住。
+//! [`crate::db::repos::tags::invariants_tests::assert_fts_matches_edges`]、维护命令
+//! `maintenance::rebuild` 与 027 重建的 9 个触发器都引用同一段表达式。旧 `TAGS_AGG`
+//! (`notes_fts` 口径)与 026 的过渡视图 `entities_fts_src` 已随 027 一并下架。
 pub(crate) const ENTITIES_AGG: &str = concat!(
     "trim(CASE WHEN e.kind = 'note' THEN ",
     // 笔记分支:tagging 边指向标签的路径

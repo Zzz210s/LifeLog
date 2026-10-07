@@ -39,29 +39,9 @@ pub(crate) fn linked_notes(conn: &Connection, tag_ids: &[i64]) -> rusqlite::Resu
     rows.collect()
 }
 
-/// 结构变更(改名/移动/删除树)或别名变化后,显式重写受影响笔记的 `notes_fts` 行。
-/// T4.1 起标签数据已迁到 `entities`/`edges`,聚合口径改用 [`ENTITIES_AGG`](与阶段 3
-/// 冻结的 `TAGS_AGG` 逐字等价,见记忆 #1321 的全量 sha256 基线);老 `tags`/`tag_links`
-/// 不再同步,故不能再走 `TAGS_AGG`。与 `refresh_entities_fts` 并存到 4.7 删 `notes_fts`。
-pub(crate) fn refresh_fts(conn: &Connection, note_ids: &[i64]) -> rusqlite::Result<()> {
-    for id in note_ids {
-        conn.execute("DELETE FROM notes_fts WHERE rowid = ?1", params![id])?;
-        conn.execute(
-            &format!(
-                "INSERT INTO notes_fts(rowid, content, tags)
-                 SELECT n.id, n.content,
-                        COALESCE((SELECT {ENTITIES_AGG} FROM entities e WHERE e.id = n.id), '')
-                 FROM notes n WHERE n.id = ?1"
-            ),
-            params![id],
-        )?;
-    }
-    Ok(())
-}
-
 /// `entities_fts` 的显式重写:标签实体自身也进索引,结构变更(改名/移动/删除/合并)后按
 /// 受影响实体 id 重写。聚合口径真源 = [`ENTITIES_AGG`](笔记:tagging 边指向标签的
-/// 路径+纯文本+别名;标签:自身路径+纯文本+别名);与 `refresh_fts`(notes_fts)并存到阶段 4。
+/// 路径+纯文本+别名;标签:自身路径+纯文本+别名)。
 pub(crate) fn refresh_entities_fts(conn: &Connection, entity_ids: &[i64]) -> rusqlite::Result<()> {
     for id in entity_ids {
         conn.execute("DELETE FROM entities_fts WHERE rowid = ?1", params![id])?;

@@ -4,7 +4,7 @@ use super::*;
 use crate::db::migrate;
 use crate::db::repos::notes;
 use crate::db::repos::tags::invariants_tests::{
-    assert_filter_paths_exist, assert_fts_matches_tags, assert_no_orphan_tags,
+    assert_filter_paths_exist, assert_fts_matches_edges, assert_no_orphan_tags,
 };
 use rusqlite::Connection;
 
@@ -48,7 +48,7 @@ fn move_out_last_child_recycles_emptied_parent() {
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='工作'"), 0, "空容器父级回收");
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='项目A' AND parent_id IS NULL"), 1);
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tag_links WHERE tag_id=(SELECT id FROM tags WHERE path='项目A')"), 1);
-    assert_fts_matches_tags(&c);
+    assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
 }
 
@@ -70,9 +70,9 @@ fn move_beyond_former_max_depth_is_allowed() {
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='a1'"), 0, "旧根路径不残留");
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags"), 6);
     // FTS 跟着新路径走
-    let fts: String = c.query_row("SELECT tags FROM notes_fts", [], |r| r.get(0)).unwrap();
+    let fts: String = c.query_row("SELECT tag_paths FROM entities_fts", [], |r| r.get(0)).unwrap();
     assert!(fts.contains("x/a1/a2/a3/a4/a5"), "FTS 未跟上新路径:{fts}");
-    assert_fts_matches_tags(&c);
+    assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
     assert_filter_paths_exist(&c);
 }

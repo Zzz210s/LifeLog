@@ -14,6 +14,7 @@ const OFFSET_LITERAL: i64 = 1_000_000_000;
 fn fresh_run_reaches_v24_clean() {
     let c = Connection::open_in_memory().unwrap();
     run(&c).unwrap();
+    super::entities_tags_fixture::legacy_read_views(&c);
     assert!(latest_version() >= 24, "本用例只要求跑过 024;后续迁移会继续抬升");
     let v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
     assert_eq!(v, latest_version(), "新库应跑到最新版本");
@@ -36,6 +37,7 @@ fn upgrade_from_v23_maps_tag_ids_with_offset() {
     migrate_to_v23(&c);
     seed_v23(&c);
     run(&c).unwrap();
+    super::entities_tags_fixture::legacy_read_views(&c);
 
     assert_eq!(
         count(&c, "SELECT COUNT(*) FROM entities WHERE kind='tag'"),
@@ -43,16 +45,15 @@ fn upgrade_from_v23_maps_tag_ids_with_offset() {
     );
     assert_eq!(count(&c, "SELECT COUNT(*) FROM edges WHERE kind='child'"), 2);
 
-    let (id, legacy, pid, path, depth): (i64, i64, i64, String, i64) = c
+    let (id, pid, path, depth): (i64, i64, String, i64) = c
         .query_row(
-            "SELECT id, legacy_id, parent_id, path, depth FROM entities WHERE name='日本'",
+            "SELECT id, parent_id, path, depth FROM entities WHERE name='日本'",
             [],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
         )
         .unwrap();
     assert_eq!(id, 2 + TAG_ID_OFFSET, "新标签 id 必须整体偏移");
     assert!(id >= TAG_ID_OFFSET, "新标签 id 不得落进笔记 id 区间");
-    assert_eq!(legacy, 2, "legacy_id 留老 tags.id 溯源");
     assert_eq!(pid, 1 + TAG_ID_OFFSET, "父 id 同样偏移");
     assert_eq!(path, "地点轴/日本");
     assert_eq!(depth, 2);
@@ -82,6 +83,7 @@ fn entities_projection_equals_tags() {
     c.execute("UPDATE tags SET color='#abc' WHERE id=2", [])
         .unwrap();
     run(&c).unwrap();
+    super::entities_tags_fixture::legacy_read_views(&c);
 
     let forward = "SELECT t.id+1000000000, t.name, t.path, t.depth, t.sort_order, \
                    COALESCE(t.parent_id+1000000000, -1), COALESCE(t.color,'') FROM tags t \
@@ -121,7 +123,8 @@ fn legacy_tables_untouched_by_024() {
     };
     let (before_tags, before_links) = (dump(tags_sql), dump(links_sql));
 
-    run(&c).unwrap();
+    // 只应用 024 本体:老表仍在,才能逐值比对「024 未改写老表」
+    apply(&c, MIGRATIONS[23], 24).unwrap();
 
     assert_eq!(dump(tags_sql), before_tags, "tags 不得被 024 改写");
     assert_eq!(dump(links_sql), before_links, "tag_links 不得被 024 改写");

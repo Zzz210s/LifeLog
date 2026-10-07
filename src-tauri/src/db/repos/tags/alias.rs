@@ -3,7 +3,8 @@
 //! T4.1 起落 `entity_aliases`(`tag_id` -> `entity_id`),目标标签实体删除时由外键 CASCADE 清理
 //! (db::open 已开 foreign_keys=ON)。
 //! 解析必须可预测(D2):只有别名表里登记过的**原样字符串**才会被归一,不做模糊猜测。
-use super::write::refresh_notes_for;
+//! 别名变化对 FTS 的影响由迁移 026 的 `entity_aliases_*` 触发器负责(刷新该标签与直接链它的笔记),
+//! 本层不再显式重写索引。
 use rusqlite::{params, Connection, OptionalExtension};
 
 /// 命中别名则返回目标标签的**当前路径**(路径随改名/移动实时变化,故每次联表取),
@@ -38,16 +39,12 @@ pub fn add(conn: &Connection, alias: &str, tag_id: i64) -> rusqlite::Result<()> 
     put(conn, alias, tag_id)
 }
 
-/// 删除别名:不存在也不报错(重复删除幂等)
+/// 删除别名:不存在也不报错(重复删除幂等)。FTS 重写由 `entity_aliases_ad` 触发器完成。
 pub fn remove(conn: &Connection, alias: &str) -> rusqlite::Result<()> {
-    let owner = alias_owner(conn, alias.trim())?;
     conn.execute(
         "DELETE FROM entity_aliases WHERE alias = ?1",
         params![alias.trim()],
     )?;
-    if let Some(id) = owner {
-        refresh_notes_for(conn, &[id])?;
-    }
     Ok(())
 }
 
@@ -128,32 +125,14 @@ fn check_alias(alias: &str) -> rusqlite::Result<()> {
 /// 写入别名行(不做语义判定):冲突即"重复登记更新指向"。
 /// 必须用 upsert 而不是 `INSERT OR REPLACE`:REPLACE 的隐式删除默认不触发 DELETE 触发器
 /// (recursive_triggers 关闭,实测只触发 INSERT),别名改指向时 FTS 标签列里的旧名会残留;
-/// upsert 走 UPDATE 触发器,旧/新两侧都会被重写(迁移 026 的 entity_aliases_au)。
+/// upsert 走 UPDATE 触发器,旧/新两侧都会被重写(迁移 026/027 的 `entity_aliases_au`)。
 fn put(conn: &Connection, alias: &str, tag_id: i64) -> rusqlite::Result<()> {
-    // 改指向时旧目标的 notes_fts 也要重算,故先记录旧主人
-    let old = alias_owner(conn, alias)?;
     conn.execute(
         "INSERT INTO entity_aliases(alias, entity_id) VALUES(?1, ?2)
          ON CONFLICT(alias) DO UPDATE SET entity_id = excluded.entity_id",
         params![alias, tag_id],
     )?;
-    // 026 的 entity_aliases 触发器只刷 entities_fts;notes_fts 的 tags 列聚合含别名,
-    // 必须显式重算受影响笔记(T4.1 起老 tag_aliases 触发器已不跟随新表)。
-    let mut affected = vec![tag_id];
-    if let Some(o) = old {
-        affected.push(o);
-    }
-    refresh_notes_for(conn, &affected)
-}
-
-/// 别名当前指向的实体(不存在返回 None)
-fn alias_owner(conn: &Connection, alias: &str) -> rusqlite::Result<Option<i64>> {
-    conn.query_row(
-        "SELECT entity_id FROM entity_aliases WHERE alias = ?1",
-        params![alias],
-        |r| r.get(0),
-    )
-    .optional()
+    Ok(())
 }
 
 /// 是否已有同名**标签路径**(别名不得劫持真实标签)

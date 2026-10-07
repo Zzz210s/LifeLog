@@ -3,7 +3,7 @@
 //! ③ 纯文本被真实标签 / 别人的别名占住时**跳过**(不改名的成败);④ FTS 不变量仍成立。
 use crate::db::migrate;
 use crate::db::repos::notes;
-use crate::db::repos::tags::invariants_tests::assert_fts_matches_tags;
+use crate::db::repos::tags::invariants_tests::assert_fts_matches_edges;
 use crate::db::repos::tags::{alias, link_paths, rename};
 use rusqlite::{params, Connection};
 
@@ -51,7 +51,7 @@ fn rename_to_md_name_bridges_plain_alias() {
     // 旧名仍能解析(D4 既有行为)
     link_paths(&c, n.id, &["郴chen州市".to_string()]).unwrap();
     assert_eq!(links(&c, id, n.id), 1, "旧名仍解析到同一标签");
-    assert_fts_matches_tags(&c);
+    assert_fts_matches_edges(&c);
 }
 
 /// ② 有父级:纯文本的**整条路径**与**叶子名**都登记,两种写法都能命中
@@ -78,7 +78,7 @@ fn nested_md_rename_registers_path_and_leaf_plain() {
     }
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='地点/[郴](chēn)州市'"), 1);
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='郴州市'"), 0, "别名不建根节点");
-    assert_fts_matches_tags(&c);
+    assert_fts_matches_edges(&c);
 }
 
 /// ③ 纯文本已被**真实标签**占用:跳过(不夺走),改名本身照样成功。
@@ -105,7 +105,7 @@ fn plain_alias_is_skipped_when_a_real_tag_owns_the_name() {
     let n = notes::create_plain(&mut c, "c #郴州市").unwrap();
     assert_eq!(links(&c, real, n.id), 1, "正文仍归真实标签");
     assert_eq!(links(&c, id, n.id), 0);
-    assert_fts_matches_tags(&c);
+    assert_fts_matches_edges(&c);
 }
 
 /// ④ 纯文本已指向**别的标签的别名**:同样跳过,不抢别人的
@@ -122,7 +122,7 @@ fn plain_alias_is_skipped_when_another_alias_owns_it() {
 
     assert_eq!(aliases, vec!["郴chen州市".to_string()]);
     assert_eq!(alias::resolve(&c, "郴州市").unwrap().as_deref(), Some("甲"));
-    assert_fts_matches_tags(&c);
+    assert_fts_matches_edges(&c);
 }
 
 /// ⑤ 改名边界:空 / 含 `/` / 控制字符 / 超长被拒且不动库;普通单段名与非链接 md 名放行
@@ -143,5 +143,5 @@ fn rename_rejects_unusable_names_and_keeps_plain_ones() {
     rename(&mut c, id, "**重点**").unwrap();
     assert_eq!(id_at(&c, "**重点**"), id, "非链接的 md 名也放行");
     assert_eq!(alias::resolve(&c, "重点").unwrap().as_deref(), Some("**重点**"));
-    assert_fts_matches_tags(&c);
+    assert_fts_matches_edges(&c);
 }

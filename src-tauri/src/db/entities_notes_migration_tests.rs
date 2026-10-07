@@ -22,6 +22,7 @@ fn seeded_v24() -> Connection {
 fn fresh_run_reaches_latest_clean() {
     let c = Connection::open_in_memory().unwrap();
     run(&c).unwrap();
+    super::entities_tags_fixture::legacy_read_views(&c);
     assert!(latest_version() >= 26, "024/025/026 已注册");
     let v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
     assert_eq!(v, latest_version());
@@ -45,6 +46,7 @@ fn fresh_run_reaches_latest_clean() {
 fn upgrade_from_v24_brings_notes_in() {
     let c = seeded_v24();
     run(&c).unwrap();
+    super::entities_tags_fixture::legacy_read_views(&c);
 
     assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE kind='note'"), 2);
     assert_eq!(
@@ -52,15 +54,14 @@ fn upgrade_from_v24_brings_notes_in() {
         count(&c, "SELECT COUNT(*) FROM notes") + count(&c, "SELECT COUNT(*) FROM tags"),
         "entities 总数 == 老 notes + tags 行数"
     );
-    let (id, legacy, name, content, created): (i64, i64, Option<String>, String, String) = c
+    let (id, name, content, created): (i64, Option<String>, String, String) = c
         .query_row(
-            "SELECT id, legacy_id, name, content, created_at FROM entities WHERE id=501",
+            "SELECT id, name, content, created_at FROM entities WHERE id=501",
             [],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
         )
         .unwrap();
     assert_eq!(id, 501, "笔记 id 保持原值");
-    assert_eq!(legacy, 501, "legacy_id 留老 notes.id 溯源");
     assert!(name.is_none(), "笔记 name 恒 NULL");
     assert_eq!(content, "第一条 [[第二条]]");
     assert_eq!(created, "2026-01-01T00:00:00.000");
@@ -72,6 +73,7 @@ fn upgrade_from_v24_brings_notes_in() {
 fn tagging_edges_point_note_to_tag() {
     let c = seeded_v24();
     run(&c).unwrap();
+    super::entities_tags_fixture::legacy_read_views(&c);
     assert_eq!(count(&c, "SELECT COUNT(*) FROM edges WHERE kind='tagging'"), 3);
 
     let from_note = |note: i64| -> Vec<i64> {
@@ -117,6 +119,7 @@ fn tagging_edges_point_note_to_tag() {
 fn link_edges_only_include_resolved_rows() {
     let c = seeded_v24();
     run(&c).unwrap();
+    super::entities_tags_fixture::legacy_read_views(&c);
     assert_eq!(count(&c, "SELECT COUNT(*) FROM edges WHERE kind='link'"), 1);
     let (src, tgt): (i64, i64) = c
         .query_row(
@@ -126,11 +129,7 @@ fn link_edges_only_include_resolved_rows() {
         )
         .unwrap();
     assert_eq!((src, tgt), (501, 502));
-    assert_eq!(
-        count(&c, "SELECT COUNT(*) FROM note_links WHERE target_id IS NULL"),
-        1,
-        "未解析行仍留在老表"
-    );
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM note_links"), 1, "视图只含已解析 link 边");
 }
 
 /// ⑤ 老表零改动:025 前后 `notes` / `tag_links` / `note_links` 逐值相等(阶段 1–3 老表即真源)
@@ -149,7 +148,8 @@ fn legacy_tables_untouched_by_025() {
               FROM note_links ORDER BY id";
     let (b_notes, b_links, b_nl) = (dump(notes), dump(links), dump(nl));
 
-    run(&c).unwrap();
+    // 只应用 025 本体:老表仍在,才能逐值比对「025 未改写老表」
+    apply(&c, MIGRATIONS[24], 25).unwrap();
 
     assert_eq!(dump(notes), b_notes, "notes 不得被 025 改写");
     assert_eq!(dump(links), b_links, "tag_links 不得被 025 改写");
@@ -174,6 +174,7 @@ fn replay_of_025_is_idempotent() {
 fn duplicate_tagging_edge_is_rejected() {
     let c = seeded_v24();
     run(&c).unwrap();
+    super::entities_tags_fixture::legacy_read_views(&c);
     let dup = c.execute(
         "INSERT INTO edges(source_id,target_id,kind,remark,created_at) \
          VALUES(501,?1,'tagging','','2026-01-01T00:00:00.000')",

@@ -4,20 +4,14 @@
 pub mod fts;
 pub mod ids;
 pub mod reconcile;
-pub mod reconcile_mirror;
 
 #[cfg(test)]
 mod reconcile_tests;
 
-/// T3.1 `ENTITIES_AGG` 行为读数与收口等价证据。
+/// T3.1 `ENTITIES_AGG` 行为读数。
 #[cfg(test)]
 #[path = "fts_tests.rs"]
 mod fts_tests;
-
-/// T3.1 真库全量 sha256 等价证据(`--ignored`)。
-#[cfg(test)]
-#[path = "fts_real_db_tests.rs"]
-mod fts_real_db_tests;
 
 /// 标签实体 id 相对老 `tags.id` 的整体偏移(spec §12 D1)。
 /// 真库 `max(tags.id)=845`、`max(notes.id)=1399`,偏移后两个区间永久不撞。

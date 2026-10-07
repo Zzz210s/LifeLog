@@ -1,11 +1,12 @@
 //! 按 id 替换笔记链接(自 tags_tree.rs 拆出以守 200 行上限)。
 //! S5 删掉切换待办后,唯一的调用方是 link_paths(按 path、带校验);
 //! 曾经服务于待办的「按既有 tag_id 绕开校验」入口(resolve_id)已随命令一并删除。
-use super::{gc_orphans, link_note, refresh_fts};
+use super::{gc_orphans, link_note};
 use rusqlite::{params, Connection};
 
-/// 按 id 集合替换笔记的链接(增量:只删多余的、只补缺失的),收尾重写该笔记的 FTS 标签列
-/// 并精确回收孤儿。link_paths(按 path、带校验)复用本函数完成同一套替换语义。
+/// 按 id 集合替换笔记的链接(增量:只删多余的、只补缺失的),收尾精确回收孤儿。
+/// FTS 重写由 `edges_ai`/`edges_ad` 触发器负责(本函数只动 `edges`)。
+/// link_paths(按 path、带校验)复用本函数完成同一套替换语义。
 pub(crate) fn replace_links(conn: &Connection, note_id: i64, ids: &[i64]) -> rusqlite::Result<()> {
     let existing: Vec<i64> = {
         let mut stmt = conn.prepare(
@@ -27,6 +28,5 @@ pub(crate) fn replace_links(conn: &Connection, note_id: i64, ids: &[i64]) -> rus
             link_note(conn, note_id, *tid)?;
         }
     }
-    refresh_fts(conn, &[note_id])?;
     gc_orphans(conn)
 }

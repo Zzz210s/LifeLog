@@ -42,24 +42,27 @@ fn add_tag(c: &Connection, id: i64, path: &str) {
 fn fresh_db_has_no_is_type_and_has_merge_log() {
     let c = Connection::open_in_memory().unwrap();
     run(&c).unwrap();
+    super::entities_tags_fixture::legacy_read_views(&c);
     let v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
     assert_eq!(v, latest_version());
     assert!(latest_version() >= 22, "本用例只要求跑过 022;后续迁移会继续抬升");
     assert!(!col_exists(&c, "tags", "is_type"), "022 后 is_type 列必须消失");
     let n: i64 = c
         .query_row(
-            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='tag_merge_log'",
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='entity_merge_log'",
             [],
             |r| r.get(0),
         )
         .unwrap();
-    assert_eq!(n, 1, "tag_merge_log 建好(自动合并的排查日志)");
+    assert_eq!(n, 1, "entity_merge_log 建好(自动合并的排查日志;027 由 tag_merge_log 改名)");
     let cols: Vec<String> = {
-        let mut st = c.prepare("SELECT name FROM pragma_table_info('tag_merge_log')").unwrap();
+        let mut st = c.prepare("SELECT name FROM pragma_table_info('entity_merge_log')").unwrap();
         st.query_map([], |r| r.get(0)).unwrap().collect::<Result<_, _>>().unwrap()
     };
-    for want in ["id", "source_tag_id", "target_tag_id", "moved_child_ids", "note_links", "edges", "at"] {
-        assert!(cols.contains(&want.to_string()), "tag_merge_log 缺列 {want}: {cols:?}");
+    for want in [
+        "id", "source_entity_id", "target_entity_id", "moved_child_ids", "note_links", "edges", "at",
+    ] {
+        assert!(cols.contains(&want.to_string()), "entity_merge_log 缺列 {want}: {cols:?}");
     }
 }
 
@@ -78,6 +81,7 @@ fn upgrade_merges_type_edges_into_tag_and_drops_is_type() {
 
     // run() 从版本 21 续跑:022 钩子删列 + SQL 并边,再顺势跑到最新(023)
     run(&c).unwrap();
+    super::entities_tags_fixture::legacy_read_views(&c);
 
     let v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
     assert_eq!(v, latest_version());
@@ -145,6 +149,7 @@ fn historical_tag_edges_are_preserved_exactly() {
     add_tag(&c, 613, "地点轴/国籍");
 
     run(&c).unwrap();
+    super::entities_tags_fixture::legacy_read_views(&c);
 
     let after: Vec<(i64, i64)> = {
         let mut st = c

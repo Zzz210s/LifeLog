@@ -102,7 +102,6 @@ pub(crate) fn merge_core(
     finish_core(
         conn,
         PostWrite {
-            notes: &notes,
             entities: &ids,
             path_change: Some((source_path.as_str(), target_path.as_str())),
             gc: true,

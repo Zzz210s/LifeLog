@@ -1,7 +1,7 @@
 //! 008 时间标签回填迁移测试(spec 2026-09-15 第 4.4 节):
 //! ①按 created_at 建 `时间排序/YYYY/MM/DD` 三级树并建链 ②同日复用同一批节点
-//! ③created_at 解析失败的笔记跳过 ④幂等(重复执行不改库)⑤已有时间标签的笔记不动。
-//! FTS 的 tags 列口径由后续迁移决定:009 排除时间标签,011(spec 2026-09-17)又纳入。
+//! ③created_at 解析失败的笔记跳过 ④幂等 ⑤已有时间标签的笔记不动。
+//! 阶段 4(027)后老表已下架,断言改对 `entities`/`edges`/`entities_fts`。
 use super::{latest_version, run, MIGRATIONS};
 use rusqlite::Connection;
 
@@ -15,8 +15,7 @@ fn old_db() -> Connection {
     for sql in &MIGRATIONS[..(V_008 - 1)] {
         conn.execute_batch(sql).unwrap();
     }
-    conn.pragma_update(None, "user_version", (V_008 - 1) as i64)
-        .unwrap();
+    conn.pragma_update(None, "user_version", (V_008 - 1) as i64).unwrap();
     conn
 }
 
@@ -38,25 +37,25 @@ fn note(conn: &Connection, content: &str, created_at: &str) -> i64 {
 fn paths(conn: &Connection, note_id: i64) -> Vec<String> {
     let mut stmt = conn
         .prepare(
-            "SELECT t.path FROM tag_links l JOIN tags t ON t.id = l.tag_id
-             WHERE l.target_type = 'note' AND l.target_id = ?1 ORDER BY t.path",
+            "SELECT t.path FROM edges l JOIN entities t ON t.id = l.target_id
+             WHERE l.kind = 'tagging' AND l.source_id = ?1 ORDER BY t.path",
         )
         .unwrap();
     let rows = stmt.query_map([note_id], |r| r.get(0)).unwrap();
     rows.map(|r| r.unwrap()).collect()
 }
 
-/// 库快照(tags 与 tag_links 全量),用于幂等断言
+/// 库快照(标签路径与 tagging 链接全量),用于幂等断言
 fn snapshot(conn: &Connection) -> String {
     let collect = |sql: &str| -> Vec<String> {
         let mut stmt = conn.prepare(sql).unwrap();
         let rows = stmt.query_map([], |r| r.get(0)).unwrap();
         rows.map(|r| r.unwrap()).collect()
     };
-    let tags = collect("SELECT path FROM tags ORDER BY path");
+    let tags = collect("SELECT path FROM entities WHERE kind='tag' ORDER BY path");
     let links = collect(
-        "SELECT t.path || '@' || l.target_id FROM tag_links l JOIN tags t ON t.id = l.tag_id
-         WHERE l.target_type = 'note' ORDER BY 1",
+        "SELECT t.path || '@' || l.source_id FROM edges l JOIN entities t ON t.id = l.target_id
+         WHERE l.kind = 'tagging' ORDER BY 1",
     );
     format!("{}#{}", tags.join("|"), links.join("|"))
 }
@@ -88,13 +87,20 @@ fn migration_008_backfills_from_created_at() {
     // 解析失败:跳过该条(其余笔记照常回填)
     assert!(paths(&conn, bad).is_empty(), "无法解析的 created_at 应跳过");
     // 同日复用同一批节点:树行数与路径一一对应(2026/2025 + 三个月 + 三个日,含时间根)
-    assert_eq!(count(&conn, "SELECT COUNT(*) FROM tags WHERE path='时间排序/2026/09/15'"), 1);
-    assert_eq!(count(&conn, "SELECT COUNT(*) FROM tags"), 1 + 2 + 3 + 3 + 1, "时间根/年/月/日 + 旧标签");
+    assert_eq!(
+        count(&conn, "SELECT COUNT(*) FROM entities WHERE kind='tag' AND path='时间排序/2026/09/15'"),
+        1
+    );
+    assert_eq!(
+        count(&conn, "SELECT COUNT(*) FROM entities WHERE kind='tag'"),
+        1 + 2 + 3 + 3 + 1,
+        "时间根/年/月/日 + 旧标签"
+    );
     // 结构:时间根 depth=1,年 2,月 3,日 4,父指针串起来
     let row = |p: &str| -> (i64, String) {
         conn.query_row(
-            "SELECT depth, COALESCE((SELECT pp.path FROM tags pp WHERE pp.id = t.parent_id), '')
-             FROM tags t WHERE t.path = ?1",
+            "SELECT depth, COALESCE((SELECT pp.path FROM entities pp WHERE pp.id = t.parent_id), '')
+             FROM entities t WHERE t.kind='tag' AND t.path = ?1",
             [p],
             |r| Ok((r.get(0)?, r.get(1)?)),
         )
@@ -104,21 +110,23 @@ fn migration_008_backfills_from_created_at() {
     assert_eq!(row("时间排序/2026"), (2, "时间排序".into()));
     assert_eq!(row("时间排序/2026/09"), (3, "时间排序/2026".into()));
     assert_eq!(row("时间排序/2026/09/15"), (4, "时间排序/2026/09".into()));
-    // 迁移 011(时间标签降级为普通标签)把时间标签重新纳入 FTS 的 tags 列:
-    // 时间标签与自建标签完全同权,搜年份/月份会命中该时段的全部笔记(明示代价)
+    // 011 起时间标签与自建标签完全同权,搜年份/月份会命中该时段的全部笔记(明示代价)
     let fts_tags: String = conn
-        .query_row("SELECT tags FROM notes_fts WHERE rowid=?1", [a], |r| r.get(0))
+        .query_row("SELECT tag_paths FROM entities_fts WHERE rowid=?1", [a], |r| r.get(0))
         .unwrap();
     assert!(fts_tags.contains("工作"), "用户标签仍在:{fts_tags}");
     assert!(fts_tags.contains("时间排序/2026/09/15"), "011 起时间标签也进索引:{fts_tags}");
     assert_eq!(
-        count(&conn, "SELECT COUNT(*) FROM notes_fts WHERE notes_fts MATCH '\"时间排序/2026/09/15\"*'"),
+        count(
+            &conn,
+            "SELECT COUNT(*) FROM entities_fts WHERE entities_fts MATCH '\"时间排序/2026/09/15\"*' AND content <> ''"
+        ),
         2,
         "a 与 b 同日(2026-09-15),两条都因时间标签命中"
     );
 }
 
-/// ③ 幂等:重复执行(手动重放 + 再次 run)都不改库
+/// ③ 幂等:再次 `run` 不改库(版本闸门;老表已下架,不再重放 008 的 SQL)
 #[test]
 fn migration_008_is_idempotent() {
     let conn = old_db();
@@ -127,10 +135,7 @@ fn migration_008_is_idempotent() {
     run(&conn).unwrap();
     let after = snapshot(&conn);
 
-    // 直接重放 008 的 SQL:版本闸门之外的兜底幂等(语句级 INSERT OR IGNORE)
-    conn.execute_batch(MIGRATIONS[V_008 - 1]).unwrap();
     run(&conn).unwrap();
-
     assert_eq!(snapshot(&conn), after, "重复执行必须不改库");
     assert_eq!(count(&conn, "PRAGMA user_version"), latest_version());
 }
@@ -153,8 +158,11 @@ fn migration_008_keeps_existing_time_tags() {
     run(&conn).unwrap();
 
     assert_eq!(paths(&conn, n), vec!["时间排序/2020/05/05"], "已有时间标签不得被改写");
-    assert_eq!(count(&conn, "SELECT COUNT(*) FROM tags WHERE path='时间排序/2026'"), 0);
-    assert_eq!(count(&conn, "SELECT COUNT(*) FROM tag_links WHERE target_type='note'"), 1);
+    assert_eq!(
+        count(&conn, "SELECT COUNT(*) FROM entities WHERE kind='tag' AND path='时间排序/2026'"),
+        0
+    );
+    assert_eq!(count(&conn, "SELECT COUNT(*) FROM edges WHERE kind='tagging'"), 1);
 }
 
 /// ⑤ 空库(没有任何笔记)不留空容器:时间根不创建
@@ -162,6 +170,9 @@ fn migration_008_keeps_existing_time_tags() {
 fn migration_008_creates_nothing_for_empty_db() {
     let conn = old_db();
     run(&conn).unwrap();
-    assert_eq!(count(&conn, "SELECT COUNT(*) FROM tags"), 0);
-    assert_eq!(count(&conn, "SELECT COUNT(*) FROM tags WHERE path='时间排序'"), 0);
+    assert_eq!(count(&conn, "SELECT COUNT(*) FROM entities WHERE kind='tag'"), 0);
+    assert_eq!(
+        count(&conn, "SELECT COUNT(*) FROM entities WHERE kind='tag' AND path='时间排序'"),
+        0
+    );
 }

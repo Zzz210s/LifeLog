@@ -8,7 +8,7 @@
 //! 扩到祖先链会违反既有不变量「改名后旧路径不得残留」)。
 use crate::db::migrate;
 use crate::db::repos::notes::{create_plain, notes_filter::empty, query, FilterConditions};
-use crate::db::repos::tags::invariants_tests::assert_fts_matches_tags;
+use crate::db::repos::tags::invariants_tests::assert_fts_matches_edges;
 use crate::db::repos::tags::{alias, rename};
 use rusqlite::{params, Connection};
 
@@ -24,7 +24,7 @@ fn id_at(c: &Connection, path: &str) -> i64 {
 }
 
 fn fts_tags(c: &Connection, id: i64) -> String {
-    c.query_row("SELECT tags FROM notes_fts WHERE rowid=?1", params![id], |r| r.get(0))
+    c.query_row("SELECT tag_paths FROM entities_fts WHERE rowid=?1", params![id], |r| r.get(0))
         .unwrap()
 }
 
@@ -65,7 +65,7 @@ fn ancestor_md_with_leaf_link_is_searchable_by_display_text() {
     // 「改名后旧路径不得残留」(tree_time_ops_tests::time_root_can_be_renamed_and_fts_follows),
     // 故别名口径保持 T4 的"直接链接的标签"范围。
     assert!(hits(&c, "郴chen州市").is_empty(), "祖先段的旧名不进索引(与既有不变量一致)");
-    assert_fts_matches_tags(&c);
+    assert_fts_matches_edges(&c);
 }
 
 /// ② 纯文本别名被占住(叶子名被真实标签占、完整路径被别的标签别名占)-> 显示文本
@@ -89,5 +89,5 @@ fn plain_path_covers_display_text_when_plain_alias_is_taken() {
     );
     assert!(hits(&c, "郴州市").contains(&n.id), "纯文本路径是显示文本的唯一来源");
     assert!(!hits(&c, "郴chen州市").contains(&n.id), "祖先旧名不进索引(与非别名来源无关)");
-    assert_fts_matches_tags(&c);
+    assert_fts_matches_edges(&c);
 }

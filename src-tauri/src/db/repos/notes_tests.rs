@@ -1,7 +1,7 @@
 //! notes 仓储既有行为测试(create/recent/delete),自 notes.rs 拆出以守 200 行上限
 use super::*;
 use crate::db::migrate;
-use crate::db::repos::tags::invariants_tests::{assert_fts_matches_tags, assert_no_orphan_tags};
+use crate::db::repos::tags::invariants_tests::{assert_fts_matches_edges, assert_no_orphan_tags};
 use rusqlite::Connection;
 
 fn db() -> Connection {
@@ -97,7 +97,7 @@ fn delete_removes_note_links_and_orphan_tags() {
     assert_eq!(orphan, 0);
     let kept = count(&c, "SELECT COUNT(*) FROM tags WHERE name='共用'", &[]);
     assert_eq!(kept, 1);
-    assert_fts_matches_tags(&c);
+    assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
 }
 
@@ -106,9 +106,9 @@ fn delete_also_cleans_fts_row() {
     let mut c = db();
     let n = create_plain(&mut c, "要删的 #测试").unwrap();
     delete(&mut c, n.id).unwrap();
-    let fts = count(&c, "SELECT COUNT(*) FROM notes_fts", &[]);
+    let fts = count(&c, "SELECT COUNT(*) FROM entities_fts WHERE content <> ''", &[]);
     assert_eq!(fts, 0);
-    assert_fts_matches_tags(&c);
+    assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
 }
 
@@ -120,16 +120,12 @@ fn create_resolves_links_in_same_transaction() {
     // 标签侧不受影响(照旧剥掉),正文里的 [[X]] 原样保留(D7)
     assert_eq!(src.tags, vec!["随记"]);
     assert_eq!(src.content, "看 [[聚会记录]] 和 [[没有这条]] 还有");
-    let rows: Vec<(Option<i64>, String)> = c
-        .prepare("SELECT target_id, raw_title FROM note_links WHERE source_id=?1 ORDER BY raw_title")
+    let rows: Vec<i64> = c
+        .prepare("SELECT target_id FROM edges WHERE kind='link' AND source_id=?1 ORDER BY target_id")
         .unwrap()
-        .query_map([src.id], |r| Ok((r.get(0)?, r.get(1)?)))
+        .query_map([src.id], |r| r.get(0))
         .unwrap()
         .collect::<Result<_, _>>()
         .unwrap();
-    assert_eq!(
-        rows,
-        vec![(None, "没有这条".to_string()), (Some(target.id), "聚会记录".to_string())],
-        "命中写 target_id,未命中写 NULL(D4)"
-    );
+    assert_eq!(rows, vec![target.id], "只落已命中的那条边;未命中不落边(D2 选项 A)");
 }

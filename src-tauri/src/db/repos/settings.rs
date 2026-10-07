@@ -9,6 +9,9 @@ pub const TIME_TAG_TEMPLATE_KEY: &str = "time_tag_template";
 /// 同构);缺失/损坏时前端退化为「全部笔记」。键名真源在此 —— Rust 侧的标签改名/移动级联重写
 /// (filter_rewrite)与前端 use-filter-state 共用它。
 pub const FILTER_CURRENT_KEY: &str = "filter_current";
+/// 关系图节点位置记忆(D1):JSON 对象,键是**标签实体 id**(字符串),值是该节点坐标。
+/// 阶段 1 标签 id 偏移后由迁移 027 的钩子把老 id 键改写成实体 id 键(`entity_ids::rewrite_graph_positions`)。
+pub const GRAPH_POSITIONS_KEY: &str = "graph_positions";
 
 /// 自动时间标签配置(设置页与创建路径共用一份读法)
 #[derive(Debug, PartialEq)]

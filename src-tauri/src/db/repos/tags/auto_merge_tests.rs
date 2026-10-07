@@ -1,10 +1,10 @@
 //! 同父同名自动合并测试(设计 2026-10-06 §6 / 计划 Task 2):
 //! 拖入同名、改名撞名、md 差异但纯文本同名都自动整棵并;笔记链接与出/入边取并集;
-//! 子标签整棵搬且 path/depth 正确;合并前写 tag_merge_log;失败整体回滚;无重名空操作。
+//! 子标签整棵搬且 path/depth 正确;合并前写 entity_merge_log;失败整体回滚;无重名空操作。
 use super::*;
 use crate::db::migrate;
 use crate::db::repos::notes;
-use crate::db::repos::tags::invariants_tests::{assert_fts_matches_tags, assert_no_orphan_tags};
+use crate::db::repos::tags::invariants_tests::{assert_fts_matches_edges, assert_no_orphan_tags};
 use rusqlite::Connection;
 
 fn db() -> Connection {
@@ -62,8 +62,8 @@ fn drag_onto_same_name_sibling_merges() {
     assert_eq!(links(&c, keep), 2, "两侧笔记链接取并集");
     assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tag_links WHERE tag_id={keep} AND target_type='note' AND target_id={}", a.id)), 1);
     assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tag_links WHERE tag_id={keep} AND target_type='note' AND target_id={}", b.id)), 1);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tag_merge_log"), 1, "自动合并写日志");
-    assert_fts_matches_tags(&c);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entity_merge_log"), 1, "自动合并写日志");
+    assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
 }
 
@@ -88,7 +88,7 @@ fn merge_moves_child_subtree_paths_and_depths() {
     assert_eq!(count(&c, "SELECT depth FROM tags WHERE path='目标/子/孙'"), 3);
     assert_eq!(count(&c, "SELECT parent_id FROM tags WHERE id=(SELECT id FROM tags WHERE path='目标/子')"), dst);
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path LIKE 'P/%'"), 0, "旧路径已无残留");
-    assert_fts_matches_tags(&c);
+    assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
 }
 
@@ -110,7 +110,7 @@ fn merge_unions_out_and_in_edges() {
     assert!(has_edge(&c, dst, x), "出边并到目标");
     assert!(has_edge(&c, y, dst), "入边并到目标");
     assert!(!has_edge(&c, src, x) && !has_edge(&c, y, src), "源侧无残留");
-    assert_fts_matches_tags(&c);
+    assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
 }
 
@@ -131,7 +131,7 @@ fn auto_merge_log_records_moved_children_and_links() {
     assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tags WHERE id={src}")), 0);
     let (s, d, kids): (i64, i64, String) = c
         .query_row(
-            "SELECT source_tag_id, target_tag_id, moved_child_ids FROM tag_merge_log",
+            "SELECT source_entity_id, target_entity_id, moved_child_ids FROM entity_merge_log",
             [],
             |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
         )
@@ -139,8 +139,8 @@ fn auto_merge_log_records_moved_children_and_links() {
     assert_eq!(s, src, "源 = md 形态");
     assert_eq!(d, plain, "目标 = 先建的纯文本形态(保留较小 id)");
     assert_eq!(kids, format!("[{child}]"), "搬走的子标签 id 列表");
-    assert_eq!(count(&c, "SELECT note_links FROM tag_merge_log"), 1);
+    assert_eq!(count(&c, "SELECT note_links FROM entity_merge_log"), 1);
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='P/郴州市/宜章县'"), 1);
-    assert_fts_matches_tags(&c);
+    assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
 }

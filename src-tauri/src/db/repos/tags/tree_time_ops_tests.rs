@@ -5,7 +5,7 @@ use super::*;
 use crate::db::migrate;
 use crate::db::repos::notes;
 use crate::db::repos::tags::invariants_tests::{
-    assert_fts_matches_tags, assert_no_orphan_tags, assert_filter_paths_exist,
+    assert_fts_matches_edges, assert_no_orphan_tags, assert_filter_paths_exist,
 };
 use rusqlite::Connection;
 
@@ -26,7 +26,7 @@ fn id_at(c: &Connection, path: &str) -> i64 {
 }
 
 fn fts_tags(c: &Connection, id: i64) -> String {
-    c.query_row("SELECT tags FROM notes_fts WHERE rowid=?1", [id], |r| r.get(0))
+    c.query_row("SELECT tag_paths FROM entities_fts WHERE rowid=?1", [id], |r| r.get(0))
         .unwrap()
 }
 
@@ -57,7 +57,7 @@ fn time_root_can_be_renamed_and_fts_follows() {
     assert!(!tags.contains("时间排序"), "旧路径不得残留:{tags}");
     // 普通标签不受影响
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='工作'"), 1);
-    assert_fts_matches_tags(&c);
+    assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
     assert_filter_paths_exist(&c);
 }
@@ -99,7 +99,7 @@ fn time_node_can_be_moved_under_a_normal_tag() {
         count(&c, "SELECT COUNT(*) FROM tag_links l JOIN tags t ON t.id=l.tag_id WHERE t.path='工作/2026/09/15'"),
         1
     );
-    assert_fts_matches_tags(&c);
+    assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
     assert_filter_paths_exist(&c);
 }
@@ -122,6 +122,6 @@ fn time_subtree_can_be_deleted() {
     let work = id_at(&c, "工作");
     delete_subtree(&mut c, work).unwrap();
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='工作'"), 0);
-    assert_fts_matches_tags(&c);
+    assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
 }

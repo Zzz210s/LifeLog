@@ -2,7 +2,7 @@
 //! 先清边再删实体,最后按剩余链接重写受影响笔记的 FTS;整事务,失败回滚。
 //! 末尾与 link_paths 一致地回收空容器:祖先可能因此变成"无链接且无子节点"的空标签,
 //! 不回收就会在标签面板里时有时无地残留。
-use super::{linked_notes, subtree_ids};
+use super::subtree_ids;
 use crate::db::repos::tags::{finish, PostWrite};
 use rusqlite::Connection;
 
@@ -13,7 +13,6 @@ pub fn delete_subtree(conn: &mut Connection, tag_id: i64) -> Result<(), String> 
     if ids.is_empty() {
         return Err(format!("标签不存在: {tag_id}"));
     }
-    let notes = linked_notes(&tx, &ids).map_err(|e| e.to_string())?;
     let marks = vec!["?"; ids.len()].join(",");
     // 两端外键虽会级联,但夹具/旧库可能未开 FK:显式清边,不依赖 CASCADE
     let mut args = ids.clone();
@@ -29,8 +28,8 @@ pub fn delete_subtree(conn: &mut Connection, tag_id: i64) -> Result<(), String> 
         rusqlite::params_from_iter(ids.iter()),
     )
     .map_err(|e| e.to_string())?;
-    // 实体行已删:实体的 FTS 行由 026 的 entities_ad 触发器清理
-    finish(&tx, PostWrite { notes: &notes, entities: &[], path_change: None, gc: true })
+    // 实体行已删:实体的 FTS 行由 026/027 的 entities_ad 触发器清理
+    finish(&tx, PostWrite { entities: &[], path_change: None, gc: true })
         .map_err(|e| e.to_string())?;
     tx.commit().map_err(|e| e.to_string())
 }

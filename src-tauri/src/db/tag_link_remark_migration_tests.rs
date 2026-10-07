@@ -41,6 +41,7 @@ fn add_tag(c: &Connection, id: i64, path: &str) {
 fn fresh_db_has_remark_column() {
     let c = Connection::open_in_memory().unwrap();
     run(&c).unwrap();
+    super::entities_tags_fixture::legacy_read_views(&c);
     assert!(latest_version() >= 23, "本用例只要求跑过 023;后续迁移会继续抬升");
     let v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
     assert_eq!(v, latest_version(), "新库应跑到最新版本");
@@ -63,6 +64,7 @@ fn upgrade_from_v22_keeps_edges_and_defaults_remark_empty() {
     }
 
     run(&c).unwrap();
+    super::entities_tags_fixture::legacy_read_views(&c);
 
     assert!(col_exists(&c, "tag_links", "remark"));
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tag_links WHERE target_type='tag'"), 24);
@@ -83,6 +85,7 @@ fn upgrade_from_v22_keeps_edges_and_defaults_remark_empty() {
 fn replay_of_023_is_idempotent() {
     let c = Connection::open_in_memory().unwrap();
     run(&c).unwrap();
+    super::entities_tags_fixture::legacy_read_views(&c);
     migration_hooks::ensure_link_remark_column(&c).unwrap();
     migration_hooks::ensure_link_remark_column(&c).unwrap();
     apply(&c, MIGRATIONS[22], 23).unwrap();

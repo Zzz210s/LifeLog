@@ -22,7 +22,7 @@ pub fn get_db_info(app: AppHandle) -> Result<DbInfo, String> {
     let db: State<Db> = app.state();
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     let notes: i64 = conn
-        .query_row("SELECT COUNT(*) FROM notes", [], |r| r.get(0))
+        .query_row("SELECT COUNT(*) FROM entities WHERE kind = 'note'", [], |r| r.get(0))
         .map_err(|e| e.to_string())?;
     Ok(DbInfo {
         path: path.to_string_lossy().to_string(),

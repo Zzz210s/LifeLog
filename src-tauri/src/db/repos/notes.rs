@@ -53,14 +53,18 @@ fn create_with(
         names.push(p.to_string());
     }
     let tx = conn.transaction()?;
-    // 阶段 4 过渡:老 `notes` 行继续写(`note_links` 的外键仍指向它,见迁移 019),
-    // 同时按同一 id 落一行 `entities(kind='note')` 作新读路径的真源;027 下架老表后只剩实体行。
-    tx.execute("INSERT INTO notes(content) VALUES(?1)", params![text])?;
-    let id = tx.last_insert_rowid();
+    // 阶段 4:老 `notes` 表已下架,笔记行只落 `entities(kind='note')`。
+    // id 显式取笔记区间 `MAX(id)+1`(而不是 rowid 自增):标签实体占 `>= TAG_ID_OFFSET`,
+    // 直接自增会一路涨进标签区间。
+    let id: i64 = tx.query_row(
+        "SELECT COALESCE(MAX(id), 0) + 1 FROM entities WHERE kind = 'note'",
+        [],
+        |r| r.get(0),
+    )?;
     tx.execute(
-        "INSERT OR IGNORE INTO entities(id, kind, content, created_at)
-         SELECT n.id, 'note', n.content, n.created_at FROM notes n WHERE n.id = ?1",
-        params![id],
+        "INSERT INTO entities(id, kind, content, created_at)
+         VALUES(?1, 'note', ?2, datetime('now', 'localtime'))",
+        params![id, text],
     )?;
     // 006 起 tags 为树:按路径自动建父级并做增量链接(孤儿回收已收窄为"无链接且无子");
     // 阶段 4 起链接落在 edges(kind='tagging'),方向 笔记 -> 标签(见 T4.1)。

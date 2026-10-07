@@ -4,7 +4,7 @@ use super::*;
 use crate::db::migrate;
 use crate::db::repos::{notes, tags::alias};
 use crate::db::repos::tags::invariants_tests::{
-    assert_fts_matches_tags, assert_no_orphan_tags, assert_filter_paths_exist,
+    assert_fts_matches_edges, assert_no_orphan_tags, assert_filter_paths_exist,
 };
 use rusqlite::Connection;
 
@@ -30,12 +30,12 @@ fn rows(c: &Connection, sql: &str) -> Vec<String> {
     it.collect::<rusqlite::Result<Vec<_>>>().unwrap()
 }
 
-/// 全库快照(tags / tag_links / tag_aliases / notes_fts / settings 逐行),用于"零变化"断言
+/// 全库快照(tags / tag_links / tag_aliases / entities_fts / settings 逐行),用于"零变化"断言
 fn snapshot(c: &Connection) -> String {
     let tags = rows(c, "SELECT id||'|'||name||'|'||COALESCE(parent_id,0)||'|'||path||'|'||depth FROM tags ORDER BY id");
     let links = rows(c, "SELECT tag_id||'|'||target_type||'|'||target_id FROM tag_links ORDER BY tag_id, target_type, target_id");
     let aliases = rows(c, "SELECT alias||'|'||tag_id FROM tag_aliases ORDER BY alias");
-    let fts = rows(c, "SELECT rowid||'|'||tags FROM notes_fts ORDER BY rowid");
+    let fts = rows(c, "SELECT rowid||'|'||tag_paths FROM entities_fts ORDER BY rowid");
     let settings = rows(c, "SELECT key||'|'||value FROM settings ORDER BY key");
     format!("{tags:?}\n{links:?}\n{aliases:?}\n{fts:?}\n{settings:?}")
 }
@@ -67,7 +67,7 @@ fn merge_moves_all_links_and_deletes_source() {
     assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tag_links WHERE tag_id={src}")), 0);
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='源'"), 0);
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags"), tags_before - 1);
-    assert_fts_matches_tags(&c);
+    assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
 }
 
@@ -85,7 +85,7 @@ fn merge_dedupes_note_linked_to_both_tags() {
     assert_eq!(r.affected_notes, 2);
     assert_eq!(link_count(&c, dst, both.id), 1, "唯一键冲突行不产生重复链接");
     assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tag_links WHERE tag_id={src}")), 0);
-    assert_fts_matches_tags(&c);
+    assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
 }
 
@@ -107,7 +107,7 @@ fn source_with_children_merges_subtree() {
     assert_eq!(r.aliases, vec!["源".to_string()]);
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='目标/子'"), 1);
     assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tags WHERE id={src}")), 0, "源已删");
-    assert_fts_matches_tags(&c);
+    assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
     assert_filter_paths_exist(&c);
 }
@@ -124,7 +124,7 @@ fn target_inside_source_subtree_rejected() {
 
     assert_eq!(err, "目标标签在源标签的子树内,不能合并");
     assert_eq!(snapshot(&c), before);
-    assert_fts_matches_tags(&c);
+    assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
 }
 
@@ -140,7 +140,7 @@ fn same_source_and_target_rejected() {
 
     assert_eq!(err, "不能把标签合并到它自己");
     assert_eq!(snapshot(&c), before);
-    assert_fts_matches_tags(&c);
+    assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
 }
 
@@ -155,7 +155,7 @@ fn missing_tag_ids_rejected() {
     assert_eq!(merge_tags(&mut c, 9999, src, false).unwrap_err(), "源标签不存在: 9999");
     assert_eq!(merge_tags(&mut c, src, 9999, false).unwrap_err(), "目标标签不存在: 9999");
     assert_eq!(snapshot(&c), before);
-    assert_fts_matches_tags(&c);
+    assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
 }
 
@@ -173,7 +173,7 @@ fn keep_alias_registers_old_path_and_leaf() {
     assert_eq!(alias::resolve(&c, "工作/项目A").unwrap().as_deref(), Some("事业"));
     assert_eq!(alias::resolve(&c, "项目A").unwrap().as_deref(), Some("事业"));
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tag_aliases"), 2);
-    assert_fts_matches_tags(&c);
+    assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
     assert_filter_paths_exist(&c);
 }
@@ -190,7 +190,7 @@ fn keep_alias_false_leaves_alias_table_empty() {
 
     assert!(r.aliases.is_empty());
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tag_aliases"), 0);
-    assert_fts_matches_tags(&c);
+    assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
     assert_filter_paths_exist(&c);
 }

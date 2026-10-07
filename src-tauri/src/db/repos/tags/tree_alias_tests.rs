@@ -4,7 +4,7 @@
 use super::*;
 use crate::db::migrate;
 use crate::db::repos::{notes, tags::alias};
-use crate::db::repos::tags::invariants_tests::{assert_fts_matches_tags, assert_no_orphan_tags};
+use crate::db::repos::tags::invariants_tests::{assert_fts_matches_edges, assert_no_orphan_tags};
 use rusqlite::{params, Connection};
 
 fn db() -> Connection {
@@ -44,10 +44,10 @@ fn link_paths_resolves_alias_without_creating_node() {
     // FTS 标签列 = 路径聚合 + 别名聚合(T4 起):登记过的别名也在索引里,
     // 所以搜「日漫」这种别名写法也能找到该笔记
     let fts: String = c
-        .query_row("SELECT tags FROM notes_fts WHERE rowid=?1", params![n.id], |r| r.get(0))
+        .query_row("SELECT tag_paths FROM entities_fts WHERE rowid=?1", params![n.id], |r| r.get(0))
         .unwrap();
     assert_eq!(fts, "追番/日漫 日漫");
-    assert_fts_matches_tags(&c);
+    assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
 }
 
@@ -63,7 +63,7 @@ fn link_paths_dedupes_alias_and_canonical_path() {
 
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tag_links"), 1);
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags"), 2);
-    assert_fts_matches_tags(&c);
+    assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
 }
 

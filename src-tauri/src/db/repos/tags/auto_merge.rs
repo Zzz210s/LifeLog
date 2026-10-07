@@ -17,7 +17,7 @@ pub fn sweep(conn: &Connection) -> Result<usize, String> {
     Ok(merged)
 }
 
-/// 合并一对并先写 `tag_merge_log`(源/目标 id、直接子标签 id 列表、笔记链接数、关系边数)。
+/// 合并一对并先写 `entity_merge_log`(源/目标实体 id、直接子标签 id 列表、笔记链接数、关系边数)。
 pub(crate) fn merge_pair(
     conn: &Connection,
     source_id: i64,
@@ -41,7 +41,7 @@ pub(crate) fn merge_pair(
         )
         .map_err(|e| e.to_string())?;
     conn.execute(
-        "INSERT INTO tag_merge_log(source_tag_id, target_tag_id, moved_child_ids, note_links, edges)
+        "INSERT INTO entity_merge_log(source_entity_id, target_entity_id, moved_child_ids, note_links, edges)
          VALUES(?1, ?2, ?3, ?4, ?5)",
         params![
             source_id,

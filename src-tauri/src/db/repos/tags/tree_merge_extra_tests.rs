@@ -5,7 +5,7 @@ use crate::db::migrate;
 use crate::db::repos::notes::{self, notes_filter::*, query};
 use crate::db::repos::settings::{self, FILTER_CURRENT_KEY};
 use crate::db::repos::tags::invariants_tests::{
-    assert_fts_matches_tags, assert_no_orphan_tags, assert_filter_paths_exist,
+    assert_fts_matches_edges, assert_no_orphan_tags, assert_filter_paths_exist,
 };
 use rusqlite::{params, Connection};
 use serde_json::{json, Value};
@@ -28,7 +28,7 @@ fn id_at(c: &Connection, path: &str) -> i64 {
 
 /// 笔记在 FTS 里的标签列(聚合路径,空格分隔)
 fn fts_tags(c: &Connection, note_id: i64) -> String {
-    c.query_row("SELECT tags FROM notes_fts WHERE rowid=?1", params![note_id], |r| {
+    c.query_row("SELECT tag_paths FROM entities_fts WHERE rowid=?1", params![note_id], |r| {
         r.get(0)
     })
     .unwrap()
@@ -55,7 +55,7 @@ fn merge_rewrites_fts_tag_column() {
     assert_eq!(fts_tags(&c, both.id), "职业生涯", "两处链接合成一条,标签列不重复");
     assert_eq!(hits(&c, "职业生涯"), 2);
     assert_eq!(hits(&c, "工作/项目A"), 0, "源路径已从 FTS 消失");
-    assert_fts_matches_tags(&c);
+    assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
 }
 
@@ -88,7 +88,7 @@ fn merge_rewrites_filter_conditions_and_expr_tokens() {
     assert_eq!(find("expr")["value"], "#事业 AND NOT #=事业");
     assert_eq!(find("tag")["includeChildren"], true, "其余条件字段原样保留");
     assert_eq!(conds["sort"], "newest");
-    assert_fts_matches_tags(&c);
+    assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
     assert_filter_paths_exist(&c);
 }
@@ -109,7 +109,7 @@ fn merge_gcs_emptied_parent_container() {
         "源与它变空的父容器一并回收"
     );
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='事业'"), 1);
-    assert_fts_matches_tags(&c);
+    assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
 }
 
@@ -131,7 +131,7 @@ fn merge_keeps_all_tag_invariants() {
 
     merge_tags(&mut c, src, dst, true).unwrap();
 
-    assert_fts_matches_tags(&c);
+    assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
     assert_filter_paths_exist(&c);
 }

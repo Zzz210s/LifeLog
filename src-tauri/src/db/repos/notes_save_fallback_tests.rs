@@ -4,7 +4,7 @@
 //! 并把这行 md 源码写进正文变成死文本。这里用真实的 create/update 路径复现并钉住兜底行为。
 use super::*;
 use crate::db::migrate;
-use crate::db::repos::tags::invariants_tests::{assert_fts_matches_tags, assert_no_orphan_tags};
+use crate::db::repos::tags::invariants_tests::{assert_fts_matches_edges, assert_no_orphan_tags};
 use crate::db::repos::tags::rename;
 use rusqlite::Connection;
 
@@ -51,7 +51,7 @@ fn editing_a_note_keeps_md_tag_and_leaves_no_source_text() {
     let first = update(&mut c, id, &format!("莽山栈道\n#{MD_LEAF}")).unwrap().unwrap();
     assert_eq!(first.tags, vec![MD_LEAF.to_string()], "标签必须还在");
     assert_eq!(first.content, "莽山栈道\n", "正文不得残留 md 源码");
-    assert_fts_matches_tags(&c);
+    assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
 
     let again = update(&mut c, id, &format!("{}\n#{MD_LEAF}", first.content.trim_end())).unwrap().unwrap();
@@ -78,7 +78,7 @@ fn strict_and_fallback_tags_coexist() {
     assert_eq!(upd.content, "莽山栈道\n");
     assert!(upd.tags.contains(&"普通".to_string()));
     assert!(upd.tags.contains(&MD_LEAF.to_string()));
-    assert_fts_matches_tags(&c);
+    assert_fts_matches_edges(&c);
 }
 
 /// 兜底不越界:标题 / C# / 行内代码里的 md 路径 / "# 后紧跟 md 符号(严格失败)" /

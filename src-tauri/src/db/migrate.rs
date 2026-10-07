@@ -32,6 +32,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("migrations/024_entities_tags.sql"),
     include_str!("migrations/025_entities_notes_edges.sql"),
     include_str!("migrations/026_entities_fts.sql"),
+    include_str!("migrations/027_drop_legacy.sql"),
 ];
 
 /// 012 的位次(1 起)与它删除的列名:SQLite 没有 `DROP COLUMN IF EXISTS`,
@@ -102,6 +103,11 @@ pub fn run(conn: &Connection) -> rusqlite::Result<()> {
         }
         if v == migration_hooks::LINK_REMARK_VERSION {
             migration_hooks::ensure_link_remark_column(conn)?;
+        }
+        if v == migration_hooks::ENTITY_IDS_VERSION {
+            // 下架过渡列先于 027 的 SQL(回填不再写 legacy_id),再改写 graph_positions 的键。
+            migration_hooks::drop_legacy_id_column(conn)?;
+            migration_hooks::rewrite_graph_positions(conn)?;
         }
         let fk_off = FK_OFF_VERSIONS.contains(&v);
         if fk_off {

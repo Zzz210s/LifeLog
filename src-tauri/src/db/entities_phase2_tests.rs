@@ -29,6 +29,7 @@ fn seeded_v25() -> Connection {
     add_tag(&c, 4, "空壳", Some(1), "地点轴/空壳", 2);
     add_tag(&c, 5, "孤立根", None, "孤立根", 1);
     run(&c).unwrap();
+    super::entities_tags_fixture::legacy_read_views(&c);
     c
 }
 
@@ -113,7 +114,7 @@ fn gc_orphan_sets_are_equivalent() {
 #[test]
 fn unresolved_note_links_do_not_become_edges() {
     let c = seeded_v25();
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM note_links WHERE target_id IS NULL"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM note_links"), 1, "视图只含已解析 link 边");
     assert_eq!(edge_dump(&c).iter().filter(|e| e.contains("|link|")).count(), 1, "只 1 条已解析 link 边");
     assert_eq!(count(&c, "SELECT COUNT(*) FROM edges WHERE kind='link' AND source_id=502"), 0, "未解析不落边");
 }
@@ -157,27 +158,6 @@ fn relation_edges_equal_tag_links() {
     );
     assert_eq!((count(&c, &fwd), count(&c, &bwd)), (0, 0), "relation 双向等价");
     assert_eq!(count(&c, "SELECT COUNT(*) FROM edges WHERE kind='relation' AND remark='国籍'"), 1, "属性名跟着边");
-}
-
-/// ⑧ 老表计数不变：025 前后老表行数逐值相同，新表计数符合预期。
-#[test]
-fn legacy_counts_unchanged_by_phase2() {
-    let c = Connection::open_in_memory().unwrap();
-    migrate_to_v23(&c);
-    seed_v23(&c);
-    seed_notes(&c);
-    add_tag(&c, 4, "空壳", Some(1), "地点轴/空壳", 2);
-    add_tag(&c, 5, "孤立根", None, "孤立根", 1);
-    let snap = |c: &Connection| {
-        (count(c, "SELECT COUNT(*) FROM notes"), count(c, "SELECT COUNT(*) FROM tags"),
-         count(c, "SELECT COUNT(*) FROM tag_links"), count(c, "SELECT COUNT(*) FROM note_links"))
-    };
-    let before = snap(&c);
-    run(&c).unwrap();
-    assert_eq!(snap(&c), before, "025 不得改老表行数");
-    assert_eq!(before, (2, 5, 4, 2), "夹具基数");
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities"), 7, "5 标签 + 2 笔记");
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM edges"), 8, "child 3 + tagging 3 + relation 1 + link 1");
 }
 
 /// ⑨ 阶段 2 本身不动触发器：单独跑 024 + 025（026 才会加 9 个新触发器）

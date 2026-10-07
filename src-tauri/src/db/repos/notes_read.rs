@@ -61,12 +61,13 @@ pub fn recent(conn: &Connection, limit: u32) -> rusqlite::Result<Vec<Note>> {
     fold_tag_rows(rows)
 }
 
-/// 删除笔记(事务):删老 `notes` 行(`note_links` 外键级联)与实体行(`edges` 外键级联),
+/// 删除笔记(事务):删实体行(`edges` 外键级联出链/入链),
 /// 最后精确回收"无出边且无入边"的孤儿标签(父节点天生没有入边,旧实现的"无链接即孤儿"
-/// 会连带删掉整棵子树)。老 `tag_links` 不再是写目标,不再清它(阶段 4 已切到 edges)。
+/// 会连带删掉整棵子树)。
+///
+/// 注:`entities` 上并没有指向 `notes` 的外键,阶段 4 后只删实体行即可。
 pub fn delete(conn: &mut Connection, id: i64) -> rusqlite::Result<()> {
     let tx = conn.transaction()?;
-    tx.execute("DELETE FROM notes WHERE id=?1", params![id])?;
     tx.execute("DELETE FROM entities WHERE id=?1 AND kind='note'", params![id])?;
     crate::db::repos::tags::gc_orphans(&tx)?;
     tx.commit()

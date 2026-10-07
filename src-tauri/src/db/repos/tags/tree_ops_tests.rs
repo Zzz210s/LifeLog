@@ -4,7 +4,7 @@ use super::*;
 use crate::db::migrate;
 use crate::db::repos::notes::{self, notes_filter::*, query};
 use crate::db::repos::tags::invariants_tests::{
-    assert_fts_matches_tags, assert_no_orphan_tags, assert_filter_paths_exist,
+    assert_fts_matches_edges, assert_no_orphan_tags, assert_filter_paths_exist,
 };
 use rusqlite::Connection;
 
@@ -72,7 +72,7 @@ fn rename_updates_whole_subtree_paths_and_fts() {
     assert_eq!(hits(&c, "会议记录"), 1);
     assert_eq!(hits(&c, "事业/项目A"), 1);
     assert_eq!(hits(&c, "工作/项目A"), 0);
-    assert_fts_matches_tags(&c);
+    assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
     assert_filter_paths_exist(&c);
 }
@@ -97,7 +97,7 @@ fn move_to_reparents_and_rewrites_paths() {
     move_to(&mut c, leaf, None).unwrap();
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='项目A' AND depth=1 AND parent_id IS NULL"), 1);
     assert_eq!(hits(&c, "项目A"), 1);
-    assert_fts_matches_tags(&c);
+    assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
     assert_filter_paths_exist(&c);
 }
@@ -116,7 +116,7 @@ fn move_into_own_subtree_rejected_and_db_untouched() {
 
     assert_eq!(dump(&c), before);
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tag_links"), 1);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM notes_fts"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities_fts WHERE content <> ''"), 1);
 }
 
 /// ⑥ 同级重名:改名/移动撞上兄弟改为**自动整棵并**(设计 2026-10-06 §6);非法名仍拒绝
@@ -141,7 +141,7 @@ fn same_level_duplicate_merges() {
     assert!(rename(&mut c, work, "工作 计划").is_err(), "非法的标签名一律拒绝");
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='工作'"), 1);
     // 撞名改走合并后,库内不变量必须依然成立
-    assert_fts_matches_tags(&c);
+    assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
 }
 
@@ -163,7 +163,7 @@ fn delete_subtree_removes_tags_keeps_notes() {
     assert_eq!(hits(&c, "项目A"), 0);
     assert_eq!(hits(&c, "纪要"), 1);
     // 删除不改写 filter_current(S7),故只断言 FTS 与孤儿两项
-    assert_fts_matches_tags(&c);
+    assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
 }
 
@@ -176,6 +176,6 @@ fn delete_missing_tag_rolls_back() {
     assert!(delete_subtree(&mut c, 9999).is_err());
     assert_eq!(dump(&c), before);
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tag_links"), 1);
-    assert_fts_matches_tags(&c);
+    assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
 }

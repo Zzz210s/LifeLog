@@ -86,7 +86,7 @@ fn sample_db(path: &Path, limit: usize) -> Result<Vec<BaselineEntry>, String> {
     let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)
         .map_err(|e| format!("只读打开 {} 失败: {e}", path.display()))?;
     let mut stmt = conn
-        .prepare("SELECT content FROM notes ORDER BY id")
+        .prepare("SELECT content FROM entities WHERE kind = 'note' ORDER BY id")
         .map_err(|e| format!("准备查询失败: {e}"))?;
     let rows = stmt
         .query_map([], |r| r.get::<_, String>(0))
