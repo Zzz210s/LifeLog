@@ -13,7 +13,7 @@ import { relationEdges, type RelationEdge } from './graph-relations';
 
 export interface GraphDataApi {
   data: GraphData | null;
-  /** 标签关系边(两端都是标签 id);取不到时为空数组 */
+  /** 标签关系边(两端都是标签实体 id);取不到时为空数组 */
   relations: RelationEdge[];
   /** 拉取失败(首次失败与重拉失败都算):视图据此给中文提示,不装作空图 */
   failed: boolean;

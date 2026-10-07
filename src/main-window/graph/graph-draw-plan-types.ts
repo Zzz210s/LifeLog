@@ -74,7 +74,7 @@ export interface Label {
   text: string;
 }
 
-/** 一条展开笔记的小圆(屏幕坐标)。`id` 是**笔记 id**:L4 的 link 边要靠它认出两端 */
+/** 一条展开笔记的小圆(屏幕坐标)。`id` 是**笔记实体 id**:L4 的 link 边要靠它认出两端 */
 export type NoteDot = { id: number; x: number; y: number };
 
 /**
@@ -114,7 +114,7 @@ export interface DrawPlan {
   links: Segment[];
   /**
    * 标签关系边(accent 色 1.5px **带箭头**;`A -> B` 读作「A 具有 B 所表示的属性」)。
-   * 与 `links` 分层:这里的 `a`/`b` 是标签 id,不是笔记 id。
+   * 与 `links` 分层:这里的 `a`/`b` 是标签实体 id,不是笔记实体 id。
    */
   relations: Segment[];
   /** 关系边箭头中点的备注文字(仅 `k >= RELATION_REMARK_MIN_K` 时非空) */

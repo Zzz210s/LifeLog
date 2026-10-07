@@ -16,7 +16,7 @@ export interface TagNode {
   path: string;
   name: string;
   depth: number;
-  /** 同层次序键(S8):兄弟按 (sortOrder, path) 排,与后端 tags.sort_order 口径一致 */
+  /** 同层次序键(S8):兄弟按 (sortOrder, path) 排,与后端 entities.sort_order 口径一致 */
   sortOrder: number;
   selfCount: number;
   subtreeCount: number;

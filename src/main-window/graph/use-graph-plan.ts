@@ -38,7 +38,7 @@ const EMPTY_PLAN: DrawPlan = {
 export function useGraphPlan(input: {
   nodes: readonly GraphNode[];
   edges: readonly GraphEdge[];
-  /** 笔记间链接边(已按 kind 从 edges 里拆出;两端是笔记 id) */
+  /** 笔记间链接边(已按 kind 从 edges 里拆出;两端是笔记实体 id) */
   links: readonly GraphLink[];
   /** 标签关系边(前端从 `list_tag_facts` 摊平;带箭头,参与强调) */
   relations: readonly RelationEdge[];

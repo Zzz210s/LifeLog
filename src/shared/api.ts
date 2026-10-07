@@ -20,7 +20,9 @@ export const api = {
     invoke<Note[]>('query_group_page', { conditions, groupKey, offset }),
   /** 实时校验表达式:合法给中文预览,非法给中文原因与 0 起出错字符下标 */
   validateExpr: (text: string) => invoke<ExprCheck>('validate_expr', { text }),
-  /** 标签树全量计数(完整路径);标签面板与树形选择器数据源 */
+  /** 标签树全量计数(完整路径);标签面板与树形选择器数据源。
+   *  本节起所有 `tagId` 参数/返回值均为**标签实体 id**(统一实体表,偏移区间 `>= 1000000000`),
+   *  不是老 `tags.id`;命令名与后端签名不变。 */
   listTags: () => invoke<TagCount[]>('list_tags'),
   /** 改标签名(单段);级联重写子树路径与全文索引 */
   renameTag: (tagId: number, newName: string) =>

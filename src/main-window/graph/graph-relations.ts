@@ -1,5 +1,6 @@
 /**
- * 标签关系边的数据口径(Task 5,设计 §8):`tag_links(A,'tag',B)` 读作「A 具有 B 所表示的属性」。
+ * 标签关系边的数据口径(Task 5,设计 §8):`edges(kind='relation')` 读作「A 具有 B 所表示的属性」。
+ * 两端都是**标签实体 id**(统一实体表,偏移区间),与 `GraphNode.id` 同一命名空间。
  *
  * 关系数据不走 `graph_data`(那条命令只交标签骨架与笔记链接),改用前端已有的
  * `list_tag_facts` 批量事实就地摊平 —— 24 条边不值得多一条 IPC,也不给 Rust 侧添接口。
@@ -12,9 +13,9 @@ import type { GraphNode } from '../../shared/types';
 
 /** 一条标签关系边(方向固定 A -> B) */
 export interface RelationEdge {
-  /** 起点标签 id(具有属性的一方) */
+  /** 起点标签实体 id(具有属性的一方) */
   a: number;
-  /** 终点标签 id(被指向的属性) */
+  /** 终点标签实体 id(被指向的属性) */
   b: number;
   /** 箭头上的属性名(边上的 remark;缺失为空串,缺失时图上不画字) */
   remark: string;

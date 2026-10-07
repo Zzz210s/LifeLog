@@ -11,14 +11,14 @@ export interface Note {
 }
 
 /** 一条出链(与 Rust `OutboundLink` 逐字一致的 camelCase):rawTitle 是正文原文,
- *  targetId 解析到的目标 id(未解析 null),title 是目标**当前**显示首行(未解析/已删 null) */
+ *  targetId 解析到的目标**笔记实体 id**(未解析 null),title 是目标**当前**显示首行(未解析/已删 null) */
 export interface NoteLink {
   rawTitle: string;
   targetId: number | null;
   title: string | null;
 }
 
-/** 一条入链(与 Rust `Backlink` 逐字一致的 camelCase):sourceId 是引用来源 id,
+/** 一条入链(与 Rust `Backlink` 逐字一致的 camelCase):sourceId 是引用来源的**笔记实体 id**,
  *  title 是来源**当前**显示首行(L3 卡片面板/编辑面板列出反向引用用) */
 export interface Backlink {
   sourceId: number;
@@ -32,13 +32,14 @@ export interface NoteLinks {
 }
 
 /** `[[` 补全候选池的一项(IPC `complete_notes`,与 Rust `NoteTitle` 逐字一致):
- *  id + 笔记的显示首行(`links::display_title` 口径,只裁首尾空白、大小写原样) */
+ *  id 是**笔记实体 id** + 笔记的显示首行(`links::display_title` 口径,只裁首尾空白、大小写原样) */
 export interface NoteTitle {
   id: number;
   title: string;
 }
 
-/** 标签树节点计数:id 供右键管理(rename/move/delete/tag_impact 按寻址),
+/** 标签树节点计数:id 是标签**实体 id**(统一实体表,落在偏移区间 `>= 1000000000`),
+ *  右键管理(rename/move/delete/tag_impact)、`graph_positions` 位置记忆全按它寻址;
  *  path 为完整路径,self_count 本级链接数,subtree_count 含全部子孙;
  *  sort_order 供同层次序(S8):树里兄弟按 (sort_order, path) 展示 */
 export interface TagCount {
@@ -82,8 +83,8 @@ export interface MergeReport {
 }
 
 /** 一条标签关系边(IPC `list_tag_relations` / `list_tag_facts`):
- *  读作「本标签具有`remark`所表示的属性,值是 toTagId」;`remark` 是**边上**的属性名
- *  (`A --(国籍)--> B` 的 `国籍`),空串 = 只声明有关系(显示时回退只给目标名) */
+ *  读作「本标签具有`remark`所表示的属性,值是 toTagId」;`toTagId` 是标签实体 id(偏移区间),
+ *  `remark` 是**边上**的属性名(`A --(国籍)--> B` 的 `国籍`),空串 = 只声明有关系(显示时回退只给目标名) */
 export interface RelationRef {
   toTagId: number;
   path: string;
@@ -122,9 +123,10 @@ export interface ParseResult {
 
 /**
  * 关系图节点(IPC `graph_data`,字段与 Rust `GraphNodeDto` 逐字一致)。
- * `depth` 是标签树深度(根级 = 1),`parent` 是父标签 id(根级为 null),
+ * `id` 是标签**实体 id**,`parent` 是父标签**实体 id**(根级为 null),
+ * `depth` 是标签树深度(根级 = 1),
  * `notes` 是**含子孙**的去重笔记数(与侧栏 subtree_count 同源),
- * `selfCount` 是本级去重笔记数(不含子孙),`sortOrder` 与 `tags.sort_order` 同口径(右键菜单按它排)。
+ * `selfCount` 是本级去重笔记数(不含子孙),`sortOrder` 与 `entities.sort_order` 同口径(右键菜单按它排)。
  */
 export interface GraphNode {
   id: number;
@@ -137,8 +139,9 @@ export interface GraphNode {
 }
 
 /** 关系图的边(IPC `graph_data`):`tree` 父子边 / `co` 共现边 / `link` 笔记间已解析链接。
- *  `tree`/`co` 的 `a`/`b` 是**标签 id**;`link` 的 `a`/`b` 是**笔记 id**(两套 id 不同命名空间,
- *  消费者必须先按 `kind` 分流 —— 笔记节点只在展开时出现,link 边也只在两端笔记都展开时画)。
+ *  统一实体后 `a`/`b` 都是**实体 id**(标签实体 id `>= 1000000000`、笔记实体 id 保持原值,
+ *  单库内唯一不撞),但**身份只能按 `kind` 判,不能靠数值区间猜**:`tree`/`co` 两端是标签实体 id,
+ *  `link` 两端是笔记实体 id(笔记节点只在展开时出现,link 边也只在两端笔记都展开时画)。
  *  `weight` 是两端共现笔记数(tree / link 恒为 1)。 */
 export interface GraphEdge {
   a: number;
@@ -147,7 +150,7 @@ export interface GraphEdge {
   weight: number;
 }
 
-/** 笔记间已解析链接(从 `kind: 'link'` 的边上拆出来):两端都是笔记 id */
+/** 笔记间已解析链接(从 `kind: 'link'` 的边上拆出来):两端都是**笔记实体 id** */
 export interface GraphLink {
   a: number;
   b: number;

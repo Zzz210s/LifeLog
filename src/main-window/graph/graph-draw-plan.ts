@@ -56,9 +56,9 @@ export function drawPlan(input: {
    * 展开者自己不在可见集合里时整组不画(否则会留下飘在空处的孤儿小圆)
    */
   expanded?: ExpandedInput | null;
-  /** 全部已解析的笔记间链接(`graph_data` 里 `kind: 'link'` 的那批;两端都是笔记 id) */
+  /** 全部已解析的笔记间链接(`graph_data` 里 `kind: 'link'` 的那批;两端都是**笔记实体 id**) */
   links?: readonly GraphLink[];
-  /** 标签关系边(前端从 `list_tag_facts` 摊平;两端都是标签 id,带箭头) */
+  /** 标签关系边(前端从 `list_tag_facts` 摊平;两端都是**标签实体 id**,带箭头) */
   relations?: readonly RelationEdge[];
 }): DrawPlan {
   const { nodes, edges, points, cam, w, h, rootColor, fallbackColor, emphasis } = input;

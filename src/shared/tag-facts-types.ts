@@ -4,6 +4,7 @@ import type { RelationRef } from './types';
 
 /** 单个标签的关系事实(IPC `list_tag_facts`):relations = 该标签的全部出边(A -> ?) */
 export interface TagFact {
+  /** 标签实体 id(统一实体表,落在偏移区间;与 `RelationRef.toTagId` 同一命名空间) */
   tagId: number;
   relations: RelationRef[];
 }
