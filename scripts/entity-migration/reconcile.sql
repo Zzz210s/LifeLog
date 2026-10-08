@@ -1,51 +1,66 @@
--- LifeLog 统一实体迁移 · 对账唯一真源（spec docs/superpowers/specs/2026-10-07-unified-entities-design.md §3 ①–⑤）
+-- LifeLog 统一元数据迁移 · 对账唯一真源（spec docs/superpowers/specs/2026-10-08-unify-metadata-design.md §3.7 七条 + §2.7 稳定读数）
 --
--- 由 scripts/entity-migration/reconcile.mjs 解析执行；Rust 侧 Task 1.3 以 include_str! 引用同一文件。
--- 每个语句块以一个标记行开头，到下一个标记行或文件末尾结束；块内只放一条 SQL 语句。
---   -- @count | <键> | <需要的表>                  计数读数（只打印，不判 PASS/FAIL）
---   -- @check | <序号> | <标题> | <模式> | <需要的表> | <期望>   对账；期望 = zero（0 行通过）或 ok（单行 'ok' 通过）
--- <需要的表> 为逗号分隔的表名；任一不存在则整块打印 N/A。legacy 模式对老表，modern 模式对 entities/edges。
--- 真库只读：本文件只允许 SELECT / PRAGMA 只读查询，禁止任何写语句。
+-- 执行方：
+--   * scripts/entity-migration/reconcile.mjs（python sqlite3，mode=ro；运行器内置 entity_name / entity_key 同口径实现）
+--   * Rust src-tauri/src/db/repos/entities/reconcile.rs（include_str! 同一文件；entity_name / entity_key 由连接注册，见 db/sql_functions.rs）
+-- 标记块：语句块以一个标记行开头，到下一个标记行或文件末尾结束；块内只放一条 SQL 语句。
+--   -- @count | <键> | <需要的表或列>                 计数读数（只打印，不判 PASS/FAIL）
+--   -- @check | <序号> | <标题> | <模式> | <需要的表或列> | <期望>   对账；期望 = zero（0 行通过）或 ok（单行 'ok' 通过）
+-- 「需要的表或列」为逗号分隔：table 或 table.column；任一表/列不存在则整块打印 N/A。
+-- 七条（①–⑦）统一要求 v28 结构（entities.meta / entities.is_cited）；旧库（< 28）整组 N/A，不报错。
+-- 真库只读：本文件只允许 SELECT / 只读 PRAGMA，禁止任何写语句。
 
--- ============ 计数读数 ============
+-- ============ 计数读数（v27 可跑的只有 entities / edges / path 三类）============
 -- @count | user_version | 
 PRAGMA user_version;
--- @count | notes | notes
-SELECT COUNT(*) FROM notes;
--- @count | tags | tags
-SELECT COUNT(*) FROM tags;
--- @count | tag_links | tag_links
-SELECT COUNT(*) FROM tag_links;
--- @count | tag_links_note | tag_links
-SELECT COUNT(*) FROM tag_links WHERE target_type = 'note';
--- @count | tag_links_tag | tag_links
-SELECT COUNT(*) FROM tag_links WHERE target_type IN ('tag', 'type');
--- @count | note_links | note_links
-SELECT COUNT(*) FROM note_links;
--- @count | notes_fts | notes_fts
-SELECT COUNT(*) FROM notes_fts;
--- @count | tag_aliases | tag_aliases
-SELECT COUNT(*) FROM tag_aliases;
--- @count | tag_merge_log | tag_merge_log
-SELECT COUNT(*) FROM tag_merge_log;
 -- @count | entities | entities
 SELECT COUNT(*) FROM entities;
--- @count | entities_tag | entities
-SELECT COUNT(*) FROM entities WHERE kind = 'tag';
--- @count | entities_note | entities
-SELECT COUNT(*) FROM entities WHERE kind = 'note';
+-- @count | entities_min_id | entities
+SELECT MIN(id) FROM entities;
+-- @count | entities_max_id | entities
+SELECT MAX(id) FROM entities;
+-- @count | entities_distinct_id | entities
+SELECT COUNT(DISTINCT id) FROM entities;
+-- @count | entities_path_nonnull | entities.path
+SELECT COUNT(*) FROM entities WHERE path IS NOT NULL;
+-- @count | entities_path_null | entities.path
+SELECT COUNT(*) FROM entities WHERE path IS NULL;
 -- @count | edges | edges
 SELECT COUNT(*) FROM edges;
--- @count | edges_child | edges
-SELECT COUNT(*) FROM edges WHERE kind = 'child';
--- @count | edges_tagging | edges
-SELECT COUNT(*) FROM edges WHERE kind = 'tagging';
--- @count | edges_relation | edges
-SELECT COUNT(*) FROM edges WHERE kind = 'relation';
--- @count | edges_link | edges
-SELECT COUNT(*) FROM edges WHERE kind = 'link';
 -- @count | entities_fts | entities_fts
 SELECT COUNT(*) FROM entities_fts;
+
+-- ============ 计数读数（仅 v28 结构可跑）============
+-- @count | is_cited | entities.is_cited
+SELECT COUNT(*) FROM entities WHERE is_cited = 1;
+-- @count | edges_child | entities.is_cited
+SELECT COUNT(*) FROM edges WHERE kind = 'child';
+-- @count | edges_link | entities.is_cited
+SELECT COUNT(*) FROM edges WHERE kind = 'link';
+-- @count | link_remark_nonnull | entities.is_cited
+SELECT COUNT(*) FROM edges WHERE kind = 'link' AND remark <> '';
+-- @count | tree_closure | entities.is_cited
+WITH RECURSIVE c(id) AS (
+  SELECT id FROM entities WHERE is_cited = 1
+  UNION
+  SELECT x.source_id FROM edges x JOIN c ON c.id = x.target_id WHERE x.kind = 'child'
+)
+SELECT COUNT(*) FROM c;
+-- @count | feed_default | entities.is_cited
+WITH RECURSIVE c(id) AS (
+  SELECT id FROM entities WHERE is_cited = 1
+  UNION
+  SELECT x.source_id FROM edges x JOIN c ON c.id = x.target_id WHERE x.kind = 'child'
+)
+SELECT COUNT(*) FROM entities e
+WHERE NOT (e.id IN (SELECT id FROM c) AND instr(e.meta, char(10)) = 0);
+-- @count | sibling_key_out_of_scope | entities.is_cited
+SELECT COUNT(*) FROM (
+  SELECT COALESCE(e.parent_id, 0), entity_key(e.meta)
+  FROM entities e
+  WHERE NOT (e.path IS NOT NULL AND e.is_cited = 1 AND instr(e.meta, char(10)) = 0)
+  GROUP BY COALESCE(e.parent_id, 0), entity_key(e.meta) HAVING COUNT(*) > 1
+);
 
 -- ============ 硬校验 ============
 -- @check | integrity | integrity_check | hard | | ok
@@ -53,59 +68,48 @@ PRAGMA integrity_check;
 -- @check | fk | foreign_key_check | hard | | zero
 PRAGMA foreign_key_check;
 
--- ============ ① 缓存 parent_id 与 child 边一致 ============
--- @check | 1 | 缓存 parent_id 与 child 边一致 | legacy | tags | zero
-SELECT t.id, t.parent_id FROM tags t
-LEFT JOIN tags p ON p.id = t.parent_id
-WHERE t.parent_id IS NOT NULL AND p.id IS NULL;
--- @check | 1 | 缓存 parent_id 与 child 边一致 | modern | entities,edges | zero
+-- ============ ① is_cited 与 link 入边一致（spec §3.1）============
+-- @check | 1 | is_cited 与 link 入边一致 | modern | entities.meta,entities.is_cited,edges.kind | zero
+SELECT e.id FROM entities e
+WHERE e.is_cited <> EXISTS(SELECT 1 FROM edges x WHERE x.target_id = e.id AND x.kind = 'link');
+
+-- ============ ② 缓存 parent_id 与 child 入边一致（spec §3.7-2，去 kind='tag'）============
+-- @check | 2 | parent_id 与 child 入边一致 | modern | entities.meta,entities.is_cited,entities.parent_id,edges.kind | zero
 SELECT e.id, e.path FROM entities e
 LEFT JOIN edges c ON c.kind = 'child' AND c.target_id = e.id
-WHERE e.kind = 'tag' AND e.parent_id IS NOT c.source_id;
+WHERE e.parent_id IS NOT c.source_id;
 
--- ============ ② path 缓存与 child 边推导路径一致 ============
--- @check | 2 | path 缓存与推导路径一致 | legacy | tags | zero
+-- ============ ③ path 缓存与「父 path + '/' + entity_name」推导一致（spec §3.7-3）============
+-- @check | 3 | path 与推导一致 | modern | entities.meta,entities.is_cited,entities.path,entities.parent_id,edges.kind | zero
 WITH RECURSIVE w(id, p) AS (
-  SELECT id, name FROM tags WHERE parent_id IS NULL
-  UNION ALL SELECT t.id, w.p || '/' || t.name FROM tags t JOIN w ON t.parent_id = w.id
+  SELECT id, entity_name(meta) FROM entities WHERE parent_id IS NULL AND path IS NOT NULL
+  UNION ALL
+  SELECT e.id, w.p || '/' || entity_name(e.meta) FROM entities e JOIN w ON e.parent_id = w.id
 )
-SELECT t.id, t.path, w.p FROM tags t JOIN w ON w.id = t.id WHERE t.path <> w.p;
--- @check | 2 | path 缓存与推导路径一致 | modern | entities,edges | zero
-WITH RECURSIVE w(id, p) AS (
-  SELECT id, name FROM entities WHERE kind = 'tag' AND parent_id IS NULL
-  UNION ALL SELECT e.id, w.p || '/' || e.name FROM entities e JOIN w ON e.parent_id = w.id
-)
-SELECT e.id, e.path, w.p FROM entities e JOIN w ON w.id = e.id WHERE e.kind = 'tag' AND e.path <> w.p;
+SELECT e.id, e.path, w.p FROM entities e JOIN w ON w.id = e.id
+WHERE e.path IS NOT NULL AND e.path <> w.p;
 
--- ============ ③ depth 缓存与 child 边推导深度一致 ============
--- @check | 3 | depth 缓存与推导深度一致 | legacy | tags | zero
+-- ============ ④ depth 缓存与 child 边推导深度一致（spec §3.7-4）============
+-- @check | 4 | depth 与推导一致 | modern | entities.meta,entities.is_cited,entities.depth,entities.path,entities.parent_id,edges.kind | zero
 WITH RECURSIVE w(id, d) AS (
-  SELECT id, 1 FROM tags WHERE parent_id IS NULL
-  UNION ALL SELECT t.id, w.d + 1 FROM tags t JOIN w ON t.parent_id = w.id
+  SELECT id, 1 FROM entities WHERE parent_id IS NULL AND path IS NOT NULL
+  UNION ALL
+  SELECT e.id, w.d + 1 FROM entities e JOIN w ON e.parent_id = w.id
 )
-SELECT t.id, t.depth, w.d FROM tags t JOIN w ON w.id = t.id WHERE t.depth <> w.d;
--- @check | 3 | depth 缓存与推导深度一致 | modern | entities,edges | zero
-WITH RECURSIVE w(id, d) AS (
-  SELECT id, 1 FROM entities WHERE kind = 'tag' AND parent_id IS NULL
-  UNION ALL SELECT e.id, w.d + 1 FROM entities e JOIN w ON e.parent_id = w.id
-)
-SELECT e.id, e.depth, w.d FROM entities e JOIN w ON w.id = e.id WHERE e.kind = 'tag' AND e.depth <> w.d;
+SELECT e.id, e.depth, w.d FROM entities e JOIN w ON w.id = e.id
+WHERE e.path IS NOT NULL AND e.depth <> w.d;
 
--- ============ ④ 单亲约束（同父同名 / child 边入度 <= 1）============
--- @check | 4 | 同一父节点下名字唯一 | legacy | tags | zero
-SELECT COALESCE(parent_id, 0) AS p, name, COUNT(*) FROM tags GROUP BY p, name HAVING COUNT(*) > 1;
--- @check | 4 | child 边入度不超过 1 | modern | entities,edges | zero
+-- ============ ⑤ child 边入度不超过 1（spec §3.7-5）============
+-- @check | 5 | child 入度不超过 1 | modern | entities.meta,entities.is_cited,edges.kind | zero
 SELECT target_id, COUNT(*) FROM edges WHERE kind = 'child' GROUP BY target_id HAVING COUNT(*) > 1;
 
--- ============ ⑤ 无悬挂引用 ============
--- @check | 5 | 无悬挂链接引用 | legacy | tags,tag_links,notes | zero
-SELECT l.tag_id, l.target_type, l.target_id FROM tag_links l
-LEFT JOIN tags s ON s.id = l.tag_id
-LEFT JOIN notes n ON n.id = l.target_id AND l.target_type = 'note'
-LEFT JOIN tags tt ON tt.id = l.target_id AND l.target_type IN ('tag', 'type')
-WHERE s.id IS NULL OR (l.target_type = 'note' AND n.id IS NULL)
-   OR (l.target_type IN ('tag', 'type') AND tt.id IS NULL);
--- @check | 5 | child 边指向存在的标签实体 | modern | entities,edges | zero
-SELECT c.id, c.source_id, c.target_id FROM edges c
-WHERE c.kind = 'child'
-  AND NOT EXISTS (SELECT 1 FROM entities e WHERE e.id = c.target_id AND e.kind = 'tag');
+-- ============ ⑥ 同父同键唯一（spec §3.7-6，按 P0-2 收窄到自动合并作用域）============
+-- @check | 6 | 同父同键唯一(自动合并作用域) | modern | entities.meta,entities.is_cited,entities.path,entities.parent_id | zero
+SELECT COALESCE(e.parent_id, 0), entity_key(e.meta), COUNT(*) FROM entities e
+WHERE e.path IS NOT NULL AND e.is_cited = 1 AND instr(e.meta, char(10)) = 0
+GROUP BY COALESCE(e.parent_id, 0), entity_key(e.meta) HAVING COUNT(*) > 1;
+
+-- ============ ⑦ id 重发完整性：连号（MIN=1 / MAX=COUNT / DISTINCT=COUNT）============
+-- @check | 7 | id 连号完整(MIN=1,MAX=COUNT,DISTINCT=COUNT) | modern | entities.meta,entities.is_cited | zero
+SELECT MIN(id), MAX(id), COUNT(*), COUNT(DISTINCT id) FROM entities
+HAVING MIN(id) <> 1 OR MAX(id) <> COUNT(*) OR COUNT(DISTINCT id) <> COUNT(*);

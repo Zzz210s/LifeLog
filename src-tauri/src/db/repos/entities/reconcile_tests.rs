@@ -1,150 +1,137 @@
-//! T1.2 spec §3 五条缓存对账(阶段 4 起对 `entities`/`edges`):正例 + 五条反例
-//! (每条至少命中一次)+ 重复跑不变;另加真库副本只读验收(`#[ignore]`)。
-//! 阶段 1 的「镜像 == 老表」对账(`reconcile_mirror`)随 027 下架老表而退役。
-use super::reconcile::{
-    assert_cache_matches_edges, check_1_parent_child, check_2_path, check_3_depth,
-    check_4_single_parent, check_5_dangling, counts,
-};
-use super::TAG_ID_OFFSET;
-use crate::db::migrate;
+//! T1.0 spec §3.7 七条对账(mock v28 库):正例 + 逐条反例 + 重复跑不变
+//! + 真库副本只读验收(`#[ignore]`)。028 落地前用 `links` 真源顶 `entity_name`/`entity_key`。
+use rusqlite::functions::FunctionFlags;
 use rusqlite::{params, Connection};
 
-/// 标签实体(id 传老标签 id,内部加偏移)
-fn add_tag(c: &Connection, id: i64, name: &str, parent: Option<i64>, path: &str, depth: i64) {
+use super::reconcile::{
+    assert_cache_matches_edges, assert_is_cited_matches_edges, check_1_is_cited, check_2_parent_child,
+    check_3_path, check_4_depth, check_5_single_parent, check_6_sibling_key, check_7_id_contiguous, counts,
+};
+
+const SCHEMA: &str = "
+CREATE TABLE entities(id INTEGER PRIMARY KEY, meta TEXT NOT NULL DEFAULT '', is_cited INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT '', parent_id INTEGER, path TEXT, depth INTEGER,
+  sort_order INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE edges(id INTEGER PRIMARY KEY, source_id INTEGER NOT NULL, target_id INTEGER NOT NULL,
+  kind TEXT NOT NULL, remark TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT '',
+  UNIQUE(source_id, kind, target_id));";
+
+/// `entity_name` / `entity_key` 由连接注册(db/sql_functions.rs,T1.1 落地);此处用 `links` 真源顶上。
+fn register_meta_fns(c: &Connection) {
+    let flags = FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC;
+    c.create_scalar_function("entity_name", 1, flags, |ctx| {
+        let s: String = ctx.get(0)?;
+        Ok(crate::links::display_title(&s))
+    })
+    .unwrap();
+    c.create_scalar_function("entity_key", 1, flags, |ctx| {
+        let s: String = ctx.get(0)?;
+        Ok(crate::links::title_of(&s))
+    })
+    .unwrap();
+}
+
+fn add_entity(c: &Connection, id: i64, meta: &str, cited: i64, parent: Option<i64>, path: Option<&str>, depth: Option<i64>) {
     c.execute(
-        "INSERT INTO entities(id, kind, name, content, created_at, parent_id, path, depth, sort_order)
-         VALUES(?1, 'tag', ?2, '', '2026-01-01', ?3, ?4, ?5, 0)",
-        params![
-            id + TAG_ID_OFFSET,
-            name,
-            parent.map(|p| p + TAG_ID_OFFSET),
-            path,
-            depth
-        ],
+        "INSERT INTO entities(id, meta, is_cited, parent_id, path, depth) VALUES(?1,?2,?3,?4,?5,?6)",
+        params![id, meta, cited, parent, path, depth],
     )
     .unwrap();
 }
 
-fn add_note(c: &Connection, id: i64, content: &str) {
+fn add_edge(c: &Connection, source: i64, target: i64, kind: &str) {
     c.execute(
-        "INSERT INTO entities(id, kind, content, created_at) VALUES(?1, 'note', ?2, '2026-01-01')",
-        params![id, content],
+        "INSERT INTO edges(source_id, target_id, kind) VALUES(?1,?2,?3)",
+        params![source, target, kind],
     )
     .unwrap();
 }
 
-fn add_edge(c: &Connection, source: i64, target: i64, kind: &str, remark: &str) {
-    c.execute(
-        "INSERT INTO edges(source_id, target_id, kind, remark, created_at)
-         VALUES(?1, ?2, ?3, ?4, '2026-01-01')",
-        params![source, target, kind, remark],
-    )
-    .unwrap();
-}
-
-/// 一致夹具:3 个标签(1 根 + 2 子)、2 条 child 边、1 条 relation(带属性名)、
-/// 1 条 tagging(笔记 501 -> 标签 2);link 刻意不建。
+/// 一致夹具:根 1(工作)+ 子 2(项目,被笔记 3 引用)+ 笔记 3;child 1->2、link 3->2。
 fn consistent() -> Connection {
     let c = Connection::open_in_memory().unwrap();
-    migrate::run(&c).unwrap();
-    add_note(&c, 501, "第一篇 #地点轴/日本");
-    add_tag(&c, 1, "地点轴", None, "地点轴", 1);
-    add_tag(&c, 2, "日本", Some(1), "地点轴/日本", 2);
-    add_tag(&c, 3, "中国", Some(1), "地点轴/中国", 2);
-    add_edge(&c, 1 + TAG_ID_OFFSET, 2 + TAG_ID_OFFSET, "child", "");
-    add_edge(&c, 1 + TAG_ID_OFFSET, 3 + TAG_ID_OFFSET, "child", "");
-    add_edge(&c, 3 + TAG_ID_OFFSET, 2 + TAG_ID_OFFSET, "relation", "国籍");
-    add_edge(&c, 501, 2 + TAG_ID_OFFSET, "tagging", "");
+    c.execute_batch(SCHEMA).unwrap();
+    register_meta_fns(&c);
+    add_entity(&c, 1, "工作", 0, None, Some("工作"), Some(1));
+    add_entity(&c, 2, "项目", 1, Some(1), Some("工作/项目"), Some(2));
+    add_entity(&c, 3, "第一篇\n正文", 0, None, None, None);
+    add_edge(&c, 1, 2, "child");
+    add_edge(&c, 3, 2, "link");
     c
 }
 
-/// 正例:五条对账全过,计数与库一致;老 `tags` 已在下架后为 `None`。
+/// 正例:七条对账全过;计数与库一致(mock 无老 `tags` 表 -> None)。
 #[test]
-fn consistent_entity_cache_passes_five() {
+fn consistent_entity_cache_passes_seven() {
     let c = consistent();
     assert_cache_matches_edges(&c);
+    assert_is_cited_matches_edges(&c);
     let n = counts(&c).unwrap();
-    assert_eq!(n.tags, None, "027 后老 tags 表不存在");
-    assert_eq!(n.entities, Some(4));
-    assert_eq!(n.entities_tag, Some(3));
-    assert_eq!(n.child, Some(2));
-    assert_eq!(n.tagging, Some(1));
-    assert_eq!(n.relation, Some(1));
-    assert_eq!(n.link, Some(0));
+    assert_eq!(n.tags, None, "mock v28 无老 tags 表");
+    assert_eq!((n.entities, n.child, n.link), (Some(3), Some(1), Some(1)));
 }
 
-/// 反例 ①:只改缓存的 `parent_id`(不删 child 边),对账 ① 必须命中该 path。
+/// 逐条反例:每种漂移至少被对应那一条命中。
 #[test]
-fn reconcile_detects_parent_id_drift() {
-    let c = consistent();
-    c.execute("UPDATE entities SET parent_id=NULL WHERE path='地点轴/中国'", []).unwrap();
-    let rows = check_1_parent_child(&c).unwrap();
-    assert_eq!(rows.len(), 1, "① 应命中 1 行: {rows:?}");
-    assert!(rows[0].contains("地点轴/中国"), "命中行应含漂移标签: {rows:?}");
+fn each_check_detects_its_drift() {
+    type CheckFn = fn(&Connection) -> rusqlite::Result<Vec<String>>;
+    type MutFn = fn(&Connection);
+    let cases: [(&str, CheckFn, MutFn); 7] = [
+        ("1", check_1_is_cited, |c| {
+            c.execute("UPDATE entities SET is_cited=1 WHERE id=1", []).unwrap();
+        }),
+        ("2", check_2_parent_child, |c| {
+            c.execute("UPDATE entities SET parent_id=NULL WHERE id=2", []).unwrap();
+        }),
+        ("3", check_3_path, |c| {
+            c.execute("UPDATE entities SET path='工作/项目X' WHERE id=2", []).unwrap();
+        }),
+        ("4", check_4_depth, |c| {
+            c.execute("UPDATE entities SET depth=9 WHERE id=2", []).unwrap();
+        }),
+        ("5", check_5_single_parent, |c| add_edge(c, 3, 2, "child")),
+        ("6", check_6_sibling_key, |c| {
+            add_entity(c, 4, "项目", 1, Some(1), Some("工作/项目"), Some(2));
+        }),
+        ("7", check_7_id_contiguous, |c| add_entity(c, 9, "离号", 0, None, None, None)),
+    ];
+    for (n, check, mutate) in cases {
+        let c = consistent();
+        mutate(&c);
+        let rows = check(&c).unwrap();
+        assert!(!rows.is_empty(), "第 {n} 条未命中漂移: {rows:?}");
+    }
 }
 
-/// 反例 ②:把某条 `path` 改错一位,对账 ② 必须命中。
+/// `assert_is_cited_matches_edges` 对漂移必须 panic(spec §3.1 专用断言)。
 #[test]
-fn reconcile_detects_path_mismatch() {
+#[should_panic(expected = "is_cited")]
+fn assert_is_cited_panics_on_drift() {
     let c = consistent();
-    c.execute("UPDATE entities SET path='地点轴/中国X' WHERE path='地点轴/中国'", [])
-        .unwrap();
-    let rows = check_2_path(&c).unwrap();
-    assert_eq!(rows.len(), 1, "② 应命中 1 行: {rows:?}");
+    c.execute("UPDATE entities SET is_cited=1 WHERE id=1", []).unwrap();
+    assert_is_cited_matches_edges(&c);
 }
 
-/// 反例 ③:把某条 `depth` 改错,对账 ③ 必须命中。
-#[test]
-fn reconcile_detects_depth_mismatch() {
-    let c = consistent();
-    c.execute("UPDATE entities SET depth=9 WHERE path='地点轴/中国'", []).unwrap();
-    let rows = check_3_depth(&c).unwrap();
-    assert_eq!(rows.len(), 1, "③ 应命中 1 行: {rows:?}");
-}
-
-/// 反例 ④:手工插一条重复 `child` 入边(第二父),对账 ④ 必须命中。
-#[test]
-fn reconcile_detects_duplicate_child_edge() {
-    let c = consistent();
-    add_edge(&c, 3 + TAG_ID_OFFSET, 2 + TAG_ID_OFFSET, "child", "");
-    let rows = check_4_single_parent(&c).unwrap();
-    assert_eq!(rows.len(), 1, "④ 应命中 1 行: {rows:?}");
-}
-
-/// 反例 ⑤:插一条 target 指向不存在实体的 child 边(关外键绕开约束,模拟历史脏边),
-/// 对账 ⑤ 必须命中。
-#[test]
-fn reconcile_detects_dangling_edge() {
-    let c = consistent();
-    c.pragma_update(None, "foreign_keys", "OFF").unwrap();
-    add_edge(&c, 1 + TAG_ID_OFFSET, 999999999, "child", "");
-    c.pragma_update(None, "foreign_keys", "ON").unwrap();
-    let rows = check_5_dangling(&c).unwrap();
-    assert_eq!(rows.len(), 1, "⑤ 应命中 1 行: {rows:?}");
-}
-
-/// 重复跑对账不变:同一库连跑两次五条对账,读数一致。
+/// 重复跑对账不变:同一库连跑两次,计数与结果一致。
 #[test]
 fn reconcile_repeat_run_is_stable() {
     let c = consistent();
     let before = counts(&c).unwrap();
     assert_cache_matches_edges(&c);
     assert_cache_matches_edges(&c);
-    let after = counts(&c).unwrap();
-    assert_eq!(before, after);
+    assert_eq!(before, counts(&c).unwrap());
 }
 
 /// 真库副本只读验收(默认跳过)。用法:
 /// `LIFELOG_RECONCILE_DB=F:/0-code/_lifelog-snapshots/<副本>.db \
 ///  cargo test --lib reconcile_real_db_readonly -- --ignored --nocapture`
 #[test]
-#[ignore = "真库只读验收:需 LIFELOG_RECONCILE_DB 指向已有 entities/edges 的副本"]
+#[ignore = "真库只读验收:需 LIFELOG_RECONCILE_DB 指向 v28 结构的副本"]
 fn reconcile_real_db_readonly() {
     let path = std::env::var("LIFELOG_RECONCILE_DB")
         .expect("未设 LIFELOG_RECONCILE_DB(指向副本路径)");
-    let c = Connection::open_with_flags(&path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
-        .unwrap();
+    let c = Connection::open_with_flags(&path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
+    register_meta_fns(&c);
     assert_cache_matches_edges(&c);
-    let n = counts(&c).unwrap();
-    println!("真库副本读数: {n:?}");
+    println!("真库副本读数: {:?}", counts(&c).unwrap());
 }

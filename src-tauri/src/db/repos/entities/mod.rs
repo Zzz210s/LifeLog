@@ -4,6 +4,7 @@
 pub mod fts;
 pub mod ids;
 pub mod reconcile;
+pub mod reconcile_checks;
 
 #[cfg(test)]
 mod reconcile_tests;

@@ -26,7 +26,7 @@ const USAGE = `用法: node scripts/entity-migration/reconcile.mjs [--db <path>]
   --db    待对账的库（默认真库，只读打开）
   --sql   reconcile.sql 路径（默认同目录，可用变异副本做自证）
   --json  输出结构化 JSON
-说明: 五条缓存对账见 reconcile.sql；0 行 = PASS。库不可写、不产生副作用。`;
+说明: 七条对账见 reconcile.sql；0 行 = PASS；库不可写、不产生副作用。`;
 
 const opts = parseArgs(process.argv.slice(2));
 if (opts.help) {

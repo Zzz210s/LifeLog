@@ -1,4 +1,4 @@
-/** reconcile.sql 的解析器 + 只读执行器（python sqlite3）+ 文本格式化；T0.1 对账脚本的库部分。 */
+/** reconcile.sql 的解析器 + 只读执行器（python sqlite3）+ 文本格式化；T1.0 对账脚本的库部分。 */
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
@@ -35,14 +35,46 @@ export function parseBlocks(text) {
 
 const reqs = (s) => (s ? s.split(',').map((x) => x.trim()).filter(Boolean) : []);
 
-const PY = `import json,sqlite3,sys
+// 运行前注册 entity_name / entity_key（spec §2.6 口径）。Rust 侧由连接注册，此处为迁移工具的
+// 同口径实现：entity_name = 第一条非空行裁首尾空白；entity_key = 再剥行内 #词元、折叠空白、ASCII 小写。
+// 边界差异：#词元按 `#[^\s#]+` 粗剥，不覆盖 ## 标题 / 代码围栏等严格解析器才认识的写法（迁移数据无此形态）。
+const PY = `import json,re,sqlite3,sys
 db=sys.argv[1].replace(chr(92),'/')
 blocks=json.load(sys.stdin)
 c=sqlite3.connect('file:'+db+'?mode=ro',uri=True)
+
+def _entity_name(meta):
+    if meta is None: return ''
+    for line in str(meta).replace(chr(13)+chr(10),chr(10)).split(chr(10)):
+        s=line.strip()
+        if s: return s
+    return ''
+
+_TAG=re.compile(r'#[^\\s#]+')
+def _entity_key(meta):
+    s=_TAG.sub('', _entity_name(meta))
+    return ''.join(chr(ord(ch)+32) if 'A'<=ch<='Z' else ch for ch in ' '.join(s.split()))
+
+c.create_function('entity_name',1,_entity_name,deterministic=True)
+c.create_function('entity_key',1,_entity_key,deterministic=True)
+
 tables={r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type IN ('table','view')")}
+colcache={}
+def _missing(reqs):
+    miss=[]
+    for req in reqs:
+        if '.' in req:
+            t,col=req.split('.',1)
+            if t not in colcache:
+                colcache[t]={r[1] for r in c.execute("PRAGMA table_info('"+t+"')")}
+            if col not in colcache[t]: miss.append(req)
+        elif req not in tables:
+            miss.append(req)
+    return miss
+
 out=[]
 for b in blocks:
-    miss=[t for t in b['requires'] if t not in tables]
+    miss=_missing(b['requires'])
     if miss:
         out.append({'key':b['key'],'skipped':True,'missing':miss}); continue
     try:
@@ -111,10 +143,10 @@ export function formatReport(report) {
   L.push('[计数读数]');
   for (const [k, v] of Object.entries(report.counts)) L.push(`${k}=${v}`);
   L.push('');
-  L.push('[对账] 0 行 / 单行 ok = PASS');
+  L.push('[对账] 0 行 / 单行 ok = PASS；七条统一要求 v28 结构（缺列整组 N/A）');
   for (const c of report.checks) {
     L.push(`  [${c.n}] ${c.title}`);
-    if (c.status === 'N/A') L.push(`      ${c.mode} N/A (缺表 ${(c.missing || []).join(',')})`);
+    if (c.status === 'N/A') L.push(`      ${c.mode} N/A (缺表/列 ${(c.missing || []).join(',')})`);
     else if (c.status === 'ERR') L.push(`      ${c.mode} ERR ${c.error}`);
     else L.push(`      ${c.mode} ${c.status} (${c.rowCount} 行)`);
     for (const row of c.rows) L.push(`        ${JSON.stringify(row)}`);
