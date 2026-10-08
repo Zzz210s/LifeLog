@@ -17,7 +17,7 @@
  */
 import { sleep } from './cdp-lib.mjs';
 import { dbCounts } from './no-tabs-accept-lib.mjs';
-import { clickAt, clickText, graphStatus, installG3, invSame, lastFrame, panelState, setSearch } from './graph-accept-g3-lib.mjs';
+import { clickAt, clickText, graphStatus, installG3, installVizProbe, invSame, lastFrame, panelState, setSearch } from './graph-accept-g3-lib.mjs';
 import { blankPoint, predict } from './graph-accept-g3-scene.mjs';
 import { runFilters } from './graph-accept-g3-filter.mjs';
 import { runAutoFit } from './graph-accept-g3-autofit.mjs';
