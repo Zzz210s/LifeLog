@@ -1,6 +1,6 @@
 // 标签关系端到端读数的 UI 层(设计 §11 的 5-8):菜单 / 侧栏行内与档案卡片 / 关系面板 / 关系图 / 回归。
-// 口径(2026-10-06 用户定):行内**只显示值**、悬停值给属性名、悬停标签名出**档案式卡片**(标题两行 + 每条关系一行两列);
-// 属性名存在**边**上(tag_links.remark,迁移 023),不是目标标签名字里的 md 备注。
+// 口径(2026-10-06 用户定,后经 c0aa4041「悬浮卡片简化」):行内**只显示值**、悬停值给属性名、
+// 悬停标签名出**档案式卡片**(标题一行=末段名 + 每条关系一行两列);标题不再有计数行(无「本级」)。
 // 从 dev-relations-accept.mjs 抽出(守 200 行红线),调用方只负责把 records 打出来。
 import {
   NS, FIX, fmt, sleep, waitFor, openTagMenu, pressEsc, xlsxContentDigest, tagIdOf,
@@ -32,16 +32,16 @@ export async function runReadings5to8(cdp, ui, { call, record, nA, structAt8, E1
   await pickRelationSection(cdp);
   const initial = await waitFor(() => relToggleState(cdp), 20, 200);
   if (initial !== 'true') await clickRelationToggle(cdp); // 归一化到开:上一轮留下的状态不影响读数
-  const on = await waitFor(() => relToggleState(cdp) === 'true', 10, 200);
+  const on = await waitFor(async () => (await relToggleState(cdp)) === 'true', 10, 200);
   await clickRelationToggle(cdp); // 判别力:关掉后侧栏小字应当消失
-  const offNow = await waitFor(() => relToggleState(cdp) === 'false', 10, 200);
+  const offNow = await waitFor(async () => (await relToggleState(cdp)) === 'false', 10, 200);
   await backToStream(cdp);
   await sleep(400);
   const chipsOff = await relationChipsOf(cdp, FIX.A);
   await openSettings(cdp);
   await pickRelationSection(cdp);
   await clickRelationToggle(cdp); // 再打开,后续读数都在「开」态
-  const onAgain = await waitFor(() => relToggleState(cdp) === 'true', 10, 200);
+  const onAgain = await waitFor(async () => (await relToggleState(cdp)) === 'true', 10, 200);
   await backToStream(cdp);
   await sleep(500);
   const chips = await relationChipsOf(cdp, FIX.A);
@@ -57,13 +57,13 @@ export async function runReadings5to8(cdp, ui, { call, record, nA, structAt8, E1
   const hasFact = (rs, label, value) => (rs ?? []).some((x) => x.label === label && x.value === value);
   const chipsPure = (chips ?? []).every((c) => !c.includes('→') && !c.includes(FIX.REMARK));
   records.push({
-    name: '读数6 行内只显示值(无箭头/属性名);悬停值给属性名;悬停标签名出档案卡片(标题两行 + 每条关系一行两列);开关生效',
+    name: '读数6 行内只显示值(无箭头/属性名);悬停值给属性名;悬停标签名出档案卡片(标题一行末段名 + 每条关系一行两列);开关生效',
     ok: (chips ?? []).length === 3 && chips[2] === '+1' && chipsPure && chips.includes(`${NS}乙`)
       && chipTip === FIX.REMARK && (valueTip?.text ?? '').trim() === FIX.REMARK && (valueTip?.labels ?? []).length === 0
-      && title[0] === FIX.A && String(title[1]).includes('本级') && !title.join('').includes('→')
+      && title.length === 1 && title[0] === FIX.A && !title.join('').includes('→') && !title.join('').includes('本级')
       && (facts ?? []).length === 3 && hasFact(facts, FIX.REMARK, `${NS}乙`)
       && (card?.labels ?? []).length === 3 && (card?.values ?? []).includes(`${NS}乙`)
-      && String(card?.text).includes(FIX.A) && String(card?.text).includes('本级')
+      && String(card?.text).includes(FIX.A) && !String(card?.text).includes('本级')
       && (chipsOff ?? []).length === 0 && offNow === true && on === true && onAgain === true,
     detail: `chips=${fmt(chips)} 值上属性名=${fmt(chipTip)} 值气泡=「${fmt((valueTip?.text ?? '').trim())}」 标题=${fmt(title)} 卡片行=${fmt((card?.labels ?? []).map((l, i) => `${l}/${card.values[i]}`))} 开关 关=${offNow}(关态 chips=${fmt(chipsOff)}) 开=${on}/${onAgain}`,
   });
