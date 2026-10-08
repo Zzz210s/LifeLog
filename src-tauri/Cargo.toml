@@ -2,6 +2,10 @@
 name = "lifelog"
 version = "0.1.0"
 edition = "2021"
+# 关键:src-tauri 下有两个 bin(lifelog 与 src/bin/gen-upgrade-baseline.rs),缺 default-run 时
+# tauri CLI 会把 gen_upgrade_baseline 当成主二进制打进包里,装出来的 LifeLog.exe 启动即退出
+# (表现为 release\LifeLog.exe 与 deps\gen_upgrade_baseline.exe 逐字节相同)。
+default-run = "lifelog"
 
 [lib]
 name = "lifelog_lib"
