@@ -1,3 +1,4 @@
+import { openReadOnly } from './db-compat.mjs';
 // `[[` 补全三个 N 脚本(dev-links-accept-n2/n3/n4.mjs)的共用件:
 // CDP 连接前置、夹具建删、只读库对账、候选读取。只做「发合成事件 / 读值 / 读库」,
 // 每条读数的判定留在各主脚本(与 graph-accept-lib.mjs 同风格)。
@@ -20,7 +21,7 @@ export async function requireApp() {
 
 /** 只读库对账:notes / note_links 计数 + integrity(收尾对比基线用) */
 export function counts() {
-  const db = new DatabaseSync('file:' + DB_PATH, { readOnly: true });
+  const db = openReadOnly(DB_PATH);
   const n = (sql) => db.prepare(sql).get().n;
   try {
     return {
@@ -36,7 +37,7 @@ export function counts() {
 /** 只读库里的笔记 MRU(`ui.mru.notes`):返回 [{id,count}](数组序即最近序),坏数据给 [] */
 export function readMruNotes() {
   try {
-    const db = new DatabaseSync('file:' + DB_PATH, { readOnly: true });
+    const db = openReadOnly(DB_PATH);
     try {
       const row = db.prepare('SELECT value FROM settings WHERE key=?').get('ui.mru.notes');
       const parsed = row ? JSON.parse(row.value) : null;

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { openReadOnly } from './db-compat.mjs';
 /**
  * T6 端到端验收运行器(设计 2026-10-06 §8.5 判据 1-9 的现场复核)。
  *   LIFELOG_CDP_PORT=9333 node scripts/accept-sort-group.mjs
@@ -6,7 +7,6 @@
  * 真库只读(只写 filter_current,收尾还原);所有读数现场重算,不硬编码条数。
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { DatabaseSync } from 'node:sqlite';
 import { ensureMain, sleep, waitFor } from './cdp-lib.mjs';
 import { bindMain, recorder } from './cdp-report.mjs';
 import { C, allPages, axisKey, ids, isSorted, makeOrd, sameIds, tagItem, tagSort, timeSort } from './accept-sort-group-lib.mjs';
@@ -21,7 +21,7 @@ const AND_C = '状态';
 const EXPR = `(#${OR_A} OR #${OR_B}) AND #${AND_C}`;
 
 function dbBase() {
-  const db = new DatabaseSync('file:' + DB, { readOnly: true });
+  const db = openReadOnly(DB);
   const one = (q) => db.prepare(q).get();
   try {
     return {

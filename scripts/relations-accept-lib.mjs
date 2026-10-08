@@ -10,7 +10,7 @@ import { setSearch } from './graph-accept-g3-lib.mjs';
 export * from './carry-accept-lib.mjs';
 export { setSearch } from './graph-accept-g3-lib.mjs';
 
-/** 确认应用跑在 dev 构建上(命令行含 0-cargo-target);打印实际命令行,不打一处含糊。 */
+/** 确认被测应用在跑(dev 构建命令行含 0-cargo-target,装机版含 1-LifeLog);打印实际命令行,不保守含糊。 */
 export function assertDevBuild() {
   const ps = "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'app-lifelog|LifeLog' } | ForEach-Object { $_.CommandLine }";
   let lines = [];
@@ -19,7 +19,7 @@ export function assertDevBuild() {
       .split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
   } catch { /* 取不到就当没确认 */ }
   console.log('INFO 进程命令行: ' + fmt(lines));
-  return lines.some((l) => l.includes('0-cargo-target'));
+  return lines.some((l) => l.includes('0-cargo-target') || l.includes('1-LifeLog'));
 }
 
 // --- 关系条件(新字段 relations/excludeRelations;R10b 旧字段 types 只用于回读探针) ---
@@ -60,12 +60,12 @@ export const writeSetting = (key, value) => write((db) => db.prepare(
   'INSERT INTO settings(key,value) VALUES(?1,?2) ON CONFLICT(key) DO UPDATE SET value=excluded.value'
 ).run(key, value));
 export const deleteSetting = (key) => write((db) => db.prepare('DELETE FROM settings WHERE key=?1').run(key));
-/** 删掉夹具自动合并留下的日志行(表只增不改,收尾要零残留) */
+/** 删掉夹具自动合并留下的日志行(entity_merge_log 只增不改,收尾要零残留;id 已是实体 id) */
 export const deleteMergeLogFor = (ids) => {
   if (ids.length === 0) return 0;
   const marks = ids.map(() => '?').join(',');
   return write((db) => db.prepare(
-    `DELETE FROM tag_merge_log WHERE source_tag_id IN (${marks}) OR target_tag_id IN (${marks})`
+    `DELETE FROM entity_merge_log WHERE source_entity_id IN (${marks}) OR target_entity_id IN (${marks})`
   ).run(...ids, ...ids).changes);
 };
 

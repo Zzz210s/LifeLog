@@ -1,3 +1,4 @@
+import { openReadOnly } from './db-compat.mjs';
 // 「删标签页」批次端到端读数(scripts/dev-no-tabs-accept.mjs)的共用件:
 // 只做「只读库读数 + DOM/受控输入动作 + 探针」,不做断言(判定留在主脚本)。
 // 不碰物理鼠标:键鼠全走 DOM click / React 受控输入 / CDP Input 合成按键。
@@ -15,7 +16,7 @@ export const EMPTY_CONDITIONS = { keyword: null, tags: [], excludeTags: [], tagP
 
 /** 只读库读数:笔记/标签/链接/别名计数 + integrity + user_version(不依赖窗口) */
 export function dbCounts() {
-  const db = new DatabaseSync('file:' + DB_PATH, { readOnly: true });
+  const db = openReadOnly(DB_PATH);
   try {
     const one = (sql) => db.prepare(sql).get();
     return {

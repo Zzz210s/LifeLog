@@ -1,3 +1,4 @@
+import { openReadOnly } from './db-compat.mjs';
 // 冷启动/启动路径验收(scripts/dev-cdp-accept-startup.mjs)的数据安全件:
 // 只读库存快照、基线洁净审计、运行清单、清收(删清单里的笔记 + 还原 filter_current/theme)。
 // 原则:只动脚本自建的数据;任何可疑情况(基线有 AI 残留 / 清单与基线撞车 / 原值失效)
@@ -62,7 +63,7 @@ export function refsOfFilter(raw) {
 
 /** 只读库存快照:笔记数/id|首行、标签路径、filter_current、theme、user_version(全部走 SQLite,不依赖窗口) */
 export function dbInventory() {
-  const db = new DatabaseSync('file:' + DB_PATH, { readOnly: true });
+  const db = openReadOnly(DB_PATH);
   try {
     const notes = db.prepare('SELECT id, content FROM notes ORDER BY id').all();
     const tags = db.prepare('SELECT path FROM tags').all().map((t) => t.path).sort();

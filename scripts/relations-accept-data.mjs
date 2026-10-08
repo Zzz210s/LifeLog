@@ -15,8 +15,8 @@ export async function runReadings1to4(call, cdp, { base, baseRelations, fixIds, 
   const states = targetStates().map((x) => `${x.target_type}:${x.n}`).join(',');
   const onlyNoteTag = targetStates().every((x) => x.target_type === 'note' || x.target_type === 'tag');
   records.push({
-    name: '读数1 迁移 022+023:版本 23 / is_type 列消失 / 目标只有 note+tag / 24 条原边原样 / integrity ok',
-    ok: base.version === 23 && !hasIsTypeColumn() && typeEdgeRows() === 0 && onlyNoteTag
+    name: '读数1 迁移 022+023:版本 27 / is_type 列消失 / 目标只有 note+tag / 24 条原边原样 / integrity ok',
+    ok: base.version === 27 && !hasIsTypeColumn() && typeEdgeRows() === 0 && onlyNoteTag
       && JSON.stringify(relationRows()) === JSON.stringify(baseRelations) && base.integrity === 'ok',
     detail: `version=${base.version} is_type列=${hasIsTypeColumn()} type边=${typeEdgeRows()} 目标=${states} 关系边=${relationRows().length} integrity=${base.integrity}`,
   });

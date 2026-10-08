@@ -6,7 +6,8 @@ import {
   BOX, COMMAND_IDS, FIXTURE_TAG, HINT, RECORD_TEXT, SIDEBAR, STAT, cleanupFixtures, createFixtures,
   driver, finalizeRun,
 } from './unified-accept-lib.mjs';
-import { phaseB } from './unified-accept-phases2.mjs';
+// 第二批读数件 unified-accept-phases2.mjs 从未入库(仓库里不存在),改为按需加载:缺件时跳过第二批,只跑首批。
+const phaseB = await import('./unified-accept-phases2.mjs').then((m) => m.phaseB).catch(() => null);
 
 const r = recorder();
 
@@ -186,7 +187,8 @@ async function main(ctx) {
   r.record('⑩b 收起后 aria', off.expanded === 'false' && off.controls === null && off.activedescendant === null,
     `expanded=${off.expanded} controls=${off.controls} activedescendant=${off.activedescendant}`);
 
-  await phaseB(d, r); // 第二批 5 条:条件栏瘦身 / 排序命令 / 顶栏溢出菜单 / 侧栏筛选标签
+  if (phaseB) await phaseB(d, r); // 第二批 5 条(缺件时跳过):条件栏瘦身 / 排序命令 / 顶栏溢出菜单 / 侧栏筛选标签
+  else r.record("第二批读数件缺失(unified-accept-phases2.mjs 未入库)", false, "该文件从未提交,第二批 5 条读数跳过");
 }
 
 // 夹具清理由 finalizeRun 统一做(正常路径的读数顺序不变,「夹具清理」仍是最后一条):

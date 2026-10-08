@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { openReadOnly } from './db-compat.mjs';
 /**
  * 笔记间链接 L3 的真机读数(设计 2026-10-01-note-links-design.md §6 的读数 2/3,D11)。
  *   2 目标笔记卡片底部出现「被引用 2」(被两条来源引用)-> 点开面板恰好列出两条来源首行
@@ -23,7 +24,7 @@ const SOURCE1 = `${S1}\n[[${TARGET}]]`;
 const SOURCE2 = `${S2}\n[[${TARGET}]]`;
 
 const ro = (fn) => {
-  const db = new DatabaseSync('file:' + DB_PATH, { readOnly: true });
+  const db = openReadOnly(DB_PATH);
   try {
     return fn(db);
   } finally {
@@ -166,7 +167,7 @@ try {
   const diff = ['notes', 'tags', 'tagLinks', 'fts', 'noteLinks'].filter((k) => after[k] !== base[k]);
   record(
     '收尾 夹具删净 + 库对账(逐项回到基线 + integrity + user_version)',
-    gone === true && diff.length === 0 && after.integrity === 'ok' && after.version === 19,
+    gone === true && diff.length === 0 && after.integrity === 'ok' && after.version === 27,
     `残留夹具=${fmt(fixtureIds())} 不一致=${fmt(diff.map((k) => `${k} ${base[k]}->${after[k]}`))} 基线=${fmt(base)} 收尾=${fmt(after)}`
   );
 }

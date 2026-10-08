@@ -21,9 +21,9 @@ import { join } from 'node:path';
 import { rmSync } from 'node:fs';
 import { ensureMain, recorder } from './cdp-lib.mjs';
 import {
-  addCarryViaPanel, appNoteTags, carryRowsFrom, carryRowsTo, cascadeDeleteProbe, clearChips, clickTagPath, condIds,
+  addCarryViaPanel, appNoteTags, carrierPathsOf, carryRowsFrom, carryRowsTo, cascadeDeleteProbe, clearChips, clickTagPath, condIds,
   counts, danglingTagRows, excludeCond, fixtureNoteIds, fixtureTagIds, fmt, ipc, noteIdOf, orphanShellProbe,
-  pressEsc, purgeCarryFixtures, queryCount, requireApp, sleep, summaryCarryMarks, summaryText,
+  pressEsc, purgeCarryFixtures, queryCount, relationOutPaths, requireApp, sleep, summaryCarryMarks, summaryText,
   tagCond, tagCountsViaApp, tagIdOf, timeWithAndWithoutCarry, waitFor, xlsxContentDigest,
 } from './carry-accept-lib.mjs';
 
@@ -63,38 +63,38 @@ try {
   record('夹具就绪', [idA, idAs, idB, idC, idN, tA, tAs, tB, tC].every((x) => x != null),
     `笔记=${fmt({ idA, idAs, idB, idC, idN })} 标签=${fmt({ tA, tAs, tB, tC })} 基线=${fmt(base)}`);
 
-  // --- 8.1 数据:先经界面「携带…」面板添加(甲 携带 乙) ---
-  const panel = await addCarryViaPanel(cdp, A, B);
+  // --- 8.1 数据:先经界面「关系…」面板添加(甲 携带 乙,携带已并入标签关系档) ---
+  const panel = await addCarryViaPanel(cdp, A, B, tB);
   const added = await waitFor(() => (carryRowsFrom(tA) === 1 && carryRowsTo(tB) === 1 ? true : null), 12, 250);
-  record('读数1a 界面「携带…」面板添加 甲→乙:库 tag 行 =1 且方向正确',
+  record('读数1a 界面「关系…」面板添加 甲→乙:库 tag 行 =1 且方向正确',
     panel.menu === true && panel.menuItem === true && panel.paneOpen === true && panel.picked === true && added === true,
     `菜单=${panel.menu}/${panel.menuItem} 面板=${panel.paneOpen} 选候选=${panel.picked} 库行=${carryRowsFrom(tA)}/${carryRowsTo(tB)} 面板读数=${fmt(panel.pane)}`);
 
   // 8.1b/idempotent + 8.1c 双向读数(IPC 路径)
-  await call('set_tag_carry', { carrierId: tA, carriedId: tB });
+  await call('set_tag_relation', { fromTag: tA, toTag: tB, remark: '' });
   const idem = carryRowsFrom(tA);
-  const repA = await call('list_tag_carries', { carrierId: tA });
-  const repB = await call('list_tag_carries', { carrierId: tB });
-  record('读数1b 重复添加不增行 + list_tag_carries 双向一致',
-    idem === 1 && fmt(repA.carried.map((x) => x.path)) === fmt([B]) && fmt(repB.carriersOf.map((x) => x.path)) === fmt([A]),
-    `重复后甲行=${idem}(期望 1) 甲.carried=${fmt(repA.carried.map((x) => x.path))} 乙.carriersOf=${fmt(repB.carriersOf.map((x) => x.path))}`);
+  const outA = await relationOutPaths(call, tA);
+  const carriersB = carrierPathsOf(tB);
+  record('读数1b 重复添加不增行 + 出边/入边双向一致',
+    idem === 1 && fmt(outA) === fmt([B]) && fmt(carriersB) === fmt([A]),
+    `重复后甲行=${idem}(期望 1) 甲出边=${fmt(outA)} 乙携带者=${fmt(carriersB)}`);
 
   // --- 8.2 拒绝:自携带 / 2 环 / 3 环。真实库有既有携带行,故按「拒绝前后不变」相对判定(被拒的两次不动,仅合法那笔 +1) ---
   const carryPre = counts().carryRows;
-  const selfErr = await call('set_tag_carry', { carrierId: tA, carriedId: tA }).then(() => '', (e) => String(e));
-  const cyc2 = await call('set_tag_carry', { carrierId: tB, carriedId: tA }).then(() => '', (e) => String(e));
+  const selfErr = await call('set_tag_relation', { fromTag: tA, toTag: tA, remark: '' }).then(() => '', (e) => String(e));
+  const cyc2 = await call('set_tag_relation', { fromTag: tB, toTag: tA, remark: '' }).then(() => '', (e) => String(e));
   const rows1 = counts().carryRows;
-  await call('set_tag_carry', { carrierId: tB, carriedId: tC });
-  const cyc3 = await call('set_tag_carry', { carrierId: tC, carriedId: tA }).then(() => '', (e) => String(e));
+  await call('set_tag_relation', { fromTag: tB, toTag: tC, remark: '' });
+  const cyc3 = await call('set_tag_relation', { fromTag: tC, toTag: tA, remark: '' }).then(() => '', (e) => String(e));
   const rows2 = counts().carryRows;
   record('读数2 自携带/2 环/3 环都给中文提示且不写库(基线相对:拒绝不动、仅合法一笔 +1)',
-    selfErr.includes('不能携带自己') && cyc2.includes('循环') && cyc3.includes('循环') && rows1 === carryPre && rows2 === carryPre + 1,
+    selfErr.includes('指向自己') && cyc2.includes('循环') && cyc3.includes('循环') && rows1 === carryPre && rows2 === carryPre + 1,
     `拒绝前 carryRows=${carryPre}(含真实库既有 24 行);自携带=「${selfErr}」→${rows1}(须=${carryPre});2环=「${cyc2}」→${rows1}(须=${carryPre});3环=「${cyc3}」→${rows2}(须=${carryPre + 1},仅合法 乙→丙 的一笔)`);
 
   // --- 8.3 筛选:拆两路 —— 先量「无携带」基线的直接命中,再加携带量继承来的 ---
-  await call('remove_tag_carry', { carrierId: tA, carriedId: tB });
+  await call('remove_tag_relation', { fromTag: tA, toTag: tB });
   const hitDirect = await queryCount(cdp, tagCond(B));
-  await call('set_tag_carry', { carrierId: tA, carriedId: tB });
+  await call('set_tag_relation', { fromTag: tA, toTag: tB, remark: '' });
   const hitB = await queryCount(cdp, tagCond(B));
   const hitA = await queryCount(cdp, tagCond(A));
   record('读数3 筛 乙 = 直接挂 1 + 经 甲 携带 2(含 挂 甲/子 的那条);筛 甲 = 2',
@@ -124,7 +124,7 @@ try {
   await sleep(500);
   const marks = await summaryCarryMarks(cdp);
   const stext = await summaryText(cdp);
-  const carriersOfB = (await call('list_tag_carries', { carrierId: tB })).carriersOf.map((x) => x.path);
+  const carriersOfB = carrierPathsOf(tB);
   await clearChips(cdp);
   await clickTagPath(cdp, A);
   await sleep(500);
@@ -168,7 +168,7 @@ try {
     danglingTagRows() === 0 && carryRowsTo(shell.before) === 0, `悬空行=${danglingTagRows()} 指向 丁 的行=${carryRowsTo(shell.before)}`);
 
   // --- 8.1e 删携带者随 CASCADE 消失 ---
-  await call('remove_tag_carry', { carrierId: tB, carriedId: tC });
+  await call('remove_tag_relation', { fromTag: tB, toTag: tC });
   const casc = await cascadeDeleteProbe(call, tC, tB);
   record('读数1e 删除携带者 丙:它的携带行随 CASCADE 消失',
     casc.rowsFromX === 0 && casc.after === casc.before - 1,

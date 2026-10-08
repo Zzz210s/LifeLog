@@ -151,7 +151,7 @@ try {
   const diff = ['notes', 'tags', 'tagLinks', 'fts', 'noteLinks'].filter((k) => after[k] !== base[k]);
   record(
     '收尾 夹具(笔记 + LINK测试 标签)删净 + 库对账(逐项回基线 + integrity + user_version + graph_positions)',
-    gone === true && diff.length === 0 && after.integrity === 'ok' && after.version === 19 && positionsEqual(after.positions, base.positions),
+    gone === true && diff.length === 0 && after.integrity === 'ok' && after.version === 27 && positionsEqual(after.positions, base.positions),
     `残留夹具=${fmt({ notes: fixtureNoteIds(), tags: fixtureTagIds() })} 不一致=${fmt(diff.map((k) => `${k} ${base[k]}->${after[k]}`))} 基线=${fmt(base)} 收尾=${fmt(after)}`,
   );
 }

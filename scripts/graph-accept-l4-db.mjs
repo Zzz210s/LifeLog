@@ -1,3 +1,4 @@
+import { openReadOnly } from './db-compat.mjs';
 // 关系图 L4 真机读数 8 的**只读库件**(自 dev-links-accept-l4.mjs 拆出,守 200 行红线):
 // 计数、夹具清单、以及「该标签(含子孙)的出链 / 入链」的**独立一份**写法。
 // 独立写法的意义:读数 8c 要和实现比,不能用实现那条 SQL 自证 —— 这里走 EXISTS 反查。
@@ -5,7 +6,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { DB_PATH } from './no-tabs-accept-lib.mjs';
 
 const ro = (fn) => {
-  const db = new DatabaseSync('file:' + DB_PATH, { readOnly: true });
+  const db = openReadOnly(DB_PATH);
   try {
     return fn(db);
   } finally {

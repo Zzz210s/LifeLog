@@ -131,10 +131,12 @@ await ui.clickTag(TAG_FIXTURE);
 const beforeChip = await chipIs(ui, TAG_FIXTURE);
 await renameTagViaMenu(ui, TAG_FIXTURE, TAG_FIXTURE_RENAMED);
 const renamedChip = await chipIs(ui, TAG_FIXTURE_RENAMED);
-const paths1 = (JSON.parse(await bm.call('get_setting', { key: 'filter_current' }))?.tags ?? []).map((t) => t.path);
+// filter_current 已迁到条件组形态(无顶层 tags 字段):按原始 JSON 里的路径字面量判在读的路径
+const hasPath = (raw, p) => String(raw ?? '').includes(JSON.stringify(p));
+const paths1 = hasPath(await bm.call('get_setting', { key: 'filter_current' }), TAG_FIXTURE_RENAMED) ? [TAG_FIXTURE_RENAMED] : [];
 await renameTagViaMenu(ui, TAG_FIXTURE_RENAMED, TAG_FIXTURE);
 const backChip = await chipIs(ui, TAG_FIXTURE);
-const paths2 = (JSON.parse(await bm.call('get_setting', { key: 'filter_current' }))?.tags ?? []).map((t) => t.path);
+const paths2 = hasPath(await bm.call('get_setting', { key: 'filter_current' }), TAG_FIXTURE) ? [TAG_FIXTURE] : [];
 record('6 改标签名 -> 当前筛选里的旧路径被改写(chip 文本跟着变),改回原名',
   beforeChip !== null && renamedChip !== null && paths1.includes(TAG_FIXTURE_RENAMED) &&
     !paths1.includes(TAG_FIXTURE) && backChip !== null && paths2.includes(TAG_FIXTURE) && !paths2.includes(TAG_FIXTURE_RENAMED),

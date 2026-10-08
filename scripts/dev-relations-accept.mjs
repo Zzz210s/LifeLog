@@ -61,9 +61,9 @@ try {
   const tA = tagIdOf(FIX.A), tB = tagIdOf(FIX.B_RAW), tD = tagIdOf(FIX.D);
   nA = noteIdOf(`${NS}甲笔记`);
   fixIds = fixtureTagIds();
-  record('夹具就绪(dev 构建已确认;目标标签名带 md 备注,属性名在边上)',
+  record('夹具就绪(dev/装机构建已确认;目标标签名带 md 备注,属性名在边上)',
     dev && tA != null && tB != null && nA != null,
-    `dev=${dev} 标签=${fmt({ tA, tB, tD })} 笔记=${fmt({ nA })} 属性名=${FIX.REMARK}`);
+    `构建已确认=${dev} 标签=${fmt({ tA, tB, tD })} 笔记=${fmt({ nA })} 属性名=${FIX.REMARK}`);
 
   // --- 1-4 数据层:迁移 022/023 / 关系增删与环拒绝 / 筛选 / 自动合并 ---
   const data = await runReadings1to4(call, cdp, { base, baseRelations, fixIds, nA });

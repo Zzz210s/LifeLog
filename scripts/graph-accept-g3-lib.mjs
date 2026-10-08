@@ -1,3 +1,4 @@
+import { openReadOnly } from './db-compat.mjs';
 // 关系图 G3 真机读数(scripts/graph-accept-g3.mjs)的页面侧探针:
 // 装机计数器(每帧绘制与帧时刻)、过滤器面板与工具栏驱动、图内搜索、合成指针事件。
 // 只做与页面的往返,判定全部留在 graph-accept-g3*.mjs;不碰物理鼠标。
@@ -73,7 +74,7 @@ export const lastFrame = (cdp) => cdp.eval('window.__g3.cur ?? window.__g3.last 
 
 /** 改名会自动登记旧名(旧完整路径 + 旧叶子名),别名表全量快照(公里只读)给读数 7 做"测后复原" */
 export function aliasDump() {
-  const db = new DatabaseSync('file:' + DB_PATH, { readOnly: true });
+  const db = openReadOnly(DB_PATH);
   try {
     return db.prepare('SELECT alias, tag_id FROM tag_aliases ORDER BY alias').all().map((r) => `${r.alias}|${r.tag_id}`);
   } finally {

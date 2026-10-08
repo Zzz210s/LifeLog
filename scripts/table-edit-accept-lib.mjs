@@ -1,3 +1,4 @@
+import { openReadOnly } from './db-compat.mjs';
 // 表格单元格编辑真机验收的共用件:CDP DOM 动作 + 只读库对账(判定留在主脚本)。
 // 夹具一律 `TABLE编辑测试` 前缀,自建自删;不碰物理鼠标,全用合成事件。
 import { DatabaseSync } from 'node:sqlite';
@@ -18,7 +19,7 @@ export async function requireApp() {
 }
 
 const ro = (fn) => {
-  const db = new DatabaseSync('file:' + DB_PATH, { readOnly: true });
+  const db = openReadOnly(DB_PATH);
   try { return fn(db); } finally { db.close(); }
 };
 

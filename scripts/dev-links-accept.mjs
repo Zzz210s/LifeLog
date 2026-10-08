@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { openReadOnly } from './db-compat.mjs';
 /**
  * 笔记间链接 L1 的真机读数(计划 2026-10-01-note-links-l1.md 的 Task 4)。
  *   1 用统一输入框写一条含 `[[<目标首行>]]` 的笔记 -> note_links 恰 1 行、target_id 指向目标、raw_title 原样
@@ -27,7 +28,7 @@ const TAG_SHAPED = `${NS} 标签形 [[#工作/]]`;
 
 /** 只读开一次:不吃旧连接里的 WAL 快照(应用在跑,写提交后立刻能读到) */
 const ro = (fn) => {
-  const db = new DatabaseSync('file:' + DB_PATH, { readOnly: true });
+  const db = openReadOnly(DB_PATH);
   try {
     return fn(db);
   } finally {
@@ -112,9 +113,9 @@ try {
   // --- 读数 1:保存时同事务解析链接 ---
   const rows1 = linkRows(sourceId);
   record(
-    '读数1 保存即建链(note_links 恰 1 行 / target_id 正确 / raw_title 原样)',
-    rows1.length === 1 && rows1[0].target_id === targetId && rows1[0].raw_title === TARGET,
-    `行数=${rows1.length}(期望 1) target_id=${fmt(rows1[0]?.target_id)}(期望 ${targetId}) raw_title=${fmt(rows1[0]?.raw_title)}`
+    '读数1 保存即建链(edges kind=link 恰 1 行 / target_id 正确;D2 未解析不落边故无 raw_title)',
+    rows1.length === 1 && rows1[0].target_id === targetId,
+    `行数=${rows1.length}(期望 1) target_id=${fmt(rows1[0]?.target_id)}(期望 ${targetId})`
   );
 
   // --- 读数 5:围栏代码块里不算 ---
@@ -132,21 +133,21 @@ try {
   const rows6 = linkRows(sourceId);
   record(
     '读数6 改目标首行 -> 链接仍在(target_id 不变)',
-    rows6.length === 1 && rows6[0].target_id === targetId && rows6[0].raw_title === TARGET,
-    `行数=${rows6.length} target_id=${fmt(rows6[0]?.target_id)}(期望 ${targetId}) raw_title=${fmt(rows6[0]?.raw_title)} 目标当前正文=${fmt(rows6[0]?.target_body)}`
+    rows6.length === 1 && rows6[0].target_id === targetId,
+    `行数=${rows6.length} target_id=${fmt(rows6[0]?.target_id)}(期望 ${targetId}) 目标当前正文=${fmt(rows6[0]?.target_body)}`
   );
 
-  // --- 读数 7:删目标 -> 退回未解析 ---
+  // --- 读数 7:删目标 -> 边随 FK 级联消失(未解析不落边,读时按正文重解析) ---
   await call('delete_note', { id: targetId });
   const rows7 =
     (await waitFor(async () => {
       const rs = linkRows(sourceId);
-      return rs.length === 1 && rs[0].target_id === null ? rs : null;
+      return rs.length === 0 ? rs : null;
     }, 12, 250)) ?? linkRows(sourceId);
   record(
-    '读数7 删目标 -> target_id 变 NULL(靠 ON DELETE SET NULL)',
-    rows7.length === 1 && rows7[0].target_id === null && rows7[0].raw_title === TARGET,
-    `行数=${rows7.length} target_id=${fmt(rows7[0]?.target_id)} raw_title=${fmt(rows7[0]?.raw_title)}`
+    '读数7 删目标 -> link 边随 ON DELETE CASCADE 消失(退回未解析,不再留 NULL 行)',
+    rows7.length === 0,
+    `行数=${rows7.length}(期望 0)`
   );
 } catch (e) {
   failure = e;
@@ -158,7 +159,7 @@ try {
   const diff = ['notes', 'tags', 'tagLinks', 'fts', 'noteLinks'].filter((k) => after[k] !== base[k]);
   record(
     '收尾 夹具删净 + 库对账(逐项回到基线 + integrity + user_version)',
-    gone === true && diff.length === 0 && after.integrity === 'ok' && after.version === 19,
+    gone === true && diff.length === 0 && after.integrity === 'ok' && after.version === 27,
     `残留夹具=${fmt(fixtureIds())} 不一致=${fmt(diff.map((k) => `${k} ${base[k]}->${after[k]}`))} 基线=${fmt(base)} 收尾=${fmt(after)}`
   );
 }
