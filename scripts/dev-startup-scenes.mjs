@@ -2,7 +2,7 @@
 // 首帧插桩 + 既有功能回归。拆成独立文件只为满足「代码文件 <= 200 行」的仓库规则。
 // 口径:窗口可见性一律用 user32 IsWindowVisible(CDP 的 visibilityState 对已隐藏窗口仍报 visible)。
 // 计数口径:信息流一页 50 条(与后端 PAGE 一致),界面条数按 min(50, 命中数) 断言。
-import { sleep, waitFor } from './cdp-lib.mjs';
+import { BACK_TO_STREAM, ON_SETTINGS, sleep, waitFor } from './cdp-lib.mjs';
 import { bindDom } from './cdp-dom.mjs';
 import { os } from './cdp-os.mjs';
 import { EMPTY_FILTER, TEST_NOTE } from './dev-startup-clean.mjs';
@@ -14,9 +14,8 @@ const firstPage = (n) => Math.min(PAGE, n);
 export { os };
 
 export const KEY = 'lifelog.theme';
-/** 设置页判定:只有设置态顶栏才有「返回信息流」按钮 */
-export const ON_SETTINGS =
-  `Array.from(document.querySelectorAll('button')).some((b) => b.textContent.trim() === '返回信息流')`;
+/** 设置页判定(真源在 cdp-lib):旧「返回信息流」文字按钮已随视图导航组删除 */
+export { ON_SETTINGS };
 /** 首帧 class 时间线:文档开始(start)/ 头内联脚本(mut + loading)/ DCL / load。
  *  观察 document(而非 documentElement:文档开始阶段 documentElement 还是 null,直接 observe 会抛), 
  *  readyState=loading 期间的 class 变化只可能来自头内联脚本(app 读库是异步的,晚于解析)。 */
@@ -42,12 +41,8 @@ export const mirrorCls = (r) => {
 // 原生窗口/托盘取证件已抽到 scripts/cdp-os.mjs(cdp-lib 的 ensureMain 复用同一份);这里转出保持既有调用点不变
 
 
-/** 设置页 -> 信息流(顶栏返回按钮) */
-export const clickBack = (cdp) => cdp.eval(`(() => {
-  const b = Array.from(document.querySelectorAll('button')).find((x) => x.textContent.trim() === '返回信息流');
-  if (b) { b.click(); return true; }
-  return false;
-})()`);
+/** 设置页 -> 信息流(视图导航组的「信息流」;旧「返回信息流」文字按钮已删) */
+export const clickBack = (cdp) => cdp.eval(BACK_TO_STREAM);
 
 /**
  * 关键词筛选:入口已随统一输入框 1/3 从侧栏搬进统一输入框的 `/` 模式(侧栏关键词框已删)。
@@ -70,7 +65,13 @@ export async function runThemeScenes({ mp, ipa, call, record, j, themeBefore }) 
   const mirror = (cdp) => cdp.eval(`localStorage.getItem(${j(KEY)})`);
   await mp.cdp.eval(`(() => { const b = document.querySelector('button[aria-label="设置"]'); if (b) b.click(); return true; })()`);
   await sleep(300);
-  await mp.cdp.eval(`(() => { const r = document.querySelector('input[name="theme"][value="dark"]'); if (r) r.click(); return true; })()`);
+  // 主题三态在 2026-10-04 设置改版后是分段按钮(role=group + aria-pressed),不再是 name=theme 的 radio
+  await mp.cdp.eval(`(() => {
+    const g = document.querySelector('[role="group"][aria-label="主题"]');
+    const b = g && Array.from(g.querySelectorAll('button')).find((x) => x.textContent.trim() === '暗色');
+    if (b) { b.click(); return true; }
+    return false;
+  })()`);
   const toDark = await waitFor(async () => ((await call('get_setting', { key: 'theme' })) === 'dark' ? true : null), 16, 250);
   const mirrors = await waitFor(async () => {
     const m = { main: await mirror(mp.cdp), input: await mirror(ipa.cdp) };

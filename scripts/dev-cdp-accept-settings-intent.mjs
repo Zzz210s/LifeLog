@@ -13,24 +13,19 @@
  *   node scripts/dev-cdp-accept-settings-intent.mjs
  * 只读用例:切视图不写库(库存靠前后对照证明)。
  */
-import { open, pages, recorder, sleep, waitFor } from './cdp-lib.mjs';
+import { BACK_TO_STREAM, ON_SETTINGS, open, pages, recorder, sleep, waitFor } from './cdp-lib.mjs';
 import { os } from './cdp-os.mjs';
 
 const r = recorder();
 const pid = os.pidOf();
 const j = JSON.stringify;
 const isMain = (p) => !p.url.includes('input.html') && (p.url.includes('5173') || p.url.includes('tauri.localhost'));
-/** 设置页判定:只有设置态顶栏才有「返回信息流」按钮 */
-const ON_SETTINGS = `Array.from(document.querySelectorAll('button')).some((b) => b.textContent.trim() === '返回信息流')`;
-const clickBack = (cdp) => cdp.eval(`(() => {
-  const b = Array.from(document.querySelectorAll('button')).find((x) => x.textContent.trim() === '返回信息流');
-  if (b) { b.click(); return true; }
-  return false;
-})()`);
+/** 设置页判定与「回信息流」手势共用 cdp-lib 的真源(旧「返回信息流」文字按钮已随视图导航组删除) */
+const clickBack = (cdp) => cdp.eval(BACK_TO_STREAM);
 const onSettings = (cdp) => cdp.eval(ON_SETTINGS).catch(() => false);
 /** 信息流外壳(齿轮)是否已挂载:用于区分「落在信息流」与「页面根本没挂载」 */
 const probe = (cdp) => cdp.eval(`(() => ({
-  settings: Array.from(document.querySelectorAll('button')).some((b) => b.textContent.trim() === '返回信息流'),
+  settings: ${ON_SETTINGS},
   gear: !!document.querySelector('button[aria-label="设置"]'),
   ready: document.readyState,
 }))()`).catch(() => null);
@@ -80,23 +75,27 @@ const stillStream = (await onSettings(conn.cdp)) === false;
 r.record('S7 随后普通「打开主窗口」:仍在信息流(pending 未被残留到下一次打开)', stillStream,
   j({ settings: await onSettings(conn.cdp) }));
 
-// S8 确定性区分用例:用网络节流把 reload 拖慢,使「窗口已存在但页面必然还没订阅」成为事实
-// (托盘点「设置」约 1.5s,而节流后的页面要 4s+ 才拿到模块)-> 事件必丢,只能靠 pending 兜底。
+// S8 确定性区分用例:让「窗口已存在但页面没有任何订阅者」成为事实,再点托盘「设置」。
+// 旧写法用网络节流拖慢 reload,但导航提交前旧页仍存活且已订阅 —— 事件被旧页消费、pending 被清空,
+// 新页反而落回信息流(用例失效,2026-10-08 排查)。改为先导航到 about:blank(旧页销毁、无订阅者),
+// 此时点「设置」事件必丢,只能靠 pending 兜底;再导航回应用页,新页 mount 时取用 pending。
 // 旧实现(已存在窗口只 emit)在本用例下会落回信息流;新实现应停在设置页。
 await conn.cdp.send('Page.enable');
-await conn.cdp.send('Network.enable');
-const throttle = (latency) => conn.cdp.send('Network.emulateNetworkConditions', {
-  offline: false, latency, downloadThroughput: -1, uploadThroughput: -1,
-});
-await throttle(4000);
-await conn.cdp.send('Page.reload', {});
-await sleep(150);
+await conn.cdp.send('Page.navigate', { url: 'about:blank' });
+await waitFor(async () => {
+  try {
+    return (await conn.cdp.eval('document.readyState')) === 'complete' ? true : null;
+  } catch {
+    return null;
+  }
+}, 20, 200);
 const duringLoad = await onSettings(conn.cdp);
 os.pickTray(pid, 3);
-await throttle(0);
+await sleep(400); // 等托盘选择真正执行完(置 pending + emit)再导航回应用页
+await conn.cdp.send('Page.navigate', { url: 'http://tauri.localhost/' });
 const slowSettings = await waitFor(async () => ((await onSettings(conn.cdp)) ? true : null), 80, 250);
 const slowState = await probe(conn.cdp);
-r.record('S8 reload 期间(节流 4s,必然未订阅)点「设置」:事件被丢后仍由 pending 兜底停在设置页',
+r.record('S8 页面无订阅者时点「设置」(about:blank 兜底通道):导航回应用页后仍停在设置页',
   duringLoad === false && slowSettings === true, j({ duringLoad, slowSettings, state: slowState }));
 
 r.finish();

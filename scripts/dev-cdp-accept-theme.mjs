@@ -6,7 +6,7 @@
  *                 结束时把主题留在「暗色」,供重启后验证持久化。
  *   phase2:重启 dev 后跑,验证主题重启保持;最后还原为「跟随系统」(与验收前一致)。
  * 读数口径:--color-app / --color-text 两个 CSS 变量的计算值 + 根节点 dark 类
- * (亮色 app=#ffffff;暗色 app=#1e1e1e),不靠肉眼看截图。
+ * (亮色 app=#f6f6f7 = --color-canvas;暗色 app=#1e1e1e),不靠肉眼看截图。
  */
 import { ensureMain, open, recorder, sleep } from './cdp-lib.mjs';
 
@@ -28,11 +28,13 @@ const PROBE = `(() => {
 })()`;
 const probe = (cdp) => cdp.eval(PROBE);
 const themeSetting = () => main.eval(`(async () => await window.__TAURI_INTERNALS__.invoke('get_setting', { key: 'theme' }))()`);
-const radioSel = (mode) => `input[name="theme"][value="${mode}"]`;
+/** 主题三态在 2026-10-04 设置改版后是分段按钮(role=group + aria-pressed),不再是 name=theme 的 radio */
+const THEME_LABELS = { system: '跟随系统', light: '亮色', dark: '暗色' };
 const pick = (mode) => main.eval(`(() => {
-  const r = document.querySelector(${JSON.stringify(radioSel(mode))});
-  if (!r) return false;
-  r.click();
+  const g = document.querySelector('[role="group"][aria-label="主题"]');
+  const b = g && Array.from(g.querySelectorAll('button')).find((x) => x.textContent.trim() === ${JSON.stringify(THEME_LABELS[mode])});
+  if (!b) return false;
+  b.click();
   return true;
 })()`);
 const openSettings = () => main.eval(`(() => {
@@ -43,7 +45,7 @@ const openSettings = () => main.eval(`(() => {
 const emulate = (cdp, value) =>
   cdp.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value }] });
 
-const LIGHT = { app: '#ffffff' };
+const LIGHT = { app: '#f6f6f7' }; // = --color-canvas(2026-10-04 令牌重构后亮色画布不是纯白)
 const DARK = { app: '#1e1e1e' };
 
 if (PHASE === 1) {
@@ -51,15 +53,17 @@ if (PHASE === 1) {
   await openSettings();
   await sleep(400);
   const ui = await main.eval(`(() => {
-    const group = document.querySelector('[role="radiogroup"][aria-label="主题"]');
-    const radios = group ? Array.from(group.querySelectorAll('input[name="theme"]')).map((r) => r.value + ':' + (r.checked ? 'selected' : '')) : null;
+    const group = document.querySelector('[role="group"][aria-label="主题"]');
+    const segs = group ? Array.from(group.querySelectorAll('button')).map((b) => b.textContent.trim() + ':' + (b.getAttribute('aria-pressed') === 'true' ? 'selected' : '')) : null;
     const sections = Array.from(document.querySelectorAll('section h2')).map((h) => h.textContent.trim());
-    return { radios, sections };
+    return { segs, sections };
   })()`);
   record(
-    '1 设置页外观分区三态单选(跟随系统/亮色/暗色)',
-    JSON.stringify(ui.radios) === JSON.stringify(['system:selected', 'light:', 'dark:']),
-    JSON.stringify(ui.radios) + ' 分区=' + JSON.stringify(ui.sections)
+    '1 设置页外观分区三态分段控件(跟随系统/亮色/暗色,恰一个选中)',
+    Array.isArray(ui.segs) &&
+      JSON.stringify(ui.segs.map((s) => s.replace(/:.*/, ''))) === JSON.stringify(['跟随系统', '亮色', '暗色']) &&
+      ui.segs.filter((s) => s.endsWith(':selected')).length === 1,
+    JSON.stringify(ui.segs) + ' 分区=' + JSON.stringify(ui.sections)
   );
 
   // 2 切暗色:即时生效 + 输入栏跟随

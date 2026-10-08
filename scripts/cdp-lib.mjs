@@ -62,11 +62,24 @@ export class Cdp {
   }
 }
 
-/** 主窗外壳已挂载的判定:齿轮(信息流态)或 返回信息流(设置态)任一存在,即可安全点交互 */
+/**
+ * 设置页判定(2026-10-04 设置改版 + 2026-10-07 顶栏收成视图导航组后,
+ * 旧的「返回信息流」文字按钮已删)。设置页唯一标志 = 分区导航 tablist;
+ * 返回信息流 = 点视图导航组(`data-testid="view-nav"`)里的「信息流」。
+ */
+export const ON_SETTINGS = `!!document.querySelector('[role="tablist"][aria-label="设置分区"]')`;
+export const BACK_TO_STREAM = `(() => {
+  const b = Array.from(document.querySelectorAll('[data-testid="view-nav"] button'))
+    .find((x) => x.getAttribute('aria-label') === '信息流');
+  if (b) { b.click(); return true; }
+  return false;
+})()`;
+
+/** 主窗外壳已挂载的判定:齿轮(信息流态)或 设置分区导航(设置态)任一存在,即可安全点交互 */
 const SHELL_READY = `(() => {
   const gear = document.querySelector('button[aria-label="设置"]');
-  const back = Array.from(document.querySelectorAll('button')).some((b) => b.textContent.trim() === '返回信息流');
-  return !!(gear || back);
+  const settings = !!document.querySelector('[role="tablist"][aria-label="设置分区"]');
+  return !!(gear || settings);
 })()`;
 
 /**
@@ -116,7 +129,7 @@ export async function ensureMain(opts = {}) {
     if (!conn) throw new Error('托盘「打开主窗口」后仍未出现 main 页面:检查 dev 是否在 9222 上运行、托盘菜单第 2 项是否仍为「打开主窗口」');
   }
   const shell = await waitFor(() => conn.cdp.eval(SHELL_READY).catch(() => false), opts.readyTries ?? 40, opts.readyGap ?? 250);
-  if (!shell) console.log('WARN 主窗外壳标志(设置齿轮/返回信息流)未在超时内出现,后续交互可能落空');
+  if (!shell) console.log('WARN 主窗外壳标志(设置齿轮/设置分区导航)未在超时内出现,后续交互可能落空');
   return conn;
 }
 
