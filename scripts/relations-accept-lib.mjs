@@ -128,9 +128,18 @@ export const bubbleFactsOf = (cdp) =>
 export const menuItemsOf = (cdp) =>
   cdp.eval(`(() => { const m = document.querySelector('[data-tag-menu]');
     return m ? Array.from(m.querySelectorAll('button')).map((b) => b.textContent.trim()).filter(Boolean) : null; })()`);
-/** 设置页「标签树里显示关系」开关的 aria-checked */
+/**
+ * 设置页「标签树里显示关系」开关的 aria-checked。
+ * 2026-10-08:侧栏标签分区头部也挂了同名 `aria-label` 的图标按钮(用 `aria-pressed`),
+ * 且它在 DOM 里更靠前 —— `querySelector('button[aria-label=…]')` 会先命中它,`aria-checked` 永远 null。
+ * 设置页那颗是 `role="switch"`(`controls.tsx` 的 Toggle),按 role 定位。
+ */
 export const relToggleState = (cdp) =>
-  cdp.eval(`document.querySelector('button[aria-label="标签树里显示关系"]')?.getAttribute('aria-checked') ?? null`);
+  cdp.eval(`document.querySelector('[role="switch"][aria-label="标签树里显示关系"]')?.getAttribute('aria-checked') ?? null`);
+/** 点设置页那颗开关(同上,避开侧栏同名按钮) */
+export const clickRelationToggle = (cdp) =>
+  cdp.eval(`(() => { const b = document.querySelector('[role="switch"][aria-label="标签树里显示关系"]');
+    if (!b) return false; b.click(); return true; })()`);
 export const clickByLabelIn = (cdp, label) =>
   cdp.eval(`(() => { const b = document.querySelector('button[aria-label=' + JSON.stringify(${JSON.stringify(label)}) + ']');
     if (!b) return false; b.click(); return true; })()`);

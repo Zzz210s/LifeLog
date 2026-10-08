@@ -6,7 +6,7 @@ import {
   NS, FIX, fmt, sleep, waitFor, openTagMenu, pressEsc, xlsxContentDigest, tagIdOf,
   danglingTagRows, tagStructRows, ftsTagsOf, appNoteTags, writeSetting, deleteSetting,
   relationChipsOf, rowTipOf, rowFactsOf, hoverInside, bubbleFactsOf,
-  menuItemsOf, relToggleState, clickByLabelIn, openSettings, pickRelationSection, backToStream,
+  menuItemsOf, relToggleState, clickByLabelIn, clickRelationToggle, openSettings, pickRelationSection, backToStream,
   relationDegreesText, installRelationProbe, relationFrame, zoomBy, setSearch, pickSearchItem,
 } from './relations-accept-lib.mjs';
 import { armGraph, closeGraph } from './graph-accept-lib.mjs';
@@ -31,17 +31,17 @@ export async function runReadings5to8(cdp, ui, { call, record, nA, structAt8, E1
   await openSettings(cdp);
   await pickRelationSection(cdp);
   const initial = await waitFor(() => relToggleState(cdp), 20, 200);
-  if (initial !== 'true') await clickByLabelIn(cdp, '标签树里显示关系'); // 归一化到开:上一轮留下的状态不影响读数
-  const on = await waitFor(() => cdp.eval(`document.querySelector('button[aria-label="标签树里显示关系"]')?.getAttribute('aria-checked') === 'true'`), 10, 200);
-  await clickByLabelIn(cdp, '标签树里显示关系'); // 判别力:关掉后侧栏小字应当消失
-  const offNow = await waitFor(() => cdp.eval(`document.querySelector('button[aria-label="标签树里显示关系"]')?.getAttribute('aria-checked') === 'false'`), 10, 200);
+  if (initial !== 'true') await clickRelationToggle(cdp); // 归一化到开:上一轮留下的状态不影响读数
+  const on = await waitFor(() => relToggleState(cdp) === 'true', 10, 200);
+  await clickRelationToggle(cdp); // 判别力:关掉后侧栏小字应当消失
+  const offNow = await waitFor(() => relToggleState(cdp) === 'false', 10, 200);
   await backToStream(cdp);
   await sleep(400);
   const chipsOff = await relationChipsOf(cdp, FIX.A);
   await openSettings(cdp);
   await pickRelationSection(cdp);
-  await clickByLabelIn(cdp, '标签树里显示关系'); // 再打开,后续读数都在「开」态
-  const onAgain = await waitFor(() => cdp.eval(`document.querySelector('button[aria-label="标签树里显示关系"]')?.getAttribute('aria-checked') === 'true'`), 10, 200);
+  await clickRelationToggle(cdp); // 再打开,后续读数都在「开」态
+  const onAgain = await waitFor(() => relToggleState(cdp) === 'true', 10, 200);
   await backToStream(cdp);
   await sleep(500);
   const chips = await relationChipsOf(cdp, FIX.A);

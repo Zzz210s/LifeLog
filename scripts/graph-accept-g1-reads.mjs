@@ -3,9 +3,14 @@
  * 关系图 G1 的两项页面侧读数(计划 2026-09-28-graph-g1.md 的 Task 6),由
  * scripts/dev-graph-accept.mjs 在图内调用(读数 6 之后、5 之前),不单独跑。
  *
- *   2 数据加载:graph_data 耗时 ≤80ms 且载荷 ≤150KB
- *     —— 阈值 40->60->80ms(2026-09-30 终审修复轮):本机同进程 8 次采样 43.5-55.9ms(中位 51.7),
+ *   2 数据加载:graph_data 耗时 ≤80ms 且载荷 ≤200KB
+ *     —— 耗时阈值 40->60->80ms(2026-09-30 终审修复轮):本机同进程 8 次采样 43.5-55.9ms(中位 51.7),
  *        60ms 余量只剩 8ms 且已出现过 62ms 红;80ms 留出抖动空间,同时把"明显退化"仍挡在外面
+ *     —— 载荷阈值 150->200KB(2026-10-08,统一实体迁移后复测):150KB 是 2026-10-01 按
+ *        「768 节点 / 1518 边 = 121KB」定的(余量 24%)。迁移给标签 id 加偏移 1e9(TAG_ID_OFFSET),
+ *        每个标签 id 从 3 位数变 10 位数;同一张图(nodes/edges 反而略少:749/1453)序列化出
+ *        167KB,其中约 32KB 纯是 id 多出来的位(id 减回 1e9 后同一份数据实测 ~135KB),不是图变大。
+ *        200KB 对实测 167KB 留约 20% 余量,与旧阈值同一量级。
  *   4 静止 3 秒:画布绘制 0 次且内容签名(着墨数/指纹)不变
  *
  * 读数 4 为什么要数「外部输入」:物理指针停在画布上时,鼠标的每一丝抖动都会换悬停节点、换来一帧
@@ -63,8 +68,8 @@ export async function readGraphData({ cdp, record }) {
     return { ms: Math.round(performance.now() - t), kb: Math.round(bytes / 1024), nodes: d.nodes.length, edges: d.edges.length };
   })()`);
   record(
-    '2 graph_data ≤80ms 且载荷 ≤150KB',
-    load.ms <= 80 && load.kb <= 150,
+    '2 graph_data ≤80ms 且载荷 ≤200KB',
+    load.ms <= 80 && load.kb <= 200,
     `${load.ms}ms / ${load.kb}KB(${load.nodes} 节点 / ${load.edges} 边)`,
   );
 }

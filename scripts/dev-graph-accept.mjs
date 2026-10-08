@@ -7,7 +7,7 @@
  * 读数 2 与 4 的测量与判定在 scripts/graph-accept-g1-reads.mjs(两个页面侧读数单独成文件,兼守 200 行红线)。
  *
  *   1 首帧可见 ≤150ms(命令执行 -> 首个有内容的画布绘制;另报 DOM 挂载时刻)
- *   2 graph_data ≤60ms 且 JSON 载荷 ≤150KB,并报节点/边数
+ *   2 graph_data ≤80ms 且 JSON 载荷 ≤200KB,并报节点/边数
  *   3 径向布局耗时 ≤10ms(开发构建下 import 源码模块对纯函数计时;生产构建无源码路径时只打 INFO)
  *   4 静止 3 秒:画布绘制调用 0 次 + 内容签名(着墨数/指纹)不变(设计 §3.3「静止不重绘」;
  *     输入驱动的重绘被排掉并重试,最多 3 个窗口)
@@ -120,13 +120,15 @@ const layout = await layoutMs(conn.cdp);
 if (layout === null) console.log('INFO  3 布局耗时:生产构建没有源码模块路径,本次不单独计时');
 else record('3 径向布局耗时 ≤10ms', layout.ms <= 10, `${layout.ms}ms(${layout.nodes} 节点 = 视图真实布局点集;graph_data 原始 ${layout.raw} 条,折叠 ${layout.roots.join('、') || '(无)'} 根后由 visibleGraph 给出;${layout.runs} 次取中位)`);
 
-// 4) 静止 3 秒:绘制调用 0 次且内容签名不变;输入驱动的重绘会被排掉并重试(口径与测量在
-//    graph-accept-g1-reads.mjs:先等画布安静,再数绘制与外部输入)。
-await readIdleWindow({ cdp: conn.cdp, record, onInfo: (m) => console.log(`INFO  4 ${m}`) });
-
 // 5) 缩放/平移/复位的真实效果:200 帧帧间隔 + 着墨质心随相机走
 //    像素签名只当"变没变"用(进视图首次栅格与之后的重绘有亚像素级差异,见 task-6 报告),
 //    "平移了多少、复位回去了没"一律看质心:亚像素偏移动不了它,相机位移会拽着它走。
+//    **必须跑在读数 4 之前**:读数 4 的 drawSignature 会对全画布 getImageData,
+//    Chromium 连续读回后把画布踢出 GPU 快路径 —— 实测同一张图帧间隔中位从 6.1ms 变成 25ms
+//    (而页内 rAF 基线仍 6.1ms,165Hz);那是探针自己制造的慢,不是产品退化。
+//    前台化与 graph-perf-probe.mjs 同口径(不获焦时 rAF 可能被节流)。
+await conn.cdp.send('Page.bringToFront');
+await sleep(400);
 const frames = await wheelFrames(conn.cdp);
 await ev(`window.dispatchEvent(new KeyboardEvent('keydown', { key: '0' }))`); // 先复位:适配视图留白最大,平移裁切对质心的干扰最小
 await sleep(700);
@@ -158,6 +160,12 @@ record(
     `着墨 ${beforePan?.painted} -> ${afterPan?.painted} -> ${home?.painted},列桶差异 ${beforePan?.buckets.filter((v, i) => v !== afterPan?.buckets[i]).length}/16,` +
     `绘制调用 +${afterPan === null ? '?' : afterPan.draws - beforePan.draws}`,
 );
+
+// 4) 静止 3 秒:绘制调用 0 次且内容签名不变;输入驱动的重绘会被排掉并重试(口径与测量在
+//    graph-accept-g1-reads.mjs:先等画布安静,再数绘制与外部输入)。
+//    放在读数 5 之后:它的 getImageData 读回会让画布掉出 GPU 快路径(见读数 5 注释),
+//    读数 5 只需要"画得快不快",读数 4 只需要"画不画",两者的探针要求不冲突。
+await readIdleWindow({ cdp: conn.cdp, record, onInfo: (m) => console.log(`INFO  4 ${m}`) });
 
 // G3 十条读数:过滤器三档 / 时间轴展开 + LOD / 拖节点与位置记忆 / 整理布局 / 数据版本重载 / 进图适配 /
 // 位置记忆修剪 / 只读对账(跑在 G2 之前:G2 收尾会把「筛到信息流」切回信息流,而 G3 全程要在图里)
