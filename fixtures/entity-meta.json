@@ -1,0 +1,53 @@
+{
+  "why": "统一元数据的名字/键口径（spec §2.6）：entity_name(meta) = 第一条非空行裁首尾空白（大小写原样），entity_key(meta) = 首行再走 normalize_title（剥行内 # 词元 + 折叠空白 + ASCII 小写）。SQL 标量函数（src-tauri/src/db/sql_functions.rs）与前端镜像（src/shared/note-link-syntax.ts 的 displayTitle/titleOf）两侧同读这一份：entity_meta_fixtures_tests.rs / entity-meta.test.ts 任一漂移同时变红。",
+  "cases": [
+    {
+      "name": "普通首行",
+      "meta": "今天聚会\n#日记",
+      "expectName": "今天聚会",
+      "expectKey": "今天聚会"
+    },
+    {
+      "name": "跳过前导空行并裁首尾空白",
+      "meta": "\n\n  真正首行  \n正文",
+      "expectName": "真正首行",
+      "expectKey": "真正首行"
+    },
+    {
+      "name": "折叠连续空白与 ASCII 小写（名字保留原样）",
+      "meta": "Hello   World\n第二行",
+      "expectName": "Hello   World",
+      "expectKey": "hello world"
+    },
+    {
+      "name": "名字含斜杠（P0-1 的 10 条笔记形态）",
+      "meta": "Fate/Strange Fake\n正文",
+      "expectName": "Fate/Strange Fake",
+      "expectKey": "fate/strange fake"
+    },
+    {
+      "name": "首行行内 # 词元不参与匹配键但保留在名字里",
+      "meta": "聚会 #日记\n第二行",
+      "expectName": "聚会 #日记",
+      "expectKey": "聚会"
+    },
+    {
+      "name": "首行整行都是标签词元（键退化为空）",
+      "meta": "#安利/软件\n正文",
+      "expectName": "#安利/软件",
+      "expectKey": ""
+    },
+    {
+      "name": "整条空白（无标题）",
+      "meta": "  \n\t\n",
+      "expectName": "",
+      "expectKey": ""
+    },
+    {
+      "name": "无换行单行",
+      "meta": "单行",
+      "expectName": "单行",
+      "expectKey": "单行"
+    }
+  ]
+}

@@ -63,9 +63,12 @@ pub fn latest_version() -> i64 {
 /// 单条迁移的执行边界:SQL 与 user_version 在同一事务内提交,失败整批回滚。
 /// 执行前先挂上连接级标量函数:迁移 018 的回填与其重建的触发器会调用 `tag_plain`,
 /// 而测试夹具常常直接调本函数重放单条迁移(不走 [`run`]),两处都得有。
+/// 事务内、SQL 之前还会跑按版本登记的前置钩子([`migration_hooks::run_pre_hooks`]):
+/// 028 的 `_id_map` 与 settings 改写要跟迁移 SQL 同生共死(失败一起回滚)。
 fn apply(conn: &Connection, sql: &str, version: i64) -> rusqlite::Result<()> {
     super::sql_functions::register(conn)?;
     let tx = conn.unchecked_transaction()?;
+    migration_hooks::run_pre_hooks(&tx, version)?;
     tx.execute_batch(sql)?;
     tx.pragma_update(None, "user_version", version)?;
     tx.commit()

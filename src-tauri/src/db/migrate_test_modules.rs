@@ -107,3 +107,7 @@ mod drop_legacy_migration_tests;
 #[cfg(test)]
 #[path = "entity_ids_hook_tests.rs"]
 mod entity_ids_hook_tests;
+
+#[cfg(test)]
+#[path = "unify_meta_hook_tests.rs"]
+mod unify_meta_hook_tests;
