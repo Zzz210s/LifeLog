@@ -3,7 +3,8 @@
  * 统一输入框 3/3 的定点读数(计划 Task 6 Step 3):三条本轮修复的端到端证据。
  *
  *  ① 200 条候选时按 ↑ 不越界:`aria-activedescendant` 只指向渲染窗口内的行
- *  ③ `#` 下拉开着时点顶栏 `⋯`:下拉被关掉(不同屏叠浮层)
+ *  ③ `#` 下拉开着时点输入区外的浮层入口(条件栏「添加条件」):下拉被关掉(不同屏叠浮层)
+ *     (顶栏 `⋯` 溢出菜单已于 2026-10-07 删除,见 src/main-window/shell/export-notice.dom.test.ts)
  *
  * ② (标签采纳撤排除侧)不在这里做端到端:它的触发路径是"点笔记卡上那个已在排除侧的标签 chip",
  *    而该笔记已被排除条件过滤出信息流、根本不会渲染 —— 由单测 + 变异自证覆盖(见台账 task-2 报告),
@@ -28,7 +29,7 @@ await d.eval(`(() => {
 await waitFor(async () => ((await d.eval(`!!document.querySelector('[data-testid="unified-input"]')`)) ? true : null), 12, 250);
 const BOX = '[data-testid="unified-input"]';
 const LIST = '[data-testid="unified-dropdown"]';
-const MENU_BTN = '#root button[aria-label="更多操作"]'; // 溢出菜单的触发按钮(菜单面板只在打开时渲染)
+const MENU_BTN = '#root button[aria-label="添加条件"]'; // 输入区外的浮层入口(菜单面板只在打开时渲染)
 
 /** 往输入框写入文本(非受控框:走原生 setter + input 事件,与真人输入同路径) */
 async function type(text) {
@@ -59,7 +60,7 @@ const read = () =>
       options: opts.length,
       activeDescendant: el ? el.getAttribute('aria-activedescendant') : null,
       selected: list ? list.querySelectorAll('[aria-selected="true"]').length : 0,
-      menu: !!document.querySelector('[data-testid="topbar-menu"]'),
+      menu: !!document.querySelector('[data-testid="add-condition-menu"]'),
     };
   })()`);
 

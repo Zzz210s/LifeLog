@@ -94,6 +94,10 @@ await (await import('./cdp-lib.mjs')).ensureMain();
 await sleep(600);
 await clickBy('label', '设置');
 await sleep(900);
+// 设置页默认分区是「外观」(SettingsView 的 normalizeSection('appearance')),
+// 「重新观看」在「通用」分区:先切分区再点,否则按钮根本不在 DOM 里
+await clickBy('text', '通用');
+await sleep(500);
 const replay = await clickBy('text', '重新观看');
 await sleep(1400);
 const s5 = await readMain();
@@ -107,6 +111,8 @@ await click('tutorial-skip'); // 退出当前引导
 await sleep(500);
 await clickBy('label', '设置');
 await sleep(900);
+await clickBy('text', '通用');
+await sleep(500);
 await clickBy('text', '重新观看');
 await sleep(1600);
 await click('tutorial-next'); // 第 1 步 -> 第 2 步(前缀提示在场)

@@ -27,6 +27,8 @@ export const os = {
   closeWindow: (pid, title) => JSON.parse(py('scripts/win-probe.py', 'close-window', String(pid), title).stdout || '{}'),
   /** 给该进程第一个 #32770 原生对话框发 WM_CLOSE(取消另存为等系统对话框) */
   closeDialog: (pid) => JSON.parse(py('scripts/win-probe.py', 'close-dialog', String(pid)).stdout || '{}'),
-  /** 点该进程 #32770 原生对话框里文本为「确定/OK」的按钮(如「恢复输入栏分区默认」的二次确认) */
-  clickOk: (pid) => JSON.parse(py('scripts/win-probe.py', 'click-ok', String(pid)).stdout || '{}'),
+  /** 点该进程 #32770 原生对话框里文本为「确定/OK」的按钮(如「恢复输入栏分区默认」的二次确认);
+   *  给 title 时只点标题包含它的那个对话框,避开可能残留的其它原生框 */
+  clickOk: (pid, title) =>
+    JSON.parse(py('scripts/win-probe.py', 'click-ok', String(pid), ...(title ? [title] : [])).stdout || '{}'),
 };

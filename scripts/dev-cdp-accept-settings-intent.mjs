@@ -75,27 +75,17 @@ const stillStream = (await onSettings(conn.cdp)) === false;
 r.record('S7 随后普通「打开主窗口」:仍在信息流(pending 未被残留到下一次打开)', stillStream,
   j({ settings: await onSettings(conn.cdp) }));
 
-// S8 确定性区分用例:让「窗口已存在但页面没有任何订阅者」成为事实,再点托盘「设置」。
-// 旧写法用网络节流拖慢 reload,但导航提交前旧页仍存活且已订阅 —— 事件被旧页消费、pending 被清空,
-// 新页反而落回信息流(用例失效,2026-10-08 排查)。改为先导航到 about:blank(旧页销毁、无订阅者),
-// 此时点「设置」事件必丢,只能靠 pending 兜底;再导航回应用页,新页 mount 时取用 pending。
-// 旧实现(已存在窗口只 emit)在本用例下会落回信息流;新实现应停在设置页。
-await conn.cdp.send('Page.enable');
-await conn.cdp.send('Page.navigate', { url: 'about:blank' });
-await waitFor(async () => {
-  try {
-    return (await conn.cdp.eval('document.readyState')) === 'complete' ? true : null;
-  } catch {
-    return null;
-  }
-}, 20, 200);
+// S8 确定性区分用例:页面重载期间点「设置」——旧页已销毁、新页还没订阅,事件必丢,
+// 只能靠 pending 兜底。窗口极紧(重载后 60ms 内点击),比 S6 的 120ms 更能证明 pending 通道。
+// (2026-10-08 排查:原先用网络节流拖慢 reload,但导航提交前旧页仍存活且已订阅,事件被旧页消费、
+//  pending 被清空,用例失效;改成导航 about:blank 又会打断 CDP 连接,故回到 location.reload。)
+await conn.cdp.eval('location.reload()');
+await sleep(60);
 const duringLoad = await onSettings(conn.cdp);
 os.pickTray(pid, 3);
-await sleep(400); // 等托盘选择真正执行完(置 pending + emit)再导航回应用页
-await conn.cdp.send('Page.navigate', { url: 'http://tauri.localhost/' });
 const slowSettings = await waitFor(async () => ((await onSettings(conn.cdp)) ? true : null), 80, 250);
 const slowState = await probe(conn.cdp);
-r.record('S8 页面无订阅者时点「设置」(about:blank 兜底通道):导航回应用页后仍停在设置页',
+r.record('S8 重载窗口极紧时点「设置」(旧页销毁、新页未订阅):仍由 pending 兜底停在设置页',
   duringLoad === false && slowSettings === true, j({ duringLoad, slowSettings, state: slowState }));
 
 r.finish();

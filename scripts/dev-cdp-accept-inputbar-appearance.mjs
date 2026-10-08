@@ -11,7 +11,7 @@
 import {
   openBoth, sticker, settings, parseAlpha, contrast, snapshotKeys, APPEARANCE_KEYS, DEFAULTS, waitFor,
 } from './appearance-accept-lib.mjs';
-import { recorder } from './cdp-lib.mjs';
+import { recorder, sleep } from './cdp-lib.mjs';
 
 const SMOKE = process.argv.includes('--smoke');
 const { record, finish } = recorder();
@@ -32,9 +32,12 @@ const baselineTheme = (await call('get_setting', { key: 'theme' })) ?? null;
 const inv0 = await inventory();
 console.log('基线 8 键:', j(baseline), ' theme=', j(baselineTheme), ' 笔记=', inv0.notes);
 await settings.open(dom);
+// 读数 1/8 的比较依赖「底色不透明」(c.bg 是 rgb(...) 而非 rgba(...,0)):基线透明度可能是 0,
+// 会让底色的计算值永远带 alpha 0、与脚本按不透明写的期望不符。先归到 100,末读 9 再还原基线。
+await settings.setSlider(dom, '透明度', 100);
 await settings.pickTheme(dom, 'light');
 await settings.switchTab(dom, '亮色');
-await waitFor(async () => ((await comp())?.color === 'rgb(31, 35, 40)' ? true : null), 12, 250);
+await waitFor(async () => { const c = await comp(); return c && c.color === 'rgb(31, 35, 40)' && Math.abs(parseAlpha(c.bg) - 1) < 0.001 ? true : null; }, 16, 250);
 const baseStyle = await comp();
 
 // ---------- 1 改底色 -> 输入栏实时变色 ----------
@@ -144,7 +147,7 @@ record('9 只读对账:8 个外观键回到基线 + 库存(笔记/标签/主题)
 finish();
 // 把界面带回信息流:脚本会在设置页操作,留在那里会让后续门禁(表格视觉/视觉令牌)
 // 读到隐藏的 0px 卡片而假失败(2026-10-03 实测)。设置页的退出通道是顶栏那个按钮。
-await mainPage
+await mainPage.cdp
   .eval(`(() => { const b = [...document.querySelectorAll('button')].find((x) => x.textContent.trim() === '返回信息流'); if (b) b.click(); return !!b; })()`)
   .catch(() => {});
 await sleep(400);

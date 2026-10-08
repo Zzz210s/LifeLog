@@ -21,14 +21,33 @@ const SEED = 55;
 
 const { cdp, close } = await ensureMain();
 const { call, liCount, inventory } = bindMain(cdp);
-const { evalIn, openTopBarMenu } = bindDom(cdp);
+const { evalIn } = bindDom(cdp);
 
 const inv0 = await inventory();
 console.log('验收前库存:', JSON.stringify({ notes: inv0.notes, theme: inv0.theme, tagPaths: inv0.paths.length }));
 
-// ---------- E1 界面导出:顶栏 `⋯` 菜单 -> 原生保存对话框出现并可取消 ----------
-// 条件栏的「导出整库」按钮已随统一输入框 2/3 Task 2 搬走:鼠标入口在顶栏溢出菜单里
-const menuPicked = await openTopBarMenu('导出整库');
+// ---------- E1 界面导出:命令面板 `>导出整库` -> 原生保存对话框出现并可取消 ----------
+// 条件栏的「导出整库」按钮与顶栏 `⋯` 溢出菜单都已删(2026-10-07,见 shell/export-notice.dom.test.ts):
+// 鼠标入口只剩命令面板,故这里走统一输入框里真实打命令的路径,再验原生保存框。
+const menuPicked = await (async () => {
+  const set = await evalIn(`(() => {
+    const box = document.querySelector('[data-testid="unified-input"]');
+    if (!box) return false;
+    const s = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set;
+    s.call(box, '>导出整库');
+    box.dispatchEvent(new Event('input', { bubbles: true }));
+    return true;
+  })()`);
+  if (!set) return false;
+  const listed = await waitFor(() => evalIn(`(() => {
+    const lis = [...document.querySelectorAll('[data-testid="unified-dropdown"] li[role="option"]')];
+    return lis.length > 0 && lis[0].textContent.includes('导出整库') ? lis[0].textContent.trim() : null;
+  })()`), 20, 250);
+  if (!listed) return false;
+  await evalIn(`(() => { document.querySelector('[data-testid="unified-input"]')
+    .dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })); return true; })()`);
+  return true;
+})();
 // 只看目标标题的**可见**对话框:进程里可能留有其他/已完成但未关闭的 #32770 窗口
 const SAVE_DLG = '另存为';
 const saveDlg = () => wins().find((w) => w.cls === '#32770' && w.visible && w.title.includes(SAVE_DLG));
@@ -42,9 +61,9 @@ const afterCancel = await waitFor(async () => {
   return v.busy === false && v.err === false ? v : null;
 }, 20, 300) ?? await evalIn(`(() => ({ busy: true, err: document.body.innerText.includes('导出失败') }))()`);
 record(
-  'E1 顶栏「导出整库」弹出原生保存框(取消后状态条复位、无错误提示)',
+  'E1 命令面板「导出整库」弹出原生保存框(取消后状态条复位、无错误提示)',
   menuPicked === true && dlgSeen === true && closed.closed === true && dlgGone === true && afterCancel.busy === false && afterCancel.err === false,
-  `菜单点中=${menuPicked} 原生框=${JSON.stringify({ seen: dlgSeen, title: dlgTitle, closed })} 复位=${JSON.stringify(afterCancel)}`
+  `命令跑起=${menuPicked} 原生框=${JSON.stringify({ seen: dlgSeen, title: dlgTitle, closed })} 复位=${JSON.stringify(afterCancel)}`
 );
 
 // ---------- E2 导出命令 + xlsx 结构校验(openpyxl 读回) ----------

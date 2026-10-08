@@ -1,10 +1,14 @@
 // #36 验收:①守卫生效(close 只隐藏,webview 不销毁)②原生销毁后自愈重建 ③连续 2 轮
 import { ensureMain, open, pages, sleep } from 'file:///F:/0-code/20-active/LifeLog/scripts/cdp-lib.mjs';
-import { execFileSync } from 'node:child_process';
+import { os } from 'file:///F:/0-code/20-active/LifeLog/scripts/cdp-os.mjs';
 const titles = async () => (await pages()).map((p) => p.title);
+// 托盘菜单第 2 项 =「打开主窗口」;pid 走 cdp-os 的 powershell 取法(与 ensureMain 同源),
+// 不依赖 Git Bash 的 `bash -lc ps -W` —— 非 Git Bash 环境取到空串会让 win-tray.py 直接抛错崩掉脚本。
 const tray = () => {
-  const winpid = execFileSync('bash', ['-lc', "ps -W | grep -i lifelog.exe | awk '{print $4}' | head -1"], { encoding: 'utf-8' }).trim();
-  return execFileSync('python', ['scripts/win-tray.py', 'pick', winpid, '2'], { cwd: 'F:/0-code/20-active/LifeLog', encoding: 'utf-8', timeout: 30000 });
+  const pid = os.pidOf();
+  if (!pid) return '{"ok": false, "error": "no-pid"}';
+  const r = os.pickTray(pid, 2);
+  return r.stdout || String(r.stderr || '');
 };
 const conn = await ensureMain();
 await sleep(6000); // 越过建窗豁免期

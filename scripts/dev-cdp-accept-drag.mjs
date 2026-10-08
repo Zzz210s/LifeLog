@@ -12,7 +12,7 @@
  * 读数口径:拖动源行 data-drag-source、悬停目标行 data-drop-target / 根级指示条 border-accent 高亮、
  * 操作回执 [data-testid=tag-flash] 文案,以及真实 IPC 落库后的标签路径。
  */
-import { ensureMain, recorder, sleep, bindMain } from './cdp-lib.mjs';
+import { ensureMain, recorder, sleep, waitFor, bindMain } from './cdp-lib.mjs';
 
 const { record, finish } = recorder();
 const { cdp, close } = await ensureMain();
@@ -95,16 +95,20 @@ record(
   `${JSON.stringify(d2)} 路径还原=${same([...p3].sort(), [...p1].sort())}`
 );
 
-// 3 自身/子孙不可作目标(预校验拒绝,不落库)
+// 3 自身/子孙不可作目标(设计 T4:无效目标静默 —— 不高亮、无回执、不落库)
+// 2026-09-21 refactor(侧栏) 5fa4905f 把无效目标改成「向父级冒泡,一路找不到就静默」
+// (use-tag-drag.ts `dropAt`:解析不出合法落点就静默,不写库不回执;drag-check 的 reason 仅由单测钉口径),
+// 故这里不再等中文错误提示,而是证「无新回执」。先等上一条成功回执(C2 的「已移动标签」)过期,
+// 再拖,否则会把残留回执误当成新回执。
+await waitFor(async () => ((await cdp.eval(`!!document.querySelector('[data-testid="tag-flash"]')`)) ? null : true), 12, 250);
 const d3 = await drag(ROOT, A);
 await sleep(500);
 const p4 = await paths();
 record(
-  'C3 自身子树被拒(验收拖拽 -> 验收拖拽/甲:目标不高亮、给出中文提示、不落库)',
-  d3.highlight === false && (d3.flash || '').includes('不能移动到自身或其子孙下') && same(p4, p3),
+  'C3 自身子树被拒(验收拖拽 -> 验收拖拽/甲:目标不高亮、无新回执、不落库)',
+  d3.highlight === false && d3.flash === null && same(p4, p3),
   `${JSON.stringify(d3)} 路径不变=${same(p4, p3)}`
 );
-await sleep(3200); // 等错误回执过期,避免与清理读数混淆
 
 // 4 清收夹具 + 库存对照
 await call('delete_note', { id: noteA.id });

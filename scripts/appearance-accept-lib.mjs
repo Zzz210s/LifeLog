@@ -49,14 +49,29 @@ export const sticker = {
 /** 设置页「外观」段落(InputAppearanceSection 的 h3 所在 div)作为交互限定域 */
 const SEC = `(() => { const h = [...document.querySelectorAll('h3')].find((x) => x.textContent.trim() === '外观'); return h ? h.parentElement : null; })()`;
 
+/**
+ * 切到某个设置分区(幂等):点分区导航项并等该分区外壳出现。
+ * 2026-10-04 设置分区拆分后:主题三态单选在「外观」(id=appearance)分区,
+ * 输入栏外观控件在「输入栏外观」(id=inputAppearance)分区 —— 旧脚本假设两者同屏,
+ * 于是 SEC 永远找不到、所有控件动作静默落空(读数 1/2/4-8 超时)。每次动作前显式归位。
+ */
+async function goto(dom, id) {
+  await waitFor(() => dom.evalIn(`!!document.querySelector('[data-section-nav="${id}"]')`), 20, 250);
+  await dom.evalIn(`(() => { if (document.querySelector('[data-section="${id}"]')) return false;
+    const b = document.querySelector('[data-section-nav="${id}"]'); if (b) b.click(); return !!b; })()`);
+  return (await waitFor(() => dom.evalIn(`!!document.querySelector('[data-section="${id}"]')`), 20, 250)) === true;
+}
+
 export const settings = {
-  /** 进设置页并等到「外观」段落出现(幂等) */
+  /** 进设置页并切到「输入栏外观」分区(幂等) */
   async open(dom) {
     await dom.evalIn(`(() => { const b = document.querySelector('button[aria-label="设置"]'); if (b) b.click(); return true; })()`);
+    await goto(dom, 'inputAppearance');
     return (await waitFor(() => dom.evalIn(`${SEC} !== null`), 20, 250)) === true;
   },
   /** 点段落里正文精确匹配的按钮(预设 / 阴影 / 亮暗页签共用) */
-  button(dom, label) {
+  async button(dom, label) {
+    await goto(dom, 'inputAppearance');
     return dom.evalIn(`(() => { const sec = ${SEC}; if (!sec) return false;
       const b = [...sec.querySelectorAll('button')].find((x) => x.textContent.trim() === ${JSON.stringify(label)});
       if (!b) return false; b.click(); return true; })()`);
@@ -66,7 +81,8 @@ export const settings = {
   /** 亮暗色值页签(亮色 | 暗色):只切正在编辑的那一份颜色 */
   switchTab(dom, label) { return this.button(dom, label); },
   /** 拖原生 range:原型 value setter + input/change 事件(React 的 onChange 才触发) */
-  setSlider(dom, label, value) {
+  async setSlider(dom, label, value) {
+    await goto(dom, 'inputAppearance');
     const selector = `input[type=range][aria-label="${label}"]`;
     return dom.evalIn(`(() => {
       const el = document.querySelector(${JSON.stringify(selector)});
@@ -78,6 +94,7 @@ export const settings = {
   },
   /** 点色块开色盘 -> 点一格(透明格或某个颜色格);色盘项的 aria-label 见 color-popover */
   async pickColor(dom, rowLabel, cellAriaLabel) {
+    await goto(dom, 'inputAppearance');
     const swatch = `button[aria-label="${rowLabel}"]`;
     const opened = await dom.evalIn(`(() => {
       const sec = ${SEC}; if (!sec) return false;
@@ -92,18 +109,37 @@ export const settings = {
       const c = menu.querySelector(${JSON.stringify(cell)});
       if (!c) return false; c.click(); return true; })()`);
   },
-  /** 主题三态单选(system|light|dark):切主题会改输入栏跟随的那一份颜色 */
-  pickTheme(dom, mode) {
-    const selector = `input[name="theme"][value="${mode}"]`;
-    return dom.evalIn(`(() => { const r = document.querySelector(${JSON.stringify(selector)}); if (!r) return false; r.click(); return true; })()`);
+  /** 主题三态(system|light|dark):主题控件已由 radio 改成 Segmented 按钮组
+   *  (role=group aria-label=主题,按钮带 aria-pressed);在「外观」分区。 */
+  async pickTheme(dom, mode) {
+    await goto(dom, 'appearance');
+    const label = { system: '跟随系统', light: '亮色', dark: '暗色' }[mode];
+    if (!label) return false;
+    return dom.evalIn(`(() => {
+      const g = document.querySelector('[role="group"][aria-label="主题"]');
+      if (!g) return false;
+      const b = [...g.querySelectorAll('button')].find((x) => x.textContent.trim() === ${JSON.stringify(label)});
+      if (!b) return false; b.click(); return true; })()`);
   },
   /** 点「恢复输入栏分区默认」-> 关原生确认框(python click-ok 点「确定」),返回 {found,buttons} 或 false */
   async resetDefaults(pid, dom) {
-    const clicked = await dom.evalIn(`(() => { const b = [...document.querySelectorAll('button')].find((x) => x.textContent.trim() === '恢复输入栏分区默认'); if (!b) return false; b.click(); return true; })()`);
+    await goto(dom, 'inputAppearance');
+    // 分区默认按钮文案已随设置区拆分改成「恢复本分区默认」(真源 settings/SettingsSection.tsx),
+    // 且在 `[data-section=inputAppearance]` 分区外壳的页脚;用该分区分域定位,不再用旧整页文案。
+    const clicked = await dom.evalIn(`(() => {
+      const sec = document.querySelector('[data-section="inputAppearance"]');
+      if (!sec) return false;
+      const b = [...sec.querySelectorAll('button')].find((x) => x.textContent.trim().startsWith('恢复本分区默认'));
+      if (!b) return false; b.click(); return true; })()`);
     if (!clicked) return false;
+    // 只点标题为「恢复输入栏外观默认」的那个确认框(InputAppearancePanel 的 confirm title),
+    // 免得撞上别的残留原生框;点完等它真的关掉再让调用方去等键回默认。
     for (let i = 0; i < 12; i++) {
-      const r = os.clickOk(pid);
-      if (r && r.clicked) return { found: true, buttons: r.buttons };
+      const r = os.clickOk(pid, '恢复输入栏外观默认');
+      if (r && r.clicked) {
+        await sleep(500);
+        return { found: true, buttons: r.buttons };
+      }
       await sleep(300);
     }
     return false;
