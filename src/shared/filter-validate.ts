@@ -69,6 +69,10 @@ export function validateFilter(c: FilterConditions): string | null {
         else excludeRelations++;
       } else if (it.kind === 'presence') {
         if (it.value !== 'any' && it.value !== 'none') return '标签有无取值非法';
+      } else if (it.kind === 'treeMembership') {
+        if (it.value !== 'in' && it.value !== 'out') return '在树内取值非法';
+      } else if (it.kind === 'singleLine') {
+        if (it.value !== 'single' && it.value !== 'multi') return '单行取值非法';
       } else if (it.kind === 'expr') {
         // 与 Rust expr::MAX_LEN 同口径的本地长度检查;语义校验走 IPC(不做第二套解析器)
         if ([...it.value].length > MAX_EXPR_CHARS) return `表达式最多 ${MAX_EXPR_CHARS} 字符`;

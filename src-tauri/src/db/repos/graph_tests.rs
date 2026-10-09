@@ -3,20 +3,20 @@ use super::*;
 use crate::db::migrate;
 
 /// 造数据:甲/乙 两个根,甲下 甲/一、甲/二;
-/// 笔记 1 挂 甲/一 + 乙,笔记 2 挂 甲/二 + 乙(故 乙 出现 2 条、甲/一 与 甲/二 各 1 条)
+/// 笔记 1 引 甲/一 + 乙,笔记 2 引 甲/二 + 乙(故 乙 出现 2 条、甲/一 与 甲/二 各 1 条)
 fn db() -> Connection {
     let c = Connection::open_in_memory().unwrap();
     migrate::run(&c).unwrap();
     c.execute_batch(
-        "INSERT INTO entities(id,kind,name,content,created_at,path,depth,parent_id) VALUES
-           (10,'tag','甲','','2026-01-01','甲',1,NULL),(11,'tag','一','','2026-01-01','甲/一',2,10),
-           (12,'tag','二','','2026-01-01','甲/二',2,10),(20,'tag','乙','','2026-01-01','乙',1,NULL);
-         INSERT INTO entities(id,kind,name,content,created_at) VALUES
-           (1,'note',NULL,'a','2026-01-01'),(2,'note',NULL,'b','2026-01-02');
+        "INSERT INTO entities(id,meta,is_cited,created_at,path,depth,parent_id) VALUES
+           (10,'甲',0,'2026-01-01','甲',1,NULL),(11,'一',1,'2026-01-01','甲/一',2,10),
+           (12,'二',1,'2026-01-01','甲/二',2,10),(20,'乙',1,'2026-01-01','乙',1,NULL);
+         INSERT INTO entities(id,meta,created_at) VALUES
+           (1,'a','2026-01-01'),(2,'b','2026-01-02');
          INSERT INTO edges(source_id,target_id,kind,created_at) VALUES
            (10,11,'child','2026-01-01'),(10,12,'child','2026-01-01'),
-           (1,11,'tagging','2026-01-01'),(1,20,'tagging','2026-01-01'),
-           (2,12,'tagging','2026-01-01'),(2,20,'tagging','2026-01-01');",
+           (1,11,'link','2026-01-01'),(1,20,'link','2026-01-01'),
+           (2,12,'link','2026-01-01'),(2,20,'link','2026-01-01');",
     )
     .unwrap();
     c
@@ -50,7 +50,7 @@ fn nodes_carry_self_and_subtree_counts() {
 #[test]
 fn nodes_carry_sort_order() {
     let c = db();
-    c.execute("UPDATE entities SET sort_order = 7 WHERE kind = 'tag' AND id = 20", [])
+    c.execute("UPDATE entities SET sort_order = 7 WHERE id = 20", [])
         .unwrap();
     let ns = nodes(&c).unwrap();
     assert_eq!(ns.iter().find(|n| n.path == "乙").unwrap().sort_order, 7);
@@ -98,33 +98,33 @@ fn co_edges_hub_boundary_is_strictly_greater_at_fifty() {
     let mut batch = String::new();
     for i in 100..151 {
         batch.push_str(&format!(
-            "INSERT INTO entities(id,kind,content,created_at) VALUES ({i},'note','x','2026-01-01');"
+            "INSERT INTO entities(id,meta,created_at) VALUES ({i},'x','2026-01-01');"
         ));
     }
     // 丙=50 条笔记、丁=51 条(枢纽);戊/己 是各自的共现对手方(5 / 11 条,都不到阈值)
     batch.push_str(
-        "INSERT INTO entities(id,kind,name,content,created_at,path,depth) VALUES
-           (30,'tag','丙','','2026-01-01','丙',1),(31,'tag','丁','','2026-01-01','丁',1),
-           (40,'tag','戊','','2026-01-01','戊',1),(41,'tag','己','','2026-01-01','己',1);",
+        "INSERT INTO entities(id,meta,created_at,path,depth) VALUES
+           (30,'丙','2026-01-01','丙',1),(31,'丁','2026-01-01','丁',1),
+           (40,'戊','2026-01-01','戊',1),(41,'己','2026-01-01','己',1);",
     );
     for i in 100..150 {
         batch.push_str(&format!(
-            "INSERT INTO edges(source_id,target_id,kind,created_at) VALUES ({i},30,'tagging','2026-01-01');"
+            "INSERT INTO edges(source_id,target_id,kind,created_at) VALUES ({i},30,'link','2026-01-01');"
         ));
     }
     for i in 100..151 {
         batch.push_str(&format!(
-            "INSERT INTO edges(source_id,target_id,kind,created_at) VALUES ({i},31,'tagging','2026-01-01');"
+            "INSERT INTO edges(source_id,target_id,kind,created_at) VALUES ({i},31,'link','2026-01-01');"
         ));
     }
     for i in 100..105 {
         batch.push_str(&format!(
-            "INSERT INTO edges(source_id,target_id,kind,created_at) VALUES ({i},40,'tagging','2026-01-01');"
+            "INSERT INTO edges(source_id,target_id,kind,created_at) VALUES ({i},40,'link','2026-01-01');"
         ));
     }
     for i in 100..111 {
         batch.push_str(&format!(
-            "INSERT INTO edges(source_id,target_id,kind,created_at) VALUES ({i},41,'tagging','2026-01-01');"
+            "INSERT INTO edges(source_id,target_id,kind,created_at) VALUES ({i},41,'link','2026-01-01');"
         ));
     }
     c.execute_batch(&batch).unwrap();
@@ -145,12 +145,12 @@ fn co_edges_hub_boundary_is_strictly_greater_at_fifty() {
 fn co_edges_are_undirected_once_with_note_count_weight() {
     let c = db();
     c.execute_batch(
-        "INSERT INTO entities(id,kind,content,created_at) VALUES (3,'note','c','2026-01-03'),(4,'note','d','2026-01-04');
-         INSERT INTO entities(id,kind,name,content,created_at,path,depth) VALUES
-           (30,'tag','丙','','2026-01-03','丙',1),(31,'tag','丁','','2026-01-03','丁',1);
+        "INSERT INTO entities(id,meta,created_at) VALUES (3,'c','2026-01-03'),(4,'d','2026-01-04');
+         INSERT INTO entities(id,meta,created_at,path,depth) VALUES
+           (30,'丙','2026-01-03','丙',1),(31,'丁','2026-01-03','丁',1);
          INSERT INTO edges(source_id,target_id,kind,created_at) VALUES
-           (3,30,'tagging','2026-01-03'),(3,31,'tagging','2026-01-03'),
-           (4,30,'tagging','2026-01-03'),(4,31,'tagging','2026-01-03');",
+           (3,30,'link','2026-01-03'),(3,31,'link','2026-01-03'),
+           (4,30,'link','2026-01-03'),(4,31,'link','2026-01-03');",
     )
     .unwrap();
     let es = co_edges(&c, 99).unwrap();

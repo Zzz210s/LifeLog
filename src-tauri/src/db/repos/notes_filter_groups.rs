@@ -48,6 +48,16 @@ pub enum GroupItem {
         #[serde(default)]
         value: String,
     },
+    /// 在树内 / 不在树内(闭包判定;`in` | `out`),spec §4.1 / §10-P2
+    TreeMembership {
+        #[serde(default)]
+        value: String,
+    },
+    /// `meta` 单行 / 多行(`single` | `multi`),spec §4.1 / §10-P2
+    SingleLine {
+        #[serde(default)]
+        value: String,
+    },
 }
 
 /// 一个条件组:组内关系 + 组内项

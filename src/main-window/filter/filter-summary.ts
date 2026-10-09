@@ -81,6 +81,18 @@ function runSegments(run: Run, truncate: boolean, carryPaths: CarryPaths): Summa
   if (first.kind === 'expr') {
     return exprSegments(first.value, truncate, carryPaths);
   }
+  if (first.kind === 'treeMembership') {
+    return run.items.map((it) => ({
+      text: it.kind === 'treeMembership' && it.value === 'in' ? '在树内' : '不在树内',
+      carry: false,
+    }));
+  }
+  if (first.kind === 'singleLine') {
+    return run.items.map((it) => ({
+      text: it.kind === 'singleLine' && it.value === 'multi' ? '多行' : '单行',
+      carry: false,
+    }));
+  }
   if (first.kind === 'presence') {
     return run.items.map((it) => ({
       text: it.kind === 'presence' && it.value === 'none' ? '无标签' : '有标签',

@@ -10,7 +10,10 @@ use serde::{Deserialize, Serialize};
 /// 共用谓词真源(与表达式编译器共享,杜绝第二套标签/关键词语义)
 #[path = "filter_predicates.rs"]
 pub(crate) mod filter_predicates;
-pub(crate) use filter_predicates::{carry_predicate, keyword_predicate, tag_exists, tag_predicate};
+pub(crate) use filter_predicates::{
+    carry_predicate, keyword_predicate, single_line_predicate, tag_exists, tag_predicate,
+    tree_membership_predicate,
+};
 /// 排序数据模型与生效排序的唯一入口(自本文件拆出守 200 行)
 pub use super::notes_sort::{validate_sorts, SortCond};
 
@@ -85,7 +88,7 @@ pub fn empty() -> FilterConditions {
 
 /// "挂了任意一个标签"的谓词(时间标签已是普通标签,D3:它也计数)
 pub(crate) fn any_tag() -> String {
-    "EXISTS (SELECT 1 FROM edges l WHERE l.kind = 'tagging' AND l.source_id = n.id)".to_string()
+    "EXISTS (SELECT 1 FROM edges l WHERE l.kind = 'link' AND l.source_id = n.id)".to_string()
 }
 
 /// 表达式非法的用户可见中文原因(**两条路径共用同一份文案**):

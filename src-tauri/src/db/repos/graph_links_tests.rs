@@ -8,15 +8,15 @@ fn db() -> Connection {
     let c = Connection::open_in_memory().unwrap();
     migrate::run(&c).unwrap();
     c.execute_batch(
-        "INSERT INTO entities(id,kind,name,content,created_at,path,depth,parent_id) VALUES
-           (10,'tag','甲','','2026-01-01','甲',1,NULL),(11,'tag','一','','2026-01-01','甲/一',2,10),
-           (12,'tag','二','','2026-01-01','甲/二',2,10),(20,'tag','乙','','2026-01-01','乙',1,NULL);
-         INSERT INTO entities(id,kind,name,content,created_at) VALUES
-           (1,'note',NULL,'甲','2026-01-01'),(2,'note',NULL,'乙','2026-01-02');
+        "INSERT INTO entities(id,meta,created_at,path,depth,parent_id) VALUES
+           (10,'甲','2026-01-01','甲',1,NULL),(11,'一','2026-01-01','甲/一',2,10),
+           (12,'二','2026-01-01','甲/二',2,10),(20,'乙','2026-01-01','乙',1,NULL);
+         INSERT INTO entities(id,meta,created_at) VALUES
+           (1,'甲','2026-01-01'),(2,'乙','2026-01-02');
          INSERT INTO edges(source_id,target_id,kind,created_at) VALUES
            (10,11,'child','2026-01-01'),(10,12,'child','2026-01-01'),
-           (1,11,'tagging','2026-01-01'),(1,20,'tagging','2026-01-01'),
-           (2,12,'tagging','2026-01-01'),(2,20,'tagging','2026-01-01');",
+           (1,11,'link','2026-01-01'),(1,20,'link','2026-01-01'),
+           (2,12,'link','2026-01-01'),(2,20,'link','2026-01-01');",
     )
     .unwrap();
     c
@@ -77,7 +77,7 @@ fn link_degrees_dedupe_note_tagged_in_both_ancestor_and_descendant() {
     let c = with_links();
     // 笔记 1 同时挂 甲 与 甲/一:子树聚合按 DISTINCT 链接 id 去重,不能按挂载次数算两遍
     c.execute(
-        "INSERT INTO edges(source_id,target_id,kind,created_at) VALUES (1,10,'tagging','2026-01-01')",
+        "INSERT INTO edges(source_id,target_id,kind,created_at) VALUES (1,10,'link','2026-01-01')",
         [],
     )
     .unwrap();

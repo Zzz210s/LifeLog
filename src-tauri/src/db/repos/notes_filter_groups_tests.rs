@@ -3,7 +3,7 @@
 use crate::db::migrate;
 use crate::db::repos::notes::notes_filter::{validate, where_clause, FilterConditions, FilterGroup, TagCond};
 use crate::db::repos::notes::notes_filter_groups::GroupItem;
-use crate::db::repos::notes::{create_plain, query};
+use crate::db::repos::notes::{create_plain, query as query_all};
 use rusqlite::Connection;
 
 fn db() -> Connection {
@@ -105,4 +105,17 @@ fn validate_rejects_bad_group_ops() {
     assert!(validate(&bad_outer).is_err());
     let ok = FilterConditions { groups: vec![grp("and", vec![tag("甲")])], ..Default::default() };
     assert!(validate(&ok).is_ok());
+}
+
+/// 统一元数据后 `query` 的域是全实体(spec §4.1:清空筛选即显示标签);
+/// 本文件的老用例只关心树外实体(老 `kind='note'`),故在测试侧就地收窄。
+fn query(
+    c: &Connection,
+    cond: &crate::db::repos::notes::notes_filter::FilterConditions,
+    offset: i64,
+) -> Result<Vec<crate::db::repos::notes::Note>, String> {
+    Ok(query_all(c, cond, offset)?
+        .into_iter()
+        .filter(|n| crate::db::repos::tags::test_support::is_note(c, n.id))
+        .collect())
 }

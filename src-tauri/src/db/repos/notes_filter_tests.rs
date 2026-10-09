@@ -19,7 +19,7 @@ fn tag_include_children_uses_prefix() {
     assert!(sql.contains("t.path = ? OR substr(t.path, 1, length(?) + 1) = ? || '/'"));
     // 携带段:一次 EXISTS 子查询(不用递归 CTE),target 按 path 定位
     assert!(
-        sql.contains("cl.target_id IN (SELECT id FROM entities WHERE kind = 'tag' AND path = ?)"),
+        sql.contains("cl.target_id IN (SELECT id FROM entities WHERE path = ?)"),
         "缺携带子查询:{sql}"
     );
     assert_eq!(args.len(), 4, "含子级直接段 3 个 + 携带定位 1 个");
@@ -73,9 +73,9 @@ fn tag_presence_counts_all_tags() {
 fn short_keyword_like_branch_has_no_time_tag_exception() {
     let c = FilterConditions { keyword: Some("11".into()), ..empty() };
     let (sql, args) = where_clause(&c).unwrap();
-    assert!(sql.contains("n.content LIKE ?"), "{sql}");
+    assert!(sql.contains("n.meta LIKE ?"), "{sql}");
     assert!(sql.contains("t.path LIKE ?"), "{sql}");
-    assert!(sql.contains("t.name LIKE ?"), "2 字标签名靠名字分支胞底(spec §4.1):{sql}");
+    assert!(sql.contains("t.meta LIKE ?"), "2 字标签名靠 meta 分支兜底(spec §4.1):{sql}");
     assert!(!sql.contains("时间排序"), "时间标签不再被排除:{sql}");
     assert_eq!(texts(&args), vec!["%11%", "%11%", "%11%"]);
 }

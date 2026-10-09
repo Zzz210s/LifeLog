@@ -5,9 +5,10 @@
 //! 匹配标签(`MIN`),一条笔记多值时即树序第一个。
 use rusqlite::types::Value;
 
-/// 树序键递归 CTE 主体(不含 `WITH RECURSIVE` 前缀;多条排序条件共用一份 ord)
+/// 树序键递归 CTE 主体(不含 `WITH RECURSIVE` 前缀;多条排序条件共用一份 ord)。
+/// 迁后无 `kind` 列:树内实体从 `path IS NOT NULL` 且无父级起(根),沿 `parent_id` 下降。
 pub const ORD_BODY: &str = "ord(id, key) AS (
-  SELECT id, printf('%06d', sort_order) FROM entities WHERE kind='tag' AND parent_id IS NULL
+  SELECT id, printf('%06d', sort_order) FROM entities WHERE path IS NOT NULL AND parent_id IS NULL
   UNION ALL
   SELECT e.id, o.key || '/' || printf('%06d', e.sort_order)
   FROM entities e JOIN ord o ON e.parent_id = o.id
@@ -33,7 +34,7 @@ pub fn axis_sql(index: usize, path: &str, args: &mut Vec<Value>) -> AxisSql {
             "axis{index}(note_id, key) AS (
                SELECT l.source_id, MIN(o.key)
                FROM edges l JOIN entities t ON t.id = l.target_id JOIN ord o ON o.id = t.id
-               WHERE l.kind = 'tagging'
+               WHERE l.kind = 'link'
                  AND (t.path = ? OR substr(t.path, 1, length(?) + 1) = ? || '/')
                GROUP BY l.source_id
              )"

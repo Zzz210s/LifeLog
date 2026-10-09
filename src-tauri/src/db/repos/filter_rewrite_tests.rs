@@ -182,6 +182,8 @@ fn rewrite_filter_paths_rewrites_sort_axis_paths() {
 #[test]
 fn rewrite_filter_paths_is_noop_without_key_or_with_bad_json() {
     let c = db();
+    // 迁移 028 的 `ensure_default_filter` 会预置默认筛选:先删键,回到「键缺失」态
+    c.execute("DELETE FROM settings WHERE key = ?1", [FILTER_CURRENT_KEY]).unwrap();
     rewrite_filter_paths(&c, "工作", "职业").unwrap(); // 键缺失:无操作不报错
     assert_eq!(settings::get(&c, FILTER_CURRENT_KEY).unwrap(), None);
 

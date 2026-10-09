@@ -46,8 +46,11 @@ fn rewrite_conditions(c: &mut FilterConditions, old: &str, new: &str) -> bool {
                         changed = true;
                     }
                 }
-                // 关键词 / 有无标签没有路径可改
-                GroupItem::Keyword { .. } | GroupItem::Presence { .. } => {}
+                // 关键词 / 有无标签 / 在树内 / 单行没有路径可改
+                GroupItem::Keyword { .. }
+                | GroupItem::Presence { .. }
+                | GroupItem::TreeMembership { .. }
+                | GroupItem::SingleLine { .. } => {}
             }
         }
     }

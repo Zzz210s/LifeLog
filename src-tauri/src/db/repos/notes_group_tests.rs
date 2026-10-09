@@ -6,6 +6,11 @@ use crate::db::repos::notes::notes_group::{skeleton, MAX_GROUPS, SLOW_MS};
 use crate::db::repos::notes::{create_plain, FilterConditions};
 use rusqlite::Connection;
 
+/// 老用例口径:统计域收窄到信息流默认筛选(等价于旧 `kind='note'`,spec §4.1)。
+fn ndc(c: &FilterConditions) -> FilterConditions {
+    crate::db::repos::tags::test_support::with_note_domain(c.clone())
+}
+
 fn db() -> Connection {
     let c = Connection::open_in_memory().unwrap();
     migrate::run(&c).unwrap();
@@ -30,8 +35,8 @@ fn axis_db() -> Connection {
         "UPDATE entities SET sort_order = CASE path
              WHEN '地点/中国大陆' THEN 0 WHEN '地点/日本' THEN 1 WHEN '地点/美国' THEN 2
              ELSE sort_order END
-         WHERE kind = 'tag'
-           AND parent_id = (SELECT id FROM entities WHERE kind = 'tag' AND path = '地点')",
+         WHERE path IS NOT NULL
+           AND parent_id = (SELECT id FROM entities WHERE path = '地点')",
         [],
     )
     .unwrap();
@@ -45,7 +50,7 @@ fn keys(groups: &[crate::db::repos::notes::notes_group::GroupSkeleton]) -> Vec<O
 #[test]
 fn skeleton_groups_by_first_level_child_with_labels_and_counts() {
     let c = axis_db();
-    let r = skeleton(&c, &FilterConditions::default(), &gb("地点", "asc")).unwrap();
+    let r = skeleton(&c, &ndc(&FilterConditions::default()), &gb("地点", "asc")).unwrap();
     assert_eq!(
         keys(&r.groups),
         vec![
@@ -70,7 +75,7 @@ fn skeleton_groups_by_first_level_child_with_labels_and_counts() {
 #[test]
 fn skeleton_keeps_no_value_group_last_for_desc_too() {
     let c = axis_db();
-    let r = skeleton(&c, &FilterConditions::default(), &gb("地点", "desc")).unwrap();
+    let r = skeleton(&c, &ndc(&FilterConditions::default()), &gb("地点", "desc")).unwrap();
     assert_eq!(
         keys(&r.groups),
         vec![
@@ -93,12 +98,12 @@ fn skeleton_respects_conditions_and_empty_library() {
         keyword: Some("A".into()),
         ..Default::default()
     };
-    let r = skeleton(&c, &cond, &gb("地点", "asc")).unwrap();
+    let r = skeleton(&c, &ndc(&cond), &gb("地点", "asc")).unwrap();
     let counts: Vec<i64> = r.groups.iter().map(|g| g.count).collect();
     assert_eq!(counts, vec![2], "其它组被条件筛空后不出现在骨架里");
     // 空库:没有任何笔记就没有组(骨架是 `FROM notes ... GROUP BY`,空集不出组)
     let empty = db();
-    let r = skeleton(&empty, &FilterConditions::default(), &gb("地点", "asc")).unwrap();
+    let r = skeleton(&empty, &ndc(&FilterConditions::default()), &gb("地点", "asc")).unwrap();
     assert!(r.groups.is_empty());
 }
 
@@ -108,7 +113,7 @@ fn skeleton_degrades_when_group_count_exceeds_limit() {
     for i in 0..=MAX_GROUPS {
         create_plain(&mut c, &format!("n{i} #轴/t{i}")).unwrap();
     }
-    let r = skeleton(&c, &FilterConditions::default(), &gb("轴", "asc")).unwrap();
+    let r = skeleton(&c, &ndc(&FilterConditions::default()), &gb("轴", "asc")).unwrap();
     assert_eq!(r.groups.len(), MAX_GROUPS + 1);
     assert!(r.degraded, "组数超过 {MAX_GROUPS} 必须给降级标志(前端退化为平铺)");
     // 反向:正好等于上限不算降级
@@ -116,7 +121,7 @@ fn skeleton_degrades_when_group_count_exceeds_limit() {
     for i in 0..MAX_GROUPS {
         create_plain(&mut c2, &format!("n{i} #轴/t{i}")).unwrap();
     }
-    let r2 = skeleton(&c2, &FilterConditions::default(), &gb("轴", "asc")).unwrap();
+    let r2 = skeleton(&c2, &ndc(&FilterConditions::default()), &gb("轴", "asc")).unwrap();
     assert_eq!(r2.groups.len(), MAX_GROUPS);
     assert!(!r2.degraded);
 }
@@ -150,7 +155,7 @@ fn real_db_group_reading() {
     });
     let c = Connection::open_with_flags(&path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
     for axis in ["地点", "状态"] {
-        let r = skeleton(&c, &FilterConditions::default(), &gb(axis, "asc")).unwrap();
+        let r = skeleton(&c, &ndc(&FilterConditions::default()), &gb(axis, "asc")).unwrap();
         let none = r.groups.iter().find(|g| g.key.is_none()).map_or(0, |g| g.count);
         let top: Vec<String> = r
             .groups

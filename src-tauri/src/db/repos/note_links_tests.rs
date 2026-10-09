@@ -20,9 +20,11 @@ fn count(c: &Connection, sql: &str) -> i64 {
 }
 
 /// 直接造笔记实体(阶段 4:边指向 `entities`,老 `notes` 表已不在)
+/// 行仍写作 `(id,'note',正文,时间)`:第二列(旧 kind)由 `column3/column4` 跳过。
 fn seed(c: &Connection, rows: &str) {
     c.execute_batch(&format!(
-        "INSERT INTO entities(id, kind, content, created_at) VALUES {rows};"
+        "INSERT INTO entities(id, meta, created_at)
+         SELECT column1, column3, column4 FROM (VALUES {rows});"
     ))
     .unwrap();
 }
@@ -133,7 +135,7 @@ fn outbound_reparse_marks_renamed_target_unresolved() {
     let c = db();
     seed(&c, "(1,'note','甲','2026-01-01'),(2,'note','源 [[甲]]','2026-01-02')");
     note_links::replace(&c, 2, &["甲".into()]).unwrap();
-    c.execute_batch("UPDATE entities SET content='甲改' WHERE id=1;").unwrap();
+    c.execute_batch("UPDATE entities SET meta='甲改' WHERE id=1;").unwrap();
     let out = note_links::list_note_links(&c, 2).unwrap();
     assert_eq!(out.outbound[0].raw_title, "甲", "正文原文不改");
     assert_eq!(out.outbound[0].target_id, None, "重解析不回已解析边 -> 未解析");

@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { addGroupItem, migrateFlat, uiGroups } from '../../shared/filter-conditions';
-import type { FilterConditions } from '../../shared/filter-conditions';
+import type { FilterConditions, GroupItem } from '../../shared/filter-conditions';
 import { useDismiss } from '../shell/use-dismiss';
 import { GroupByPanel } from './GroupByPanel';
 import { SortPanel } from './SortPanel';
@@ -23,7 +23,7 @@ export interface AddConditionMenuProps {
   showTrigger?: boolean;
 }
 
-type Pane = 'main' | 'presence' | 'sort' | 'group' | 'groupBy';
+type Pane = 'main' | 'presence' | 'membership' | 'sort' | 'group' | 'groupBy';
 
 const ITEM_CLASS =
   'block w-full rounded-xs px-2.5 py-1.5 text-left text-ui text-muted hover:bg-accent-soft hover:text-accent-text';
@@ -108,6 +108,14 @@ export function AddConditionMenu(p: AddConditionMenuProps): ReactNode {
               <button type="button" role="menuitem" className={ITEM_CLASS} onClick={() => setPane('presence')}>
                 有无标签
               </button>
+              <button
+                type="button"
+                role="menuitem"
+                className={ITEM_CLASS}
+                onClick={() => setPane('membership')}
+              >
+                树内 / 单行
+              </button>
               <button type="button" role="menuitem" className={ITEM_CLASS} onClick={() => setPane('group')}>
                 条件组
               </button>
@@ -145,6 +153,32 @@ export function AddConditionMenu(p: AddConditionMenuProps): ReactNode {
                         v === null
                           ? clearPresence(p.conditions)
                           : addGroupItem(clearPresence(p.conditions), { kind: 'presence', value: v }, group)
+                      )
+                    )
+                  }
+                >
+                  {label}
+                </button>
+              ))}
+            </>
+          )}
+          {pane === 'membership' && (
+            <>
+              {([
+                ['treeMembership', 'out', '不在树内'],
+                ['treeMembership', 'in', '在树内'],
+                ['singleLine', 'multi', '多行'],
+                ['singleLine', 'single', '单行'],
+              ] as const).map(([k, v, label]) => (
+                <button
+                  key={label}
+                  type="button"
+                  role="menuitem"
+                  className={ITEM_CLASS}
+                  onClick={() =>
+                    act(() =>
+                      p.onPatch(
+                        addGroupItem(p.conditions, { kind: k, value: v } as GroupItem, group)
                       )
                     )
                   }

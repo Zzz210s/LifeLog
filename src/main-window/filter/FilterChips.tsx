@@ -18,7 +18,13 @@ function chipClass(kind: Chip['kind']): string {
   // 会被视觉审计的「颜色全部来自令牌」判失败 —— 那是 pnpm verify 的第 9 项门禁
   if (kind === 'excludeTag' || kind === 'excludeRelation')
     return 'border-border-strong bg-danger-soft text-danger hover:border-danger';
-  if (kind === 'sort' || kind === 'presence' || kind === 'group')
+  if (
+    kind === 'sort' ||
+    kind === 'presence' ||
+    kind === 'group' ||
+    kind === 'treeMembership' ||
+    kind === 'singleLine'
+  )
     return 'border-border bg-chrome text-muted hover:border-accent';
   return 'border-border-strong bg-accent-soft text-accent-text hover:border-accent';
 }

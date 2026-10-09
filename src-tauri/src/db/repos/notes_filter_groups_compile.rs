@@ -4,8 +4,8 @@
 use rusqlite::types::Value;
 
 use super::notes_filter::{
-    any_tag, carry_predicate, expr_error_message, keyword_predicate, tag_exists, tag_predicate,
-    FilterConditions,
+    any_tag, carry_predicate, expr_error_message, keyword_predicate, single_line_predicate,
+    tag_exists, tag_predicate, tree_membership_predicate, FilterConditions,
 };
 use super::notes_filter_groups::{
     item_is_blank, op_of, FilterGroup, GroupItem, MAX_KEYWORD_CHARS, MAX_TAG_ITEMS,
@@ -37,6 +37,14 @@ pub(crate) fn item_predicate(it: &GroupItem, args: &mut Vec<Value>) -> Result<Op
             "any" => any_tag(),
             "none" => format!("NOT ({})", any_tag()),
             _ => return Ok(None),
+        },
+        GroupItem::TreeMembership { value } => match tree_membership_predicate(value) {
+            Some(p) => p,
+            None => return Ok(None),
+        },
+        GroupItem::SingleLine { value } => match single_line_predicate(value) {
+            Some(p) => p,
+            None => return Ok(None),
         },
         GroupItem::Expr { value } => {
             if item_is_blank(it) {
@@ -156,6 +164,16 @@ pub fn validate_groups(c: &FilterConditions) -> Result<(), String> {
                 GroupItem::Presence { value } => {
                     if value != "any" && value != "none" {
                         return Err("标签有无取值非法".into());
+                    }
+                }
+                GroupItem::TreeMembership { value } => {
+                    if tree_membership_predicate(value).is_none() {
+                        return Err("在树内取值非法".into());
+                    }
+                }
+                GroupItem::SingleLine { value } => {
+                    if single_line_predicate(value).is_none() {
+                        return Err("单行取值非法".into());
                     }
                 }
                 GroupItem::Expr { value } => {

@@ -118,6 +118,12 @@ function readItems(v: unknown): GroupItem[] | undefined {
     } else if (kind === 'presence') {
       if (it.value !== 'any' && it.value !== 'none') return undefined;
       out.push({ kind: 'presence', value: it.value });
+    } else if (kind === 'treeMembership') {
+      if (it.value !== 'in' && it.value !== 'out') return undefined;
+      out.push({ kind: 'treeMembership', value: it.value });
+    } else if (kind === 'singleLine') {
+      if (it.value !== 'single' && it.value !== 'multi') return undefined;
+      out.push({ kind: 'singleLine', value: it.value });
     } else {
       return undefined;
     }

@@ -4,6 +4,7 @@ import { canEvaluateLocally, matchesTagsByPath } from './filter-conditions-local
 import { normalizeFilter } from './filter-conditions-normalize';
 import { parseFilterJson } from './filter-conditions-parse';
 import type { FilterConditions, SortCond, TagCond } from './filter-conditions';
+import { validateFilter } from './filter-validate';
 
 const tag = (path: string, includeChildren = false): TagCond => ({ path, includeChildren });
 const cond = (patch: Partial<FilterConditions>): FilterConditions => ({ ...EMPTY_FILTER, ...patch });
@@ -137,5 +138,30 @@ describe('normalizeFilter(应用保存视图时归一)', () => {
   it('旧日期字段不进入归一结果(保存视图里的残留不会被带回状态机)', () => {
     const legacy = { ...EMPTY_FILTER, from: '2026-08-01', to: '2026-09-13' } as unknown as FilterConditions;
     expect(normalizeFilter(legacy)).toEqual(EMPTY_FILTER);
+  });
+});
+
+describe('028 预置筛选(两个新条件种类)', () => {
+  const PRESET =
+    '{"keyword":null,"tags":[],"excludeTags":[],"relations":[],"excludeRelations":[],' +
+    '"tagPresence":null,"sort":null,"sorts":[],"groupBy":null,"expr":null,"groupOp":"and",' +
+    '"groups":[{"op":"or","items":[{"kind":"treeMembership","value":"out"},' +
+    '{"kind":"singleLine","value":"multi"}]}]}';
+
+  it('parseFilterJson 能反序列化 028 写入的字面量(P0-4:否则信息流退化为全库)', () => {
+    const parsed = parseFilterJson(PRESET);
+    expect(parsed.groups.length).toBe(1);
+    expect(parsed.groups[0].op).toBe('or');
+    expect(parsed.groups[0].items).toEqual([
+      { kind: 'treeMembership', value: 'out' },
+      { kind: 'singleLine', value: 'multi' },
+    ]);
+    expect(validateFilter(parsed)).toBeNull();
+  });
+
+  it('非法取值被解析与校验拦下', () => {
+    const bad =
+      '{"groups":[{"op":"and","items":[{"kind":"treeMembership","value":"both"}]}]}';
+    expect(parseFilterJson(bad).groups.length).toBe(0);
   });
 });

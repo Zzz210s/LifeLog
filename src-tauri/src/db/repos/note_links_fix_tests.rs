@@ -17,7 +17,8 @@ fn count(c: &Connection, sql: &str) -> i64 {
 
 fn seed(c: &Connection, rows: &str) {
     c.execute_batch(&format!(
-        "INSERT INTO entities(id, kind, content, created_at) VALUES {rows};"
+        "INSERT INTO entities(id, meta, created_at)
+         SELECT column1, column3, column4 FROM (VALUES {rows});"
     ))
     .unwrap();
 }

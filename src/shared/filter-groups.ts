@@ -16,6 +16,10 @@ export type GroupItem =
   | { kind: 'relation'; path: string }
   | { kind: 'excludeRelation'; path: string }
   | { kind: 'presence'; value: 'any' | 'none' }
+  /** 在树内 / 不在树内(判定 = 渲染闭包,spec §4.1 / §10-P2) */
+  | { kind: 'treeMembership'; value: 'in' | 'out' }
+  /** `meta` 单行 / 多行 */
+  | { kind: 'singleLine'; value: 'single' | 'multi' }
   | { kind: 'expr'; value: string };
 
 export interface FilterGroup {

@@ -21,7 +21,18 @@ export { applyRelationPick, applyTagPick } from './filter-pick';
 
 /** chip 种类与文案一一对应;remove 是删掉该 chip 后的条件对象(完整替换用) */
 export type Chip = {
-  kind: 'keyword' | 'tag' | 'excludeTag' | 'relation' | 'excludeRelation' | 'presence' | 'sort' | 'group' | 'expr';
+  kind:
+    | 'keyword'
+    | 'tag'
+    | 'excludeTag'
+    | 'relation'
+    | 'excludeRelation'
+    | 'presence'
+    | 'treeMembership'
+    | 'singleLine'
+    | 'sort'
+    | 'group'
+    | 'expr';
   label: string;
   /** 悬浮提示(标签 chip 用它区分含子级/仅本级;表达式 chip 放未截断原文) */
   title?: string;
@@ -85,6 +96,20 @@ export function chipsOf(c: FilterConditions, hits: ConditionHits | null = null):
         });
       } else if (it.kind === 'presence') {
         chips.push({ ...base, kind: 'presence', label: it.value === 'none' ? '无标签' : '有标签' });
+      } else if (it.kind === 'treeMembership') {
+        chips.push({
+          ...base,
+          kind: 'treeMembership',
+          label: it.value === 'out' ? '不在树内' : '在树内',
+          title: '按渲染闭包判定(spec §4.1)',
+        });
+      } else if (it.kind === 'singleLine') {
+        chips.push({
+          ...base,
+          kind: 'singleLine',
+          label: it.value === 'multi' ? '多行' : '单行',
+          title: '正文(meta)是否含换行',
+        });
       } else {
         chips.push({
           ...base, kind: 'expr', label: exprLabel(it.value, true), title: exprLabel(it.value, false),

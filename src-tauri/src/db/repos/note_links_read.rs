@@ -37,24 +37,15 @@ pub struct NoteLinks {
     pub backlinks: Vec<Backlink>,
 }
 
-/// 目标显示标题:笔记取当前首行,标签取单段名
-fn entity_title(kind: &str, name: Option<&str>, content: &str) -> String {
-    if kind == "tag" { name.unwrap_or_default().to_string() } else { display_title(content) }
-}
-
-/// 行里的 `(kind, name, content)` 三列(从 `base` 起) -> 目标显示标题
+/// 目标显示标题:统一取 `meta` 首行(标签的单段名就是它的 `meta`)
 fn row_title(row: &rusqlite::Row<'_>, base: usize) -> rusqlite::Result<String> {
-    Ok(entity_title(
-        &row.get::<_, String>(base)?,
-        row.get::<_, Option<String>>(base + 1)?.as_deref(),
-        &row.get::<_, String>(base + 2)?,
-    ))
+    Ok(display_title(&row.get::<_, String>(base)?))
 }
 
 /// 某来源的全部已解析链接目标:`target_id -> 目标显示标题`,按边 id 升序
 fn edge_targets(conn: &Connection, source_id: i64) -> rusqlite::Result<HashMap<i64, String>> {
     let mut stmt = conn.prepare(
-        "SELECT e.target_id, t.kind, t.name, t.content FROM edges e
+        "SELECT e.target_id, t.meta FROM edges e
          JOIN entities t ON t.id = e.target_id
          WHERE e.kind = 'link' AND e.source_id = ?1 ORDER BY e.id",
     )?;
@@ -99,7 +90,7 @@ fn outbound_rows(
 /// 单条笔记的出链(按正文出现顺序)。笔记读取路径(read_full)用它,编辑面板同源。
 pub fn outbound_of(conn: &Connection, note_id: i64) -> rusqlite::Result<Vec<OutboundLink>> {
     use rusqlite::OptionalExtension;
-    let sql = "SELECT content FROM entities WHERE id = ?1 AND kind = 'note'";
+    let sql = "SELECT meta FROM entities WHERE id = ?1";
     let content: Option<String> =
         conn.query_row(sql, params![note_id], |r| r.get(0)).optional()?;
     let Some(content) = content else {
@@ -121,7 +112,7 @@ pub fn outbound_page(
     let marks = vec!["?"; note_ids.len()].join(",");
     let mut contents: HashMap<i64, String> = HashMap::new();
     let mut stmt = conn.prepare(&format!(
-        "SELECT id, content FROM entities WHERE kind = 'note' AND id IN ({marks})"
+        "SELECT id, meta FROM entities WHERE id IN ({marks})"
     ))?;
     let mut rows = stmt.query(params_from_iter(note_ids))?;
     while let Some(row) = rows.next()? {
@@ -129,7 +120,7 @@ pub fn outbound_page(
     }
     let mut grouped: HashMap<i64, HashMap<i64, String>> = HashMap::new();
     let mut stmt = conn.prepare(&format!(
-        "SELECT e.source_id, e.target_id, t.kind, t.name, t.content FROM edges e
+        "SELECT e.source_id, e.target_id, t.meta FROM edges e
          JOIN entities t ON t.id = e.target_id
          WHERE e.kind = 'link' AND e.source_id IN ({marks}) ORDER BY e.source_id, e.id"
     ))?;
@@ -156,7 +147,7 @@ pub fn outbound_page(
 pub fn list_note_links(conn: &Connection, note_id: i64) -> rusqlite::Result<NoteLinks> {
     let outbound = outbound_of(conn, note_id)?;
     let mut in_stmt = conn.prepare(
-        "SELECT DISTINCT e.source_id, s.content FROM edges e
+        "SELECT DISTINCT e.source_id, s.meta FROM edges e
          JOIN entities s ON s.id = e.source_id
          WHERE e.kind = 'link' AND e.target_id = ?1 ORDER BY e.source_id",
     )?;
@@ -187,10 +178,15 @@ pub fn list_links_page(
 
 /// 全部**已解析且非自指**的边 `(source_id, target_id)`,插入序;关系图 L4 画 link 边用。
 /// 自指写入侧就不落边,这里再挡一道:自指在图上是一条零长的线。
+/// 全部已解析的**笔记间**链接边(两端都是树外实体 = 老 `kind='note'`)。
+/// 028 起 `edges(kind='link')` 也含笔记挂标签与标签关系,故两端都按 `path IS NULL` 收窄。
 pub fn all_resolved(conn: &Connection) -> rusqlite::Result<Vec<(i64, i64)>> {
     let mut stmt = conn.prepare(
         "SELECT source_id, target_id FROM edges
-         WHERE kind = 'link' AND source_id <> target_id ORDER BY id",
+         WHERE kind = 'link' AND source_id <> target_id
+           AND source_id IN (SELECT id FROM entities WHERE path IS NULL)
+           AND target_id IN (SELECT id FROM entities WHERE path IS NULL)
+         ORDER BY id",
     )?;
     let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?;
     rows.collect()
