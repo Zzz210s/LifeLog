@@ -19,6 +19,36 @@ const EXPORT = `${process.cwd()}/.superpowers/tmp-arch/p5-export.xlsx`;
 const SCROLL_TAG = 'P5滚动';
 const SEED = 55;
 
+// filter_current 会被前端按自己的规范形式回写一次(迁移遗留的平铺字段搬进 groups),故按语义归一
+// (条件集合 + 组间关系 + 排序项)再比,不比原始字符串。
+const canonFilter = (raw) => {
+  if (raw == null) return null;
+  const f = JSON.parse(raw);
+  const items = [];
+  const norm = (it) => {
+    const o = { kind: it.kind };
+    if ('value' in it) o.value = it.value;
+    if ('path' in it) o.path = it.path;
+    if ('includeChildren' in it) o.includeChildren = !!it.includeChildren;
+    return o;
+  };
+  const add = (op, it) => {
+    if ((it.kind === 'keyword' || it.kind === 'expr') && !String(it.value ?? '').trim()) return;
+    items.push(`${op === 'or' ? 'or' : 'and'}|${JSON.stringify(norm(it))}`);
+  };
+  const groups = Array.isArray(f.groups) && f.groups.length ? f.groups : [{ op: 'and', items: [
+    ...((f.keyword ?? '').trim() ? [{ kind: 'keyword', value: f.keyword }] : []),
+    ...(f.tags ?? []).map((t) => ({ kind: 'tag', path: t.path, includeChildren: !!t.includeChildren })),
+    ...(f.excludeTags ?? []).map((t) => ({ kind: 'excludeTag', path: t.path, includeChildren: !!t.includeChildren })),
+    ...(f.relations ?? []).map((r) => ({ kind: 'relation', path: r.path })),
+    ...(f.excludeRelations ?? []).map((r) => ({ kind: 'excludeRelation', path: r.path })),
+    ...(f.tagPresence ? [{ kind: 'presence', value: f.tagPresence }] : []),
+    ...((f.expr ?? '').trim() ? [{ kind: 'expr', value: f.expr }] : []),
+  ] }];
+  for (const g of groups) for (const it of g.items ?? []) add(g.op, it);
+  return JSON.stringify({ items: items.sort(), groupOp: f.groupOp === 'or' ? 'or' : 'and', sort: f.sort ?? null, sorts: f.sorts ?? [], groupBy: f.groupBy ?? null });
+};
+
 const { cdp, close } = await ensureMain();
 const { call, liCount, inventory } = bindMain(cdp);
 const { evalIn } = bindDom(cdp);
@@ -139,10 +169,11 @@ try {
   await sleep(3000);
   const inv1 = await inventory();
   const leftovers = inv1.ids.filter((x) => !inv0.ids.includes(x));
+  const filterSame = canonFilter(inv1.filterCurrent) === canonFilter(inv0.filterCurrent);
   record(
     'S2 测试数据删净 + 库存前后一致(笔记 id 清单 / 标签路径 / filter_current / theme)',
-    inv1.notes === inv0.notes && inv1.filterCurrent === inv0.filterCurrent && inv1.theme === inv0.theme && JSON.stringify(inv1.paths) === JSON.stringify(inv0.paths) && leftovers.length === 0,
-    `notes ${inv1.notes}/${inv0.notes} filter_current同=${inv1.filterCurrent === inv0.filterCurrent} theme ${inv1.theme}/${inv0.theme} 残留=${JSON.stringify(leftovers)} paths同=${JSON.stringify(inv1.paths) === JSON.stringify(inv0.paths)}`
+    inv1.notes === inv0.notes && filterSame && inv1.theme === inv0.theme && JSON.stringify(inv1.paths) === JSON.stringify(inv0.paths) && leftovers.length === 0,
+    `notes ${inv1.notes}/${inv0.notes} filter_current同=${filterSame} theme ${inv1.theme}/${inv0.theme} 残留=${JSON.stringify(leftovers)} paths同=${JSON.stringify(inv1.paths) === JSON.stringify(inv0.paths)}`
   );
 }
 

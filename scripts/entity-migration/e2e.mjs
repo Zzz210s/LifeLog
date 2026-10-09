@@ -3,7 +3,7 @@
  * T4.4 端到端验收(统一实体 / 统一元数据迁移后的核心面)。
  * 读数:
  *   ① user_version=29 + 对账七条全 PASS
- *   ② 默认筛选命中 1373(IPC query_notes 与库侧口径逐值一致)
+ *   ② 当前筛选命中(IPC query_notes == 库侧按当前 filter_current 编译出的 SQL 命中数)
  *   ③ 树闭包 742(list_tags == path IS NOT NULL)
  *   ④ `#X`/`[[X]]` 目标域:自建笔记→笔记引用夹具,验 `[[X]]` 落成 link 边且图里可见
  *   ⑤ 导出跟随当前筛选(sheet「条目」/ 四列表头 / 行数 == 筛选命中)
@@ -67,6 +67,39 @@ const streamCond = async () => {
   return { ...(raw ? JSON.parse(raw) : conditions({})), sort: 'newest' };
 };
 
+// ---------- 库侧筛选编译:② 比当前 filter_current 的库侧命中数,现场编译不写死基数;口径对齐 Rust filter_predicates.rs ----------
+// 对照别名 e = entities,树内 = 祖先闭包;归一:前端回写后是 groups 形态,迁移遗留的平铺形态按同一次序摊平成 and 组。
+const q = (s) => `'${String(s).replace(/'/g, "''")}'`;
+const CLOSURE = "WITH RECURSIVE up(id) AS (SELECT id FROM entities WHERE is_cited = 1 UNION SELECT s.source_id FROM edges s JOIN up ON s.target_id = up.id WHERE s.kind = 'child')";
+const CARRY = (p) => `e.id IN (SELECT d.id FROM entities d JOIN edges cl ON cl.kind = 'link' JOIN entities ca ON ca.id = cl.source_id WHERE cl.target_id IN (SELECT id FROM entities WHERE path = ${q(p)}) AND ca.path IS NOT NULL AND (d.path = ca.path OR substr(d.path, 1, length(ca.path) + 1) = ca.path || '/'))`;
+const tagSql = (p, selfOnly) => `EXISTS (SELECT 1 FROM edges l JOIN entities t ON t.id = l.target_id WHERE l.kind = 'link' AND l.source_id = e.id AND (t.path = ${q(p)}${selfOnly ? '' : ` OR substr(t.path, 1, length(${q(p)}) + 1) = ${q(p)} || '/'`} OR ${CARRY(p)}))`;
+const ANY_TAG = "EXISTS (SELECT 1 FROM edges l WHERE l.kind = 'link' AND l.source_id = e.id)";
+const itemSql = (it) => {
+  const s = String(it.value ?? '').trim();
+  if (it.kind === 'keyword') return !s ? null : s.length >= 3
+    ? `e.id IN (SELECT rowid FROM entities_fts WHERE entities_fts MATCH ${q(`"${s.replace(/"/g, '""')}"*`)})`
+    : `(e.meta LIKE ${q(`%${s}%`)} OR EXISTS (SELECT 1 FROM edges l JOIN entities t ON t.id = l.target_id WHERE l.kind = 'link' AND l.source_id = e.id AND (t.path LIKE ${q(`%${s}%`)} OR t.meta LIKE ${q(`%${s}%`)})))`;
+  if (it.kind === 'tag') return tagSql(it.path, !it.includeChildren);
+  if (it.kind === 'excludeTag') return `NOT ${tagSql(it.path, !it.includeChildren)}`;
+  if (it.kind === 'relation') return CARRY(it.path);
+  if (it.kind === 'excludeRelation') return `NOT (${CARRY(it.path)})`;
+  if (it.kind === 'presence') return s === 'any' ? ANY_TAG : s === 'none' ? `NOT (${ANY_TAG})` : null;
+  if (it.kind === 'treeMembership') return s === 'in' ? 'e.id IN (SELECT id FROM up)' : s === 'out' ? 'NOT (e.id IN (SELECT id FROM up))' : null;
+  if (it.kind === 'singleLine') return s === 'multi' ? 'instr(e.meta, char(10)) > 0' : s === 'single' ? 'instr(e.meta, char(10)) = 0' : null;
+  if (it.kind === 'expr') { if (!s) return null; throw new Error(`库侧读数不支持表达式条件:${s}`); }
+  return null;
+};
+const groupsOf = (f) => (Array.isArray(f.groups) && f.groups.length ? f.groups : [{ op: 'and', items: [
+  ...((f.keyword ?? '').trim() ? [{ kind: 'keyword', value: f.keyword }] : []),
+  ...(f.tags ?? []).map((t) => ({ kind: 'tag', ...t })), ...(f.excludeTags ?? []).map((t) => ({ kind: 'excludeTag', ...t })),
+  ...(f.relations ?? []).map((r) => ({ kind: 'relation', path: r.path })), ...(f.excludeRelations ?? []).map((r) => ({ kind: 'excludeRelation', path: r.path })),
+  ...(f.tagPresence ? [{ kind: 'presence', value: f.tagPresence }] : []), ...((f.expr ?? '').trim() ? [{ kind: 'expr', value: f.expr }] : []),
+] }]);
+const dbFilterHits = (f) => {
+  const gs = groupsOf(f).map((g) => { const p = (g.items ?? []).map(itemSql).filter(Boolean); return p.length ? `(${p.join(g.op === 'or' ? ' OR ' : ' AND ')})` : null; }).filter(Boolean);
+  return n(`${CLOSURE} SELECT COUNT(*) n FROM entities e WHERE ${gs.length ? `1=1 AND (${gs.join(f.groupOp === 'or' ? ' OR ' : ' AND ')})` : '1=1'}`);
+};
+
 // ---------- ① 迁移版本 + 对账七条 ----------
 const sqlPath = fileURLToPath(new URL('./reconcile.sql', import.meta.url));
 const rec = runReconcile({ dbPath: DB_PATH, sqlPath });
@@ -76,15 +109,15 @@ record(
   `user_version=${rec.user_version} PASS ${rec.summary.pass} / FAIL ${rec.summary.fail} / N/A ${rec.summary.na}`,
 );
 
-// ---------- ② 默认筛选命中:IPC 与库侧逐值一致 ----------
+// ---------- ② 当前筛选命中:IPC 与库侧 SQL 逐值一致 ----------
 const base = counts();
 const cond0 = await streamCond();
 const hits0 = await pageAll(cond0);
-const dbHits0 = n('SELECT COUNT(*) n FROM entities WHERE path IS NULL OR instr(meta, char(10)) > 0');
+const dbHits0 = dbFilterHits(cond0);
 record(
-  '② 默认筛选命中 1373(IPC query_notes == 库侧 treeMembership=out OR singleLine=multi)',
-  hits0.length === 1373 && dbHits0 === 1373 && hits0.length === dbHits0,
-  `IPC=${hits0.length} 库侧=${dbHits0}`,
+  '② 当前筛选命中:IPC query_notes == 库侧按当前 filter_current 编译出的 SQL 命中数',
+  hits0.length === dbHits0,
+  `IPC=${hits0.length} 库侧=${dbHits0} 条件=${JSON.stringify(cond0)}`,
 );
 
 // ---------- ③ 树闭包 742 ----------
