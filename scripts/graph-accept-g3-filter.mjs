@@ -3,6 +3,8 @@
  * 由 graph-accept-g3.mjs 调用(过滤器面板只在这一段开着);判定与文案都在这里,主脚本只摆顺序。
  * 预测值一律由 graph-accept-g3-scene 的 `predict`(视图同一份纯函数)现算,不写死在脚本里 ——
  * 计划里的 391/751、768/1518 只当第二个口径(库变了才对不上,便于一眼看出是环境还是代码)。
+ * T4.2 读数(2026-10-09):闭包 742 个实体、全图 1489 边(父子 718 + 共现 771,`HUB_THRESHOLD=60`);
+ * 默认档(时间轴折叠)= 357 点 / 711 边(父子 333 + 共现 378)。
  */
 import { sleep } from './cdp-lib.mjs';
 import { clickText, graphStatus, lastFrame, panelState, setFilterBox, setFilterSelect } from './graph-accept-g3-lib.mjs';
@@ -105,8 +107,8 @@ export async function runFilters({ cdp, record, base }) {
   await sleep(600);
 
   // ---- 4) 勾上「时间」轴 + LOD 枢纽文字按本级口径 ----
-  // 判据不写死 768/1518(那是计划当时库里的标签数,库长到 770 就会假红):
-  // 勾上时间轴 = **全库标签都进来**,所以拿全库标签数当上界,边数则看纯函数预测
+  // 判据不写死 768/1518(那是计划当时库里的实体数,库长到 770 就会假红):
+  // 勾上时间轴 = **全部闭包节点都进来**,所以拿 `base.tags`(= 本次 graph_data 的节点数)当上界
   const pTime = await predict(cdp, filtersOf([...axesDefault, '时间']));
   const wantTime = STATUS(pTime.nodes.length, pTime.edgeCount);
   const allIn = pTime.nodes.length === base.tags;
@@ -127,9 +129,9 @@ export async function runFilters({ cdp, record, base }) {
   const lodOk = lod === '全量文字' || lod === '只有点' || badSelf === 0;
   const drawnOk = fr4?.fills === pTime.nodes.length ? fr4.strokes === pTime.edgeCount : (fr4?.fills ?? 0) <= pTime.nodes.length;
   record(
-    'G3-4 勾上「时间」轴:全库标签都进来(不再写死 768/1518);枢纽文字按本级口径',
+    'G3-4 勾上「时间」轴:全部闭包节点都进来(不再写死 768/1518);枢纽文字按本级口径',
     s4 === wantTime && allIn && lodOk && drawnOk,
-    `状态条 ${s4}(期望 ${wantTime} = 全库 ${base.tags} 个标签都进来=${allIn};计划当时库里是 768 个,所以旧判据写死了 768/1518);` +
+    `状态条 ${s4}(期望 ${wantTime} = 全部 ${base.tags} 个节点都进来=${allIn};计划当时库里是 768 个,所以旧判据写死了 768/1518;T4.2 真库 = 742 节点 / 1489 边);` +
       `画布 ${fr4?.fills} 点 / ${fr4?.strokes} 线${(fr4?.fills ?? 0) < pTime.nodes.length ? '(不足全量 = 视口裁剪,判据仍看状态条与纯函数预测)' : ''};` +
       `LOD=${lod}:画出文字 ${drawn.length} 条,其中"本级 selfCount < 100"的 ${badSelf} 条、"含子级 notes < 100"的 ${badNotes} 条` +
       `(badSelf=0 = 文字全落在真枢纽上;若 badSelf>0 而 badNotes=0,说明回退成了含子级口径 —— 正是 T2 收掉的旧债)`,

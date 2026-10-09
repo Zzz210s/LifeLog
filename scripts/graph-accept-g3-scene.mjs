@@ -48,7 +48,8 @@ const leaf = 'const leafOf = (p) => p.split("/").pop();';
 /**
  * 预测给定过滤器下的可见集与绘制量(应用侧真值 === 视图侧纯函数)。
  * 回:节点表(带 depth / notes(含子级)/ selfCount(本级)/ leaf)、边数、最大 depth、根与折叠根、
- * 空态、全库标签数与**0 笔记标签数**(读数 3 的"只显示有笔记"在本机库无对象可筛这点靠它说明)。
+ * 空态、闭包节点数(`tags` 字段名沿用旧叫法:统一实体后它就是 `graph_data` 的节点数)与
+ * **0 笔记节点数**(读数 3 的"只显示有笔记"在本模型下无对象可筛这点靠它说明)。
  */
 export const predict = (cdp, filters) =>
   cdp.eval(`(async () => {

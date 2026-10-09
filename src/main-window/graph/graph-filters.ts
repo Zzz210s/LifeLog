@@ -32,7 +32,17 @@ export function axisOptions(data: GraphData): string[] {
     .sort();
 }
 
-/** 默认:展开除折叠根之外的所有轴(时间轴默认折叠 —— 它一棵子树就占全库一半节点) */
+/** 默认:展开除折叠根之外的所有轴(时间轴默认折叠 —— 它一棵子树就占全库一半节点)
+ *
+ * T4.2 重标定读数(2026-10-09 真库 v29;闭包 742 节点、时间子树 385):
+ * - `maxDepth` 6:**闭包最大 depth = 5**(1:24 / 2:216 / 3:91 / 4:95 / 5:316),默认值即"全可见",
+ *   留一档余量,不截断;
+ * - `onlyWithNotes` 与 `minNotes` 的 1 档:**结构性空转** —— 闭包 = 被引用 ∪ 其祖先,每个节点的
+ *   含子级 `notes` 必 >= 1(实测 0 个节点为 0),这两档在本模型下筛不掉任何东西;
+ *   默认值(false / 0 = 全显示)因此保持不动(要真能筛,得改成"本级有笔记"的口径,那是语义变更,
+ *   不在阈值重标定范围内);
+ * - `minNotes` 其余档位仍有区分度:>= 5 -> 180 个节点,>= 20 -> 69 个。
+ */
 export function defaultFilters(roots: readonly string[], collapsed: readonly string[]): GraphFilters {
   const off = new Set(collapsed);
   return {

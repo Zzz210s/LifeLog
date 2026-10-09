@@ -133,7 +133,8 @@ export async function runGraphG2({ cdp, ev, ui, bm, record }) {
   );
 
   // 7) 搜索框里打 `-`:守卫生效(相机不变 = 画布不重绘);正对照:窗口级 `-` 会重绘
-  //    先迁到适配视图(window 派发,不受焦点影响):只有适配档 391 点全在视口内,往外缩不跨裁剪边界,跨度才严格 ∝ k
+  //    先迁到适配视图(window 派发,不受焦点影响):只有适配档整个可见集全在视口内,往外缩不跨裁剪边界,跨度才严格 ∝ k
+  //    (T4.2 读数:适配档默认视图 = 357 点/711 边;旧值是 391 点)
   await ev(`window.dispatchEvent(new KeyboardEvent('keydown', { key: '0' }))`);
   await sleep(800);
   await focusSearch(cdp);

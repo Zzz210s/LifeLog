@@ -189,10 +189,7 @@ pub fn co_edges(conn: &Connection, hub_threshold: i64) -> SqlResult<Vec<GraphEdg
     rows.collect()
 }
 
-#[cfg(test)]
-#[path = "graph_tests.rs"]
-mod graph_tests;
-
-#[cfg(test)]
-#[path = "graph_links_tests.rs"]
-mod graph_links_tests;
+#[cfg(test)] #[path = "graph_tests.rs"] mod graph_tests;
+#[cfg(test)] #[path = "graph_links_tests.rs"] mod graph_links_tests;
+// T4.2 阈值标定读数(真库只读,默认 ignored)
+#[cfg(test)] #[path = "graph_calibration_tests.rs"] mod graph_calibration_tests;
