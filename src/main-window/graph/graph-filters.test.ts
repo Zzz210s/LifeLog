@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 import { applyFilters, axisOf, axisOptions, defaultFilters, MAX_DEPTH_LIMIT } from './graph-filters';
 import type { GraphData, GraphNode } from '../../shared/types';
 
@@ -66,6 +66,26 @@ describe('applyFilters:过滤 + 折叠 + 丢悬空边', () => {
     const collapsed = applyFilters(withLinks, { ...all, axes: [] });
     expect(collapsed.edges).toEqual([]);
     expect(collapsed.links).toEqual([{ a: 900, b: 901 }]);
+  });
+
+  it('节点分流不读 kind:带上旧 kind 标注也不改变结果(实体种类已从数据层消失)', () => {
+    // 旧实现按节点 kind 分流;现在唯一的种类信息是「边 kind」,节点没有 kind 字段。
+    const poisoned = {
+      ...data,
+      nodes: data.nodes.map((n) => ({ ...n, kind: 'tag' })),
+    } as unknown as GraphData;
+    const clean = applyFilters(data, all);
+    const dirty = applyFilters(poisoned, all);
+    expect(dirty.nodes.map((n) => n.id)).toEqual(clean.nodes.map((n) => n.id));
+    expect(dirty.edges).toEqual(clean.edges);
+    expect(dirty.links).toEqual(clean.links);
+  });
+});
+
+describe('类型层:GraphNode 无实体种类字段', () => {
+  it('GraphNode / GraphFilterPanel 的节点形状不带 kind', () => {
+    expectTypeOf<GraphNode>().not.toHaveProperty('kind');
+    expectTypeOf<GraphNode['id']>().toEqualTypeOf<number>();
   });
 });
 

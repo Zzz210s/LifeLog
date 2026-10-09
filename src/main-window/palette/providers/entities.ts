@@ -12,6 +12,8 @@ import type { QuickPickItem } from '../../../shared/quickpick/model';
 import type { QuickPickProvider } from '../../../shared/quickpick/providers';
 import { tagLabelPlain } from '../../../shared/tag-label';
 import { remapPositions } from '../../../shared/tag-label-highlight';
+import type { TagCount } from '../../../shared/types';
+import type { RowDecoration } from '../PaletteRow';
 
 export const ENTITIES_PREFIX = '';
 export const ENTITIES_OPEN_PREFIX = '@';
@@ -78,6 +80,13 @@ export interface EntityProviderOptions {
   inTreeOnly: boolean;
   prefix: string;
   id: string;
+}
+
+/** 行右侧副文本:含子级计数(`#` 档装饰;自旧 tags provider 迁入,口径不变) */
+export function tagDecorations(tags: readonly TagCount[]): Record<string, RowDecoration> {
+  const out: Record<string, RowDecoration> = {};
+  for (const tag of tags) out[tag.path] = { detail: `${tag.subtree_count} 条` };
+  return out;
 }
 
 /** 注册表条目(一个模块注册三次:默认档 / `@` / `#`) */

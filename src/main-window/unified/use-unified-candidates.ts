@@ -2,7 +2,7 @@
  * 统一输入框的候选(计划 Task 5):把输入框的 `(mode, query)` **常驻**推进候选控制器的候选态,
  * 再把控制器里的列表原样投影给下拉。
  *
- * 为什么不在这里自己取候选:候选池(`createNoteCandidates`/`createTagCandidates`)、行装饰、
+ * 为什么不在这里自己取候选:实体候选池(`EntityCandidates`)、行装饰、
  * MRU 与"旧回包丢弃"的序号守卫都已经接在 `useAppPalette`(`providers` + `useProviderItems`)里,
  * 复制一份就会多出第二个 matcher/候选池。本文件只做两件事:
  *  1) **驱动**:`note` / `filter` 没有下拉(清掉前缀,停掉后台取候选),其余三类把

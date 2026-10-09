@@ -1,24 +1,26 @@
 
+/** 信息流读回的一条**实体**(IPC `query_notes`):统一实体后只有一种读 DTO,不再按「笔记 / 标签」分形状;
+ *  `id` 是实体 id(与树内实体同属 `entities`),`content` 就是 `entities.meta` 原文(标签词元已剥离)。 */
 export interface Note {
   id: number;
   content: string;
   /** 创建时间(物理列,库内 localtime 口径);流里只显示它,不改期、不参与排序与筛选 */
   created_at: string;
-  /** 标签**完整路径**(树语义真源;根级标签即其名称) */
+  /** 该实体连到的标签**完整路径**集合(树语义真源;根级标签即其名称) */
   tags: string[];
-  /** 正文里的出链 `[[X]]`(L2):已解析一条也带 targetId/title,null 表示未解析 */
+  /** 正文与 `#` 词元的出链(L2):已解析一条也带 targetId/title,null 表示未解析 */
   links: NoteLink[];
 }
 
 /** 一条出链(与 Rust `OutboundLink` 逐字一致的 camelCase):rawTitle 是正文原文,
- *  targetId 解析到的目标**笔记实体 id**(未解析 null),title 是目标**当前**显示首行(未解析/已删 null) */
+ *  targetId 解析到的目标**实体 id**(未解析 null),title 是目标**当前**显示首行(未解析/已删 null) */
 export interface NoteLink {
   rawTitle: string;
   targetId: number | null;
   title: string | null;
 }
 
-/** 一条入链(与 Rust `Backlink` 逐字一致的 camelCase):sourceId 是引用来源的**笔记实体 id**,
+/** 一条入链(与 Rust `Backlink` 逐字一致的 camelCase):sourceId 是引用来源的**实体 id**,
  *  title 是来源**当前**显示首行(L3 卡片面板/编辑面板列出反向引用用) */
 export interface Backlink {
   sourceId: number;
@@ -31,17 +33,16 @@ export interface NoteLinks {
   backlinks: Backlink[];
 }
 
-/** `[[` 补全候选池的一项(IPC `complete_notes`,与 Rust `NoteTitle` 逐字一致):
- *  id 是**笔记实体 id** + 笔记的显示首行(`links::display_title` 口径,只裁首尾空白、大小写原样) */
+/** 全部实体候选池的一项(IPC `complete_notes`,与 Rust `NoteTitle` 逐字一致):id 是**实体 id**(树内 + 树外同一命名空间),
+ *  title 是该实体的显示首行(`links::display_title` 口径,只裁首尾空白、大小写原样)。T3.2 起 `#` / `[[ ]]` 共用此池 */
 export interface NoteTitle {
   id: number;
   title: string;
 }
 
-/** 标签树节点计数:id 是标签**实体 id**(统一实体表,落在偏移区间 `>= 1000000000`),
+/** 树内实体(标签树节点)计数:id 是**实体 id**(统一实体表,树内落在偏移区间 `>= 1000000000`),
  *  右键管理(rename/move/delete/tag_impact)、`graph_positions` 位置记忆全按它寻址;
- *  path 为完整路径,self_count 本级链接数,subtree_count 含全部子孙;
- *  sort_order 供同层次序(S8):树里兄弟按 (sort_order, path) 展示 */
+ *  path 为完整路径,self_count 本级链接数,subtree_count 含全部子孙;sort_order 供同层次序(S8,兄弟按 (sort_order, path) 展示) */
 export interface TagCount {
   id: number;
   path: string;
@@ -61,7 +62,7 @@ export interface TagImpact {
 }
 
 /**
- * # 补全候选项(IPC `complete_tags`):kind="tag" 为标签路径前缀命中,
+ * # 补全候选项(IPC `complete_tags`):候选池是**树内实体**;kind="tag" 为路径前缀命中,
  * kind="alias" 为别名前缀命中 —— 此时 path 是**别名目标标签的当前路径**
  * (别名存的是指向,目标改名后后端给的就是新路径);
  * kind="similar" 为近义提示项(G4)—— path 是叶子名与词元近似的标签,
@@ -123,7 +124,7 @@ export interface ParseResult {
 
 /**
  * 关系图节点(IPC `graph_data`,字段与 Rust `GraphNodeDto` 逐字一致)。
- * `id` 是标签**实体 id**,`parent` 是父标签**实体 id**(根级为 null),
+ * `id` 是树内**实体 id**,`parent` 是父节点的**实体 id**(根级为 null),
  * `depth` 是标签树深度(根级 = 1),
  * `notes` 是**含子孙**的去重笔记数(与侧栏 subtree_count 同源),
  * `selfCount` 是本级去重笔记数(不含子孙),`sortOrder` 与 `entities.sort_order` 同口径(右键菜单按它排)。
@@ -139,9 +140,9 @@ export interface GraphNode {
 }
 
 /** 关系图的边(IPC `graph_data`):`tree` 父子边 / `co` 共现边 / `link` 笔记间已解析链接。
- *  统一实体后 `a`/`b` 都是**实体 id**(标签实体 id `>= 1000000000`、笔记实体 id 保持原值,
- *  单库内唯一不撞),但**身份只能按 `kind` 判,不能靠数值区间猜**:`tree`/`co` 两端是标签实体 id,
- *  `link` 两端是笔记实体 id(笔记节点只在展开时出现,link 边也只在两端笔记都展开时画)。
+ *  统一实体后 `a`/`b` 都是**实体 id**(树内实体 id `>= 1000000000`、树外实体 id 保持原值,
+ *  单库内唯一不撞),但**身份只能按 `kind` 判,不能靠数值区间猜**:`tree`/`co` 两端是树内实体 id,
+ *  `link` 两端是树外实体 id(树外节点只在展开时出现,link 边也只在两端都展开时画)。
  *  `weight` 是两端共现笔记数(tree / link 恒为 1)。 */
 export interface GraphEdge {
   a: number;
@@ -150,7 +151,7 @@ export interface GraphEdge {
   weight: number;
 }
 
-/** 笔记间已解析链接(从 `kind: 'link'` 的边上拆出来):两端都是**笔记实体 id** */
+/** 树外实体之间的已解析链接(从 `kind: 'link'` 的边上拆出来):两端都是**树外实体 id** */
 export interface GraphLink {
   a: number;
   b: number;

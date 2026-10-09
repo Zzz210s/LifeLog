@@ -24,7 +24,7 @@ import { createEntityCandidates } from '../palette/entity-candidates';
 import { buildAppProviders } from '../palette/providers/app-providers';
 import { usePaletteSettings } from '../palette/use-palette-settings';
 import { commandDecorations } from '../palette/providers/commands';
-import { tagDecorations } from '../palette/providers/tags';
+import { tagDecorations } from '../palette/providers/entities';
 import { usePalette } from '../palette/use-palette';
 import type { PaletteController } from '../palette/use-palette';
 import { paletteBinding } from '../palette/palette-binding';

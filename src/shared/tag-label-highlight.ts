@@ -9,7 +9,7 @@
  *
  * 两个消费方:
  * - `input-bar/TagCompleteList.tsx`(完整路径 + 父/末级分色):用 `remapRanges`;
- * - `palette/providers/tags.ts`(统一输入框 `#` 档候选):打分器给的是单点下标,用 `remapPositions`。
+ * - `palette/providers/entities.ts`(统一输入框 `#` 档候选):打分器给的是单点下标,用 `remapPositions`。
  */
 import type { MatchRange } from './fuzzy-score';
 

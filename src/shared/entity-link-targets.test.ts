@@ -4,7 +4,7 @@
  * 前端跑 `resolveLinkTarget`,后端跑 `note_links::resolve_target`,漂移时两边同时变红。
  */
 import { readFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 import { resolveLinkTarget, type LinkCandidate } from './note-link';
 
 interface Entity {
@@ -57,6 +57,21 @@ describe('entity-link-targets 共享向量(统一元数据后)', () => {
       { id: 1000000003, meta: '撞名' },
     ];
     expect(resolveLinkTarget(candidates, '撞名')).toBe(4);
+  });
+
+  it('resolve_link_target_has_no_kind_branch:候选带旧 kind 标注也不改裁决', () => {
+    // 旧实现按种类优先级(标签优先于笔记);统一后只剩「同键取 id 最小」。
+    // 这里把旧 kind 经 unknown 注入:标签 id(9)更大 —— 若恢复种类优先会返回 9。
+    const candidates = [
+      { id: 3, meta: '撞名', kind: 'note' },
+      { id: 9, meta: '撞名', kind: 'tag' },
+    ] as unknown as LinkCandidate[];
+    expect(resolveLinkTarget(candidates, '撞名')).toBe(3);
+  });
+
+  it('类型层:LinkCandidate 无实体种类字段', () => {
+    expectTypeOf<LinkCandidate>().not.toHaveProperty('kind');
+    expectTypeOf<LinkCandidate['meta']>().toEqualTypeOf<string>();
   });
 
   it('按 entity_key(meta) 匹配而不是 path(变异自证靶点)', () => {

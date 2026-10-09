@@ -1,8 +1,8 @@
 /**
  * 高亮下标重定位的共享用例(T1 收尾):`input-bar/TagCompleteList.tsx` 与
- * `palette/providers/tags.ts`(统一输入框 `#` 档)共用 `shared/tag-label-highlight.ts`,
+ * `palette/providers/entities.ts`(统一输入框 `#` 档)共用 `shared/tag-label-highlight.ts`,
  * 这里是**对共享函数的直接断言**;两个显示位的接线另由各自的 DOM/单测覆盖
- * (`input-bar/tag-complete-md.dom.test.ts`、`palette/providers/tags.test.ts`)。
+ * (`input-bar/tag-complete-md.dom.test.ts`、`palette/providers/entities.test.ts`)。
  */
 import { describe, expect, it } from 'vitest';
 import { tagLabelPlain } from './tag-label';
