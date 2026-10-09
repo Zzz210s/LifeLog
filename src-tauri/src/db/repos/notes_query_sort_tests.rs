@@ -3,7 +3,7 @@
 use crate::db::migrate;
 use crate::db::repos::notes::notes_filter::{validate, SortCond};
 use crate::db::repos::notes::notes_sort::effective_sorts;
-use crate::db::repos::notes::{create_on, create_plain, query, FilterConditions, Note};
+use crate::db::repos::notes::{create_on, create_plain, query as query_all, FilterConditions, Note};
 use rusqlite::Connection;
 
 fn db() -> Connection {
@@ -46,8 +46,8 @@ fn axis_db() -> Connection {
     // ensure_path 新建兄弟一律 sort_order=0(默认值),这里按「用户拖过顺序」写入显式树序
     c.execute(
         "UPDATE entities SET sort_order = CASE path WHEN '轴/A' THEN 0 ELSE 1 END
-         WHERE kind = 'tag'
-           AND parent_id = (SELECT id FROM entities WHERE kind = 'tag' AND path = '轴')",
+         WHERE path IS NOT NULL
+           AND parent_id = (SELECT id FROM entities WHERE path = '轴')",
         [],
     )
     .unwrap();
@@ -118,3 +118,13 @@ fn validate_rejects_over_limit_and_bad_sort_values() {
     assert!(validate(&cond(vec![tag("轴", "asc", true), time("desc", false)], None)).is_ok());
 }
 
+
+/// 统一元数据后 `query` 的域是全实体(spec §4.1:清空筛选即显示标签);
+/// 本文件的老用例只关心迁移前的「全部笔记」,故把默认筛选并入条件(见 test_support)。
+fn query(
+    c: &Connection,
+    cond: &crate::db::repos::notes::notes_filter::FilterConditions,
+    offset: i64,
+) -> Result<Vec<crate::db::repos::notes::Note>, String> {
+    query_all(c, &crate::db::repos::tags::test_support::with_note_domain(cond.clone()), offset)
+}

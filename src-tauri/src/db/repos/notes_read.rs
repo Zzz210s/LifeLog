@@ -9,9 +9,9 @@ use serde::Serialize;
 /// 行映射:note 基础列 + 可空标签路径
 type NoteRow = (i64, String, String, Option<String>);
 
-/// 四个 SELECT 列(所有读取路径共用同一形状):id/正文/created_at/标签路径。
+/// 四个 SELECT 列(所有读取路径共用同一形状):id/正文(meta)/created_at/标签路径。
 fn columns() -> &'static str {
-    "n.id, n.content, n.created_at, t.path"
+    "n.id, n.meta, n.created_at, t.path"
 }
 
 /// 行映射(列顺序见 [`columns`])
@@ -46,14 +46,22 @@ pub(crate) fn fold_tag_rows(
 
 /// 最近 N 条(id 降序,含全部标签)。当前仅测试使用,生产路径走 query;
 /// 标 #[cfg(test)] 以消除非 test 构建的 dead_code 警告。
+/// 笔记判据 = 默认筛选口径 `NOT (在树内 且 单行)`(spec §4.1),不再有 `kind='note'`。
+/// LIMIT 必须作用在**过滤后的行**上(统一元数据后 `entities` 里还有标签实体,
+/// 先取 id 前 N 会把标签算进配额),故用 `feed` CTE 先筛后排。
 #[cfg(test)]
 pub fn recent(conn: &Connection, limit: u32) -> rusqlite::Result<Vec<Note>> {
+    let in_tree = crate::db::repos::entities::closure::in_tree_predicate("n");
     let mut stmt = conn.prepare(&format!(
-        "SELECT {} FROM entities n
-         LEFT JOIN edges l ON l.kind = 'tagging' AND l.source_id = n.id
+        "WITH feed AS (
+           SELECT n.id FROM entities n
+           WHERE NOT ({in_tree} AND instr(n.meta, char(10)) = 0)
+           ORDER BY n.id DESC LIMIT ?1
+         )
+         SELECT {} FROM entities n
+         LEFT JOIN edges l ON l.kind = 'link' AND l.source_id = n.id
          LEFT JOIN entities t ON t.id = l.target_id
-         WHERE n.kind = 'note'
-           AND n.id IN (SELECT id FROM entities WHERE kind = 'note' ORDER BY id DESC LIMIT ?1)
+         WHERE n.id IN (SELECT id FROM feed)
          ORDER BY n.id DESC, t.path",
         columns()
     ))?;
@@ -62,13 +70,13 @@ pub fn recent(conn: &Connection, limit: u32) -> rusqlite::Result<Vec<Note>> {
 }
 
 /// 删除笔记(事务):删实体行(`edges` 外键级联出链/入链),
-/// 最后精确回收"无出边且无入边"的孤儿标签(父节点天生没有入边,旧实现的"无链接即孤儿"
+/// 最后精确回收"无出边且无 `link` 入边"的孤儿标签(父节点天生没有入边,旧实现的"无链接即孤儿"
 /// 会连带删掉整棵子树)。
 ///
-/// 注:`entities` 上并没有指向 `notes` 的外键,阶段 4 后只删实体行即可。
+/// 注:统一元数据后不再有 `kind='note'`,按 id 直删(调用方只传笔记 id)。
 pub fn delete(conn: &mut Connection, id: i64) -> rusqlite::Result<()> {
     let tx = conn.transaction()?;
-    tx.execute("DELETE FROM entities WHERE id=?1 AND kind='note'", params![id])?;
+    tx.execute("DELETE FROM entities WHERE id=?1", params![id])?;
     crate::db::repos::tags::gc_orphans(&tx)?;
     tx.commit()
 }
@@ -78,9 +86,9 @@ pub fn delete(conn: &mut Connection, id: i64) -> rusqlite::Result<()> {
 pub(crate) fn read_full(conn: &Connection, id: i64) -> rusqlite::Result<Option<Note>> {
     let mut stmt = conn.prepare(&format!(
         "SELECT {} FROM entities n
-         LEFT JOIN edges l ON l.kind = 'tagging' AND l.source_id = n.id
+         LEFT JOIN edges l ON l.kind = 'link' AND l.source_id = n.id
          LEFT JOIN entities t ON t.id = l.target_id
-         WHERE n.kind = 'note' AND n.id = ?1 ORDER BY t.path",
+         WHERE n.id = ?1 ORDER BY t.path",
         columns()
     ))?;
     let rows = stmt.query_map(params![id], map_note_row)?;
@@ -103,16 +111,14 @@ pub struct NoteTitle {
 /// 有前缀时的候选上限:前端还要用 `scoreFuzzy` 精排取前 8,粗筛给足冗余即可。
 pub const COMPLETE_NOTES_LIMIT: usize = 200;
 
-/// 全部笔记的**显示首行**(`links::display_title` 口径:只裁首尾空白、大小写与标签词元原样保留);
-/// 首行剥标签后为空的不进池;按 id 升序(池的顺序即空查询时的展示序,设计 N9)。
+/// 全部实体的**显示首行**(`links::display_title` 口径:只裁首尾空白、大小写与标签词元原样保留);
+/// 首行剥标签后为空的不进池(统一元数据后 `[[ ]]` 补全池 = 全部实体,spec §5.1);按 id 升序。
 pub fn all_titles(conn: &Connection) -> rusqlite::Result<Vec<NoteTitle>> {
-    let mut stmt =
-        conn.prepare("SELECT id, content FROM entities WHERE kind = 'note' ORDER BY id")?;
+    let mut stmt = conn.prepare("SELECT id, meta FROM entities ORDER BY id")?;
     let rows = stmt.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))?;
     let mut out = Vec::new();
     for row in rows {
-        let (id, content) = row?;
-        let title = display_title(&content);
+        let (id, content) = row?;        let title = display_title(&content);
         if !title.is_empty() {
             out.push(NoteTitle { id, title });
         }

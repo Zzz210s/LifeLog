@@ -1,7 +1,7 @@
 //! update 测试(测试先行 TDD)
 use super::*;
 use crate::db::migrate;
-use crate::db::repos::notes::{create_plain, notes_filter::*, query};
+use crate::db::repos::notes::{create_plain, notes_filter::*, query as query_all};
 use crate::db::repos::tags::invariants_tests::{assert_fts_matches_edges, assert_no_orphan_tags};
 use rusqlite::Connection;
 
@@ -113,7 +113,10 @@ fn update_keeps_fts_in_sync() {
 
 /// 一条笔记的已解析链接目标 id,按 target 升序(阶段 4 后只存 `edges`,原始标题从正文重解析)
 fn link_targets(c: &Connection, id: i64) -> Vec<i64> {
-    c.prepare("SELECT target_id FROM edges WHERE kind='link' AND source_id=?1 ORDER BY target_id")
+    c.prepare(
+        "SELECT target_id FROM edges WHERE kind='link' AND source_id=?1
+           AND target_id IN (SELECT id FROM entities WHERE path IS NULL) ORDER BY target_id",
+    )
         .unwrap()
         .query_map([id], |r| r.get(0))
         .unwrap()
@@ -146,7 +149,16 @@ fn update_clears_links_when_body_drops_them() {
         0,
         "替换语义:正文里去掉链接后 link 边整批清空"
     );
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM edges WHERE kind='link'", &[]), 0);
+    assert_eq!(
+        count(
+            &c,
+            "SELECT COUNT(*) FROM edges WHERE kind='link'
+               AND target_id IN (SELECT id FROM entities WHERE path IS NULL)",
+            &[]
+        ),
+        0,
+        "不产生笔记间链接(指向标签的 link 边是 #甲 自己)"
+    );
 }
 
 #[test]
@@ -164,7 +176,26 @@ fn tag_shaped_link_title_produces_no_link() {
     update(&mut c, src.id, "参考 [[#甲]]").unwrap().unwrap();
     // 扫的是剥标签后的正文:此处已是 `参考 [[]]`,不产生链接(设计 §5 边界 5);
     // 而 `#甲` 仍是普通标签(标签语法只认 `#`,与链接互不干扰)
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM edges WHERE kind='link'", &[]), 0);
+    assert_eq!(
+        count(
+            &c,
+            "SELECT COUNT(*) FROM edges WHERE kind='link'
+               AND target_id IN (SELECT id FROM entities WHERE path IS NULL)",
+            &[]
+        ),
+        0,
+        "不产生笔记间链接(指向标签的 link 边是 #甲 自己)"
+    );
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE name='甲'", &[]), 1);
 }
 
+
+/// 统一元数据后 `query` 的域是全实体(spec §4.1:清空筛选即显示标签);
+/// 本文件的老用例只关心迁移前的「全部笔记」,故把默认筛选并入条件(见 test_support)。
+fn query(
+    c: &Connection,
+    cond: &crate::db::repos::notes::notes_filter::FilterConditions,
+    offset: i64,
+) -> Result<Vec<crate::db::repos::notes::Note>, String> {
+    query_all(c, &crate::db::repos::tags::test_support::with_note_domain(cond.clone()), offset)
+}

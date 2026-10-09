@@ -1,7 +1,7 @@
 //! 条件对象在真实库上的语义验收(含子级 / 仅本级 / 排除 / 有无标签 / 排序 / 计数)
 //! 日期范围条件已整体取消(spec 2026-09-17 D2)。
 use crate::db::migrate;
-use crate::db::repos::notes::{create_on, create_plain, notes_filter::*, query};
+use crate::db::repos::notes::{create_on, create_plain, notes_filter::*, query as query_all};
 use rusqlite::{params, Connection};
 
 fn db() -> Connection {
@@ -113,8 +113,29 @@ fn count_matching_tracks_query_hits() {
     create_plain(&mut c, "b #电影 #神作").unwrap();
     create_plain(&mut c, "c").unwrap();
     let cond = FilterConditions { tags: vec![tag("电影", true)], ..empty() };
-    assert_eq!(super::count_matching(&c, &cond).unwrap(), 2);
+    assert_eq!(count_matching(&c, &cond).unwrap(), 2);
     assert_eq!(query(&c, &cond, 0).unwrap().len(), 2);
     let none = FilterConditions { tag_presence: Some("none".into()), ..empty() };
-    assert_eq!(super::count_matching(&c, &none).unwrap(), 1);
+    assert_eq!(count_matching(&c, &none).unwrap(), 1);
+}
+
+/// 老用例口径:命中数与上面的 `query` 同源,一并收窄到信息流默认筛选。
+fn count_matching(
+    c: &Connection,
+    cond: &FilterConditions,
+) -> Result<i64, String> {
+    crate::db::repos::notes::notes_query::count_matching(
+        c,
+        &crate::db::repos::tags::test_support::with_note_domain(cond.clone()),
+    )
+}
+
+/// 统一元数据后 `query` 的域是全实体(spec §4.1:清空筛选即显示标签);
+/// 本文件的老用例只关心迁移前的「全部笔记」,故把默认筛选并入条件(见 test_support)。
+fn query(
+    c: &Connection,
+    cond: &crate::db::repos::notes::notes_filter::FilterConditions,
+    offset: i64,
+) -> Result<Vec<crate::db::repos::notes::Note>, String> {
+    query_all(c, &crate::db::repos::tags::test_support::with_note_domain(cond.clone()), offset)
 }

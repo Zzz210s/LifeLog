@@ -3,7 +3,7 @@
 //! 两种模式共用)。排除侧走同一套命中集(无黑洞);侧栏计数不算携带。
 //! 本文件只碰内存库(真实库只读)。
 use crate::db::migrate;
-use crate::db::repos::notes::{create_plain, notes_filter::*, query};
+use crate::db::repos::notes::{create_plain, notes_filter::*, query as query_all};
 use crate::db::repos::tags::{counts, ensure_path, set_tag_relation};
 use rusqlite::{params, Connection};
 
@@ -157,9 +157,10 @@ fn large_tree_matches_brute_force_carry_expansion() {
     assert_eq!(hits(&c, &include(carried, true)), expected, "大库形态命中集必须与暴力枚举一致");
 }
 
-/// ⑥ 携带不进侧栏计数:加携带前后 `counts()` 的每一项逐值不变(R1 口径,结构事实)。
+/// ⑥ 携带计入侧栏计数(spec §4.3 / §8 的 `counts` 口径变更):旧口径只数 `tagging`,
+/// 迁后数 `link` 全量 —— 携带边(source = 携带者标签)也算一条引用源。
 #[test]
-fn sidebar_counts_ignore_carry() {
+fn sidebar_counts_include_carry_as_reference_source() {
     let mut c = db();
     create_plain(&mut c, "笔记一 #地点/国籍/日本").unwrap();
     create_plain(&mut c, "笔记二 #作者/丸尾").unwrap();
@@ -175,7 +176,25 @@ fn sidebar_counts_ignore_carry() {
     assert_eq!(before.len(), after.len(), "标签行数不变");
     for (b, a) in before.iter().zip(after.iter()) {
         assert_eq!((b.id, &b.path), (a.id, &a.path), "同一标签行");
-        assert_eq!(b.self_count, a.self_count, "{} 本级计数不变", b.path);
-        assert_eq!(b.subtree_count, a.subtree_count, "{} 含子级计数不变", b.path);
+        // 携带者 `作者/丸尾` 指向 `地点/国籍/日本`:该叶子的本级 +1,`地点` 子树各级的含子级 +1
+        let self_delta = i64::from(b.path == "地点/国籍/日本");
+        let subtree_delta = i64::from(b.path.starts_with("地点"));
+        assert_eq!(a.self_count, b.self_count + self_delta, "{} 本级计数", b.path);
+        assert_eq!(
+            a.subtree_count,
+            b.subtree_count + subtree_delta,
+            "{} 含子级计数",
+            b.path
+        );
     }
+}
+
+/// 统一元数据后 `query` 的域是全实体(spec §4.1:清空筛选即显示标签);
+/// 本文件的老用例只关心迁移前的「全部笔记」,故把默认筛选并入条件(见 test_support)。
+fn query(
+    c: &Connection,
+    cond: &crate::db::repos::notes::notes_filter::FilterConditions,
+    offset: i64,
+) -> Result<Vec<crate::db::repos::notes::Note>, String> {
+    query_all(c, &crate::db::repos::tags::test_support::with_note_domain(cond.clone()), offset)
 }

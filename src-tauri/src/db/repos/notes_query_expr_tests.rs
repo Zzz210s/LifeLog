@@ -2,7 +2,7 @@
 //! 命中 id 集合(交叉比对即"两套输入只有一套语义"的证据)。
 //! 自 notes_query_conds_tests.rs 分出以守 200 行上限,夹具与它保持一致。
 use crate::db::migrate;
-use crate::db::repos::notes::{create_on, create_plain, notes_filter::*, query, Note};
+use crate::db::repos::notes::{create_on, create_plain, notes_filter::*, query as query_all, Note};
 use rusqlite::Connection;
 
 fn db() -> Connection {
@@ -162,4 +162,14 @@ fn invalid_expression_fails_query_and_validate_rejects() {
     // 缺括号 / 超长同样被拒
     assert!(validate(&FilterConditions { expr: Some("(#a".into()), ..empty() }).is_err());
     assert!(validate(&FilterConditions { expr: Some("a".repeat(501)), ..empty() }).is_err());
+}
+
+/// 统一元数据后 `query` 的域是全实体(spec §4.1:清空筛选即显示标签);
+/// 本文件的老用例只关心迁移前的「全部笔记」,故把默认筛选并入条件(见 test_support)。
+fn query(
+    c: &Connection,
+    cond: &crate::db::repos::notes::notes_filter::FilterConditions,
+    offset: i64,
+) -> Result<Vec<crate::db::repos::notes::Note>, String> {
+    query_all(c, &crate::db::repos::tags::test_support::with_note_domain(cond.clone()), offset)
 }

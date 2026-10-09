@@ -2,7 +2,7 @@
 //! 可以按路径筛选、可以含子级展开;日期派生(旧 `date` 字段)已随 D2 一起取消。
 use crate::db::migrate;
 use crate::db::repos::notes::notes_filter::*;
-use crate::db::repos::notes::notes_query::query;
+use crate::db::repos::notes::notes_query::query as query_all;
 use crate::db::repos::notes::create_plain;
 use rusqlite::Connection;
 
@@ -56,4 +56,14 @@ fn coarse_time_tag_counts_as_a_tag() {
 
     assert_eq!(contents(&c, &none), vec!["真空"]);
     assert_eq!(contents(&c, &any), vec!["只有年"]);
+}
+
+/// 统一元数据后 `query` 的域是全实体(spec §4.1:清空筛选即显示标签);
+/// 本文件的老用例只关心迁移前的「全部笔记」,故把默认筛选并入条件(见 test_support)。
+fn query(
+    c: &Connection,
+    cond: &crate::db::repos::notes::notes_filter::FilterConditions,
+    offset: i64,
+) -> Result<Vec<crate::db::repos::notes::Note>, String> {
+    query_all(c, &crate::db::repos::tags::test_support::with_note_domain(cond.clone()), offset)
 }

@@ -2,7 +2,7 @@
 //! C-1:父节点天生没有 tag_links 行,旧实现"无链接即孤儿"会把整棵子树级联删掉,
 //! 导致其它笔记的嵌套标签静默消失;现改为"既无链接又无子节点"才回收。
 use crate::db::migrate;
-use crate::db::repos::notes::{self, notes_filter::*, query};
+use crate::db::repos::notes::{self, notes_filter::*, query as query_all};
 use rusqlite::Connection;
 
 fn db() -> Connection {
@@ -87,18 +87,18 @@ fn update_keeps_legacy_tag_used_by_other_note() {
     let a = notes::create_plain(&mut c, "a").unwrap();
     let b = notes::create_plain(&mut c, "b").unwrap();
     // 模拟 006 原样保留的存量平铺标签(先建笔记再插标签,否则会被无引用回收扫掉)。
-    // 夹具直接建新表:标签实体 id 带 TAG_ID_OFFSET,链接是 tagging 边(笔记 -> 标签)。
-    let legacy = crate::db::repos::entities::TAG_ID_OFFSET + 1;
+    // 夹具直接建新表:标签实体 = `path` 非空的 entities 行,链接是 link 边(笔记 -> 标签)。
+    let legacy = 1000i64;
     c.execute(
-        "INSERT INTO entities(id, kind, name, content, created_at, path, depth) \
-         VALUES(?1, 'tag', '工作 计划', '', datetime('now','localtime'), '工作 计划', 1)",
+        "INSERT INTO entities(id, meta, created_at, path, depth) \
+         VALUES(?1, '工作 计划', datetime('now','localtime'), '工作 计划', 1)",
         rusqlite::params![legacy],
     )
     .unwrap();
     c.execute(
         "INSERT INTO edges(source_id, target_id, kind, remark, created_at) \
-         VALUES(?1, ?3, 'tagging', '', datetime('now','localtime')), \
-                (?2, ?3, 'tagging', '', datetime('now','localtime'))",
+         VALUES(?1, ?3, 'link', '', datetime('now','localtime')), \
+                (?2, ?3, 'link', '', datetime('now','localtime'))",
         rusqlite::params![a.id, b.id, legacy],
     )
     .unwrap();
@@ -112,4 +112,14 @@ fn update_keeps_legacy_tag_used_by_other_note() {
         count(&c, &format!("SELECT COUNT(*) FROM tag_links WHERE tag_id={legacy} AND target_id={}", a.id)),
         1
     );
+}
+
+/// 统一元数据后 `query` 的域是全实体(spec §4.1:清空筛选即显示标签);
+/// 本文件的老用例只关心迁移前的「全部笔记」,故把默认筛选并入条件(见 test_support)。
+fn query(
+    c: &Connection,
+    cond: &crate::db::repos::notes::notes_filter::FilterConditions,
+    offset: i64,
+) -> Result<Vec<crate::db::repos::notes::Note>, String> {
+    query_all(c, &crate::db::repos::tags::test_support::with_note_domain(cond.clone()), offset)
 }

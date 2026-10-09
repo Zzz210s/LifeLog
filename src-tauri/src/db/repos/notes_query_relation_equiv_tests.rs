@@ -1,8 +1,8 @@
 //! 行为等价对账(计划 Task 1 §要点 / 设计 §10 R8):同一份「认领 + 携带」数据下,
-//! 生产谓词(`carry_predicate` 读 `edges(kind='relation')` 反方向)的命中集必须与
+//! 生产谓词(`carry_predicate` 读 `edges(kind='link')` 反方向)的命中集必须与
 //! 手工参考 SQL(直读 `edges`/`entities`,不依赖被测代码)逐值相同。
-//! 新方案下 022 的 `'type'`/`'tag'` 之分已消失(统一为 `kind='relation'`),故不再分改前/改后。
-use crate::db::repos::notes::{create_plain, notes_filter::*, query};
+//! 028 起 `'type'`/`'tag'`/`tagging`/`relation` 全归 `kind='link'`,关系=树内来源的 `link`。
+use crate::db::repos::notes::{create_plain, notes_filter::*, query as query_all};
 use crate::db::repos::tags::{ensure_path, set_tag_relation};
 use crate::db::migrate;
 use rusqlite::{params, Connection};
@@ -18,12 +18,13 @@ fn db() -> Connection {
 /// 手工参考命中集:笔记挂的标签 t 落在某个「经 relation 边指向 `path` 标签」的携带者 ca
 /// 的子树内(自带或后代)—— 不引用被测量的 `filter_predicates` 代码。
 fn reference_relation_hits(c: &Connection, path: &str) -> Vec<String> {
-    let sql = "SELECT DISTINCT n.content FROM entities n \
-         JOIN edges l ON l.kind='tagging' AND l.source_id=n.id \
+    let sql = "SELECT DISTINCT n.meta FROM entities n \
+         JOIN edges l ON l.kind='link' AND l.source_id=n.id \
          JOIN entities t ON t.id=l.target_id \
-         WHERE EXISTS (SELECT 1 FROM entities ca JOIN edges cl ON cl.source_id=ca.id AND cl.kind='relation' \
+         WHERE EXISTS (SELECT 1 FROM entities ca JOIN edges cl ON cl.source_id=ca.id AND cl.kind='link' \
                          JOIN entities rt ON rt.id=cl.target_id \
-                        WHERE rt.path=?1 AND (t.path=ca.path OR substr(t.path,1,length(ca.path)+1)=ca.path||'/'))";
+                        WHERE rt.path=?1 AND ca.path IS NOT NULL \
+                          AND (t.path=ca.path OR substr(t.path,1,length(ca.path)+1)=ca.path||'/'))";
     let mut st = c.prepare(sql).unwrap();
     let mut v: Vec<String> =
         st.query_map(params![path], |r| r.get(0)).unwrap().collect::<Result<_, _>>().unwrap();
@@ -105,4 +106,14 @@ fn field_rename_preserves_where_clause_and_hits() {
     let exc: FilterConditions = serde_json::from_str(r#"{"excludeRelations":[{"path":"国籍"}]}"#).unwrap();
     assert_eq!(hits(&c, &inc), vec!["经携带", "认领子级", "认领本级"]);
     assert_eq!(hits(&c, &exc), vec!["无关"], "排除侧是补集,无黑洞");
+}
+
+/// 统一元数据后 `query` 的域是全实体(spec §4.1:清空筛选即显示标签);
+/// 本文件的老用例只关心迁移前的「全部笔记」,故把默认筛选并入条件(见 test_support)。
+fn query(
+    c: &Connection,
+    cond: &crate::db::repos::notes::notes_filter::FilterConditions,
+    offset: i64,
+) -> Result<Vec<crate::db::repos::notes::Note>, String> {
+    query_all(c, &crate::db::repos::tags::test_support::with_note_domain(cond.clone()), offset)
 }

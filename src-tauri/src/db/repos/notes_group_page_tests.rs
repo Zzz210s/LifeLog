@@ -8,6 +8,11 @@ use crate::db::repos::notes::notes_sort::SortCond;
 use crate::db::repos::notes::{create_plain, FilterConditions, Note};
 use rusqlite::Connection;
 
+/// 老用例口径:统计域收窄到信息流默认筛选(等价于旧 `kind='note'`,spec §4.1)。
+fn ndc(c: &FilterConditions) -> FilterConditions {
+    crate::db::repos::tags::test_support::with_note_domain(c.clone())
+}
+
 fn db() -> Connection {
     let c = Connection::open_in_memory().unwrap();
     migrate::run(&c).unwrap();
@@ -56,7 +61,7 @@ fn grouped_first_screen_orders_groups_and_limits_each_to_k() {
     }
     create_plain(&mut c, "B1 #轴/B").unwrap();
     create_plain(&mut c, "无值").unwrap();
-    let pages = query_grouped(&c, &FilterConditions::default(), &gb("轴")).unwrap();
+    let pages = query_grouped(&c, &ndc(&FilterConditions::default()), &gb("轴")).unwrap();
     assert_eq!(keys(&pages), vec![Some("轴/A".into()), Some("轴/B".into()), None]);
     assert_eq!(pages[0].notes.len(), PER_GROUP as usize, "首屏固定 K=20(不是 PAGE_SIZE)");
     assert_eq!(pages[1].notes.len(), 1);
@@ -70,10 +75,10 @@ fn grouped_first_screen_orders_groups_and_limits_each_to_k() {
 #[test]
 fn sorts_apply_inside_group_only() {
     let c = two_group_db();
-    let asc = query_grouped(&c, &time("asc"), &gb("轴")).unwrap();
+    let asc = query_grouped(&c, &ndc(&time("asc")), &gb("轴")).unwrap();
     assert_eq!(keys(&asc), vec![Some("轴/A".into()), Some("轴/B".into())], "组间顺序不受 sorts 影响");
     assert_eq!(contents(&asc[0].notes), vec!["A1", "A2", "A3"]);
-    let desc = query_grouped(&c, &time("desc"), &gb("轴")).unwrap();
+    let desc = query_grouped(&c, &ndc(&time("desc")), &gb("轴")).unwrap();
     assert_eq!(keys(&desc), vec![Some("轴/A".into()), Some("轴/B".into())]);
     assert_eq!(contents(&desc[0].notes), vec!["A3", "A2", "A1"], "同一组内方向翻转");
     assert_eq!(contents(&desc[1].notes), vec!["B2", "B1"]);
@@ -87,16 +92,16 @@ fn multi_valued_note_enters_exactly_one_group_by_tree_order() {
     // 树序:甲=0、乙=1(创建序相反,保证取的是树序而不是 id/路径序)
     c.execute(
         "UPDATE entities SET sort_order = CASE path WHEN '轴/甲' THEN 0 ELSE 1 END
-         WHERE kind = 'tag'
-           AND parent_id = (SELECT id FROM entities WHERE kind = 'tag' AND path = '轴')",
+         WHERE path IS NOT NULL
+           AND parent_id = (SELECT id FROM entities WHERE path = '轴')",
         [],
     )
     .unwrap();
-    let pages = query_grouped(&c, &FilterConditions::default(), &gb("轴")).unwrap();
+    let pages = query_grouped(&c, &ndc(&FilterConditions::default()), &gb("轴")).unwrap();
     assert_eq!(keys(&pages), vec![Some("轴/甲".into())], "乙 组无笔记,不出现");
     assert_eq!(contents(&pages[0].notes), vec!["E1", "D1"]);
     // 计数口径:骨架里各组之和 = 笔记总数(多值不重复计数)
-    let r = skeleton(&c, &FilterConditions::default(), &gb("轴")).unwrap();
+    let r = skeleton(&c, &ndc(&FilterConditions::default()), &gb("轴")).unwrap();
     let sum: i64 = r.groups.iter().map(|g| g.count).sum();
     assert_eq!(sum, 2);
 }
@@ -111,10 +116,10 @@ fn group_page_offset_is_scoped_inside_group_and_does_not_disturb_other_groups() 
         create_plain(&mut c, &format!("B{i} #轴/B")).unwrap();
     }
     let cond = FilterConditions::default();
-    let b_first = query_group_page(&c, &cond, &gb("轴"), Some("轴/B"), 0).unwrap();
+    let b_first = query_group_page(&c, &ndc(&cond), &gb("轴"), Some("轴/B"), 0).unwrap();
     assert_eq!(contents(&b_first), vec!["B2", "B1", "B0"]);
-    let a1 = query_group_page(&c, &cond, &gb("轴"), Some("轴/A"), 0).unwrap();
-    let a2 = query_group_page(&c, &cond, &gb("轴"), Some("轴/A"), 50).unwrap();
+    let a1 = query_group_page(&c, &ndc(&cond), &gb("轴"), Some("轴/A"), 0).unwrap();
+    let a2 = query_group_page(&c, &ndc(&cond), &gb("轴"), Some("轴/A"), 50).unwrap();
     assert_eq!(a1.len(), 50);
     assert_eq!(a2.len(), 5);
     assert!(a1.iter().all(|n| n.tags.iter().any(|t| t == "轴/A")));
@@ -125,7 +130,7 @@ fn group_page_offset_is_scoped_inside_group_and_does_not_disturb_other_groups() 
     all.dedup();
     assert_eq!(all.len(), 55, "组内续页不重不漏(offset 只数本组)");
     assert!(ids(&a1).iter().min() > ids(&a2).iter().max(), "第二页紧接第一页");
-    let b_again = query_group_page(&c, &cond, &gb("轴"), Some("轴/B"), 0).unwrap();
+    let b_again = query_group_page(&c, &ndc(&cond), &gb("轴"), Some("轴/B"), 0).unwrap();
     assert_eq!(ids(&b_first), ids(&b_again), "翻 A 组的页不影响 B 组的 offset");
 }
 
@@ -136,11 +141,11 @@ fn grouped_queries_share_conditions_with_flat_query() {
         keyword: Some("A2".into()),
         ..Default::default()
     };
-    let pages = query_grouped(&c, &cond, &gb("轴")).unwrap();
+    let pages = query_grouped(&c, &ndc(&cond), &gb("轴")).unwrap();
     assert_eq!(contents(&pages[0].notes), vec!["A2"]);
     assert_eq!(pages.len(), 1, "条件筛空 B 组后不出现在分组结果里");
-    let page = query_group_page(&c, &cond, &gb("轴"), Some("轴/A"), 0).unwrap();
+    let page = query_group_page(&c, &ndc(&cond), &gb("轴"), Some("轴/A"), 0).unwrap();
     assert_eq!(contents(&page), vec!["A2"]);
-    let empty = query_group_page(&c, &cond, &gb("轴"), Some("轴/B"), 0).unwrap();
+    let empty = query_group_page(&c, &ndc(&cond), &gb("轴"), Some("轴/B"), 0).unwrap();
     assert!(empty.is_empty());
 }

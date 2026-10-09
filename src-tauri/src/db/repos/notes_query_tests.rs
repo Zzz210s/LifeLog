@@ -1,6 +1,6 @@
 //! notes 流查询层测试(query),测试先行(TDD)
 use crate::db::migrate;
-use crate::db::repos::notes::{notes_filter::*, notes_query::PAGE_SIZE, query};
+use crate::db::repos::notes::{notes_filter::*, notes_query::PAGE_SIZE, query as query_all};
 use crate::db::repos::notes::{create_on, create_plain};
 use rusqlite::Connection;
 
@@ -181,3 +181,13 @@ fn query_pages_by_id_desc() {
     assert_eq!(contents(&p2), vec!["n01", "n00"]);
 }
 
+
+/// 统一元数据后 `query` 的域是全实体(spec §4.1:清空筛选即显示标签);
+/// 本文件的老用例只关心迁移前的「全部笔记」,故把默认筛选并入条件(见 test_support)。
+fn query(
+    c: &Connection,
+    cond: &crate::db::repos::notes::notes_filter::FilterConditions,
+    offset: i64,
+) -> Result<Vec<crate::db::repos::notes::Note>, String> {
+    query_all(c, &crate::db::repos::tags::test_support::with_note_domain(cond.clone()), offset)
+}

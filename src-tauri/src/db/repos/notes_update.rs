@@ -5,23 +5,14 @@
 use super::read_full;
 use rusqlite::{params, Connection};
 
-/// 替换笔记标签集合(事务内):路径经校验后建/复用节点并做增量链接,最后收窄回收孤儿。
-/// 阶段 4 起增量链接落在 `edges(kind='tagging')`(方向 笔记 -> 标签),由 edges 触发器同步 FTS。
-fn set_tags(tx: &rusqlite::Transaction<'_>, id: i64, paths: &[String]) -> rusqlite::Result<()> {
-    crate::db::repos::tags::link_paths(tx, id, paths)
-}
-
 /// 更新笔记正文(事务):剥离/提取标签后整条重存,链接为替换语义。
 /// id 不存在返回 None;成功返回含全量标签的最新笔记。
 pub fn update(conn: &mut Connection, id: i64, content: &str) -> rusqlite::Result<Option<super::Note>> {
     // 解析入口与 create 同一处:严格语法优先,严格失败处按库内已有路径兜底
     let (names, text) = super::parse_saved(conn, content)?;
     let tx = conn.transaction()?;
-    // 阶段 4:老 `notes` 表已下架,正文只落 `entities`。
-    let rows = tx.execute(
-        "UPDATE entities SET content=?1 WHERE id=?2 AND kind='note'",
-        params![text, id],
-    )?;
+    // 统一元数据(v28):正文只落 `entities.meta`,不再有 kind。
+    let rows = tx.execute("UPDATE entities SET meta=?1 WHERE id=?2", params![text, id])?;
     if rows == 0 {
         return Ok(None); // 无该行:回滚空事务
     }
@@ -37,20 +28,19 @@ pub fn update(conn: &mut Connection, id: i64, content: &str) -> rusqlite::Result
             before.iter().filter(|p| !names.contains(p)).cloned().collect::<Vec<_>>().join(" ")
         );
     }
-    set_tags(&tx, id, &names)?;
-    // 链接紧随标签之后(D6):顺序固定「标签 -> 链接」,两步都在同一个 tx 里,
-    // 任一步 `?` 失败都连同上面的正文 UPDATE 整批回滚 —— 不会留下"正文改了、链接还是旧的"。
-    crate::db::repos::note_links::replace_from_body(&tx, id, &text)?;
+    // 标签(`#X`)与链接(`[[X]]`)目标求并集后一次整体替换(spec §5.2:同一种边)。
+    super::write_saved_links(&tx, id, &names, &text)?;
     let note = read_full(&tx, id)?;
     tx.commit()?;
     Ok(note)
 }
 
 /// 读取笔记当前标签的完整路径(树语义真源,供 update 的「标签被移除」审计日志对读)。
+/// 只取 link 目标中在树内的实体(`path IS NOT NULL`),树外笔记目标不计入标签。
 fn tag_paths(conn: &rusqlite::Connection, id: i64) -> rusqlite::Result<Vec<String>> {
     let mut stmt = conn.prepare(
         "SELECT t.path FROM edges l JOIN entities t ON t.id = l.target_id
-         WHERE l.kind='tagging' AND l.source_id=?1 ORDER BY t.path",
+         WHERE l.kind='link' AND t.path IS NOT NULL AND l.source_id=?1 ORDER BY t.path",
     )?;
     let rows = stmt.query_map(params![id], |r| r.get(0))?;
     rows.collect()

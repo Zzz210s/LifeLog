@@ -3,7 +3,7 @@
 //! 指向那一跳与标签条件共用同一套子树继承。排除侧走同一份命中集(无黑洞)。
 //! 夹具开 foreign_keys=ON(与 db::open 一致):级联/回收是真的。本文件只碰内存库(真实库只读)。
 use crate::db::migrate;
-use crate::db::repos::notes::{create_plain, notes_filter::*, query};
+use crate::db::repos::notes::{create_plain, notes_filter::*, query as query_all};
 use crate::db::repos::tags::{ensure_path, set_tag_relation};
 use rusqlite::{params, Connection};
 
@@ -186,3 +186,16 @@ fn large_type_set_matches_brute_force() {
     assert_eq!(hits(&c, &include("所在")), vec!["L8"], "另一个类型只命中自己的认领");
 }
 
+
+/// 统一元数据后 `query` 的域是全实体(spec §4.1:清空筛选即显示标签);
+/// 本文件的老用例只关心树外实体(老 `kind='note'`),故在测试侧就地收窄。
+fn query(
+    c: &Connection,
+    cond: &crate::db::repos::notes::notes_filter::FilterConditions,
+    offset: i64,
+) -> Result<Vec<crate::db::repos::notes::Note>, String> {
+    Ok(query_all(c, cond, offset)?
+        .into_iter()
+        .filter(|n| crate::db::repos::tags::test_support::is_note(c, n.id))
+        .collect())
+}

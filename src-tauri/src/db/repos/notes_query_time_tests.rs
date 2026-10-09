@@ -3,7 +3,7 @@
 //! 时间标签与普通标签完全同权 —— 点 `时间排序/2026` 含子级 = 整年。
 use crate::db::migrate;
 use crate::db::repos::notes::notes_filter::*;
-use crate::db::repos::notes::notes_query::query;
+use crate::db::repos::notes::notes_query::query as query_all;
 use crate::db::repos::notes::{create, create_on, create_plain, Note};
 use rusqlite::Connection;
 
@@ -124,4 +124,14 @@ fn tag_presence_counts_time_tags() {
 
     assert_eq!(contents(&query(&c, &none, 0).unwrap()), vec!["真的没有标签"]);
     assert_eq!(contents(&query(&c, &any, 0).unwrap()), vec!["只有时间标签"]);
+}
+
+/// 统一元数据后 `query` 的域是全实体(spec §4.1:清空筛选即显示标签);
+/// 本文件的老用例只关心迁移前的「全部笔记」,故把默认筛选并入条件(见 test_support)。
+fn query(
+    c: &Connection,
+    cond: &crate::db::repos::notes::notes_filter::FilterConditions,
+    offset: i64,
+) -> Result<Vec<crate::db::repos::notes::Note>, String> {
+    query_all(c, &crate::db::repos::tags::test_support::with_note_domain(cond.clone()), offset)
 }

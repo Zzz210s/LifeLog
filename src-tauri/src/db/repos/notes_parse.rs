@@ -70,7 +70,7 @@ pub(crate) fn parse_saved(
 /// 006 之前的"name 含 / 但无父节点"的幻影层级不参与,否则兜底会剥出一段没人链的文本)
 fn known_tag_paths(conn: &Connection) -> rusqlite::Result<Vec<String>> {
     let mut stmt = conn.prepare(
-        "SELECT path FROM entities WHERE kind = 'tag'
+        "SELECT path FROM entities WHERE path IS NOT NULL
            AND (parent_id IS NOT NULL OR instr(path, '/') = 0)",
     )?;
     let rows = stmt.query_map([], |r| r.get(0))?;

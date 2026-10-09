@@ -22,6 +22,7 @@ pub(crate) use notes_parse::{parse_saved, strip_tags_known};
 /// 新建笔记(事务):剥离/提取正文标签,再把自动时间标签一并写入(D4/D5)。
 /// 输入栏与主窗 Composer 保存共用此路径;时间标签与笔记同事务落库(要么都在,要么都不在)。
 /// 自动标签路径由设置决定(开关 + 模板),关闭或模板非法时降级为不加。
+/// 自动标签必须与正文标签在同一批写入(`write_saved_links` 是替换语义)。
 pub fn create(conn: &mut Connection, content: &str) -> rusqlite::Result<Note> {
     let auto = crate::db::repos::settings::auto_time_path(conn)?;
     create_with(conn, content, auto.as_deref())
@@ -41,7 +42,7 @@ pub(crate) fn create_on(conn: &mut Connection, content: &str, date: &str) -> rus
 }
 
 /// 创建事务内核:`time_tag` 为要一并写入的自动时间标签路径(None = 不加)。
-/// 自动标签**必须与正文标签在同一次 link_paths 里写入** —— link_paths 是替换语义,
+/// 自动标签**必须与正文标签求并集后一次写入** —— `write_saved_links` 是替换语义,
 /// 分两次调用会把前一次写的链接整体抹掉。
 fn create_with(
     conn: &mut Connection,
@@ -53,28 +54,41 @@ fn create_with(
         names.push(p.to_string());
     }
     let tx = conn.transaction()?;
-    // 阶段 4:老 `notes` 表已下架,笔记行只落 `entities(kind='note')`。
-    // id 显式取笔记区间 `MAX(id)+1`(而不是 rowid 自增):标签实体占 `>= TAG_ID_OFFSET`,
-    // 直接自增会一路涨进标签区间。
+    // 统一元数据(v28):笔记行只落 `entities(meta)`,不再有 kind;id 取全表 `MAX(id)+1`
+    // (spec §2.2 全库连号:笔记与标签同一命名空间,复用一个自增序列)。
     let id: i64 = tx.query_row(
-        "SELECT COALESCE(MAX(id), 0) + 1 FROM entities WHERE kind = 'note'",
+        "SELECT COALESCE(MAX(id), 0) + 1 FROM entities",
         [],
         |r| r.get(0),
     )?;
     tx.execute(
-        "INSERT INTO entities(id, kind, content, created_at)
-         VALUES(?1, 'note', ?2, datetime('now', 'localtime'))",
+        "INSERT INTO entities(id, meta, created_at)
+         VALUES(?1, ?2, datetime('now', 'localtime'))",
         params![id, text],
     )?;
-    // 006 起 tags 为树:按路径自动建父级并做增量链接(孤儿回收已收窄为"无链接且无子");
-    // 阶段 4 起链接落在 edges(kind='tagging'),方向 笔记 -> 标签(见 T4.1)。
-    crate::db::repos::tags::link_paths(&tx, id, &names)?;
-    // 链接紧随标签之后(D6):两步同一事务,任一步 `?` 失败连上面的 INSERT 一起回滚;
-    // 扫的是**已剥标签、即刚落库的那份正文**(text),与 update 路径同一口径。
-    crate::db::repos::note_links::replace_from_body(&tx, id, &text)?;
+    // 标签与链接同一种边:`#X` 与 `[[X]]` 的目标求并集后一次落库(见 write_saved_links)。
+    write_saved_links(&tx, id, &names, &text)?;
     let note = read_full(&tx, id)?.ok_or(rusqlite::Error::QueryReturnedNoRows)?;
     tx.commit()?;
     Ok(note)
+}
+
+/// 保存路径的引用写入:`#标签` 与 `[[链接]]` 目标求**并集**后一次落 `edges(kind='link')`
+/// (spec §5.2:二者同一种边;分两次替换会互相抹掉)。在调用方事务内执行,失败整批回滚。
+fn write_saved_links(
+    tx: &rusqlite::Transaction<'_>,
+    id: i64,
+    tag_paths: &[String],
+    body: &str,
+) -> rusqlite::Result<()> {
+    let mut desired = crate::db::repos::tags::resolve_paths(tx, tag_paths)?;
+    for target in crate::db::repos::note_links::resolve_body(tx, id, body)? {
+        if !desired.contains(&target) {
+            desired.push(target);
+        }
+    }
+    crate::db::repos::note_links::replace_ids(tx, id, &desired)?;
+    Ok(())
 }
 
 /// 笔记读取与行映射(自 notes.rs 拆出以守 200 行上限):read_full/recent/delete
@@ -127,6 +141,10 @@ pub use notes_update::update;
 #[cfg(test)]
 #[path = "notes_filter_tests.rs"]
 mod notes_filter_tests;
+
+#[cfg(test)]
+#[path = "notes_filter_treemembership_tests.rs"]
+mod notes_filter_treemembership_tests;
 
 #[cfg(test)]
 #[path = "notes_filter_groups_tests.rs"]

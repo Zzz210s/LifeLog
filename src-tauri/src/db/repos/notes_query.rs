@@ -34,7 +34,7 @@ pub fn query(
         "page AS (
            SELECT n.id AS id{}
            FROM entities n{}
-           WHERE n.kind='note' AND ({frag})
+           WHERE ({frag})
            ORDER BY {}
            LIMIT {PAGE_SIZE} OFFSET ?
          )",
@@ -50,7 +50,7 @@ pub fn query(
 pub fn count_matching(conn: &Connection, conditions: &FilterConditions) -> Result<i64, String> {
     let (frag, args) = where_clause(conditions)?;
     conn.query_row(
-        &format!("SELECT COUNT(*) FROM entities n WHERE n.kind='note' AND ({frag})"),
+        &format!("SELECT COUNT(*) FROM entities n WHERE ({frag})"),
         rusqlite::params_from_iter(args),
         |r| r.get(0),
     )

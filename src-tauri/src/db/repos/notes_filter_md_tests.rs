@@ -4,7 +4,7 @@
 //! 这条用例是三处校验换口径的"功能真的能用"证据:把 validate 改回 parse_tag_path 立刻红。
 use super::*;
 use crate::db::migrate;
-use crate::db::repos::notes::{create_plain, query};
+use crate::db::repos::notes::{create_plain, query as query_all};
 use crate::db::repos::tags::rename;
 use rusqlite::Connection;
 
@@ -18,7 +18,7 @@ fn db() -> Connection {
 }
 
 fn tag_id(c: &Connection, path: &str) -> i64 {
-    c.query_row("SELECT id FROM entities WHERE kind='tag' AND path=?1", [path], |r| r.get(0))
+    c.query_row("SELECT id FROM entities WHERE path=?1 AND path IS NOT NULL", [path], |r| r.get(0))
         .unwrap()
 }
 
@@ -83,4 +83,14 @@ fn deep_tag_path_passes_validation_and_queries_notes() {
     let notes = query(&c, &conditions, 0).expect("query_notes 不得报错");
     assert_eq!(notes.len(), 1, "6 层标签应命中该篇笔记");
     assert_eq!(notes[0].content, "深处");
+}
+
+/// 统一元数据后 `query` 的域是全实体(spec §4.1:清空筛选即显示标签);
+/// 本文件的老用例只关心迁移前的「全部笔记」,故把默认筛选并入条件(见 test_support)。
+fn query(
+    c: &Connection,
+    cond: &crate::db::repos::notes::notes_filter::FilterConditions,
+    offset: i64,
+) -> Result<Vec<crate::db::repos::notes::Note>, String> {
+    query_all(c, &crate::db::repos::tags::test_support::with_note_domain(cond.clone()), offset)
 }

@@ -39,7 +39,7 @@ pub fn group_key_cte(path: &str, args: &mut Vec<Value>) -> String {
       FROM (SELECT l.source_id AS note_id, t.id AS tid, t.path AS tpath,
                    instr(substr(t.path, ? + 2), '/') AS slash
             FROM edges l JOIN entities t ON t.id = l.target_id
-            WHERE l.kind = 'tagging'
+            WHERE l.kind = 'link'
               AND (t.path = ? OR substr(t.path, 1, ? + 1) = ? || '/')) x
       JOIN ord o ON o.id = x.tid
     ) WHERE rn = 1

@@ -106,7 +106,7 @@ fn delete_also_cleans_fts_row() {
     let mut c = db();
     let n = create_plain(&mut c, "要删的 #测试").unwrap();
     delete(&mut c, n.id).unwrap();
-    let fts = count(&c, "SELECT COUNT(*) FROM entities_fts WHERE content <> ''", &[]);
+    let fts = count(&c, "SELECT COUNT(*) FROM entities_fts WHERE meta <> ''", &[]);
     assert_eq!(fts, 0);
     assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
@@ -121,7 +121,8 @@ fn create_resolves_links_in_same_transaction() {
     assert_eq!(src.tags, vec!["随记"]);
     assert_eq!(src.content, "看 [[聚会记录]] 和 [[没有这条]] 还有");
     let rows: Vec<i64> = c
-        .prepare("SELECT target_id FROM edges WHERE kind='link' AND source_id=?1 ORDER BY target_id")
+        .prepare("SELECT target_id FROM edges WHERE kind='link' AND source_id=?1
+                  AND target_id IN (SELECT id FROM entities WHERE path IS NULL) ORDER BY target_id")
         .unwrap()
         .query_map([src.id], |r| r.get(0))
         .unwrap()
