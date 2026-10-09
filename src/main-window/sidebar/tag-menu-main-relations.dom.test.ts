@@ -4,7 +4,7 @@
  * 标题下方每条关系一行,左列属性名(muted)、右列值;超过 4 条给 `+N`;
  * 属性名缺失时左列回退目标名(与档案卡片 `tagFactsRows` 同一投影);
  * 没有关系就一行都不出。
- * 读数来源:TagMenu 打开时经 `api.listTagRelations` 读回(与「关系…」面板同一条 IPC)。
+ * 读数来源:TagMenu 打开时经 `api.listTagRelations` 读回(与「引用…」面板同一条 IPC)。
  */
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
@@ -102,7 +102,7 @@ describe('菜单主面板:直接列出关系', () => {
 });
 
 describe('菜单主面板:读数直接来自 listTagRelations', () => {
-  it('TagMenu 打开即读回出边并列出(无需进「关系…」子面板)', async () => {
+  it('TagMenu 打开即读回出边并列出(无需进「引用…」子面板)', async () => {
     listTagRelations.mockResolvedValue([rel(10, '日本', '国籍')]);
     renderMenu();
     await flush();
@@ -117,6 +117,6 @@ describe('菜单主面板:读数直接来自 listTagRelations', () => {
     await flush();
     expect(host.querySelector('[data-menu-relation]')).toBeNull();
     // 五档仍在
-    expect(host.textContent).toContain('关系…');
+    expect(host.textContent).toContain('引用…');
   });
 });

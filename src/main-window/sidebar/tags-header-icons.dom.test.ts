@@ -75,6 +75,11 @@ const render = async (
 const buttons = (): HTMLButtonElement[] => [...host.querySelectorAll('button')] as HTMLButtonElement[];
 
 describe('侧栏标签分区头部:按钮图标化', () => {
+  it('分区标题为「实体」(spec §5.3:分区里装的是树内实体,与「条目」同一口径)', async () => {
+    await render('tree');
+    expect(host.querySelector('h2')?.textContent).toBe('实体');
+  });
+
   it('树模式:四个按钮都是纯图标,aria-label/title 仍是原值', async () => {
     await render('tree');
     const [search, mode, relations, filter] = buttons();

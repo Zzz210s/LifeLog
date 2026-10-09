@@ -1,6 +1,8 @@
 /**
  * 标签分区头部(spec 6.1):标题 + 操作回执(flash,成功绿/失败红)、
  * 树/扁平模式切换、「筛选标签」、收窄搜索(放大镜)。纯展示,状态都在 TagsSection。
+ * 分区标题「实体」(spec §5.3 / 计划 Task 3.3):分区里装的是**树内实体**(可含笔记),与设置页
+ * 「条目」同一口径;命令名 `list_tags` 与 DTO 保持不动(前端契约稳定)。
  *
  * 四个图标按钮都是纯图标:既有两个的 `aria-label` / `title` 是它们的语义与定位锚点
  * (验收脚本按 `aria-label` 找),一字不改;图标画的是当前模式(与旧文案「树」/「扁平」同义),
@@ -66,7 +68,7 @@ export function TagsHeader(p: TagsHeaderProps): ReactNode {
   return (
     <>
       <div className="group flex h-8 shrink-0 items-center gap-1 px-2">
-        <h2 className="text-label font-semibold uppercase tracking-wide text-muted">标签</h2>
+        <h2 className="text-label font-semibold uppercase tracking-wide text-muted">实体</h2>
         {p.flash && (
           <span
             data-testid="tag-flash"

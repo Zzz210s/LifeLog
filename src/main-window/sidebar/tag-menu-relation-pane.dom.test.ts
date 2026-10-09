@@ -71,7 +71,7 @@ const renderPane = (): void => {
 };
 
 const paneInput = (): HTMLInputElement =>
-  host.querySelector('input[aria-label="添加关系标签"]') as HTMLInputElement;
+  host.querySelector('input[aria-label="添加引用目标"]') as HTMLInputElement;
 const candidateTexts = (): string[] =>
   [...host.querySelectorAll('[data-relation-candidate]')].map((el) => el.textContent?.trim() ?? '');
 
@@ -88,7 +88,7 @@ function setInput(el: HTMLInputElement, v: string): void {
 
 /** 属性名输入框(边上的 remark;可空 = 只声明有关系,R12) */
 const remarkInput = (): HTMLInputElement =>
-  host.querySelector('input[aria-label="关系属性名"]') as HTMLInputElement;
+  host.querySelector('input[aria-label="引用属性名"]') as HTMLInputElement;
 
 describe('关系面板·加载与交互细节', () => {
   it('读取未回来时输入禁用,Enter 不会写库', async () => {
@@ -103,13 +103,13 @@ describe('关系面板·加载与交互细节', () => {
     expect(setTagRelation).not.toHaveBeenCalled();
   });
 
-  it('「当前关系」标题恰好渲染一次;空关系给空态文案', async () => {
+  it('「当前引用」标题恰好渲染一次;空关系给空态文案', async () => {
     listTagRelations.mockResolvedValue([]);
     renderPane();
     await flush();
-    const headings = [...host.querySelectorAll('p')].filter((el) => el.textContent === '当前关系');
+    const headings = [...host.querySelectorAll('p')].filter((el) => el.textContent === '当前引用');
     expect(headings).toHaveLength(1);
-    expect(host.textContent).toContain('还没有建立任何关系');
+    expect(host.textContent).toContain('还没有建立任何引用');
   });
 
   it('查询无命中时给空态文案', async () => {
@@ -117,7 +117,7 @@ describe('关系面板·加载与交互细节', () => {
     await flush();
     typeQuery('zzzz');
     expect(candidateTexts().length).toBe(0);
-    expect(host.textContent).toContain('没有匹配的标签');
+    expect(host.textContent).toContain('没有匹配的实体');
   });
 
   it('候选用 mousedown 采纳并 preventDefault(输入框不失焦)', async () => {
@@ -141,7 +141,7 @@ describe('关系面板·加载与交互细节', () => {
     expect(setTagRelation).toHaveBeenCalledWith(1, OTHER.id, '国籍');
   });
 
-  it('当前关系行可编辑属性名:失焦提交 upsert', async () => {
+  it('当前引用行可编辑属性名:失焦提交 upsert', async () => {
     listTagRelations.mockResolvedValue([
       { toTagId: 2, path: '地点/日本', name: '日本', remark: '国籍' },
     ]);

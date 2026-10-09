@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
  * 关系图右键菜单宿主的 `tagMru` 透传:图上的标签菜单与侧栏是同一个 `TagMenu`,
- * 「关系…」候选的「固定项 / 最近用过」两档必须同样来自 App 那一份实例(不能静默留空)。
+ * 「引用…」候选的「固定项 / 最近用过」两档必须同样来自 App 那一份实例(不能静默留空)。
  * 判别力:节点路径序把「出版年份」放在最后,不透传就上不了首位。
  */
 import { act, createElement } from 'react';
@@ -75,9 +75,9 @@ async function openCarry(mru: typeof tagMru | null): Promise<void> {  act(() => 
     );
   });
   const carry = [...host.querySelectorAll('[role="menuitem"]')].find(
-    (b) => b.textContent?.trim() === '关系…'
+    (b) => b.textContent?.trim() === '引用…'
   );
-  if (!carry) throw new Error('图上的标签菜单没有「关系…」');
+  if (!carry) throw new Error('图上的标签菜单没有「引用…」');
   act(() => (carry as HTMLElement).click());
   await act(async () => {
     await new Promise((r) => setTimeout(r, 0));

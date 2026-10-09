@@ -20,9 +20,9 @@ export async function runReadings5to8(cdp, ui, { call, record, nA, structAt8, E1
   await sleep(300);
   const items = await menuItemsOf(cdp);
   await pressEsc(cdp);
-  const want = ['重命名', '移动', '别名…', '关系…', '删除'];
+  const want = ['重命名', '移动', '别名…', '引用…', '删除'];
   records.push({
-    name: '读数5 菜单恰五档(重命名/移动/别名/关系…/删除),不含「合并」「携带」「类型」「设为类型」',
+    name: '读数5 菜单恰五档(重命名/移动/别名/引用…/删除),不含「合并」「携带」「类型」「设为类型」',
     ok: JSON.stringify(items) === JSON.stringify(want) && !/合并|携带|类型/.test((items ?? []).join('')),
     detail: `items=${fmt(items)}`,
   });
@@ -83,11 +83,11 @@ export async function runReadings5to8(cdp, ui, { call, record, nA, structAt8, E1
 
   // --- 6c 关系面板:每条边的属性名就地回显 + 添加关系(属性名输入框 + 目标标签选择器) ---
   await openTagMenu(cdp, FIX.A);
-  const paneOpen = await waitFor(() => cdp.eval(`(() => { const b = Array.from(document.querySelectorAll('[data-tag-menu] button')).find((x) => x.textContent.trim() === '关系…'); if (!b) return false; b.click(); return true; })()`), 8, 200);
+  const paneOpen = await waitFor(() => cdp.eval(`(() => { const b = Array.from(document.querySelectorAll('[data-tag-menu] button')).find((x) => x.textContent.trim() === '引用…'); if (!b) return false; b.click(); return true; })()`), 8, 200);
   await sleep(700);
   const pane = await cdp.eval(`(() => { const t = document.querySelector('[data-tag-menu]'); if (!t) return null;
-    return { remarkInput: t.querySelector('input[aria-label="关系属性名"]') !== null,
-      picker: t.querySelector('input[aria-label="添加关系标签"]') !== null,
+    return { remarkInput: t.querySelector('input[aria-label="引用属性名"]') !== null,
+      picker: t.querySelector('input[aria-label="添加引用目标"]') !== null,
       rows: Array.from(t.querySelectorAll('[data-relation-remark]')).map((x) => x.value) }; })()`);
   await pressEsc(cdp);
   records.push({

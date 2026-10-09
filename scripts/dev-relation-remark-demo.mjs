@@ -115,11 +115,11 @@ if (box && mark2) shotFiles.push(await shot(cdp, SH('1c-graph-closeup'), {
 log(`INFO 截图① 关系图 属性名=${fmt(centered)} 复测=${fmt(mark2 && { x: Math.round(mark2.x), y: Math.round(mark2.y) })}`);
 if (!mark2) log(`FAIL 画布上没画出「${REMARK}」文字`);
 
-// ⑤ 关系面板:源标签右键「关系…」→ 读行上属性名输入框的值 → 截图
+// ⑤ 关系面板:源标签右键「引用…」→ 读行上属性名输入框的值 → 截图
 await closeGraph(ui);
 await sleep(600);
 await openTagMenu(cdp, SOURCE);
-const paneOpen = await waitFor(() => cdp.eval(`(() => { const b = Array.from(document.querySelectorAll('[data-tag-menu] button')).find((x) => x.textContent.trim() === '关系…'); if (!b) return false; b.click(); return true; })()`), 8, 200);
+const paneOpen = await waitFor(() => cdp.eval(`(() => { const b = Array.from(document.querySelectorAll('[data-tag-menu] button')).find((x) => x.textContent.trim() === '引用…'); if (!b) return false; b.click(); return true; })()`), 8, 200);
 await sleep(800);
 const paneRemark = await cdp.eval(`document.querySelector('[data-relation-remark="${tgtId}"]')?.value ?? null`);
 const paneText = await cdp.eval(`document.querySelector('[data-tag-menu]')?.textContent?.replace(/\\s+/g, ' ').trim().slice(0, 200) ?? null`);

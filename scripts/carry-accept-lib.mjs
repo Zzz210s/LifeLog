@@ -93,13 +93,13 @@ export const ipc = (cdp, cmd, args = {}) =>
 export const openTagMenu = (cdp, path) =>
   cdp.eval(`(() => { const r = document.querySelector('aside [data-tag-path=' + JSON.stringify(${JSON.stringify(path)}) + ']');
     if (!r) return false; r.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 120, clientY: 120 })); return true; })()`);
-/** 标签菜单「关系…」档(标签关系统一后「携带…」并入此档) */
+/** 标签菜单「引用…」档(标签关系统一后「携带…」并入此档) */
 export const clickCarryMenuItem = (cdp) =>
-  cdp.eval(`(() => { const b = Array.from(document.querySelectorAll('[data-tag-menu] button')).find((x) => x.textContent.trim() === '关系…');
+  cdp.eval(`(() => { const b = Array.from(document.querySelectorAll('[data-tag-menu] button')).find((x) => x.textContent.trim() === '引用…');
     if (!b) return false; b.click(); return true; })()`);
 /** 在「添加关系」输入框里敲查询串(受控输入:原型 setter + input 事件),不按回车 */
 export const typeCarryQuery = (cdp, q) =>
-  cdp.eval(`(() => { const i = document.querySelector('[aria-label="添加关系标签"]'); if (!i) return false;
+  cdp.eval(`(() => { const i = document.querySelector('[aria-label="添加引用目标"]'); if (!i) return false;
     const s = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; s.call(i, ${JSON.stringify(q)});
     i.dispatchEvent(new Event('input', { bubbles: true })); return i.value; })()`);
 /** 点 data-relation-candidate == id 的候选行(mousedown 才走组件的 onPick) */
@@ -111,7 +111,7 @@ export const carryPane = (cdp) =>
   cdp.eval(`(() => { const root = document.querySelector('[data-tag-menu]'); if (!root) return null;
     const carried = Array.from(root.querySelectorAll('[data-relation-remove]')).map((b) => b.getAttribute('data-relation-remove') ?? '');
     const err = Array.from(root.querySelectorAll('p')).map((p) => p.textContent.trim()).find((t) => t.includes('循环') || t.includes('指向自己'));
-    return { open: !!document.querySelector('[aria-label="添加关系标签"]'), carried, info: null, error: err ?? null }; })()`);
+    return { open: !!document.querySelector('[aria-label="添加引用目标"]'), carried, info: null, error: err ?? null }; })()`);
 /** 关掉浮层(菜单/面板):Esc 在捕获阶段被 useDismiss 收到 */
 export const pressEsc = (cdp) => cdp.eval(`(() => { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); return true; })()`);
 /** 点侧栏标签行 = 加入/移出筛选 */
@@ -162,7 +162,7 @@ export async function purgeCarryFixtures(call) {
 export async function addCarryViaPanel(cdp, from, to, toId) {
   const menu = await openTagMenu(cdp, from);
   const menuItem = await waitFor(() => clickCarryMenuItem(cdp).catch(() => false), 8, 200);
-  const paneOpen = await waitFor(() => cdp.eval(`!!document.querySelector('[aria-label="添加关系标签"]')`), 10, 150);
+  const paneOpen = await waitFor(() => cdp.eval(`!!document.querySelector('[aria-label="添加引用目标"]')`), 10, 150);
   await typeCarryQuery(cdp, to);
   await sleep(200);
   const picked = await waitFor(() => pickCarryCandidate(cdp, toId), 8, 200);

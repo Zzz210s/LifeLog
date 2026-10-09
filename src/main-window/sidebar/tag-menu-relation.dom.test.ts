@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * Task 4 菜单收成 5 档 + 「关系…」面板:列出全部出边(`属性名 → 目标`,属性名可改可移除)、
+ * Task 4 菜单收成 5 档 + 「引用…」面板:列出全部出边(`属性名 → 目标`,属性名可改可移除)、
  * 候选添加(排除自己与已建立关系的目标)、Enter/Esc/组合态键盘与就地中文错误。
  * 判别力:主面板不得再出现「合并」「携带」「类型」「设为类型」字样。
  * 候选来源是本地 tagRows,排序走 `#` 补全那套共享引擎(shared/quickpick/model 的 buildList)。
@@ -84,14 +84,14 @@ const menuItems = (): string[] =>
   [...host.querySelectorAll('[role="menuitem"]')].map((b) => b.textContent?.trim() ?? '');
 
 async function openRelation(): Promise<void> {
-  act(() => item('关系…').click());
+  act(() => item('引用…').click());
   await flush();
 }
 
 const candidateTexts = (): string[] =>
   [...host.querySelectorAll('[data-relation-candidate]')].map((el) => el.textContent?.trim() ?? '');
 
-const input = (): HTMLInputElement => host.querySelector('input[aria-label="添加关系标签"]') as HTMLInputElement;
+const input = (): HTMLInputElement => host.querySelector('input[aria-label="添加引用目标"]') as HTMLInputElement;
 
 function pressEnter(composing = false): void {
   const ev = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true });
@@ -100,12 +100,28 @@ function pressEnter(composing = false): void {
 }
 
 describe('Task 4 菜单恰 5 档', () => {
-  it('只有 重命名/移动/别名/关系/删除,且不含合并、携带、类型字样', () => {
+  it('只有 重命名/移动/别名/引用/删除,且不含合并、携带、类型字样', () => {
     render();
-    expect(menuItems()).toEqual(['重命名', '移动', '别名…', '关系…', '删除']);
+    expect(menuItems()).toEqual(['重命名', '移动', '别名…', '引用…', '删除']);
     expect(host.textContent).not.toContain('合并');
     expect(host.textContent).not.toContain('携带');
     expect(host.textContent).not.toContain('类型');
+  });
+});
+
+describe('Task 3.3 入口处置:统一叫「引用」', () => {
+  it('档位是「引用…」,面板标题 / 添加区同口径,写入仍走同一条 link 边命令', async () => {
+    render();
+    expect(menuItems()).toContain('引用…');
+    expect(menuItems()).not.toContain('关系…');
+    act(() => item('引用…').click());
+    await flush();
+    expect(host.textContent).toContain('引用:');
+    expect(host.textContent).toContain('添加引用');
+    pressEnter();
+    await flush();
+    // 落库 kind='link' 由后端 relation_tests 钉住;这里钉住前端确实走到那条写命令
+    expect(setTagRelation).toHaveBeenCalledWith(1, 21, '');
   });
 });
 
@@ -113,7 +129,7 @@ describe('Task 4 关系面板', () => {
   it('渲染当前关系(备注缺失回退目标名)与候选', async () => {
     render();
     await openRelation();
-    expect(host.textContent).toContain('当前关系');
+    expect(host.textContent).toContain('当前引用');
     expect(host.textContent).toContain('关系测试乙');
     expect(candidateTexts()).toContain('关系测试丙');
   });

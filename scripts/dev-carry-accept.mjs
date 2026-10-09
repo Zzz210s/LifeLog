@@ -63,10 +63,10 @@ try {
   record('夹具就绪', [idA, idAs, idB, idC, idN, tA, tAs, tB, tC].every((x) => x != null),
     `笔记=${fmt({ idA, idAs, idB, idC, idN })} 标签=${fmt({ tA, tAs, tB, tC })} 基线=${fmt(base)}`);
 
-  // --- 8.1 数据:先经界面「关系…」面板添加(甲 携带 乙,携带已并入标签关系档) ---
+  // --- 8.1 数据:先经界面「引用…」面板添加(甲 携带 乙,携带已并入标签关系档) ---
   const panel = await addCarryViaPanel(cdp, A, B, tB);
   const added = await waitFor(() => (carryRowsFrom(tA) === 1 && carryRowsTo(tB) === 1 ? true : null), 12, 250);
-  record('读数1a 界面「关系…」面板添加 甲→乙:库 tag 行 =1 且方向正确',
+  record('读数1a 界面「引用…」面板添加 甲→乙:库 tag 行 =1 且方向正确',
     panel.menu === true && panel.menuItem === true && panel.paneOpen === true && panel.picked === true && added === true,
     `菜单=${panel.menu}/${panel.menuItem} 面板=${panel.paneOpen} 选候选=${panel.picked} 库行=${carryRowsFrom(tA)}/${carryRowsTo(tB)} 面板读数=${fmt(panel.pane)}`);
 

@@ -39,7 +39,7 @@ export interface GraphViewInput {
   onFilterToStream: (path: string) => void;
   /** 标签数据版本(App 的 `tagsVersion`):变了就重取图数据,相机 / 选中 / 展开都保留 */
   dataVersion: number;
-  tagMru?: TagMruSource | null; // 固定标签 + 标签 MRU(上层透传):「关系…」候选的三档排序
+  tagMru?: TagMruSource | null; // 固定标签 + 标签 MRU(上层透传):「引用…」候选的三档排序
 }
 
 export function useGraphView(p: GraphViewInput) {

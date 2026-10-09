@@ -5,7 +5,7 @@ import { relationPlan, tagFactsRows, type RelationFactLike } from '../../shared/
 import { ITEM_CLASS } from './tag-menu-ui';
 import type { Pane } from './tag-menu-ui';
 
-/** 主面板最多直接列出几条关系:再多菜单就被撑长,余数用 `+N` 概括 */
+/** 主面板最多直接列出几条引用:再多菜单就被撑长,余数用 `+N` 概括 */
 export const MENU_RELATION_MAX = 4;
 
 export interface TagMenuMainPaneProps {
@@ -17,9 +17,10 @@ export interface TagMenuMainPaneProps {
   relations?: readonly RelationFactLike[];
 }
 
-/** 主面板:重命名 / 移动 / 别名 / 关系 / 删除五档;标题的标签名走行内 md 预览态(T1)。
- *  标题下方**直接列出本标签的关系**(2026-10-06 用户口径):每条一行,左列属性名(muted)、
- *  右列值,复用 `tagFactsRows` 同一投影;属性名缺失时左列回退目标名(R12)。 */
+/** 主面板:重命名 / 移动 / 别名 / 引用 / 删除五档;标题的标签名走行内 md 预览态(T1)。
+ *  标题下方**直接列出本实体的引用**(2026-10-06 用户口径):每条一行,左列属性名(muted)、
+ *  右列值,复用 `tagFactsRows` 同一投影;属性名缺失时左列回退目标名(R12)。
+ *  「引用…」= spec §5.3 入口处置:与正文 `#X` / `[[X]]` 归到同一套「引用」概念(都落 `link` 边)。 */
 export function TagMenuMainPane(p: TagMenuMainPaneProps): ReactNode {
   const { shown, extra } = relationPlan(tagFactsRows(p.relations ?? []), MENU_RELATION_MAX);
   return (
@@ -52,7 +53,7 @@ export function TagMenuMainPane(p: TagMenuMainPaneProps): ReactNode {
         别名…
       </button>
       <button type="button" role="menuitem" className={ITEM_CLASS} onClick={() => p.onPick('relation')}>
-        关系…
+        引用…
       </button>
       <button type="button" role="menuitem" className={ITEM_CLASS} onClick={() => p.onPick('delete')}>
         删除

@@ -94,7 +94,7 @@ export function RelationSuggestionsSection(p: RelationSuggestionsSectionProps = 
 
   /** 唯一的写库入口:逐条建立关系(set_tag_relation 幂等,不动该标签已有的别的边)。
    *  建议只判定「存在关系」,不代为编造属性名 —— 属性名留空(R12 显示回退只给目标名),
-   *  真正的属性名去标签菜单「关系…」里填。 */
+   *  真正的属性名去标签菜单「引用…」里填。 */
   const confirmBatch = useCallback(async (): Promise<void> => {
     const plan = planWrites(visible, allSelected, overrides);
     if (plan.writes.length === 0) {

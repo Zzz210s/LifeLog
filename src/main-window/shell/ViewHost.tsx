@@ -40,7 +40,7 @@ export interface ViewHostProps {
   onFilterToStream: (path: string) => void;
   /** 标签数据版本(App 的 `tagsVersion`):关系图据此自动重取,不动相机与选中 */
   dataVersion: number;
-  /** 固定标签 + 标签 MRU(App 透传):关系图的标签菜单「关系…」候选与侧栏同一套三档排序 */
+  /** 固定标签 + 标签 MRU(App 透传):关系图的标签菜单「引用…」候选与侧栏同一套三档排序 */
   tagMru?: TagMruSource | null;
   /** 「标签关系」分区里的「标签树里显示关系」(值来自侧栏状态,与其共用一份 showRelations) */
   tagTreeRelations?: { showRelations: boolean; onShowRelationsChange: (v: boolean) => void };

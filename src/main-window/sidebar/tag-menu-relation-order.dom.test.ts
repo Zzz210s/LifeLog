@@ -88,7 +88,7 @@ const menuItem = (text: string): HTMLElement => {
   return found as HTMLElement;
 };
 
-/** 侧栏真实入口:右键标签行(contextmenu)-> 点「关系…」 */
+/** 侧栏真实入口:右键标签行(contextmenu)-> 点「引用…」 */
 async function openRelationFromSidebar(tag: TagCount, mru: typeof tagMru | null): Promise<void> {
   act(() => {
     root.render(
@@ -109,7 +109,7 @@ async function openRelationFromSidebar(tag: TagCount, mru: typeof tagMru | null)
   act(() => {
     row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 20, clientY: 20 }));
   });
-  act(() => menuItem('关系…').click());
+  act(() => menuItem('引用…').click());
   await flush();
 }
 
@@ -133,7 +133,7 @@ describe('关系面板·三档排序的数据源接线', () => {
         })
       );
     });
-    act(() => menuItem('关系…').click());
+    act(() => menuItem('引用…').click());
     await flush();
     expect(candidateTexts()[0]).toBe('出版年份');
   });

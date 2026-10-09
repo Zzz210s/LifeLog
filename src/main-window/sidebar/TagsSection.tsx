@@ -28,7 +28,7 @@ export interface TagsSectionProps {
   onPatch: (value: Partial<FilterConditions>) => void;
   /** 全量标签行(list_tags,含 id),树与扁平共用 */
   tagRows: TagCount[];
-  /** 固定标签 + 标签 MRU(标签菜单「关系…」候选的三档排序);无固定项/无最近用过传 null */
+  /** 固定标签 + 标签 MRU(标签菜单「引用…」候选的三档排序);无固定项/无最近用过传 null */
   tagMru: TagMruSource | null;
   mode: TagViewMode;
   onModeChange: (m: TagViewMode) => void;

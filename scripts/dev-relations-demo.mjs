@@ -129,11 +129,11 @@ if (box && mark2) shotFiles.push(await shot(cdp, SH('1d-capsule'), {
 }, 3));
 log(`INFO 截图① 关系图 备注=${fmt(centered)} 复测=${fmt(mark2 && { x: Math.round(mark2.x), y: Math.round(mark2.y) })} 圆数=${(frame?.dots ?? []).length} 文字数=${(frame?.texts ?? []).length}`);
 
-// 4 关系面板:源标签右键「关系…」,看这条当前关系
+// 4 关系面板:源标签右键「引用…」,看这条当前关系
 await closeGraph(ui);
 await sleep(600);
 await openTagMenu(cdp, SOURCE);
-const paneOpen = await waitFor(() => cdp.eval(`(() => { const b = Array.from(document.querySelectorAll('[data-tag-menu] button')).find((x) => x.textContent.trim() === '关系…'); if (!b) return false; b.click(); return true; })()`), 8, 200);
+const paneOpen = await waitFor(() => cdp.eval(`(() => { const b = Array.from(document.querySelectorAll('[data-tag-menu] button')).find((x) => x.textContent.trim() === '引用…'); if (!b) return false; b.click(); return true; })()`), 8, 200);
 await sleep(800);
 shotFiles.push(await shot(cdp, SH('3-relation-pane')));
 const paneText = await cdp.eval(`document.querySelector('[data-tag-menu]')?.textContent?.replace(/\\s+/g, ' ').trim().slice(0, 300) ?? null`);
