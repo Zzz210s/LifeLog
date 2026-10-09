@@ -36,19 +36,19 @@ export function noteLinkEnv(links: readonly NoteLink[] | undefined): NoteLinkEnv
   return { links: map };
 }
 
-/** 一条参与 `[[ ]]` 目标裁决的实体(D6):标签给 `name`(单段名),笔记给 `content`(首行参与匹配) */
+/** 一条参与 `[[ ]]` 目标裁决的实体:唯一真源是 `meta`(首行当归一化键);
+ *  `path` 只是显示缓存,不参与匹配(名字含 `/` 时 path 有歧义段,P3) */
 export interface LinkCandidate {
   id: number;
-  kind: 'note' | 'tag';
-  name?: string | null;
-  content?: string | null;
+  meta: string;
 }
 
 /**
- * `[[X]]` 目标裁决(D6):先在 `name` 命中的标签里取 id 最小,再在笔记首行里取 id 最小;
- * 标签优先;都没命中返回 null。`excludeId` 用来跳过来源自己(自指)。
- * 与 Rust `note_links::resolve_target` 同口径 —— 共享向量 `fixtures/entity-link-targets.json`
- * 两侧各跑一遍(`entity-link-targets.test.ts` / `note_link_fixtures_tests.rs`)。
+ * `[[X]]` 目标裁决(spec §5.1 / P5):按 `entity_key(meta)`(首行归一化)等值命中,
+ * 同键取 **id 最小**;不再有「标签优先 / 笔记优先」。都没命中返回 null。
+ * `excludeId` 用来跳过来源自己(自指)。与 Rust `note_links::resolve_target` 同口径 ——
+ * 共享向量 `fixtures/entity-link-targets.json` 两侧各跑一遍
+ * (`entity-link-targets.test.ts` / `note_link_fixtures_tests.rs`)。
  */
 export function resolveLinkTarget(
   candidates: readonly LinkCandidate[],
@@ -57,16 +57,12 @@ export function resolveLinkTarget(
 ): number | null {
   const key = normalizeTitle(rawTitle);
   if (key === '') return null;
-  let tag: number | null = null;
-  let note: number | null = null;
+  let best: number | null = null;
   for (const c of candidates) {
-    if (c.id === excludeId) continue;
-    const ck = c.kind === 'tag' ? normalizeTitle(c.name ?? '') : titleOf(c.content ?? '');
-    if (ck !== key) continue;
-    if (c.kind === 'tag') tag = tag === null || c.id < tag ? c.id : tag;
-    else note = note === null || c.id < note ? c.id : note;
+    if (c.id === excludeId || titleOf(c.meta) !== key) continue;
+    if (best === null || c.id < best) best = c.id;
   }
-  return tag ?? note;
+  return best;
 }
 
 /** `[[` 与 `]]` 之间的合法内容:只判**目标**部分(设计 A2),显示文本不参与合法性判定 */

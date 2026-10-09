@@ -66,8 +66,9 @@ pub(crate) fn parse_saved(
     Ok((crate::tags::extract_tags_known(content, &known), strip_tags_known(content, &known)))
 }
 
-/// 兜底候选:库内**结构自洽**的标签路径(与 `tags::link::existing_id` 同一过滤 ——
-/// 006 之前的"name 含 / 但无父节点"的幻影层级不参与,否则兜底会剥出一段没人链的文本)
+/// 兜底候选:库内**结构自洽**的标签路径(与 `tags::link::existing_id` 一样排除
+/// 006 之前"name 含 / 但无父节点"的幻影层级 —— 否则兜底会剥出一段没人链的文本;
+/// 差别是这里仍按 `path` 缓存取候选列表,而 `existing_id` 已改逐段寻址,不读 path)
 fn known_tag_paths(conn: &Connection) -> rusqlite::Result<Vec<String>> {
     let mut stmt = conn.prepare(
         "SELECT path FROM entities WHERE path IS NOT NULL

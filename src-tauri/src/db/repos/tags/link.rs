@@ -6,19 +6,34 @@ use super::ensure_path;
 use crate::db::repos::tags::alias;
 use rusqlite::{params, Connection};
 
-/// 按路径精确取树内实体 id(不存在返回 None);用于"真实标签优先于别名"的判定。
-/// **只认结构自洽的节点**:path 里含 `/` 时必须有父节点 —— 006 之前的存量平铺标签
-/// 可能是"name=path=a/b 但 parent_id 为空"的幻影层级(见 tags_tree_path::child_path 的说明),
-/// 那种节点不该抢走 `#a/b` 的解析,否则永远修不成两层结构。
+/// 按路径**逐段寻址**树内实体(不存在返回 None);用于"真实标签优先于别名"的判定。
+/// 从根开始,每段都要命中「同父 + 同名(`entity_name(meta)` 精确相等)」的树内实体,
+/// 同父同名取 id 最小(P5);任一段落空即 None。**不读 `path`** —— 名字含 `/` 的实体
+/// 拼出的 path 有歧义段(P3),父子关系只能由 `parent_id` 决定;`path` 只是显示缓存。
+/// 这同时挡掉 006 之前的幻影层级(name=path=`a/b` 但无父节点):它连根段都不匹配。
 fn existing_id(conn: &Connection, path: &str) -> rusqlite::Result<Option<i64>> {
     use rusqlite::OptionalExtension;
-    conn.query_row(
-        "SELECT id FROM entities WHERE path = ?1
-         AND (parent_id IS NOT NULL OR instr(path, '/') = 0)",
-        params![path],
-        |r| r.get(0),
-    )
-    .optional()
+    let segs: Vec<&str> = path.split('/').collect();
+    if segs.iter().any(|s| s.is_empty()) {
+        return Ok(None); // 空段(首尾斜杠 / `a//b`)不是任何实体的名字
+    }
+    let mut parent: Option<i64> = None;
+    for seg in &segs {
+        let next: Option<i64> = conn
+            .query_row(
+                "SELECT id FROM entities WHERE path IS NOT NULL
+                   AND parent_id IS ?1 AND entity_name(meta) = ?2
+                 ORDER BY id LIMIT 1",
+                params![parent, seg],
+                |r| r.get(0),
+            )
+            .optional()?;
+        match next {
+            Some(id) => parent = Some(id),
+            None => return Ok(None),
+        }
+    }
+    Ok(parent)
 }
 
 /// 解析一批标签路径为**目标 id 序列**(只解析、不写库):**真实标签优先,其次别名,最后新建**。
@@ -64,3 +79,7 @@ pub(crate) fn link_paths(conn: &Connection, note_id: i64, paths: &[String]) -> r
     let desired = resolve_paths(conn, paths)?;
     super::replace::replace_links(conn, note_id, &desired)
 }
+
+#[cfg(test)]
+#[path = "link_segment_tests.rs"]
+mod link_segment_tests;

@@ -1,11 +1,12 @@
-//! 共享测试向量 `fixtures/entity-link-targets.json` 的 Rust 侧断言(D6 `[[ ]]` 目标裁决)。
-//! 这份 JSON 是两侧唯一真源:前端 `src/shared/entity-link-targets.test.ts` 读同一文件跑
-//! `resolveLinkTarget`,这里跑 `note_links::resolve_target`,同一条用例两边都必须对上。
+//! 共享测试向量 `fixtures/entity-link-targets.json` 的 Rust 侧断言(spec §5.1 / P5):
+//! 唯一匹配键 = `entity_key(meta)`(首行归一化),同键取 `id` 最小;不再有「标签优先 / 笔记优先」。
+//! 前端 `src/shared/entity-link-targets.test.ts` 读同一份文件跑 `resolveLinkTarget`;
+//! 这里把向量灌进最小 `entities` 表,走**生产**的 `note_links::candidates` 取候选,再跑 `resolve_target`。
 //! 另附一条升级回归守卫:链接目标切到实体裁决后,「标签 + 链接同篇」正文的解析三元组
 //! 仍与冻结基线 `fixtures/upgrade-regression.baseline.json` 逐字节一致(spec §5.3)。
-use crate::db::repos::note_links::{resolve_target, LinkCandidate, LinkKind};
-use crate::links::{normalize_title, title_of};
+use crate::db::repos::note_links::{candidates, resolve_target};
 use crate::upgrade_regression::{self, BaselineEntry, Case, SOURCE_FIXTURE};
+use rusqlite::{params, Connection};
 use serde::Deserialize;
 
 const FIXTURE: &str = include_str!(concat!(
@@ -21,15 +22,14 @@ const UPGRADE_BASELINE: &str = include_str!(concat!(
     "/../fixtures/upgrade-regression.baseline.json"
 ));
 
-/// 一条候选实体:标签给 `name`(单段名),笔记给 `content`(首行参与匹配)
+/// 一条候选实体:`meta` 是唯一真源(首行当归一化键),`path` 只是显示缓存、不参匹配
 #[derive(Deserialize)]
 struct Entity {
     id: i64,
-    kind: String,
+    meta: String,
     #[serde(default)]
-    name: Option<String>,
-    #[serde(default)]
-    content: Option<String>,
+    #[allow(dead_code)]
+    path: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -52,27 +52,32 @@ fn fixture() -> Targets {
     serde_json::from_str(FIXTURE).expect("fixtures/entity-link-targets.json 必须是合法 JSON 对象")
 }
 
-/// 与产品写入/读取侧同一套归一化:标签用 `normalize_title(name)`,笔记用 `title_of(content)`
-fn candidates(t: &Targets) -> Vec<LinkCandidate> {
-    t.entities
-        .iter()
-        .map(|e| {
-            let (kind, key) = if e.kind == "tag" {
-                (LinkKind::Tag, normalize_title(e.name.as_deref().unwrap_or("")))
-            } else {
-                (LinkKind::Note, title_of(e.content.as_deref().unwrap_or("")))
-            };
-            LinkCandidate { id: e.id, kind, key }
-        })
-        .collect()
+/// 把向量灌进最小 `entities` 表,再用**生产的** `candidates()` 取值 —— 取键口径与写入/读取侧同一份
+fn fixture_db(t: &Targets) -> Connection {
+    let c = Connection::open_in_memory().unwrap();
+    c.execute_batch(
+        "CREATE TABLE entities(id INTEGER PRIMARY KEY, meta TEXT NOT NULL DEFAULT '', path TEXT);",
+    )
+    .unwrap();
+    for e in &t.entities {
+        c.execute(
+            "INSERT INTO entities(id, meta, path) VALUES(?1, ?2, ?3)",
+            params![e.id, e.meta, e.path],
+        )
+        .unwrap();
+    }
+    c
 }
 
-/// ① 向量自身合法:`why` 非空、expect 引用的 id 都存在、覆盖标签优先这一类
+/// ① 向量自身合法:`why` 非空、id 唯一、expect 引用的 id 都存在、必须覆盖「名字含 /」
 #[test]
 fn fixture_is_well_formed() {
     let t = fixture();
-    assert!(t.cases.len() >= 10, "D6 向量至少 10 条,实际 {}", t.cases.len());
-    let ids: Vec<i64> = t.entities.iter().map(|e| e.id).collect();
+    assert!(t.cases.len() >= 12, "向量至少 12 条,实际 {}", t.cases.len());
+    let mut ids: Vec<i64> = t.entities.iter().map(|e| e.id).collect();
+    ids.sort_unstable();
+    ids.dedup();
+    assert_eq!(ids.len(), t.entities.len(), "实体 id 必须唯一");
     for (i, c) in t.cases.iter().enumerate() {
         assert!(!c.why.is_empty(), "第 {i} 条 why 为空");
         if let Some(id) = c.expect {
@@ -80,8 +85,8 @@ fn fixture_is_well_formed() {
         }
     }
     assert!(
-        t.cases.iter().any(|c| c.expect == Some(1_000_000_003)),
-        "必须有一条「标签优先于笔记」的用例"
+        t.cases.iter().any(|c| c.raw_title.contains('/')),
+        "必须有一条「名字含 /」的用例"
     );
 }
 
@@ -89,7 +94,7 @@ fn fixture_is_well_formed() {
 #[test]
 fn resolution_matches_shared_fixture() {
     let t = fixture();
-    let cands = candidates(&t);
+    let cands = candidates(&fixture_db(&t)).unwrap();
     for (i, c) in t.cases.iter().enumerate() {
         assert_eq!(
             resolve_target(&cands, &c.raw_title, c.exclude),
@@ -102,24 +107,34 @@ fn resolution_matches_shared_fixture() {
     }
 }
 
-/// ③ 变异自证靶点:去掉「标签优先」后本用例变红
+/// ③ 变异自证靶点:把取键改成读 `path` 后本用例变红(名字含 / 的实体按 meta 命中,不按 path)
 #[test]
-fn tag_wins_over_note_on_same_name() {
-    let cands = vec![
-        LinkCandidate { id: 4, kind: LinkKind::Note, key: "撞名".to_string() },
-        LinkCandidate { id: 1_000_000_003, kind: LinkKind::Tag, key: "撞名".to_string() },
-    ];
-    assert_eq!(resolve_target(&cands, "撞名", None), Some(1_000_000_003));
+fn link_target_resolves_by_entity_key_not_path() {
+    let c = fixture_db(&fixture());
+    let cands = candidates(&c).unwrap();
+    assert_eq!(resolve_target(&cands, "甲/乙", None), Some(112), "按 meta 首行命中");
+    assert_eq!(
+        resolve_target(&cands, "显示缓存/甲/乙", None),
+        None,
+        "path 只是显示缓存,不能当匹配键"
+    );
 }
 
-/// ④ 升级回归:标签与链接同篇的正文,解析三元组必须仍等于冻结基线
+/// ④ 变异自证靶点:去掉「同键取 id 最小」后本用例变红
+#[test]
+fn same_key_takes_smallest_id() {
+    let c = fixture_db(&fixture());
+    let cands = candidates(&c).unwrap();
+    assert_eq!(resolve_target(&cands, "撞名", None), Some(104));
+}
+
+/// ⑤ 升级回归:标签与链接同篇的正文,解析三元组必须仍等于冻结基线
 #[test]
 fn parse_triple_is_frozen_for_link_and_tag_bodies() {
     let cases: Vec<Case> = serde_json::from_str(UPGRADE_CASES).expect("升级向量必须是合法 JSON 数组");
     let base: Vec<BaselineEntry> =
         serde_json::from_str(UPGRADE_BASELINE).expect("升级基线必须是合法 JSON 数组");
-    let frozen: Vec<&BaselineEntry> =
-        base.iter().filter(|e| e.source == SOURCE_FIXTURE).collect();
+    let frozen: Vec<&BaselineEntry> = base.iter().filter(|e| e.source == SOURCE_FIXTURE).collect();
     assert_eq!(frozen.len(), cases.len(), "基线条数与向量不一致");
     let mut checked = 0;
     for (c, e) in cases.iter().zip(frozen) {

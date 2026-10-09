@@ -1,5 +1,5 @@
 /**
- * 共享测试向量 `fixtures/entity-link-targets.json` 的前端侧断言(D6 `[[ ]]` 目标裁决)。
+ * 共享测试向量 `fixtures/entity-link-targets.json` 的前端侧断言(spec §5.1 / P5)。
  * 与 Rust 侧 `note_link_fixtures_tests.rs` 读同一份文件、跑同一套用例:
  * 前端跑 `resolveLinkTarget`,后端跑 `note_links::resolve_target`,漂移时两边同时变红。
  */
@@ -9,9 +9,8 @@ import { resolveLinkTarget, type LinkCandidate } from './note-link';
 
 interface Entity {
   id: number;
-  kind: 'note' | 'tag';
-  name?: string | null;
-  content?: string | null;
+  meta: string;
+  path?: string | null;
 }
 interface TargetCase {
   why: string;
@@ -28,34 +27,41 @@ const fixture: Fixture = JSON.parse(
   readFileSync(new URL('../../fixtures/entity-link-targets.json', import.meta.url), 'utf8')
 );
 
-describe('entity-link-targets 共享向量(D6)', () => {
+/** 与产品同口径的候选表:唯一键 = meta 首行归一化,path 不进候选(它只是显示缓存) */
+const toCandidates = (entities: readonly Entity[]): LinkCandidate[] =>
+  entities.map((e) => ({ id: e.id, meta: e.meta }));
+
+describe('entity-link-targets 共享向量(统一元数据后)', () => {
   it('结构契约:实体 id 唯一、why 非空、expect 都指向已声明实体', () => {
     const ids = new Set(fixture.entities.map((e) => e.id));
     expect(ids.size).toBe(fixture.entities.length);
-    expect(fixture.cases.length).toBeGreaterThanOrEqual(10);
+    expect(fixture.cases.length).toBeGreaterThanOrEqual(12);
     for (const c of fixture.cases) {
       expect(c.why, 'why 不能为空').not.toBe('');
-      if (c.expect !== null) expect(ids.has(c.expect), `${c.why}: expect=${c.expect} 不在实体表`).toBe(true);
+      if (c.expect !== null) {
+        expect(ids.has(c.expect), `${c.why}: expect=${c.expect} 不在实体表`).toBe(true);
+      }
     }
   });
 
   it('resolveLinkTarget 与向量逐条一致', () => {
-    const candidates: LinkCandidate[] = fixture.entities.map((e) => ({
-      id: e.id,
-      kind: e.kind,
-      name: e.name,
-      content: e.content,
-    }));
+    const candidates = toCandidates(fixture.entities);
     for (const c of fixture.cases) {
       expect(resolveLinkTarget(candidates, c.rawTitle, c.exclude ?? null), c.why).toBe(c.expect);
     }
   });
 
-  it('双端同名时标签优先(变异自证靶点)', () => {
+  it('同键取 id 最小(不再有种类优先;变异自证靶点)', () => {
     const candidates: LinkCandidate[] = [
-      { id: 4, kind: 'note', content: '撞名' },
-      { id: 1000000003, kind: 'tag', name: '撞名' },
+      { id: 4, meta: '撞名' },
+      { id: 1000000003, meta: '撞名' },
     ];
-    expect(resolveLinkTarget(candidates, '撞名')).toBe(1000000003);
+    expect(resolveLinkTarget(candidates, '撞名')).toBe(4);
+  });
+
+  it('按 entity_key(meta) 匹配而不是 path(变异自证靶点)', () => {
+    const candidates = toCandidates([{ id: 112, meta: '甲/乙', path: '显示缓存/甲/乙' }]);
+    expect(resolveLinkTarget(candidates, '甲/乙')).toBe(112);
+    expect(resolveLinkTarget(candidates, '显示缓存/甲/乙')).toBeNull();
   });
 });
