@@ -1,5 +1,6 @@
 //! 迁移 023(关系属性名存到边上)读数:tag_links 加 `remark` 列;幂等 / 可重放;
 //! 存量边(本机真实库 24 条形态)原样保留、remark 取默认空串(不校验历史数据)。
+//! 027/028 后引用边收进 `edges(kind='link')`,故终态断言读 `edges`。
 use super::*;
 
 fn col_exists(conn: &Connection, table: &str, column: &str) -> bool {
@@ -41,11 +42,10 @@ fn add_tag(c: &Connection, id: i64, path: &str) {
 fn fresh_db_has_remark_column() {
     let c = Connection::open_in_memory().unwrap();
     run(&c).unwrap();
-    super::entities_tags_fixture::legacy_read_views(&c);
     assert!(latest_version() >= 23, "本用例只要求跑过 023;后续迁移会继续抬升");
     let v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
     assert_eq!(v, latest_version(), "新库应跑到最新版本");
-    assert!(col_exists(&c, "tag_links", "remark"), "023 后 tag_links 必须有 remark 列");
+    assert!(col_exists(&c, "edges", "remark"), "023 起引用边就有 remark 列(027 后表名是 edges)");
 }
 
 /// ② v22 升级:存量 24 条边原样保留,remark 一次填成空串(不校验历史数据)
@@ -64,28 +64,31 @@ fn upgrade_from_v22_keeps_edges_and_defaults_remark_empty() {
     }
 
     run(&c).unwrap();
-    super::entities_tags_fixture::legacy_read_views(&c);
 
-    assert!(col_exists(&c, "tag_links", "remark"));
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tag_links WHERE target_type='tag'"), 24);
+    assert!(col_exists(&c, "edges", "remark"), "027 后引用边表叫 edges,remark 列仍在");
     assert_eq!(
-        count(&c, "SELECT COUNT(*) FROM tag_links WHERE target_type='tag' AND remark <> ''"),
+        count(&c, "SELECT COUNT(*) FROM edges WHERE kind='link'"),
+        24,
+        "24 条历史关系边原样保留(028 把 relation 并入 link)"
+    );
+    assert_eq!(
+        count(&c, "SELECT COUNT(*) FROM edges WHERE kind='link' AND remark <> ''"),
         0,
         "历史边的属性名为空(显示时回退只给目标名)"
     );
     assert_eq!(
-        count(&c, "SELECT COUNT(*) FROM tag_links WHERE target_type='tag' AND remark IS NULL"),
+        count(&c, "SELECT COUNT(*) FROM edges WHERE remark IS NULL"),
         0,
         "列 NOT NULL DEFAULT '':不允许 NULL"
     );
 }
 
 /// ③ 023 重放幂等:钩子与 SQL 各跑两次都不报 duplicate column,列仍只一列
+/// (钩子写在老 `tag_links` 上,故夹具停在 023 之前)
 #[test]
 fn replay_of_023_is_idempotent() {
     let c = Connection::open_in_memory().unwrap();
-    run(&c).unwrap();
-    super::entities_tags_fixture::legacy_read_views(&c);
+    migrate_to_v22(&c);
     migration_hooks::ensure_link_remark_column(&c).unwrap();
     migration_hooks::ensure_link_remark_column(&c).unwrap();
     apply(&c, MIGRATIONS[22], 23).unwrap();

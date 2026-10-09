@@ -91,41 +91,6 @@ pub(crate) fn seed_notes(c: &Connection) {
     .unwrap();
 }
 
-/// 阶段 4(027)后老表已下架,但历史迁移用例仍在用老表名与**老标签 id** 做只读断言。
-/// 本帮手把它们建成投影新表的只读视图(幂等):标签 id 减回偏移,老用例的比较逐值仍成立。
-pub(crate) fn legacy_read_views(c: &Connection) {
-    c.execute_batch(
-        "DROP VIEW IF EXISTS notes;
-         DROP VIEW IF EXISTS tags;
-         DROP VIEW IF EXISTS tag_links;
-         DROP VIEW IF EXISTS tag_merge_log;
-         DROP VIEW IF EXISTS note_links;
-         CREATE VIEW notes AS
-           SELECT id, content, created_at FROM entities WHERE kind = 'note';
-         CREATE VIEW tags AS
-           SELECT id - 1000000000 AS id, name, parent_id - 1000000000 AS parent_id,
-                  path, depth, sort_order, color
-           FROM entities WHERE kind = 'tag';
-         CREATE VIEW tag_links AS
-           SELECT target_id - 1000000000 AS tag_id, 'note' AS target_type,
-                  source_id AS target_id, remark
-             FROM edges WHERE kind = 'tagging'
-           UNION ALL
-           SELECT source_id - 1000000000 AS tag_id, 'tag' AS target_type,
-                  target_id - 1000000000 AS target_id, remark
-             FROM edges WHERE kind = 'relation';
-         CREATE VIEW tag_merge_log AS
-           SELECT id, source_entity_id - 1000000000 AS source_tag_id,
-                  target_entity_id - 1000000000 AS target_tag_id,
-                  moved_child_ids, note_links, edges, at
-           FROM entity_merge_log;
-         CREATE VIEW note_links AS
-           SELECT id, source_id, target_id, '' AS raw_title, created_at
-           FROM edges WHERE kind = 'link';",
-    )
-    .unwrap();
-}
-
 /// 024/025/026 全跑完的 v26 库(027 用例的起点;此时老表仍是真源、新表已投影)
 pub(crate) fn migrated_to_v26() -> Connection {
     let c = Connection::open_in_memory().unwrap();
@@ -136,4 +101,23 @@ pub(crate) fn migrated_to_v26() -> Connection {
     apply(&c, MIGRATIONS[24], 25).unwrap();
     apply(&c, MIGRATIONS[25], 26).unwrap();
     c
+}
+
+/// 停在 012 的库(逐条执行原始 SQL 并推进版本号),并把 015/019/020 的纯加表补上。
+/// 013(done/doing 下架)之前的老库,供迁移 013 用例直接摆老表数据。
+pub(crate) fn db_at_012() -> Connection {
+    const V_012: usize = 12;
+    const V_015: usize = 15;
+    const V_019: usize = 19;
+    const V_020: usize = 20;
+    let conn = Connection::open_in_memory().unwrap();
+    for (i, sql) in MIGRATIONS.iter().enumerate().take(V_012) {
+        conn.execute_batch(sql).unwrap();
+        conn.pragma_update(None, "user_version", (i + 1) as i64).unwrap();
+    }
+    conn.execute_batch(MIGRATIONS[V_015 - 1]).unwrap();
+    conn.execute_batch(MIGRATIONS[V_019 - 1]).unwrap();
+    conn.execute_batch(MIGRATIONS[V_020 - 1]).unwrap();
+    crate::db::migration_hooks::ensure_is_type_column(&conn).unwrap();
+    conn
 }

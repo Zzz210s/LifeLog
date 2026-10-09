@@ -89,8 +89,7 @@ fn entities_projection_equals_tags_with_offset() {
     seed_v23(&c);
     add_tag(&c, 4, "东海", Some(2), "地点轴/日本/东海", 3);
     c.execute("UPDATE tags SET color='#abc' WHERE id=2", []).unwrap();
-    run(&c).unwrap();
-    super::entities_tags_fixture::legacy_read_views(&c);
+    apply(&c, MIGRATIONS[23], 24).unwrap();
 
     let forward = "SELECT t.id, t.name, t.path, t.depth, t.sort_order, t.parent_id FROM tags t \
                    EXCEPT SELECT e.id - 1000000000, e.name, e.path, e.depth, e.sort_order, \
@@ -133,12 +132,13 @@ fn tag_tree_readings_unchanged_by_024() {
     migrate_to_v23(&c);
     seed_v23(&c);
     seed_two_notes(&c);
-    // 先跑到 025(tagging 边到位),再取 before;继续跑到 27 不得改读数
+    // 先跑到 025(tagging 边到位),再取 before;继续跑到 026 不得改读数
+    // (028 会重发全库 id,`tags::counts` 的 id 会变,故止于 026)
     apply(&c, MIGRATIONS[23], 24).unwrap();
     apply(&c, MIGRATIONS[24], 25).unwrap();
     let before = crate::db::repos::tags::counts(&c).unwrap();
     assert_eq!(before.len(), 3, "夹具应有 3 个标签读数");
-    run(&c).unwrap();
+    apply(&c, MIGRATIONS[25], 26).unwrap();
     assert_eq!(
         crate::db::repos::tags::counts(&c).unwrap(),
         before,

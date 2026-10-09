@@ -1,5 +1,7 @@
 //! 016 迁移:多页 tabs_state 的当前活动页条件搬进单份 filter_current(设计 §2)。
 //! 四态(有旧键 / 无旧键 / 坏 JSON / 已存在 filter_current)+ 幂等,自 migrate_tests.rs 拆出。
+//! 028 会给「无有效条件」的库预置默认筛选(`treeMembership=out OR singleLine=multi`),
+//! 故「退化为空条件」的用例改成断言 028 预置的默认筛选。
 use super::{apply, latest_version, run, MIGRATIONS};
 use crate::db::repos::notes::FilterConditions;
 use crate::db::repos::settings::{self, FILTER_CURRENT_KEY};
@@ -25,8 +27,20 @@ fn version(conn: &Connection) -> i64 {
     conn.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap()
 }
 
-fn default_json() -> String {
-    serde_json::to_string(&FilterConditions::default()).unwrap()
+/// 028 给「无有效条件」的库预置的默认筛选:`treeMembership=out OR singleLine=multi`,
+/// 等价于旧口径的「全部笔记」。016 只搬旧键,预置是 028 的行为。
+fn assert_is_028_default(raw: &str) {
+    let c: FilterConditions = serde_json::from_str(raw).unwrap();
+    assert!(
+        c.keyword.is_none() && c.tags.is_empty(),
+        "默认筛选不得带关键词/标签:{raw}"
+    );
+    assert_eq!(c.groups.len(), 1, "默认筛选只有一个条件组:{raw}");
+    assert_eq!(c.groups[0].op, "or");
+    assert_eq!(
+        serde_json::to_value(&c.groups[0].items).unwrap(),
+        serde_json::to_value(crate::db::repos::tags::test_support::note_domain_items()).unwrap()
+    );
 }
 
 /// 旧库原文:两页 + activeIndex=1(前端 use-tabs 落库的形状)
@@ -51,25 +65,25 @@ fn migration_016_carries_active_page_conditions() {
     assert_eq!(c.expr.as_deref(), Some("#生活"));
 }
 
-/// ② 无旧键 -> filter_current 不被创建(读回 None)
+/// ② 无旧键 -> 016 不写 filter_current;028 预置默认筛选(旧口径「全部笔记」)
 #[test]
-fn migration_016_without_legacy_key_creates_nothing() {
+fn migration_016_without_legacy_key_leaves_filter_to_028_preset() {
     let conn = legacy_db(None);
 
     run(&conn).unwrap();
 
     assert_eq!(version(&conn), latest_version());
-    assert_eq!(filter_current(&conn), None, "无旧值时不得凭空创建 filter_current");
+    assert_is_028_default(&filter_current(&conn).expect("028 应预置默认筛选"));
 }
 
-/// ③ 旧键坏 JSON -> filter_current = 默认空条件(不丢键、不留旧键)
+/// ③ 旧键坏 JSON -> 016 落空条件,028 再预置默认筛选(不丢键、不留旧键)
 #[test]
-fn migration_016_with_bad_legacy_json_falls_back_to_empty() {
+fn migration_016_with_bad_legacy_json_falls_back_to_empty_then_028_presets() {
     let conn = legacy_db(Some("不是 JSON"));
 
     run(&conn).unwrap();
 
-    assert_eq!(filter_current(&conn).unwrap(), default_json(), "解析失败退化为空条件");
+    assert_is_028_default(&filter_current(&conn).unwrap());
     assert_eq!(settings::get(&conn, "tabs_state").unwrap(), None);
 }
 
@@ -86,7 +100,7 @@ fn migration_016_out_of_range_index_uses_first_page() {
     let no_conditions = r#"{"tabs":[{"title":"空"}],"activeIndex":0}"#;
     let conn = legacy_db(Some(no_conditions));
     run(&conn).unwrap();
-    assert_eq!(filter_current(&conn).unwrap(), default_json());
+    assert_is_028_default(&filter_current(&conn).unwrap());
 }
 
 /// ④ 已有 filter_current -> 不被覆盖,旧键仍被删除

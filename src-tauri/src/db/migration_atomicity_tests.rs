@@ -10,12 +10,12 @@ fn failed_migration_rolls_back_whole_database() {
     let conn = rusqlite::Connection::open_in_memory().unwrap();
     run(&conn).unwrap();
     conn.execute_batch(
-        "INSERT INTO entities(id, kind, name, content, created_at, path, depth)
-         VALUES(1000000001, 'tag', '原有', '', '2026-01-01', '原有', 1);",
+        "INSERT INTO entities(id, meta, created_at, path, depth)
+         VALUES(1000000001, '原有', '2026-01-01', '原有', 1);",
     )
     .unwrap();
     let before = count_of(&conn, "PRAGMA user_version");
-    let tags_before = count_of(&conn, "SELECT COUNT(*) FROM entities WHERE kind='tag'");
+    let tags_before = count_of(&conn, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL");
 
     // 夹具:同批次前半建表成功、后半表名错误,整批必须回滚
     let err = apply(
@@ -38,6 +38,6 @@ fn failed_migration_rolls_back_whole_database() {
         before,
         "失败迁移不得推进版本号"
     );
-    assert_eq!(count_of(&conn, "SELECT COUNT(*) FROM entities WHERE kind='tag'"), tags_before);
+    assert_eq!(count_of(&conn, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL"), tags_before);
     assert_eq!(latest_version(), before, "前置 run 应已到最新版本");
 }

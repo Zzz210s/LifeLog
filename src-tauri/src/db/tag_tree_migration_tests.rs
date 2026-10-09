@@ -1,5 +1,6 @@
 //! 006 标签树迁移测试:①存量平铺标签根化 ②tag_links 不变 ③FTS 聚合路径
 //! ④幂等 ⑤非法名(含空格)保留。失败回滚见 migration_atomicity_tests。
+//! 终态断言读 `entities`(027/028 后老 `tags` 表下架,树内实体 = `path IS NOT NULL`)。
 use super::{apply, latest_version, run, MIGRATIONS};
 use rusqlite::Connection;
 
@@ -61,10 +62,12 @@ fn migration_006_turns_flat_tags_into_roots() {
     .unwrap();
 
     run(&conn).unwrap();
-    super::entities_tags_fixture::legacy_read_views(&conn);
 
     let mut stmt = conn
-        .prepare("SELECT id, name, parent_id, path, depth FROM tags ORDER BY id")
+        .prepare(
+            "SELECT id, meta, parent_id, path, depth FROM entities \
+             WHERE path IS NOT NULL ORDER BY id",
+        )
         .unwrap();
     let rows = stmt
         .query_map([], |r| {
@@ -155,19 +158,17 @@ fn migration_006_is_idempotent() {
     .unwrap();
     let snapshot = |c: &Connection| {
         (
-            count(c, "SELECT COUNT(*) FROM tags"),
-            count(c, "SELECT COUNT(*) FROM tag_links"),
+            count(c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL"),
+            count(c, "SELECT COUNT(*) FROM edges WHERE kind='link'"),
             count(c, "SELECT COUNT(*) FROM entities_fts"),
-            text(c, "SELECT path FROM tags WHERE id = 1"),
+            text(c, "SELECT path FROM entities WHERE path IS NOT NULL"),
             count(c, "PRAGMA user_version"),
         )
     };
 
     run(&conn).unwrap();
-    super::entities_tags_fixture::legacy_read_views(&conn);
     let first = snapshot(&conn);
-    run(&conn).unwrap();
-    super::entities_tags_fixture::legacy_read_views(&conn); // user_version 已是最新,应为 no-op
+    run(&conn).unwrap(); // user_version 已是最新,应为 no-op
 
     assert_eq!(snapshot(&conn), first);
 }
@@ -181,13 +182,12 @@ fn migration_006_keeps_legacy_names_with_spaces() {
     .unwrap();
 
     run(&conn).unwrap();
-    super::entities_tags_fixture::legacy_read_views(&conn);
 
     for name in ["工作 计划", "a.b", "待定/TBD"] {
         let n = count(
             &conn,
             &format!(
-                "SELECT COUNT(*) FROM tags WHERE name='{name}' AND path='{name}' \
+                "SELECT COUNT(*) FROM entities WHERE meta='{name}' AND path='{name}' \
                  AND depth=1 AND parent_id IS NULL"
             ),
         );

@@ -2,6 +2,8 @@
 //! 覆盖:新库到 25;v24 升级后笔记实体 id 原值 + 正文/时间逐值;`tagging` 边方向
 //! (笔记 -> 标签,spec §2.1)与标签 id 偏移;`link` 边只搬已解析行(D2);老表一个字节不改;
 //! 重复执行幂等;`UNIQUE(source_id,kind,target_id)` 生效。
+//! 除「新库跑到最新」一例外,其余用例把库停在 v25(024/025 的读数):028 会重发全库 id,
+//! 「笔记 id 保持原值」这类断言只在 v25 成立。
 use super::entities_tags_fixture::{count, migrate_to_v23, seed_notes, seed_v23, table_exists};
 use super::*;
 use crate::db::repos::entities::TAG_ID_OFFSET;
@@ -22,7 +24,6 @@ fn seeded_v24() -> Connection {
 fn fresh_run_reaches_latest_clean() {
     let c = Connection::open_in_memory().unwrap();
     run(&c).unwrap();
-    super::entities_tags_fixture::legacy_read_views(&c);
     assert!(latest_version() >= 26, "024/025/026 已注册");
     let v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
     assert_eq!(v, latest_version());
@@ -37,7 +38,7 @@ fn fresh_run_reaches_latest_clean() {
         stmt.query([]).unwrap().next().unwrap().is_none(),
         "外键检查应为空"
     );
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE kind='note'"), 0);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NULL"), 0);
 }
 
 /// ② 笔记搬入:id 原值(spec §12 D1)、`legacy_id` 溯源、`name` 为 NULL、正文/时间逐值;
@@ -45,8 +46,8 @@ fn fresh_run_reaches_latest_clean() {
 #[test]
 fn upgrade_from_v24_brings_notes_in() {
     let c = seeded_v24();
-    run(&c).unwrap();
-    super::entities_tags_fixture::legacy_read_views(&c);
+    // 只跑到 025:028 会把老表下架并重发 id,下面的断言只在 v25 成立
+    apply(&c, MIGRATIONS[24], 25).unwrap();
 
     assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE kind='note'"), 2);
     assert_eq!(
@@ -72,8 +73,7 @@ fn upgrade_from_v24_brings_notes_in() {
 #[test]
 fn tagging_edges_point_note_to_tag() {
     let c = seeded_v24();
-    run(&c).unwrap();
-    super::entities_tags_fixture::legacy_read_views(&c);
+    apply(&c, MIGRATIONS[24], 25).unwrap();
     assert_eq!(count(&c, "SELECT COUNT(*) FROM edges WHERE kind='tagging'"), 3);
 
     let from_note = |note: i64| -> Vec<i64> {
@@ -118,8 +118,7 @@ fn tagging_edges_point_note_to_tag() {
 #[test]
 fn link_edges_only_include_resolved_rows() {
     let c = seeded_v24();
-    run(&c).unwrap();
-    super::entities_tags_fixture::legacy_read_views(&c);
+    apply(&c, MIGRATIONS[24], 25).unwrap();
     assert_eq!(count(&c, "SELECT COUNT(*) FROM edges WHERE kind='link'"), 1);
     let (src, tgt): (i64, i64) = c
         .query_row(
@@ -129,7 +128,17 @@ fn link_edges_only_include_resolved_rows() {
         )
         .unwrap();
     assert_eq!((src, tgt), (501, 502));
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM note_links"), 1, "视图只含已解析 link 边");
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM note_links"), 2, "老表仍有 2 条 note_links");
+    assert_eq!(
+        count(&c, "SELECT COUNT(*) FROM note_links WHERE target_id IS NULL"),
+        1,
+        "其中恰 1 条未解析"
+    );
+    assert_eq!(
+        count(&c, "SELECT COUNT(*) FROM edges WHERE kind='link' AND source_id=502"),
+        0,
+        "未解析行不落 link 边"
+    );
 }
 
 /// ⑤ 老表零改动:025 前后 `notes` / `tag_links` / `note_links` 逐值相等(阶段 1–3 老表即真源)
@@ -173,8 +182,7 @@ fn replay_of_025_is_idempotent() {
 #[test]
 fn duplicate_tagging_edge_is_rejected() {
     let c = seeded_v24();
-    run(&c).unwrap();
-    super::entities_tags_fixture::legacy_read_views(&c);
+    apply(&c, MIGRATIONS[24], 25).unwrap();
     let dup = c.execute(
         "INSERT INTO edges(source_id,target_id,kind,remark,created_at) \
          VALUES(501,?1,'tagging','','2026-01-01T00:00:00.000')",

@@ -1,5 +1,5 @@
 //! 迁移 027 核心读数:老表/老触发器/老 FTS/过渡视图全消失;漂移回填;完整性;
-//! v24/v25/v26 各一次 `run` 到 27 与重放幂等。
+//! v24/v25/v26 各一次 `run` 跑到最新(29)与重放幂等。
 //! (026/027 内联聚合的守卫已随 029 退役:聚合唯一真源改由常量拼视图,守卫见
 //! `entities_fts_migration_tests::entities_fts_src_view_matches_rust_truth`。)
 use super::entities_tags_fixture::{count, migrate_to_v23, migrated_to_v26, seed_notes, seed_v23};
@@ -14,9 +14,9 @@ const LEGACY_TRIGGERS: [&str; 8] = [
 
 /// 老表 / 老 FTS(含影子表)/ 老触发器 / 过渡视图都必须不在 `sqlite_master` 里。
 fn assert_legacy_gone(c: &Connection) {
+    // `entities_fts_src` 不在下架名单:它是 029 重建的 FTS 聚合视图,不是老表遗留
     for gone in [
         "notes", "tags", "tag_links", "note_links", "notes_fts", "tag_aliases", "tag_merge_log",
-        "entities_fts_src",
     ] {
         assert_eq!(
             count(c, &format!("SELECT COUNT(*) FROM sqlite_master WHERE name='{gone}'")),
@@ -58,7 +58,7 @@ fn at_v24() -> Connection {
 fn v27_drops_legacy_and_stays_reconciled() {
     let c = migrated_to_v26();
     run(&c).unwrap();
-    assert_eq!(count(&c, "PRAGMA user_version"), 27);
+    assert_eq!(count(&c, "PRAGMA user_version"), latest_version());
     assert_legacy_gone(&c);
     assert_eq!(fk_violations(&c), 0, "foreign_key_check 必须空");
     let ok: String = c.query_row("PRAGMA integrity_check", [], |r| r.get(0)).unwrap();
@@ -93,23 +93,33 @@ fn drift_rows_are_backfilled_before_legacy_drop() {
     run(&c).unwrap();
 
     assert_eq!(
-        count(&c, "SELECT COUNT(*) FROM entities WHERE id=503 AND kind='note' AND content='漂移笔记'"),
+        count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NULL AND meta='漂移笔记'"),
         1,
         "漂移笔记必须回填,否则丢用户数据"
     );
     assert_eq!(
-        count(&c, "SELECT COUNT(*) FROM entities WHERE id=1000000004 AND kind='tag' AND path='地点轴/新页'"),
-        1
+        count(&c, "SELECT COUNT(*) FROM entities WHERE path='地点轴/新页'"),
+        1,
+        "漂移标签必须回填"
     );
     assert_eq!(
         count(
             &c,
-            "SELECT COUNT(*) FROM edges WHERE kind='tagging' AND source_id=503 AND target_id=1000000004"
+            "SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id \
+             JOIN entities t ON t.id = e.target_id \
+             WHERE e.kind='link' AND s.meta='漂移笔记' AND t.path='地点轴/新页'"
         ),
         1,
-        "漂移链接必须回填成 tagging 边"
+        "漂移链接必须回填成 link 边"
     );
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities_fts WHERE rowid=503"), 1);
+    assert_eq!(
+        count(
+            &c,
+            "SELECT COUNT(*) FROM entities_fts \
+             WHERE rowid = (SELECT id FROM entities WHERE meta='漂移笔记')"
+        ),
+        1
+    );
     assert_legacy_gone(&c);
 }
 
@@ -121,7 +131,7 @@ fn run_from_v24_v25_v26_reaches_v27() {
     let v26 = migrated_to_v26();
     for c in [at_v24(), v25, v26] {
         run(&c).unwrap();
-        assert_eq!(count(&c, "PRAGMA user_version"), 27);
+        assert_eq!(count(&c, "PRAGMA user_version"), latest_version());
         assert_legacy_gone(&c);
         assert_eq!(fk_violations(&c), 0);
     }

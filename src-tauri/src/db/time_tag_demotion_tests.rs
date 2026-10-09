@@ -50,9 +50,9 @@ fn legacy_hits(conn: &Connection, keyword: &str) -> i64 {
     .unwrap()
 }
 
-/// 终态索引串(实体 id)
+/// 终态索引串(实体 id;029 起聚合列叫 `paths`)
 fn entity_fts(conn: &Connection, id: i64) -> String {
-    conn.query_row("SELECT tag_paths FROM entities_fts WHERE rowid=?1", [id], |r| r.get(0))
+    conn.query_row("SELECT paths FROM entities_fts WHERE rowid=?1", [id], |r| r.get(0))
         .unwrap()
 }
 
@@ -156,7 +156,7 @@ fn final_triggers_agree_with_refresh_entities_fts() {
     let created = entity_fts(&conn, id);
     assert!(created.contains('乙') && created.contains("时间排序"), "{created}");
     // 正文更新触发器(entities_au)
-    conn.execute("UPDATE entities SET content='改过的正文' WHERE id=?1", [id]).unwrap();
+    conn.execute("UPDATE entities SET meta='改过的正文' WHERE id=?1", [id]).unwrap();
     let updated = entity_fts(&conn, id);
     assert!(updated.contains('乙') && updated.contains("时间排序"), "{updated}");
     // 显式重写路径必须写出同一索引串

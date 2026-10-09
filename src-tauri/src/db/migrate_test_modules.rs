@@ -53,6 +53,10 @@ mod time_tag_demotion_tests;
 mod done_doing_migration_tests;
 
 #[cfg(test)]
+#[path = "done_doing_fts_tests.rs"]
+mod done_doing_fts_tests;
+
+#[cfg(test)]
 #[path = "fts_tag_plain_migration_tests.rs"]
 mod fts_tag_plain_migration_tests;
 
@@ -71,6 +75,10 @@ mod tag_link_remark_migration_tests;
 #[cfg(test)]
 #[path = "entities_tags_fixture.rs"]
 mod entities_tags_fixture;
+
+#[cfg(test)]
+#[path = "entities_phase2_fixture.rs"]
+mod entities_phase2_fixture;
 
 #[cfg(test)]
 #[path = "entities_tags_migration_tests.rs"]

@@ -108,10 +108,19 @@ fn migration_backfills_fts_for_preexisting_notes() {
 
     run(&conn).unwrap();
 
-    // 回填后索引行数与笔记实体数一致(触发器在场不等于历史数据已索引)
-    let notes = count(&conn, "SELECT COUNT(*) FROM entities WHERE kind = 'note'");
-    let fts = count(&conn, "SELECT COUNT(*) FROM entities_fts WHERE content <> ''");
-    assert_eq!(fts, notes, "entities_fts 未回填历史笔记");
+    // 回填后索引行数与实体数一致(触发器在场不等于历史数据已索引;029 起一行一实体)
+    let entities = count(&conn, "SELECT COUNT(*) FROM entities");
+    let fts = count(&conn, "SELECT COUNT(*) FROM entities_fts WHERE meta <> ''");
+    assert_eq!(fts, entities, "entities_fts 未回填历史实体");
+    assert_eq!(
+        count(
+            &conn,
+            "SELECT COUNT(*) FROM entities_fts \
+             WHERE rowid = (SELECT id FROM entities WHERE meta='买牛奶')"
+        ),
+        1,
+        "历史笔记自己必须有索引行"
+    );
     // 3 字符中文关键词走 FTS 分支,迁移前的笔记必须命中
     let hit = query(
         &conn,
@@ -121,11 +130,19 @@ fn migration_backfills_fts_for_preexisting_notes() {
     .unwrap();
     assert_eq!(hit.len(), 1, "迁移前的笔记应可被 FTS 分支搜到");
     assert_eq!(hit[0].content, "买牛奶");
-    // 004:v1 残留的 diary 链接与仅被它引用的孤儿 tag 清理掉 -> 不产生 relation 边
-    // (008 会给笔记回填时间标签,故 tagging 边不为 0,只查 diary 类)
-    assert_eq!(count(&conn, "SELECT COUNT(*) FROM edges WHERE kind='relation'"), 0, "diary 链接不得变成 relation 边");
+    // 004:v1 残留的 diary 链接与仅被它引用的孤儿 tag 清理掉 —— 统一实体后引用边一律 link
+    // (008 会给笔记回填时间标签,故 link 边不为 0);`link` 边只许指向树内实体
     assert_eq!(
-        count(&conn, "SELECT COUNT(*) FROM entities WHERE kind='tag' AND path='验收标签'"),
+        count(
+            &conn,
+            "SELECT COUNT(*) FROM edges e JOIN entities t ON t.id = e.target_id \
+             WHERE e.kind='link' AND t.path IS NULL"
+        ),
+        0,
+        "引用边不得指向树外实体(diary 链接不得成活)"
+    );
+    assert_eq!(
+        count(&conn, "SELECT COUNT(*) FROM entities WHERE path='验收标签'"),
         0,
         "孤儿 tag 应清理"
     );
@@ -154,9 +171,9 @@ fn migration_015_upgrades_v14_and_is_idempotent() {
 
     run(&conn).unwrap();
 
-    assert_eq!(count(&conn, "SELECT COUNT(*) FROM entities WHERE kind='tag'"), 1);
-    assert_eq!(count(&conn, "SELECT COUNT(*) FROM entities WHERE kind='note'"), 1);
-    assert_eq!(count(&conn, "SELECT COUNT(*) FROM edges WHERE kind='tagging'"), 1);
+    assert_eq!(count(&conn, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL"), 1);
+    assert_eq!(count(&conn, "SELECT COUNT(*) FROM entities WHERE path IS NULL"), 1);
+    assert_eq!(count(&conn, "SELECT COUNT(*) FROM edges WHERE kind='link'"), 1);
     let snap = || (count(&conn, "PRAGMA user_version"), count(&conn, "SELECT COUNT(*) FROM entities"));
     let first = snap();
     run(&conn).unwrap(); // 版本闸门:第二次 no-op
@@ -168,9 +185,9 @@ fn migration_015_upgrades_v14_and_is_idempotent() {
 fn deleting_target_tag_cascades_aliases() {
     let conn = db();
     conn.execute_batch(
-        "INSERT INTO entities(id, kind, name, content, created_at, path, depth)
-           VALUES(1000000001,'tag','甲','','2026-01-01','甲',1),
-                 (1000000002,'tag','乙','','2026-01-01','乙',1);
+        "INSERT INTO entities(id, meta, created_at, path, depth)
+           VALUES(1000000001,'甲','2026-01-01','甲',1),
+                 (1000000002,'乙','2026-01-01','乙',1);
          INSERT INTO entity_aliases(alias, entity_id)
            VALUES('旧甲', 1000000001), ('甲甲', 1000000001), ('旧乙', 1000000002);",
     )

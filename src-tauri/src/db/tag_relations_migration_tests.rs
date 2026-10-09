@@ -3,6 +3,7 @@
 //! ② v21 升级:'type' 边并入 'tag'(同 (tag_id,target_id) 有 'tag' 行时取并集不撞主键)
 //! ③ 重放幂等:'type' 边已无、再跑一次不增行
 //! ④ 历史 'tag' 边(本机真实库 24 条形态)原样保留,一条不多一条不少
+//! 终态读法:028 把 relation 并入 `edges(kind='link')` 并重发 id,故不比原 id 而比条数与目标。
 use super::*;
 
 fn col_exists(conn: &Connection, table: &str, column: &str) -> bool {
@@ -42,11 +43,10 @@ fn add_tag(c: &Connection, id: i64, path: &str) {
 fn fresh_db_has_no_is_type_and_has_merge_log() {
     let c = Connection::open_in_memory().unwrap();
     run(&c).unwrap();
-    super::entities_tags_fixture::legacy_read_views(&c);
     let v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
     assert_eq!(v, latest_version());
     assert!(latest_version() >= 22, "本用例只要求跑过 022;后续迁移会继续抬升");
-    assert!(!col_exists(&c, "tags", "is_type"), "022 后 is_type 列必须消失");
+    assert!(!col_exists(&c, "entities", "is_type"), "022 后 is_type 列必须消失");
     let n: i64 = c
         .query_row(
             "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='entity_merge_log'",
@@ -79,23 +79,22 @@ fn upgrade_merges_type_edges_into_tag_and_drops_is_type() {
     )
     .unwrap();
 
-    // run() 从版本 21 续跑:022 钩子删列 + SQL 并边,再顺势跑到最新(023)
+    // run() 从版本 21 续跑:022 钩子删列 + SQL 并边,再顺势跑到最新
     run(&c).unwrap();
-    super::entities_tags_fixture::legacy_read_views(&c);
 
     let v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
     assert_eq!(v, latest_version());
-    assert!(!col_exists(&c, "tags", "is_type"));
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tag_links WHERE target_type='type'"), 0);
+    assert!(!col_exists(&c, "entities", "is_type"), "022 后 is_type 列必须消失");
+    // 022 把 'type' 并入 'tag',028 再把 tagging/relation 全并成 link;无笔记,故 3 个标签拿 id 1..3
     assert_eq!(
-        count(&c, "SELECT COUNT(*) FROM tag_links WHERE target_type='tag'"),
+        count(&c, "SELECT COUNT(*) FROM edges WHERE kind='link'"),
         2,
-        "原 'type' 边并入 'tag',与既有 'tag' 边并集"
+        "原 'type' 边与既有 'tag' 边并集"
     );
     assert_eq!(
-        count(&c, "SELECT COUNT(*) FROM tag_links WHERE target_type='tag' AND tag_id=2 AND target_id=1"),
+        count(&c, "SELECT COUNT(*) FROM edges WHERE kind='link' AND source_id=2 AND target_id=1"),
         1,
-        "中国 -> 国籍 的边落在 'tag'"
+        "中国 -> 国籍 的边"
     );
 }
 
@@ -149,13 +148,27 @@ fn historical_tag_edges_are_preserved_exactly() {
     add_tag(&c, 613, "地点轴/国籍");
 
     run(&c).unwrap();
-    super::entities_tags_fixture::legacy_read_views(&c);
 
-    let after: Vec<(i64, i64)> = {
-        let mut st = c
-            .prepare("SELECT tag_id, target_id FROM tag_links WHERE target_type='tag' ORDER BY tag_id")
-            .unwrap();
-        st.query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().collect::<Result<_, _>>().unwrap()
-    };
-    assert_eq!(after, before, "24 条历史 'tag' 边原样保留");
+    // 终态:`edges(kind='link')` 里 24 条边逐条保留、来源互不相同、全指向国籍标签
+    // (028 重发 id,故不比原 id)
+    assert_eq!(before.len(), 24, "夹具非空");
+    assert_eq!(
+        count(&c, "SELECT COUNT(*) FROM edges WHERE kind='link'"),
+        24,
+        "24 条历史 'tag' 边原样保留"
+    );
+    assert_eq!(
+        count(&c, "SELECT COUNT(DISTINCT source_id) FROM edges WHERE kind='link'"),
+        24,
+        "24 条边的来源互不相同"
+    );
+    assert_eq!(
+        count(
+            &c,
+            "SELECT COUNT(*) FROM edges e JOIN entities t ON t.id = e.target_id \
+             WHERE e.kind='link' AND t.meta='地点轴/国籍'"
+        ),
+        24,
+        "边都指向国籍标签"
+    );
 }

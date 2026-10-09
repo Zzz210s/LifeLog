@@ -3,6 +3,7 @@
 //! 注:期望值里含迁移 011(spec 2026-09-17)登记的 `auto_time_tag` / `time_tag_template`,
 //! 它们与 005 无关但会出现在 `run()` 后的 settings 表里,故显式列出以保持断言完整。
 use super::{run, MIGRATIONS};
+use crate::db::repos::settings::FILTER_CURRENT_KEY;
 use rusqlite::Connection;
 
 /// 005 在迁移序列中的位次(1 起);旧库 = 应用到 005 之前。
@@ -30,6 +31,14 @@ fn rows(conn: &Connection) -> Vec<(String, String)> {
     out
 }
 
+/// 028 会给无有效条件的库预置 `filter_current`;005 用例只关心 quick_* 的搬迁,故把它摘掉再比。
+fn rows_without_preset_filter(conn: &Connection) -> Vec<(String, String)> {
+    rows(conn)
+        .into_iter()
+        .filter(|(k, _)| k != FILTER_CURRENT_KEY)
+        .collect()
+}
+
 #[test]
 fn migration_005_renames_old_keys_and_drops_them() {
     let conn = old_db();
@@ -42,8 +51,12 @@ fn migration_005_renames_old_keys_and_drops_them() {
 
     run(&conn).unwrap();
 
+    assert!(
+        rows(&conn).iter().any(|(k, _)| k == FILTER_CURRENT_KEY),
+        "028 应给无有效条件的库预置默认筛选"
+    );
     assert_eq!(
-        rows(&conn),
+        rows_without_preset_filter(&conn),
         vec![
             ("auto_time_tag".into(), "true".into()),
             ("input_geom_ver".into(), "1".into()),
@@ -68,7 +81,7 @@ fn migration_005_prefers_existing_new_key_on_conflict() {
     run(&conn).unwrap();
 
     assert_eq!(
-        rows(&conn),
+        rows_without_preset_filter(&conn),
         vec![
             ("auto_time_tag".into(), "true".into()),
             ("input_x".into(), "2".into()),
@@ -102,7 +115,7 @@ fn migration_005_without_old_keys_changes_nothing() {
     run(&conn).unwrap();
 
     assert_eq!(
-        rows(&conn),
+        rows_without_preset_filter(&conn),
         vec![
             ("auto_time_tag".into(), "true".into()),
             ("time_tag_template".into(), "时间排序/{y}/{m}/{d}".into()),

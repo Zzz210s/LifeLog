@@ -2,6 +2,8 @@
 //! 覆盖:新库到 24 且完整;v23 升级后 `entities` 投影逐值等于老 `tags`(id 整体偏移、
 //! `legacy_id` 溯源、树列一致);老表一个字节不改;重复执行幂等;偏移字面量与常量一致。
 //! 边(`child`/`relation`)的专项读数见同目录 `entities_tags_edges_tests.rs`。
+//! 下面的断言只对 024 本体成立(028 会重发全库 id、抹掉偏移),故把库直接停在 v24;
+//! 终态等价性由 `drop_legacy_migration_tests` 覆盖。
 use super::entities_tags_fixture::{count, migrate_to_v23, seed_v23, table_exists};
 use super::*;
 use crate::db::repos::entities::TAG_ID_OFFSET;
@@ -14,7 +16,6 @@ const OFFSET_LITERAL: i64 = 1_000_000_000;
 fn fresh_run_reaches_v24_clean() {
     let c = Connection::open_in_memory().unwrap();
     run(&c).unwrap();
-    super::entities_tags_fixture::legacy_read_views(&c);
     assert!(latest_version() >= 24, "本用例只要求跑过 024;后续迁移会继续抬升");
     let v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
     assert_eq!(v, latest_version(), "新库应跑到最新版本");
@@ -36,8 +37,7 @@ fn upgrade_from_v23_maps_tag_ids_with_offset() {
     let c = Connection::open_in_memory().unwrap();
     migrate_to_v23(&c);
     seed_v23(&c);
-    run(&c).unwrap();
-    super::entities_tags_fixture::legacy_read_views(&c);
+    apply(&c, MIGRATIONS[23], 24).unwrap();
 
     assert_eq!(
         count(&c, "SELECT COUNT(*) FROM entities WHERE kind='tag'"),
@@ -82,8 +82,7 @@ fn entities_projection_equals_tags() {
     seed_v23(&c);
     c.execute("UPDATE tags SET color='#abc' WHERE id=2", [])
         .unwrap();
-    run(&c).unwrap();
-    super::entities_tags_fixture::legacy_read_views(&c);
+    apply(&c, MIGRATIONS[23], 24).unwrap();
 
     let forward = "SELECT t.id+1000000000, t.name, t.path, t.depth, t.sort_order, \
                    COALESCE(t.parent_id+1000000000, -1), COALESCE(t.color,'') FROM tags t \

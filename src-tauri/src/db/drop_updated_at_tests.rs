@@ -62,10 +62,10 @@ fn upgrading_legacy_db_drops_column_without_touching_data() {
 
     assert_eq!(count(&c, "PRAGMA user_version"), latest_version());
     // 数据一字不动:笔记实体、索引行都还在,正文可读
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE kind='note'"), 1);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities_fts WHERE content <> ''"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NULL"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities_fts WHERE meta <> ''"), 1);
     let content: String = c
-        .query_row("SELECT content FROM entities WHERE kind='note'", [], |r| r.get(0))
+        .query_row("SELECT meta FROM entities WHERE path IS NULL", [], |r| r.get(0))
         .unwrap();
     assert_eq!(content, "历史 #甲"); // 裸 SQL 插入不剥离标签,正文逐字节不动
 }
@@ -82,7 +82,7 @@ fn triggers_survive_the_drop_column() {
     // entities_au 触发器仍按当前链接重写索引
     update(&mut c, n.id, "改后 #丙").unwrap().unwrap();
     let tags: String = c
-        .query_row("SELECT tag_paths FROM entities_fts WHERE rowid=?1", [n.id], |r| r.get(0))
+        .query_row("SELECT paths FROM entities_fts WHERE rowid=?1", [n.id], |r| r.get(0))
         .unwrap();
     assert!(tags.contains("丙") && !tags.contains("乙"), "FTS 未随更新收敛: {tags}");
 }

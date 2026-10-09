@@ -133,5 +133,5 @@ fn backup_failure_becomes_warning_and_migration_still_runs() {
     );
     // 备份失败不影响迁移结果
     assert_eq!(scalar(&report.conn, "PRAGMA user_version"), latest_version());
-    assert_eq!(scalar(&report.conn, "SELECT COUNT(*) FROM entities WHERE kind='note'"), 1);
+    assert_eq!(scalar(&report.conn, "SELECT COUNT(*) FROM entities WHERE path IS NULL"), 1);
 }

@@ -1,5 +1,6 @@
 //! 迁移 024 的边专项读数:`edges(kind='relation')` 从 `tag_links` 的 `tag`/`type` 行搬入,
 //! 属性名(`remark`,迁移 023 口径)跟着边;两端按标签 id 偏移;悬挂引用不中断迁移。
+//! 断言只对 024 本体成立(028 会重发 id)、故把库停在 v24。
 use super::entities_tags_fixture::{add_tag, count, migrate_to_v23, seed_v23};
 use super::*;
 use crate::db::repos::entities::TAG_ID_OFFSET;
@@ -20,7 +21,7 @@ fn relation_edges_carry_remark() {
         )
         .unwrap();
     }
-    run(&c).unwrap();
+    apply(&c, MIGRATIONS[23], 24).unwrap();
 
     assert_eq!(
         count(&c, "SELECT COUNT(*) FROM edges WHERE kind='relation'"),
@@ -57,7 +58,7 @@ fn relation_edge_skips_dangling_target() {
     )
     .unwrap();
 
-    run(&c).unwrap();
+    apply(&c, MIGRATIONS[23], 24).unwrap();
 
     assert_eq!(
         count(&c, "SELECT COUNT(*) FROM edges WHERE kind='relation'"),

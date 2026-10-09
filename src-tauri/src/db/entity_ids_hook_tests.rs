@@ -1,5 +1,5 @@
-//! 027 前置钩子的读数:`graph_positions` 键从老标签 id 改写成标签实体 id(幂等、坏键丢弃),
-//! `entities.legacy_id` 按列存在性下架,`ui.mru.*` 不受影响。
+//! 027/028 前置钩子的读数:`graph_positions` 键先由 027 从老标签 id 偏移、再由 028 映射到
+//! 新实体 id(不可映射的键丢弃),`ui.mru.notes` 的笔记 id 同样改写,`ui.mru.tags`(路径)不受影响。
 use super::entities_tags_fixture::{count, migrated_to_v26};
 use super::*;
 use crate::db::repos::settings;
@@ -12,16 +12,20 @@ fn get_gp(c: &Connection) -> String {
     settings::get(c, settings::GRAPH_POSITIONS_KEY).unwrap().unwrap()
 }
 
-/// 真库形态的键(`{"283":…,"321":…}`)+ 一个坏键:改写的键全部 +偏移,坏键丢弃。
+/// 真库形态的键(`{"283":…,"321":…}` 那种老标签 id)+ 一个坏键:可映射的键改写,坏键丢弃。
+/// 夹具 v26:笔记 501/502 + 标签 id 1000000001..3;028 重发为 笔记 1/2、标签 3/4/5。
 #[test]
 fn graph_positions_keys_are_shifted() {
     let c = migrated_to_v26();
-    set_gp(&c, r#"{"283":{"x":1,"y":2},"321":{"x":3,"y":4},"bad":{"x":9}}"#);
+    set_gp(&c, r#"{"1":{"x":1,"y":2},"2":{"x":3,"y":4},"bad":{"x":9}}"#);
     run(&c).unwrap();
     let v: serde_json::Value = serde_json::from_str(&get_gp(&c)).unwrap();
-    assert_eq!(v["1000000283"]["x"], 1, "老键 283 -> 实体 id 1000000283");
-    assert_eq!(v["1000000321"]["y"], 4, "老键 321 -> 实体 id 1000000321");
-    assert!(v.get("283").is_none(), "老键不得残留");
+    assert_eq!(v["3"]["x"], 1, "老标签 id 1(027 偏移后 1000000001)-> 实体 id 3");
+    assert_eq!(v["4"]["y"], 4, "老标签 id 2 -> 实体 id 4");
+    assert!(
+        v.get("1").is_none() && v.get("1000000001").is_none(),
+        "中间态键不得残留"
+    );
     assert!(v.get("bad").is_none(), "解析失败的键必须丢弃");
 }
 
@@ -71,13 +75,16 @@ fn legacy_id_column_is_dropped() {
     assert_eq!(after, 0, "027 后过渡列必须下架");
 }
 
-/// `ui.mru.notes`(笔记 id)与 `ui.mru.tags`(路径)不参与改写,原样保留。
+/// `ui.mru.notes` 的笔记 id 由 028 改写为新实体 id;`ui.mru.tags` 存路径,原样保留。
 #[test]
-fn mru_settings_are_untouched() {
+fn mru_settings_note_ids_follow_entities() {
     let c = migrated_to_v26();
-    settings::set(&c, "ui.mru.notes", r#"["501","502"]"#).unwrap();
+    settings::set(&c, "ui.mru.notes", r#"[{"id":"501","count":2}]"#).unwrap();
     settings::set(&c, "ui.mru.tags", r#"["地点轴/日本"]"#).unwrap();
     run(&c).unwrap();
-    assert_eq!(settings::get(&c, "ui.mru.notes").unwrap().unwrap(), r#"["501","502"]"#);
+    let mru: serde_json::Value =
+        serde_json::from_str(&settings::get(&c, "ui.mru.notes").unwrap().unwrap()).unwrap();
+    assert_eq!(mru[0]["id"], "1", "笔记 501 -> 实体 id 1");
+    assert_eq!(mru[0]["count"].as_i64(), Some(2), "其余字段原样保留");
     assert_eq!(settings::get(&c, "ui.mru.tags").unwrap().unwrap(), r#"["地点轴/日本"]"#);
 }
