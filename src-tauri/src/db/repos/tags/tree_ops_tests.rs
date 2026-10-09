@@ -11,7 +11,6 @@ use rusqlite::Connection;
 fn db() -> Connection {
     let c = Connection::open_in_memory().unwrap();
     migrate::run(&c).unwrap();
-    crate::db::repos::tags::test_support::install_legacy_name_views(&c);
     c
 }
 
@@ -20,14 +19,14 @@ fn count(c: &Connection, sql: &str) -> i64 {
 }
 
 fn id_at(c: &Connection, path: &str) -> i64 {
-    c.query_row("SELECT id FROM tags WHERE path=?1", [path], |r| r.get(0))
+    c.query_row("SELECT id FROM entities WHERE path IS NOT NULL AND path=?1", [path], |r| r.get(0))
         .unwrap()
 }
 
 /// 标签表全量快照(按 id 排序),用于"不改库"断言
 fn dump(c: &Connection) -> Vec<String> {
     let mut stmt = c
-        .prepare("SELECT id, name, COALESCE(parent_id, 0), path, depth FROM tags ORDER BY id")
+        .prepare("SELECT id, entity_name(meta), COALESCE(parent_id, 0), path, depth FROM entities WHERE path IS NOT NULL ORDER BY id")
         .unwrap();
     let rows = stmt
         .query_map([], |r| {
@@ -63,10 +62,10 @@ fn rename_updates_whole_subtree_paths_and_fts() {
 
     rename(&mut c, root, "事业").unwrap();
 
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags"), 2);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='事业' AND name='事业' AND depth=1 AND parent_id IS NULL"), 1);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='事业/项目A' AND name='项目A' AND depth=2 AND parent_id=(SELECT id FROM tags WHERE path='事业')"), 1);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path IN ('工作','工作/项目A')"), 0);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL"), 2);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='事业' AND entity_name(meta)='事业' AND depth=1 AND parent_id IS NULL"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='事业/项目A' AND entity_name(meta)='项目A' AND depth=2 AND parent_id=(SELECT id FROM entities WHERE path IS NOT NULL AND path='事业')"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path IN ('工作','工作/项目A')"), 0);
     // FTS 聚合的是完整路径:新路径可搜、旧路径不再命中
     // (父级名称本身不直链笔记,2 字符关键词按标签名匹配不会命中父级)
     assert_eq!(hits(&c, "会议记录"), 1);
@@ -89,13 +88,13 @@ fn move_to_reparents_and_rewrites_paths() {
     move_to(&mut c, leaf, Some(life)).unwrap();
 
     let life2 = id_at(&c, "生活");
-    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tags WHERE path='生活/项目A' AND name='项目A' AND depth=2 AND parent_id={life2}")), 1);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='工作/项目A'"), 0);
+    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='生活/项目A' AND entity_name(meta)='项目A' AND depth=2 AND parent_id={life2}")), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='工作/项目A'"), 0);
     assert_eq!(hits(&c, "生活/项目A"), 1);
     assert_eq!(hits(&c, "工作/项目A"), 0);
 
     move_to(&mut c, leaf, None).unwrap();
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='项目A' AND depth=1 AND parent_id IS NULL"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='项目A' AND depth=1 AND parent_id IS NULL"), 1);
     assert_eq!(hits(&c, "项目A"), 1);
     assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
@@ -118,8 +117,7 @@ fn move_into_own_subtree_rejected_and_db_untouched() {
     assert_eq!(
         count(
             &c,
-            "SELECT COUNT(*) FROM tag_links WHERE target_type='note'
-               AND tag_id = (SELECT id FROM tags WHERE path='工作/项目A')"
+            "SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND s.path IS NULL AND t.path IS NOT NULL AND e.target_id = (SELECT id FROM entities WHERE path IS NOT NULL AND path='工作/项目A')"
         ),
         1,
         "笔记 -> 叶子标签的那条链接仍在"

@@ -8,7 +8,6 @@ use rusqlite::Connection;
 fn db() -> Connection {
     let c = Connection::open_in_memory().unwrap();
     migrate::run(&c).unwrap();
-    crate::db::repos::tags::test_support::install_legacy_name_views(&c);
     c
 }
 
@@ -34,19 +33,19 @@ fn update_replaces_links_and_cleans_orphans() {
     // 替换语义:旧链清空、新链生效(该笔记仅剩一条链)
     let links = count(
         &c,
-        "SELECT COUNT(*) FROM tag_links WHERE target_type='note' AND target_id=?1",
+        "SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND s.path IS NULL AND t.path IS NOT NULL AND e.source_id=?1",
         &[&n.id],
     );
     assert_eq!(links, 1);
     let old_link = count(
         &c,
-        "SELECT COUNT(*) FROM tag_links l JOIN tags t ON t.id = l.tag_id WHERE t.name='甲标签'",
+        "SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = (CASE WHEN s.path IS NOT NULL THEN e.source_id ELSE e.target_id END) WHERE e.kind = 'link' AND (s.path IS NOT NULL OR t.path IS NOT NULL) AND entity_name(t.meta)='甲标签'",
         &[],
     );
     assert_eq!(old_link, 0);
     // 孤儿标签回收:甲标签已无引用即删,乙标签保留
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE name='甲标签'", &[]), 0);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE name='乙标签'", &[]), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND entity_name(meta)='甲标签'", &[]), 0);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND entity_name(meta)='乙标签'", &[]), 1);
     assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
 }
@@ -58,10 +57,10 @@ fn update_keeps_tag_shared_with_other_note() {
     create_plain(&mut c, "b #共用").unwrap();
     update(&mut c, a.id, "改了 #别的").unwrap();
     // 共用标签仍被 b 引用,孤儿清理不得误删
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE name='共用'", &[]), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND entity_name(meta)='共用'", &[]), 1);
     let b_links = count(
         &c,
-        "SELECT COUNT(*) FROM tag_links l JOIN tags t ON t.id = l.tag_id WHERE t.name='共用'",
+        "SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = (CASE WHEN s.path IS NOT NULL THEN e.source_id ELSE e.target_id END) WHERE e.kind = 'link' AND (s.path IS NOT NULL OR t.path IS NOT NULL) AND entity_name(t.meta)='共用'",
         &[],
     );
     assert_eq!(b_links, 1);
@@ -83,14 +82,14 @@ fn update_writes_content_without_updating_time_columns() {
     let mut c = db();
     let n = create_plain(&mut c, "旧正文 #甲").unwrap();
     let created: String = c
-        .query_row("SELECT created_at FROM notes WHERE id=?1", [n.id], |r| r.get(0))
+        .query_row("SELECT created_at FROM entities WHERE path IS NULL AND id=?1", [n.id], |r| r.get(0))
         .unwrap();
     let upd = update(&mut c, n.id, "新正文 #乙").unwrap().unwrap();
     assert_eq!(upd.content, "新正文");
     assert_eq!(upd.tags, vec!["乙"]);
     // S3:updated_at 列已删除;created_at 是创建时间、不是“最后修改”的替身,必须原样
     let after: String = c
-        .query_row("SELECT created_at FROM notes WHERE id=?1", [n.id], |r| r.get(0))
+        .query_row("SELECT created_at FROM entities WHERE path IS NULL AND id=?1", [n.id], |r| r.get(0))
         .unwrap();
     assert_eq!(after, created);
 }
@@ -132,8 +131,8 @@ fn update_writes_links_and_tags_in_one_transaction() {
     update(&mut c, src.id, "源 [[目标笔记]] #乙").unwrap().unwrap();
     assert_eq!(link_targets(&c, src.id), vec![target.id],
         "同一次保存里标签与链接都落地");
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE name='甲'", &[]), 0, "标签替换语义照旧");
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE name='乙'", &[]), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND entity_name(meta)='甲'", &[]), 0, "标签替换语义照旧");
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND entity_name(meta)='乙'", &[]), 1);
 }
 
 #[test]

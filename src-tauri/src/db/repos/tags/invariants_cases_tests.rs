@@ -9,7 +9,6 @@ use rusqlite::{params, Connection};
 fn rename_cascades_filter_and_keeps_invariants() {
     let mut c = Connection::open_in_memory().unwrap();
     crate::db::migrate::run(&c).unwrap();
-    crate::db::repos::tags::test_support::install_legacy_name_views(&c);
     crate::db::repos::notes::create_plain(&mut c, "会议记录 #工作/项目A").unwrap();
     let filter = r##"{"keyword":null,"tags":[{"path":"工作/项目A","includeChildren":true}],"excludeTags":[{"path":"工作","includeChildren":false}],"tagPresence":null,"sort":"newest","expr":"#工作/项目A"}"##;
     crate::db::repos::settings::set(&c, FILTER_CURRENT_KEY, filter).unwrap();
@@ -30,7 +29,6 @@ fn rename_cascades_filter_and_keeps_invariants() {
 fn fts_invariant_catches_manual_update_drift() {
     let mut c = Connection::open_in_memory().unwrap();
     crate::db::migrate::run(&c).unwrap();
-    crate::db::repos::tags::test_support::install_legacy_name_views(&c);
     let note = crate::db::repos::notes::create_plain(&mut c, "x #甲").unwrap();
     let jia = id_at(&c, "甲");
 
@@ -53,9 +51,9 @@ fn fts_invariant_catches_manual_update_drift() {
     assert!(panic_message(err).contains('甲'));
 }
 
-/// 测试台自身的读库入口:`SELECT id FROM tags WHERE path = ?1`
+/// 测试台自身的读库入口:`SELECT id FROM entities WHERE path IS NOT NULL AND path = ?1`
 fn id_at(conn: &Connection, path: &str) -> i64 {
-    conn.query_row("SELECT id FROM tags WHERE path = ?1", params![path], |r| r.get(0))
+    conn.query_row("SELECT id FROM entities WHERE path IS NOT NULL AND path = ?1", params![path], |r| r.get(0))
         .unwrap()
 }
 

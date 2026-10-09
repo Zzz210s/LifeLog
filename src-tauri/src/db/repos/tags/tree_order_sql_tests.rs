@@ -52,7 +52,6 @@ fn sibling_order_survives_reopen() {
     {
         let mut c = Connection::open(&path).unwrap();
         migrate::run(&c).unwrap();
-        crate::db::repos::tags::test_support::install_legacy_name_views(&c);
         seed(&mut c, "x #a #b #c");
         let (a, ctag) = (id_at(&c, "a"), id_at(&c, "c"));
         move_beside(&mut c, ctag, a, false).unwrap();

@@ -7,7 +7,6 @@ use rusqlite::{params, Connection};
 fn db() -> Connection {
     let c = Connection::open_in_memory().unwrap();
     migrate::run(&c).unwrap();
-    crate::db::repos::tags::test_support::install_legacy_name_views(&c);
     c
 }
 
@@ -20,7 +19,7 @@ fn contents(notes: &[crate::db::repos::notes::Note]) -> Vec<String> {
 }
 
 fn at(c: &Connection, id: i64, ts: &str) {
-    c.execute("UPDATE notes SET created_at=?1 WHERE id=?2", params![ts, id]).unwrap();
+    c.execute("UPDATE entities SET created_at=?1 WHERE id=?2", params![ts, id]).unwrap();
 }
 
 #[test]

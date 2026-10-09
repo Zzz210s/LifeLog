@@ -7,7 +7,6 @@ use rusqlite::Connection;
 fn db() -> Connection {
     let c = Connection::open_in_memory().unwrap();
     migrate::run(&c).unwrap();
-    crate::db::repos::tags::test_support::install_legacy_name_views(&c);
     c
 }
 
@@ -21,7 +20,7 @@ fn create_parses_tags_and_links() {
     let mut c = db();
     let n = create_plain(&mut c, "看完了 #流浪地球 #科幻").unwrap();
     assert_eq!(n.tags, vec!["流浪地球", "科幻"]);
-    let links = count(&c, "SELECT COUNT(*) FROM tag_links", &[]);
+    let links = count(&c, "SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND (s.path IS NOT NULL OR t.path IS NOT NULL)", &[]);
     assert_eq!(links, 2);
 }
 
@@ -30,7 +29,7 @@ fn tags_reused_across_notes() {
     let mut c = db();
     create_plain(&mut c, "a #x").unwrap();
     create_plain(&mut c, "b #x").unwrap();
-    let tags = count(&c, "SELECT COUNT(*) FROM tags WHERE name='x'", &[]);
+    let tags = count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND entity_name(meta)='x'", &[]);
     assert_eq!(tags, 1);
 }
 
@@ -85,17 +84,17 @@ fn delete_removes_note_links_and_orphan_tags() {
     let n = create_plain(&mut c, "a #孤儿").unwrap();
     create_plain(&mut c, "b #共用").unwrap();
     delete(&mut c, n.id).unwrap();
-    let notes = count(&c, "SELECT COUNT(*) FROM notes", &[]);
+    let notes = count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NULL", &[]);
     assert_eq!(notes, 1);
     let links = count(
         &c,
-        "SELECT COUNT(*) FROM tag_links WHERE target_type='note' AND target_id=?1",
+        "SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND s.path IS NULL AND t.path IS NOT NULL AND e.source_id=?1",
         &[&n.id],
     );
     assert_eq!(links, 0);
-    let orphan = count(&c, "SELECT COUNT(*) FROM tags WHERE name='孤儿'", &[]);
+    let orphan = count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND entity_name(meta)='孤儿'", &[]);
     assert_eq!(orphan, 0);
-    let kept = count(&c, "SELECT COUNT(*) FROM tags WHERE name='共用'", &[]);
+    let kept = count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND entity_name(meta)='共用'", &[]);
     assert_eq!(kept, 1);
     assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);

@@ -10,7 +10,6 @@ use rusqlite::{params, Connection};
 fn db() -> Connection {
     let c = Connection::open_in_memory().unwrap();
     migrate::run(&c).unwrap();
-    crate::db::repos::tags::test_support::install_legacy_name_views(&c);
     c
 }
 
@@ -19,7 +18,7 @@ fn tag(path: &str, include_children: bool) -> TagCond {
 }
 
 fn tag_id(c: &Connection, path: &str) -> i64 {
-    c.query_row("SELECT id FROM tags WHERE path=?1", params![path], |r| r.get(0)).unwrap()
+    c.query_row("SELECT id FROM entities WHERE path IS NOT NULL AND path=?1", params![path], |r| r.get(0)).unwrap()
 }
 
 /// 命中笔记的正文(排序无关:按正文升序,免得依赖 id 方向)

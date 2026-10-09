@@ -7,7 +7,6 @@ use rusqlite::Connection;
 fn db() -> Connection {
     let c = Connection::open_in_memory().unwrap();
     migrate::run(&c).unwrap();
-    crate::db::repos::tags::test_support::install_legacy_name_views(&c);
     c
 }
 
@@ -139,7 +138,7 @@ fn tag_filter_is_exact_path_match() {
 fn raw_update_keeps_fts_in_sync() {
     let mut c = db();
     let n = create_plain(&mut c, "旧正文 #电影").unwrap();
-    c.execute("UPDATE notes SET content='新正文关键词' WHERE id=?1", [&n.id]).unwrap();
+    c.execute("UPDATE entities SET meta ='新正文关键词' WHERE id=?1", [&n.id]).unwrap();
     // notes_au 触发器:新词可检索、旧词不再命中(标签聚合保留)
     assert_eq!(query(&c, &f(Some("新正文关键"), &[]), 0).unwrap().len(), 1);
     assert!(query(&c, &f(Some("旧正文"), &[]), 0).unwrap().is_empty());

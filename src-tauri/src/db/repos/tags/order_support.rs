@@ -7,7 +7,6 @@ use rusqlite::Connection;
 pub(super) fn db() -> Connection {
     let c = Connection::open_in_memory().unwrap();
     migrate::run(&c).unwrap();
-    crate::db::repos::tags::test_support::install_legacy_name_views(&c);
     c
 }
 
@@ -17,7 +16,7 @@ pub(super) fn seed(c: &mut Connection, content: &str) {
 }
 
 pub(super) fn id_at(c: &Connection, path: &str) -> i64 {
-    c.query_row("SELECT id FROM tags WHERE path=?1", [path], |r| r.get(0))
+    c.query_row("SELECT id FROM entities WHERE path IS NOT NULL AND path=?1", [path], |r| r.get(0))
         .unwrap()
 }
 
@@ -25,7 +24,7 @@ pub(super) fn id_at(c: &Connection, path: &str) -> i64 {
 pub(super) fn siblings(c: &Connection, parent: Option<i64>) -> Vec<String> {
     let mut stmt = c
         .prepare(
-            "SELECT path FROM tags WHERE COALESCE(parent_id, 0) = COALESCE(?1, 0)
+            "SELECT path FROM entities WHERE path IS NOT NULL AND COALESCE(parent_id, 0) = COALESCE(?1, 0)
              ORDER BY sort_order, path",
         )
         .unwrap();
@@ -37,7 +36,7 @@ pub(super) fn siblings(c: &Connection, parent: Option<i64>) -> Vec<String> {
 pub(super) fn orders(c: &Connection, parent: Option<i64>) -> Vec<i64> {
     let mut stmt = c
         .prepare(
-            "SELECT sort_order FROM tags WHERE COALESCE(parent_id, 0) = COALESCE(?1, 0)
+            "SELECT sort_order FROM entities WHERE path IS NOT NULL AND COALESCE(parent_id, 0) = COALESCE(?1, 0)
              ORDER BY sort_order, path",
         )
         .unwrap();
@@ -49,8 +48,8 @@ pub(super) fn orders(c: &Connection, parent: Option<i64>) -> Vec<i64> {
 pub(super) fn dump(c: &Connection) -> Vec<String> {
     let mut stmt = c
         .prepare(
-            "SELECT id, COALESCE(parent_id, 0), path, depth, sort_order FROM tags
-             ORDER BY id",
+            "SELECT id, COALESCE(parent_id, 0), path, depth, sort_order FROM entities
+             WHERE path IS NOT NULL ORDER BY id",
         )
         .unwrap();
     let rows = stmt

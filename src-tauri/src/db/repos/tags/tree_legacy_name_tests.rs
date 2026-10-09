@@ -16,10 +16,10 @@ fn ensure_path_reconciles_legacy_flat_name_with_slash() {
     let root = id_at(&c, "待定");
     assert_ne!(root, legacy);
     assert_eq!(
-        count(&c, "SELECT COUNT(*) FROM tags WHERE id=(SELECT id FROM tags WHERE path='待定/TBD') AND name='TBD' AND depth=2 AND parent_id=(SELECT id FROM tags WHERE path='待定')"),
+        count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND id=(SELECT id FROM entities WHERE path IS NOT NULL AND path='待定/TBD') AND entity_name(meta)='TBD' AND depth=2 AND parent_id=(SELECT id FROM entities WHERE path IS NOT NULL AND path='待定')"),
         1
     );
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='待定' AND name='待定' AND depth=1 AND parent_id IS NULL"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='待定' AND entity_name(meta)='待定' AND depth=1 AND parent_id IS NULL"), 1);
     // 幂等:再调一次不再变化
     let before = dump(&c);
     assert_eq!(ensure_path(&c, &segs(&["待定", "TBD"])).unwrap(), leaf);
@@ -33,14 +33,14 @@ fn create_with_legacy_flat_name_builds_two_level_tree() {
     ensure_path(&c, &segs(&["待定/TBD"])).unwrap();
     let n = notes::create_plain(&mut c, "记一笔 #待定/TBD").unwrap();
     assert_eq!(n.tags, vec!["待定/TBD"]);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags"), 2);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL"), 2);
     let leaf = id_at(&c, "待定/TBD");
-    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tags WHERE parent_id={leaf}")), 0);
+    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND parent_id={leaf}")), 0);
     assert_eq!(
-        count(&c, &format!("SELECT COUNT(*) FROM tag_links WHERE tag_id={leaf} AND target_id={} AND target_type='note'", n.id)),
+        count(&c, &format!("SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND s.path IS NULL AND t.path IS NOT NULL AND e.target_id={leaf} AND e.source_id={}", n.id)),
         1
     );
-    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tag_links WHERE tag_id={} ", id_at(&c, "待定"))), 0);
+    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND (s.path IS NOT NULL OR t.path IS NOT NULL) AND (CASE WHEN s.path IS NOT NULL THEN e.source_id ELSE e.target_id END)={}", id_at(&c, "待定"))), 0);
     assert_eq!(hits(&c, "待定/TBD"), 1);
 }
 
@@ -53,7 +53,7 @@ fn gc_orphans_keeps_parents_with_children_and_prunes_dead_chain() {
     assert_eq!(id_at(&c, "a/b"), ensure_path(&c, &segs(&["a", "b"])).unwrap());
 
     gc_orphans(&c).unwrap();
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags"), 2, "父节点有子节点,不是孤儿");
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL"), 2, "父节点有子节点,不是孤儿");
 
     // 解链后叶与父逐层收敛回收
     c.execute(
@@ -62,10 +62,10 @@ fn gc_orphans_keeps_parents_with_children_and_prunes_dead_chain() {
     )
     .unwrap();
     gc_orphans(&c).unwrap();
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags"), 0);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL"), 0);
 }
 
 fn id_at(c: &Connection, path: &str) -> i64 {
-    c.query_row("SELECT id FROM tags WHERE path=?1", [path], |r| r.get(0))
+    c.query_row("SELECT id FROM entities WHERE path IS NOT NULL AND path=?1", [path], |r| r.get(0))
         .unwrap()
 }

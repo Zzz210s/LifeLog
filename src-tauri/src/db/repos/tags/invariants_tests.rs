@@ -76,10 +76,13 @@ pub(crate) fn assert_is_cited_matches_edges(conn: &Connection) {
 pub(crate) fn assert_no_orphan_tags(conn: &Connection) {
     let mut stmt = conn
         .prepare(
-            "SELECT t.path FROM tags t
-              WHERE NOT EXISTS (SELECT 1 FROM tag_links l WHERE l.tag_id = t.id)
-                AND NOT EXISTS (SELECT 1 FROM tag_links lc WHERE lc.target_type IN ('tag', 'type') AND lc.target_id = t.id)
-                AND NOT EXISTS (SELECT 1 FROM tags c WHERE c.parent_id = t.id)
+            "SELECT t.path FROM entities t WHERE t.path IS NOT NULL
+              AND NOT EXISTS (SELECT 1 FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities tt ON tt.id = e.target_id
+                               WHERE e.kind = 'link' AND (s.path IS NOT NULL OR tt.path IS NOT NULL)
+                                 AND (CASE WHEN s.path IS NOT NULL THEN e.source_id ELSE e.target_id END) = t.id)
+              AND NOT EXISTS (SELECT 1 FROM edges e JOIN entities s ON s.id = e.source_id
+                               WHERE e.kind = 'link' AND s.path IS NOT NULL AND e.target_id = t.id)
+              AND NOT EXISTS (SELECT 1 FROM entities c WHERE c.path IS NOT NULL AND c.parent_id = t.id)
               ORDER BY t.path",
         )
         .unwrap();
@@ -96,8 +99,9 @@ pub(crate) fn assert_no_orphan_tags(conn: &Connection) {
 pub(crate) fn assert_no_dangling_carries(conn: &Connection) {
     let n: i64 = conn
         .query_row(
-            "SELECT COUNT(*) FROM tag_links
-              WHERE target_type IN ('tag', 'type') AND target_id NOT IN (SELECT id FROM tags)",
+            "SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id
+              WHERE e.kind = 'link' AND s.path IS NOT NULL
+                AND e.target_id NOT IN (SELECT id FROM entities WHERE path IS NOT NULL)",
             [],
             |r| r.get(0),
         )
@@ -108,7 +112,10 @@ pub(crate) fn assert_no_dangling_carries(conn: &Connection) {
 /// ⑤ 携带图无环(S3):任取一条携带边 a→b,若 b 沿携带方向能走回 a 即成环(2 环及以上都能查)。
 pub(crate) fn assert_carry_acyclic(conn: &Connection) {
     let mut stmt = conn
-        .prepare("SELECT tag_id, target_id FROM tag_links WHERE target_type = 'tag'")
+        .prepare(
+            "SELECT e.source_id, e.target_id FROM edges e JOIN entities s ON s.id = e.source_id
+              WHERE e.kind = 'link' AND s.path IS NOT NULL",
+        )
         .unwrap();
     let edges: Vec<(i64, i64)> = stmt
         .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
@@ -151,7 +158,7 @@ pub(crate) fn assert_filter_paths_exist(conn: &Connection) {
     let missing: Vec<&String> = refs
         .iter()
         .filter(|p| {
-            conn.query_row("SELECT COUNT(*) FROM tags WHERE path = ?1", params![p], |r| {
+            conn.query_row("SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path = ?1", params![p], |r| {
                 r.get::<_, i64>(0)
             })
             .unwrap()

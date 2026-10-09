@@ -11,7 +11,6 @@ use rusqlite::Connection;
 fn db() -> Connection {
     let c = Connection::open_in_memory().unwrap();
     migrate::run(&c).unwrap();
-    crate::db::repos::tags::test_support::install_legacy_name_views(&c);
     c
 }
 
@@ -20,7 +19,7 @@ fn count(c: &Connection, sql: &str) -> i64 {
 }
 
 fn id_at(c: &Connection, path: &str) -> i64 {
-    c.query_row("SELECT id FROM tags WHERE path=?1", [path], |r| r.get(0))
+    c.query_row("SELECT id FROM entities WHERE path IS NOT NULL AND path=?1", [path], |r| r.get(0))
         .unwrap()
 }
 
@@ -30,7 +29,7 @@ fn impact_second_is_distinct_note_count() {
     let mut c = db();
     let n = notes::create_plain(&mut c, "纪要 #工作 #工作/项目A").unwrap();
     let root = id_at(&c, "工作");
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tag_links WHERE tag_id IN (SELECT id FROM tags)"), 2);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND (s.path IS NOT NULL OR t.path IS NOT NULL) AND (CASE WHEN s.path IS NOT NULL THEN e.source_id ELSE e.target_id END) IN (SELECT id FROM entities WHERE path IS NOT NULL)"), 2);
     assert_eq!(impact(&c, root).unwrap(), (1, 1), "两行链接指向同一条笔记,笔记数仍为 1");
     assert_eq!(n.tags.len(), 2);
 }
@@ -41,13 +40,13 @@ fn move_out_last_child_recycles_emptied_parent() {
     let mut c = db();
     notes::create_plain(&mut c, "纪要 #工作/项目A").unwrap();
     let leaf = id_at(&c, "工作/项目A");
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags"), 2);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL"), 2);
 
     move_to(&mut c, leaf, None).unwrap();
 
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='工作'"), 0, "空容器父级回收");
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='项目A' AND parent_id IS NULL"), 1);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tag_links WHERE tag_id=(SELECT id FROM tags WHERE path='项目A')"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='工作'"), 0, "空容器父级回收");
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='项目A' AND parent_id IS NULL"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND (s.path IS NOT NULL OR t.path IS NOT NULL) AND (CASE WHEN s.path IS NOT NULL THEN e.source_id ELSE e.target_id END)=(SELECT id FROM entities WHERE path IS NOT NULL AND path='项目A')"), 1);
     assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
 }
@@ -66,9 +65,9 @@ fn move_beyond_former_max_depth_is_allowed() {
     // 原 5 层子树整体下移一层:最深节点变成第 6 层(旧上限恰好是 5)
     assert_eq!(id_at(&c, "x/a1/a2/a3/a4/a5"), deepest);
     let deep = "path='x/a1/a2/a3/a4/a5'";
-    assert_eq!(count(&c, &format!("SELECT depth FROM tags WHERE {deep}")), 6);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='a1'"), 0, "旧根路径不残留");
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags"), 6);
+    assert_eq!(count(&c, &format!("SELECT depth FROM entities WHERE path IS NOT NULL AND {deep}")), 6);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='a1'"), 0, "旧根路径不残留");
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL"), 6);
     // FTS 跟着新路径走
     let fts: String = c.query_row("SELECT paths FROM entities_fts", [], |r| r.get(0)).unwrap();
     assert!(fts.contains("x/a1/a2/a3/a4/a5"), "FTS 未跟上新路径:{fts}");

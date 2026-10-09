@@ -15,17 +15,16 @@ const MD_LEAF: &str = "地点/中国大陆/湖南省/[郴](chēn)州市/宜章�
 fn db() -> Connection {
     let c = Connection::open_in_memory().unwrap();
     migrate::run(&c).unwrap();
-    crate::db::repos::tags::test_support::install_legacy_name_views(&c);
     c
 }
 
 fn id_at(c: &Connection, path: &str) -> i64 {
-    c.query_row("SELECT id FROM tags WHERE path=?1", [path], |r| r.get(0)).unwrap()
+    c.query_row("SELECT id FROM entities WHERE path IS NOT NULL AND path=?1", [path], |r| r.get(0)).unwrap()
 }
 
 /// 库内全部标签路径(升序,用于"一个节点也不许新建"的整表比对)
 fn paths(c: &Connection) -> Vec<String> {
-    let mut stmt = c.prepare("SELECT path FROM tags ORDER BY path").unwrap();
+    let mut stmt = c.prepare("SELECT path FROM entities WHERE path IS NOT NULL ORDER BY path").unwrap();
     let rows = stmt.query_map([], |r| r.get(0)).unwrap();
     rows.collect::<rusqlite::Result<Vec<String>>>().unwrap()
 }

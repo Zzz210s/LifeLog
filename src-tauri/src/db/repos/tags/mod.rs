@@ -16,7 +16,7 @@ pub mod relation;
 pub mod tree;
 pub(crate) mod write;
 
-/// T4.1 测试夹具:老表换成 entities/edges 视图(见文件头)。
+/// 统一实体(spec §4.1)下的测试侧口径助手:默认筛选收窄 + 树外实体判据。
 #[cfg(test)]
 pub(crate) mod test_support;
 

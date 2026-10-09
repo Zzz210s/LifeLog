@@ -11,7 +11,6 @@ use rusqlite::Connection;
 fn db() -> Connection {
     let c = Connection::open_in_memory().unwrap();
     migrate::run(&c).unwrap();
-    crate::db::repos::tags::test_support::install_legacy_name_views(&c);
     c
 }
 
@@ -23,8 +22,7 @@ fn count(c: &Connection, sql: &str) -> i64 {
 fn paths(c: &Connection, id: i64) -> Vec<String> {
     let mut stmt = c
         .prepare(
-            "SELECT t.path FROM tag_links l JOIN tags t ON t.id = l.tag_id
-             WHERE l.target_type='note' AND l.target_id=?1 ORDER BY t.path",
+            "SELECT t.path FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND s.path IS NULL AND t.path IS NOT NULL AND e.source_id=?1 ORDER BY t.path",
         )
         .unwrap();
     let rows = stmt.query_map([id], |r| r.get(0)).unwrap();
@@ -36,8 +34,7 @@ fn links(c: &Connection, id: i64, path: &str) -> i64 {
     count(
         c,
         &format!(
-            "SELECT COUNT(*) FROM tag_links l JOIN tags t ON t.id=l.tag_id
-             WHERE l.target_type='note' AND t.path='{path}' AND l.target_id={id}"
+            "SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND s.path IS NULL AND t.path IS NOT NULL AND t.path='{path}' AND e.source_id={id}"
         ),
     )
 }
@@ -59,7 +56,7 @@ fn create_adds_today_auto_tag_with_default_template() {
     assert_eq!(paths(&c, n.id), vec!["工作".to_string(), path.clone()], "标签按路径升序");
     assert_eq!(links(&c, n.id, &path), 1, "自动标签已建链");
     let depth: i64 = c
-        .query_row("SELECT depth FROM tags WHERE path=?1", [&path], |r| r.get(0))
+        .query_row("SELECT depth FROM entities WHERE path IS NOT NULL AND path=?1", [&path], |r| r.get(0))
         .unwrap();
     assert_eq!(depth, 4, "时间标签是四级路径");
 }
@@ -89,7 +86,7 @@ fn auto_time_tag_disabled_adds_nothing() {
     let n = create(&mut c, "正文 #工作").unwrap();
 
     assert_eq!(paths(&c, n.id), vec!["工作".to_string()], "开关关闭:不加任何自动标签");
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path LIKE '时间排序%'"), 0, "连根都不建");
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path LIKE '时间排序%'"), 0, "连根都不建");
 
     let n2 = create(&mut c, "无标签正文").unwrap();
     assert!(paths(&c, n2.id).is_empty());
@@ -104,7 +101,7 @@ fn invalid_template_degrades_to_no_auto_tag() {
     let n = create(&mut c, "正文 #工作").unwrap();
 
     assert_eq!(paths(&c, n.id), vec!["工作".to_string()]);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path LIKE '时间排序%'"), 0);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path LIKE '时间排序%'"), 0);
 
     // 空串同样回退默认模板(而不是当成"不加")
     settings::set(&c, settings::TIME_TAG_TEMPLATE_KEY, "   ").unwrap();
@@ -132,10 +129,10 @@ fn handwritten_time_tag_parses_normally() {
 
     assert_eq!(n.content, "手打");
     assert_eq!(paths(&c, n.id), vec!["时间排序/2026/01/02".to_string()]);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='时间排序/2026/01/02'"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='时间排序/2026/01/02'"), 1);
     // 深于四级的路径也允许(上限 5)
     create(&mut c, "更深 #时间排序/2026/01/02/子级").unwrap();
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='时间排序/2026/01/02/子级'"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='时间排序/2026/01/02/子级'"), 1);
 }
 
 /// 编辑正文是替换语义,系统不再补回时间标签:编辑界面把标签回显为 `#tag` 文本
@@ -155,10 +152,10 @@ fn update_uses_exactly_the_tags_written_in_the_body() {
     // 用户把时间改成别的日期:旧自动标签被替换(冲突收敛为一个,无需改期命令)
     let moved = update(&mut c, n.id, "新文 #甲标签 #时间排序/2020/05/06").unwrap().unwrap();
     assert_eq!(moved.tags, vec!["时间排序/2020/05/06".to_string(), "甲标签".to_string()]);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='时间排序/2020/05/06'"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='时间排序/2020/05/06'"), 1);
 
     // 正文里没有标签:集合就是空(自动标签不会复活)
     let bare = update(&mut c, n.id, "无标签新文").unwrap().unwrap();
     assert!(bare.tags.is_empty());
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE name='甲标签'"), 0, "旧标签按语义回收");
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND entity_name(meta)='甲标签'"), 0, "旧标签按语义回收");
 }

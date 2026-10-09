@@ -10,7 +10,6 @@ use rusqlite::{params, Connection};
 fn db() -> Connection {
     let c = Connection::open_in_memory().unwrap();
     migrate::run(&c).unwrap();
-    crate::db::repos::tags::test_support::install_legacy_name_views(&c);
     c
 }
 
@@ -19,7 +18,7 @@ fn count(c: &Connection, sql: &str) -> i64 {
 }
 
 fn id_at(c: &Connection, path: &str) -> i64 {
-    c.query_row("SELECT id FROM tags WHERE path=?1", [path], |r| r.get(0))
+    c.query_row("SELECT id FROM entities WHERE path IS NOT NULL AND path=?1", [path], |r| r.get(0))
         .unwrap()
 }
 
@@ -34,13 +33,13 @@ fn link_paths_resolves_alias_without_creating_node() {
     // 走替换语义:原来链的是目标路径,现在只写别名,仍应落在同一个节点上
     link_paths(&c, n.id, &["日漫".to_string()]).unwrap();
 
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='日漫'"), 0, "别名不是节点");
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags"), 2, "只有 追番 与 追番/日漫");
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='日漫'"), 0, "别名不是节点");
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL"), 2, "只有 追番 与 追番/日漫");
     assert_eq!(
-        count(&c, &format!("SELECT COUNT(*) FROM tag_links WHERE tag_id={target} AND target_type='note' AND target_id={}", n.id)),
+        count(&c, &format!("SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND s.path IS NULL AND t.path IS NOT NULL AND e.target_id={target} AND e.source_id={}", n.id)),
         1
     );
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tag_links"), 1, "替换语义:旧链接不残留");
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND (s.path IS NOT NULL OR t.path IS NOT NULL)"), 1, "替换语义:旧链接不残留");
     // FTS 标签列 = 路径聚合 + 别名聚合(T4 起):登记过的别名也在索引里,
     // 所以搜「日漫」这种别名写法也能找到该笔记
     let fts: String = c
@@ -61,8 +60,8 @@ fn link_paths_dedupes_alias_and_canonical_path() {
 
     link_paths(&c, n.id, &["日漫".to_string(), "追番/日漫".to_string()]).unwrap();
 
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tag_links"), 1);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags"), 2);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND (s.path IS NOT NULL OR t.path IS NOT NULL)"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL"), 2);
     assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
 }
@@ -78,10 +77,10 @@ fn link_paths_creates_nodes_for_unregistered_strings() {
     let n = notes::create_plain(&mut c, "另一条 #日漫2 #番剧").unwrap();
 
     // 近似串 日漫2 不得被别名吞掉:照旧建节点
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='日漫2'"), 1);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='番剧'"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='日漫2'"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='番剧'"), 1);
     assert_eq!(
-        count(&c, &format!("SELECT COUNT(*) FROM tag_links WHERE target_id={} AND target_type='note'", n.id)),
+        count(&c, &format!("SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND s.path IS NULL AND t.path IS NOT NULL AND e.source_id={}", n.id)),
         2
     );
 }
@@ -94,7 +93,7 @@ fn add_rejects_alias_shadowing_real_tag() {
     let real = id_at(&c, "日漫");
     let err = alias::add(&c, "日漫", real).unwrap_err();
     assert!(err.to_string().contains("重名"), "应给出中文重名提示: {err}");
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tag_aliases"), 0);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entity_aliases"), 0);
     let _ = n;
 }
 
@@ -114,10 +113,10 @@ fn real_tag_wins_over_alias_after_rename() {
     let real = id_at(&c, "日漫");
     // ③ 再写 #日漫:必须落在真实标签上
     link_paths(&c, n1.id, &["日漫".to_string()]).unwrap();
-    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tag_links WHERE tag_id={real} AND target_type='note' AND target_id={}", n1.id)), 1, "真实标签胜出");
-    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tag_links WHERE tag_id={target} AND target_type='note' AND target_id={}", n1.id)), 0);
+    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND s.path IS NULL AND t.path IS NOT NULL AND e.target_id={real} AND e.source_id={}", n1.id)), 1, "真实标签胜出");
+    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND s.path IS NULL AND t.path IS NOT NULL AND e.target_id={target} AND e.source_id={}", n1.id)), 0);
     let _ = n2;
     // ④ 未登记的字符串原样建节点(不做模糊猜测)
     link_paths(&c, n1.id, &["日漫漫画".to_string()]).unwrap();
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='日漫漫画'"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='日漫漫画'"), 1);
 }

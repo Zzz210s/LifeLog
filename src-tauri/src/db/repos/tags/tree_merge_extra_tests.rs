@@ -13,7 +13,6 @@ use serde_json::{json, Value};
 fn db() -> Connection {
     let c = Connection::open_in_memory().unwrap();
     migrate::run(&c).unwrap();
-    crate::db::repos::tags::test_support::install_legacy_name_views(&c);
     c
 }
 
@@ -22,7 +21,7 @@ fn count(c: &Connection, sql: &str) -> i64 {
 }
 
 fn id_at(c: &Connection, path: &str) -> i64 {
-    c.query_row("SELECT id FROM tags WHERE path=?1", [path], |r| r.get(0))
+    c.query_row("SELECT id FROM entities WHERE path IS NOT NULL AND path=?1", [path], |r| r.get(0))
         .unwrap()
 }
 
@@ -104,11 +103,11 @@ fn merge_gcs_emptied_parent_container() {
     merge_tags(&mut c, src, dst, false).unwrap();
 
     assert_eq!(
-        count(&c, "SELECT COUNT(*) FROM tags WHERE path IN ('工作','工作/项目A')"),
+        count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path IN ('工作','工作/项目A')"),
         0,
         "源与它变空的父容器一并回收"
     );
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='事业'"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='事业'"), 1);
     assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
 }

@@ -10,7 +10,6 @@ use rusqlite::{params, Connection};
 fn db() -> Connection {
     let c = Connection::open_in_memory().unwrap();
     migrate::run(&c).unwrap();
-    crate::db::repos::tags::test_support::install_legacy_name_views(&c);
     c
 }
 
@@ -19,13 +18,13 @@ fn count(c: &Connection, sql: &str) -> i64 {
 }
 
 fn id_at(c: &Connection, path: &str) -> i64 {
-    c.query_row("SELECT id FROM tags WHERE path=?1", [path], |r| r.get(0)).unwrap()
+    c.query_row("SELECT id FROM entities WHERE path IS NOT NULL AND path=?1", [path], |r| r.get(0)).unwrap()
 }
 
 /// 该标签是否链着这条笔记
 fn links(c: &Connection, tag_id: i64, note_id: i64) -> i64 {
     c.query_row(
-        "SELECT COUNT(*) FROM tag_links WHERE tag_id=?1 AND target_type='note' AND target_id=?2",
+        "SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND s.path IS NULL AND t.path IS NOT NULL AND e.target_id=?1 AND e.source_id=?2",
         params![tag_id, note_id],
         |r| r.get(0),
     )
@@ -43,7 +42,7 @@ fn rename_to_md_name_bridges_plain_alias() {
 
     assert_eq!(aliases, vec!["郴chen州市".to_string(), "郴州市".to_string()]);
     assert_eq!(id_at(&c, "[郴](chēn)州市"), id, "名字与路径都换成 md 形态");
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='郴州市'"), 0, "别名不是节点");
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='郴州市'"), 0, "别名不是节点");
 
     // 正文里写纯文本,照样命中同一个标签(别名桥接的唯一目的)
     let n2 = notes::create_plain(&mut c, "b #郴州市").unwrap();
@@ -76,8 +75,8 @@ fn nested_md_rename_registers_path_and_leaf_plain() {
         let n = notes::create_plain(&mut c, &format!("x #{path}")).unwrap();
         assert_eq!(links(&c, id, n.id), 1, "#{path} 应命中 md 标签");
     }
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='地点/[郴](chēn)州市'"), 1);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='郴州市'"), 0, "别名不建根节点");
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='地点/[郴](chēn)州市'"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='郴州市'"), 0, "别名不建根节点");
     assert_fts_matches_edges(&c);
 }
 
@@ -101,7 +100,7 @@ fn plain_alias_is_skipped_when_a_real_tag_owns_the_name() {
         "纯文本候选被占住 -> 跳过(只剩旧路径与旧叶子名)"
     );
     assert_eq!(alias::resolve(&c, "郴州市").unwrap(), None, "真实标签不得被别名劫持");
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='工作/[郴](chēn)州市'"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='工作/[郴](chēn)州市'"), 1);
     let n = notes::create_plain(&mut c, "c #郴州市").unwrap();
     assert_eq!(links(&c, real, n.id), 1, "正文仍归真实标签");
     assert_eq!(links(&c, id, n.id), 0);
@@ -136,7 +135,7 @@ fn rename_rejects_unusable_names_and_keeps_plain_ones() {
         assert!(rename(&mut c, id, bad).is_err(), "应拒:{bad:?}");
     }
     assert!(rename(&mut c, id, &"长".repeat(crate::tags::MAX_LABEL_CHARS + 1)).is_err(), "超长");
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE name='工作'"), 1, "被拒的改名不动库");
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND entity_name(meta)='工作'"), 1, "被拒的改名不动库");
 
     rename(&mut c, id, "项目A").unwrap();
     assert_eq!(id_at(&c, "项目A"), id, "普通单段名照旧");

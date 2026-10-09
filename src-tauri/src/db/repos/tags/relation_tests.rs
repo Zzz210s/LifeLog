@@ -9,7 +9,6 @@ use rusqlite::Connection;
 fn db() -> Connection {
     let c = Connection::open_in_memory().unwrap();
     migrate::run(&c).unwrap();
-    crate::db::repos::tags::test_support::install_legacy_name_views(&c);
     c.pragma_update(None, "foreign_keys", "ON").unwrap();
     c
 }
@@ -21,7 +20,7 @@ fn ensure(c: &Connection, path: &str) -> i64 {
 /// 当前关系边数(唯一存储读数)
 fn relation_edges(c: &Connection) -> i64 {
     c.query_row(
-        "SELECT COUNT(*) FROM tag_links WHERE target_type='tag'",
+        "SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND s.path IS NOT NULL",
         [],
         |r| r.get(0),
     )

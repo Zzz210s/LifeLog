@@ -9,7 +9,6 @@
 use super::*;
 use crate::db::migrate;
 use crate::db::repos::notes::create_plain;
-use crate::db::repos::tags::test_support::install_legacy_name_views;
 use crate::db::repos::tags::rename;
 use rusqlite::Connection;
 use serde::Deserialize;
@@ -29,9 +28,7 @@ struct TagCase {
 fn memory_db() -> Connection {
     let conn = Connection::open_in_memory().unwrap();
     migrate::run(&conn).unwrap();
-    // 阶段 4 起标签正文兜底读 `entities`(老 `tags` 表已不再写),夹具把老表换成只读视图,
-    // 使 `notes::parse_saved` 的库内路径候选与用例里的 `SELECT id FROM tags` 都落到新表上。
-    install_legacy_name_views(&conn);
+    // 阶段 4 起标签正文兜底读 `entities`,用例里的 `SELECT id FROM entities` 直接查新表。
     conn
 }
 
@@ -63,7 +60,7 @@ fn command_matches_save_with_md_path_in_library() {
     let leaf = "地点/中国大陆/湖南省/[郴](chēn)州市/宜章县";
     create_plain(&mut conn, &format!("莽山栈道 #{mid}/宜章县")).unwrap();
     let mid_id: i64 = conn
-        .query_row("SELECT id FROM tags WHERE path=?1", [mid], |r| r.get(0))
+        .query_row("SELECT id FROM entities WHERE path IS NOT NULL AND path=?1", [mid], |r| r.get(0))
         .unwrap();
     rename(&mut conn, mid_id, "[郴](chēn)州市").unwrap();
 

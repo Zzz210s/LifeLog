@@ -17,12 +17,12 @@ fn same_level_duplicate_merges() {
     rename(&mut c, life, "工作").unwrap();
     move_to(&mut c, other, Some(work)).unwrap();
 
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='工作'"), 1, "根级只一个 工作");
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='工作/项目A'"), 1);
-    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tags WHERE id={life}")), 0, "生活 并入 工作");
-    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tags WHERE id={other}")), 0, "项目A 并入 工作/项目A");
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='工作'"), 1, "根级只一个 工作");
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='工作/项目A'"), 1);
+    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND id={life}")), 0, "生活 并入 工作");
+    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND id={other}")), 0, "项目A 并入 工作/项目A");
     assert!(rename(&mut c, work, "工作 计划").is_err(), "非法的标签名一律拒绝");
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='工作'"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='工作'"), 1);
     // 撞名改走合并后,库内不变量必须依然成立
     assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
@@ -40,9 +40,9 @@ fn delete_subtree_removes_tags_keeps_notes() {
 
     delete_subtree(&mut c, root).unwrap();
 
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags"), 0);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tag_links"), 0);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM notes"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL"), 0);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND (s.path IS NOT NULL OR t.path IS NOT NULL)"), 0);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NULL"), 1);
     assert_eq!(hits(&c, "项目A"), 0);
     assert_eq!(hits(&c, "纪要"), 1);
     // 删除不改写 filter_current(S7),故只断言 FTS 与孤儿两项
@@ -61,8 +61,7 @@ fn delete_missing_tag_rolls_back() {
     assert_eq!(
         count(
             &c,
-            "SELECT COUNT(*) FROM tag_links WHERE target_type='note'
-               AND tag_id = (SELECT id FROM tags WHERE path='工作/项目A')"
+            "SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND s.path IS NULL AND t.path IS NOT NULL AND e.target_id = (SELECT id FROM entities WHERE path IS NOT NULL AND path='工作/项目A')"
         ),
         1,
         "笔记 -> 叶子标签的那条链接仍在"

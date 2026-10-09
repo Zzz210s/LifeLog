@@ -8,7 +8,6 @@ use rusqlite::Connection;
 fn db() -> Connection {
     let c = Connection::open_in_memory().unwrap();
     migrate::run(&c).unwrap();
-    crate::db::repos::tags::test_support::install_legacy_name_views(&c);
     c
 }
 
@@ -17,7 +16,7 @@ fn count(c: &Connection, sql: &str) -> i64 {
 }
 
 fn id_at(c: &Connection, path: &str) -> i64 {
-    c.query_row("SELECT id FROM tags WHERE path=?1", [path], |r| r.get(0))
+    c.query_row("SELECT id FROM entities WHERE path IS NOT NULL AND path=?1", [path], |r| r.get(0))
         .unwrap()
 }
 
@@ -34,12 +33,12 @@ fn update_keeps_nested_tag_of_other_note() {
 
     notes::update(&mut c, a.id, "一改").unwrap();
 
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='a'"), 1, "父节点有子节点,不得当孤儿回收");
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='a/b'"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='a'"), 1, "父节点有子节点,不得当孤儿回收");
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='a/b'"), 1);
     let leaf = id_at(&c, "a/b");
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tag_links WHERE tag_id=(SELECT id FROM tags WHERE path='a')"), 0);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND (s.path IS NOT NULL OR t.path IS NOT NULL) AND (CASE WHEN s.path IS NOT NULL THEN e.source_id ELSE e.target_id END)=(SELECT id FROM entities WHERE path IS NOT NULL AND path='a')"), 0);
     assert_eq!(
-        count(&c, &format!("SELECT COUNT(*) FROM tag_links WHERE tag_id={leaf} AND target_type='note'")),
+        count(&c, &format!("SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND s.path IS NULL AND t.path IS NOT NULL AND e.target_id={leaf}")),
         1,
         "另一条笔记仍应带 a/b"
     );
@@ -57,9 +56,9 @@ fn delete_keeps_nested_tag_of_other_note() {
 
     notes::delete(&mut c, a.id).unwrap();
 
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='a'"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='a'"), 1);
     assert_eq!(
-        count(&c, &format!("SELECT COUNT(*) FROM tag_links WHERE tag_id={} AND target_type='note'", id_at(&c, "a/b"))),
+        count(&c, &format!("SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND s.path IS NULL AND t.path IS NOT NULL AND e.target_id={}", id_at(&c, "a/b"))),
         1
     );
     assert_eq!(query(&c, &f("a/b"), 0).unwrap().len(), 1);
@@ -76,8 +75,8 @@ fn update_keeps_unchanged_tag_node_identity() {
     notes::update(&mut c, a.id, "新 #保持 #新增").unwrap();
 
     assert_eq!(id_at(&c, "保持"), keep);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='换掉'"), 0, "无链接又无子节点才回收");
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='新增'"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='换掉'"), 0, "无链接又无子节点才回收");
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='新增'"), 1);
 }
 
 /// 更新粒度:旧标签(名称含空格,新语法不再产生)只在确实无人引用时才回收
@@ -106,10 +105,10 @@ fn update_keeps_legacy_tag_used_by_other_note() {
     // b 不再引用该旧标签;a 仍引用 -> 节点与 a 的链接都必须保留
     notes::update(&mut c, b.id, "b 改了").unwrap();
 
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='工作 计划'"), 1);
-    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tag_links WHERE tag_id={legacy}")), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='工作 计划'"), 1);
+    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND (s.path IS NOT NULL OR t.path IS NOT NULL) AND (CASE WHEN s.path IS NOT NULL THEN e.source_id ELSE e.target_id END)={legacy}")), 1);
     assert_eq!(
-        count(&c, &format!("SELECT COUNT(*) FROM tag_links WHERE tag_id={legacy} AND target_id={}", a.id)),
+        count(&c, &format!("SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND (s.path IS NOT NULL OR t.path IS NOT NULL) AND (CASE WHEN s.path IS NOT NULL THEN e.source_id ELSE e.target_id END)={legacy} AND (CASE WHEN s.path IS NOT NULL THEN e.target_id ELSE e.source_id END)={}", a.id)),
         1
     );
 }

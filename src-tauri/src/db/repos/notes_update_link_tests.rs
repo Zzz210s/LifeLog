@@ -27,5 +27,5 @@ fn tag_shaped_link_title_produces_no_link() {
         0,
         "不产生笔记间链接(指向标签的 link 边是 #甲 自己)"
     );
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE name='甲'", &[]), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND entity_name(meta)='甲'", &[]), 1);
 }

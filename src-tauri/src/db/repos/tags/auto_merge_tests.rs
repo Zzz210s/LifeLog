@@ -10,7 +10,6 @@ use rusqlite::Connection;
 fn db() -> Connection {
     let c = Connection::open_in_memory().unwrap();
     migrate::run(&c).unwrap();
-    crate::db::repos::tags::test_support::install_legacy_name_views(&c);
     c
 }
 
@@ -19,7 +18,7 @@ fn count(c: &Connection, sql: &str) -> i64 {
 }
 
 fn id_at(c: &Connection, path: &str) -> i64 {
-    c.query_row("SELECT id FROM tags WHERE path=?1", [path], |r| r.get(0)).unwrap()
+    c.query_row("SELECT id FROM entities WHERE path IS NOT NULL AND path=?1", [path], |r| r.get(0)).unwrap()
 }
 
 fn segs(v: &[&str]) -> Vec<String> {
@@ -30,7 +29,7 @@ fn segs(v: &[&str]) -> Vec<String> {
 fn links(c: &Connection, tag_id: i64) -> i64 {
     count(
         c,
-        &format!("SELECT COUNT(*) FROM tag_links WHERE tag_id={tag_id} AND target_type='note'"),
+        &format!("SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND s.path IS NULL AND t.path IS NOT NULL AND e.target_id={tag_id}"),
     )
 }
 
@@ -39,7 +38,7 @@ fn has_edge(c: &Connection, from: i64, to: i64) -> bool {
     count(
         c,
         &format!(
-            "SELECT COUNT(*) FROM tag_links WHERE target_type='tag' AND tag_id={from} AND target_id={to}"
+            "SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND s.path IS NOT NULL AND e.source_id={from} AND e.target_id={to}"
         ),
     ) == 1
 }
@@ -57,11 +56,11 @@ fn drag_onto_same_name_sibling_merges() {
     // ensure_sibling_free 的旧行为在这里报错;新行为应整棵并到 P/A
     move_to(&mut c, moved, Some(p)).unwrap();
 
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='P/A'"), 1);
-    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tags WHERE id={moved}")), 0, "源已删");
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='P/A'"), 1);
+    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND id={moved}")), 0, "源已删");
     assert_eq!(links(&c, keep), 2, "两侧笔记链接取并集");
-    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tag_links WHERE tag_id={keep} AND target_type='note' AND target_id={}", a.id)), 1);
-    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tag_links WHERE tag_id={keep} AND target_type='note' AND target_id={}", b.id)), 1);
+    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND s.path IS NULL AND t.path IS NOT NULL AND e.target_id={keep} AND e.source_id={}", a.id)), 1);
+    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND s.path IS NULL AND t.path IS NOT NULL AND e.target_id={keep} AND e.source_id={}", b.id)), 1);
     assert_eq!(count(&c, "SELECT COUNT(*) FROM entity_merge_log"), 1, "自动合并写日志");
     assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
@@ -80,14 +79,14 @@ fn merge_moves_child_subtree_paths_and_depths() {
 
     merge_tags(&mut c, src, dst, false).unwrap();
 
-    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tags WHERE id={child}")), 1);
-    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tags WHERE id={grand}")), 1);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='目标/子'"), 1);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='目标/子/孙'"), 1);
-    assert_eq!(count(&c, "SELECT depth FROM tags WHERE id=(SELECT id FROM tags WHERE path='目标/子')"), 2);
-    assert_eq!(count(&c, "SELECT depth FROM tags WHERE path='目标/子/孙'"), 3);
-    assert_eq!(count(&c, "SELECT parent_id FROM tags WHERE id=(SELECT id FROM tags WHERE path='目标/子')"), dst);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path LIKE 'P/%'"), 0, "旧路径已无残留");
+    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND id={child}")), 1);
+    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND id={grand}")), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='目标/子'"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='目标/子/孙'"), 1);
+    assert_eq!(count(&c, "SELECT depth FROM entities WHERE path IS NOT NULL AND id=(SELECT id FROM entities WHERE path IS NOT NULL AND path='目标/子')"), 2);
+    assert_eq!(count(&c, "SELECT depth FROM entities WHERE path IS NOT NULL AND path='目标/子/孙'"), 3);
+    assert_eq!(count(&c, "SELECT parent_id FROM entities WHERE path IS NOT NULL AND id=(SELECT id FROM entities WHERE path IS NOT NULL AND path='目标/子')"), dst);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path LIKE 'P/%'"), 0, "旧路径已无残留");
     assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
 }
@@ -128,7 +127,7 @@ fn auto_merge_log_records_moved_children_and_links() {
     // 改名成与兄弟**逐字节相同**的名字:三重闸门(spec §3.6 / P0-3)全过 -> 自动整棵并
     rename(&mut c, src, "郴州市").unwrap();
 
-    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tags WHERE id={src}")), 0);
+    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND id={src}")), 0);
     let (s, d, kids): (i64, i64, String) = c
         .query_row(
             "SELECT source_entity_id, target_entity_id, moved_child_ids FROM entity_merge_log",
@@ -140,7 +139,7 @@ fn auto_merge_log_records_moved_children_and_links() {
     assert_eq!(d, plain, "目标 = 先建的纯文本形态(保留较小 id)");
     assert_eq!(kids, format!("[{child}]"), "搬走的子标签 id 列表");
     assert_eq!(count(&c, "SELECT note_links FROM entity_merge_log"), 1);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='P/郴州市/宜章县'"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='P/郴州市/宜章县'"), 1);
     assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
 }

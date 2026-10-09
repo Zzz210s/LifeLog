@@ -9,7 +9,6 @@ use rusqlite::Connection;
 fn db() -> Connection {
     let c = Connection::open_in_memory().unwrap();
     migrate::run(&c).unwrap();
-    crate::db::repos::tags::test_support::install_legacy_name_views(&c);
     c.pragma_update(None, "foreign_keys", "ON").unwrap();
     c
 }
@@ -20,7 +19,7 @@ fn ensure(c: &Connection, path: &str) -> i64 {
 
 fn edge_remark(c: &Connection, from: i64, to: i64) -> String {
     c.query_row(
-        "SELECT remark FROM tag_links WHERE tag_id=?1 AND target_type='tag' AND target_id=?2",
+        "SELECT e.remark FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND s.path IS NOT NULL AND e.source_id=?1 AND e.target_id=?2",
         rusqlite::params![from, to],
         |r| r.get(0),
     )
@@ -55,7 +54,7 @@ fn set_relation_updates_remark_idempotently() {
 
     let n: i64 = c
         .query_row(
-            "SELECT COUNT(*) FROM tag_links WHERE tag_id=?1 AND target_type='tag'",
+            "SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND s.path IS NOT NULL AND e.source_id=?1",
             rusqlite::params![a],
             |r| r.get(0),
         )

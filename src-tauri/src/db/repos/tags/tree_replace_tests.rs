@@ -11,7 +11,6 @@ use rusqlite::Connection;
 fn db() -> Connection {
     let c = Connection::open_in_memory().unwrap();
     migrate::run(&c).unwrap();
-    crate::db::repos::tags::test_support::install_legacy_name_views(&c);
     c
 }
 
@@ -20,7 +19,7 @@ fn count(c: &Connection, sql: &str) -> i64 {
 }
 
 fn id_at(c: &Connection, path: &str) -> i64 {
-    c.query_row("SELECT id FROM tags WHERE path=?1", [path], |r| r.get(0))
+    c.query_row("SELECT id FROM entities WHERE path IS NOT NULL AND path=?1", [path], |r| r.get(0))
         .unwrap()
 }
 
@@ -34,12 +33,12 @@ fn replace_links_replaces_by_id_and_prunes_orphans() {
 
     replace_links(&c, n.id, &[jia, yi]).unwrap();
     replace_links(&c, n.id, &[jia, yi]).unwrap();
-    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tag_links WHERE target_id={}", n.id)), 2);
-    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tags WHERE id={jia}")), 1);
+    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND (s.path IS NOT NULL OR t.path IS NOT NULL) AND (CASE WHEN s.path IS NOT NULL THEN e.target_id ELSE e.source_id END)={}", n.id)), 2);
+    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND id={jia}")), 1);
 
     replace_links(&c, n.id, &[yi]).unwrap();
-    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tags WHERE id={jia}")), 0, "无链接又无子节点即回收");
-    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tags WHERE id={yi}")), 1);
+    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND id={jia}")), 0, "无链接又无子节点即回收");
+    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND id={yi}")), 1);
     assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
 }

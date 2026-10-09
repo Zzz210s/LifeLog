@@ -9,7 +9,6 @@ use rusqlite::Connection;
 fn db() -> Connection {
     let c = Connection::open_in_memory().unwrap();
     migrate::run(&c).unwrap();
-    crate::db::repos::tags::test_support::install_legacy_name_views(&c);
     c
 }
 
@@ -18,7 +17,7 @@ fn count(c: &Connection, sql: &str) -> i64 {
 }
 
 fn id_at(c: &Connection, path: &str) -> i64 {
-    c.query_row("SELECT id FROM tags WHERE path=?1", [path], |r| r.get(0))
+    c.query_row("SELECT id FROM entities WHERE path IS NOT NULL AND path=?1", [path], |r| r.get(0))
         .unwrap()
 }
 
@@ -57,7 +56,7 @@ fn add_rejects_invalid_and_existing_tag_path() {
     assert!(add(&c, "#日漫", id).is_err(), "含 #");
     let err = add(&c, "工作", id).unwrap_err();
     assert!(err.to_string().contains("别名与现有标签重名"), "{err}");
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tag_aliases"), 0, "被拒的登记不落库");
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entity_aliases"), 0, "被拒的登记不落库");
 }
 
 /// ③ add:同一别名重复登记 = 更新指向(只有一行),list_for_tag 给出该标签的别名
@@ -71,7 +70,7 @@ fn add_updates_target_on_repeat() {
     add(&c, "旧名", jia).unwrap();
     add(&c, "旧名", yi).unwrap();
 
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tag_aliases"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entity_aliases"), 1);
     assert_eq!(resolve(&c, "旧名").unwrap().as_deref(), Some("乙"));
     assert!(list_for_tag(&c, jia).unwrap().is_empty());
     assert_eq!(list_for_tag(&c, yi).unwrap(), vec!["旧名".to_string()]);
@@ -87,7 +86,7 @@ fn remove_deletes_and_tolerates_missing() {
 
     remove(&c, "旧名").unwrap();
     assert_eq!(resolve(&c, "旧名").unwrap(), None);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tag_aliases"), 0);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entity_aliases"), 0);
     remove(&c, "旧名").unwrap(); // 再删一次不报错
 }
 

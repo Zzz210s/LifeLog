@@ -13,7 +13,6 @@ use rusqlite::{params, Connection};
 fn db() -> Connection {
     let c = Connection::open_in_memory().unwrap();
     migrate::run(&c).unwrap();
-    crate::db::repos::tags::test_support::install_legacy_name_views(&c);
     c.pragma_update(None, "foreign_keys", "ON").unwrap();
     c
 }
@@ -27,7 +26,7 @@ fn segs(c: &Connection, parts: &[&str]) -> i64 {
 }
 
 fn id_at(c: &Connection, path: &str) -> i64 {
-    c.query_row("SELECT id FROM tags WHERE path=?1", params![path], |r| r.get(0)).unwrap()
+    c.query_row("SELECT id FROM entities WHERE path IS NOT NULL AND path=?1", params![path], |r| r.get(0)).unwrap()
 }
 
 fn count(c: &Connection, sql: &str) -> i64 {
@@ -41,21 +40,20 @@ fn delete_target_cleans_incoming_edges() {
     let jia = ensure(&c, "甲");
     let target = segs(&c, &["地点轴", "国籍"]);
     set_tag_relation(&mut c, jia, target, "").unwrap();
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tag_links WHERE target_type='tag'"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND s.path IS NOT NULL"), 1);
 
     let root = id_at(&c, "地点轴");
     delete_subtree(&mut c, root).unwrap();
 
     assert_eq!(
-        count(&c, "SELECT COUNT(*) FROM tag_links WHERE target_type='tag'"),
+        count(&c, "SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND s.path IS NOT NULL"),
         0,
         "指向被删标签的边要清掉,不能留悬空 target_id"
     );
     assert_eq!(
         count(
             &c,
-            "SELECT COUNT(*) FROM tag_links WHERE target_type='tag' \
-             AND target_id NOT IN (SELECT id FROM tags)"
+            "SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND s.path IS NOT NULL AND e.target_id NOT IN (SELECT id FROM entities WHERE path IS NOT NULL)"
         ),
         0,
         "无悬空关系行"
@@ -75,12 +73,12 @@ fn delete_source_cascades_outgoing_edges() {
     delete_subtree(&mut c, src).unwrap();
 
     assert_eq!(
-        count(&c, "SELECT COUNT(*) FROM tag_links WHERE target_type='tag'"),
+        count(&c, "SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND s.path IS NOT NULL"),
         1,
         "起点的出边随之消失,别的边不受影响"
     );
     assert_eq!(count_relations_to(&c, guo).unwrap(), 1, "目标仍被指向");
-    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tags WHERE id={guo}")), 1, "目标仍在");
+    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND id={guo}")), 1, "目标仍在");
 }
 
 /// ③ gc_orphans:被指向的标签是"有用处的空壳",不得像无关空壳一样被回收(R7)
@@ -94,8 +92,8 @@ fn gc_orphans_keeps_relation_target() {
 
     gc_orphans(&c).unwrap();
 
-    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tags WHERE id={guo}")), 1, "被指向的标签留下");
-    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tags WHERE id={junk}")), 0, "无关空壳仍回收");
+    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND id={guo}")), 1, "被指向的标签留下");
+    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND id={junk}")), 0, "无关空壳仍回收");
 }
 
 /// ④ 读方审计:插入关系边后笔记的 tags 列 / FTS / 导出全不变。

@@ -54,12 +54,12 @@ fn move_beside_across_parents_becomes_sibling_of_anchor() {
 
     assert_eq!(siblings(&c, Some(life)), vec!["生活/健身", "生活/项目A"]);
     let depth: i64 = c
-        .query_row("SELECT depth FROM tags WHERE id=?1", [leaf], |r| r.get(0))
+        .query_row("SELECT depth FROM entities WHERE path IS NOT NULL AND id=?1", [leaf], |r| r.get(0))
         .unwrap();
     assert_eq!(depth, 2, "跨层后深度随新父级重算");
     // 旧父级「工作」已无链接无子节点,被回收
     let left = c
-        .query_row("SELECT COUNT(*) FROM tags WHERE path='工作'", [], |r| r.get::<_, i64>(0))
+        .query_row("SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='工作'", [], |r| r.get::<_, i64>(0))
         .unwrap();
     assert_eq!(left, 0);
 }

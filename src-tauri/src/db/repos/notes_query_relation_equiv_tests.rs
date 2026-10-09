@@ -10,7 +10,6 @@ use rusqlite::{params, Connection};
 fn db() -> Connection {
     let c = Connection::open_in_memory().unwrap();
     migrate::run(&c).unwrap();
-    crate::db::repos::tags::test_support::install_legacy_name_views(&c);
     c.pragma_update(None, "foreign_keys", "ON").unwrap();
     c
 }
@@ -70,7 +69,7 @@ fn hits(c: &Connection, cond: &FilterConditions) -> Vec<String> {
 }
 
 fn id_at(c: &Connection, path: &str) -> i64 {
-    c.query_row("SELECT id FROM tags WHERE path=?1", params![path], |r| r.get(0)).unwrap()
+    c.query_row("SELECT id FROM entities WHERE path IS NOT NULL AND path=?1", params![path], |r| r.get(0)).unwrap()
 }
 
 /// 字段改名不改语义(设计 2026-10-06 §10 R10b):同一份条件分别写成新字段名 `relations`
