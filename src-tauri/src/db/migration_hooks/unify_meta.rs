@@ -140,3 +140,23 @@ pub(crate) fn ensure_default_filter(conn: &Connection) -> rusqlite::Result<()> {
     eprintln!("迁移 028:把当前筛选预置为「排除树内单行实体」(可在筛选栏编辑或清空)");
     Ok(())
 }
+
+/// 029 的版本号(与 `MIGRATIONS` 追加 029 后的下标 +1 成对,见 `migrate.rs`)。
+pub(crate) const ENTITIES_FTS_VERSION: i64 = 29;
+
+/// 029 的事务内前置钩子:把聚合唯一真源
+/// [`ENTITIES_AGG`](crate::db::repos::entities::fts::ENTITIES_AGG) 拼成视图
+/// `entities_fts_src(id, meta, paths)`。
+///
+/// 视图是**迁移时快照**:029.sql 的 9 个触发器与回填只引用它,故 `029.sql` 里不出现任何聚合文本
+/// (`entities_fts_migration_tests::migration_029_has_no_aggregate_sql` 钉住)。改了常量就必须同时
+/// 出新迁移重建视图,否则守卫用例
+/// (`entities_fts_migration_tests::entities_fts_src_view_matches_rust_truth`)会指出视图已过期。
+pub(crate) fn create_entities_fts_src_view(conn: &Connection) -> rusqlite::Result<()> {
+    use crate::db::repos::entities::fts::ENTITIES_AGG;
+    conn.execute_batch(&format!(
+        "DROP VIEW IF EXISTS entities_fts_src;
+         CREATE VIEW entities_fts_src(id, meta, paths) AS
+         SELECT e.id, e.meta, {ENTITIES_AGG} FROM entities e;"
+    ))
+}

@@ -1,187 +1,173 @@
-//! 迁移 026(统一实体:FTS 统一 + 9 个触发器 + 整体重建)核心读数。
-//! 覆盖:① v25 -> v26 后 `entities_fts` 行数 == `entities` 行数、逐行聚合值;② 重建幂等(两次逐行相等);
-//! ③ 直写 `entities` -> `entities_ai` 写出该行;④ 直写 `edges`(tagging)-> 笔记 `tag_paths` 变化;
-//! ⑤ 删 `entity_aliases` -> 受影响实体重写;⑥ `notes_fts` 与老 8 个触发器原样保留、新 9 个都在;
-//! ⑦ 插 `child` 边不改任何实体的 `tag_paths`;⑧ 迁移文本含与 Rust 真源 `ENTITIES_AGG` 逐段一致的聚合;
-//! ⑨ 2 字标签名的 LIKE 退化分支可命中(spec §4.1:trigram 对 <3 字命中不到)。
-use super::entities_tags_fixture::{count, migrate_to_v23, seed_notes, seed_v23};
+//! 迁移 029(统一实体 FTS 收口)读数:① v26 夹具一次跑到 29 后 `entities_fts(meta, paths)` 行数、
+//! 列、回填;② 笔记实体 `paths` 与旧「`kind='note'` 分支」逐字节等价;③ 标签实体的增量逐条列出,
+//! 只含「它 `link` 指向的目标段」;④ 连续两次整体重建逐行一致(不比整表字节);⑤ 028 后老物件为 0、
+//! 029 装的 9 个触发器都在且不引用旧列;⑥ 029 文本不含任何聚合段(唯一真源在 Rust 常量);
+//! ⑦ 视图 `entities_fts_src` 的 SQL 含 `ENTITIES_AGG` 的每一段(常量改了必须出新迁移)。
+use super::entities_tags_fixture::migrated_to_v26;
 use super::*;
-use crate::db::repos::entities::fts::{ENTITIES_AGG, MIGRATION_026_SQL};
-use crate::db::repos::entities::TAG_ID_OFFSET;
-use rusqlite::params;
+use crate::db::repos::entities::fts::{ENTITIES_AGG, MIGRATION_029_SQL};
 
-/// 迁移前的老触发器(记忆 #1290);026 一个都不动。
-const LEGACY_TRIGGERS: [&str; 8] = [
-    "notes_ad", "notes_ai", "notes_au", "tag_aliases_ad", "tag_aliases_ai", "tag_aliases_au",
-    "tag_links_ad", "tag_links_ai",
-];
-
-/// 026 装的 9 个新触发器(spec §4.3 清单;`edges_au` 是新补的)。
-const NEW_TRIGGERS: [&str; 9] = [
-    "edges_ad", "edges_ai", "edges_au", "entities_ad", "entities_ai", "entities_au",
-    "entity_aliases_ad", "entity_aliases_ai", "entity_aliases_au",
-];
-
-fn tag(id: i64) -> i64 {
-    id + TAG_ID_OFFSET
-}
-
-/// 只到 v25(024 标签搬入 + 025 笔记搬入),供「v25 -> v26」用例观测迁移效果。
-fn migrated_to_v25() -> Connection {
-    let c = Connection::open_in_memory().unwrap();
-    migrate_to_v23(&c);
-    seed_v23(&c);
-    seed_notes(&c);
-    apply(&c, MIGRATIONS[23], 24).unwrap();
-    apply(&c, MIGRATIONS[24], 25).unwrap();
+/// v26 夹具(3 标签 + 2 笔记 + 7 边)一次跑到最新(29);027/028/029 的钩子由 `run` 负责。
+fn v29() -> Connection {
+    let c = migrated_to_v26();
+    run(&c).unwrap();
     c
 }
 
-fn migrated_to_v26() -> Connection {
-    let c = migrated_to_v25();
-    apply(&c, MIGRATIONS[25], 26).unwrap();
-    c
+fn count(c: &Connection, sql: &str) -> i64 {
+    c.query_row(sql, [], |r| r.get(0)).unwrap()
 }
 
-fn fts_paths(c: &Connection, id: i64) -> String {
-    c.query_row("SELECT tag_paths FROM entities_fts WHERE rowid=?1", params![id], |r| r.get(0))
+/// FTS 表里该实体的 `paths`(触发器/回填写出的实值)
+fn paths(c: &Connection, id: i64) -> String {
+    c.query_row("SELECT paths FROM entities_fts WHERE rowid=?1", rusqlite::params![id], |r| r.get(0))
         .unwrap()
 }
 
-/// 逐行内容(跳过 FTS5 内部字节布局,记忆 #1187 同款)
+/// 旧「`kind='tag'` 分支」的自身段口径(基线,不是生产代码):路径 + 纯文本 + 自身别名。
+const OLD_TAG_BRANCH: &str = concat!(
+    "trim(COALESCE(e.path,'') || ",
+    "COALESCE(' ' || (SELECT tag_plain(e.path) WHERE tag_plain(e.path) <> e.path), '') || ",
+    "COALESCE(' ' || (SELECT group_concat(a.alias,' ' ORDER BY a.alias) ",
+    "FROM entity_aliases a WHERE a.entity_id = e.id), ''))"
+);
+
+fn old_tag_branch(c: &Connection, id: i64) -> String {
+    c.query_row(&format!("SELECT {OLD_TAG_BRANCH} FROM entities e WHERE e.id=?1"), rusqlite::params![id], |r| {
+        r.get(0)
+    })
+    .unwrap()
+}
+
+/// 索引快照(逐行内容,跳过 FTS5 内部字节布局)
 fn dump_fts(c: &Connection) -> Vec<String> {
     let mut s = c
-        .prepare("SELECT rowid||'|'||name||'|'||content||'|'||tag_paths FROM entities_fts ORDER BY rowid")
+        .prepare("SELECT rowid||'|'||meta||'|'||paths FROM entities_fts ORDER BY rowid")
         .unwrap();
     s.query_map([], |r| r.get::<_, String>(0)).unwrap().map(|x| x.unwrap()).collect()
 }
 
-/// 与 026 末尾同一段重建 SQL(同一视图真源;两次重建逐行一致)
+/// 与 029 末尾同一段重建(同一视图真源)
 fn rebuild(c: &Connection) {
     c.execute_batch(
         "DELETE FROM entities_fts;
-         INSERT INTO entities_fts(rowid, name, content, tag_paths)
-         SELECT id, name, content, tag_paths FROM entities_fts_src;",
+         INSERT INTO entities_fts(rowid, meta, paths) SELECT id, meta, paths FROM entities_fts_src;",
     )
     .unwrap();
 }
 
-/// ① v25 -> v26:行数对齐、逐行聚合值正确、标签实体自身路径进了索引
+/// ① 跑到 29:行数对齐、两列齐备、全库已回填
 #[test]
-fn upgrade_from_v25_fills_entities_fts() {
-    let c = migrated_to_v26();
-    assert_eq!(count(&c, "PRAGMA user_version"), 26);
+fn upgrade_to_v29_fills_entities_fts() {
+    let c = v29();
+    assert_eq!(count(&c, "PRAGMA user_version"), 29);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities_fts"), count(&c, "SELECT COUNT(*) FROM entities"));
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities_fts"), 5, "2 笔记 + 3 标签");
     assert_eq!(
-        count(&c, "SELECT COUNT(*) FROM entities_fts"),
-        count(&c, "SELECT COUNT(*) FROM entities"),
-        "entities_fts 行数必须等于 entities 行数"
+        count(&c, "SELECT COUNT(*) FROM pragma_table_info('entities_fts') WHERE name IN ('meta','paths')"),
+        2,
+        "实体 FTS 终态两列 meta / paths"
     );
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities_fts"), 5, "3 标签 + 2 笔记");
-    assert_eq!(fts_paths(&c, tag(1)), "地点轴", "标签实体 = 自身路径");
-    assert_eq!(fts_paths(&c, tag(2)), "地点轴/日本 东瀛", "标签实体 = 路径 + 自身别名");
-    assert_eq!(fts_paths(&c, 501), "地点轴/中国 地点轴/日本 东瀛", "笔记 = 路径 + 别名");
-    assert_eq!(fts_paths(&c, 502), "地点轴/日本 东瀛");
-    assert_eq!(
-        count(&c, "SELECT COUNT(*) FROM entities_fts WHERE tag_paths <> ''"),
-        5,
-        "标签实体自身路径确实进了索引"
-    );
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities_fts WHERE paths <> ''"), 5);
+    let meta: String =
+        c.query_row("SELECT meta FROM entities_fts WHERE rowid=1", [], |r| r.get(0)).unwrap();
+    assert_eq!(meta, "第一条 [[第二条]]", "meta = 笔记正文");
 }
 
-/// ② 重建幂等:两次重建后逐行内容与首次一致(不比整表字节)
+/// ② 笔记实体:自身段为空,paths 与旧「kind='note' 分支」逐字节等价
+#[test]
+fn note_paths_are_byte_equivalent_to_the_old_branch() {
+    let c = v29();
+    assert_eq!(paths(&c, 1), "地点轴/中国 地点轴/日本 东瀛");
+    assert_eq!(paths(&c, 2), "地点轴/日本 东瀛");
+    let names: Vec<String> = {
+        let mut s = c.prepare("SELECT meta FROM entities WHERE path IS NOT NULL ORDER BY id").unwrap();
+        s.query_map([], |r| r.get(0)).unwrap().map(|x| x.unwrap()).collect()
+    };
+    assert_eq!(names, vec!["地点轴", "日本", "中国"], "id 映射:笔记在前、标签在后");
+}
+
+/// ③ 标签实体:只有「出 link 边的目标段」是增量;真库形态 = 老 relation 的条数
+#[test]
+fn tag_paths_gain_only_their_link_targets() {
+    let c = v29();
+    let diffs: Vec<(i64, String, String)> = (3..=5)
+        .filter_map(|id| {
+            let (old, new) = (old_tag_branch(&c, id), paths(&c, id));
+            (old != new).then_some((id, old, new))
+        })
+        .collect();
+    assert_eq!(
+        diffs,
+        vec![(5, "地点轴/中国".to_string(), "地点轴/中国 地点轴/日本 东瀛".to_string())],
+        "只有中国额外索引了它 link 指向的日本(路径 + 目标别名)"
+    );
+    assert_eq!(paths(&c, 3), "地点轴", "无出链的标签自身段不变");
+    assert_eq!(paths(&c, 4), "地点轴/日本 东瀛", "有别名、无出链");
+    let sources_with_out_link = count(
+        &c,
+        "SELECT COUNT(DISTINCT l.source_id) FROM edges l JOIN entities s ON s.id = l.source_id
+          WHERE l.kind='link' AND s.path IS NOT NULL",
+    );
+    assert_eq!(sources_with_out_link, 1, "增量条数 == 源是树内实体的 link 边条数");
+}
+
+/// ④ 重建幂等:两次重建后逐行相等
 #[test]
 fn rebuild_twice_is_idempotent() {
-    let c = migrated_to_v26();
+    let c = v29();
     let first = dump_fts(&c);
     rebuild(&c);
     rebuild(&c);
     assert_eq!(dump_fts(&c), first, "连续两次重建必须逐行相等");
 }
 
-/// ③ 直写 `entities` 一条 tag -> `entities_ai` 写出该行
+/// ⑤ 老物件为 0、新 9 个触发器齐备且不引用旧列 / 旧 kind
 #[test]
-fn insert_entity_writes_fts_row() {
-    let c = migrated_to_v26();
-    c.execute(
-        "INSERT INTO entities(id, kind, name, content, created_at, parent_id, path, depth, sort_order)
-         VALUES(?1, 'tag', '新页', '', '2026-01-01T00:00:00.000', ?2, '地点轴/新页', 2, 0)",
-        params![tag(4), tag(1)],
-    )
-    .unwrap();
-    assert_eq!(fts_paths(&c, tag(4)), "地点轴/新页", "新标签实体必须被 entities_ai 索引");
+fn old_triggers_are_gone_and_new_nine_are_installed() {
+    let c = v29();
+    for name in [
+        "entities_ai", "entities_ad", "entities_au", "edges_ai", "edges_ad", "edges_au",
+        "entity_aliases_ai", "entity_aliases_au", "entity_aliases_ad",
+    ] {
+        assert_eq!(
+            count(&c, &format!("SELECT COUNT(*) FROM sqlite_master WHERE type='trigger' AND name='{name}'")),
+            1,
+            "缺触发器 {name}"
+        );
+    }
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM sqlite_master WHERE type='trigger'"), 9);
     assert_eq!(
-        count(&c, &format!("SELECT COUNT(*) FROM entities_fts WHERE rowid = {}", tag(4))),
-        1
+        count(
+            &c,
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='trigger'
+              AND (sql LIKE '%tag_paths%' OR sql LIKE '%tagging%' OR sql LIKE '%relation%')"
+        ),
+        0,
+        "不得残留引用旧列 / 旧 kind 的触发器"
     );
 }
 
-/// ④ 直写 `edges` 一条 tagging -> 该笔记的 `tag_paths` 变化
+/// ⑥ 029 文本不含任何聚合段:聚合文本只由 v29 前置钩子拼视图写入
 #[test]
-fn insert_tagging_edge_updates_note_fts() {
-    let c = migrated_to_v26();
-    assert_eq!(fts_paths(&c, 502), "地点轴/日本 东瀛", "基线");
-    c.execute(
-        "INSERT INTO edges(source_id, target_id, kind, remark, created_at)
-         VALUES(502, ?1, 'tagging', '', '2026-01-01T00:00:00.000')",
-        params![tag(1)],
-    )
-    .unwrap();
-    assert_eq!(fts_paths(&c, 502), "地点轴 地点轴/日本 东瀛", "加链后笔记聚合必须重算");
+fn migration_029_has_no_aggregate_sql() {
+    assert!(!MIGRATION_029_SQL.contains("group_concat("), "029 不得内联聚合");
+    assert!(!MIGRATION_029_SQL.contains("COALESCE("), "029 不得内联聚合");
+    assert!(MIGRATION_029_SQL.contains("entities_fts_src"), "触发器与回填必须引用视图");
 }
 
-/// ⑤ 删 `entity_aliases` 行 -> 该标签自身与其名下笔记一起重写
+/// ⑦ 视图 SQL 含 `ENTITIES_AGG` 的每一段(常量改了就要出新迁移重建视图)
 #[test]
-fn delete_entity_alias_rewrites_affected() {
-    let c = migrated_to_v26();
-    c.execute("DELETE FROM entity_aliases WHERE alias = '东瀛'", []).unwrap();
-    assert_eq!(fts_paths(&c, tag(2)), "地点轴/日本", "标签自身去掉别名段");
-    assert_eq!(fts_paths(&c, 501), "地点轴/中国 地点轴/日本");
-    assert_eq!(fts_paths(&c, 502), "地点轴/日本");
-}
-
-/// ⑥ `notes_fts` 与老 8 个触发器原样保留,新 9 个触发器都在(阶段 3 共存)
-#[test]
-fn legacy_fts_and_triggers_untouched() {
-    let c = migrated_to_v26();
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM notes_fts"), 2, "老 FTS 镜像不动");
-    let mut s = c.prepare("SELECT name FROM sqlite_master WHERE type='trigger' ORDER BY name").unwrap();
-    let names: Vec<String> = s.query_map([], |r| r.get::<_, String>(0)).unwrap().map(|x| x.unwrap()).collect();
-    for t in LEGACY_TRIGGERS {
-        assert!(names.contains(&t.to_string()), "老触发器 {t} 必须还在");
-    }
-    for t in NEW_TRIGGERS {
-        assert!(names.contains(&t.to_string()), "新触发器 {t} 必须已装");
-    }
-    assert_eq!(names.len(), 17, "8 老 + 9 新;不得多装触发器");
-}
-
-/// ⑦ 插 `child` 边不改任何实体的 `tag_paths`(child 只影响树缓存,不影响聚合串)
-#[test]
-fn child_edge_does_not_change_tag_paths() {
-    let c = migrated_to_v26();
-    c.execute(
-        "INSERT INTO entities(id, kind, name, content, created_at, parent_id, path, depth, sort_order)
-         VALUES(?1, 'tag', '新页', '', '2026-01-01T00:00:00.000', ?2, '地点轴/新页', 2, 0)",
-        params![tag(4), tag(1)],
-    )
-    .unwrap();
-    let before = (fts_paths(&c, tag(1)), fts_paths(&c, tag(4)));
-    c.execute(
-        "INSERT INTO edges(source_id, target_id, kind, remark, created_at)
-         VALUES(?1, ?2, 'child', '', '2026-01-01T00:00:00.000')",
-        params![tag(1), tag(4)],
-    )
-    .unwrap();
-    assert_eq!((fts_paths(&c, tag(1)), fts_paths(&c, tag(4))), before, "child 边不得改聚合");
-}
-
-/// ⑧ 026 文本含与 Rust 真源逐段一致的聚合(T3.1 守卫升级:按 `COALESCE(` 切段比对)
-#[test]
-fn agg_segments_appear_in_026_text() {
-    let segments: Vec<&str> = ENTITIES_AGG.split("COALESCE(").skip(1).collect();
-    assert!(segments.len() >= 6, "聚合应有多段,实际 {}", segments.len());
-    for seg in segments {
+fn entities_fts_src_view_matches_rust_truth() {
+    let c = v29();
+    let view: String = c
+        .query_row("SELECT sql FROM sqlite_master WHERE type='view' AND name='entities_fts_src'", [], |r| r.get(0))
+        .unwrap();
+    let mut segments = 0;
+    for seg in ENTITIES_AGG.split("COALESCE(").skip(1) {
         let needle = format!("COALESCE({seg}");
-        assert!(MIGRATION_026_SQL.contains(&needle), "026 文本缺聚合段: {needle}");
+        assert!(view.contains(&needle), "视图缺聚合段: {needle}");
+        segments += 1;
     }
+    assert!(segments >= 6, "聚合应有多段,实际 {segments}");
 }

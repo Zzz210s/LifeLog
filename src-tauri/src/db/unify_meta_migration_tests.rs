@@ -35,10 +35,10 @@ fn foreign_key_violations(c: &Connection) -> i64 {
 }
 
 #[test]
-fn upgrade_to_v28_is_atomic_and_passes_reconcile() {
+fn upgrade_to_latest_is_atomic_and_passes_reconcile() {
     let c = v27();
     run(&c).unwrap();
-    assert_eq!(count(&c, "PRAGMA user_version"), 28);
+    assert_eq!(count(&c, "PRAGMA user_version"), latest_version());
     assert_eq!(text(&c, "PRAGMA integrity_check"), "ok");
     assert_eq!(foreign_key_violations(&c), 0);
     assert_eq!(count(&c, "SELECT COUNT(*) FROM sqlite_temp_master WHERE name='_id_map'"), 0);
@@ -131,23 +131,28 @@ fn aliases_and_merge_log_are_remapped() {
     assert_eq!(log, (5, 4, String::new()));
 }
 
-/// ⑤ 索引 / 触发器 / 视图收口:`idx_entities_path` 非唯一,老索引与 9 个老触发器、过渡视图全无。
+/// ⑤ 索引 / 触发器 / 视图收口:`idx_entities_path` 非唯一,老索引与 026/027 的老触发器全无;
+/// 过渡视图 `entities_fts_src` 由 029 以新列(`meta`/`paths`)重建(触发器与回填引用它)。
 #[test]
-fn legacy_indexes_triggers_and_view_are_gone() {
+fn legacy_indexes_and_old_triggers_are_gone() {
     let c = v27();
     run(&c).unwrap();
     let idx = text(&c, "SELECT sql FROM sqlite_master WHERE type='index' AND name='idx_entities_path'");
     assert!(idx.starts_with("CREATE INDEX"), "必须普通索引: {idx}");
     assert!(idx.contains("WHERE path IS NOT NULL"), "必须带部分索引谓词: {idx}");
-    for name in ["idx_entities_name", "idx_entities_sibling_name", "entities_fts_src"] {
+    for name in ["idx_entities_name", "idx_entities_sibling_name"] {
         assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM sqlite_master WHERE name='{name}'")), 0, "{name} 应不存在");
     }
-    // 026/027 的 9 个老触发器引用旧列(`name`/`content`/`tag_paths`)与旧 kind;本任务删净,
-    // 新 9 个触发器由 Task 1.3 追加(它引用新列 `meta`/`paths`,不会被这条判据命中)。
     assert_eq!(
-        count(&c, "SELECT COUNT(*) FROM sqlite_master WHERE type='trigger' AND (sql LIKE '%tag_paths%' OR sql LIKE '%entities_fts_src%' OR sql LIKE '%relation%')"),
+        count(&c, "SELECT COUNT(*) FROM sqlite_master WHERE type='view' AND name='entities_fts_src'"),
+        1,
+        "029 重建的聚合视图必须在"
+    );
+    // 026/027 的 9 个老触发器引用旧列(`name`/`content`/`tag_paths`)与旧 kind;029 换新列的 9 个。
+    assert_eq!(
+        count(&c, "SELECT COUNT(*) FROM sqlite_master WHERE type='trigger' AND (sql LIKE '%tag_paths%' OR sql LIKE '%tagging%' OR sql LIKE '%relation%')"),
         0,
-        "不得残留引用旧列/旧 kind/过渡视图的触发器"
+        "不得残留引用旧列/旧 kind 的触发器"
     );
 }
 

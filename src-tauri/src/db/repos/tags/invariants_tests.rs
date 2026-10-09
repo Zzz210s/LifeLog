@@ -1,6 +1,7 @@
 //! 标签写入不变量测试台(spec 2026-09-21 D:标签写入路径收敛)。五组判据复用:
-//! ① [`assert_fts_matches_edges`]:entities_fts.tag_paths == 按 edges 重算(唯一真源
+//! ① [`assert_fts_matches_edges`]:entities_fts.paths == 按 edges 重算(唯一真源
 //!    [`crate::db::repos::entities::fts::ENTITIES_AGG`],标签实体自身也进索引)。
+//! ①b [`assert_is_cited_matches_edges`]:`entities.is_cited` == 有入 `link` 边(spec §3.1)。
 //! ② [`assert_no_orphan_tags`]:无孤儿标签(无 tag_links 且无子节点)。
 //! ③ [`assert_filter_paths_exist`]:filter_current 引用的每个标签路径都存在;只对"路径变化"类
 //!    操作断言(删除按设计不改写条件 S7,留已删路径允许)。
@@ -11,8 +12,8 @@ use crate::db::repos::settings::{self, FILTER_CURRENT_KEY};
 use crate::expr::lexer::{lex_spans, Token};
 use rusqlite::{params, Connection, OptionalExtension};
 
-/// ① 逐实体比对 entities_fts.tag_paths;失败信息带实体 id 与两侧取值(左侧 FTS 实值、
-/// 右侧按 edges 重算)。标签实体自身也有 tag_paths,故不按 kind 过滤。
+/// ① 逐实体比对 entities_fts.paths;失败信息带实体 id 与两侧取值(左侧 FTS 实值、
+/// 右侧按 edges 重算)。标签实体自身也有 paths,故不按 kind 过滤。
 pub(crate) fn assert_fts_matches_edges(conn: &Connection) {
     let mut stmt = conn.prepare("SELECT id FROM entities ORDER BY id").unwrap();
     let ids: Vec<i64> = stmt
@@ -29,7 +30,7 @@ pub(crate) fn assert_fts_matches_edges(conn: &Connection) {
             )
             .unwrap();
         let actual: Option<String> = conn
-            .query_row("SELECT tag_paths FROM entities_fts WHERE rowid = ?1", params![id], |r| {
+            .query_row("SELECT paths FROM entities_fts WHERE rowid = ?1", params![id], |r| {
                 r.get(0)
             })
             .optional()
@@ -37,7 +38,7 @@ pub(crate) fn assert_fts_matches_edges(conn: &Connection) {
         assert_eq!(
             actual.as_deref(),
             Some(expected.as_str()),
-            "实体 {id} 的 entities_fts.tag_paths 与 edges 聚合(路径+纯文本+别名)不一致"
+            "实体 {id} 的 entities_fts.paths 与 edges 聚合(自身段 + 引用段)不一致"
         );
     }
     let stale: Vec<i64> = {
@@ -50,6 +51,25 @@ pub(crate) fn assert_fts_matches_edges(conn: &Connection) {
             .unwrap()
     };
     assert!(stale.is_empty(), "entities_fts 残留已不存在的实体行: {stale:?}");
+}
+
+/// ①b `is_cited` 与入 `link` 边一致(与对账 §3.7 第 1 条、T1.0 `reconcile.sql` 同口径):
+/// 失败信息列出全部漂移实体 id(`child` 入边不算引用)。
+pub(crate) fn assert_is_cited_matches_edges(conn: &Connection) {
+    let drift: Vec<i64> = {
+        let mut stmt = conn
+            .prepare(
+                "SELECT e.id FROM entities e WHERE e.is_cited <> EXISTS(
+                   SELECT 1 FROM edges x WHERE x.target_id = e.id AND x.kind = 'link')
+                 ORDER BY e.id",
+            )
+            .unwrap();
+        stmt.query_map([], |r| r.get(0))
+            .unwrap()
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .unwrap()
+    };
+    assert!(drift.is_empty(), "is_cited 与入 link 边不一致的实体: {drift:?}");
 }
 
 /// ② 无孤儿标签(无 tag_id 链接、无指向它的关系边、无子节点);失败信息列出全部孤儿路径。

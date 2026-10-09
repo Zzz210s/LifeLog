@@ -160,6 +160,7 @@ const PRE_HOOKS: &[(i64, PreHook)] = &[
     (UNIFY_META_VERSION, build_id_map),
     (UNIFY_META_VERSION, rewrite_settings_ids),
     (UNIFY_META_VERSION, ensure_default_filter),
+    (ENTITIES_FTS_VERSION, create_entities_fts_src_view),
 ];
 
 /// 跑某版本登记的事务内前置钩子(无登记 = 空操作);由 `migrate::apply` 在事务内调用。

@@ -1,12 +1,10 @@
 //! 迁移 027 核心读数:老表/老触发器/老 FTS/过渡视图全消失;漂移回填;完整性;
-//! v24/v25/v26 各一次 `run` 到 27 与重放幂等;027 文本内联的聚合与 Rust 真源逐段一致。
+//! v24/v25/v26 各一次 `run` 到 27 与重放幂等。
+//! (026/027 内联聚合的守卫已随 029 退役:聚合唯一真源改由常量拼视图,守卫见
+//! `entities_fts_migration_tests::entities_fts_src_view_matches_rust_truth`。)
 use super::entities_tags_fixture::{count, migrate_to_v23, migrated_to_v26, seed_notes, seed_v23};
 use super::*;
-use crate::db::repos::entities::fts::ENTITIES_AGG;
 use rusqlite::Connection;
-
-/// 027 的原始文本(守卫:内联聚合必须与 `ENTITIES_AGG` 逐段一致)
-const MIGRATION_027_SQL: &str = include_str!("migrations/027_drop_legacy.sql");
 
 /// 记忆 #1290 的 8 个老触发器;027 一个不留。
 const LEGACY_TRIGGERS: [&str; 8] = [
@@ -145,17 +143,6 @@ fn v27_replay_is_a_noop() {
     let first = snap();
     run(&c).unwrap();
     assert_eq!(snap(), first);
-}
-
-/// ⑤ 027 文本里内联的聚合表达式与 Rust 真源 `ENTITIES_AGG` 逐段一致(按 `COALESCE(` 切)。
-#[test]
-fn agg_segments_appear_in_027_text() {
-    let segments: Vec<&str> = ENTITIES_AGG.split("COALESCE(").skip(1).collect();
-    assert!(segments.len() >= 6, "聚合应有多段,实际 {}", segments.len());
-    for seg in segments {
-        let needle = format!("COALESCE({seg}");
-        assert!(MIGRATION_027_SQL.contains(&needle), "027 文本缺聚合段: {needle}");
-    }
 }
 
 /// 真库副本就地迁移验收(默认跳过):验证漂移回填与下架。

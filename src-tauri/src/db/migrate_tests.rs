@@ -83,11 +83,14 @@ fn final_schema_has_entities_fts_and_nine_triggers() {
         );
     }
     // 三条中文笔记入索引(触发器自动同步)
-    let mut conn = conn;
-    for text in ["今天心情很好", "天气不错", "看完了 #电影 神作"] {
-        crate::db::repos::notes::create(&mut conn, text).unwrap();
+    for (i, text) in ["今天心情很好", "天气不错", "看完了 #电影 神作"].iter().enumerate() {
+        conn.execute(
+            "INSERT INTO entities(id, meta, created_at) VALUES(?1, ?2, '2026-01-01T00:00:00.000')",
+            rusqlite::params![i as i64 + 1, text],
+        )
+        .unwrap();
     }
-    assert_eq!(count(&conn, "SELECT COUNT(*) FROM entities_fts WHERE content <> ''"), 3);
+    assert_eq!(count(&conn, "SELECT COUNT(*) FROM entities_fts WHERE meta <> ''"), 3);
 }
 
 /// 升级路径:旧库已有笔记,迁移必须回填 FTS 行,否则 >=3 字符关键词走 FTS 分支永久搜不到。
