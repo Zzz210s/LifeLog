@@ -107,14 +107,11 @@ fn relation_edges_do_not_change_note_tags_fts_or_export() {
     let note = notes::create_plain(&mut c, "记录 #甲").unwrap();
     let jia = id_at(&c, "甲");
     let yi = ensure(&c, "乙");
-    assert!(
-        jia >= crate::db::repos::entities::TAG_ID_OFFSET
-            && note.id < crate::db::repos::entities::TAG_ID_OFFSET,
-        "测试前提:标签与笔记 id 落在不重叠的两个区间"
-    );
+    // v28 起实体 id 统一连号(TAG_ID_OFFSET 已删):读方靠 `path`/`kind` 分流,不靠 id 区间。
+    assert_ne!(jia, note.id, "标签与笔记是两行");
     let tags_before = repos::notes::read_full(&c, note.id).unwrap().unwrap().tags;
     let fts_before: String = c
-        .query_row("SELECT tag_paths FROM entities_fts WHERE rowid=?1", params![note.id], |r| r.get(0))
+        .query_row("SELECT paths FROM entities_fts WHERE rowid=?1", params![note.id], |r| r.get(0))
         .unwrap();
     let export_before = notes_export::rows(&c).unwrap();
 
@@ -122,7 +119,7 @@ fn relation_edges_do_not_change_note_tags_fts_or_export() {
 
     let tags_after = repos::notes::read_full(&c, note.id).unwrap().unwrap().tags;
     let fts_after: String = c
-        .query_row("SELECT tag_paths FROM entities_fts WHERE rowid=?1", params![note.id], |r| r.get(0))
+        .query_row("SELECT paths FROM entities_fts WHERE rowid=?1", params![note.id], |r| r.get(0))
         .unwrap();
     assert_eq!(tags_after, vec!["甲".to_string()], "关系边不得混进笔记的 tags 列");
     assert_eq!(tags_before, tags_after, "插入关系边不得改变笔记的 tags 列");

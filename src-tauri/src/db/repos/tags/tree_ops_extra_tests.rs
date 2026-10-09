@@ -70,7 +70,7 @@ fn move_beyond_former_max_depth_is_allowed() {
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='a1'"), 0, "旧根路径不残留");
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags"), 6);
     // FTS 跟着新路径走
-    let fts: String = c.query_row("SELECT tag_paths FROM entities_fts", [], |r| r.get(0)).unwrap();
+    let fts: String = c.query_row("SELECT paths FROM entities_fts", [], |r| r.get(0)).unwrap();
     assert!(fts.contains("x/a1/a2/a3/a4/a5"), "FTS 未跟上新路径:{fts}");
     assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);

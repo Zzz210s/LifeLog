@@ -2,7 +2,7 @@
 //! 失败路径必须整事务回滚(结构快照逐行比对)。
 use super::*;
 use crate::db::migrate;
-use crate::db::repos::notes::{self, notes_filter::*, query};
+use crate::db::repos::notes::{self, notes_filter::*, query as query_all};
 use crate::db::repos::tags::invariants_tests::{
     assert_fts_matches_edges, assert_no_orphan_tags, assert_filter_paths_exist,
 };
@@ -115,8 +115,24 @@ fn move_into_own_subtree_rejected_and_db_untouched() {
     assert!(move_to(&mut c, root, Some(root)).is_err());
 
     assert_eq!(dump(&c), before);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tag_links"), 1);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities_fts WHERE content <> ''"), 1);
+    assert_eq!(
+        count(
+            &c,
+            "SELECT COUNT(*) FROM tag_links WHERE target_type='note'
+               AND tag_id = (SELECT id FROM tags WHERE path='工作/项目A')"
+        ),
+        1,
+        "笔记 -> 叶子标签的那条链接仍在"
+    );
+    assert_eq!(
+        count(
+            &c,
+            "SELECT COUNT(*) FROM entities_fts WHERE meta <> ''
+               AND rowid IN (SELECT id FROM entities WHERE path IS NULL)"
+        ),
+        1,
+        "只有笔记有正文"
+    );
 }
 
 /// ⑥ 同级重名:改名/移动撞上兄弟改为**自动整棵并**(设计 2026-10-06 §6);非法名仍拒绝
@@ -175,7 +191,25 @@ fn delete_missing_tag_rolls_back() {
     let before = dump(&c);
     assert!(delete_subtree(&mut c, 9999).is_err());
     assert_eq!(dump(&c), before);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tag_links"), 1);
+    assert_eq!(
+        count(
+            &c,
+            "SELECT COUNT(*) FROM tag_links WHERE target_type='note'
+               AND tag_id = (SELECT id FROM tags WHERE path='工作/项目A')"
+        ),
+        1,
+        "笔记 -> 叶子标签的那条链接仍在"
+    );
     assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
+}
+
+/// 统一元数据后 `query` 的域是全实体(spec §4.1:清空筛选即显示标签);
+/// 本文件的老用例只关心迁移前的「全部笔记」,故把默认筛选并入条件(见 test_support)。
+fn query(
+    c: &Connection,
+    cond: &crate::db::repos::notes::notes_filter::FilterConditions,
+    offset: i64,
+) -> Result<Vec<crate::db::repos::notes::Note>, String> {
+    query_all(c, &crate::db::repos::tags::test_support::with_note_domain(cond.clone()), offset)
 }

@@ -57,7 +57,7 @@ fn gc_orphans_keeps_parents_with_children_and_prunes_dead_chain() {
 
     // 解链后叶与父逐层收敛回收
     c.execute(
-        "DELETE FROM edges WHERE kind='tagging' AND source_id=?1",
+        "DELETE FROM edges WHERE kind='link' AND source_id=?1",
         [n.id],
     )
     .unwrap();

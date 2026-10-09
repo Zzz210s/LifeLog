@@ -72,9 +72,10 @@ fn merge_failure_rolls_back_whole_transaction() {
     assert_fts_matches_edges(&c);
 }
 
-/// ⑥ 纯文本同名:raw 名不同(md 写法差异)也判同名并自动合并
+/// ⑥ md 写法与纯文本**不再**自动合并:三重闸门(spec §3.6 / §10-P0-3)要求两侧 `meta`
+/// 逐字节相等,md 差异只登记纯文本别名(旧「纯文本同名即并」的行为已被 P0-3 取消)。
 #[test]
-fn sweep_merges_plain_equal_md_variants() {
+fn md_variant_is_not_merged_and_registers_plain_alias() {
     let mut c = db();
     notes::create_plain(&mut c, "a #P/郴州市").unwrap();
     notes::create_plain(&mut c, "b #P/x").unwrap();
@@ -83,10 +84,15 @@ fn sweep_merges_plain_equal_md_variants() {
     // 改名成 md 形态:raw 名与兄弟不同,ensure_sibling_free 放行 -> 收尾 sweep 发现纯文本同名
     rename(&mut c, x, "[郴](chēn)州市").unwrap();
 
-    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tags WHERE id={x}")), 0, "md 形态并入纯文本");
+    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tags WHERE id={x}")), 1, "meta 不同 -> 不合并");
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='P/郴州市'"), 1);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='P/[郴](chēn)州市'"), 0);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entity_merge_log"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='P/[郴](chēn)州市'"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entity_merge_log"), 0, "三重闸门未过 -> 无合并日志");
+    assert_eq!(
+        count(&c, "SELECT COUNT(*) FROM tag_aliases WHERE alias='郴州市'"),
+        1,
+        "纯文本形态登记为别名"
+    );
     assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
 }

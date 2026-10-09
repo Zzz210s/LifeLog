@@ -37,7 +37,7 @@ pub fn rename(conn: &mut Connection, tag_id: i64, new_name: &str) -> Result<Vec<
     let new_path = super::path::child_path(&tx, node.parent_id, &new_name).map_err(|e| e.to_string())?;
     let ids = subtree_ids(&tx, tag_id).map_err(|e| e.to_string())?;
     tx.execute(
-        "UPDATE entities SET name = ?1 WHERE id = ?2 AND kind = 'tag'",
+        "UPDATE entities SET meta = ?1 WHERE id = ?2 AND path IS NOT NULL",
         params![new_name, tag_id],
     )
     .map_err(|e| super::path::unique_conflict(e, "已存在同名标签"))?;
@@ -108,7 +108,7 @@ pub fn move_to_ordered(
             }
             let parent_depth: i64 = tx
                 .query_row(
-                    "SELECT depth FROM entities WHERE id = ?1 AND kind = 'tag'",
+                    "SELECT depth FROM entities WHERE id = ?1 AND path IS NOT NULL",
                     params![p],
                     |r| r.get(0),
                 )
@@ -128,7 +128,7 @@ pub fn move_to_ordered(
     ensure_sibling_free(&tx, new_parent, &node.name, tag_id)?;
     let new_path = super::path::child_path(&tx, new_parent, &node.name).map_err(|e| e.to_string())?;
     tx.execute(
-        "UPDATE entities SET parent_id = ?1, path = ?2, depth = ?3 WHERE id = ?4 AND kind = 'tag'",
+        "UPDATE entities SET parent_id = ?1, path = ?2, depth = ?3 WHERE id = ?4 AND path IS NOT NULL",
         params![new_parent, new_path, new_depth, tag_id],
     )
     .map_err(|e| super::path::unique_conflict(e, "该层级下已有同名标签"))?;

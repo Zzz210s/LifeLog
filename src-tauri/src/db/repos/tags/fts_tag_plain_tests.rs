@@ -7,7 +7,7 @@
 //! 边界有意钉住:**祖先标签的旧名不进索引**(别名口径仍是 T4 的"直接链接的标签",
 //! 扩到祖先链会违反既有不变量「改名后旧路径不得残留」)。
 use crate::db::migrate;
-use crate::db::repos::notes::{create_plain, notes_filter::empty, query, FilterConditions};
+use crate::db::repos::notes::{create_plain, notes_filter::empty, query as query_all, FilterConditions};
 use crate::db::repos::tags::invariants_tests::assert_fts_matches_edges;
 use crate::db::repos::tags::{alias, rename};
 use rusqlite::{params, Connection};
@@ -90,4 +90,14 @@ fn plain_path_covers_display_text_when_plain_alias_is_taken() {
     assert!(hits(&c, "郴州市").contains(&n.id), "纯文本路径是显示文本的唯一来源");
     assert!(!hits(&c, "郴chen州市").contains(&n.id), "祖先旧名不进索引(与非别名来源无关)");
     assert_fts_matches_edges(&c);
+}
+
+/// 统一元数据后 `query` 的域是全实体(spec §4.1:清空筛选即显示标签);
+/// 本文件的老用例只关心迁移前的「全部笔记」,故把默认筛选并入条件(见 test_support)。
+fn query(
+    c: &Connection,
+    cond: &crate::db::repos::notes::notes_filter::FilterConditions,
+    offset: i64,
+) -> Result<Vec<crate::db::repos::notes::Note>, String> {
+    query_all(c, &crate::db::repos::tags::test_support::with_note_domain(cond.clone()), offset)
 }

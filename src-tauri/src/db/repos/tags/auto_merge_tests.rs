@@ -125,8 +125,8 @@ fn auto_merge_log_records_moved_children_and_links() {
     let src = id_at(&c, "P/md");
     let child = id_at(&c, "P/md/宜章县");
 
-    // 改名成 md 形态(纯文本仍是 郴州市):raw 名与兄弟不同 -> 收尾 sweep 自动合并
-    rename(&mut c, src, "[郴](chēn)州市").unwrap();
+    // 改名成与兄弟**逐字节相同**的名字:三重闸门(spec §3.6 / P0-3)全过 -> 自动整棵并
+    rename(&mut c, src, "郴州市").unwrap();
 
     assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM tags WHERE id={src}")), 0);
     let (s, d, kids): (i64, i64, String) = c

@@ -64,23 +64,21 @@ pub(crate) fn merge_core(
     let affected_notes = notes.len() as i64;
     // ① 子标签整棵搬(path/depth 同步重写;raw 同名兄弟递归并)
     attach_children(conn, source_id, target_id)?;
-    // ② 笔记链接整行转移:目标已有同一笔记的链接时被主键挡下,不计入 movedLinks
+    // ② 笔记链接整行转移(只动树外来源 = 老 `tagging`):目标已有同一笔记的链接时被主键挡下,
+    // 不计入 movedLinks。树内来源的关联(老 `relation`)留给 ③ 的并集处理(需判环)。
     conn.execute(
-        "UPDATE OR IGNORE edges SET target_id = ?1 WHERE kind = 'tagging' AND target_id = ?2",
+        "UPDATE OR IGNORE edges SET target_id = ?1
+          WHERE kind = 'link' AND target_id = ?2
+            AND (SELECT path FROM entities WHERE id = edges.source_id) IS NULL",
         params![target_id, source_id],
     )
     .map_err(|e| e.to_string())?;
     let moved_links = conn.changes() as i64;
     // ③ 出边/入边取并集(会成环/变自环的边按 R3 剔除)
     union_edges(conn, source_id, target_id)?;
-    // ④ 清掉源残余的边(被 IGNORE 的重复笔记链接 + 被剔除的关系边 + 源的入 child 边)
+    // ④ 清掉源残余的边(被 IGNORE 的重复链接 + 被剔除/已复制的关系边 + 源的入 child 边)
     conn.execute(
-        "DELETE FROM edges WHERE kind = 'tagging' AND target_id = ?1",
-        params![source_id],
-    )
-    .map_err(|e| e.to_string())?;
-    conn.execute(
-        "DELETE FROM edges WHERE kind = 'relation' AND (source_id = ?1 OR target_id = ?1)",
+        "DELETE FROM edges WHERE kind = 'link' AND (source_id = ?1 OR target_id = ?1)",
         params![source_id],
     )
     .map_err(|e| e.to_string())?;
@@ -96,7 +94,7 @@ pub(crate) fn merge_core(
         Vec::new()
     };
     // ⑥ 删除源标签实体(外键级联兜底清理残余边)
-    conn.execute("DELETE FROM entities WHERE id = ?1 AND kind = 'tag'", params![source_id])
+    conn.execute("DELETE FROM entities WHERE id = ?1", params![source_id])
         .map_err(|e| e.to_string())?;
     // ⑦ 统一收尾:筛选条件级联 -> 受影响笔记 FTS 重写 -> 孤儿回收
     finish_core(
@@ -118,15 +116,17 @@ pub(crate) fn merge_core(
 /// 标签路径;不存在返回 None(供"标签不存在"中文报错)
 fn path_of(conn: &Connection, id: i64) -> rusqlite::Result<Option<String>> {
     conn.query_row(
-        "SELECT path FROM entities WHERE id = ?1 AND kind = 'tag'",
+        "SELECT path FROM entities WHERE id = ?1 AND path IS NOT NULL",
         params![id],
         |r| r.get(0),
     )
     .optional()
 }
 
-/// 同一父下 raw 同名(唯一索引口径)的兄弟 id;没有返回 None。
+/// 同一父下 `entity_key(meta)` 相同的兄弟 id;没有返回 None。
 /// 供 rename / move 撞名时改走自动合并,以及 merge_children 的递归整棵并。
+/// 028 起同名键 = `entity_key`(折叠空白与 ASCII 大小写),真正是否合并由
+/// `auto_merge::merge_pair` 的三重闸门裁决(spec §3.6 / §10-P0-3)。
 pub(crate) fn sibling_by_name(
     conn: &Connection,
     parent: Option<i64>,
@@ -135,7 +135,8 @@ pub(crate) fn sibling_by_name(
 ) -> Result<Option<i64>, String> {
     conn.query_row(
         "SELECT id FROM entities
-         WHERE kind = 'tag' AND COALESCE(parent_id, 0) = COALESCE(?1, 0) AND name = ?2 AND id <> ?3
+         WHERE path IS NOT NULL AND COALESCE(parent_id, 0) = COALESCE(?1, 0)
+           AND entity_key(meta) = entity_key(?2) AND id <> ?3
          ORDER BY id LIMIT 1",
         params![parent, name, exclude],
         |r| r.get(0),

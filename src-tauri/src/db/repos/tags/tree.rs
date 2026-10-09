@@ -57,6 +57,8 @@ pub(crate) fn refresh_entities_fts(conn: &Connection, entity_ids: &[i64]) -> rus
 }
 
 /// 链接笔记到标签(幂等)。方向 = 引用方 -> 被引用方(spec §2.3),同向同类边由唯一约束去重。
+/// 生产保存路径改走 `note_links::replace_ids`,此处仅剩 `tags::replace::replace_links`(测试专用)在用。
+#[cfg(test)]
 pub fn link_note(conn: &Connection, note_id: i64, tag_id: i64) -> rusqlite::Result<()> {
     conn.execute(
         "INSERT OR IGNORE INTO edges(source_id, target_id, kind, remark, created_at)
@@ -111,6 +113,10 @@ pub use ensure::ensure_path;
 pub use ops::{move_beside, move_to, rename};
 pub use ops_delete::delete_subtree;
 // 路径 -> id 的解析漏斗:解析顺序与别名优先级的唯一实现(见 link.rs)
+pub(crate) use link::resolve_paths;
+// `link_paths`(解析 + 替换)自 T2.1 起生产路径已不再调用 —— 笔记保存改走
+// notes::write_saved_links(resolve_paths + [[ ]] 求并集);仅测试沿用旧入口。
+#[cfg(test)]
 pub(crate) use link::link_paths;
 // `complete`(纯标签路径补全)现在只被 complete_with_aliases 与仓库层测试使用,不再向命令层导出;
 // 测试用的导出放进 cfg(test),避免非测试构建报 unused_imports

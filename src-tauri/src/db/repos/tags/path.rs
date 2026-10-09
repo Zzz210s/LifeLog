@@ -15,7 +15,7 @@ pub(crate) fn child_path(
         Some(p) => {
             let parent_path: String = conn
                 .query_row(
-                    "SELECT path FROM entities WHERE id = ?1 AND kind = 'tag'",
+                    "SELECT path FROM entities WHERE id = ?1 AND path IS NOT NULL",
                     params![p],
                     |r| r.get(0),
                 )

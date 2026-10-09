@@ -2,7 +2,7 @@
 //! FTS 标签列改写、筛选条件级联(D7)、孤儿容器回收。
 use super::*;
 use crate::db::migrate;
-use crate::db::repos::notes::{self, notes_filter::*, query};
+use crate::db::repos::notes::{self, notes_filter::*, query as query_all};
 use crate::db::repos::settings::{self, FILTER_CURRENT_KEY};
 use crate::db::repos::tags::invariants_tests::{
     assert_fts_matches_edges, assert_no_orphan_tags, assert_filter_paths_exist,
@@ -28,7 +28,7 @@ fn id_at(c: &Connection, path: &str) -> i64 {
 
 /// 笔记在 FTS 里的标签列(聚合路径,空格分隔)
 fn fts_tags(c: &Connection, note_id: i64) -> String {
-    c.query_row("SELECT tag_paths FROM entities_fts WHERE rowid=?1", params![note_id], |r| {
+    c.query_row("SELECT paths FROM entities_fts WHERE rowid=?1", params![note_id], |r| {
         r.get(0)
     })
     .unwrap()
@@ -134,4 +134,14 @@ fn merge_keeps_all_tag_invariants() {
     assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
     assert_filter_paths_exist(&c);
+}
+
+/// 统一元数据后 `query` 的域是全实体(spec §4.1:清空筛选即显示标签);
+/// 本文件的老用例只关心迁移前的「全部笔记」,故把默认筛选并入条件(见 test_support)。
+fn query(
+    c: &Connection,
+    cond: &crate::db::repos::notes::notes_filter::FilterConditions,
+    offset: i64,
+) -> Result<Vec<crate::db::repos::notes::Note>, String> {
+    query_all(c, &crate::db::repos::tags::test_support::with_note_domain(cond.clone()), offset)
 }

@@ -26,7 +26,7 @@ fn id_at(c: &Connection, path: &str) -> i64 {
 }
 
 fn fts_tags(c: &Connection, id: i64) -> String {
-    c.query_row("SELECT tag_paths FROM entities_fts WHERE rowid=?1", [id], |r| r.get(0))
+    c.query_row("SELECT paths FROM entities_fts WHERE rowid=?1", [id], |r| r.get(0))
         .unwrap()
 }
 

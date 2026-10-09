@@ -12,7 +12,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 pub fn resolve(conn: &Connection, path: &str) -> rusqlite::Result<Option<String>> {
     conn.query_row(
         "SELECT t.path FROM entity_aliases a JOIN entities t ON t.id = a.entity_id
-         WHERE t.kind = 'tag' AND a.alias = ?1",
+         WHERE t.path IS NOT NULL AND a.alias = ?1",
         params![path.trim()],
         |r| r.get(0),
     )
@@ -101,7 +101,7 @@ pub fn register_candidates(
 /// sqlite 的 `FOREIGN KEY constraint failed`(英文),对界面无意义
 pub fn tag_exists(conn: &Connection, tag_id: i64) -> rusqlite::Result<bool> {
     let n: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM entities WHERE id = ?1 AND kind = 'tag'",
+        "SELECT COUNT(*) FROM entities WHERE id = ?1 AND path IS NOT NULL",
         params![tag_id],
         |r| r.get(0),
     )?;
@@ -138,7 +138,7 @@ fn put(conn: &Connection, alias: &str, tag_id: i64) -> rusqlite::Result<()> {
 /// 是否已有同名**标签路径**(别名不得劫持真实标签)
 fn tag_path_exists(conn: &Connection, path: &str) -> rusqlite::Result<bool> {
     let n: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM entities WHERE kind = 'tag' AND path = ?1",
+        "SELECT COUNT(*) FROM entities WHERE path = ?1",
         params![path],
         |r| r.get(0),
     )?;

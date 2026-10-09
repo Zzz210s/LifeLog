@@ -25,25 +25,6 @@ fn seed_legacy(c: &Connection, name: &str) -> i64 {
     ensure_path(c, &[name.to_string()]).unwrap()
 }
 
-fn dump(c: &Connection) -> Vec<String> {
-    let mut stmt = c
-        .prepare("SELECT id, name, COALESCE(parent_id, 0), path, depth FROM tags ORDER BY id")
-        .unwrap();
-    let rows = stmt
-        .query_map([], |r| {
-            Ok(format!(
-                "{}|{}|{}|{}|{}",
-                r.get::<_, i64>(0)?,
-                r.get::<_, String>(1)?,
-                r.get::<_, i64>(2)?,
-                r.get::<_, String>(3)?,
-                r.get::<_, i64>(4)?
-            ))
-        })
-        .unwrap();
-    rows.collect::<rusqlite::Result<Vec<_>>>().unwrap()
-}
-
 /// Warning 1:改名必须从父节点派生新路径 —— 存量平铺根不得派生出幻影前缀
 #[test]
 fn rename_legacy_flat_root_does_not_create_phantom_prefix() {
@@ -70,38 +51,44 @@ fn seed_legacy_linked(c: &Connection, name: &str, note_id: i64) -> i64 {
     id
 }
 
-/// Warning 1 衍伸:改名撞上被存量行占用的 path 时给中文文案,不暴露 sqlite 原生错误
+/// P0-1 起 `idx_entities_path` 非唯一:改名派生出的完整路径撞上存量平铺行时**不再报错**
+/// (寻址一律按 `parent_id` 逐段比较,不读 `path`;存量行由 C-2 和解在下次按该路径写入时就地规整)。
 #[test]
-fn rename_into_legacy_path_reports_chinese_error() {
+fn rename_into_legacy_path_no_longer_errors() {
     let mut c = db();
     let n = notes::create_plain(&mut c, "x #工作/项目A").unwrap();
     seed_legacy_linked(&c, "事业/项目A", n.id);
-    let before = dump(&c);
 
     let work = id_at(&c, "工作");
-    let err = rename(&mut c, work, "事业").unwrap_err();
+    rename(&mut c, work, "事业").unwrap();
 
-    assert_eq!(err, "已存在同名标签");
-    assert!(!err.contains("UNIQUE"));
-    assert_eq!(dump(&c), before, "失败整事务回滚");
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='事业' AND name='事业'"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path LIKE '工作%'"), 0, "旧路径不残留");
+    assert_eq!(
+        count(&c, "SELECT COUNT(*) FROM tags WHERE path='事业/项目A'"),
+        2,
+        "派生路径与存量平铺行同名:path 只是显示缓存(P0-1),两行并存"
+    );
 }
 
-/// 同上的移动路径:目标父级下没有同名子标签,但派生出的完整路径已被存量行占用
+/// 同上的移动路径:P0-1 后同样不再报错(路径非唯一,寻址按 `parent_id` 逐段比较)。
 #[test]
-fn move_into_legacy_path_reports_chinese_error() {
+fn move_into_legacy_path_no_longer_errors() {
     let mut c = db();
     notes::create_plain(&mut c, "x #工作/项目A").unwrap();
     let n = notes::create_plain(&mut c, "y #生活").unwrap();
     seed_legacy_linked(&c, "生活/项目A", n.id);
-    let before = dump(&c);
 
     let leaf = id_at(&c, "工作/项目A");
     let life = id_at(&c, "生活");
-    let err = move_to(&mut c, leaf, Some(life)).unwrap_err();
+    move_to(&mut c, leaf, Some(life)).unwrap();
 
-    assert_eq!(err, "该层级下已有同名标签");
-    assert!(!err.contains("UNIQUE"));
-    assert_eq!(dump(&c), before);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM tags WHERE path='工作/项目A'"), 0);
+    assert_eq!(
+        count(&c, "SELECT COUNT(*) FROM tags WHERE path='生活/项目A'"),
+        2,
+        "搬来的子树与存量平铺行同名:path 只是显示缓存(P0-1)"
+    );
 }
 
 /// Warning 2:删除子标签后,变成空容器的祖先一并回收(与 link_paths 同一口径)

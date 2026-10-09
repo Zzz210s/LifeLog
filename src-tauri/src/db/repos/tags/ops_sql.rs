@@ -1,6 +1,7 @@
 //! 标签树结构变更的底层动作(自 tags_tree_ops.rs 拆出以守 200 行上限):
 //! 结构操作所需的最小行读取、同级重名校验、子树 path/depth 重写、父子边重挂。
-//! T4.1 起标签行在 `entities(kind='tag')`,树真源是 `edges(kind='child')`。
+//! T4.1 起标签行是 `entities` 里的树内实体(`path IS NOT NULL`),树真源是 `edges(kind='child')`;
+//! 028 起无 `name` 列,显示名统一取 `entity_name(meta)`。
 //! 全部函数式(接收 `&Connection`),事务由调用方(tags_tree_ops)打开。
 use rusqlite::{params, Connection, OptionalExtension};
 
@@ -17,7 +18,8 @@ pub(crate) struct Node {
 /// 读取单个标签行;不存在时报中文错(界面直接展示)
 pub(crate) fn load(conn: &Connection, tag_id: i64) -> Result<Node, String> {
     conn.query_row(
-        "SELECT name, parent_id, path, depth FROM entities WHERE id = ?1 AND kind = 'tag'",
+        "SELECT entity_name(meta), parent_id, path, depth FROM entities \
+         WHERE id = ?1 AND path IS NOT NULL",
         params![tag_id],
         |r| {
             Ok(Node {
@@ -33,7 +35,8 @@ pub(crate) fn load(conn: &Connection, tag_id: i64) -> Result<Node, String> {
     .ok_or_else(|| format!("标签不存在: {tag_id}"))
 }
 
-/// 同级重名校验:给出可读错误(唯一索引仍是兜底),避免无谓写库
+/// 同级重名校验:给出可读错误(索引仍是兜底),避免无谓写库。
+/// 028 起 `name` 列已删,口径改为「同父 + `entity_key(meta)` 相同」(已定 P0-2/P3)。
 pub(crate) fn ensure_sibling_free(
     conn: &Connection,
     parent: Option<i64>,
@@ -43,8 +46,8 @@ pub(crate) fn ensure_sibling_free(
     let n: i64 = conn
         .query_row(
             "SELECT COUNT(*) FROM entities
-             WHERE kind = 'tag' AND COALESCE(parent_id, 0) = COALESCE(?1, 0)
-               AND name = ?2 AND id <> ?3",
+             WHERE path IS NOT NULL AND COALESCE(parent_id, 0) = COALESCE(?1, 0)
+               AND entity_key(meta) = entity_key(?2) AND id <> ?3",
             params![parent, name, id],
             |r| r.get(0),
         )
@@ -60,7 +63,7 @@ pub(crate) fn ensure_sibling_free(
 pub(crate) fn rewrite_subtree_paths(conn: &Connection, old: &str, new: &str) -> rusqlite::Result<()> {
     conn.execute(
         "UPDATE entities SET path = ?2 || substr(path, length(?1) + 1)
-         WHERE kind = 'tag' AND (
+         WHERE path IS NOT NULL AND (
            path = ?1
            OR (length(path) > length(?1) AND substr(path, 1, length(?1) + 1) = ?1 || '/'))",
         params![old, new],
@@ -115,7 +118,7 @@ pub(crate) fn apply_sibling_order(
     let mut stmt = conn
         .prepare(
             "SELECT id FROM entities
-             WHERE kind = 'tag' AND COALESCE(parent_id, 0) = COALESCE(?1, 0) AND id <> ?2
+             WHERE path IS NOT NULL AND COALESCE(parent_id, 0) = COALESCE(?1, 0) AND id <> ?2
              ORDER BY sort_order, path",
         )
         .map_err(|e| e.to_string())?;
@@ -142,7 +145,7 @@ pub(crate) fn apply_sibling_order(
     ordered.insert(idx.min(ordered.len()), tag_id);
     for (i, id) in ordered.iter().enumerate() {
         conn.execute(
-            "UPDATE entities SET sort_order = ?2 WHERE id = ?1 AND kind = 'tag'",
+            "UPDATE entities SET sort_order = ?2 WHERE id = ?1 AND path IS NOT NULL",
             params![id, i as i64],
         )
         .map_err(|e| e.to_string())?;

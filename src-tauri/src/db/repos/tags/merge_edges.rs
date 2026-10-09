@@ -12,8 +12,9 @@ pub(crate) fn union_edges(
 ) -> Result<i64, String> {
     let mut added = 0i64;
     // 出边:源 → Y 迁成 目标 → Y。目标已能沿关系方向走到 Y 时,再加 目标→Y 会成环,剔除。
+    // 028 起关系边是树内来源的 `link`(树外来源的链接已在 merge_core ② 整行转移)。
     let out_sql =
-        "SELECT target_id, remark FROM edges WHERE source_id=?1 AND kind='relation'";
+        "SELECT target_id, remark FROM edges WHERE source_id=?1 AND kind='link'";
     for (y, remark) in column(conn, out_sql, source_id)? {
         if y == target_id || reaches(conn, y, target_id).map_err(|e| e.to_string())? {
             continue;
@@ -21,7 +22,8 @@ pub(crate) fn union_edges(
         added += insert(conn, target_id, y, &remark)?;
     }
     // 入边:Y → 源 迁成 Y → 目标。目标本身能到达 Y 时,再加 Y→目标 会成环(Y≠目标已挡自环),剔除。
-    let in_sql = "SELECT source_id, remark FROM edges WHERE target_id=?1 AND kind='relation'";
+    let in_sql = "SELECT source_id, remark FROM edges WHERE target_id=?1 AND kind='link' \
+                  AND source_id IN (SELECT id FROM entities WHERE path IS NOT NULL)";
     for (y, remark) in column(conn, in_sql, source_id)? {
         if y == target_id || reaches(conn, target_id, y).map_err(|e| e.to_string())? {
             continue;
@@ -44,7 +46,7 @@ fn column(conn: &Connection, sql: &str, id: i64) -> Result<Vec<(i64, String)>, S
 fn insert(conn: &Connection, from: i64, to: i64, remark: &str) -> Result<i64, String> {
     conn.execute(
         "INSERT OR IGNORE INTO edges(source_id, target_id, kind, remark, created_at) \
-         VALUES(?1, ?2, 'relation', ?3, datetime('now', 'localtime'))",
+         VALUES(?1, ?2, 'link', ?3, datetime('now', 'localtime'))",
         params![from, to, remark],
     )
     .map_err(|e| e.to_string())?;

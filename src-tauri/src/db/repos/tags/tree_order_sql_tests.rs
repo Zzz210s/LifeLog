@@ -59,6 +59,7 @@ fn sibling_order_survives_reopen() {
         assert_eq!(siblings(&c, None), vec!["c", "a", "b"]);
     }
     let c2 = Connection::open(&path).unwrap();
+    crate::db::sql_functions::register(&c2).unwrap();
     assert_eq!(siblings(&c2, None), vec!["c", "a", "b"]);
     assert_eq!(orders(&c2, None), vec![0, 1, 2]);
     drop(c2);

@@ -35,7 +35,7 @@ fn snapshot(c: &Connection) -> String {
     let tags = rows(c, "SELECT id||'|'||name||'|'||COALESCE(parent_id,0)||'|'||path||'|'||depth FROM tags ORDER BY id");
     let links = rows(c, "SELECT tag_id||'|'||target_type||'|'||target_id FROM tag_links ORDER BY tag_id, target_type, target_id");
     let aliases = rows(c, "SELECT alias||'|'||tag_id FROM tag_aliases ORDER BY alias");
-    let fts = rows(c, "SELECT rowid||'|'||tag_paths FROM entities_fts ORDER BY rowid");
+    let fts = rows(c, "SELECT rowid||'|'||paths FROM entities_fts ORDER BY rowid");
     let settings = rows(c, "SELECT key||'|'||value FROM settings ORDER BY key");
     format!("{tags:?}\n{links:?}\n{aliases:?}\n{fts:?}\n{settings:?}")
 }

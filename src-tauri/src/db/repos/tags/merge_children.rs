@@ -1,9 +1,9 @@
 //! 合并时把源的子标签整棵搬到目标下(设计 2026-10-06 §6;路径物化见记忆 #989:
 //! 只改 parent_id 会留脏 path,必须同时重写整棵子树的 path 并按层差调 depth)。
-//! T4.1 起标签行在 `entities(kind='tag')`、父子真源在 `edges(kind='child')`:
+//! T4.1 起标签行在 `entities`(树内 = `path IS NOT NULL`)、父子真源在 `edges(kind='child')`:
 //! 派生列与边同事务维护。
-//! 与目标已有子标签 **raw 名**相同的先递归整棵并 —— 唯一索引 idx_entities_sibling_name
-//! 不允许两行同名兄弟。
+//! 与目标已有子标签 **`entity_key` 同键** 的先递归整棵并 —— 具体是否合并由
+//! `auto_merge::merge_pair` 的三重闸门裁决(spec §3.6)。
 use super::auto_merge::merge_pair;
 use super::merge::sibling_by_name;
 use rusqlite::{params, Connection};
@@ -38,14 +38,14 @@ pub(crate) fn attach_children(
     let base: i64 = conn
         .query_row(
             "SELECT COALESCE(MAX(sort_order), -1) + 1 FROM entities
-             WHERE kind = 'tag' AND parent_id = ?1",
+             WHERE path IS NOT NULL AND parent_id = ?1",
             params![target_id],
             |r| r.get(0),
         )
         .map_err(|e| e.to_string())?;
     for (i, cid) in remaining.iter().enumerate() {
         conn.execute(
-            "UPDATE entities SET parent_id = ?1, sort_order = ?2 WHERE id = ?3 AND kind = 'tag'",
+            "UPDATE entities SET parent_id = ?1, sort_order = ?2 WHERE id = ?3 AND path IS NOT NULL",
             params![target_id, base + i as i64, cid],
         )
         .map_err(|e| e.to_string())?;
@@ -53,7 +53,7 @@ pub(crate) fn attach_children(
     // ⑤ 子树 path 前缀重写(只改后代,不含源自己 —— 源的 path 由调用方删除处理)
     conn.execute(
         "UPDATE entities SET path = ?2 || substr(path, length(?1) + 1)
-         WHERE kind = 'tag'
+         WHERE path IS NOT NULL
            AND length(path) > length(?1) AND substr(path, 1, length(?1) + 1) = ?1 || '/'",
         params![src_path, dst_path],
     )
@@ -64,7 +64,7 @@ pub(crate) fn attach_children(
 fn child_rows(conn: &Connection, parent: i64) -> Result<Vec<(i64, String)>, String> {
     let mut stmt = conn
         .prepare(
-            "SELECT id, name FROM entities WHERE kind = 'tag' AND parent_id = ?1
+            "SELECT id, entity_name(meta) FROM entities WHERE path IS NOT NULL AND parent_id = ?1
              ORDER BY sort_order, path",
         )
         .map_err(|e| e.to_string())?;
@@ -77,7 +77,7 @@ fn child_rows(conn: &Connection, parent: i64) -> Result<Vec<(i64, String)>, Stri
 fn child_ids(conn: &Connection, parent: i64) -> Result<Vec<i64>, String> {
     let mut stmt = conn
         .prepare(
-            "SELECT id FROM entities WHERE kind = 'tag' AND parent_id = ?1
+            "SELECT id FROM entities WHERE path IS NOT NULL AND parent_id = ?1
              ORDER BY sort_order, path",
         )
         .map_err(|e| e.to_string())?;
@@ -87,7 +87,7 @@ fn child_ids(conn: &Connection, parent: i64) -> Result<Vec<i64>, String> {
 
 fn depth_path(conn: &Connection, id: i64) -> Result<(i64, String), String> {
     conn.query_row(
-        "SELECT depth, path FROM entities WHERE id = ?1 AND kind = 'tag'",
+        "SELECT depth, path FROM entities WHERE id = ?1 AND path IS NOT NULL",
         params![id],
         |r| Ok((r.get(0)?, r.get(1)?)),
     )

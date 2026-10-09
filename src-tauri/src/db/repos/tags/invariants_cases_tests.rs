@@ -44,7 +44,7 @@ fn fts_invariant_catches_manual_update_drift() {
 
     // 变异 ②:直接删 tagging 边(edges_ad 会刷新 FTS,但甲确实成了孤儿)
     c.execute(
-        "DELETE FROM edges WHERE kind = 'tagging' AND target_id = ?1",
+        "DELETE FROM edges WHERE kind = 'link' AND target_id = ?1",
         params![jia],
     )
     .unwrap();
