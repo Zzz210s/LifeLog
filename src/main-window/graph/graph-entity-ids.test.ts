@@ -1,7 +1,7 @@
 /**
- * 统一实体 id 命名空间(T4.5 / spec §7.7):迁移后标签与笔记共用一张 `entities`,
- * 标签实体 id 一律落在偏移区间(`>= 1000000000`),笔记实体 id 保持原值 —— **单库内唯一**,
- * 数值上不再可能相撞。但前端仍必须**按 `kind` / DTO 形状分流**,不能靠数值区间猜身份。
+ * 图数据前端分流:实体 id 没有区间含义(统一实体后全库连号),前端**必须按 `kind` / DTO 形状分流**,
+ * 不能靠数值大小猜身份。这里的夹具用「大 id 当标签、小 id 当笔记」,并刻意让一条 `link` 边的两端
+ * 数值恰好等于可见标签节点 id —— 哪天改成按数值区间分流,这些用例立刻变红。
  *
  * 两件不能退化的事:
  * ① 关系备注读**边上的** `remark`,不是被指向标签的名字(记忆 #1265/#1266);
@@ -13,8 +13,8 @@ import type { TagFact } from '../../shared/tag-facts-types';
 import { applyFilters, defaultFilters } from './graph-filters';
 import { relationEdges, relationRows } from './graph-relations';
 
-/** 标签实体 id 下界(Rust `entities::TAG_ID_OFFSET`);笔记实体 id 恒落在此之下 */
-const TAG = 1_000_000_000;
+/** 夹具里的「标签侧」id 基数:取值只为与笔记侧(个位数)在数值上拉开,无生产含义 */
+const TAG = 1000;
 const tagId = (legacy: number): number => TAG + legacy;
 
 const node = (id: number, path: string, parent: number | null, depth: number): GraphNode => ({

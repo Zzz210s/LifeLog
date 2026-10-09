@@ -3,10 +3,11 @@
 //! 并补「老链接表 <-> `edges`」双向等价与阶段 2 对账读数。分节:级联 ①–④、对账 ⑤–⑨。
 //! 夹具停在 v26(阶段 2 终态):028 会重发全库 id 并把老链接表下架,偏移/老表断言只在 v26 成立。
 use super::entities_phase2_fixture::{edge_dump, ids, seeded_v26, tag, NEW_ORPHANS, OLD_ORPHANS};
-use super::entities_tags_fixture::{add_tag, count, migrate_to_v23, seed_notes, seed_v23};
+use super::entities_tags_fixture::{
+    add_tag, count, migrate_to_v23, seed_notes, seed_v23, LEGACY_ENTITY_ID_OFFSET,
+};
 use super::*;
 use crate::db::repos::entities::reconcile::assert_cache_matches_edges;
-use crate::db::repos::entities::TAG_ID_OFFSET;
 
 /// 迁移前的老触发器集合（记忆 #1290）；024/025 只增新表，一个都不动。
 const LEGACY_TRIGGERS: [&str; 8] = [
@@ -119,11 +120,11 @@ fn tagging_edges_equal_tag_links() {
     let c = seeded_v26();
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tag_links WHERE target_type='note'"), 3, "夹具非空");
     let fwd = format!(
-        "SELECT COUNT(*) FROM (SELECT target_id, tag_id + {TAG_ID_OFFSET} FROM tag_links \
+        "SELECT COUNT(*) FROM (SELECT target_id, tag_id + {LEGACY_ENTITY_ID_OFFSET} FROM tag_links \
          WHERE target_type='note' EXCEPT SELECT source_id, target_id FROM edges WHERE kind='tagging')"
     );
     let bwd = format!(
-        "SELECT COUNT(*) FROM (SELECT target_id - {TAG_ID_OFFSET}, source_id FROM edges \
+        "SELECT COUNT(*) FROM (SELECT target_id - {LEGACY_ENTITY_ID_OFFSET}, source_id FROM edges \
          WHERE kind='tagging' EXCEPT SELECT tag_id, target_id FROM tag_links WHERE target_type='note')"
     );
     assert_eq!((count(&c, &fwd), count(&c, &bwd)), (0, 0), "tagging 双向等价");
@@ -135,12 +136,12 @@ fn relation_edges_equal_tag_links() {
     let c = seeded_v26();
     assert_eq!(count(&c, "SELECT COUNT(*) FROM tag_links WHERE target_type IN ('tag','type')"), 1, "夹具非空");
     let fwd = format!(
-        "SELECT COUNT(*) FROM (SELECT tag_id + {TAG_ID_OFFSET}, target_id + {TAG_ID_OFFSET}, remark \
+        "SELECT COUNT(*) FROM (SELECT tag_id + {LEGACY_ENTITY_ID_OFFSET}, target_id + {LEGACY_ENTITY_ID_OFFSET}, remark \
          FROM tag_links WHERE target_type IN ('tag','type') EXCEPT SELECT source_id, target_id, remark \
          FROM edges WHERE kind='relation')"
     );
     let bwd = format!(
-        "SELECT COUNT(*) FROM (SELECT source_id - {TAG_ID_OFFSET}, target_id - {TAG_ID_OFFSET}, remark \
+        "SELECT COUNT(*) FROM (SELECT source_id - {LEGACY_ENTITY_ID_OFFSET}, target_id - {LEGACY_ENTITY_ID_OFFSET}, remark \
          FROM edges WHERE kind='relation' EXCEPT SELECT tag_id, target_id, remark \
          FROM tag_links WHERE target_type IN ('tag','type'))"
     );

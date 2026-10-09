@@ -13,7 +13,7 @@ use rusqlite::{params, Connection};
 fn db() -> Connection {
     let c = Connection::open_in_memory().unwrap();
     migrate::run(&c).unwrap();
-    crate::db::repos::tags::test_support::install_entity_views(&c);
+    crate::db::repos::tags::test_support::install_legacy_name_views(&c);
     c.pragma_update(None, "foreign_keys", "ON").unwrap();
     c
 }
@@ -107,7 +107,7 @@ fn relation_edges_do_not_change_note_tags_fts_or_export() {
     let note = notes::create_plain(&mut c, "记录 #甲").unwrap();
     let jia = id_at(&c, "甲");
     let yi = ensure(&c, "乙");
-    // v28 起实体 id 统一连号(TAG_ID_OFFSET 已删):读方靠 `path`/`kind` 分流,不靠 id 区间。
+    // v28 起实体 id 统一连号(旧的标签 id 偏移已删):读方靠 `path`/`kind` 分流,不靠 id 区间。
     assert_ne!(jia, note.id, "标签与笔记是两行");
     let tags_before = repos::notes::read_full(&c, note.id).unwrap().unwrap().tags;
     let fts_before: String = c

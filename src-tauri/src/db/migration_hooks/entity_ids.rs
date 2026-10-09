@@ -1,17 +1,20 @@
 //! 027 的迁移前钩子(spec §12 D1 的 `graph_positions` 改写,与 `entities.legacy_id` 下架)。
 //!
-//! 标签 id 在 024 整体偏移 `+TAG_ID_OFFSET`,而 `settings.graph_positions` 的键是**老标签 id**
+//! 标签 id 在 024 整体偏移 `+1e9`,而 `settings.graph_positions` 的键是**老标签 id**
 //! (JSON 对象的数字字符串)。不改写的话图谱节点位置在阶段 4 后全部对不上(节点回到力导向初始位置)。
 //! `ui.mru.notes` 存的是**笔记 id**(原值不动),`ui.mru.tags` 存的是路径 —— 两者都不需要改。
 //!
 //! 钩子必须**幂等**:它写在事务外(见 `migrate::run` 的调用顺序),崩溃后下次启动会重跑。
-//! 故只对 `< TAG_ID_OFFSET` 的键偏移,已经是实体区间的键原样保留;解析失败的键丢弃。
+//! 故只对 `< 1e9` 的键偏移,已经是实体区间的键原样保留;解析失败的键丢弃。
 //! `entities.legacy_id` 同理:SQLite 的 `ALTER TABLE ... DROP COLUMN` 没有 IF EXISTS。
 use rusqlite::Connection;
 use serde_json::{Map, Value};
 
-use crate::db::repos::entities::TAG_ID_OFFSET;
 use crate::db::repos::settings::{self, GRAPH_POSITIONS_KEY};
+
+/// 024 给标签 id 加的整体偏移。写死在本文件:它是 027 的执行历史,共享常量真源已随统一实体
+/// 收口删除(spec §7.4),值与 `migrations/024_entities_tags.sql` 里的字面量保持一致。
+const ENTITY_ID_OFFSET_027: i64 = 1_000_000_000;
 
 /// 027 的版本号(与 `MIGRATIONS` 的下标 +1 成对,见 `migrate.rs`)。
 pub(crate) const ENTITY_IDS_VERSION: i64 = 27;
@@ -29,7 +32,7 @@ pub(crate) fn drop_legacy_id_column(conn: &Connection) -> rusqlite::Result<()> {
     Ok(())
 }
 
-/// 把 `graph_positions` 的键从老标签 id 改写成标签实体 id(`+ TAG_ID_OFFSET`)。
+/// 把 `graph_positions` 的键从老标签 id 改写成标签实体 id(024 的整体偏移)。
 /// 键不存在/坏 JSON/坏对象一律跳过并打印,不改动设置;值原样搬运。
 pub(crate) fn rewrite_graph_positions(conn: &Connection) -> rusqlite::Result<()> {
     let Some(raw) = settings::get(conn, GRAPH_POSITIONS_KEY)? else {
@@ -44,8 +47,8 @@ pub(crate) fn rewrite_graph_positions(conn: &Connection) -> rusqlite::Result<()>
     for (key, value) in map {
         match key.parse::<i64>() {
             // 老标签 id -> 标签实体 id(幂等:已偏移的直接保留)
-            Ok(id) if id < TAG_ID_OFFSET => {
-                out.insert((id + TAG_ID_OFFSET).to_string(), value);
+            Ok(id) if id < ENTITY_ID_OFFSET_027 => {
+                out.insert((id + ENTITY_ID_OFFSET_027).to_string(), value);
                 moved += 1;
             }
             Ok(_) => {

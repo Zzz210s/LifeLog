@@ -176,18 +176,23 @@ pub fn list_links_page(
     rows.collect()
 }
 
-/// 全部**已解析且非自指**的边 `(source_id, target_id)`,插入序;关系图 L4 画 link 边用。
+/// 全部**已解析且非自指**的笔记间链接边 `(source_id, target_id)`,插入序;关系图 L4 画 link 边用。
 /// 自指写入侧就不落边,这里再挡一道:自指在图上是一条零长的线。
-/// 全部已解析的**笔记间**链接边(两端都是树外实体 = 老 `kind='note'`)。
-/// 028 起 `edges(kind='link')` 也含笔记挂标签与标签关系,故两端都按 `path IS NULL` 收窄。
+/// 028 起 `edges(kind='link')` 也含笔记挂标签与标签关系,故两端都按树外实体(`path IS NULL`)收窄。
+///
+/// SQL 抽成常量:守卫用例(`note_links_perf_tests`)对同一份文本跑 `EXPLAIN QUERY PLAN`。
+/// 两端判据写成**相关子查询**(逐行按 `entities` 主键点查),不是
+/// `IN (SELECT id FROM entities WHERE path IS NULL)` —— 后者无可用索引(`idx_entities_path`
+/// 是部分索引,只管非 NULL),规划器会对 `entities` 全表扫两次(真库 5.1MB)。
+pub(crate) const ALL_RESOLVED_SQL: &str = "\
+    SELECT e.source_id, e.target_id FROM edges e
+     WHERE e.kind = 'link' AND e.source_id <> e.target_id
+       AND EXISTS(SELECT 1 FROM entities s WHERE s.id = e.source_id AND s.path IS NULL)
+       AND EXISTS(SELECT 1 FROM entities t WHERE t.id = e.target_id AND t.path IS NULL)
+     ORDER BY e.id";
+
 pub fn all_resolved(conn: &Connection) -> rusqlite::Result<Vec<(i64, i64)>> {
-    let mut stmt = conn.prepare(
-        "SELECT source_id, target_id FROM edges
-         WHERE kind = 'link' AND source_id <> target_id
-           AND source_id IN (SELECT id FROM entities WHERE path IS NULL)
-           AND target_id IN (SELECT id FROM entities WHERE path IS NULL)
-         ORDER BY id",
-    )?;
+    let mut stmt = conn.prepare(ALL_RESOLVED_SQL)?;
     let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?;
     rows.collect()
 }

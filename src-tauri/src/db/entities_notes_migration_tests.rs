@@ -4,9 +4,10 @@
 //! 重复执行幂等;`UNIQUE(source_id,kind,target_id)` 生效。
 //! 除「新库跑到最新」一例外,其余用例把库停在 v25(024/025 的读数):028 会重发全库 id,
 //! 「笔记 id 保持原值」这类断言只在 v25 成立。
-use super::entities_tags_fixture::{count, migrate_to_v23, seed_notes, seed_v23, table_exists};
+use super::entities_tags_fixture::{
+    count, migrate_to_v23, seed_notes, seed_v23, table_exists, LEGACY_ENTITY_ID_OFFSET,
+};
 use super::*;
-use crate::db::repos::entities::TAG_ID_OFFSET;
 
 /// v25 之前的夹具:先造 v23 老数据(3 标签 + 2 笔记 + 3 条 note 型 `tag_links`
 /// + 1 条 tag 型 `relation` + 2 条 `note_links`),再落 024 把标签搬进 `entities`。
@@ -98,11 +99,11 @@ fn tagging_edges_point_note_to_tag() {
     for note in [501_i64, 502] {
         assert_eq!(from_note(note), legacy(note), "笔记 {note} 的 tagging 目标集错");
     }
-    assert_eq!(from_note(501), vec![2 + TAG_ID_OFFSET, 3 + TAG_ID_OFFSET]);
+    assert_eq!(from_note(501), vec![2 + LEGACY_ENTITY_ID_OFFSET, 3 + LEGACY_ENTITY_ID_OFFSET]);
     assert_eq!(
         count(
             &c,
-            &format!("SELECT COUNT(*) FROM edges WHERE kind='tagging' AND target_id < {TAG_ID_OFFSET}")
+            &format!("SELECT COUNT(*) FROM edges WHERE kind='tagging' AND target_id < {LEGACY_ENTITY_ID_OFFSET}")
         ),
         0,
         "tagging 的标签端必须带偏移"
@@ -186,7 +187,7 @@ fn duplicate_tagging_edge_is_rejected() {
     let dup = c.execute(
         "INSERT INTO edges(source_id,target_id,kind,remark,created_at) \
          VALUES(501,?1,'tagging','','2026-01-01T00:00:00.000')",
-        [2 + TAG_ID_OFFSET],
+        [2 + LEGACY_ENTITY_ID_OFFSET],
     );
     let msg = dup.expect_err("重复 tagging 边必须报约束错").to_string();
     assert!(

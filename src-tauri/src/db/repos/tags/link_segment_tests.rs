@@ -3,13 +3,13 @@
 //! 名字含 `/` 时不可作寻址依据。用例直接摆 `entities` 行,以造出 `ensure_path` 不会产生的场面。
 use super::*;
 use crate::db::migrate;
-use crate::db::repos::tags::test_support::install_entity_views;
+use crate::db::repos::tags::test_support::install_legacy_name_views;
 use rusqlite::{params, Connection};
 
 fn db() -> Connection {
     let c = Connection::open_in_memory().unwrap();
     migrate::run(&c).unwrap();
-    install_entity_views(&c);
+    install_legacy_name_views(&c);
     c
 }
 

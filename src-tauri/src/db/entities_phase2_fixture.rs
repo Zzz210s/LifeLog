@@ -1,9 +1,10 @@
 //! 阶段 2(024/025/026)用例共用夹具:跑到 v26 的库 + 实体/边读数小工具。
 //! 断言里出现的老表(`tags`/`tag_links`)与偏移 id 都只在 v26 成立 —— 028 会重发全库 id
 //! 并把老链接表下架,故这个夹具刻意停在 v26。
-use super::entities_tags_fixture::{add_tag, migrate_to_v23, seed_notes, seed_v23};
+use super::entities_tags_fixture::{
+    add_tag, migrate_to_v23, seed_notes, seed_v23, LEGACY_ENTITY_ID_OFFSET,
+};
 use super::*;
-use crate::db::repos::entities::TAG_ID_OFFSET;
 
 /// `seed_v23` + `seed_notes`,再补两个空壳:4「空壳」挂 1 下(有父、无链接、无子)、
 /// 5「孤立根」(无父无链接无子)。老 `gc_orphans` 要回收「有父但无链接无子」,新口径必须同样回收。
@@ -22,7 +23,7 @@ pub(crate) fn seeded_v26() -> Connection {
 
 /// 老标签 id -> 实体 id(024/025 的偏移),只对 v26 成立。
 pub(crate) fn tag(id: i64) -> i64 {
-    id + TAG_ID_OFFSET
+    id + LEGACY_ENTITY_ID_OFFSET
 }
 
 pub(crate) fn ids(c: &Connection, sql: &str) -> Vec<i64> {

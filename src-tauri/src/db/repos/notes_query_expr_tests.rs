@@ -8,7 +8,7 @@ use rusqlite::Connection;
 fn db() -> Connection {
     let c = Connection::open_in_memory().unwrap();
     migrate::run(&c).unwrap();
-    crate::db::repos::tags::test_support::install_entity_views(&c);
+    crate::db::repos::tags::test_support::install_legacy_name_views(&c);
     c
 }
 

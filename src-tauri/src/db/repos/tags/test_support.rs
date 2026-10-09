@@ -1,11 +1,14 @@
-//! 统一元数据(v28)测试夹具:老表名 -> 新表 `entities`/`edges` 的只读视图 +
-//! `notes` 读写重定向,让既有笔记/标签测试的 SQL 与断言不改地跑在新表上。
+//! 【老表名测试夹具·仅测试】统一元数据(v28)前的老词汇(`tags`/`tag_links`/`notes`)
+//! 到新表 `entities`/`edges` 的只读投影 + `notes` 读写重定向。
+//!
+//! 为什么保留(而不是删掉):统一实体前写下的 40+ 个测试文件用老表名写 SQL 与断言,
+//! 逐个改写是一次独立的大规模机械重构(改写中易把断言口径改坏);本夹具让那批用例继续
+//! 跑在真结构上。它**只服务旧测试向量**:本模块整体是 `#[cfg(test)]`,生产代码结构上引用不到。
+//! **新写的用例一律直接对 `entities`/`edges` 写 SQL,不得再依赖这套投影**(彻底删除是独立后续项)。
 //!
 //! ① `tags` / `tag_links` / `tag_aliases` 视图把新表投影回老列名/老方向(只读);
 //! ② `notes` 视图 + 三个 INSTEAD OF 触发器把测试里对老表的读写重定向到 `entities`;
 //! ③ 树内实体 = `path IS NOT NULL`(v28 起不再有 `kind`),树外实体(笔记)path 为 NULL。
-//!
-//! 注意:这里只是测试夹具,生产路径完全走 `entities`/`edges`。
 use rusqlite::Connection;
 
 /// 老用例口径的「笔记域」:统一元数据后 `query` 的域是全实体(spec §4.1:清空筛选即显示标签),
@@ -36,7 +39,7 @@ pub(crate) fn is_note(conn: &Connection, id: i64) -> bool {
 }
 
 /// 安装夹具:老表视图 + `notes` 读写重定向。`migrate::run` 之后调用。
-pub(crate) fn install_entity_views(conn: &Connection) {
+pub(crate) fn install_legacy_name_views(conn: &Connection) {
     conn.execute_batch(
         "DROP TABLE IF EXISTS tag_links;
          DROP TABLE IF EXISTS tag_aliases;

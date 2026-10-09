@@ -9,7 +9,7 @@
 use super::*;
 use crate::db::migrate;
 use crate::db::repos::notes::create_plain;
-use crate::db::repos::tags::test_support::install_entity_views;
+use crate::db::repos::tags::test_support::install_legacy_name_views;
 use crate::db::repos::tags::rename;
 use rusqlite::Connection;
 use serde::Deserialize;
@@ -31,7 +31,7 @@ fn memory_db() -> Connection {
     migrate::run(&conn).unwrap();
     // 阶段 4 起标签正文兜底读 `entities`(老 `tags` 表已不再写),夹具把老表换成只读视图,
     // 使 `notes::parse_saved` 的库内路径候选与用例里的 `SELECT id FROM tags` 都落到新表上。
-    install_entity_views(&conn);
+    install_legacy_name_views(&conn);
     conn
 }
 

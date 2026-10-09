@@ -7,7 +7,7 @@ fn count(c: &Connection, sql: &str) -> i64 {
     c.query_row(sql, [], |r| r.get(0)).unwrap()
 }
 
-/// v23 起点(TAG_ID_OFFSET 时代之前):001..020 顺序重放 + 021/022/023 各自的钩子。
+/// v23 起点(标签 id 整体偏移的时代之前):001..020 顺序重放 + 021/022/023 各自的钩子。
 /// 与 `entities_tags_fixture::migrate_to_v23` 同序,这里不再种数据(空库路径)。
 #[test]
 fn upgrade_from_v23_to_latest_passes_reconcile() {

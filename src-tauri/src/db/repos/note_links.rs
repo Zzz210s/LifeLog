@@ -153,6 +153,11 @@ fn own_title(conn: &Connection, id: i64) -> rusqlite::Result<Option<String>> {
 #[path = "note_links_tests.rs"]
 mod note_links_tests;
 
+/// `all_resolved` 的性能/计划守卫(真库 172ms 事故的回归钉子)。
+#[cfg(test)]
+#[path = "note_links_perf_tests.rs"]
+mod note_links_perf_tests;
+
 #[cfg(test)]
 #[path = "note_links_fix_tests.rs"]
 mod note_links_fix_tests;

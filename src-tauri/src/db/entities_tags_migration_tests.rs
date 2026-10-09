@@ -4,12 +4,10 @@
 //! 边(`child`/`relation`)的专项读数见同目录 `entities_tags_edges_tests.rs`。
 //! 下面的断言只对 024 本体成立(028 会重发全库 id、抹掉偏移),故把库直接停在 v24;
 //! 终态等价性由 `drop_legacy_migration_tests` 覆盖。
-use super::entities_tags_fixture::{count, migrate_to_v23, seed_v23, table_exists};
+use super::entities_tags_fixture::{
+    count, migrate_to_v23, seed_v23, table_exists, LEGACY_ENTITY_ID_OFFSET,
+};
 use super::*;
-use crate::db::repos::entities::TAG_ID_OFFSET;
-
-/// 守卫用:SQL 里必须出现的偏移字面量(与 [`TAG_ID_OFFSET`] 相等)
-const OFFSET_LITERAL: i64 = 1_000_000_000;
 
 /// ① 新库跑到最新:user_version=24,表齐、完整性 ok、无外键违规
 #[test]
@@ -52,9 +50,9 @@ fn upgrade_from_v23_maps_tag_ids_with_offset() {
             |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
         )
         .unwrap();
-    assert_eq!(id, 2 + TAG_ID_OFFSET, "新标签 id 必须整体偏移");
-    assert!(id >= TAG_ID_OFFSET, "新标签 id 不得落进笔记 id 区间");
-    assert_eq!(pid, 1 + TAG_ID_OFFSET, "父 id 同样偏移");
+    assert_eq!(id, 2 + LEGACY_ENTITY_ID_OFFSET, "新标签 id 必须整体偏移");
+    assert!(id >= LEGACY_ENTITY_ID_OFFSET, "新标签 id 不得落进笔记 id 区间");
+    assert_eq!(pid, 1 + LEGACY_ENTITY_ID_OFFSET, "父 id 同样偏移");
     assert_eq!(path, "地点轴/日本");
     assert_eq!(depth, 2);
 
@@ -65,7 +63,7 @@ fn upgrade_from_v23_maps_tag_ids_with_offset() {
             |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
         )
         .unwrap();
-    assert_eq!((src, tgt), (1 + TAG_ID_OFFSET, id));
+    assert_eq!((src, tgt), (1 + LEGACY_ENTITY_ID_OFFSET, id));
     assert_eq!(remark, "", "child 边属性名恒空串");
     assert_eq!(
         count(&c, "SELECT COUNT(*) FROM edges WHERE kind='tagging'"),
@@ -150,13 +148,12 @@ fn replay_of_024_is_idempotent() {
     assert_eq!(v, 24);
 }
 
-/// ⑥ 守卫:024 里的偏移字面量 == `TAG_ID_OFFSET`(改常量不改 SQL = 悄悄写错 id 区间)
+/// ⑥ 守卫:024 里的偏移字面量 == 夹具里的历史偏移(改夹具不改 SQL = 悄悄写错 id 区间)
 #[test]
 fn offset_literal_matches_const() {
     let sql = MIGRATIONS[23];
     assert!(
-        sql.contains(&OFFSET_LITERAL.to_string()),
-        "024 必须出现偏移字面量 {OFFSET_LITERAL}"
+        sql.contains(&LEGACY_ENTITY_ID_OFFSET.to_string()),
+        "024 必须出现偏移字面量 {LEGACY_ENTITY_ID_OFFSET}"
     );
-    assert_eq!(TAG_ID_OFFSET, OFFSET_LITERAL, "常量真源与迁移字面量必须一致");
 }

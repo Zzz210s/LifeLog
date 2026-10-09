@@ -1,6 +1,10 @@
 //! 迁移 024 用例共用的 v23 夹具与查询小工具(几个测试模块共用一份,避免各写一遍)。
 use super::*;
 
+/// 024 给标签 id 加的整体偏移。只对**历史向量**(断言 024/025 时点的 id)有意义:
+/// 028 重发全库 id 后偏移不再存在,故这是测试夹具常量,不是生产常量(生产已删)。
+pub(crate) const LEGACY_ENTITY_ID_OFFSET: i64 = 1_000_000_000;
+
 pub(crate) fn count(conn: &Connection, sql: &str) -> i64 {
     conn.query_row(sql, [], |r| r.get(0)).unwrap()
 }

@@ -9,7 +9,7 @@ use rusqlite::{params, Connection};
 fn rename_cascades_filter_and_keeps_invariants() {
     let mut c = Connection::open_in_memory().unwrap();
     crate::db::migrate::run(&c).unwrap();
-    crate::db::repos::tags::test_support::install_entity_views(&c);
+    crate::db::repos::tags::test_support::install_legacy_name_views(&c);
     crate::db::repos::notes::create_plain(&mut c, "会议记录 #工作/项目A").unwrap();
     let filter = r##"{"keyword":null,"tags":[{"path":"工作/项目A","includeChildren":true}],"excludeTags":[{"path":"工作","includeChildren":false}],"tagPresence":null,"sort":"newest","expr":"#工作/项目A"}"##;
     crate::db::repos::settings::set(&c, FILTER_CURRENT_KEY, filter).unwrap();
@@ -30,7 +30,7 @@ fn rename_cascades_filter_and_keeps_invariants() {
 fn fts_invariant_catches_manual_update_drift() {
     let mut c = Connection::open_in_memory().unwrap();
     crate::db::migrate::run(&c).unwrap();
-    crate::db::repos::tags::test_support::install_entity_views(&c);
+    crate::db::repos::tags::test_support::install_legacy_name_views(&c);
     let note = crate::db::repos::notes::create_plain(&mut c, "x #甲").unwrap();
     let jia = id_at(&c, "甲");
 

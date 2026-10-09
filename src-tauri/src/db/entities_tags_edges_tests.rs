@@ -1,9 +1,10 @@
 //! 迁移 024 的边专项读数:`edges(kind='relation')` 从 `tag_links` 的 `tag`/`type` 行搬入,
 //! 属性名(`remark`,迁移 023 口径)跟着边;两端按标签 id 偏移;悬挂引用不中断迁移。
 //! 断言只对 024 本体成立(028 会重发 id)、故把库停在 v24。
-use super::entities_tags_fixture::{add_tag, count, migrate_to_v23, seed_v23};
+use super::entities_tags_fixture::{
+    add_tag, count, migrate_to_v23, seed_v23, LEGACY_ENTITY_ID_OFFSET,
+};
 use super::*;
-use crate::db::repos::entities::TAG_ID_OFFSET;
 
 /// ① relation 边带属性名:24 条边逐条搬入 remark,两端按偏移换算
 #[test]
@@ -38,11 +39,11 @@ fn relation_edges_carry_remark() {
     let (src, tgt, remark): (i64, i64, String) = c
         .query_row(
             "SELECT source_id, target_id, remark FROM edges WHERE kind='relation' AND source_id=?1",
-            [100 + TAG_ID_OFFSET],
+            [100 + LEGACY_ENTITY_ID_OFFSET],
             |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
         )
         .unwrap();
-    assert_eq!((src, tgt), (100 + TAG_ID_OFFSET, 10 + TAG_ID_OFFSET));
+    assert_eq!((src, tgt), (100 + LEGACY_ENTITY_ID_OFFSET, 10 + LEGACY_ENTITY_ID_OFFSET));
     assert_eq!(remark, "属性100");
 }
 
