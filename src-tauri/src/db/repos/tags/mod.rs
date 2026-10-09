@@ -30,6 +30,11 @@ mod auto_merge_tests;
 #[path = "auto_merge_extra_tests.rs"]
 mod auto_merge_extra_tests;
 
+/// T1.4 自动合并三重闸门(`is_cited` + 单行 + 逐字节相等)。
+#[cfg(test)]
+#[path = "auto_merge_gate_tests.rs"]
+mod auto_merge_gate_tests;
+
 /// 标签写入不变量测试台(E 组判据),随本模块收敛进 tags/。
 #[cfg(test)]
 #[path = "invariants_tests.rs"]

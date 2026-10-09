@@ -1,6 +1,7 @@
 //! 统一实体(`entities` / `edges`)的仓库层。阶段 1 只放标签 id 偏移常量与缓存对账,
 //! 后续任务按需追加子模块(`fts` 由 T3.1)——先声明后建文件会让迁移 024 落地的瞬间编译不过。
 
+pub mod closure;
 pub mod fts;
 pub mod ids;
 pub mod reconcile;
@@ -13,6 +14,11 @@ mod reconcile_tests;
 #[cfg(test)]
 #[path = "fts_tests.rs"]
 mod fts_tests;
+
+/// T1.4 祖先闭包与 `is_cited` 增量维护。
+#[cfg(test)]
+#[path = "closure_tests.rs"]
+mod closure_tests;
 
 /// 标签实体 id 相对老 `tags.id` 的整体偏移(spec §12 D1)。
 /// 真库 `max(tags.id)=845`、`max(notes.id)=1399`,偏移后两个区间永久不撞。

@@ -4,8 +4,9 @@
 //! 为什么 FTS 必须显式重写:`edges` 的 UPDATE 不改变 FTS(改名只改实体 path);
 //! 漏写就静默漂移(按新名搜不到、旧名仍命中)。阶段 4 起只需重写 `entities_fts`。
 use super::tree::{gc_orphans, refresh_entities_fts};
+use crate::db::repos::entities::closure::sync_is_cited;
 use crate::db::repos::filter_rewrite;
-use rusqlite::Connection;
+use rusqlite::{params, Connection};
 
 /// 标签写入的收尾输入(见 [`finish`])。调用方按自己的语义填:仅改名可 `gc: false`、
 /// 删除传 `path_change: None`(删除按设计不改写筛选条件)。
@@ -41,4 +42,23 @@ pub(crate) fn finish_core(conn: &Connection, p: PostWrite<'_>) -> rusqlite::Resu
         gc_orphans(conn)?;
     }
     Ok(())
+}
+
+/// 把实体拖入树(spec §3.2 / §3.4):建 `child(父 -> 被拖实体)` 并在同一事务补
+/// `link(父 -> 被拖实体, remark='')` —— 「被放置」与「被引用」共用同一判据,
+/// GC 无需区分来源。两条边都由 `UNIQUE(source_id, kind, target_id)` 幂等去重,
+/// 随后按入边重算 `is_cited`。UI 拖放入口(T3.3)接线前先落派生规则。
+#[allow(dead_code)]
+pub(crate) fn drop_into_tree(
+    conn: &Connection,
+    parent_id: i64,
+    entity_id: i64,
+) -> rusqlite::Result<()> {
+    conn.execute(
+        "INSERT OR IGNORE INTO edges(source_id, target_id, kind, remark, created_at)
+         VALUES(?1, ?2, 'child', '', datetime('now', 'localtime')),
+               (?1, ?2, 'link', '', datetime('now', 'localtime'))",
+        params![parent_id, entity_id],
+    )?;
+    sync_is_cited(conn, entity_id)
 }
