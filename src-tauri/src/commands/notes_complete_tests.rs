@@ -11,16 +11,18 @@ fn db() -> Connection {
     c
 }
 
-/// 候选池 = 全部笔记的显示首行:只裁空白、大小写原样;首行剥标签后为空的不进池;按 id 升序
+/// 候选池 = **全部实体**的显示首行(spec §5.1:`[[ ]]` 池含标签实体):只裁空白、大小写原样;
+/// 首行剥标签后为空的不进池;按 id 升序。
 #[test]
 fn all_titles_uses_display_title_and_skips_empty() {
     let mut c = db();
     create_plain(&mut c, "Hello World\n后续行").unwrap();
-    create_plain(&mut c, "#只有标签").unwrap(); // 剥标签后正文为空 -> 没有标题,排除
+    create_plain(&mut c, "#只有标签").unwrap(); // 正文剥成空 -> 该笔记没有标题,排除
     create_plain(&mut c, "另一个 标题").unwrap();
     let got = repos::notes::all_titles(&c).unwrap();
     let pairs: Vec<(i64, &str)> = got.iter().map(|t| (t.id, t.title.as_str())).collect();
-    assert_eq!(pairs, vec![(1, "Hello World"), (3, "另一个 标题")]);
+    // id=2 是笔记实体(正文空,排除);id=3 是 `#只有标签` 建出的标签实体(标题 = 标签名)
+    assert_eq!(pairs, vec![(1, "Hello World"), (3, "只有标签"), (4, "另一个 标题")]);
 }
 
 /// 子串命中整档排在子序列命中之前;档内保持 id 升序(池本身就是 id 升序)

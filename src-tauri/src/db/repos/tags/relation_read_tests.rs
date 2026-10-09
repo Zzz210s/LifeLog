@@ -113,9 +113,18 @@ fn relation_edges_do_not_change_note_tags_fts_or_export() {
     let fts_before: String = c
         .query_row("SELECT paths FROM entities_fts WHERE rowid=?1", params![note.id], |r| r.get(0))
         .unwrap();
-    let export_before = notes_export::rows(&c).unwrap();
+    // 导出 = 信息流当前筛选结果:关系边属于 乙 自己的出链,只改 乙 的引用列;
+    // 这里钉住「这条笔记自己的导出行」逐字段不变(关系边不得混进笔记的引用列表)。
+    let note_row = |c: &Connection| {
+        notes_export::rows(c)
+            .unwrap()
+            .into_iter()
+            .find(|r| r.id == note.id)
+            .expect("笔记在默认筛选结果内")
+    };
+    let export_before = note_row(&c);
 
-    set_tag_relation(&mut c, yi, jia, "").unwrap(); // 乙 -> 甲(target_id = note.id,故意撞号)
+    set_tag_relation(&mut c, yi, jia, "").unwrap(); // 乙 -> 甲
 
     let tags_after = repos::notes::read_full(&c, note.id).unwrap().unwrap().tags;
     let fts_after: String = c
@@ -124,7 +133,7 @@ fn relation_edges_do_not_change_note_tags_fts_or_export() {
     assert_eq!(tags_after, vec!["甲".to_string()], "关系边不得混进笔记的 tags 列");
     assert_eq!(tags_before, tags_after, "插入关系边不得改变笔记的 tags 列");
     assert_eq!(fts_before, fts_after, "插入关系边不得改写 FTS 标签列");
-    assert_eq!(notes_export::rows(&c).unwrap(), export_before, "导出内容不因关系而变");
+    assert_eq!(note_row(&c), export_before, "关系边不得改写笔记自己的导出行");
 }
 
 /// ⑤ 逐标签读数与批量事实口径一致:都给出 name 与**边上的属性名**(不取目标名的 md 备注)

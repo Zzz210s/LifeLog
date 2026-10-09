@@ -1,3 +1,7 @@
+use crate::db::repos::notes::notes_filter::{where_clause, FilterConditions};
+use crate::db::repos::settings::{self, FILTER_CURRENT_KEY};
+use crate::links::display_title;
+use crate::tag_label::label_plain;
 use rusqlite::Connection;
 use std::collections::HashMap;
 
@@ -6,11 +10,15 @@ pub const MAX_CELL_CHARS: usize = 32767;
 /// 超长正文截断后的中文标注(仅影响导出单元格,DB 原文不动)
 const TRUNCATE_MARK: &str = "…(导出已截断)";
 
-/// 导出行(不含表头):正文/标签两列(spec 2026-09-17 S2:不再导出日期与最后修改)。
+/// 导出行(不含表头),spec §6.6 列结构:`id, meta, created_at, 引用路径列表`。
 #[derive(Debug, PartialEq)]
 pub struct Row {
-    pub content: String,
-    pub tags: String,
+    pub id: i64,
+    /// 正文/名称(统一实体的 `meta`)
+    pub meta: String,
+    pub created_at: String,
+    /// 出链目标显示名列表(`edges.kind='link'`),空格分隔
+    pub refs: String,
 }
 
 /// 单元格正文:未超长原样返回;超长按字符数截断并在末尾标注(总长不超上限)
@@ -24,82 +32,100 @@ pub fn fit_cell(content: &str) -> String {
     out
 }
 
-/// 笔记标签按条目聚合:id -> "#a #b"(完整路径升序,空格分隔)
-/// 聚合真源是 t.path 而非 t.name:嵌套标签只留末级名会丢层级,
-/// 且不同父级下的同名末级(如 工作/会议 与 生活/会议)无法区分。
-/// 显示口径是**纯文本形态**(tag-label-md T6):导出是给人看的文件,
-/// md 名字只写可见文本(`[郴](chēn)州市` -> `郴州市`),不把 md 源码写进去。
-/// T4.4 起读统一实体:tagging 边方向 = 笔记 -> 标签(spec §2.1),
-/// 故 source_id 是笔记 id、target_id 是标签实体 id。
-fn note_tags(conn: &Connection) -> Result<HashMap<i64, String>, String> {
+/// 表头:id / 正文(meta) / 创建时间 / 引用路径列表(spec §6.6)
+pub const HEADERS: [&str; 4] = ["id", "正文", "创建时间", "引用路径"];
+
+/// 当前筛选条件:settings.filter_current(与信息流同一份);缺失/坏 JSON 退化为空条件(= 全部实体)。
+fn current_filter(conn: &Connection) -> FilterConditions {
+    settings::get(conn, FILTER_CURRENT_KEY)
+        .ok()
+        .flatten()
+        .and_then(|raw| serde_json::from_str(&raw).ok())
+        .unwrap_or_default()
+}
+
+/// 每个实体的出链目标显示名:树内实体给路径(`label_plain` 转可见文本),
+/// 树外实体给标题首行(`display_title`)。返回按 source_id 分组、组内按显示名升序。
+fn refs_by_source(conn: &Connection) -> Result<HashMap<i64, Vec<String>>, String> {
     let mut stmt = conn
         .prepare(
-            "SELECT l.source_id, t.path FROM edges l
+            "SELECT l.source_id, t.path, t.meta FROM edges l
              JOIN entities t ON t.id = l.target_id
-             WHERE l.kind = 'tagging' ORDER BY l.source_id, t.path",
+             WHERE l.kind = 'link'",
         )
         .map_err(|e| e.to_string())?;
     let rows = stmt
-        .query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))
+        .query_map([], |r| {
+            Ok((r.get::<_, i64>(0)?, r.get::<_, Option<String>>(1)?, r.get::<_, String>(2)?))
+        })
         .map_err(|e| e.to_string())?;
-    let mut map: HashMap<i64, String> = HashMap::new();
+    let mut map: HashMap<i64, Vec<String>> = HashMap::new();
     for row in rows {
-        let (id, name) = row.map_err(|e| e.to_string())?;
-        let cell = map.entry(id).or_default();
-        if !cell.is_empty() {
-            cell.push(' ');
+        let (source, path, meta) = row.map_err(|e| e.to_string())?;
+        let label = match path {
+            Some(p) => label_plain(&p),
+            None => display_title(&meta),
+        };
+        if !label.is_empty() {
+            map.entry(source).or_default().push(label);
         }
-        cell.push('#');
-        cell.push_str(&crate::tag_label::label_plain(&name));
+    }
+    for labels in map.values_mut() {
+        labels.sort();
     }
     Ok(map)
 }
 
-/// 表头:正文/标签(#a #b) —— 只有两列(S2)
-pub const HEADERS: [&str; 2] = ["正文", "标签"];
-
-/// 导出行数据(核心行为单点):标签聚合、正文/标签截断。
-/// 排序与信息流一致(D1):按笔记实体 id 降序(最新在前)。
+/// 导出 = 信息流**当前筛选结果**(全部实体中的命中),按实体 id 降序(最新在前);
+/// 引用列聚合该实体的出 `link` 边目标显示名。
 pub fn rows(conn: &Connection) -> Result<Vec<Row>, String> {
-    let tags = note_tags(conn)?;
+    let (frag, args) = where_clause(&current_filter(conn))?;
+    let refs = refs_by_source(conn)?;
     let mut stmt = conn
-        .prepare("SELECT e.id, e.content FROM entities e WHERE e.kind = 'note' ORDER BY e.id DESC")
+        .prepare(&format!(
+            "SELECT n.id, n.meta, n.created_at FROM entities n WHERE ({frag}) ORDER BY n.id DESC"
+        ))
         .map_err(|e| e.to_string())?;
     let mapped = stmt
-        .query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))
+        .query_map(rusqlite::params_from_iter(args), |r| {
+            Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?))
+        })
         .map_err(|e| e.to_string())?;
     let mut out = Vec::new();
     for row in mapped {
-        let (id, content) = row.map_err(|e| e.to_string())?;
+        let (id, meta, created_at) = row.map_err(|e| e.to_string())?;
+        let refs = refs.get(&id).map(|v| v.join(" ")).unwrap_or_default();
         out.push(Row {
-            content: fit_cell(&content),
-            // 标签同样过 fit_cell:单条笔记标签聚合超上限会让整库导出失败(与正文同一失效模式)
-            tags: fit_cell(&tags.get(&id).cloned().unwrap_or_default()),
+            id,
+            meta: fit_cell(&meta),
+            created_at,
+            refs: fit_cell(&refs),
         });
     }
     Ok(out)
 }
 
-/// 整库笔记导出为 xlsx 字节:单 sheet"笔记",表头加粗,正文列放宽便于阅读。
+/// 当前筛选结果导出为 xlsx 字节:单 sheet"条目",表头加粗,正文列放宽便于阅读。
 pub fn export_notes(conn: &Connection) -> Result<Vec<u8>, String> {
     let rows = rows(conn)?;
     let mut workbook = rust_xlsxwriter::Workbook::new();
     let sheet = workbook.add_worksheet();
-    sheet.set_name("笔记").map_err(|e| e.to_string())?;
+    sheet.set_name("条目").map_err(|e| e.to_string())?;
     let bold = rust_xlsxwriter::Format::new().set_bold();
     for (col, h) in HEADERS.iter().enumerate() {
         sheet
             .write_with_format(0, col as u16, *h, &bold)
             .map_err(|e| e.to_string())?;
     }
-    for (col, w) in [80, 40].iter().enumerate() {
+    for (col, w) in [12, 80, 22, 40].iter().enumerate() {
         sheet.set_column_width(col as u16, *w).map_err(|e| e.to_string())?;
     }
     for (i, r) in rows.iter().enumerate() {
         let row = (i + 1) as u32;
-        let cells = [r.content.as_str(), r.tags.as_str()];
+        sheet.write(row, 0, r.id).map_err(|e| e.to_string())?;
+        let cells = [r.meta.as_str(), r.created_at.as_str(), r.refs.as_str()];
         for (col, v) in cells.iter().enumerate() {
-            sheet.write(row, col as u16, *v).map_err(|e| e.to_string())?;
+            sheet.write(row, (col + 1) as u16, *v).map_err(|e| e.to_string())?;
         }
     }
     workbook.save_to_buffer().map_err(|e| e.to_string())
