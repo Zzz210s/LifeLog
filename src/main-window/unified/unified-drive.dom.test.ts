@@ -11,19 +11,22 @@ import { createRoot, type Root } from 'react-dom/client';
 import { COMMANDS, withRuns } from '../../shared/commands';
 import type { CommandRegistry } from '../../shared/commands';
 import { defaultContext } from '../../shared/keys';
-import type { Note, TagCount } from '../../shared/types';
+import type { Note, NoteTitle, TagCount } from '../../shared/types';
 import { useAppPalette } from '../shell/use-app-palette';
 import { UnifiedInput } from './UnifiedInput';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const { queryNotes, listTags, getSetting, setSetting } = vi.hoisted(() => ({
+const { queryNotes, listTags, completeNotes, getSetting, setSetting } = vi.hoisted(() => ({
   queryNotes: vi.fn(async () => [] as Note[]),
   listTags: vi.fn(async () => [] as TagCount[]),
+  completeNotes: vi.fn(async () => [] as NoteTitle[]),
   getSetting: vi.fn(async (_key: string): Promise<string | null> => null),
   setSetting: vi.fn(async () => {}),
 }));
-vi.mock('../../shared/api', () => ({ api: { queryNotes, listTags, getSetting, setSetting } }));
+vi.mock('../../shared/api', () => ({
+  api: { queryNotes, listTags, completeNotes, getSetting, setSetting },
+}));
 
 const tag = (path: string, subtree: number): TagCount => ({
   id: path.length, path, depth: 0, sort_order: 0, self_count: subtree, subtree_count: subtree,
@@ -78,6 +81,7 @@ const drop = () => host.querySelector('[data-testid="unified-dropdown"]');
 
 beforeEach(async () => {
   queryNotes.mockResolvedValue([{ id: 1, content: '买牛奶', created_at: '2026-09-22 10:00:00', links: [], tags: ['生活'] }]);
+  completeNotes.mockResolvedValue([{ id: 1, title: '买牛奶' }]);
   listTags.mockResolvedValue([tag('工作/项目A', 4), tag('生活', 1)]);
   getSetting.mockResolvedValue(null);
   host = document.createElement('div');
@@ -111,9 +115,9 @@ describe('统一输入框 -> 候选控制器 -> 候选下拉(常驻驱动)', () 
     expect(row.textContent).not.toContain('[');
   });
 
-  it('`@` 输入后下拉出现笔记候选(走 @ 前缀的笔记 provider)', async () => {
+  it('`@` 输入后下拉出现实体候选(走 @ 前缀的实体 provider:全部实体)', async () => {
     await type('@牛奶');
-    expect(queryNotes).toHaveBeenCalled();
+    expect(completeNotes).toHaveBeenCalled();
     expect(drop()!.textContent).toContain('买牛奶');
   });
 
@@ -140,7 +144,7 @@ describe('统一输入框 -> 候选控制器 -> 候选下拉(常驻驱动)', () 
     await type('/买牛奶');
     expect(drop()).toBeNull();
     expect(host.querySelector('[data-hidden="false"]')).toBeNull();
-    expect(queryNotes).not.toHaveBeenCalled(); // 记录/筛选模式不驱动取候选
+    expect(completeNotes).not.toHaveBeenCalled(); // 记录/筛选模式不驱动取候选
   });
 
   it('退出前缀模式后停掉后台取候选(前缀清空,列表随之消失)', async () => {

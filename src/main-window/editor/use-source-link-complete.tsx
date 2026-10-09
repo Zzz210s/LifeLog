@@ -2,7 +2,7 @@
  * 卡片就地编辑(源码框)里的 `[[` 补全接线(设计 N4)。
  *
  * **复用**统一输入框那一套,不另起一份逻辑:
- *  - 候选:`useLinkComplete`(`detectLinkTrigger` 判上下文 / `useNoteTitles` 懒取会话内缓存 /
+ *  - 候选:`useLinkComplete`(`detectLinkTrigger` 判上下文 / `useEntityPool` 懒取会话内缓存 /
  *    `buildList` 打分截断高亮 / `excludeId` 排除正在编辑的自己);
  *  - 键盘:`useUnifiedKeys`(`routeUnifiedKey` 的 IME 守卫、Ctrl+Enter 保存、Esc);
  *  - 行:浮层 `PaletteRow`(经 `SourceLinkList`)。

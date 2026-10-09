@@ -9,26 +9,30 @@ import type { ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { defaultContext } from '../../shared/keys';
-import type { Note, TagCount } from '../../shared/types';
+import type { Note, NoteTitle, TagCount } from '../../shared/types';
 import { notifyTagsChanged, onTagsChanged } from '../data/tags-changed';
 import { updateNote as writeNote } from '../data/note-writes';
 import { useSaveOnUnmount } from '../editor/use-save-on-unmount';
 import { buildAppProviders } from '../palette/providers/app-providers';
-import { createTagCandidates } from '../palette/tag-candidates';
+import { createEntityCandidates } from '../palette/entity-candidates';
 import { mountAppPalette } from './__fixtures__/app-palette-harness';
 import type { AppPaletteHarness } from './__fixtures__/app-palette-harness';
 
-const { queryNotes, listTags, getSetting, setSetting, updateNote } = vi.hoisted(() => ({
+const { queryNotes, listTags, completeNotes, getSetting, setSetting, updateNote } = vi.hoisted(() => ({
   queryNotes: vi.fn(async () => [] as Note[]),
   listTags: vi.fn(async () => [] as TagCount[]),
+  completeNotes: vi.fn(async () => [] as NoteTitle[]),
   getSetting: vi.fn(async (_key: string): Promise<string | null> => null),
   setSetting: vi.fn(async () => {}),
   updateNote: vi.fn(async (): Promise<Note | null> => null),
 }));
-vi.mock('../../shared/api', () => ({ api: { queryNotes, listTags, getSetting, setSetting, updateNote } }));
+vi.mock('../../shared/api', () => ({
+  api: { queryNotes, listTags, completeNotes, getSetting, setSetting, updateNote },
+}));
 
+let tagSeq = 0;
 const tag = (path: string, subtree: number): TagCount => ({
-  id: path.length,
+  id: ++tagSeq,
   path,
   depth: 0,
   sort_order: 0,
@@ -38,7 +42,9 @@ const tag = (path: string, subtree: number): TagCount => ({
 
 let h: AppPaletteHarness;
 beforeEach(() => {
+  tagSeq = 0;
   queryNotes.mockResolvedValue([]);
+  completeNotes.mockResolvedValue([]);
   listTags.mockResolvedValue([tag('工作', 4), tag('生活', 1)]);
   getSetting.mockResolvedValue(null);
   h = mountAppPalette();
@@ -127,10 +133,8 @@ describe('`#` 候选:数据版本不换新注册表(复审 m2)', () => {
     const registry = buildAppProviders({
       registry: h.registry,
       getContext: () => defaultContext(),
-      pool: { current: async () => [], refresh: () => {} },
-      tagPool: createTagCandidates(async () => rows),
-      getTagsVersion: () => version,
-      noteIndex: { current: new Map() },
+      entityPool: createEntityCandidates(async () => [], async () => rows),
+      getVersion: () => version,
       tagsRef: { current: [] },
     });
     const ids = async (): Promise<string[]> =>

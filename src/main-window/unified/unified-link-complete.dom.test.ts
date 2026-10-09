@@ -16,14 +16,15 @@ import { UnifiedInput } from './UnifiedInput';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const { completeNotes, saveInputNote } = vi.hoisted(() => ({
+const { completeNotes, saveInputNote, listTags } = vi.hoisted(() => ({
   completeNotes: vi.fn(async (): Promise<NoteTitle[]> => [
     { id: 1, title: '买牛奶' },
     { id: 2, title: '购物清单' },
   ]),
   saveInputNote: vi.fn(async (_s: string) => 1),
+  listTags: vi.fn(async () => []),
 }));
-vi.mock('../../shared/api', () => ({ api: { completeNotes, saveInputNote } }));
+vi.mock('../../shared/api', () => ({ api: { completeNotes, saveInputNote, listTags } }));
 
 let root: Root | null = null;
 const mount = async (props: Partial<Parameters<typeof UnifiedInput>[0]> = {}) => {

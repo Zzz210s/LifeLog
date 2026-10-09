@@ -1,8 +1,9 @@
 /**
- * 输入栏 `[[` 笔记补全(设计 2026-10-01-link-autocomplete-design.md 的 N3):与同目录的
+ * 输入栏 `[[` 补全(设计 2026-10-01-link-autocomplete-design.md 的 N3):与同目录的
  * `use-tag-complete` **同族但状态各自独立** —— 触发判断复用共享纯函数 `detectLinkTrigger`,
- * 候选池走主窗同一份 `useNoteTitles`(懒取 + 会话内缓存),打分/截断/命中段一律交给共享列表
- * 模型 `buildList`(不另写 matcher,与统一输入框 `use-link-complete` 同一套口径)。
+ * 候选池走与主窗同一份**实体池** `useEntityPool`(懒取 + 会话内缓存;全部实体,
+ * 树内实体带路径),打分/截断/命中段一律交给共享列表模型 `buildList`
+ * (不另写 matcher,与统一输入框 `use-link-complete` 同一套口径)。
  *
  * 与 `#` 标签补全的互斥不在这里做:两套 hook 各写各的候选态,由宿主 `useInputCompletions`
  * 按 `[[` 优先路由(渲染与键盘都只走一套),因此互不污染,也不必把两份逻辑揉在一起。
@@ -16,10 +17,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react';
 import { acceptLink, detectLinkTrigger } from '../shared/note-link-trigger';
 import type { NoteMruSource } from '../shared/note-mru';
+import type { EntityCandidate } from '../shared/entity-pool';
 import { buildList, COMPLETE_LIMIT } from '../shared/quickpick/model';
 import type { ListRow, QuickPickItem } from '../shared/quickpick/model';
-import type { NoteTitle } from '../shared/types';
-import { useNoteTitles } from '../main-window/data/use-note-titles';
+import { useEntityPool } from '../main-window/data/use-entity-pool';
 
 export interface LinkCompleteOptions {
   textareaRef: RefObject<HTMLTextAreaElement | null>;
@@ -39,6 +40,8 @@ export interface LinkCompleteState {
   /** 有候选且未被 Esc 收起:宿主的渲染与键盘路由都以它为准(与 `#` 补全的 open 同义) */
   open: boolean;
   items: readonly ListRow[];
+  /** 树内行 id(渲染行尾「树内 / 树外」徽标;id 是实体 id 的字符串形) */
+  inTreeIds: ReadonlySet<string>;
   activeIndex: number;
   /** 键盘路由:返回 true 表示已消费(宿主不再处理该键);Ctrl/组合键与 IME 组合中恒不消费 */
   onKeyDown: (e: ReactKeyboardEvent<HTMLTextAreaElement>) => boolean;
@@ -46,15 +49,16 @@ export interface LinkCompleteState {
   onPick: (row: ListRow) => void;
 }
 
-/** 笔记标题 -> 候选项(标题即打分与展示的主文案;id 用笔记 id 保证 React key 稳定) */
-function toItems(titles: readonly NoteTitle[]): QuickPickItem[] {
-  return titles.map((t) => ({ id: String(t.id), label: t.title }));
+/** 实体 -> 候选项(显示首行即打分与展示的主文案;id 用实体 id 保证 React key 稳定) */
+function toItems(pool: readonly EntityCandidate[]): QuickPickItem[] {
+  return pool.map((e) => ({ id: String(e.id), label: e.name }));
 }
 
 export function useLinkComplete(opts: LinkCompleteOptions): LinkCompleteState {
   const trigger = detectLinkTrigger(opts.value, opts.caret);
   const query = trigger === null ? null : trigger.query;
-  const pool = useNoteTitles(opts.dataVersion ?? 0, query !== null);
+  const pool = useEntityPool(opts.dataVersion ?? 0, query !== null);
+  const inTreeIds = useMemo(() => new Set(pool.tree.map((e) => String(e.id))), [pool.tree]);
   // 采纳记一次 MRU 后要让空查询重排:用 tick 现读 entries()
   const [mruTick, setMruTick] = useState(0);
   const mru = useMemo(() => opts.mru?.entries() ?? [], [opts.mru, mruTick]);
@@ -62,8 +66,8 @@ export function useLinkComplete(opts: LinkCompleteOptions): LinkCompleteState {
     () =>
       query === null
         ? []
-        : buildList({ items: toItems(pool.titles), query, limit: COMPLETE_LIMIT, mru }).rows,
-    [pool.titles, query, mru]
+        : buildList({ items: toItems(pool.pool), query, limit: COMPLETE_LIMIT, mru }).rows,
+    [pool.pool, query, mru]
   );
 
   // Esc 收起:记住「在哪段正文上收的」,正文一变(继续打字/删字)就自然重现
@@ -120,5 +124,5 @@ export function useLinkComplete(opts: LinkCompleteOptions): LinkCompleteState {
     [items, activeIndex, adopt, opts.value]
   );
 
-  return { open, items, activeIndex, onKeyDown, onPick: adopt };
+  return { open, items, inTreeIds, activeIndex, onKeyDown, onPick: adopt };
 }

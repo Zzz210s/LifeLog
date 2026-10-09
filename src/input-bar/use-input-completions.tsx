@@ -62,7 +62,12 @@ export function useInputCompletions(o: InputCompletionsOptions): InputCompletion
   const count = linkFirst ? link.items.length : tag.items.length;
   const listHeight = count > 0 ? suggestListHeightCss(count) : 0;
   const list = linkFirst ? (
-    <LinkCompleteList items={link.items} activeIndex={link.activeIndex} onPick={link.onPick} />
+    <LinkCompleteList
+      items={link.items}
+      activeIndex={link.activeIndex}
+      inTreeIds={link.inTreeIds}
+      onPick={link.onPick}
+    />
   ) : (
     <TagCompleteList items={tag.items} activeIndex={tag.activeIndex} onPick={tag.onPick} />
   );

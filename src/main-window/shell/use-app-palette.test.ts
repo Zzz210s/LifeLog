@@ -1,32 +1,27 @@
 /**
- * 三个 provider 经候选接线的读数:`@` = 笔记、`>` = 命令、`#` = 标签;
- * 驱动走 controller.setQuery(与统一输入框同一条路);装饰(danger/checked/计数/日期)按前缀分派;
- * 候选硬截与 FTS 追加。采纳分派的用例已随 accepting 死半删除(2/3 Task 5;副作用在 StreamView)。
+ * 三个前缀经候选接线的读数(计划 T3.2):`@` = 全部实体、`#` = 树内实体、`>` = 命令;
+ * `@` / `#` 共用**一个实体 provider**(两路 IPC 合并,按数据版本缓存)。
+ * 驱动走 controller.setQuery(与统一输入框同一条路);装饰(danger/checked/计数)按前缀分派。
  */
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Note, TagCount } from '../../shared/types';
+import type { NoteTitle, TagCount } from '../../shared/types';
 import { mountAppPalette } from './__fixtures__/app-palette-harness';
 import type { AppPaletteHarness } from './__fixtures__/app-palette-harness';
 
-const { queryNotes, listTags, getSetting, setSetting } = vi.hoisted(() => ({
-  queryNotes: vi.fn(async () => [] as Note[]),
+const { completeNotes, listTags, getSetting, setSetting } = vi.hoisted(() => ({
+  completeNotes: vi.fn(async () => [] as NoteTitle[]),
   listTags: vi.fn(async () => [] as TagCount[]),
   getSetting: vi.fn(async (_key: string): Promise<string | null> => null),
   setSetting: vi.fn(async () => {}),
 }));
-vi.mock('../../shared/api', () => ({ api: { queryNotes, listTags, getSetting, setSetting } }));
+vi.mock('../../shared/api', () => ({ api: { completeNotes, listTags, getSetting, setSetting } }));
 
-const note = (id: number, content: string, tags: string[] = []): Note => ({
-  id,
-  content,
-  created_at: '2026-09-22 10:00:00', links: [],
-  tags,
-});
+let tagSeq = 100;
 const tag = (path: string, subtree: number): TagCount => ({
-  id: path.length,
+  id: ++tagSeq,
   path,
-  depth: 0,
+  depth: path.includes('/') ? 1 : 0,
   sort_order: 0,
   self_count: subtree,
   subtree_count: subtree,
@@ -34,8 +29,9 @@ const tag = (path: string, subtree: number): TagCount => ({
 
 let h: AppPaletteHarness;
 beforeEach(() => {
-  queryNotes.mockResolvedValue([note(1, '买牛奶', ['生活']), note(2, '写周报', ['工作/项目A'])]);
-  listTags.mockResolvedValue([tag('工作', 4), tag('生活', 1)]);
+  tagSeq = 100;
+  completeNotes.mockResolvedValue([{ id: 1, title: '买牛奶' }, { id: 2, title: '写周报' }]);
+  listTags.mockResolvedValue([tag('工作/项目A', 4), tag('生活', 1)]);
   getSetting.mockResolvedValue(null);
   h = mountAppPalette();
 });
@@ -48,15 +44,46 @@ afterEach(() => {
 const labels = (): string[] => h.controller().rows.map((r) => r.item.label);
 const ids = (): string[] => h.controller().rows.map((r) => r.item.id);
 
-describe('候选接线:三个 provider', () => {
-  it('`@` = 笔记(最近候选来自 query_notes),列表按标题打分', async () => {
+describe('候选接线:一个实体 provider', () => {
+  it('`@` = 全部实体(complete_notes 首行 + list_tags 路径),按显示首行打分', async () => {
     await h.type('@');
-    expect(queryNotes).toHaveBeenCalled();
-    expect(labels()).toEqual(['买牛奶', '写周报']);
+    expect(completeNotes).toHaveBeenCalled();
+    expect(listTags).toHaveBeenCalled();
+    expect(labels()).toEqual(['买牛奶', '写周报', '项目A', '生活']);
 
     await h.type('@牛奶');
     expect(labels()).toEqual(['买牛奶']);
     expect(h.controller().rows[0].ranges.length).toBeGreaterThan(0); // 高亮来自打分器
+  });
+
+  it('`#` = 树内实体(路径 + 含子级计数),输入即按路径打分', async () => {
+    await h.type('#');
+    expect(labels()).toEqual(['工作/项目A', '生活']);
+    expect(ids()).toEqual(['工作/项目A', '生活']); // `#` 行 id 是路径(采纳写 `#路径`)
+    expect(h.decorations()['工作/项目A'].detail).toBe('4 条');
+
+    await h.type('#项目');
+    expect(labels()).toEqual(['工作/项目A']);
+  });
+
+  it('`#` 模式:连续输入 10 个字符只打一次两路 IPC(候选池按数据版本缓存)', async () => {
+    await h.type('#');
+    expect(completeNotes).toHaveBeenCalledTimes(1);
+    expect(listTags).toHaveBeenCalledTimes(1);
+    const typed = '工作项目生活日常事务'; // 10 个字符
+    expect(typed.length).toBe(10);
+    for (let i = 1; i <= typed.length; i++) await h.type('#' + typed.slice(0, i));
+    expect(completeNotes).toHaveBeenCalledTimes(1); // 10 次按键,0 次新查询
+    expect(listTags).toHaveBeenCalledTimes(1);
+  });
+
+  it('实体增删改(数据版本 +1)后下拉看到新标签,不陈旧', async () => {
+    await h.type('#');
+    expect(labels()).toEqual(['工作/项目A', '生活']);
+    listTags.mockResolvedValue([tag('工作/项目A', 4), tag('生活', 1), tag('新标签', 0)]);
+    h.setTagsVersion(1);
+    await h.flush();
+    expect(labels()).toContain('新标签');
   });
 
   it('`>` = 命令:13 条,输入「导」→ 导出整库排第一且带高亮', async () => {
@@ -81,32 +108,6 @@ describe('候选接线:三个 provider', () => {
     h2.unmount();
   });
 
-  it('`#` = 标签:显示路径 + 含子级计数;输入即按路径打分', async () => {
-    await h.type('#');
-    expect(labels()).toEqual(['工作', '生活']);
-    expect(h.decorations()['工作'].detail).toBe('4 条');
-    await h.type('项目');
-    expect(listTags).toHaveBeenCalled();
-  });
-
-  it('`#` 模式:连续输入 10 个字符只打一次 list_tags(候选池按数据版本缓存)', async () => {
-    await h.type('#');
-    expect(listTags).toHaveBeenCalledTimes(1); // 进 `#` 档时取一次
-    const typed = '工作项目生活日常事务'; // 10 个字符
-    expect(typed.length).toBe(10);
-    for (let i = 1; i <= typed.length; i++) await h.type('#' + typed.slice(0, i));
-    expect(listTags).toHaveBeenCalledTimes(1); // 10 次按键,0 次新查询
-  });
-
-  it('标签增删改(数据版本 +1)后下拉看到新标签,不陈旧', async () => {
-    await h.type('#');
-    expect(labels()).toEqual(['工作', '生活']);
-    listTags.mockResolvedValue([tag('工作', 4), tag('生活', 1), tag('新标签', 0)]);
-    h.setTagsVersion(1);
-    await h.flush();
-    expect(labels()).toContain('新标签');
-  });
-
   it('前缀实时驱动:输入 `>导` 当场切到命令 provider', async () => {
     await h.type('>导');
     expect(h.controller().prefix).toBe('>');
@@ -114,41 +115,28 @@ describe('候选接线:三个 provider', () => {
     expect(labels()).toEqual(['导出整库']);
   });
 
-  it('笔记装饰带日期与标签(取到过该笔记才有)', async () => {
-    await h.type('@');
-    expect(h.decorations()['1'].detail).toBe('2026-09-22 · #生活');
-  });
-
-  it('固定项不跨 provider 串:标签固定项(路径)不得改变笔记列表顺序', async () => {
+  it('固定项不跨 provider 串:标签固定项(路径)不得改变实体列表顺序', async () => {
     getSetting.mockImplementation(async (key: string) =>
-      key === 'ui.pinned.tags' ? '["2"]' : null, // '2' 恰好是一条笔记的 id
+      key === 'ui.pinned.tags' ? '["2"]' : null, // '2' 恰好是一个实体 id
     );
     const h2 = mountAppPalette();
     await h2.type('@');
-    expect(h2.controller().rows.map((r) => r.item.id)).toEqual(['1', '2']); // 仍按传入顺序
+    expect(h2.controller().rows.map((r) => r.item.id)).toEqual(['1', '2', '101', '102']);
     h2.unmount();
   });
 
-  it('笔记候选硬截 200 条(provider 侧保护)', async () => {
-    queryNotes.mockResolvedValue(Array.from({ length: 250 }, (_, i) => note(i + 1, `笔记${i + 1}`)));
+  it('实体候选硬截 200 条(provider 侧保护)', async () => {
+    completeNotes.mockResolvedValue(
+      Array.from({ length: 250 }, (_, i) => ({ id: i + 1, title: `实体${i + 1}` })),
+    );
     await h.type('@');
     expect(h.controller().rows).toHaveLength(200);
     expect(h.controller().total).toBe(200); // provider 已硬截,模型不再多算
     expect(h.controller().truncated).toBe(false); // 截断发生在 provider,列表模型看到的已是 200 条
   });
 
-  it('≥2 字且本地无高分时追加一次 FTS 查询', async () => {
-    queryNotes.mockResolvedValueOnce([note(1, '买牛奶')]); // 候选页
-    queryNotes.mockResolvedValueOnce([note(9, '深处藏着冷门词')]); // FTS 回包
-    await h.type('@');
-    expect(queryNotes).toHaveBeenCalledTimes(1);
-    await h.type('@冷门');
-    expect(queryNotes).toHaveBeenCalledTimes(2);
-    expect(ids()).toEqual(['9']);
-  });
-
   it('候选取回失败:错误条收到中文原因,列表清空(不静默)', async () => {
-    queryNotes.mockRejectedValue(new Error('查询炸了'));
+    completeNotes.mockRejectedValue(new Error('查询炸了'));
     await h.type('@');
     expect(h.errors.some((m) => m.includes('查询炸了'))).toBe(true);
     expect(h.controller().rows).toEqual([]);

@@ -7,12 +7,13 @@ import type { NoteMruSource } from '../../shared/note-mru';
 import type { Note } from '../../shared/types';
 import { EditPanel } from './EditPanel';
 
-const { updateNote, parseNoteSource, completeNotes } = vi.hoisted(() => ({
+const { updateNote, parseNoteSource, completeNotes, listTags } = vi.hoisted(() => ({
   updateNote: vi.fn(),
   parseNoteSource: vi.fn(),
   completeNotes: vi.fn(),
+  listTags: vi.fn(),
 }));
-vi.mock('../../shared/api', () => ({ api: { updateNote, parseNoteSource, completeNotes } }));
+vi.mock('../../shared/api', () => ({ api: { updateNote, parseNoteSource, completeNotes, listTags } }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -34,6 +35,8 @@ beforeEach(() => {
   parseNoteSource.mockReset();
   parseNoteSource.mockResolvedValue({ content: '', tags: [] });
   completeNotes.mockReset();
+  listTags.mockReset();
+  listTags.mockResolvedValue([]);
   completeNotes.mockResolvedValue([
     { id: 1, title: '买牛奶' },
     { id: 2, title: '购物清单' },

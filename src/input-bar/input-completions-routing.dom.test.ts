@@ -9,11 +9,12 @@ import type { CompleteItem, NoteTitle } from '../shared/types';
 import { mountCompletions } from './completions-test-kit';
 import type { CompletionsDom } from './completions-test-kit';
 
-const { completeNotes, completeTags } = vi.hoisted(() => ({
+const { completeNotes, completeTags, listTags } = vi.hoisted(() => ({
   completeNotes: vi.fn(),
   completeTags: vi.fn(),
+  listTags: vi.fn(),
 }));
-vi.mock('../shared/api', () => ({ api: { completeNotes, completeTags, hideInputBar: vi.fn() } }));
+vi.mock('../shared/api', () => ({ api: { completeNotes, completeTags, listTags, hideInputBar: vi.fn() } }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -21,6 +22,8 @@ let dom: CompletionsDom;
 
 beforeEach(async () => {
   completeNotes.mockReset();
+  listTags.mockReset();
+  listTags.mockResolvedValue([]);
   completeTags.mockReset();
   completeNotes.mockResolvedValue([{ id: 1, title: '买牛奶' }] as NoteTitle[]);
   completeTags.mockResolvedValue([{ path: '标签甲', kind: 'tag' }] as CompleteItem[]);

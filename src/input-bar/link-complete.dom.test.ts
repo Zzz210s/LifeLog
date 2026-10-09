@@ -13,11 +13,12 @@ import type { NoteTitle } from '../shared/types';
 import { mountCompletions } from './completions-test-kit';
 import type { CompletionsDom } from './completions-test-kit';
 
-const { completeNotes, completeTags } = vi.hoisted(() => ({
+const { completeNotes, completeTags, listTags } = vi.hoisted(() => ({
   completeNotes: vi.fn(),
   completeTags: vi.fn(),
+  listTags: vi.fn(),
 }));
-vi.mock('../shared/api', () => ({ api: { completeNotes, completeTags, hideInputBar: vi.fn() } }));
+vi.mock('../shared/api', () => ({ api: { completeNotes, completeTags, listTags, hideInputBar: vi.fn() } }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -25,6 +26,8 @@ let dom: CompletionsDom;
 
 beforeEach(async () => {
   completeNotes.mockReset();
+  listTags.mockReset();
+  listTags.mockResolvedValue([]);
   completeTags.mockReset();
   completeNotes.mockResolvedValue([
     { id: 1, title: '买牛奶' },
@@ -142,5 +145,17 @@ describe('输入栏:`[[` 笔记补全', () => {
     } finally {
       withMru.unmount();
     }
+  });
+
+  it('行尾徽标标出树内 / 树外(补全池 = 全部实体,用例 ③)', async () => {
+    listTags.mockResolvedValue([
+      { id: 2, path: '标签乙', depth: 0, sort_order: 0, self_count: 0, subtree_count: 0 },
+    ]);
+    await dom.type('[[');
+    const badges = Array.from(
+      dom.host.querySelectorAll('[data-testid="link-suggest"] button[role="option"]')
+    ).map((b) => (b.lastElementChild?.textContent ?? '').trim());
+    expect(badges).toEqual(['树外', '树内']);
+    expect(dom.labels('link-suggest')).toEqual(['买牛奶', '购物清单']); // 徽标不污染主文案
   });
 });

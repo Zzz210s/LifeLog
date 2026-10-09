@@ -5,25 +5,26 @@
  * 判断光标上下文,命中时本 hook 自建一份候选态(候选池 = 全库笔记标题),复用 `buildList` 的
  * 打分/排序/高亮与 `#` 补全同一套,并按 `PaletteController` 形状交给面板,互不影响既有四类前缀。
  *
- * 候选池懒取:`useNoteTitles(enabled)` 只在真的出现未闭合 `[[` 后才打一次 IPC(N9 的会话内缓存)。
+ * 候选池懒取:`useEntityPool(enabled)` 只在真的出现未闭合 `[[` 后才打一次 IPC(N9 的会话内缓存)。
+ * 池是**全部实体**(计划 T3.2):树内实体带路径,采纳仍写入显示首行(`[[X]]` 按名字寻址)。
  * 空查询:MRU(最近用过)优先,其后按池顺序;有查询按 `scoreFuzzy` 精排(MRU 不参与)。
  */
 import { useEffect, useMemo, useState } from 'react';
 import { acceptLink, detectLinkTrigger } from '../../shared/note-link-trigger';
 import type { NoteMruSource } from '../../shared/note-mru';
+import type { EntityCandidate } from '../../shared/entity-pool';
 import { buildList, COMPLETE_LIMIT } from '../../shared/quickpick/model';
 import type { QuickPickItem } from '../../shared/quickpick/model';
-import type { NoteTitle } from '../../shared/types';
 import { clampActiveIndex } from '../palette/palette-limits';
 import type { PaletteController } from '../palette/use-palette';
-import { useNoteTitles } from '../data/use-note-titles';
+import { useEntityPool } from '../data/use-entity-pool';
 
-/** 笔记标题 -> 候选项;`excludeId` 是「正在编辑的这一条自己」(N3) */
-export function linkItems(titles: readonly NoteTitle[], excludeId?: number): QuickPickItem[] {
+/** 实体 -> 候选项(显示首行;`excludeId` 是「正在编辑的这一条自己」,N3) */
+export function linkItems(pool: readonly EntityCandidate[], excludeId?: number): QuickPickItem[] {
   const out: QuickPickItem[] = [];
-  for (const t of titles) {
-    if (t.id === excludeId) continue;
-    out.push({ id: String(t.id), label: t.title });
+  for (const e of pool) {
+    if (e.id === excludeId) continue;
+    out.push({ id: String(e.id), label: e.name });
   }
   return out;
 }
@@ -54,8 +55,8 @@ export interface LinkComplete {
 
 export function useLinkComplete(o: LinkCompleteOptions): LinkComplete {
   const trigger = detectLinkTrigger(o.raw, o.caret);
-  const pool = useNoteTitles(o.dataVersion, trigger !== null);
-  const items = useMemo(() => linkItems(pool.titles, o.excludeId), [pool.titles, o.excludeId]);
+  const pool = useEntityPool(o.dataVersion, trigger !== null);
+  const items = useMemo(() => linkItems(pool.pool, o.excludeId), [pool.pool, o.excludeId]);
   const query = trigger?.query ?? '';
   // 采纳记一次 MRU 后要让空查询重排:用 tick 现读 entries(),不缓存成 props 里的静态数组
   const [mruTick, setMruTick] = useState(0);

@@ -112,7 +112,8 @@ export async function mountCompletions(
       });
       await settle();
     },
-    labels: (testid) => rows(testid).map((b) => (b.textContent ?? '').trim()),
+    // 只读行内**主文案** span(行尾徽标「树内/树外」「别名/近似」不算文案,否则会污染既有断言)
+    labels: (testid) => rows(testid).map((b) => (b.querySelector('span')?.textContent ?? '').trim()),
     appears: (testid) => host.querySelector(`[data-testid="${testid}"]`) !== null,
     marks: (testid) => Array.from(host.querySelectorAll(`[data-testid="${testid}"] mark`)).map((m) => m.textContent ?? ''),
     selected: (testid) => rows(testid).findIndex((b) => b.getAttribute('aria-selected') === 'true'),

@@ -12,8 +12,8 @@ import type { NoteTitle } from '../../shared/types';
 import { useLinkComplete } from './use-link-complete';
 import type { LinkComplete } from './use-link-complete';
 
-const { completeNotes } = vi.hoisted(() => ({ completeNotes: vi.fn() }));
-vi.mock('../../shared/api', () => ({ api: { completeNotes } }));
+const { completeNotes, listTags } = vi.hoisted(() => ({ completeNotes: vi.fn(), listTags: vi.fn() }));
+vi.mock('../../shared/api', () => ({ api: { completeNotes, listTags } }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -45,6 +45,8 @@ beforeEach(() => {
   document.body.appendChild(host);
   root = createRoot(host);
   completeNotes.mockReset();
+  listTags.mockReset();
+  listTags.mockResolvedValue([]);
   completeNotes.mockResolvedValue([
     { id: 1, title: '买牛奶' },
     { id: 2, title: '购物清单' },

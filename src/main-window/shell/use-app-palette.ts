@@ -3,7 +3,8 @@
  *
  * 2/3 Task 5:浮层外壳与它的「接受分派」已随统一输入框删除。采纳三类前缀的副作用全部在
  * `StreamView.acceptAt`(决策在纯函数 `effectFor`)里执行,这里只剩**取候选**这一半:
- * 1. **候选**:三个 provider(命令/笔记/标签)注册进本 hook 私有的注册表;输入变化由
+ * 1. **候选**:命令 provider + **一个实体 provider**(计划 T3.2:原笔记/标签两个 provider 合并;
+ *    默认档与 `@` 取全部实体,`#` 收窄到树内实体)注册进本 hook 私有的注册表;输入变化由
  *    `useProviderItems` 取回(带序号守卫,旧回包丢弃)。prefix/query 通过 `onFilterChange`
  *    从 use-palette 回传(避免 host 读 controller 造成数据环)。
  * 2. **持久化**:`ui.pinned.tags` / `ui.palette.limit` 与三个 MRU 读一次;坏数据由
@@ -11,20 +12,18 @@
  *
  * 候选缓存每次进 `@` 档作废一次:刚保存的笔记也能立刻被快速打开搜到。
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { api } from '../../shared/api';
 import type { CommandRegistry } from '../../shared/commands';
 import type { TagMruSource } from '../../shared/tag-mru';
-import type { Note, TagCount } from '../../shared/types';
+import type { TagCount } from '../../shared/types';
 import type { Context } from '../../shared/when';
 import type { ErrorKind } from './ErrorBar';
 import type { RowDecoration } from '../palette/PaletteRow';
-import { createNoteCandidates, recentConditions } from '../palette/note-candidates';
+import { createEntityCandidates } from '../palette/entity-candidates';
 import { buildAppProviders } from '../palette/providers/app-providers';
 import { usePaletteSettings } from '../palette/use-palette-settings';
-import { createTagCandidates } from '../palette/tag-candidates';
 import { commandDecorations } from '../palette/providers/commands';
-import { noteDecorationsFor } from '../palette/providers/notes';
 import { tagDecorations } from '../palette/providers/tags';
 import { usePalette } from '../palette/use-palette';
 import type { PaletteController } from '../palette/use-palette';
@@ -62,38 +61,33 @@ export function useAppPalette(options: AppPaletteOptions): AppPalette {
   const [filter, setFilter] = useState<FilterState>({ prefix: '', query: '' });
   const { settings } = usePaletteSettings();
   const tagsRef = useRef<readonly TagCount[]>([]);
-  const noteIndex = useRef(new Map<number, Note>());
 
-  // 候选池(每次进 `@` 档作废):分页取最近 200 条;FTS 追加查询走同一 IPC
-  const pool = useMemo(
-    () => createNoteCandidates((offset) => api.queryNotes(recentConditions(), offset)),
+  // 实体候选池(计划 T3.2):`#` / `@` / 默认档共用同一份;两路 IPC(全部实体 + 树内实体)
+  // 按数据版本缓存,版本由主窗 loadTags 成功时递增 —— 实体增删改后下一次取候选就重打库。
+  const entityPool = useMemo(
+    () =>
+      createEntityCandidates(
+        () => api.completeNotes(),
+        () => api.listTags(),
+        (rows) => {
+          tagsRef.current = rows;
+        },
+      ),
     [],
   );
-
-  // 标签候选池(复审 I1):整个数组缓存在会话内,缓存键 = 标签数据版本;
-  // 版本由主窗 loadTags 成功时递增,所以标签增删改后下一次取候选会重打库
-  const tagPool = useMemo(() => createTagCandidates(() => api.listTags()), []);
 
   const providers = useMemo(
     () =>
       buildAppProviders({
         registry: options.registry,
         getContext: () => latest.current.getContext(),
-        pool,
-        tagPool,
-        // 版本现读(复审 m2):注册表身份不随版本变化,`#` 的重取由下面的 refreshKey 驱动
-        getTagsVersion: () => latest.current.tagsVersion,
-        noteIndex,
+        entityPool,
+        // 版本现读(复审 m2):注册表身份不随版本变化,重取由下面的 refreshKey 驱动
+        getVersion: () => latest.current.tagsVersion,
         tagsRef,
       }),
-    [options.registry, pool, tagPool],
+    [options.registry, entityPool],
   );
-
-  // 进 `@` 档即作废候选缓存(刚保存的笔记也要能搜到)。必须在 useProviderItems 的 effect
-  // 之前声明:同一次提交里 effect 按声明顺序执行,先清缓存、再取候选,否则取到的还是上一次的旧缓存。
-  useEffect(() => {
-    if (filter.prefix === '@') pool.refresh();
-  }, [filter.prefix, pool]);
 
   const items = useProviderItems({
     registry: providers,
@@ -102,8 +96,9 @@ export function useAppPalette(options: AppPaletteOptions): AppPalette {
     isOpen: filter.prefix !== '',
     prefix: filter.prefix,
     query: filter.query,
-    // 只有 `#` 的候选与标签数据版本有关;其余前缀传常量,版本变化不重跑
-    refreshKey: filter.prefix === '#' ? options.tagsVersion : 0,
+    // 实体前缀(`#` / `@`)的候选与数据版本有关;其余前缀传常量,版本变化不重跑
+    refreshKey:
+      filter.prefix === '#' || filter.prefix === '@' ? options.tagsVersion : 0,
     onError: (message) => latest.current.setError('action', message),
   });
 
@@ -139,8 +134,8 @@ export function useAppPalette(options: AppPaletteOptions): AppPalette {
       return commandDecorations(options.registry, options.getContext());
     }
     if (filter.prefix === '#') return tagDecorations(tagsRef.current);
-    return noteDecorationsFor(items, noteIndex.current);
-  }, [filter.prefix, items, options.registry, options.getContext]);
+    return {};
+  }, [filter.prefix, options.registry, options.getContext]);
 
   return { controller, decorations, tagMru: settings };
 }
