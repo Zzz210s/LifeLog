@@ -36,7 +36,7 @@ export type UnifiedKeyAction =
 
 export function routeUnifiedKey(e: KeyLike, ctx: UnifiedKeyContext): UnifiedKeyAction {
   // 输入法组合守卫(审查 C1):中文候选开着时,上屏那一下的 Enter 不能当成「采纳当前行」
-  // (会误加筛选条件/误滚到某条笔记/误执行命令),Ctrl+Enter 保存同理。一律返回未消费,
+  // (会误加筛选条件/误滚到某个条目/误执行命令),Ctrl+Enter 保存同理。一律返回未消费,
   // 让按键落到 textarea 自己处理。输入栏的补全 hook 用同一口径(use-tag-complete)。
   if (e.isComposing === true || e.keyCode === 229) return { type: 'ignore' };
   if (e.ctrlKey && e.key === 'Enter') return { type: 'save' };

@@ -47,7 +47,7 @@ describe('两行元数据', () => {
     const labels = rows.map((r) => r.ariaLabel);
     expect(new Set(labels).size).toBe(2);
     expect(labels).not.toContain('录制快捷键'); // 全局那行的名字留给命令 hotkey.edit 定位
-    expect(rows.map((r) => r.label)).toEqual(['快速打开笔记', '命令']);
+    expect(rows.map((r) => r.label)).toEqual(['快速打开条目', '命令']);
   });
 });
 
@@ -74,7 +74,7 @@ describe('三个动作各自写什么值', () => {
 
 describe('失败路径', () => {
   it('Rust 的中文原因原样抛出,且不广播(旧键保持可用)', async () => {
-    h.fail = 'ctrl+p 已被「快速打开笔记」占用,请换一个组合';
+    h.fail = 'ctrl+p 已被「快速打开条目」占用,请换一个组合';
     await expect(saveAppHotkey('palette', 'ctrl+p')).rejects.toBe(h.fail);
     expect(events).toBe(0);
   });

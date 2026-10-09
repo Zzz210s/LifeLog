@@ -24,7 +24,7 @@ export interface EditPanelProps {
   onMounted?: () => void;
   /** 点击处换算出的源码偏移:进编辑时把光标放到这里(用户 2026-10-03);缺省落正文末尾 */
   caretHint?: number | null;
-  /** 点区块外且落点是另一条笔记正文:先保存当前(成功才)再切过去 */
+  /** 点区块外且落点是另一个条目正文:先保存当前(成功才)再切过去 */
   onSwitchNote?: (id: number) => void;  /** 面板已卸载、无法就地显示错误时:错误交主窗错误条,不能让失败静默 */
   onErrorFallback?: (message: string) => void;
   /** 该笔记被多少条其它笔记引用(L3):>0 时在面板底部列出只读的反向引用来源 */
@@ -39,7 +39,7 @@ type CommitResult =
   | { ok: false; message: string; inline: boolean; busy?: boolean };
 
 /** 编辑态:点正文即就地变源码框(形态 A,2026-09-21;分屏实时预览已退场)。
- *  提交判定(2026-09-21 二次修订):点区块内 = 继续编辑;点区块外 / 点到程序窗口外 / 切到另一条笔记 = 保存
+ *  提交判定(2026-09-21 二次修订):点区块内 = 继续编辑;点区块外 / 点到程序窗口外 / 切到另一个条目 = 保存
  *  (未变则不写库直接退出);Esc = 取消(与取消按钮同义);Ctrl/Cmd+Enter = 保存并回到预览态(用户 2026-09-28 要求恢复)。
  *
  *  源码框是**非受控**的:真实输入法(中文 IME)组合期间受控 `value` 的 React state 不会跟上,
@@ -66,7 +66,7 @@ export function EditPanel(p: EditPanelProps): ReactNode {
   const panelRef = useRef<HTMLLIElement>(null);
   const initial = useRef(source); // 挂载时的源码:与它相同即「未变」,不写库
   const alive = useRef(true);
-  /** 已有保存在飞(区块外连点 / 点另一条笔记时的重复提交守卫) */
+  /** 已有保存在飞(区块外连点 / 点另一个条目时的重复提交守卫) */
   const inFlight = useRef(false);
 
   // 进编辑:焦点 + 光标落正文末尾(R4:不请求滚动祖先滚进视野);挂载后回调父层还原流位置

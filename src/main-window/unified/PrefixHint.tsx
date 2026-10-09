@@ -15,7 +15,7 @@ export interface PrefixHintProps {
   mode: InputMode;
   /** 有前缀时的实时统计文案,如「12 个匹配」「命中 38 条」;无则不显示 */
   stat?: string;
-  /** 编辑某条笔记时整行换成只读说明 */
+  /** 编辑某个条目时整行换成只读说明 */
   readonly?: boolean;
   /** 保存失败的中文原因;有值时整行换成红色文案(优先级高于 readonly) */
   error?: string;

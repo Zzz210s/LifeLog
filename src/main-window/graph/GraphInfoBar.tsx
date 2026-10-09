@@ -46,7 +46,7 @@ export function GraphInfoBar(p: {
           筛到信息流
         </button>
         <button type="button" className={BTN_SECONDARY} onClick={p.onToggleExpand}>
-          {p.expanded ? '收起笔记' : '展开笔记'}
+          {p.expanded ? '收起条目' : '展开条目'}
         </button>
       </div>
       <div className="mt-2 text-muted">Esc 返回信息流</div>

@@ -123,7 +123,7 @@ describe('drawPlan:决定画什么(纯函数)', () => {
     const big = p.dots.find((d) => d.id === 1)!;
     const small = p.dots.find((d) => d.id === 3)!;
     expect(big.r).toBeGreaterThan(small.r);
-    expect(big.r).toBe(9); // 1177 条笔记已撞上限
+    expect(big.r).toBe(9); // 1177 个条目已撞上限
     expect(small.r).toBeLessThan(9);
   });
 

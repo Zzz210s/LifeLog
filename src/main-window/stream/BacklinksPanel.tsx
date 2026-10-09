@@ -6,7 +6,7 @@ import type { Backlink } from '../../shared/types';
 export interface BacklinksPanelProps {
   /** 要列出反向引用的目标笔记 id */
   noteId: number;
-  /** 点来源条目跳到那条笔记(复用 L2 的快速打开);不传则只读(编辑面板) */
+  /** 点来源条目跳到那个条目(复用 L2 的快速打开);不传则只读(编辑面板) */
   onOpenNote?: (id: number) => void;
   /** 拉取出错上报(交主窗错误机制);不传则静默为空列表 */
   onError?: (message: string) => void;

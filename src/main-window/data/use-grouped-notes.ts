@@ -110,7 +110,7 @@ export function useGroupedNotes(
       clearError('query');
     } catch (e) {
       if (id !== seq.current) return;
-      setError('query', '加载笔记失败: ' + String(e));
+      setError('query', '加载条目失败: ' + String(e));
       setQueryFailed(true);
       setGroups([]);
     } finally {

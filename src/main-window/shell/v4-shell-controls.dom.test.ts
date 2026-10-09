@@ -155,7 +155,7 @@ describe('V4 标签分区头部:图标按钮 28 档', () => {
     expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual([
       '搜索标签',
       '切换为扁平列表',
-      '标签树里显示关系',
+      '实体树里显示引用',
       '筛选标签',
     ]);
     for (const btn of buttons) {
@@ -175,7 +175,7 @@ describe('V4 标签分区头部:图标按钮 28 档', () => {
         onFilterTags: () => calls.push('filter'),
       })
     );
-    for (const label of ['搜索标签', '切换为扁平列表', '标签树里显示关系', '筛选标签']) {
+    for (const label of ['搜索标签', '切换为扁平列表', '实体树里显示引用', '筛选标签']) {
       await act(async () => byLabel(label).click());
     }
     expect(calls).toEqual(['search', 'mode:flat', 'relations', 'filter']);

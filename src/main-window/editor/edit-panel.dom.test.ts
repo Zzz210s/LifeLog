@@ -33,7 +33,7 @@ async function mount(n: Note, extra: Record<string, unknown> = {}): Promise<void
   });
 }
 
-/** 换一条笔记重挂:EditPanel 的源码初值只在挂载时取一次,同 root 重渲不会重跑 useState */
+/** 换一个条目重挂:EditPanel 的源码初值只在挂载时取一次,同 root 重渲不会重跑 useState */
 async function remount(n: Note): Promise<void> {
   act(() => root.unmount());
   root = createRoot(host);

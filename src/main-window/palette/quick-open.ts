@@ -1,5 +1,5 @@
 /**
- * 快速打开笔记的落地(设计 §3.3):Enter 后关闭浮层,把该笔记滚进流中并高亮;
+ * 快速打开条目的落地(设计 §3.3):Enter 后关闭浮层,把该笔记滚进流中并高亮;
  * 不在当前筛选结果里时提示,并提供「清除筛选后打开」的路径。
  *
  * 判定拆成纯函数 `locatePlan`(便于单测),DOM 侧只做「找行 + 滚进视野 + 临时高亮」。
@@ -9,9 +9,9 @@
 import type { Note } from '../../shared/types';
 
 /** 不在结果里且没有任何筛选(库为空 / 未加载到):只提示 */
-export const QUICK_OPEN_MISSING_TEXT = '该笔记不在当前筛选结果中';
+export const QUICK_OPEN_MISSING_TEXT = '该条目不在当前筛选结果中';
 /** 不在结果里但有筛选:清掉筛选再打开 */
-export const QUICK_OPEN_CLEARED_TEXT = '该笔记不在当前筛选结果中,已清除筛选并打开';
+export const QUICK_OPEN_CLEARED_TEXT = '该条目不在当前筛选结果中,已清除筛选并打开';
 /** 高亮停留时长 */
 export const QUICK_OPEN_HIGHLIGHT_MS = 1600;
 

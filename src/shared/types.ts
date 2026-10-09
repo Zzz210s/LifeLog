@@ -27,7 +27,7 @@ export interface Backlink {
   title: string;
 }
 
-/** 单条笔记的双向链接(IPC `note_links`):出链按正文出现顺序,入链按来源 id 升序去重 */
+/** 单个条目的双向链接(IPC `note_links`):出链按正文出现顺序,入链按来源 id 升序去重 */
 export interface NoteLinks {
   outbound: NoteLink[];
   backlinks: Backlink[];
@@ -106,8 +106,8 @@ export interface ExprCheck {
 
 /** 设置页「通用」分区展示的数据库信息(只读) */
 export interface DbInfo {
-  path: string;
-  notes: number;
+  path: string;  /** 条目数 = `COUNT(*) FROM entities`(笔记与标签同表同权,spec §6.6) */
+  entities: number;
 }
 
 /**

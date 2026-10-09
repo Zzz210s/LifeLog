@@ -36,7 +36,7 @@ export interface TagsSectionProps {
   onFilterTags: () => void;
   /** 管理(改名/移动/删除)成功后通知上层刷新标签与筛选条件 */
   onTagsMutated: (pathChange?: { from: string; to: string }) => void;
-  /** 设置开关「标签树里显示关系」(默认开,侧栏头部与设置页同一份状态);打开后行尾追加关系的**值**小字 */
+  /** 设置开关「实体树里显示引用」(默认开,侧栏头部与设置页同一份状态);打开后行尾追加关系的**值**小字 */
   showRelations?: boolean;
   onShowRelationsChange?: (v: boolean) => void;
 }
@@ -134,7 +134,7 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
   const flatNodes = useMemo(() => flattenTree(shown), [shown]);
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col" aria-label="标签分区">
+    <section className="flex min-h-0 flex-1 flex-col" aria-label="实体分区">
       <TagsHeader
         flash={flash}
         mode={p.mode}
@@ -157,7 +157,7 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
         onDragLeave={drag.listEvents.onDragLeaveList}
       >
         {visibleRows.length === 0 ? (
-          <p className="px-2 py-3 text-label text-muted">还没有标签,在输入栏写 #标签 试试</p>
+          <p className="px-2 py-3 text-label text-muted">还没有实体,在输入栏写 #实体 试试</p>
         ) : (
           <TagRowList
             nodes={p.mode === 'tree' ? shown : flatNodes}
@@ -174,7 +174,7 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
           />
         )}
         {visibleRows.length > 0 && search.filtering && shown.length === 0 && (
-          <p className="px-2 py-2 text-label text-muted">没有匹配的标签</p>
+          <p className="px-2 py-2 text-label text-muted">没有匹配的实体</p>
         )}
       </div>
       {/* 「移到根级」指示条:拖拽期间渲染;源已在根级时不出现(T8,避免假成功) */}

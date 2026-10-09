@@ -89,7 +89,7 @@ describe('V5 设置页:字号全部落在 7 档令牌内', () => {
 
     // 导航项 = 8 个分区;当前分区(外观)渲染一个 h2
     const tabs = [...host.querySelectorAll('[role="tab"]')].map((t) => t.textContent?.trim());
-    expect(tabs).toEqual(['外观', '输入栏外观', '输入栏行为', '笔记', '标签关系', '快捷键', '启动', '通用', '关于']);
+    expect(tabs).toEqual(['外观', '输入栏外观', '输入栏行为', '条目', '实体关系', '快捷键', '启动', '通用', '关于']);
     const h2s = [...host.querySelectorAll('h2')] as HTMLElement[];
     expect(h2s.map((h) => h.textContent)).toEqual(['外观']);
     for (const h2 of h2s) {

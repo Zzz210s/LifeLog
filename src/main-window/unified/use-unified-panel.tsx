@@ -105,7 +105,7 @@ export function useUnifiedPanel(o: UnifiedPanelOptions): UnifiedPanel {
           palette={shown}
           decorations={link.active ? undefined : o.decorations}
           onAccept={accept}
-          emptyText={link.active ? '没有匹配的笔记' : undefined}
+          emptyText={link.active ? '没有匹配的条目' : undefined}
         />
       ) : null,
   };

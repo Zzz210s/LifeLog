@@ -85,7 +85,7 @@ export function aliasDump() {
 /** 别名表逐项一致(读数 7 收尾用:改名登记的那几条必须真的删干净) */
 export const sameAliases = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
-/** 状态条文案(计数 / 加载失败 / 展开笔记进度) */
+/** 状态条文案(计数 / 加载失败 / 展开条目进度) */
 export const graphStatus = (cdp) => cdp.eval(`document.querySelector('[data-testid="graph-status"]')?.textContent ?? null`);
 
 /** 过滤器面板现状(关着时 open=false、axes 为空) */
@@ -99,8 +99,8 @@ export const panelState = (cdp) =>
       const s = [...root.querySelectorAll('select')].find((x) => x.getAttribute('aria-label') === label);
       return s === null ? null : Number(s.value);
     };
-    const only = root.querySelector('input[aria-label="只显示有笔记的标签"]');
-    return { open: true, axes, maxDepth: sel('深度上限'), minNotes: sel('最少笔记数'), onlyWithNotes: only === null ? null : only.checked };
+    const only = root.querySelector('input[aria-label="只显示有条目的实体"]');
+    return { open: true, axes, maxDepth: sel('深度上限'), minNotes: sel('最少条目数'), onlyWithNotes: only === null ? null : only.checked };
   })()`);
 
 /** 点一个按钮(按文案;scope 缺省整页,工具栏/面板传选择器) */
@@ -113,7 +113,7 @@ export const clickText = (cdp, text, scope = 'body') =>
     return true;
   })()`);
 
-/** 勾/取消勾一个复选框(按 aria-label 精确匹配;轴与「只显示有笔记的标签」共用)。已在目标态返回 false */
+/** 勾/取消勾一个复选框(按 aria-label 精确匹配;轴与「只显示有条目的实体」共用)。已在目标态返回 false */
 export const setFilterBox = (cdp, label, checked) =>
   cdp.eval(`(() => {
     const root = ${PANEL};
@@ -123,7 +123,7 @@ export const setFilterBox = (cdp, label, checked) =>
     return true;
   })()`);
 
-/** 改一个下拉(按 aria-label;深度上限 / 最少笔记数):受控 select 走原型 setter + change */
+/** 改一个下拉(按 aria-label;深度上限 / 最少条目数):受控 select 走原型 setter + change */
 export const setFilterSelect = (cdp, label, value) =>
   cdp.eval(`(() => {
     const root = ${PANEL};
@@ -168,7 +168,7 @@ export const setSearch = (cdp, text) =>
     return true;
   })()`);
 
-/** 图内搜索现状:输入框值 / 候选行文案 / 是否显示「没有匹配的标签」 */
+/** 图内搜索现状:输入框值 / 候选行文案 / 是否显示「没有匹配的实体」 */
 export const searchState = (cdp) =>
   cdp.eval(`(() => {
     const el = document.querySelector('[data-testid="graph-search-input"]');

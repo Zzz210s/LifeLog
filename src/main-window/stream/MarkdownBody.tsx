@@ -8,7 +8,7 @@ export interface MarkdownBodyProps {
   className: string;
   /** 链接打开失败上报(可选):由调用方接入既有错误机制,此处不弹窗、不引入全局状态 */
   onLinkError?: (message: string) => void;
-  /** 点已解析的笔记链接 chip:跳到那条笔记(流内滚动 + 高亮,L2 复用快速打开) */
+  /** 点已解析的笔记链接 chip:跳到那个条目(流内滚动 + 高亮,L2 复用快速打开) */
   onOpenNote?: (id: number) => void;
   /** 点未解析的 chip:拿正文原文预填统一输入框的 `@`(L2) */
   onUnresolvedNote?: (title: string) => void;
@@ -49,7 +49,7 @@ export function MarkdownBody({
       onToggleTask(task);
       return;
     }
-    // 笔记链接 chip 优先于外链:已解析 -> 跳那条笔记,未解析 -> 预填输入框去搜
+    // 笔记链接 chip 优先于外链:已解析 -> 跳那个条目,未解析 -> 预填输入框去搜
     const note = noteLinkFrom(e.target);
     if (note !== null) {
       e.preventDefault();

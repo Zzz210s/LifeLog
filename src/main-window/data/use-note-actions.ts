@@ -56,8 +56,8 @@ export function useNoteActions(d: NoteActionsDeps) {
   const remove = useCallback(
     (note: Note) => {
       void (async () => {
-        const ok = await confirm('删除这条笔记?', {
-          title: '删除笔记',
+        const ok = await confirm('删除这条条目?', {
+          title: '删除条目',
           kind: 'warning',
         }).catch(() => false); // 弹窗失败一律当作取消,绝不静默删除
         if (!ok) return;

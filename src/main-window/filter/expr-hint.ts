@@ -8,7 +8,7 @@
 /** 五类形式与含义(form 文案被测试逐条锁定,改动需同步更新 ExprDialog.test.ts) */
 export const SYNTAX_HINTS: { form: string; meaning: string }[] = [
   { form: '#路径', meaning: '标签,含该标签及其全部子级(如 #工作 命中 工作/项目A)' },
-  { form: '#=路径', meaning: '标签,仅本级,不含子级(如 #=工作 只命中挂在 工作 上的笔记)' },
+  { form: '#=路径', meaning: '标签,仅本级,不含子级(如 #=工作 只命中挂在 工作 上的条目)' },
   { form: '裸词 / "短语"', meaning: '关键词,同时匹配正文与标签;引号内不能为空' },
   { form: 'AND / OR / NOT', meaning: '与 / 或 / 非;&& || ! 完全等价,且大小写不敏感' },
   { form: '( ) 分组', meaning: '改变优先级:非 > 与 > 或' },

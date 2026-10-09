@@ -7,7 +7,7 @@
  * 四个图标按钮都是纯图标:既有两个的 `aria-label` / `title` 是它们的语义与定位锚点
  * (验收脚本按 `aria-label` 找),一字不改;图标画的是当前模式(与旧文案「树」/「扁平」同义),
  * 动作仍由 aria-label 说明。放大镜按钮开关搜索框,默认收起。
- * 「标签树里显示关系」开关(2026-10-07 从设置页就近搬到本区头部)与设置页写同一个键,双向同步;
+ * 「实体树里显示引用」开关(2026-10-07 从设置页就近搬到本区头部)与设置页写同一个键,双向同步;
  * 「筛选标签」图标同期从漏斗换成筛选/条件语义的递减线条,与放大镜(收窄树)一眼区分。
  *
  * 「筛选标签」不再自带输入框:点击只把请求交给上层(上层去聚焦统一输入框并预填 `#`,
@@ -30,7 +30,7 @@ export interface TagsHeaderProps {
   onModeChange: (m: TagViewMode) => void;
   /** 点「筛选标签」:聚焦统一输入框并预填 `#`(实现与快捷键同一条通道) */
   onFilterTags: () => void;
-  /** 标签树里显示关系(与设置页同一个持久化键,双向同步) */
+  /** 实体树里显示引用(与设置页同一个持久化键,双向同步) */
   showRelations: boolean;
   onToggleRelations: () => void;
   /** 搜索框是否展开(默认收起,点击放大镜切换) */
@@ -99,8 +99,8 @@ export function TagsHeader(p: TagsHeaderProps): ReactNode {
           </button>
           <button
             type="button"
-            title="标签树里显示关系"
-            aria-label="标签树里显示关系"
+            title="实体树里显示引用"
+            aria-label="实体树里显示引用"
             aria-pressed={p.showRelations}
             onClick={p.onToggleRelations}
             className={BTN_ICON + (p.showRelations ? ' bg-selected text-accent-text' : '')}

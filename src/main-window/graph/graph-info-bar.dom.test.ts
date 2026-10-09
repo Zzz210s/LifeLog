@@ -97,12 +97,12 @@ describe('GraphInfoBar:路径与两个计数 + 两个动作', () => {
     });
     expect(onFilter).toHaveBeenCalled();
     await act(async () => {
-      find('展开笔记').click();
+      find('展开条目').click();
     });
     expect(onToggle).toHaveBeenCalled();
   });
 
-  it('已展开时按钮文案是「收起笔记」', async () => {
+  it('已展开时按钮文案是「收起条目」', async () => {
     await render(
       createElement(GraphInfoBar, {
         node,
@@ -112,7 +112,7 @@ describe('GraphInfoBar:路径与两个计数 + 两个动作', () => {
         expanded: true,
       }),
     );
-    expect(host.textContent).toContain('收起笔记');
+    expect(host.textContent).toContain('收起条目');
   });
 
   it('长路径不破版:路径节点带 break-all,计数与按钮各占一行', async () => {

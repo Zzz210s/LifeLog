@@ -3,8 +3,8 @@ import { ERROR_KINDS, dismissLabel, dropError, putError } from './errors';
 
 describe('putError', () => {
   it('不同来源并存,互不覆盖(跨源覆盖会让先到的错误被永久吞掉)', () => {
-    const m = putError(putError({}, 'tags', '标签加载失败'), 'query', '加载笔记失败');
-    expect(m).toEqual({ query: '加载笔记失败', tags: '标签加载失败' });
+    const m = putError(putError({}, 'tags', '标签加载失败'), 'query', '加载条目失败');
+    expect(m).toEqual({ query: '加载条目失败', tags: '标签加载失败' });
   });
 
   it('同来源后到覆盖先到(该来源以最新失败为准)', () => {

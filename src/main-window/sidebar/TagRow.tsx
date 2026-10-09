@@ -52,7 +52,7 @@ export interface TagRowProps {
   onDrop: (e: React.DragEvent) => void;
   /** 本行标签的全部出边(A -> ?);悬浮卡片始终列,tree 行只在开关打开时显示前 2 条 */
   relations?: readonly RelationRef[];
-  /** 设置开关「标签树里显示关系」:关时不进树行(悬浮卡片仍在) */
+  /** 设置开关「实体树里显示引用」:关时不进树行(悬浮卡片仍在) */
   showRelations?: boolean;
   /** 行离开(100ms 防抖清落点的入口) */
   onDragLeave: (e: React.DragEvent) => void;

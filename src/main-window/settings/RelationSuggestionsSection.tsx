@@ -19,7 +19,7 @@ const PAGE_SIZE = 20;
 type ExistingIndex = Map<number, Set<number>>;
 
 export interface RelationSuggestionsSectionProps {
-  /** 设置开关「标签树里显示关系」当前值(默认关);透传给 TagTreeRelationRow */
+  /** 设置开关「实体树里显示引用」当前值(默认关);透传给 TagTreeRelationRow */
   showRelations?: boolean;
   onShowRelationsChange?: (v: boolean) => void;
 }

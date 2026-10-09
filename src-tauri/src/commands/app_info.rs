@@ -10,7 +10,7 @@ pub struct DbInfo {
     /// 数据库文件绝对路径(app_data_dir + 主库文件名,与 db::init 打开的是同一个文件)
     pub path: String,
     /// 条目数:统一实体后 = `COUNT(*) FROM entities`(笔记 + 标签,spec §6.6)
-    pub notes: u64,
+    pub entities: u64,
 }
 
 /// 条目总数(全部实体):设置页「条目 N 条」的唯一口径真源,便于单测
@@ -30,10 +30,10 @@ pub fn get_db_info(app: AppHandle) -> Result<DbInfo, String> {
         .join(DB_FILE);
     let db: State<Db> = app.state();
     let conn = db.0.lock().map_err(|e| e.to_string())?;
-    let notes = count_entities(&conn)?;
+    let entities = count_entities(&conn)?;
     Ok(DbInfo {
         path: path.to_string_lossy().to_string(),
-        notes,
+        entities,
     })
 }
 

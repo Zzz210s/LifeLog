@@ -38,7 +38,7 @@ export interface NoteStreamProps {
   onToggleTask: (note: Note, index: number) => void;
   /** 流内链接打开失败上报(交主窗错误机制) */
   onLinkError: (message: string) => void;
-  /** 点正文里已解析的笔记链接 chip:跳到那条笔记(L2) */
+  /** 点正文里已解析的笔记链接 chip:跳到那个条目(L2) */
   onOpenNote: (id: number) => void;
   /** 点未解析的 chip:拿原文预填输入框 `@`(L2) */
   onUnresolvedNote: (title: string) => void;

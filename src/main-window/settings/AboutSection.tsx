@@ -41,7 +41,7 @@ export function AboutSection(): ReactNode {
     void revealItemInDir(info.path).catch((e) => setError('打开文件夹失败: ' + String(e)));
   };
 
-  const hint = info ? `共 ${info.notes} 条笔记` : error ? '读取失败' : '正在读取...';
+  const hint = info ? `条目 ${info.entities} 条` : error ? '读取失败' : '正在读取...';
 
   return (
     <SettingsSection meta={META}>

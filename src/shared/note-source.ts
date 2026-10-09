@@ -3,7 +3,7 @@
  * note.content 是已剥离标签的正文,编辑时补回 #标签 供用户查看/修改(保存时后端重新剥离)。
  * 用换行而非空格追加:否则正文以围栏代码块结尾时 ` #tag` 会落在闭合围栏行上,
  * 使围栏失效、标签被吞进代码块。
- * 正文只裁行尾空白(不裁行首):整条笔记是缩进代码块时,整体 trim 会吞掉首行缩进造成往返损失。
+ * 正文只裁行尾空白(不裁行首):整个条目是缩进代码块时,整体 trim 会吞掉首行缩进造成往返损失。
  */
 export function composeSource(content: string, tags: string[]): string {
   const body = content.trimEnd();
@@ -14,7 +14,7 @@ export function composeSource(content: string, tags: string[]): string {
 
 /**
  * 保存前归一:只裁行尾空白。
- * 不能整体 trim:整条笔记是缩进代码块时,trim 会把首行缩进切掉,使“编辑-保存”往返损失数据。
+ * 不能整体 trim:整个条目是缩进代码块时,trim 会把首行缩进切掉,使“编辑-保存”往返损失数据。
  */
 export function normalizeForSave(source: string): string {
   return source.trimEnd();
@@ -22,7 +22,7 @@ export function normalizeForSave(source: string): string {
 
 /**
  * 创建与编辑共用的保存前入口:空内容返回 null(拒绝保存),否则只裁行尾空白。
- * 整体 trim 会吞掉首行缩进(整条笔记是缩进代码块时数据损失)。
+ * 整体 trim 会吞掉首行缩进(整个条目是缩进代码块时数据损失)。
  */
 export function prepareForSave(source: string): string | null {
   return source.trim() ? normalizeForSave(source) : null;

@@ -42,7 +42,7 @@ describe('applyFilters:过滤 + 折叠 + 丢悬空边', () => {
     expect(r.nodes.map((x) => x.path)).toEqual(['时间', '地点', '空标签']);
   });
 
-  it('只显示有笔记的标签 / 最少笔记数', () => {
+  it('只显示有条目的实体 / 最少条目数', () => {
     expect(applyFilters(data, { ...all, onlyWithNotes: true }).nodes.map((x) => x.path)).not.toContain('空标签');
     expect(applyFilters(data, { ...all, minNotes: 500 }).nodes.map((x) => x.path)).toEqual(['时间', '时间/日期']);
   });

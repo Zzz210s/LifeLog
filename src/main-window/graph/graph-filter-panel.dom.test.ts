@@ -29,7 +29,7 @@ describe('GraphFilterPanel:四项过滤器都受控', () => {
     expect(onChange.mock.calls[0][0].axes).toEqual(['地点', '时间']);
   });
 
-  it('深度上限与最少笔记数是数字,只显示有笔记是布尔', async () => {
+  it('深度上限与最少条目数是数字,只显示有条目是布尔', async () => {
     const { host, onChange } = await mount(base);
     const selects = [...host.querySelectorAll('select')];
     await act(async () => {
@@ -44,7 +44,7 @@ describe('GraphFilterPanel:四项过滤器都受控', () => {
     });
     expect(onChange.mock.calls[0][0].minNotes).toBe(5);
     onChange.mockClear();
-    const only = host.querySelector('input[aria-label="只显示有笔记的标签"]') as HTMLInputElement;
+    const only = host.querySelector('input[aria-label="只显示有条目的实体"]') as HTMLInputElement;
     await act(async () => { only.click(); });
     expect(onChange.mock.calls[0][0].onlyWithNotes).toBe(true);
   });

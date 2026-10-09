@@ -26,7 +26,7 @@ import { useUnifiedPanel, type UnifiedPanelOptions } from './use-unified-panel';
 export interface UnifiedInputProps {
   /** 保存成功后回调(父组件刷新:回第一页 + 重读标签) */
   onSaved: () => void;
-  /** 正在编辑某条笔记时该框只读(与今天 Composer 一致) */
+  /** 正在编辑某个条目时该框只读(与今天 Composer 一致) */
   editing: boolean;
   /** 候选接线(控制器 + 装饰);不给 = 没有前缀候选下拉 */
   candidates?: UnifiedCandidateWiring | null;
@@ -40,7 +40,7 @@ export interface UnifiedInputProps {
   onStateChange?: (s: { mode: InputMode; query: string; prefix: string }) => void;
   /** 笔记数据版本(`[[` 补全候选池的作废键) */
   dataVersion?: number;
-  /** 正在编辑的那条笔记 id(`[[` 候选里排除它自己) */
+  /** 正在编辑的那个条目 id(`[[` 候选里排除它自己) */
   excludeNoteId?: number;
   /** 笔记 MRU(`[[` 候选的空查询排序与采纳记账;与主窗共用一份实例) */
   noteMru?: UnifiedPanelOptions['noteMru'];

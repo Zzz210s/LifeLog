@@ -5,7 +5,7 @@
  *   8b 画布:展开夹具标签 -> 恰好 2 条 accent 1.5 的 link 段,四个端点就是那两个笔记小圆
  *      (展开前 0 条);段与点都是画布原型的真实调用,不经视图代码
  *   8c 信息条:「出链 2 / 入链 2」,与库(该标签含子孙的已解析链接数)一致
- *   收尾 夹具(两条笔记 + LINK测试 标签)删净 + 库对账逐项回基线
+ *   收尾 夹具(两个条目 + LINK测试 标签)删净 + 库对账逐项回基线
  *
  * 夹具一律 `LINK测试` 前缀、自建自删;真实库除本脚本自建的笔记与标签外只读。
  * 用法:先起应用(WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS="--remote-debugging-port=9222" pnpm tauri dev),
@@ -123,7 +123,7 @@ try {
     `信息条路径=「${barPath}」(期望 ${TAG});度数文案=「${flat(degreesText)}」;库=${fmt({ outbound: want.outbound, backlinks: want.backlinks })}`,
   );
 
-  await clickText(conn.cdp, '展开笔记', '[data-testid="graph-info-bar"]');
+  await clickText(conn.cdp, '展开条目', '[data-testid="graph-info-bar"]');
   const frame = await waitL4(conn.cdp, (f) => f.dots.length === 2 && linkSegs(f).length > 0);
   const segs = frame === null ? [] : linkSegs(frame);
   const dotsOk = frame !== null && frame.dots.length === 2;

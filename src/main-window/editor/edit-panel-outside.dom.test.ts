@@ -29,7 +29,7 @@ let root: Root;
 let host: HTMLDivElement;
 /** 区块外的普通目标(不是笔记正文):点它 = 保存后退出编辑 */
 let blank: HTMLDivElement;
-/** 区块外的另一条笔记正文:点它 = 先存后进 */
+/** 区块外的另一个条目正文:点它 = 先存后进 */
 let otherBody: HTMLDivElement;
 let onSaved: ReturnType<typeof vi.fn>;
 let onCancel: ReturnType<typeof vi.fn>;
@@ -152,7 +152,7 @@ describe('点区块外 = 保存(默认口径)', () => {
     expect(onErrorFallback).not.toHaveBeenCalled(); // 面板还在:就地显示,不打扰主窗错误条
   });
 
-  it('点另一条笔记正文:先保存当前(成功)再切过去', async () => {
+  it('点另一个条目正文:先保存当前(成功)再切过去', async () => {
     updateNote.mockResolvedValue(note('改后的正文', []));
     await mount(note('正文'));
     await setValue('改后的正文');
@@ -162,7 +162,7 @@ describe('点区块外 = 保存(默认口径)', () => {
     expect(onCancel).not.toHaveBeenCalled();
   });
 
-  it('点另一条笔记正文但内容未变:不写库也切过去', async () => {
+  it('点另一个条目正文但内容未变:不写库也切过去', async () => {
     await mount(note('正文'));
     await downOutside(otherBody);
     expect(updateNote).not.toHaveBeenCalled();

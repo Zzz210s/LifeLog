@@ -22,6 +22,7 @@ const SKIP_BUTTONS: Array<[string, string]> = [
   ['filter/TagPickDialog.tsx', '对话框:归 V5'],
   ['filter/RelationPickDialog.tsx', '关系选择对话框:归 V5'],
   ['filter/AddConditionMenu.tsx', '下拉浮层菜单项:归 V5'],
+  ['filter/AddConditionSubPanes.tsx', '添加条件下拉的子面板(菜单项与 AddConditionMenu 同口径):归 V5'],
   ['filter/SortMenuButton.tsx', '排序图标按钮的浮层(内含 SortPanel):归 V5'],
   ['filter/FilterGroupBar.tsx', '条件组工具条(组头与 且/或 切换、删组/加组,chip 尺度微按钮):与 FilterChips 同归 V3'],
   ['filter/SortPanel.tsx', '排序面板(在添加条件浮层内):归 V5'],

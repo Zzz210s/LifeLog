@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * 「点另一条笔记正文 = 先存后进」在主窗流里的接线证据(jsdom 真渲染 NoteStream):
+ * 「点另一个条目正文 = 先存后进」在主窗流里的接线证据(jsdom 真渲染 NoteStream):
  * NoteItem 的正文带 data-note-body,编辑面板据此判定落点;保存成功才切过去,失败留在原条。
  * 另证:未变内容点区块外只退出编辑、不写库;面板之外的点击不会误触发保存。
  */
@@ -104,7 +104,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('点另一条笔记正文:先存后进', () => {
+describe('点另一个条目正文:先存后进', () => {
   it('内容改过:先写库(第一条),保存成功才切到第二条', async () => {
     updateNote.mockResolvedValue(note(1, '改后的正文'));
     await mount(1);

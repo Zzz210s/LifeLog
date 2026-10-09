@@ -1,5 +1,5 @@
 /**
- * `drawPlan` 的展开笔记层(G3 Task 5 起口径显式):世界口径过相机换算,屏幕口径**原样**画。
+ * `drawPlan` 的展开条目层(G3 Task 5 起口径显式):世界口径过相机换算,屏幕口径**原样**画。
  * 从 graph-draw-plan.test.ts 分出来是守 200 行红线;夹具与原文件同一份形状。
  */
 import { describe, expect, it } from 'vitest';

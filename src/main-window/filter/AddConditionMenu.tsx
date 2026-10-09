@@ -1,10 +1,11 @@
 import { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { addGroupItem, migrateFlat, uiGroups } from '../../shared/filter-conditions';
-import type { FilterConditions, GroupItem } from '../../shared/filter-conditions';
+import { uiGroups } from '../../shared/filter-conditions';
+import type { FilterConditions } from '../../shared/filter-conditions';
 import { useDismiss } from '../shell/use-dismiss';
 import { GroupByPanel } from './GroupByPanel';
 import { SortPanel } from './SortPanel';
+import { GroupPane, ITEM_CLASS, MembershipPane, PresencePane } from './AddConditionSubPanes';
 
 export interface AddConditionMenuProps {
   conditions: FilterConditions;
@@ -25,15 +26,13 @@ export interface AddConditionMenuProps {
 
 type Pane = 'main' | 'presence' | 'membership' | 'sort' | 'group' | 'groupBy';
 
-const ITEM_CLASS =
-  'block w-full rounded-xs px-2.5 py-1.5 text-left text-ui text-muted hover:bg-accent-soft hover:text-accent-text';
-
 /** 「添加条件」下拉:主面板六项(无日期入口,spec D2);有无标签/排序/条件组切换到子面板直接生效。
  * 开关受控(open/onOpenChange),方便 `>` 命令与条件栏按钮从别处打开它;`showTrigger=false` 时只渲染浮层。
  * 条件组(设计 2026-10-06 §5.5):「条件组」子面板选**落笔到第几组**(或新建一组),
  * 主面板的标签/关系/有无标签就落进那一组;组内 / 组间 且或 的切换在条件栏的组头上。
  * 「分组」走独立 pane(`groupBy`,2026-10-07 修):原先它与「条件组」共用 pane,点「分组」会同时渲染
- * 组选择列表与 GroupByPanel 两块。 */
+ * 组选择列表与 GroupByPanel 两块。
+ * 三个子面板(有无标签 / 树内·单行 / 条件组)在 `AddConditionSubPanes.tsx`(守 200 行上限)。 */
 export function AddConditionMenu(p: AddConditionMenuProps): ReactNode {
   const [pane, setPane] = useState<Pane>('main');
   const [target, setTarget] = useState(0);
@@ -56,17 +55,6 @@ export function AddConditionMenu(p: AddConditionMenuProps): ReactNode {
   const groups = uiGroups(p.conditions);
   // 组被删掉后目标越界 -> 回落到最后一组(越界=新建组的语义仍由 addGroupItem 兜底)
   const group = Math.min(target, groups.length);
-  // 有无标签在组内唯一:先清掉所有 presence 项再落新的
-  const clearPresence = (c: FilterConditions): FilterConditions => {
-    const m = migrateFlat(c);
-    return {
-      ...m,
-      groups: m.groups.map((g) => ({
-        ...g,
-        items: g.items.filter((it) => it.kind !== 'presence'),
-      })),
-    };
-  };
 
   return (
     <div ref={root} className="relative shrink-0">
@@ -136,87 +124,33 @@ export function AddConditionMenu(p: AddConditionMenuProps): ReactNode {
             </>
           )}
           {pane === 'presence' && (
-            <>
-              {([
-                [null, '不限'],
-                ['any', '有标签'],
-                ['none', '无标签'],
-              ] as const).map(([v, label]) => (
-                <button
-                  key={label}
-                  type="button"
-                  role="menuitem"
-                  className={ITEM_CLASS}
-                  onClick={() =>
-                    act(() =>
-                      p.onPatch(
-                        v === null
-                          ? clearPresence(p.conditions)
-                          : addGroupItem(clearPresence(p.conditions), { kind: 'presence', value: v }, group)
-                      )
-                    )
-                  }
-                >
-                  {label}
-                </button>
-              ))}
-            </>
+            <PresencePane
+              conditions={p.conditions}
+              onPatch={p.onPatch}
+              group={group}
+              onDone={close}
+            />
           )}
           {pane === 'membership' && (
-            <>
-              {([
-                ['treeMembership', 'out', '不在树内'],
-                ['treeMembership', 'in', '在树内'],
-                ['singleLine', 'multi', '多行'],
-                ['singleLine', 'single', '单行'],
-              ] as const).map(([k, v, label]) => (
-                <button
-                  key={label}
-                  type="button"
-                  role="menuitem"
-                  className={ITEM_CLASS}
-                  onClick={() =>
-                    act(() =>
-                      p.onPatch(
-                        addGroupItem(p.conditions, { kind: k, value: v } as GroupItem, group)
-                      )
-                    )
-                  }
-                >
-                  {label}
-                </button>
-              ))}
-            </>
+            <MembershipPane
+              conditions={p.conditions}
+              onPatch={p.onPatch}
+              group={group}
+              onDone={close}
+            />
           )}
           {pane === 'group' && (
-            <>
-              <div className="px-2.5 py-1 text-micro text-muted">条件落进哪一组</div>
-              {groups.map((g, gi) => (
-                <button
-                  key={gi}
-                  type="button"
-                  role="menuitem"
-                  className={ITEM_CLASS + (gi === group ? ' bg-accent-soft text-accent-text' : '')}
-                  onClick={() => {
-                    setTarget(gi);
-                    setPane('main');
-                  }}
-                >
-                  {`第 ${gi + 1} 组（组内${g.op === 'and' ? '且' : '或'}，${g.items.length} 项）`}
-                </button>
-              ))}
-              <button
-                type="button"
-                role="menuitem"
-                className={ITEM_CLASS + (group >= groups.length ? ' bg-accent-soft text-accent-text' : '')}
-                onClick={() => {
-                  setTarget(groups.length);
-                  setPane('main');
-                }}
-              >
-                新建一组（下一个条件进新组）
-              </button>
-            </>
+            <GroupPane
+              conditions={p.conditions}
+              onPatch={p.onPatch}
+              group={group}
+              onDone={close}
+              groups={groups}
+              onPickGroup={(gi) => {
+                setTarget(gi);
+                setPane('main');
+              }}
+            />
           )}
           {pane === 'sort' && <SortPanel conditions={p.conditions} onPatch={p.onPatch} />}
           {pane === 'groupBy' && <GroupByPanel conditions={p.conditions} onPatch={p.onPatch} />}

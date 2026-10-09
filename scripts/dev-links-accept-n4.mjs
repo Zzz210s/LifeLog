@@ -114,7 +114,7 @@ try {
   const emptyText = await card.empty();
   record(
     '读数6 候选不含正在编辑的这条自己(打自己的标题 -> 空态)',
-    selfRows.length === 0 && (emptyText ?? '').includes('没有匹配的笔记'),
+    selfRows.length === 0 && (emptyText ?? '').includes('没有匹配的条目'),
     `行数=${selfRows.length} 空态=${fmt(emptyText)}`,
   );
 

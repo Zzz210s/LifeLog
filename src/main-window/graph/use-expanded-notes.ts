@@ -1,5 +1,5 @@
 /**
- * 展开笔记(G2 Task 6):把一个标签下的笔记取回来,算成画布要画的那圈小圆。
+ * 展开条目(G2 Task 6):把一个标签下的笔记取回来,算成画布要画的那圈小圆。
  * 「展开」是就地看这批笔记的落点,不把图换成笔记视图。
  *
  * **取数**:`queryNotes(expandedConditions(path), 0)` —— 条件对象与信息流**同一份形状**
@@ -36,7 +36,7 @@ import type { Point } from './radial';
 const FAN_GAP = 14;
 
 /**
- * 展开笔记的查询条件:与信息流同一份形状,只有 `tags` 收窄到该路径。
+ * 展开条目的查询条件:与信息流同一份形状,只有 `tags` 收窄到该路径。
  * `includeChildren: true` 与 `node.notes`(含子孙)和「筛到信息流」(侧栏点标签)同口径
  * —— 三处必须一起动,否则图里展开的那批会与筛过去的结果对不上。
  */
@@ -45,7 +45,7 @@ export function expandedConditions(path: string): FilterConditions {
 }
 
 /** 一次取数的读数:失败也留痕(空数组分不出"库里没有"与"压根没问到");
- *  `ids` 是第一页笔记的 id(顺序 = 小圆顺序):L4 的 link 边靠它认出小圆是哪条笔记 */
+ *  `ids` 是第一页笔记的 id(顺序 = 小圆顺序):L4 的 link 边靠它认出小圆是哪个条目 */
 interface PageRead {
   id: number;
   ok: boolean;
@@ -123,7 +123,7 @@ export function useExpandedNotes(input: {
       space: 'screen',
     });
     // 只画真取到的小圆(取不到的笔记没有实体;取到 0 条就是一圈都不画),
-    // 并把**笔记实体 id** 带到每个圆上:第 i 个圆就是第一页第 i 条笔记,两者同一顺序
+    // 并把**笔记实体 id** 带到每个圆上:第 i 个圆就是第一页第 i 个条目,两者同一顺序
     // (有了它,L4 的 link 边才能从"两个笔记实体 id"找到两个画得出来的落点)
     const dots: NoteDot[] = f.dots
       .slice(0, cur.ids.length)

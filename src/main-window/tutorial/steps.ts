@@ -21,7 +21,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     id: 'prefix',
     selectors: ['[data-testid="prefix-hint"]'],
     title: '首字符决定它做什么',
-    body: '> 执行命令, / 筛选, # 按标签筛选, @ 打开某条笔记;不打前缀就是记笔记。前缀可以点。Ctrl+P 预填 @,Ctrl+Shift+P 预填 >。',
+    body: '> 执行命令, / 筛选, # 按标签筛选, @ 打开某个条目;不打前缀就是记笔记。前缀可以点。Ctrl+P 预填 @,Ctrl+Shift+P 预填 >。',
   },
   {
     id: 'tags',

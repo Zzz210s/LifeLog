@@ -33,7 +33,7 @@ describe('quick-open:定位计划', () => {
   });
 
   it('提示文案是中文且不空', () => {
-    expect(QUICK_OPEN_MISSING_TEXT).toBe('该笔记不在当前筛选结果中');
+    expect(QUICK_OPEN_MISSING_TEXT).toBe('该条目不在当前筛选结果中');
     expect(QUICK_OPEN_MISSING_TEXT).not.toMatch(/[a-z]/i);
   });
 });

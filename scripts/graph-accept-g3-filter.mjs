@@ -83,23 +83,23 @@ export async function runFilters({ cdp, record, base }) {
   await clickText(cdp, '重置过滤器');
   await sleep(600);
 
-  // ---- 3) 最少笔记数 20 + 「只显示有笔记」 ----
+  // ---- 3) 最少条目数 20 + 「只显示有条目」 ----
   const pMin = await predict(cdp, filtersOf(axesDefault, { minNotes: 20 }));
   const wantMin = STATUS(pMin.nodes.length, pMin.edgeCount);
-  await setFilterSelect(cdp, '最少笔记数', 20);
+  await setFilterSelect(cdp, '最少条目数', 20);
   const s3 = await waitStatus(cdp, wantMin, 8);
   const fr3 = await lastFrame(cdp);
   const pMinOnly = await predict(cdp, filtersOf(axesDefault, { minNotes: 20, onlyWithNotes: true }));
   const wantMinOnly = STATUS(pMinOnly.nodes.length, pMinOnly.edgeCount);
-  await setFilterBox(cdp, '只显示有笔记的标签', true);
+  await setFilterBox(cdp, '只显示有条目的实体', true);
   await sleep(700);
   const s3b = await waitStatus(cdp, wantMinOnly, 8);
   const panel3 = await panelState(cdp);
   record(
-    'G3-3 最少笔记数 20:只剩大标签;「只显示有笔记」不误杀',
+    'G3-3 最少条目数 20:只剩大标签;「只显示有条目」不误杀',
     s3 === wantMin && fr3?.fills === pMin.nodes.length && fr3?.strokes === pMin.edgeCount && panel3.minNotes === 20 &&
       s3b === wantMinOnly && wantMinOnly === wantMin && base.zeroNote === 0,
-    `最少笔记数=${panel3.minNotes}/只显示有笔记=${panel3.onlyWithNotes}:${s3} -> ${s3b}(期望 ${wantMin};画布 ${fr3?.fills} 点 / ${fr3?.strokes} 线 —— 边数等于点数说明只剩大标签);` +
+    `最少条目数=${panel3.minNotes}/只显示有条目=${panel3.onlyWithNotes}:${s3} -> ${s3b}(期望 ${wantMin};画布 ${fr3?.fills} 点 / ${fr3?.strokes} 线 —— 边数等于点数说明只剩大标签);` +
       `计划里写的档位 500 在 T1 定型时改成了 0/1/5/20(MIN_NOTES_CHOICES),这里用面板能选的 20;` +
       `本机库 ${base.tags} 个标签里 0 笔记的有 ${base.zeroNote} 个 -> 这一档这次只证明"不误杀",筛掉空标签的能力没有真机对象可验`,
   );

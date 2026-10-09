@@ -87,7 +87,7 @@ describe('GraphSearch:候选与采纳', () => {
   it('没有匹配时说明白,不装作没输入', () => {
     render(() => {});
     type('zzz');
-    expect(host.textContent).toContain('没有匹配的标签');
+    expect(host.textContent).toContain('没有匹配的实体');
     press('Enter'); // 没有候选时 Enter 不做事(也不抛)
     expect(host.querySelector('[data-testid="graph-search-list"]')).not.toBeNull();
   });

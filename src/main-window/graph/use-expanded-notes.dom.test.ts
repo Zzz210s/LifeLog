@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * 展开笔记的取数与几何(G2 Task 6):
+ * 展开条目的取数与几何(G2 Task 6):
  * - 不展开(`node = null`)就不发请求,小圆为空
  * - 条件对象与信息流**同一份形状**,只有 `tags` 收窄到该路径(含子级),这样「图里展开的笔记」
  *   与「点筛到信息流后的结果」是同一批
@@ -67,7 +67,7 @@ describe('useExpandedNotes:取数口径', () => {
       groups: [],
     });
     expect(m.api()?.layer?.dots).toHaveLength(NOTE_LIMIT);
-    // 每个小圆带**笔记 id**(L4 的 link 边靠它在两个圆之间连线):第 i 个圆就是第一页第 i 条笔记
+    // 每个小圆带**笔记 id**(L4 的 link 边靠它在两个圆之间连线):第 i 个圆就是第一页第 i 个条目
     expect(m.api()?.layer?.dots.map((d) => d.id)).toEqual(Array.from({ length: NOTE_LIMIT }, (_, i) => i + 1));
     expect(m.api()?.layer?.space).toBe('screen'); // 口径随数据一起递出去,上层不用猜
     // `+N` 画在环外偏下(标签屏幕位置 (230, 90) + 扇形半径 + 12),并带着所属标签 id

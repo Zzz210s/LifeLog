@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * 侧栏标签分区头部:四个图标按钮(2026-10-07 从三个加了一个「标签树里显示关系」)。
+ * 侧栏标签分区头部:四个图标按钮(2026-10-07 从三个加了一个「实体树里显示引用」)。
  * `aria-label` 与 `title` 是无障碍与验收脚本(CDP 按 aria-label 定位)的定位锚点;
  * 图标只换形态、不改语义。图标风格照仓内既有:viewBox 0 0 16 16 / stroke=currentColor /
  * h-3.5 w-3.5 / aria-hidden。放大镜默认收起(不渲染 input),展开后 Esc 清空并收起。
@@ -89,13 +89,13 @@ describe('侧栏标签分区头部:按钮图标化', () => {
       mode.getAttribute('aria-label'),
       relations.getAttribute('aria-label'),
       filter.getAttribute('aria-label'),
-    ]).toEqual(['搜索标签', '切换为扁平列表', '标签树里显示关系', '筛选标签']);
+    ]).toEqual(['搜索标签', '切换为扁平列表', '实体树里显示引用', '筛选标签']);
     expect([
       search.getAttribute('title'),
       mode.getAttribute('title'),
       relations.getAttribute('title'),
       filter.getAttribute('title'),
-    ]).toEqual(['搜索标签', '切换为扁平列表', '标签树里显示关系', FILTER_TITLE]);
+    ]).toEqual(['搜索标签', '切换为扁平列表', '实体树里显示引用', FILTER_TITLE]);
     for (const b of buttons()) {
       expect(b.textContent).toBe('');
       const svg = b.querySelector('svg');
@@ -115,7 +115,7 @@ describe('侧栏标签分区头部:按钮图标化', () => {
     expect(mode.querySelector('svg')).not.toBeNull();
   });
 
-  it('「标签树里显示关系」按当前值 aria-pressed,点击回调一次', async () => {
+  it('「实体树里显示引用」按当前值 aria-pressed,点击回调一次', async () => {
     await render('tree', false, true);
     const on = buttons()[2];
     expect(on.getAttribute('aria-pressed')).toBe('true');

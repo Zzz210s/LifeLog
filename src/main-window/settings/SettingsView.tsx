@@ -27,7 +27,7 @@ export interface SettingsViewProps {
   onReplayTutorial?: () => void;
   /** Esc 返回信息流(与关系图 Esc 同一只手感;顶栏导航组的「信息流」是鼠标入口) */
   onBack?: () => void;
-  /** 「标签关系」分区里的「标签树里显示关系」当前值(与侧栏同一份状态,透传) */
+  /** 「标签关系」分区里的「实体树里显示引用」当前值(与侧栏同一份状态,透传) */
   showRelations?: boolean;
   onShowRelationsChange?: (v: boolean) => void;
 }

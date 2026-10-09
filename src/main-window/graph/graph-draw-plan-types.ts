@@ -74,7 +74,7 @@ export interface Label {
   text: string;
 }
 
-/** 一条展开笔记的小圆(屏幕坐标)。`id` 是**笔记实体 id**:L4 的 link 边要靠它认出两端 */
+/** 一条展开条目的小圆(屏幕坐标)。`id` 是**笔记实体 id**:L4 的 link 边要靠它认出两端 */
 export type NoteDot = { id: number; x: number; y: number };
 
 /**

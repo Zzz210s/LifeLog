@@ -7,7 +7,7 @@
  * 缓存住就会整体点偏;单次读是微秒级开销,指针事件的频率也远够用。
  *
  * 自 `GraphView` 抽出以守 200 行红线(与 use-graph-size / use-collapse-roots 同一处理):
- * 相机缩放锚点、指针交互、展开笔记三处共读这一份。
+ * 相机缩放锚点、指针交互、展开条目三处共读这一份。
  */
 import { useCallback } from 'react';
 import type { Point } from './radial';

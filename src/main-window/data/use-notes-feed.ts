@@ -42,7 +42,7 @@ export function useNotesFeed(
       } catch (e) {
         if (id !== seq.current) return;
         // 失败必须与"暂无记录"区分:错误行可见,且停掉分页避免哨兵反复重触发失败请求
-        setError('query', '加载笔记失败: ' + String(e));
+        setError('query', '加载条目失败: ' + String(e));
         setQueryFailed(true);
         setHasMore(false);
         if (!append) setNotes([]);

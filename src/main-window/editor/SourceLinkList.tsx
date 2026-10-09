@@ -44,13 +44,13 @@ export function SourceLinkList(p: SourceLinkListProps): ReactNode {
       id={EDIT_LINK_LISTBOX_ID}
       data-testid="edit-link-suggest"
       role="listbox"
-      aria-label="笔记补全候选"
+      aria-label="条目补全候选"
       style={{ maxHeight: suggestListHeightCss(COMPLETE_LIMIT) }}
       className="mt-1 overflow-y-auto rounded-md border border-border bg-raised shadow-lg"
     >
       {count === 0 ? (
         <p role="presentation" className="px-3 py-3 text-ui text-muted">
-          没有匹配的笔记
+          没有匹配的条目
         </p>
       ) : (
         <ul role="presentation">

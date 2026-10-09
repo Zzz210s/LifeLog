@@ -1,7 +1,8 @@
-// 设置页「笔记」分区(spec 2026-09-17 D4/D5):
-// 开关决定新建笔记是否自动带时间标签(关掉只影响新建,已有标签一个不动);
+// 设置页「条目」分区(spec 2026-09-17 D4/D5;分区名「笔记」->「条目」见 spec 2026-10-08 §4.2/§5.3):
+// 开关决定新保存的条目是否自动带时间标签(关掉只影响新建,已有标签一个不动);
 // 模板决定自动标签的路径,改动即等于改时间标签的存放位置。
 // 模板走后端命令即时校验(与创建路径同一实现),非法给中文提示且不落库。
+// 末尾一段只读说明交代信息流默认筛选的来源与处置(spec §4.1「这条筛选与其它筛选一样可编辑、可清空」)。
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { confirm } from '@tauri-apps/plugin-dialog';
@@ -42,7 +43,7 @@ export function NotesSection(): ReactNode {
         setTemplate(normalizeTemplate(t));
         setLoaded(true);
       })
-      .catch((e) => setError('读取笔记设置失败: ' + String(e)));
+      .catch((e) => setError('读取条目设置失败: ' + String(e)));
   }, []);
 
   useEffect(load, [load]);
@@ -82,7 +83,7 @@ export function NotesSection(): ReactNode {
       meta={META}
       onReset={() => {
         void (async () => {
-          const ok = await confirm('恢复笔记分区的 2 项设置为默认值?', { title: '恢复笔记默认', kind: 'warning' }).catch(() => false);
+          const ok = await confirm('恢复条目分区的 2 项设置为默认值?', { title: '恢复条目默认', kind: 'warning' }).catch(() => false);
           if (!ok) return;
           // 默认:自动带时间标签 = 开;模板 = DEFAULT_TIME_TAG_TEMPLATE
           await Promise.all([
@@ -136,6 +137,11 @@ export function NotesSection(): ReactNode {
               {verdict.message}
             </p>
           )}
+          {/* 默认筛选来源说明:只读,不新增内置判据(spec §4.1 / 计划 Task 4.3) */}
+          <p className="border-t border-border py-3 text-label text-muted" data-testid="default-filter-note">
+            信息流默认筛选由数据库迁移预置(等价于过去的笔记列表):排除「在树内且文本单行」的条目。
+            它就在筛选栏里,与别的筛选条件一样可编辑、可清空;清空后信息流显示全部实体。
+          </p>
         </div>
       )}
     </SettingsSection>

@@ -15,9 +15,9 @@ export interface GraphFilters {
   axes: string[];
   /** 深度上限 1-6 */
   maxDepth: number;
-  /** 只显示有笔记的标签 */
+  /** 只显示有条目的实体 */
   onlyWithNotes: boolean;
-  /** 最少笔记数(含子级) */
+  /** 最少条目数(含子级) */
   minNotes: number;
 }
 

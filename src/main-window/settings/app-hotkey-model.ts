@@ -24,9 +24,9 @@ const ROWS: AppHotkeyRow[] = [
   {
     kind: 'quickOpen',
     key: APP_HOTKEY_KEYS.quickOpen,
-    label: '快速打开笔记',
-    hint: '应用内快捷键:主窗按一下聚焦输入框并预填 @,输入关键词即搜笔记',
-    ariaLabel: '录制快捷键:快速打开笔记',
+    label: '快速打开条目',
+    hint: '应用内快捷键:主窗按一下聚焦输入框并预填 @,输入关键词即搜条目',
+    ariaLabel: '录制快捷键:快速打开条目',
   },
   {
     kind: 'palette',

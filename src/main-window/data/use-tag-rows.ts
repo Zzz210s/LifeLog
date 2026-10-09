@@ -31,7 +31,7 @@ export function useTagRows(
         setTagsVersion((v) => v + 1);
         clearError('tags');
       })
-      .catch((e) => setError('tags', '标签加载失败: ' + String(e)));
+      .catch((e) => setError('tags', '实体加载失败: ' + String(e)));
   }, [clearError, setError]);
 
   // 挂载先读一次;之后只由唯一出口驱动(订阅在卸载时退订)

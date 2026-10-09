@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * GraphView 的展开笔记接线面(G2 Task 6):双击展开 -> 取数回包 -> plan 重建 -> 画出小圆与 `+N`;
+ * GraphView 的展开条目接线面(G2 Task 6):双击展开 -> 取数回包 -> plan 重建 -> 画出小圆与 `+N`;
  * 点小圆 / 点 `+N` = 带着该标签回信息流,且不能同时被当成画布点击(否则选中先被清掉、信息条当场消失)。
  *
  * 节点屏幕位置用视图同一套纯函数现算(`visibleGraph` -> `radialLayout` -> `fitToView` -> `screenOf`),
@@ -50,7 +50,7 @@ const VISIBLE = visibleGraph(DATA, { collapsedRoots: collapseRootsOf(normalizeTe
 const LAYOUT = radialLayout(VISIBLE, { layerGap: 90 });
 const CAM = fitToView([...LAYOUT.values()], W, H);
 
-/** 展开笔记的扇形半径(与 use-expanded-notes 同一口径:标签半径 + 14 的屏幕像素) */
+/** 展开条目的扇形半径(与 use-expanded-notes 同一口径:标签半径 + 14 的屏幕像素) */
 const FAN_R = radiusOf(414) + 14;
 
 /** 世界坐标 -> 事件用的 client 坐标(jsdom 里容器原点为 0,画布坐标就是 client 坐标) */
@@ -141,7 +141,7 @@ const noteArcs = (): unknown[][] => ctx.calls.filter((c) => c.op === 'arc' && c.
 
 const texts = (): unknown[] => ctx.calls.filter((c) => c.op === 'fillText').map((c) => c.args[0]);
 
-describe('GraphView:展开笔记', () => {
+describe('GraphView:展开条目', () => {
   it('双击展开:取数回包后画出 20 个笔记小圆 + +394', async () => {
     const restore = metrics();
     try {

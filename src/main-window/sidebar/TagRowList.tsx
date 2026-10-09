@@ -34,7 +34,7 @@ export interface TagRowListProps {
   drag: ReturnType<typeof useTagDrag>;
   /** 逐标签的关系事实(缺项 = 还没读到,行内就不显示关系小字) */
   facts?: ReadonlyMap<number, TagFacts>;
-  /** 设置开关「标签树里显示关系」 */
+  /** 设置开关「实体树里显示引用」 */
   showRelations?: boolean;
 }
 

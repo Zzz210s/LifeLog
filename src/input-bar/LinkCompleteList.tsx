@@ -39,7 +39,7 @@ export function LinkCompleteList(p: LinkCompleteListProps): ReactNode {
   return (
     <div
       role="listbox"
-      aria-label="笔记补全候选"
+      aria-label="条目补全候选"
       data-testid="link-suggest"
       className="w-full shrink-0 border-t border-border bg-raised"
       style={{

@@ -23,14 +23,14 @@ export function graphHints(input: {
   hovered: number | null;
   /** 图数据取数失败 */
   failed: boolean;
-  /** 展开笔记的读数:它的过程状态(展开中 / 失败)优先占文案位 */
+  /** 展开条目的读数:它的过程状态(展开中 / 失败)优先占文案位 */
   expandedNotes: ExpandedNotesApi;
 }): GraphHints {
   const { nodes, edges, selected, hovered, failed, expandedNotes: exp } = input;
   const selectedNode = selected === null ? null : (nodes.find((n) => n.id === selected) ?? null);
   const hoveredNode = hovered === null ? null : (nodes.find((n) => n.id === hovered) ?? null);
-  // 展开笔记的状态优先占状态条文案位(用户当下最关心的那件事);没在展开就跟原来一样报计数
-  const noteHint = exp.failed ? '笔记加载失败' : exp.loading ? '正在展开笔记…' : null;
+  // 展开条目的状态优先占状态条文案位(用户当下最关心的那件事);没在展开就跟原来一样报计数
+  const noteHint = exp.failed ? '条目加载失败' : exp.loading ? '正在展开条目…' : null;
   const count = noteHint ?? (failed ? '关系图加载失败' : `${nodes.length} 个节点 / ${edges.length} 条边`);
   return { selectedNode, hoveredNode, count };
 }

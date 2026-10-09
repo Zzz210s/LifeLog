@@ -43,7 +43,7 @@ export interface UnifiedDropdownProps {
   truncated: boolean;
   onHover: (index: number) => void;
   onAccept: (index: number) => void;
-  /** 空态文案(缺省「无匹配结果」;`[[` 补全用「没有匹配的笔记」) */
+  /** 空态文案(缺省「无匹配结果」;`[[` 补全用「没有匹配的条目」) */
   emptyText?: string;
 }
 

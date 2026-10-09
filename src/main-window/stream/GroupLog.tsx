@@ -12,7 +12,7 @@ export interface GroupLogProps {
   loadingGroup: string | null;
   onToggle: (sessionKey: string) => void;
   onLoadMore: (sessionKey: string) => void;
-  /** 单条笔记的渲染(与平铺路径共用同一份卡片/编辑态逻辑) */
+  /** 单个条目的渲染(与平铺路径共用同一份卡片/编辑态逻辑) */
   renderNote: (note: Note) => ReactNode;
 }
 

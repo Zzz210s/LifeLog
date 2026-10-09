@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * 展开笔记之间的 link 边接线(L4):后端给的 `kind:'link'` 边穿过过滤器与 plan,最终落到画布上。
+ * 展开条目之间的 link 边接线(L4):后端给的 `kind:'link'` 边穿过过滤器与 plan,最终落到画布上。
  *
  * 这一条专门盯**两级判据**:
  * ① 展开前一条线都不画(link 的两端是笔记,没展开就没有落点);
@@ -19,7 +19,7 @@ import { radialLayout } from './radial';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-/** 只有一个标签、两条笔记、两条 link 边(其中一条的另一端 999 不在展开的笔记里) */
+/** 只有一个标签、两个条目、两条 link 边(其中一条的另一端 999 不在展开的笔记里) */
 const NODES = [{ id: 1, path: '甲', depth: 1, parent: null, notes: 2, selfCount: 2, sortOrder: 0 }];
 const DATA = {
   nodes: NODES,
@@ -117,7 +117,7 @@ afterEach(() => {
   restore();
 });
 
-describe('GraphView:展开笔记之间的 link 边', () => {
+describe('GraphView:展开条目之间的 link 边', () => {
   it('展开前不画线;展开后只画两端都在扇形里的那一条,端点就是两个笔记小圆', async () => {
     await mount();
     expect(segs()).toEqual([]); // 这份图数据里只有 link 边:一个 moveTo 都不该有

@@ -1,7 +1,7 @@
 // 表格单元格编辑与正文既有交互的接线证据(设计 §1 T7 / 计划 Task 4 Step 1):
-//   点单元格文字 -> 开覆盖编辑框,且不进整条笔记编辑;
+//   点单元格文字 -> 开覆盖编辑框,且不进整个条目编辑;
 //   chip ([data-note-link]) 与任务复选框 -> 不接管,既有行为独占这次点击;
-//   点表格外的正文 -> 仍是整条笔记编辑(现状不变);
+//   点表格外的正文 -> 仍是整个条目编辑(现状不变);
 //   自校验失败的怪表 -> 退化成整条编辑(绝不猜)。
 // @vitest-environment jsdom
 import { act, createElement } from 'react';
@@ -77,7 +77,7 @@ afterEach(() => {
 });
 
 describe('表格单元格编辑与既有交互共存', () => {
-  it('点单元格文字:该格就地变可编辑,不进整条笔记编辑', async () => {
+  it('点单元格文字:该格就地变可编辑,不进整个条目编辑', async () => {
     await mount(note(TABLE));
     // 第二列那一格(不含 chip),点它进单元格编辑
     const td = pick('[data-note-body="5"] tbody tr td:nth-child(2)');
@@ -109,7 +109,7 @@ describe('表格单元格编辑与既有交互共存', () => {
     expect(calls.edit).toBe(0);
   });
 
-  it('点表格外的正文:仍是整条笔记编辑', async () => {
+  it('点表格外的正文:仍是整个条目编辑', async () => {
     await mount(note(TABLE));
     await click(pick('[data-note-body="5"] p'));
     expect(editorOpen()).toBe(false);

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * 设置页「标签关系」分区里的「标签树里显示关系」一行(标签关系统一 spec §7):
+ * 设置页「标签关系」分区里的「实体树里显示引用」一行(标签关系统一 spec §7):
  * 开关受控于传入的 checked,点击回传反转值;文案与 aria-label 固定。
  */
 import { act, createElement } from 'react';
@@ -34,10 +34,10 @@ const render = async (checked: boolean): Promise<void> => {
 
 const toggle = (): HTMLButtonElement => host.querySelector('button') as HTMLButtonElement;
 
-describe('设置页:标签树里显示关系', () => {
+describe('设置页:实体树里显示引用', () => {
   it('默认关:aria-checked=false;点击回传 true', async () => {
     await render(false);
-    expect(host.textContent).toContain('标签树里显示关系');
+    expect(host.textContent).toContain('实体树里显示引用');
     expect(toggle().getAttribute('aria-checked')).toBe('false');
     await act(async () => toggle().click());
     expect(calls).toEqual([true]);

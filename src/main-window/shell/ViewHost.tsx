@@ -42,7 +42,7 @@ export interface ViewHostProps {
   dataVersion: number;
   /** 固定标签 + 标签 MRU(App 透传):关系图的标签菜单「引用…」候选与侧栏同一套三档排序 */
   tagMru?: TagMruSource | null;
-  /** 「标签关系」分区里的「标签树里显示关系」(值来自侧栏状态,与其共用一份 showRelations) */
+  /** 「标签关系」分区里的「实体树里显示引用」(值来自侧栏状态,与其共用一份 showRelations) */
   tagTreeRelations?: { showRelations: boolean; onShowRelationsChange: (v: boolean) => void };
   onReplayTutorial: () => void;
 }

@@ -19,12 +19,12 @@ export interface NoteItemProps {
   onTagClick: (name: string) => void;
   onEdit: (caret?: number | null, clickY?: number) => void;
   onDelete: () => void;
-  /** 选中态(卡片用 bg-selected 取代 hover 底;视觉刷新 V2)。当前应用还没有「选中某条笔记」
+  /** 选中态(卡片用 bg-selected 取代 hover 底;视觉刷新 V2)。当前应用还没有「选中某个条目」
    *  的交互模型(点卡片即进编辑、卡片被 EditPanel 顶掉),故调用方暂不传;留作后续接线口。 */
   selected?: boolean;
   /** 正文内链接打开失败上报(交主窗错误机制) */
   onLinkError?: (message: string) => void;
-  /** 点正文里已解析的笔记链接 chip:跳到那条笔记(L2,复用快速打开的滚动 + 高亮) */
+  /** 点正文里已解析的笔记链接 chip:跳到那个条目(L2,复用快速打开的滚动 + 高亮) */
   onOpenNote?: (id: number) => void;
   /** 点正文里未解析的 chip:拿原文预填统一输入框的 `@`(L2) */
   onUnresolvedNote?: (title: string) => void;
@@ -32,11 +32,11 @@ export interface NoteItemProps {
   backlinkCount?: number;
   /** 点击第 index 个任务列表复选框(0 起,文档顺序) */
   onToggleTask: (index: number) => void;
-  /** 单元格编辑写库成功:就地替换这条笔记(与编辑面板保存同一条刷新路径) */
+  /** 单元格编辑写库成功:就地替换这个条目(与编辑面板保存同一条刷新路径) */
   onCellSaved?: (note: Note) => void;
 }
 
-/** 单条笔记:markdown 正文 + 标签 chips + 悬停删除(不再显示时间,S2;
+/** 单个条目:markdown 正文 + 标签 chips + 悬停删除(不再显示时间,S2;
  *  「编辑」可见按钮已删除(2026-09-21):点正文即就地进源码编辑(Typora 式),
  *  键盘可达性由正文上方的 sr-only 按钮保留;行内「完成复选框」已随 done/doing
  *  一并删除(S5),完成状态由正文里的 Markdown 任务列表表达,读视图可直接勾选)
@@ -56,7 +56,7 @@ export function NoteItem(p: NoteItemProps): ReactNode {
   // 键盘通道的无障碍名带上正文摘要:否则每条的按钮都叫「编辑」,读屏用户无法分辨目标
   const editLabel = useMemo(() => {
     const brief = note.content.replace(/\s+/g, ' ').trim().slice(0, 24);
-    return brief ? `编辑:${brief}` : '编辑这条笔记';
+    return brief ? `编辑:${brief}` : '编辑这个条目';
   }, [note.content]);
   // 表格单元格编辑:点格进编辑、chip/复选框不接管、点表外回整条编辑(设计 §1 T7/E4)
   const te = useNoteTableEdit(note, p.onCellSaved ?? noop, p.onEdit);
@@ -95,7 +95,7 @@ export function NoteItem(p: NoteItemProps): ReactNode {
         </div>
       </div>
       {/* 不挂常驻 title:光标形状已表达可点编辑,悬浮提示会盖住正文自己的提示。
-           data-note-body 供编辑面板判定"点区块外落到哪条笔记"(先存后进) */}
+           data-note-body 供编辑面板判定"点区块外落到哪个条目"(先存后进) */}
       <div ref={te.bodyRef} data-note-body={note.id} onClick={onBodyClick} onMouseDown={te.handleMouseDown} onMouseOver={te.handleOver} className="cursor-text">
         <MarkdownBody
           html={html}

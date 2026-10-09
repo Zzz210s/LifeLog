@@ -156,7 +156,7 @@ describe('正文渲染里的 chip(与 L1 解析口径一致)', () => {
     const html = renderMarkdown('[[甲|乙]]', [link('甲', 1, '甲')]);
     expect(html).toContain('data-note-link="1"');
     expect(html).toContain('>乙</span>');
-    // 显示文本正是另一条笔记时也不会解析到它
+    // 显示文本正是另一个条目时也不会解析到它
     const other = renderMarkdown('[[甲|乙]]', [link('乙', 2, '乙')]);
     expect(other).toContain('data-note-link=""');
   });

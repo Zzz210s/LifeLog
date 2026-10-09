@@ -1,5 +1,5 @@
 // 「离开编辑区块 = 保存」的三条触发通道(从 EditPanel 抽出以守 200 行上限):
-//   ① 点编辑区块之外(文档级 pointerdown):区块内继续编辑;落点是另一条笔记正文则先存后进
+//   ① 点编辑区块之外(文档级 pointerdown):区块内继续编辑;落点是另一个条目正文则先存后进
 //   ② 鼠标点到程序窗口之外:宿主窗口失焦 -> Rust 侧 emit BLUR_SAVE_EVENT(可靠信号)
 //   ③ DOM window blur(兜底:WebView2 未必派发,派发了也只算一次 —— 在飞守卫挡住第二次)
 // (2/3 Task 5:原④「浮层内点击跳过」随浮层外壳删除 —— 页面里已无 `data-floating` 节点)
@@ -16,7 +16,7 @@ export type LeaveFlushResult =
 export interface UseLeaveSaveArgs {
   panelRef: RefObject<HTMLElement | null>;
   flush: () => Promise<LeaveFlushResult>;
-  /** 点区块外且落点是另一条笔记正文时进入那条的编辑 */
+  /** 点区块外且落点是另一个条目正文时进入那条的编辑 */
   onSwitchNote?: (noteId: number) => void;
   onCancel: () => void;
   /** 面板已卸载导致无法就地显示错误时的兜底出口 */

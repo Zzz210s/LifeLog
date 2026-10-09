@@ -1,41 +1,58 @@
 // 迁移 027 下架了老表(notes/tags/tag_links/note_links/notes_fts/tag_merge_log/tag_aliases),
-// 验收脚本仍按老表名读数。本件在**只读连接**上装 TEMP 兼容视图,让老脚本不改 SQL 也能读到等价数据,
-// 只改「读数口径」不改产品代码。口径与 Rust 测试夹具 db/entities_tags_fixture.rs::legacy_read_views 同源。
+// 028 又把实体收成一张表(去 `kind`/`name`、加 `meta`,老三种引用边并入 `link`)。
+// 验收脚本仍按老表名 / 老列名读数。本件在**只读连接**上装 TEMP 兼容视图,让老脚本不改 SQL 也能
+// 读到等价数据,只改「读数口径」不改产品代码。
 //
-// 口径要点:
-//   - id 一律用**统一实体 id**(标签保留 1e9 偏移的原值):这样读数可直接回喂 IPC(delete_tag/rename_tag
-//     等),脚本内部的集合/计数比较也自洽(不再走老 id 命名空间)。
-//   - tag_links:note 行 = tagging 边(笔记 -> 标签),tag 行 = relation 边(标签 -> 标签);
-//     与老表 tag_id/target_type/target_id 三列同形。
-//   - note_links:只含**已解析**的 link 边(D2 未解析不落边);raw_title 老表才有,这里给空串。
-//   - notes_fts:只投影笔记实体行(rowid == 笔记 id),列名沿用老表 tags(= tag_paths)。
+// 口径要点(2026-10-09 v29 重写):
+//   - 实体二分由 **`path`** 表达,不再有 `kind`:树内实体 `path IS NOT NULL`(老标签),树外 `path IS NULL`
+//     (老笔记;真库 742 / 1373)。
+//   - `notes.content` / `notes_fts.content` = 新列 `meta`;`notes_fts.tags` = 新列 `paths`。
+//   - `tags.name` = `path` 末段(028 删了 `name` 列):`rtrim(path, replace(path, '/', ''))` 从右侧剥掉
+//     一切非 `/` 字符,**停在最后一个 `/` 上**(结果 = 含尾斜杠的前缀),`substr(..., length+1)` 即末段;
+//     无 `/` 的单段路径要单独兜底(整串就是名字)。
+//   - 三种老引用边都由 `edges.kind='link'` 承载,按两端是否树内还原:
+//       源树外 + 目标树内 = 老 `tagging`(笔记打标签);两端树内 = 老 `relation`;
+//       两端树外 = 老 `note_links`(`[[ ]]`)。
+//   - id 一律用**统一实体 id**(不再有 1e9 偏移):读数可直接回喂 IPC(delete_tag/rename_tag 等)。
+//   - `note_links.raw_title` 老表才有(老模型存未解析标题),这里给空串。
 //   - TEMP 视图不落主库文件,只读连接允许创建(DROP/CREATE TEMP 只动 temp schema)。
 import { DatabaseSync } from 'node:sqlite';
 
 /** 真实库路径(可用 LIFELOG_DB 覆盖,如跑独立 identifier 的副本库) */
 export const DB_PATH = process.env.LIFELOG_DB ?? 'C:/Users/23652/AppData/Roaming/com.lifelog.app/lifelog.db';
 
+/** 树外(老笔记)实体的判定;视图里反复用,故抽成常量 */
+const NOTE = `(SELECT e2.path FROM entities e2 WHERE e2.id = e.source_id) IS NULL`;
+
 const VIEWS = [
   `CREATE TEMP VIEW temp.notes AS
-     SELECT id, content, created_at FROM entities WHERE kind = 'note'`,
+     SELECT id, meta AS content, created_at FROM entities WHERE path IS NULL`,
   `CREATE TEMP VIEW temp.tags AS
-     SELECT id, name, parent_id, path, depth, sort_order, color FROM entities WHERE kind = 'tag'`,
+     SELECT id,
+            CASE WHEN instr(path, '/') = 0 THEN path
+                 ELSE substr(path, length(rtrim(path, replace(path, '/', ''))) + 1) END AS name,
+            parent_id, path, depth, sort_order, color
+       FROM entities WHERE path IS NOT NULL`,
   `CREATE TEMP VIEW temp.tag_links AS
-     SELECT target_id AS tag_id, 'note' AS target_type, source_id AS target_id, remark
-       FROM edges WHERE kind = 'tagging'
+     SELECT e.target_id AS tag_id, 'note' AS target_type, e.source_id AS target_id, e.remark
+       FROM edges e JOIN entities t ON t.id = e.target_id
+      WHERE e.kind = 'link' AND t.path IS NOT NULL AND ${NOTE}
      UNION ALL
-     SELECT source_id AS tag_id, 'tag' AS target_type, target_id AS target_id, remark
-       FROM edges WHERE kind = 'relation'`,
+     SELECT e.source_id AS tag_id, 'tag' AS target_type, e.target_id AS target_id, e.remark
+       FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id
+      WHERE e.kind = 'link' AND s.path IS NOT NULL AND t.path IS NOT NULL`,
   `CREATE TEMP VIEW temp.note_links AS
-     SELECT id, source_id, target_id, '' AS raw_title, created_at FROM edges WHERE kind = 'link'`,
+     SELECT e.id, e.source_id, e.target_id, '' AS raw_title, e.created_at
+       FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id
+      WHERE e.kind = 'link' AND s.path IS NULL AND t.path IS NULL`,
   `CREATE TEMP VIEW temp.notes_fts AS
-     SELECT rowid, name, content, tag_paths AS tags FROM entities_fts
-      WHERE rowid IN (SELECT id FROM entities WHERE kind = 'note')`,
+     SELECT rowid, '' AS name, meta AS content, paths AS tags FROM entities_fts
+      WHERE rowid IN (SELECT id FROM entities WHERE path IS NULL)`,
   `CREATE TEMP VIEW temp.tag_merge_log AS
      SELECT id, source_entity_id AS source_tag_id, target_entity_id AS target_tag_id,
             moved_child_ids, note_links, edges, at FROM entity_merge_log`,
   `CREATE TEMP VIEW temp.tag_aliases AS
-     SELECT alias, entity_id AS tag_id FROM entity_aliases WHERE entity_id >= 1000000000`,
+     SELECT alias, entity_id AS tag_id FROM entity_aliases`,
 ];
 
 /** 打开只读连接并装好老表兼容视图(用完自行 close) */

@@ -12,7 +12,7 @@ import { useNotesExport } from './use-export';
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const { save, exportNotes } = vi.hoisted(() => ({
-  save: vi.fn(async (_options: unknown): Promise<string | null> => 'C:/tmp/笔记导出.xlsx'),
+  save: vi.fn(async (_options: unknown): Promise<string | null> => 'C:/tmp/条目导出.xlsx'),
   exportNotes: vi.fn(async (_path: string) => {}),
 }));
 vi.mock('@tauri-apps/plugin-dialog', () => ({ save }));
@@ -68,7 +68,7 @@ describe('整库导出的反馈复位(useNotesExport)', () => {
     expect(state()).toBe('true|false');
 
     await act(async () => {
-      release('C:/tmp/笔记导出.xlsx');
+      release('C:/tmp/条目导出.xlsx');
       await started!;
     });
     expect(state()).toBe('false|true');

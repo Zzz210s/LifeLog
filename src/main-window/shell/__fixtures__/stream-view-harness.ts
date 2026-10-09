@@ -27,7 +27,7 @@ class FakeIO {
 }
 globalThis.IntersectionObserver = FakeIO as unknown as typeof IntersectionObserver;
 
-/** 一条笔记(信息流渲染用) */
+/** 一个条目(信息流渲染用) */
 export const NOTE: Note = { id: 3, content: 'UI测试笔记', created_at: '2026-09-24 10:00:00', links: [], tags: [] };
 
 /** 一行候选(列表模型的行:id 在 item.id) */

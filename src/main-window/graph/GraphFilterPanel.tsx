@@ -1,5 +1,5 @@
 /**
- * 四项过滤器面板(G3,设计 §2.3):轴(勾选 = 展开该轴)/ 深度上限 / 只显示有笔记的标签 / 最少笔记数。
+ * 四项过滤器面板(G3,设计 §2.3):轴(勾选 = 展开该轴)/ 深度上限 / 只显示有条目的实体 / 最少条目数。
  *
  * 受控组件:状态在 `useGraphFilters`,这里只收集参数。「取消勾选某轴」= 折叠它(只留根节点),
  * 口径见 graph-filters.ts 的文件头。
@@ -60,19 +60,19 @@ export function GraphFilterPanel(p: {
         </select>
       </label>
       <label className={ROW}>
-        <span className="text-muted">只显示有笔记的标签</span>
+        <span className="text-muted">只显示有条目的实体</span>
         <input
           type="checkbox"
           checked={p.filters.onlyWithNotes}
-          aria-label="只显示有笔记的标签"
+          aria-label="只显示有条目的实体"
           onChange={(e) => p.onChange({ ...p.filters, onlyWithNotes: e.target.checked })}
         />
       </label>
       <label className={ROW}>
-        <span className="text-muted">最少笔记数</span>
+        <span className="text-muted">最少条目数</span>
         <select
           className={SELECT}
-          aria-label="最少笔记数"
+          aria-label="最少条目数"
           value={p.filters.minNotes}
           onChange={(e) => p.onChange({ ...p.filters, minNotes: Number(e.target.value) })}
         >

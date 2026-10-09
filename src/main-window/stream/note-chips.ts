@@ -52,6 +52,6 @@ export function collapseChips(
  * 判定按路径前缀(与筛选的"含子级"同一口径),保持输入顺序,无副作用可单测。
  */
 export function collapseAncestors(tags: readonly string[]): string[] {
-  // 标签数量级很小(单条笔记几个到十几个),直接两两比对,不引入额外结构
+  // 标签数量级很小(单个条目几个到十几个),直接两两比对,不引入额外结构
   return tags.filter((t) => !tags.some((o) => o !== t && o.startsWith(t + '/')));
 }

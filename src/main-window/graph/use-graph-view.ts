@@ -5,7 +5,7 @@
  *
  * 本文件只接线:`hovered` 在 useGraphInteractions,`selected`/`expanded` 在这里,相机在 useGraphCamera,
  * 拖节点与位置记忆在 useNodeDrag(松手写回落给相机的 `commitPositions`),容器上的首次适配与非被动
- * wheel 在 useGraphSurface,展开笔记在 useExpandedNotes,「一帧画什么」在 useGraphPlan,覆盖层
+ * wheel 在 useGraphSurface,展开条目在 useExpandedNotes,「一帧画什么」在 useGraphPlan,覆盖层
  * (工具栏/过滤器面板/空态)在 GraphOverlays,「整理布局」在 useForceLayout,数据版本重载在 useGraphVersion,
  * 命中对象与状态条文案在 graph-hints。「重置视图」与 `0` 的合成动作(回径向 + 复位相机)在 useGraphStage。
  */
@@ -75,7 +75,7 @@ export function useGraphView(p: GraphViewInput) {
   useAutoFit(layout.size > 0 && size.w > 0 && collapsedRoots !== null, cam.reset);
   usePassiveWheel(boxRef, cam.onWheel);
 
-  // 展开笔记:吃 `expanded` 而不是 selected —— 点了别的标签,已展开的那圈小圆还要在。
+  // 展开条目:吃 `expanded` 而不是 selected —— 点了别的标签,已展开的那圈小圆还要在。
   // 展开层(小圆 + `+N`)由 useExpandedNotes 产出且**身份稳定**:plan 的 memo 与 `+N` 命中共读这一份
   const expandedNode = expanded === null ? null : (nodes.find((n) => n.id === expanded) ?? null);
   const exp = useExpandedNotes({

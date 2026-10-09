@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { NOTE_LIMIT, OVERFLOW_GAP, noteFan } from './graph-notes';
 
-describe('noteFan:展开笔记的小圆布局', () => {
+describe('noteFan:展开条目的小圆布局', () => {
   it('按数量均匀铺在圆上', () => {
     const r = noteFan({ center: { x: 0, y: 0 }, count: 4, radius: 40, space: 'world' });
     expect(r.dots).toHaveLength(4);

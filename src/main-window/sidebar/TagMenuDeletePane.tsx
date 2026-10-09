@@ -25,7 +25,7 @@ export function TagMenuDeletePane(p: TagMenuDeletePaneProps): ReactNode {
       <p className="mt-1 px-1 text-label text-muted">
         {p.impact === null
           ? '计算影响面…'
-          : `将影响 ${p.impact.notes} 条笔记` +
+          : `将影响 ${p.impact.notes} 个条目` +
             (p.impact.tags > 0 ? `、${p.impact.tags} 个子标签` : '')}
       </p>
       {p.impact !== null && (

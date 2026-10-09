@@ -56,9 +56,9 @@ const render = (stored: string | null = null): void => {
     root.render(
       createElement(AppHotkeyRow, {
         kind: 'quickOpen',
-        label: '快速打开笔记',
+        label: '快速打开条目',
         hint: '应用内快捷键:主窗按一下打开笔记浮层,输入关键词即搜',
-        ariaLabel: '录制快捷键:快速打开笔记',
+        ariaLabel: '录制快捷键:快速打开条目',
         stored,
         onSaved: (value: string) => saved.push(value),
       })
@@ -104,7 +104,7 @@ describe('录制', () => {
     expect(h.calls).toEqual([{ kind: 'quickOpen', accelerator: 'ctrl+alt+k' }]);
     expect(saved).toEqual(['ctrl+alt+k']);
     expect(errorText()).toBe('');
-    expect(recorder().getAttribute('aria-label')).toBe('录制快捷键:快速打开笔记');
+    expect(recorder().getAttribute('aria-label')).toBe('录制快捷键:快速打开条目');
   });
 
   it('只按修饰键是中途态:不提交、不报错', () => {

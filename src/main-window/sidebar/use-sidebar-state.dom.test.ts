@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * 侧栏开关「标签树里显示关系」(标签关系统一 spec §7):
+ * 侧栏开关「实体树里显示引用」(标签关系统一 spec §7):
  * 键 `tag_tree_show_relations`,**默认开**(与整栏显隐同口径,只有显式 'false' 才关);
  * **不回读旧键** `tag_tree_show_carry` —— 旧键是「携带」时代的开关,与现在的关系不是一回事。
  * 写库写新键。
@@ -53,7 +53,7 @@ const settings = (map: Record<string, string | null>): void => {
   getSetting.mockImplementation((key) => Promise.resolve(map[key] ?? null));
 };
 
-describe('开关「标签树里显示关系」的键与旧键', () => {
+describe('开关「实体树里显示引用」的键与旧键', () => {
   it('新键 true:打开', async () => {
     settings({ tag_tree_show_relations: 'true' });
     await act(async () => root.render(createElement(Probe)));

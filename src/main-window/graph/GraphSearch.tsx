@@ -68,7 +68,7 @@ export function GraphSearch(p: {
         >
           {hits.length === 0 ? (
             <li data-testid="graph-search-empty" className="px-2 py-1 text-ui text-muted">
-              没有匹配的标签
+              没有匹配的实体
             </li>
           ) : (
             hits.map((n) => (

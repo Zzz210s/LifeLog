@@ -111,7 +111,7 @@ describe('侧栏标签树收窄搜索', () => {
     await act(async () => searchButton().click());
     type('zzz');
     expect(paths()).toHaveLength(0);
-    expect(host.textContent).toContain('没有匹配的标签');
+    expect(host.textContent).toContain('没有匹配的实体');
   });
 
   it('扁平模式吃同一份收窄结果(显示完整路径,「生活」被裁掉)', async () => {
