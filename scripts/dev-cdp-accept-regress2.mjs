@@ -25,6 +25,16 @@ const { evalIn } = bindDom(cdp);
 
 const inv0 = await inventory();
 console.log('验收前库存:', JSON.stringify({ notes: inv0.notes, theme: inv0.theme, tagPaths: inv0.paths.length }));
+// 信息流/导出共用同一份条件:settings.filter_current(缺省 = 空条件 = 全部实体)。
+// 统一实体后 query_notes 的空条件不再等价于「老笔记集」,故显式取 filter_current 逐页读到全量,
+// 排序固定 newest 以对齐 export_notes 的 ORDER BY id DESC。
+const filterRaw = await call('get_setting', { key: 'filter_current' });
+const streamCond = { ...(filterRaw ? JSON.parse(filterRaw) : conditions({})), sort: 'newest' };
+const filtered0 = await (async () => {
+  const out = [];
+  for (let off = 0; ; ) { const p = await call('query_notes', { conditions: streamCond, offset: off }); out.push(...p); if (p.length < 50) return out; off += p.length; }
+})();
+console.log('信息流条件命中:', filtered0.length);
 
 // ---------- E1 界面导出:命令面板 `>导出整库` -> 原生保存对话框出现并可取消 ----------
 // 条件栏的「导出整库」按钮与顶栏 `⋯` 溢出菜单都已删(2026-10-07,见 shell/export-notice.dom.test.ts):
@@ -71,21 +81,22 @@ if (existsSync(EXPORT)) unlinkSync(EXPORT);
 await call('export_notes', { path: EXPORT });
 const size = existsSync(EXPORT) ? statSync(EXPORT).size : 0;
 const dump = py(`import json, openpyxl; wb = openpyxl.load_workbook(r'${EXPORT}');
-ws = wb['笔记'];
+ws = wb['条目'];
 rows = [[c.value for c in r] for r in ws.iter_rows()];
 print(json.dumps({'sheets': wb.sheetnames, 'header': rows[0], 'rows': rows[1:], 'count': len(rows) - 1}, ensure_ascii=False))`);
 const xlsx = JSON.parse(dump);
-const notesPage = await call('query_notes', { conditions: conditions({}), offset: 0 });
-const heads = notesPage.slice(0, 3).map((n) => String(n.content).split('\n')[0]);
-const xlsxHeads = xlsx.rows.slice(0, 3).map((r) => String(r[0]).split('\n')[0]);
+const heads = filtered0.slice(0, 3).map((n) => String(n.content).split(String.fromCharCode(10))[0]);
+const xlsxHeads = xlsx.rows.slice(0, 3).map((r) => String(r[1]).split(String.fromCharCode(10))[0]);
+const refRows = xlsx.rows.map((r) => String(r[3] ?? '')).filter((s) => s.trim() !== '');
 record(
-  'E2 导出 xlsx 结构与内容(表头两列 正文/标签,S2 起不再导出日期与最后修改 / 行数 = 笔记数 / 前三条正文一致)',
-  JSON.stringify(xlsx.header) === JSON.stringify(['正文', '标签']) &&
-    xlsx.count === inv0.notes &&
+  'E2 导出 xlsx 结构与内容(表头 id/正文/创建时间/引用路径,sheet 名「条目」/ 行数 = 当前筛选命中 / 前三条正文一致 / 引用列非空)',
+  JSON.stringify(xlsx.sheets) === JSON.stringify(['条目']) &&
+    JSON.stringify(xlsx.header) === JSON.stringify(['id', '正文', '创建时间', '引用路径']) &&
+    xlsx.count === filtered0.length &&
     JSON.stringify(xlsxHeads) === JSON.stringify(heads) &&
-    xlsx.rows.some((r) => String(r[1]).includes('#')) &&
+    refRows.length > 0 &&
     size > 0,
-  `sheet=${JSON.stringify(xlsx.sheets)} 表头=${JSON.stringify(xlsx.header)} 行数=${xlsx.count} 前三条=${JSON.stringify(xlsxHeads)} 文件=${size}B`
+  `sheet=${JSON.stringify(xlsx.sheets)} 表头=${JSON.stringify(xlsx.header)} 行数=${xlsx.count}/${filtered0.length} 前三条=${JSON.stringify(xlsxHeads)} 有引用列的行=${refRows.length} 文件=${size}B`
 );
 
 // ---------- S1 无限滚动:造 55 条(共 61 条 > PAGE=50) ----------
@@ -116,11 +127,11 @@ try {
     same = cur === prev ? same + 1 : 0; // 连续 4 次不增长才判为「已到底」,单次 400ms 会把慢加载误判成结束
     prev = cur;
   }
-  const loadedAll = cur === inv0.notes + SEED ? true : null;
+  const loadedAll = cur === filtered0.length + SEED ? true : null;
   record(
     'S1 无限滚动:首屏 50 条 + 滚到底逐页加载到全部(验收前笔记数 + 自建 55 条)',
     first === true && loadedAll === true && !scrolled.error,
-    `首屏=${first} 滚到底=${loadedAll} 滚动=${JSON.stringify(scrolled)} 实际条数=${await liCount()} 期望=${inv0.notes + SEED}`
+    `首屏=${first} 滚到底=${loadedAll} 滚动=${JSON.stringify(scrolled)} 实际条数=${await liCount()} 期望=${filtered0.length + SEED}`
   );
 } finally {
   for (const id of seeded) await call('delete_note', { id });

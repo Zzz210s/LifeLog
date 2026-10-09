@@ -35,7 +35,9 @@ function build() {
       (12,101,100,'link','上位概念','2026-01-01'),   -- 老 relation:标签 -> 标签
       (13,1,2,'link','',              '2026-01-01');  -- 老 note_links:笔记 -> 笔记
     INSERT INTO entity_aliases(alias,entity_id) VALUES('书',100);
-    INSERT INTO entity_merge_log(id,source_entity_id,target_entity_id,note_links,edges,at) VALUES(1,101,100,1,2,'2026-01-01');
+    INSERT INTO entity_merge_log(id,source_entity_id,target_entity_id,note_links,edges,at) VALUES
+      (1,101,100,1,2,'2026-01-01'),
+      (2,1000000101,1000000100,3,4,'2026-01-02');
     INSERT INTO entities_fts(rowid,meta,paths) VALUES(1,'买牛奶','书籍/SQL 书籍'),(100,'书籍','书籍');
   `);
   db.close();
@@ -78,8 +80,15 @@ test('老表名视图在新 schema 上还原等价数据', () => {
       [{ rowid: 1, name: '', content: '买牛奶', tags: '书籍/SQL 书籍' }]
     );
     assert.deepEqual(rows('SELECT alias,tag_id FROM tag_aliases'), [{ alias: '书', tag_id: 100 }]);
-    assert.equal(n('SELECT COUNT(*) n FROM tag_merge_log'), 1);
-    assert.equal(db.prepare('SELECT source_tag_id,target_tag_id FROM tag_merge_log').get().source_tag_id, 101);
+    // tag_merge_log:新号行原样;027 前遗留的 1e9 偏移行回译成老表原始 id(101/100)
+    assert.equal(n('SELECT COUNT(*) n FROM tag_merge_log'), 2);
+    assert.deepEqual(
+      rows('SELECT id,source_tag_id,target_tag_id FROM tag_merge_log ORDER BY id'),
+      [
+        { id: 1, source_tag_id: 101, target_tag_id: 100 },
+        { id: 2, source_tag_id: 101, target_tag_id: 100 },
+      ]
+    );
     db.close();
   } finally {
     // Windows 下 sqlite 句柄可能晚一步释放,清理失败不影响断言(用后即弃的临时目录)

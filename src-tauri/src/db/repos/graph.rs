@@ -64,12 +64,14 @@ pub struct GraphEdge {
 
 /// 全部闭包节点 + 含子级**去重**引用源数 + 本级去重引用源数 + 次序键,按 path 升序(一次采完)。
 /// 节点集合 = §3.3 渲染闭包(`is_cited=1` ∪ 祖先),028 起与侧栏树同源。
+/// 种子额外要求 `path IS NOT NULL`:笔记(树外实体)被 `[[ ]]` 引用后 `is_cited=1`,但它不是树节点
+/// (无 path),若混进 `up` 会让 `t.path` 读到 NULL 而报错 —— 排除后才真正与侧栏 `tags` 视图同源。
 /// `roll` 只算含子级(与 tags::query::counts 同口径),`selfc` 只算本级 —— 两个聚合分开,
 /// 别用一个 COUNT 兼两义(层级过滤写进 SELECT 会让 LEFT JOIN 退化成内连接,没有链接的节点消失)。
 pub fn nodes(conn: &Connection) -> SqlResult<Vec<GraphNode>> {
     let mut stmt = conn.prepare(
         "WITH RECURSIVE up(id) AS (
-           SELECT id FROM entities WHERE is_cited = 1
+           SELECT id FROM entities WHERE is_cited = 1 AND path IS NOT NULL
            UNION
            SELECT e.source_id FROM edges e JOIN up ON e.target_id = up.id WHERE e.kind = 'child'
          ),

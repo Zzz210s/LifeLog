@@ -15,8 +15,16 @@
 //       两端树外 = 老 `note_links`(`[[ ]]`)。
 //   - id 一律用**统一实体 id**(不再有 1e9 偏移):读数可直接回喂 IPC(delete_tag/rename_tag 等)。
 //   - `note_links.raw_title` 老表才有(老模型存未解析标题),这里给空串。
+//   - `tag_merge_log` 的 027 前遗留行带 024 的 `+1e9` 偏移(该标签在 028 前已被合并删除,无统一实体 id
+//     可映射,028 的 `_id_map` 改写跳过它):视图**回译**这个偏移(`-1e9`),还原成 027 前老表的原始
+//     标签 id 命名空间,不让 1e9 量级 id 从兼容层漏出。
 //   - TEMP 视图不落主库文件,只读连接允许创建(DROP/CREATE TEMP 只动 temp schema)。
 import { DatabaseSync } from 'node:sqlite';
+
+/** 024 给标签 id 加的整体偏移;遗留合并日志行按它回译(与迁移 027 的 entity_ids.rs 同一字面量)。 */
+const LEGACY_TAG_OFFSET = 1_000_000_000;
+/** 遗留 1e9 偏移 id -> 老表原始 id(仅用于没有统一实体 id 可映射的历史合并日志行) */
+const UNOFFSET = (col) => `CASE WHEN ${col} >= ${LEGACY_TAG_OFFSET} THEN ${col} - ${LEGACY_TAG_OFFSET} ELSE ${col} END`;
 
 /** 真实库路径(可用 LIFELOG_DB 覆盖,如跑独立 identifier 的副本库) */
 export const DB_PATH = process.env.LIFELOG_DB ?? 'C:/Users/23652/AppData/Roaming/com.lifelog.app/lifelog.db';
@@ -49,7 +57,8 @@ const VIEWS = [
      SELECT rowid, '' AS name, meta AS content, paths AS tags FROM entities_fts
       WHERE rowid IN (SELECT id FROM entities WHERE path IS NULL)`,
   `CREATE TEMP VIEW temp.tag_merge_log AS
-     SELECT id, source_entity_id AS source_tag_id, target_entity_id AS target_tag_id,
+     SELECT id, ${UNOFFSET('source_entity_id')} AS source_tag_id,
+            ${UNOFFSET('target_entity_id')} AS target_tag_id,
             moved_child_ids, note_links, edges, at FROM entity_merge_log`,
   `CREATE TEMP VIEW temp.tag_aliases AS
      SELECT alias, entity_id AS tag_id FROM entity_aliases`,

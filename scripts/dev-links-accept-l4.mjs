@@ -70,7 +70,13 @@ for (const id of stale) await call('delete_note', { id }).catch(() => null);
 for (const id of fixtureTagIds()) await call('delete_tag', { tagId: id }).catch(() => null);
 await sleep(400);
 const base = { ...counts(), positions: await call('get_setting', { key: 'graph_positions' }) };
+// 脚本启动时的筛选条件:输入框里敲 `#LINK测试/L4` 建夹具时,统一输入框会把该标签同时加进筛选并落库,
+// 收尾要把它还原(否则会留下一个指向已删标签的筛选,信息流变空)。
+const filterBefore = await call('get_setting', { key: 'filter_current' });
 console.log(`INFO 基线=${fmt(base)}`);
+// 夹具前置声明:真库历史上没有任何笔记→笔记 link 边(告 027 以来的老 tagging 边全部是「笔记→标签」),
+// 故 note_links 基线必须为 0 —— 下面读数 8a/8b/8c 比的就是本脚本现建的两条互引。
+record('读数8a-前置 基线库无笔记间链接(note_links=0,夹具是唯一来源)', base.noteLinks === 0, `基线 note_links=${base.noteLinks}`);
 
 try {
   await gotoStream();
@@ -146,13 +152,18 @@ try {
   for (const id of fixtureNoteIds()) await call('delete_note', { id }).catch(() => null);
   for (const id of fixtureTagIds()) await call('delete_tag', { tagId: id }).catch(() => null);
   const gone = await waitFor(() => (fixtureNoteIds().length === 0 && fixtureTagIds().length === 0 ? true : null), 16, 300);
-  await sleep(400);
+  await sleep(600);
+  await call('set_setting', { key: 'filter_current', value: filterBefore ?? '' });
+  await sleep(800);
+  const filterAfter = await call('get_setting', { key: 'filter_current' });
   const after = { ...counts(), positions: await call('get_setting', { key: 'graph_positions' }) };
   const diff = ['notes', 'tags', 'tagLinks', 'fts', 'noteLinks'].filter((k) => after[k] !== base[k]);
   record(
-    '收尾 夹具(笔记 + LINK测试 标签)删净 + 库对账(逐项回基线 + integrity + user_version + graph_positions)',
-    gone === true && diff.length === 0 && after.integrity === 'ok' && after.version === 27 && positionsEqual(after.positions, base.positions),
-    `残留夹具=${fmt({ notes: fixtureNoteIds(), tags: fixtureTagIds() })} 不一致=${fmt(diff.map((k) => `${k} ${base[k]}->${after[k]}`))} 基线=${fmt(base)} 收尾=${fmt(after)}`,
+    '收尾 夹具(笔记 + LINK测试 标签)删净 + 库对账(逐项回基线 + integrity + user_version + graph_positions + filter_current)',
+    gone === true && diff.length === 0 && after.integrity === 'ok' && after.version === base.version &&
+      positionsEqual(after.positions, base.positions) && filterAfter === filterBefore,
+    `残留夹具=${fmt({ notes: fixtureNoteIds(), tags: fixtureTagIds() })} 不一致=${fmt(diff.map((k) => `${k} ${base[k]}->${after[k]}`))} ` +
+      `filter_current 同=${filterAfter === filterBefore} 基线=${fmt(base)} 收尾=${fmt(after)}`,
   );
 }
 

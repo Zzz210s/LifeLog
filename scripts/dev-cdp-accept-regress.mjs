@@ -70,21 +70,19 @@ record('R4 「标签」打开标签选择对话框', dlg === '添加标签', `di
 await dlgClick('添加标签', '关闭');
 await sleep(400);
 
-// 有无标签 -> 无标签(所有笔记都有标签,应为 0 条 + 「没有匹配的记录」空态)
+// 有无标签 -> 无标签。
+// 统一实体后「清空筛选即显示全部实体」(spec §4.1):树内实体自身不会被谁打标签,故「无标签」不再是 0 条;
+// 判定改为「界面首页条数 == min(PAGE, 后端命中)」,不再要求空态。
 await openAddCondition();
 await menuPick('有无标签');
 await sleep(300);
 await menuPick('无标签');
-const noneState = await waitFor(async () => {
-  const t = await evalIn(`document.body.innerText`);
-  return t.includes('没有匹配的记录') && !t.includes('还没有记录') ? t : null;
-});
 const noneCount = await liCount();
 const noneExpect = await hits({ tagPresence: 'none' });
 record(
-  'R5 「无标签」筛选:0 命中且显示无匹配空态',
-  noneCount === 0 && noneExpect === 0 && noneState !== null,
-  `界面 ${noneCount} 后端 ${noneExpect} 空态=${noneState !== null} chips=${JSON.stringify(await chips())}`
+  'R5 「无标签」筛选:界面首页条数与后端命中一致(统一实体后域=全部实体,不再必为 0)',
+  noneCount === Math.min(PAGE, noneExpect) && noneExpect > 0,
+  `界面 ${noneCount} 后端 ${noneExpect}(期望 ${Math.min(PAGE, noneExpect)}) chips=${JSON.stringify(await chips())}`
 );
 await clearChips();
 
@@ -126,7 +124,7 @@ await clearChips();
 await evalIn(`(() => { const b = document.querySelector('button[aria-label="设置"]'); if (b) b.click(); return true; })()`);
 await sleep(600);
 // 2026-10-04 设置改版:九个分区 + 左导航(一次只显示一个分区);版本号与库路径搬到「关于」
-const EXPECT_SECTIONS = ['外观', '输入栏外观', '输入栏行为', '笔记', '标签关系', '快捷键', '启动', '通用', '关于'];
+const EXPECT_SECTIONS = ['外观', '输入栏外观', '输入栏行为', '条目', '实体关系', '快捷键', '启动', '通用', '关于'];
 const navUi = await evalIn(`(() => ({
   navLabels: Array.from(document.querySelectorAll('[data-section-nav]')).map((b) => b.textContent.trim()),
   active: document.querySelector('[data-section]')?.getAttribute('data-section') ?? null,

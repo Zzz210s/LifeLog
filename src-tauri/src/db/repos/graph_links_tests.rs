@@ -97,3 +97,14 @@ fn link_degrees_zero_for_missing_tag() {
         "标签不存在不报错,两数都是 0"
     );
 }
+
+/// 回归:笔记间 `[[ ]]` 让目标笔记 `is_cited=1`,而笔记 `path IS NULL` —— 节点集合必须排除它,
+/// 否则 `nodes()` 把 NULL 读进 `String` 字段直接报错(真库当前无笔记间链接,故靠夹具守)。
+#[test]
+fn nodes_exclude_cited_notes_but_keep_the_tag_tree() {
+    let c = with_links(); // 笔记 1、2 互引
+    let ns = nodes(&c).unwrap();
+    let ids: Vec<i64> = ns.iter().map(|n| n.id).collect();
+    assert!(!ids.contains(&1) && !ids.contains(&2), "被引用的笔记(path NULL)不得成为图节点");
+    assert!(ids.contains(&10) && ids.contains(&20), "笔记所挂的标签仍在闭包里(甲=10 为祖先、乙=20)");
+}

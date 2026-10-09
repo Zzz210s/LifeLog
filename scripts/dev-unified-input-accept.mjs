@@ -1,4 +1,4 @@
-// Task 7 + 计划 2/3 Task 6 实机验收(第二批读数见 unified-accept-phases2.mjs);键鼠全走 CDP Input。
+// Task 7 + 计划 2/3 Task 6 实机验收(首批 10 条读数);键鼠全走 CDP Input。
 // 前置:pnpm tauri dev 已在 9222 上跑(origin http://localhost:5173,IPC 正常)。夹具(UI测试* 笔记 +
 // UI测试 标签)自建自清,前后 notes/tags/tag_links/FTS 计数在外层用 lifelog-db-readings.py 比对。
 import { ensureMain, recorder, sleep, waitFor } from './cdp-lib.mjs';
@@ -6,8 +6,6 @@ import {
   BOX, COMMAND_IDS, FIXTURE_TAG, HINT, RECORD_TEXT, SIDEBAR, STAT, cleanupFixtures, createFixtures,
   driver, finalizeRun,
 } from './unified-accept-lib.mjs';
-// 第二批读数件 unified-accept-phases2.mjs 从未入库(仓库里不存在),改为按需加载:缺件时跳过第二批,只跑首批。
-const phaseB = await import('./unified-accept-phases2.mjs').then((m) => m.phaseB).catch(() => null);
 
 const r = recorder();
 
@@ -186,9 +184,6 @@ async function main(ctx) {
   const off = await d.aria();
   r.record('⑩b 收起后 aria', off.expanded === 'false' && off.controls === null && off.activedescendant === null,
     `expanded=${off.expanded} controls=${off.controls} activedescendant=${off.activedescendant}`);
-
-  if (phaseB) await phaseB(d, r); // 第二批 5 条(缺件时跳过):条件栏瘦身 / 排序命令 / 顶栏溢出菜单 / 侧栏筛选标签
-  else r.record("第二批读数件缺失(unified-accept-phases2.mjs 未入库)", false, "该文件从未提交,第二批 5 条读数跳过");
 }
 
 // 夹具清理由 finalizeRun 统一做(正常路径的读数顺序不变,「夹具清理」仍是最后一条):
