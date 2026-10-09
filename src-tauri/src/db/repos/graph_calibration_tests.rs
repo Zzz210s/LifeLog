@@ -26,6 +26,11 @@ use crate::commands::graph::HUB_THRESHOLD;
 use rusqlite::{Connection, OpenFlags};
 use std::collections::HashSet;
 
+/// 标定准则(不是拍脑袋的区间):阈值取「共现边回到 2026-10-01 验收过的边预算」的**最小**整数。
+/// 两条断言把这个准则钉死:实取值上达到预算(`>= 771`),再小一档达不到(`< 771`)。
+/// 数据长大后再跑,若最小整数漂了,该重标定 —— 报错信息会把现场读数抬出来。
+const VALIDATED_CO_EDGES: usize = 771;
+
 /// 可读区间:全图共现边数。2026-10-01 验收过的边预算是 771,真库现读 771(下界 600 / 上界 900):
 /// 上界 900 挡「阈值太大 -> 枢纽全放进来 -> 三千条毛球」,下界 600 挡「阈值太小 -> 全被排除 ->
 /// 图上一条共现都没有」(阈值设 0 时实测 0 条 —— 除了根实体,每个目标都成了枢纽)。
@@ -131,12 +136,8 @@ fn graph_threshold_readout() {
     let hubs = hub_count(&deg, HUB_THRESHOLD);
     let labels = ns.iter().filter(|n| n.self_count >= HUB_NOTES).count();
     let name = |id: i64| -> String {
-        c.query_row(
-            "SELECT COALESCE(path, substr(meta, 1, 12)) FROM entities WHERE id = ?1",
-            [id],
-            |r| r.get(0),
-        )
-        .unwrap_or_else(|_| format!("(已删 id={id})"))
+        c.query_row("SELECT COALESCE(path, substr(meta, 1, 12)) FROM entities WHERE id = ?1", [id], |r| r.get(0))
+            .unwrap_or_else(|_| format!("(已删 id={id})"))
     };
 
     eprintln!("真库图读数:闭包 {} 节点 / 父子边 {tree} 条", ns.len());
@@ -149,8 +150,7 @@ fn graph_threshold_readout() {
             default_view_co_edges(&c, t),
             if t == HUB_THRESHOLD { "  <- HUB_THRESHOLD" } else { "" }
         );
-    }
-    eprintln!(
+    }    eprintln!(
         "  实取 HUB_THRESHOLD={HUB_THRESHOLD}:枢纽 {hubs}({:.1}%)/ 共现边 {} / 默认视图 {}\n  \
          枢纽文字(selfCount >= {HUB_NOTES}):{labels} 个节点",
         hubs as f64 * 100.0 / ns.len() as f64,
@@ -166,6 +166,9 @@ fn graph_threshold_readout() {
         dto.edges.len()
     );
 
+    let just_below = co_edges(&c, HUB_THRESHOLD - 1).unwrap().len();
+    assert!(co.len() >= VALIDATED_CO_EDGES, "HUB_THRESHOLD={HUB_THRESHOLD} 只给 {} 条共现边,没达到边预算 {VALIDATED_CO_EDGES}", co.len());
+    assert!(just_below < VALIDATED_CO_EDGES, "阈值再小一档({}) 也有 {just_below} 条 —— 不是最小整数", HUB_THRESHOLD - 1);
     assert!(
         (CO_EDGES_READABLE.0..=CO_EDGES_READABLE.1).contains(&co.len()),
         "共现边 {} 落在可读区间 {:?} 之外(HUB_THRESHOLD={HUB_THRESHOLD} 需重标定:多了是毛球,少了等于枢纽全被排除)",
