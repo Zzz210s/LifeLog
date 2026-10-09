@@ -3,9 +3,10 @@
 use rusqlite::functions::FunctionFlags;
 use rusqlite::{params, Connection};
 
-use super::reconcile::{
-    assert_cache_matches_edges, assert_is_cited_matches_edges, check_1_is_cited, check_2_parent_child,
-    check_3_path, check_4_depth, check_5_single_parent, check_6_sibling_key, check_7_id_contiguous, counts,
+use super::reconcile::{assert_cache_matches_edges, assert_is_cited_matches_edges};
+use super::reconcile_checks::{
+    check_1_is_cited, check_2_parent_child, check_3_path, check_4_depth, check_5_single_parent,
+    check_6_sibling_key, check_7_id_contiguous, counts,
 };
 
 const SCHEMA: &str = "

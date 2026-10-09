@@ -33,6 +33,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("migrations/025_entities_notes_edges.sql"),
     include_str!("migrations/026_entities_fts.sql"),
     include_str!("migrations/027_drop_legacy.sql"),
+    include_str!("migrations/028_unify_meta.sql"),
 ];
 
 /// 012 的位次(1 起)与它删除的列名:SQLite 没有 `DROP COLUMN IF EXISTS`,
@@ -50,10 +51,12 @@ fn notes_has_column(conn: &Connection, column: &str) -> rusqlite::Result<bool> {
     Ok(n > 0)
 }
 
-/// 需要临时关闭外键约束的迁移:重建仍被 tag_links 引用的父表时,外键 ON 会让
-/// DROP TABLE tags 沿 ON DELETE CASCADE 把 tag_links 数据级联删空。
+/// 需要临时关闭外键约束的迁移:重建整表(且新行先按映射填入、FK 仍指向旧表)时,
+/// 外键 ON 会让 `DROP TABLE entities` 沿 ON DELETE CASCADE 把 `edges` 数据级联删空,
+/// 也会让 `edges_new` 的填入因两端新 id 在旧表里不存在而被拒。
+/// 006 重建仍被 tag_links 引用的父表 `tags` 时同理。
 /// PRAGMA foreign_keys 在事务内是 no-op,故必须在事务外关闭、提交后再打开。
-const FK_OFF_VERSIONS: &[i64] = &[6];
+const FK_OFF_VERSIONS: &[i64] = &[6, 28];
 
 /// 最新迁移版本号(= 迁移文件个数);供备份设施判断"是否有迁移要跑"
 pub fn latest_version() -> i64 {

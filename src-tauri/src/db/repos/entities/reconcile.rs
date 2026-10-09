@@ -11,10 +11,7 @@ pub const RECONCILE_SQL: &str = include_str!(concat!(
     "/../scripts/entity-migration/reconcile.sql"
 ));
 
-pub use super::reconcile_checks::{
-    check_1_is_cited, check_2_parent_child, check_3_path, check_4_depth, check_5_single_parent,
-    check_6_sibling_key, check_7_id_contiguous, counts,
-};
+use super::reconcile_checks::check_1_is_cited;
 
 /// 一个对账块:`n` 序号(spec §3.7 ①–⑦)、`title` 标题、`requires` 需要的表/列、`sql` 单条 SELECT。
 #[derive(Debug, Clone, PartialEq, Eq)]
