@@ -4,7 +4,7 @@
  * 读数:
  *   ① user_version=29 + 对账七条全 PASS
  *   ② 当前筛选命中(IPC query_notes == 库侧按当前 filter_current 编译出的 SQL 命中数)
- *   ③ 树闭包 742(list_tags == path IS NOT NULL)
+ *   ③ 树闭包(list_tags == 库侧 path IS NOT NULL 现场重算,不写死规模)
  *   ④ `#X`/`[[X]]` 目标域:自建笔记→笔记引用夹具,验 `[[X]]` 落成 link 边且图里可见
  *   ⑤ 导出跟随当前筛选(sheet「条目」/ 四列表头 / 行数 == 筛选命中)
  *   ⑥ 关系图载荷与耗时(graph_data 读数 2:≤80ms 且 ≤200KB)
@@ -120,12 +120,12 @@ record(
   `IPC=${hits0.length} 库侧=${dbHits0} 条件=${JSON.stringify(cond0)}`,
 );
 
-// ---------- ③ 树闭包 742 ----------
+// ---------- ③ 树闭包:IPC list_tags 与库侧现场重算(path IS NOT NULL)比,真库树规模变化不假红 ----------
 const tagRows = await ipc(cdp, 'list_tags');
 const dbTree = n('SELECT COUNT(*) n FROM entities WHERE path IS NOT NULL');
 record(
-  '③ 树闭包 742(list_tags == path IS NOT NULL)',
-  tagRows.length === 742 && dbTree === 742 && tagRows.length === dbTree,
+  '③ 树闭包(list_tags == 库侧现场重算 path IS NOT NULL)',
+  tagRows.length === dbTree,
   `list_tags=${tagRows.length} 库侧=${dbTree}`,
 );
 
