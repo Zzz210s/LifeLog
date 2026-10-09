@@ -44,7 +44,7 @@ pub(crate) fn create_on(conn: &mut Connection, content: &str, date: &str) -> rus
 /// 创建事务内核:`time_tag` 为要一并写入的自动时间标签路径(None = 不加)。
 /// 自动标签**必须与正文标签求并集后一次写入** —— `write_saved_links` 是替换语义,
 /// 分两次调用会把前一次写的链接整体抹掉。
-fn create_with(
+pub(crate) fn create_with(
     conn: &mut Connection,
     content: &str,
     time_tag: Option<&str>,

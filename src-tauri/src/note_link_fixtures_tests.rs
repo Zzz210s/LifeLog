@@ -3,9 +3,9 @@
 //! 前端 `src/shared/entity-link-targets.test.ts` 读同一份文件跑 `resolveLinkTarget`;
 //! 这里把向量灌进最小 `entities` 表,走**生产**的 `note_links::candidates` 取候选,再跑 `resolve_target`。
 //! 另附一条升级回归守卫:链接目标切到实体裁决后,「标签 + 链接同篇」正文的解析三元组
-//! 仍与冻结基线 `fixtures/upgrade-regression.baseline.json` 逐字节一致(spec §5.3)。
+//! 仍与冻结的旧形状基线 `fixtures/upgrade-regression.baseline.legacy.json` 逐字节一致(spec §5.3)。
 use crate::db::repos::note_links::{candidates, resolve_target};
-use crate::upgrade_regression::{self, BaselineEntry, Case, SOURCE_FIXTURE};
+use crate::upgrade_regression::{self, Case, LegacyEntry, SOURCE_FIXTURE};
 use rusqlite::{params, Connection};
 use serde::Deserialize;
 
@@ -19,7 +19,7 @@ const UPGRADE_CASES: &str = include_str!(concat!(
 ));
 const UPGRADE_BASELINE: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/../fixtures/upgrade-regression.baseline.json"
+    "/../fixtures/upgrade-regression.baseline.legacy.json"
 ));
 
 /// 一条候选实体:`meta` 是唯一真源(首行当归一化键),`path` 只是显示缓存、不参匹配
@@ -132,9 +132,9 @@ fn same_key_takes_smallest_id() {
 #[test]
 fn parse_triple_is_frozen_for_link_and_tag_bodies() {
     let cases: Vec<Case> = serde_json::from_str(UPGRADE_CASES).expect("升级向量必须是合法 JSON 数组");
-    let base: Vec<BaselineEntry> =
-        serde_json::from_str(UPGRADE_BASELINE).expect("升级基线必须是合法 JSON 数组");
-    let frozen: Vec<&BaselineEntry> = base.iter().filter(|e| e.source == SOURCE_FIXTURE).collect();
+    let base: Vec<LegacyEntry> =
+        serde_json::from_str(UPGRADE_BASELINE).expect("升级 legacy 基线必须是合法 JSON 数组");
+    let frozen: Vec<&LegacyEntry> = base.iter().filter(|e| e.source == SOURCE_FIXTURE).collect();
     assert_eq!(frozen.len(), cases.len(), "基线条数与向量不一致");
     let mut checked = 0;
     for (c, e) in cases.iter().zip(frozen) {

@@ -1,16 +1,20 @@
-//! 升级回归基线(spec §5.3 / 计划 T0.2)。
+//! 升级回归基线(spec §5.3 / §7.5,计划 T0.2 -> T3.5)。
 //!
-//! 目的:把「迁移前」的正文解析结果冻结成 `fixtures/upgrade-regression.baseline.json`,
-//! 阶段 4 的新实现对其逐字节比对(表层语法零变更,所以这是防止顺手改坏的回归网)。
+//! 目的:把「当前实现」的正文解析结果冻结成 `fixtures/upgrade-regression.baseline.json`,
+//! 后续阶段 4 的新实现对其逐条比对(表层语法零变更,所以这是防止顺手改坏的回归网)。
 //!
 //! 解析一律复用产品实现:`tags::extract_tags_known`(严格,不带库内兜底)与
 //! `links::{link_spans, title_of, display_title}` —— 本模块**不实现第二套语法**。
-//! 基线不存正文,只存 `content_sha256` + 三元组 + 三元组摘要 `sha256`
-//! (公开仓库:真库正文与其首行都属于用户内容,不入库;向量是合成/边界语料)。
+//! 生成真源在 [`baseline`](迁移后:`{content, expect:{citations,title}}`,`citations` = `link` 边
+//! 目标实体 id,现算自库而非现算自正文);旧形状 `LegacyEntry` 与冻结副本
+//! `fixtures/upgrade-regression.baseline.legacy.json` 只作对照(spec §7.5)。
 //! 真库补充基线用 `gen-upgrade-baseline -- --db <真库>` 生成,落到仓库外的快照区
 //! `F:\0-code\_lifelog-snapshots\upgrade-baseline-real-<stamp>.json`,与仓库分支线 diff 时用。
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+
+#[path = "upgrade_regression_baseline.rs"]
+pub mod baseline;
 
 /// 一条回归输入:`why` 是文档字段,`content` 是待解析正文
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -19,10 +23,28 @@ pub struct Case {
     pub content: String,
 }
 
-/// 一条基线:正文摘要 + 解析三元组(标签集合 / 链接 raw_title 序列 / 标题)+ 三元组摘要
+/// 迁移后基线的一条期望:`citations` = 该条正文落下的 `link` 边目标实体 id(按落库序),
+/// `title` = `entity_name(meta)`(与旧基线的 `title` 同口径,逐条相等)
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Expect {
+    pub citations: Vec<i64>,
+    pub title: String,
+}
+
+/// 迁移后基线的一条(冻结真源:基线条目一旦提交即冻结)
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BaselineEntry {
     /// 来源:`fixture`(仓库内公开向量)或 `db`(真库只读抽样)
+    pub source: String,
+    pub why: String,
+    /// 该条正文;fixture 条目本来就是公开向量,db 条目的输出只落仓库外快照区
+    pub content: String,
+    pub expect: Expect,
+}
+
+/// 旧形状(`*.baseline.legacy.json`):正文摘要 + 解析三元组(标签路径 / 链接 raw_title / 标题)
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LegacyEntry {
     pub source: String,
     pub why: String,
     pub content_sha256: String,
@@ -77,11 +99,11 @@ pub fn triple_sha(tags: &[String], links: &[String], title: &str, display_title:
     sha256_hex(json.as_bytes())
 }
 
-/// 解析一篇正文并组装基线条目
-pub fn entry_from(content: &str, source: &str, why: &str) -> BaselineEntry {
+/// 解析一篇正文并组装**旧形状**条目(只服务 legacy 基线与对照断言)
+pub fn entry_from(content: &str, source: &str, why: &str) -> LegacyEntry {
     let (tags, links, title, display_title) = parse_content(content);
     let sha256 = triple_sha(&tags, &links, &title, &display_title);
-    BaselineEntry {
+    LegacyEntry {
         source: source.to_string(),
         why: why.to_string(),
         content_sha256: sha256_hex(content.as_bytes()),

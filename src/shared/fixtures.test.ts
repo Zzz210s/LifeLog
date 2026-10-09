@@ -101,7 +101,7 @@ describe('fixtures/tag-grammar.json(前端契约:语法由后端实现)', () => 
 });
 
 describe('fixtures/upgrade-regression.json(升级回归输入契约)', () => {
-  it('结构合法:why 非空且正文为字符串;基线同长且不含正文', () => {
+  it('结构合法:why 非空且正文为字符串;基线同长且形状为 {content, expect:{citations,title}}', () => {
     expect(upgradeCases.length).toBeGreaterThanOrEqual(30);
     for (const c of upgradeCases) {
       expect(typeof c.why, JSON.stringify(c)).toBe('string');
@@ -109,13 +109,16 @@ describe('fixtures/upgrade-regression.json(升级回归输入契约)', () => {
       expect(typeof c.content, c.why).toBe('string');
     }
     // 基线由 Rust 侧生成(gen-upgrade-baseline)并冻结;前端不解析、只做结构契约
-    const baseline = readFixture('upgrade-regression.baseline.json') as Array<
-      Record<string, unknown>
-    >;
+    const baseline = readFixture('upgrade-regression.baseline.json') as Array<{
+      content: string;
+      expect: { citations: number[]; title: string };
+    }>;
     expect(baseline.length).toBe(upgradeCases.length);
     for (const e of baseline) {
-      expect('content' in e, JSON.stringify(e).slice(0, 80)).toBe(false);
-      expect(typeof e.content_sha256, JSON.stringify(e).slice(0, 80)).toBe('string');
+      const label = JSON.stringify(e).slice(0, 80);
+      expect(typeof e.content, label).toBe('string');
+      expect(e.expect.citations.every((id) => Number.isInteger(id) && id > 0), label).toBe(true);
+      expect(typeof e.expect.title, label).toBe('string');
     }
   });
 });
