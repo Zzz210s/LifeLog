@@ -74,6 +74,35 @@ export const xlsxContentDigest = (file) =>
     '    h.update(n.encode()); h.update(z.read(n))',
     'print(h.hexdigest())',
   ].join('\n'), file], { encoding: 'utf8' }).trim();
+/** 侧栏计数(按 path 排序的 "path|self|subtree")前后差异:非命名空间行的变化 + 每个变化行的 [前, 后] 计数 */
+export const sidebarDiff = (before, after, ns) => {
+  const m = (rows) => new Map(rows.map((r) => { const [p, ...v] = r.split('|'); return [p, v.map(Number)]; }));
+  const b = m(before), a = m(after);
+  const keys = [...new Set([...b.keys(), ...a.keys()])];
+  const changed = keys.filter((p) => JSON.stringify(b.get(p)) !== JSON.stringify(a.get(p)));
+  return { outside: changed.filter((p) => !p.startsWith(ns)), changed: changed.map((p) => [p, b.get(p), a.get(p)]) };
+};
+/** 两个 xlsx「条目」表的逐单元格差异:[{id, col, before, after}](ids 取左侧表头第一列) */
+export const xlsxCellDiff = (a, b) =>
+  JSON.parse(execFileSync('python', ['-c', [
+    'import json, sys, openpyxl',
+    'def rows(p):',
+    "    ws = openpyxl.load_workbook(p)['条目']",
+    '    it = ws.iter_rows(values_only=True)',
+    '    hdr = list(next(it))',
+    '    return hdr, {r[0]: list(r) for r in it}',
+    'ha, x = rows(sys.argv[1]); hb, y = rows(sys.argv[2])',
+    "assert ha == hb, '表头不一致'",
+    'out = []',
+    'for k in sorted(set(x) | set(y)):',
+    '    ra, rb = x.get(k), y.get(k)',
+    '    if ra is None or rb is None:',
+    "        out.append({'id': k, 'col': '*', 'before': ra is not None, 'after': rb is not None}); continue",
+    '    for i, c in enumerate(ha):',
+    '        if ra[i] != rb[i]:',
+    "            out.append({'id': k, 'col': c, 'before': ra[i], 'after': rb[i]})",
+    "print(json.dumps(out, ensure_ascii=False))",
+  ].join('\n'), a, b], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, env: { ...process.env, PYTHONIOENCODING: 'utf-8' } }).trim());
 /** 应用读路径(R1):query_notes 里这条笔记的 tags —— 走后端过滤,不是直连库自证 */
 export const appNoteTags = async (cdp, keyword, id) =>
   (await ipc(cdp, 'query_notes', { conditions: { ...EMPTY, keyword }, offset: 0 })).find((n) => n.id === id)?.tags ?? null;

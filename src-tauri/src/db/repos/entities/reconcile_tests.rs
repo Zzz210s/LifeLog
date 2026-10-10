@@ -6,7 +6,7 @@ use rusqlite::{params, Connection};
 use super::reconcile::{assert_cache_matches_edges, assert_is_cited_matches_edges};
 use super::reconcile_checks::{
     check_1_is_cited, check_2_parent_child, check_3_path, check_4_depth, check_5_single_parent,
-    check_6_sibling_key, check_7_id_contiguous, counts,
+    check_6_sibling_key, check_7_id_integrity, counts,
 };
 
 const SCHEMA: &str = "
@@ -15,7 +15,8 @@ CREATE TABLE entities(id INTEGER PRIMARY KEY, meta TEXT NOT NULL DEFAULT '', is_
   sort_order INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE edges(id INTEGER PRIMARY KEY, source_id INTEGER NOT NULL, target_id INTEGER NOT NULL,
   kind TEXT NOT NULL, remark TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT '',
-  UNIQUE(source_id, kind, target_id));";
+  UNIQUE(source_id, kind, target_id));
+CREATE TABLE entity_merge_log(id INTEGER PRIMARY KEY, source_entity_id INTEGER, target_entity_id INTEGER);";
 
 /// `entity_name` / `entity_key` 由连接注册(db/sql_functions.rs,T1.1 落地);此处用 `links` 真源顶上。
 fn register_meta_fns(c: &Connection) {
@@ -94,7 +95,7 @@ fn each_check_detects_its_drift() {
         ("6", check_6_sibling_key, |c| {
             add_entity(c, 4, "项目", 1, Some(1), Some("工作/项目"), Some(2));
         }),
-        ("7", check_7_id_contiguous, |c| add_entity(c, 9, "离号", 0, None, None, None)),
+        ("7", check_7_id_integrity, |c| add_entity(c, 9, "离号", 0, None, None, None)),
     ];
     for (n, check, mutate) in cases {
         let c = consistent();
@@ -102,6 +103,17 @@ fn each_check_detects_its_drift() {
         let rows = check(&c).unwrap();
         assert!(!rows.is_empty(), "第 {n} 条未命中漂移: {rows:?}");
     }
+}
+
+/// ⑦ 放宽后的合并态:有合并记录时断号不再判失败(产品自动合并与引用优化 A3 都会删实体)。
+#[test]
+fn check_7_allows_gaps_once_a_merge_was_logged() {
+    let c = consistent();
+    add_entity(&c, 9, "离号", 0, None, None, None);
+    assert!(!check_7_id_integrity(&c).unwrap().is_empty(), "无合并记录时断号应仍命中");
+    c.execute("INSERT INTO entity_merge_log(id, source_entity_id, target_entity_id) VALUES(1, 4, 2)", [])
+        .unwrap();
+    assert!(check_7_id_integrity(&c).unwrap().is_empty(), "有合并记录后断号应放过");
 }
 
 /// `assert_is_cited_matches_edges` 对漂移必须 panic(spec §3.1 专用断言)。

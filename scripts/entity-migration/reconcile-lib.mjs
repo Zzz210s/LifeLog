@@ -149,6 +149,11 @@ export function formatReport(report) {
     if (c.status === 'N/A') L.push(`      ${c.mode} N/A (缺表/列 ${(c.missing || []).join(',')})`);
     else if (c.status === 'ERR') L.push(`      ${c.mode} ERR ${c.error}`);
     else L.push(`      ${c.mode} ${c.status} (${c.rowCount} 行)`);
+    // ⑦ 的断号不是失败:只在报告里提示(合并态允许)
+    if (c.n === '7') {
+      const gaps = Number(report.counts.id_gaps);
+      if (Number.isFinite(gaps) && gaps > 0) L.push(`      INFO: 检测到 ${gaps} 处断号(合并态,允许)`);
+    }
     for (const row of c.rows) L.push(`        ${JSON.stringify(row)}`);
   }
   L.push('');

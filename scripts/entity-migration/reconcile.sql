@@ -8,6 +8,7 @@
 --   -- @check | <序号> | <标题> | <模式> | <需要的表或列> | <期望>   对账；期望 = zero（0 行通过）或 ok（单行 'ok' 通过）
 -- 「需要的表或列」为逗号分隔：table 或 table.column；任一表/列不存在则整块打印 N/A。
 -- 七条（①–⑦）统一要求 v28 结构（entities.meta / entities.is_cited）；旧库（< 28）整组 N/A，不报错。
+-- ⑦ 的连号只在「无合并记录」的库上要求：产品自动合并与引用优化 A3 都会删实体，断号是常态。
 -- 真库只读：本文件只允许 SELECT / 只读 PRAGMA，禁止任何写语句。
 
 -- ============ 计数读数（v27 可跑的只有 entities / edges / path 三类）============
@@ -21,6 +22,11 @@ SELECT MIN(id) FROM entities;
 SELECT MAX(id) FROM entities;
 -- @count | entities_distinct_id | entities
 SELECT COUNT(DISTINCT id) FROM entities;
+-- @count | id_gaps | entities
+SELECT COUNT(*) FROM (SELECT id, LAG(id) OVER (ORDER BY id) AS prev FROM entities)
+WHERE prev IS NOT NULL AND id <> prev + 1;
+-- @count | id_merge_log | entity_merge_log
+SELECT COUNT(*) FROM entity_merge_log;
 -- @count | entities_path_nonnull | entities.path
 SELECT COUNT(*) FROM entities WHERE path IS NOT NULL;
 -- @count | entities_path_null | entities.path
@@ -109,7 +115,16 @@ SELECT COALESCE(e.parent_id, 0), entity_key(e.meta), COUNT(*) FROM entities e
 WHERE e.path IS NOT NULL AND e.is_cited = 1 AND instr(e.meta, char(10)) = 0
 GROUP BY COALESCE(e.parent_id, 0), entity_key(e.meta) HAVING COUNT(*) > 1;
 
--- ============ ⑦ id 重发完整性：连号（MIN=1 / MAX=COUNT / DISTINCT=COUNT）============
--- @check | 7 | id 连号完整(MIN=1,MAX=COUNT,DISTINCT=COUNT) | modern | entities.meta,entities.is_cited | zero
-SELECT MIN(id), MAX(id), COUNT(*), COUNT(DISTINCT id) FROM entities
-HAVING MIN(id) <> 1 OR MAX(id) <> COUNT(*) OR COUNT(DISTINCT id) <> COUNT(*);
+-- ============ ⑦ id 完整性：非空 / 唯一 / MIN>=1（连号只在没发生过合并的库上要求）============
+-- 口径（2026-10-11 放宽）：合并会删实体，id 必然断号，恒 FAIL 会掩盖真问题。故硬性断言只剩
+-- 非空 / 唯一 / MIN>=1；连号仅在 entity_merge_log 为空（从未合并）时才要求。断号处数另有
+-- id_gaps 计数读数，formatReport 会打 INFO「检测到 N 处断号（合并态，允许）」。
+-- @check | 7 | id 非空唯一且 MIN>=1(无合并记录时还要求连号) | modern | entities.meta,entities.is_cited,entity_merge_log | zero
+WITH st AS (SELECT MIN(id) AS min_id, MAX(id) AS max_id, COUNT(*) AS total,
+                   COUNT(DISTINCT id) AS distinct_total FROM entities),
+     gp AS (SELECT COUNT(*) AS gaps FROM (SELECT id, LAG(id) OVER (ORDER BY id) AS prev FROM entities)
+             WHERE prev IS NOT NULL AND id <> prev + 1),
+     mg AS (SELECT COUNT(*) AS merges FROM entity_merge_log)
+SELECT st.min_id, st.max_id, st.total, st.distinct_total, gp.gaps, mg.merges FROM st, gp, mg
+WHERE st.min_id < 1 OR st.total <> st.distinct_total
+   OR (mg.merges = 0 AND (st.min_id <> 1 OR gp.gaps > 0));

@@ -33,8 +33,8 @@ pub fn check_6_sibling_key(conn: &Connection) -> rusqlite::Result<Vec<String>> {
     run_named(conn, "6")
 }
 
-/// spec §3.7 ⑦ id 连号完整性(MIN=1 / MAX=COUNT / DISTINCT=COUNT)。
-pub fn check_7_id_contiguous(conn: &Connection) -> rusqlite::Result<Vec<String>> {
+/// spec §3.7 ⑦ id 完整性(非空 / 唯一 / MIN>=1;无合并记录时还要求连号)。
+pub fn check_7_id_integrity(conn: &Connection) -> rusqlite::Result<Vec<String>> {
     run_named(conn, "7")
 }
 

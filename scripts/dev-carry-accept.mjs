@@ -1,18 +1,12 @@
 #!/usr/bin/env node
 /**
  * 标签携带标签(spec docs/superpowers/specs/2026-10-05-tag-carry-design.md §8)的端到端读数 1–10 + S1/S2:
- *   1 数据:添加/移除后 'tag' 行数正确、重复添加不增行、删携带者随 CASCADE 消失
- *   2 拒绝:自携带 / 2 环 / 3 环 → 中文提示且不写库
- *   3 筛选:命中 = 直接挂的 + 经由携带的(两路分别量,先量无携带基线)
- *   4 排除:与包含侧互补(无黑洞)
- *   5 摘要:条件栏出现 `+携带` 小字(先用库/命令侧确认该标签确有携带者)
- *   6 计数:侧栏标签行计数前后逐值不变
- *   7 回归:笔记 tags 列 / FTS / 导出结果不因携带行变化(R1)
- *   8 孤儿:只被携带的空壳标签不被回收(R2)
- *   9 性能:筛一个标签 带携带 vs 无携带 的**比值**(抓数量级劣化)
- *   10 悬空:删掉被携带的标签后不留悬空行(R5)
- *   S1 继承:携带沿子树向下继承 —— 挂 甲/子 的笔记也因「甲携带乙」命中 乙
- *   S2 不传递:甲携带乙、乙携带丙 ≠ 甲携带丙 —— 筛 丙 不得命中只挂 甲 的笔记
+ *   1 数据:添加/移除后 'tag' 行数正确、重复添加不增行、删携带者随 CASCADE 消失;2 拒绝:自携带/2 环/3 环 -> 中文提示且不写库
+ *   3 筛选:命中 = 直接挂的 + 经由携带的(两路分别量,先量无携带基线);4 排除:与包含侧互补(无黑洞)
+ *   5 摘要:条件栏出现 `+携带` 小字(先用库/命令侧确认该标签确有携带者);6 计数:侧栏计数相对基线,夹具行只按携带边各 +1
+ *   7 回归:笔记 tags 列 / FTS 不变,导出只差夹具携带边带出的「引用路径」单元格(R1);8 孤儿:只被携带的空壳标签不被回收(R2)
+ *   9 性能:筛一个标签 带携带 vs 无携带 的**比值**(抓数量级劣化);10 悬空:删掉被携带的标签后不留悬空行(R5)
+ *   S1 继承:携带沿子树向下继承 —— 挂 甲/子 的笔记也因「甲携带乙」命中 乙;S2 不传递:筛 丙 不得命中只挂 甲 的笔记
  * 夹具一律 `携带测试` 前缀,自建自删并打印前后计数;不碰物理鼠标(合成键鼠 + IPC)。
  * 用法:先以 CDP 端口启动应用,再 `node scripts/dev-carry-accept.mjs`;库路径见 carry-accept-lib.mjs。
  */
@@ -23,8 +17,8 @@ import { ensureMain, recorder } from './cdp-lib.mjs';
 import {
   addCarryViaPanel, appNoteTags, carrierPathsOf, carryRowsFrom, carryRowsTo, cascadeDeleteProbe, clearChips, clickTagPath, condIds,
   counts, danglingTagRows, excludeCond, fixtureNoteIds, fixtureTagIds, fmt, ipc, noteIdOf, orphanShellProbe,
-  pressEsc, purgeCarryFixtures, queryCount, relationOutPaths, requireApp, sleep, summaryCarryMarks, summaryText,
-  tagCond, tagCountsViaApp, tagIdOf, timeWithAndWithoutCarry, waitFor, xlsxContentDigest,
+  pressEsc, purgeCarryFixtures, queryCount, relationOutPaths, requireApp, sidebarDiff, sleep, summaryCarryMarks, summaryText,
+  tagCond, tagCountsViaApp, tagIdOf, timeWithAndWithoutCarry, waitFor, xlsxCellDiff,
 } from './carry-accept-lib.mjs';
 
 const NS = '携带测试';
@@ -41,11 +35,9 @@ let failure = null, filterBefore = null;
 const pre = [...fixtureNoteIds()];
 if (pre.length) console.log(`INFO 清掉上一次残留夹具笔记 ${pre.length} 条`);
 await purgeCarryFixtures(call);
-await sleep(400);
-const base = counts();
+await sleep(400); const base = counts();
 filterBefore = await call('get_setting', { key: 'filter_current' });
 console.log(`INFO 基线=${fmt(base)}`);
-
 try {
   // --- 夹具:五条笔记(甲/甲子/乙/丙 各一条 + 一条无标签),都走真实保存路径 ---
   for (const [title, tag] of [[NA, A], [NAS, AS], [NB, B], [NC, C], [NO, null]]) {
@@ -59,7 +51,6 @@ try {
   const tagBefore = await tagCountsViaApp(cdp);
   const tagsBefore = await appNoteTags(cdp, NS, idA), ftsBefore = counts().fts;
   await call('export_notes', { path: E1 });
-  const d1 = xlsxContentDigest(E1);
   record('夹具就绪', [idA, idAs, idB, idC, idN, tA, tAs, tB, tC].every((x) => x != null),
     `笔记=${fmt({ idA, idAs, idB, idC, idN })} 标签=${fmt({ tA, tAs, tB, tC })} 基线=${fmt(base)}`);
 
@@ -134,17 +125,26 @@ try {
     carryRowsTo(tB) === 1 && fmt(carriersOfB) === fmt([A]) && marks === 1 && String(stext).includes('+携带') && marksA === 0,
     `库:指向乙的携带行=${carryRowsTo(tB)}、命令 carriersOf=${fmt(carriersOfB)} | DOM:筛乙 片段=${marks} 摘要=「${stext}」;筛甲 片段=${marksA}(应 0)`);
 
-  // --- 8.6 侧栏计数前后逐值不变 ---
-  const snap = await tagCountsViaApp(cdp);
-  const snapDiff = snap.filter((x, i) => x !== tagBefore[i]);
-  record('读数6 侧栏标签行计数前后逐值不变(不算携带命中)', fmt(snap) === fmt(tagBefore), `差异=${fmt(snapDiff)}`);
+  const d6 = sidebarDiff(tagBefore, await tagCountsViaApp(cdp), NS);
+  const ch6 = new Map(d6.changed.map(([p, b, a]) => [p, { b, a, d: a[0] - b[0] + a[1] - b[1] }]));
+  record('读数6 侧栏标签行计数:非夹具行逐值不变;夹具行只按携带边(甲→乙、乙→丙)各 +1(本级/含子级)',
+    d6.outside.length === 0 && fmt([...ch6.keys()].sort()) === fmt([B, C].sort()) && [B, C].every((p) => fmt(ch6.get(p).b) === fmt([1, 1]) && ch6.get(p).d === 2),
+    `非夹具行差异=${fmt(d6.outside)};夹具行 前->后=${fmt([B, C].map((p) => [p, ch6.get(p)?.b, ch6.get(p)?.a]))}(各行 本级/含子级 各 +1)`);
 
-  // --- 8.7 回归:笔记 tags / FTS / 导出 ---
+  // --- 8.7 回归:导出跟随 settings.filter_current,而读数 5 的点击改过它 -> 先还原到读基线时的条件再导 E2;
+  // 笔记 tags / FTS 不变,导出只许夹具携带边带出的「引用路径」单元格变化 ---
+  if (filterBefore != null) await call('set_setting', { key: 'filter_current', value: filterBefore });
+  await sleep(300);
   await call('export_notes', { path: E2 });
   const tagsAfter = await appNoteTags(cdp, NS, idA);
-  const regOk = fmt(tagsAfter) === fmt(tagsBefore) && counts().fts === ftsBefore && xlsxContentDigest(E2) === d1;
-  record('读数7 笔记 tags 列 / FTS 计数 / 导出内容均不因携带行变化(R1)',
-    regOk, `tags=${fmt(tagsAfter)}(前 ${fmt(tagsBefore)}) FTS=${counts().fts}(前 ${ftsBefore}) 导出内容摘要=${xlsxContentDigest(E2).slice(0, 16)} vs ${d1.slice(0, 16)}`);
+  const d7 = xlsxCellDiff(E1, E2);
+  const ch7 = new Map(d7.map((c) => [c.id, c]));
+  const gain7 = (id, ...ls) => ch7.has(id) && ls.every((l) => String(ch7.get(id).after).includes(l)) && String(ch7.get(id).after).includes(String(ch7.get(id).before ?? ''));
+  record('读数7 笔记 tags 列 / FTS 计数不变;导出仅夹具携带边带出的「引用路径」变化(R1)',
+    fmt(tagsAfter) === fmt(tagsBefore) && counts().fts === ftsBefore && d7.every((c) => c.col === '引用路径') &&
+      fmt([...ch7.keys()].sort((x, y) => x - y)) === fmt([idA, idAs, idB, tA, tB].sort((x, y) => x - y)) &&
+      gain7(idA, B) && gain7(idAs, B) && gain7(idB, C) && gain7(tA, B, C) && gain7(tB, C),
+    `tags=${fmt(tagsAfter)}(前 ${fmt(tagsBefore)}) FTS=${counts().fts}(前 ${ftsBefore}) 导出差异=${fmt(d7.map((c) => [c.id, c.col, c.after]))}`);
 
   // --- 8.9 性能 + 8.1d 移除:比值口径。携带只在筛选谓词里多一次物化集合成员判定,
   //     集合大小 = 携带行数(此处个位数),本机 40 次均值的噪声远低于 2 倍;

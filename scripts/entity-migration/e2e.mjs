@@ -2,7 +2,7 @@
 /**
  * T4.4 端到端验收(统一实体 / 统一元数据迁移后的核心面)。
  * 读数:
- *   ① user_version=29 + 对账七条全 PASS
+ *   ① user_version>=29(含迁移链 29/30 落点) + 对账七条全 PASS
  *   ② 当前筛选命中(IPC query_notes == 库侧按当前 filter_current 编译出的 SQL 命中数)
  *   ③ 树闭包(list_tags == 库侧 path IS NOT NULL 现场重算,不写死规模)
  *   ④ `#X`/`[[X]]` 目标域:自建笔记→笔记引用夹具,验 `[[X]]` 落成 link 边且图里可见
@@ -35,24 +35,14 @@ if (!(await fetch(`http://127.0.0.1:${CDP_PORT}/json/version`).then((r) => r.ok,
 const { cdp, close } = await ensureMain();
 const { record, finish } = recorder();
 
-const ro = (fn) => {
-  const db = openReadOnly(DB_PATH);
-  try { return fn(db); } finally { db.close(); }
-};
+const ro = (fn) => { const db = openReadOnly(DB_PATH); try { return fn(db); } finally { db.close(); } };
 const n = (sql, ...a) => ro((db) => db.prepare(sql).get(...a).n);
 const all = (sql, ...a) => ro((db) => db.prepare(sql).all(...a).map((r) => ({ ...r })));
-const counts = () =>
-  ro((db) => {
-    const c = (sql) => db.prepare(sql).get().n;
-    return {
-      entities: c('SELECT COUNT(*) n FROM entities'),
-      tags: c('SELECT COUNT(*) n FROM tags'),
-      notes: c('SELECT COUNT(*) n FROM notes'),
-      link: c('SELECT COUNT(*) n FROM note_links'),
-      version: db.prepare('PRAGMA user_version').get().user_version,
-      integrity: db.prepare('PRAGMA integrity_check').get().integrity_check,
-    };
-  });
+const counts = () => ro((db) => { const c = (sql) => db.prepare(sql).get().n;
+  return { entities: c('SELECT COUNT(*) n FROM entities'), tags: c('SELECT COUNT(*) n FROM tags'),
+    notes: c('SELECT COUNT(*) n FROM notes'), link: c('SELECT COUNT(*) n FROM note_links'),
+    version: db.prepare('PRAGMA user_version').get().user_version,
+    integrity: db.prepare('PRAGMA integrity_check').get().integrity_check }; });
 const pageAll = async (cond) => {
   const out = [];
   for (let off = 0; ; ) {
@@ -103,10 +93,15 @@ const dbFilterHits = (f) => {
 // ---------- ① 迁移版本 + 对账七条 ----------
 const sqlPath = fileURLToPath(new URL('./reconcile.sql', import.meta.url));
 const rec = runReconcile({ dbPath: DB_PATH, sqlPath });
+// 迁移链关键版本:版本号单调递增,user_version >= v 即链上含 v;除版本号外再钉每个版本的结构落点
+// (029 建 entities_fts 表 / 030 建 entities_fts_src 视图)—— 版本号被读回而落点缺失也算链断。
+const CHAIN = [[29, 'table', 'entities_fts'], [30, 'view', 'entities_fts_src']];
+const marks = CHAIN.map(([v, t, nm]) => [v, n(`SELECT COUNT(*) n FROM sqlite_master WHERE type='${t}' AND name='${nm}'`)]);
+const chainOk = rec.user_version >= Math.max(...CHAIN.map(([v]) => v)) && marks.every(([, c]) => c === 1);
 record(
-  '① user_version=29 且对账全 PASS(0 FAIL / 0 N/A)',
-  rec.user_version === 29 && rec.summary.fail === 0 && rec.summary.na === 0,
-  `user_version=${rec.user_version} PASS ${rec.summary.pass} / FAIL ${rec.summary.fail} / N/A ${rec.summary.na}`,
+  '① user_version>=29 且迁移链关键版本(29/30)落点齐备 + 对账全 PASS(0 FAIL / 0 N/A)',
+  rec.user_version >= 29 && chainOk && rec.summary.fail === 0 && rec.summary.na === 0,
+  `user_version=${rec.user_version} 链=${JSON.stringify(marks)} 对账 PASS ${rec.summary.pass} / FAIL ${rec.summary.fail} / N/A ${rec.summary.na}`,
 );
 
 // ---------- ② 当前筛选命中:IPC 与库侧 SQL 逐值一致 ----------

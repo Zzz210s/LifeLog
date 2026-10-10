@@ -26,6 +26,7 @@ CREATE TABLE entities(id INTEGER PRIMARY KEY, meta TEXT NOT NULL DEFAULT '', is_
 CREATE TABLE edges(id INTEGER PRIMARY KEY, source_id INTEGER NOT NULL, target_id INTEGER NOT NULL,
   kind TEXT NOT NULL, remark TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT '',
   UNIQUE(source_id, kind, target_id));
+CREATE TABLE entity_merge_log(id INTEGER PRIMARY KEY, source_entity_id INTEGER, target_entity_id INTEGER);
 CREATE VIRTUAL TABLE entities_fts USING fts5(meta);`;
 
 function open(dir, name, schema) {
@@ -98,9 +99,9 @@ test('v28 库：七条全 0 行 + 稳定读数逐值', () => {
     assert.deepEqual(
       ['entities', 'entities_min_id', 'entities_max_id', 'entities_distinct_id', 'entities_path_nonnull',
         'entities_path_null', 'edges', 'entities_fts', 'is_cited', 'edges_child', 'edges_link',
-        'link_remark_nonnull', 'tree_closure', 'feed_default', 'sibling_key_out_of_scope']
+        'link_remark_nonnull', 'tree_closure', 'feed_default', 'sibling_key_out_of_scope', 'id_gaps']
         .map((k) => report.counts[k]),
-      [3, 1, 3, 3, 2, 1, 2, 3, 1, 1, 1, 0, 2, 1, 0],
+      [3, 1, 3, 3, 2, 1, 2, 3, 1, 1, 1, 0, 2, 1, 0, 0],
     );
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -122,7 +123,7 @@ test('反例：is_cited 与 link 入边不符 -> 第 1 条 FAIL 1 行', () => {
   }
 });
 
-test('反例：重复 child 入边 -> 第 5 条 FAIL；id 断号 -> 第 7 条 FAIL', () => {
+test('反例：重复 child 入边 -> 第 5 条 FAIL；无合并记录的库 id 断号 -> 第 7 条 FAIL', () => {
   const dir = mkdtempSync(join(tmpdir(), 'reconcile-c57-'));
   try {
     const dbPath = buildV28(dir);
@@ -135,6 +136,30 @@ test('反例：重复 child 入边 -> 第 5 条 FAIL；id 断号 -> 第 7 条 FA
     assert.equal(check(report, '7').status, 'FAIL');
     assert.equal(report.counts.entities_max_id, 5);
     assert.equal(report.counts.entities, 4);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('合并态：有合并记录时断号允许(第 7 条 PASS),MIN<1 仍 FAIL,断号走 id_gaps 读数', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'reconcile-merged-'));
+  try {
+    const dbPath = buildV28(dir);
+    const db = new DatabaseSync(dbPath);
+    db.exec(`INSERT INTO entities(id,meta,is_cited) VALUES (5,'离号',0)`);
+    db.exec(`INSERT INTO entity_merge_log(id,source_entity_id,target_entity_id) VALUES (1,4,2)`);
+    db.close();
+    const report = runReconcile({ dbPath, sqlPath: SQL });
+    assert.equal(check(report, '7').status, 'PASS', '有合并记录时断号应允许');
+    assert.equal(report.counts.id_gaps, 1);
+    assert.equal(report.counts.id_merge_log, 1);
+    assert.match(formatReport(report), /INFO: 检测到 1 处断号\(合并态,允许\)/);
+
+    const db2 = new DatabaseSync(dbPath);
+    db2.exec(`INSERT INTO entities(id,meta,is_cited) VALUES (0,'零号',0)`);
+    db2.close();
+    const c = check(runReconcile({ dbPath, sqlPath: SQL }), '7');
+    assert.equal(c.status, 'FAIL', 'MIN=0 违反 MIN>=1');
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
