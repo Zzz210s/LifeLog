@@ -92,3 +92,7 @@ integrity_check=ok  foreign_key_check=0 行
 ```
 
 `entities_max_id=1000000849` 是阶段 1–3 的实体 id（标签带 `TAG_ID_OFFSET=1e9`），阶段 4 删净偏移后回到连号。
+
+连号只在**没发生过合并**的库上要求（`entity_merge_log` 为空）：产品自动合并与引用优化 A3 都会删实体，
+断号是常态，第 ⑦ 条于是放宽为「非空 / 唯一 / `MIN>=1`」+（无合并记录时）连号，断号处数走
+`id_gaps` 计数读数并在报告里打 `INFO: 检测到 N 处断号(合并态,允许)`。
