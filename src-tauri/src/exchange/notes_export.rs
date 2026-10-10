@@ -1,9 +1,8 @@
 use crate::db::repos::notes::notes_filter::{where_clause, FilterConditions};
 use crate::db::repos::settings::{self, FILTER_CURRENT_KEY};
-use crate::links::display_title;
-use crate::tag_label::label_plain;
 use rusqlite::Connection;
-use std::collections::HashMap;
+
+use super::notes_export_refs::refs_by_source;
 
 /// xlsx 单元格字符上限(rust_xlsxwriter 硬限制):超长整表写出失败
 pub const MAX_CELL_CHARS: usize = 32767;
@@ -44,40 +43,8 @@ fn current_filter(conn: &Connection) -> FilterConditions {
         .unwrap_or_default()
 }
 
-/// 每个实体的出链目标显示名:树内实体给路径(`label_plain` 转可见文本),
-/// 树外实体给标题首行(`display_title`)。返回按 source_id 分组、组内按显示名升序。
-fn refs_by_source(conn: &Connection) -> Result<HashMap<i64, Vec<String>>, String> {
-    let mut stmt = conn
-        .prepare(
-            "SELECT l.source_id, t.path, t.meta FROM edges l
-             JOIN entities t ON t.id = l.target_id
-             WHERE l.kind = 'link'",
-        )
-        .map_err(|e| e.to_string())?;
-    let rows = stmt
-        .query_map([], |r| {
-            Ok((r.get::<_, i64>(0)?, r.get::<_, Option<String>>(1)?, r.get::<_, String>(2)?))
-        })
-        .map_err(|e| e.to_string())?;
-    let mut map: HashMap<i64, Vec<String>> = HashMap::new();
-    for row in rows {
-        let (source, path, meta) = row.map_err(|e| e.to_string())?;
-        let label = match path {
-            Some(p) => label_plain(&p),
-            None => display_title(&meta),
-        };
-        if !label.is_empty() {
-            map.entry(source).or_default().push(label);
-        }
-    }
-    for labels in map.values_mut() {
-        labels.sort();
-    }
-    Ok(map)
-}
-
 /// 导出 = 信息流**当前筛选结果**(全部实体中的命中),按实体 id 降序(最新在前);
-/// 引用列聚合该实体的出 `link` 边目标显示名。
+/// 引用列聚合该实体的出 `link` 闭包显示名(见 [`super::notes_export_refs`])。
 pub fn rows(conn: &Connection) -> Result<Vec<Row>, String> {
     let (frag, args) = where_clause(&current_filter(conn))?;
     let refs = refs_by_source(conn)?;

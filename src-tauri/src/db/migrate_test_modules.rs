@@ -109,6 +109,10 @@ mod entities_phase2_counts_tests;
 mod entities_fts_migration_tests;
 
 #[cfg(test)]
+#[path = "fts_closure_tests.rs"]
+mod fts_closure_tests;
+
+#[cfg(test)]
 #[path = "drop_legacy_migration_tests.rs"]
 mod drop_legacy_migration_tests;
 

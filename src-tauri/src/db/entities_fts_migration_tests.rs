@@ -5,10 +5,10 @@
 //! ⑦ 视图 `entities_fts_src` 的 SQL 含 `ENTITIES_AGG` 的每一段(常量改了必须出新迁移)。
 use super::entities_tags_fixture::migrated_to_v26;
 use super::*;
-use crate::db::repos::entities::fts::{ENTITIES_AGG, MIGRATION_029_SQL};
+use crate::db::repos::entities::fts::{ENTITIES_AGG, MIGRATION_029_SQL, MIGRATION_030_SQL};
 
-/// v26 夹具(3 标签 + 2 笔记 + 7 边)一次跑到最新(29);027/028/029 的钩子由 `run` 负责。
-fn v29() -> Connection {
+/// v26 夹具(3 标签 + 2 笔记 + 7 边)一次跑到最新(30);027/028/029/030 的钩子由 `run` 负责。
+fn v30() -> Connection {
     let c = migrated_to_v26();
     run(&c).unwrap();
     c
@@ -56,11 +56,11 @@ fn rebuild(c: &Connection) {
     .unwrap();
 }
 
-/// ① 跑到 29:行数对齐、两列齐备、全库已回填
+/// ① 跑到 30:行数对齐、两列齐备、全库已回填
 #[test]
-fn upgrade_to_v29_fills_entities_fts() {
-    let c = v29();
-    assert_eq!(count(&c, "PRAGMA user_version"), 29);
+fn upgrade_to_v30_fills_entities_fts() {
+    let c = v30();
+    assert_eq!(count(&c, "PRAGMA user_version"), 30);
     assert_eq!(count(&c, "SELECT COUNT(*) FROM entities_fts"), count(&c, "SELECT COUNT(*) FROM entities"));
     assert_eq!(count(&c, "SELECT COUNT(*) FROM entities_fts"), 5, "2 笔记 + 3 标签");
     assert_eq!(
@@ -77,7 +77,7 @@ fn upgrade_to_v29_fills_entities_fts() {
 /// ② 笔记实体:自身段为空,paths 与旧「kind='note' 分支」逐字节等价
 #[test]
 fn note_paths_are_byte_equivalent_to_the_old_branch() {
-    let c = v29();
+    let c = v30();
     assert_eq!(paths(&c, 1), "地点轴/中国 地点轴/日本 东瀛");
     assert_eq!(paths(&c, 2), "地点轴/日本 东瀛");
     let names: Vec<String> = {
@@ -90,7 +90,7 @@ fn note_paths_are_byte_equivalent_to_the_old_branch() {
 /// ③ 标签实体:只有「出 link 边的目标段」是增量;真库形态 = 老 relation 的条数
 #[test]
 fn tag_paths_gain_only_their_link_targets() {
-    let c = v29();
+    let c = v30();
     let diffs: Vec<(i64, String, String)> = (3..=5)
         .filter_map(|id| {
             let (old, new) = (old_tag_branch(&c, id), paths(&c, id));
@@ -115,7 +115,7 @@ fn tag_paths_gain_only_their_link_targets() {
 /// ④ 重建幂等:两次重建后逐行相等
 #[test]
 fn rebuild_twice_is_idempotent() {
-    let c = v29();
+    let c = v30();
     let first = dump_fts(&c);
     rebuild(&c);
     rebuild(&c);
@@ -125,7 +125,7 @@ fn rebuild_twice_is_idempotent() {
 /// ⑤ 老物件为 0、新 9 个触发器齐备且不引用旧列 / 旧 kind
 #[test]
 fn old_triggers_are_gone_and_new_nine_are_installed() {
-    let c = v29();
+    let c = v30();
     for name in [
         "entities_ai", "entities_ad", "entities_au", "edges_ai", "edges_ad", "edges_au",
         "entity_aliases_ai", "entity_aliases_au", "entity_aliases_ad",
@@ -136,7 +136,8 @@ fn old_triggers_are_gone_and_new_nine_are_installed() {
             "缺触发器 {name}"
         );
     }
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM sqlite_master WHERE type='trigger'"), 9);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM sqlite_master WHERE type='trigger'"), 16,
+        "029 的 9 个 + 030 追加的 7 个闭包刷新触发器");
     assert_eq!(
         count(
             &c,
@@ -148,7 +149,7 @@ fn old_triggers_are_gone_and_new_nine_are_installed() {
     );
 }
 
-/// ⑥ 029 文本不含任何聚合段:聚合文本只由 v29 前置钩子拼视图写入
+/// ⑥ 029 / 030 文本不含任何聚合段:聚合文本只由前置钩子拼视图写入
 #[test]
 fn migration_029_has_no_aggregate_sql() {
     assert!(!MIGRATION_029_SQL.contains("group_concat("), "029 不得内联聚合");
@@ -156,10 +157,18 @@ fn migration_029_has_no_aggregate_sql() {
     assert!(MIGRATION_029_SQL.contains("entities_fts_src"), "触发器与回填必须引用视图");
 }
 
+/// ⑥b 030 只做回填,仍不内联聚合(视图由 v30 前置钩子重建)
+#[test]
+fn migration_030_has_no_aggregate_sql() {
+    assert!(!MIGRATION_030_SQL.contains("group_concat("), "030 不得内联聚合");
+    assert!(!MIGRATION_030_SQL.contains("COALESCE("), "030 不得内联聚合");
+    assert!(MIGRATION_030_SQL.contains("entities_fts_src"), "030 必须从视图回填");
+}
+
 /// ⑦ 视图 SQL 含 `ENTITIES_AGG` 的每一段(常量改了就要出新迁移重建视图)
 #[test]
 fn entities_fts_src_view_matches_rust_truth() {
-    let c = v29();
+    let c = v30();
     let view: String = c
         .query_row("SELECT sql FROM sqlite_master WHERE type='view' AND name='entities_fts_src'", [], |r| r.get(0))
         .unwrap();

@@ -90,7 +90,8 @@ fn move_to_reparents_and_rewrites_paths() {
     let life2 = id_at(&c, "生活");
     assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='生活/项目A' AND entity_name(meta)='项目A' AND depth=2 AND parent_id={life2}")), 1);
     assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='工作/项目A'"), 0);
-    assert_eq!(hits(&c, "生活/项目A"), 1);
+    assert_eq!(hits(&c, "生活/项目A"), 2,
+        "note a 直链它;note b 挂父级「生活」,子孙闭包让它的 paths 也含「生活/项目A」");
     assert_eq!(hits(&c, "工作/项目A"), 0);
 
     move_to(&mut c, leaf, None).unwrap();

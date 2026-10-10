@@ -144,13 +144,16 @@ pub(crate) fn ensure_default_filter(conn: &Connection) -> rusqlite::Result<()> {
 /// 029 的版本号(与 `MIGRATIONS` 追加 029 后的下标 +1 成对,见 `migrate.rs`)。
 pub(crate) const ENTITIES_FTS_VERSION: i64 = 29;
 
+/// 030 的版本号(与 `MIGRATIONS` 追加 030 后的下标 +1 成对)。
+pub(crate) const FTS_CLOSURE_VERSION: i64 = 30;
+
 /// 029 的事务内前置钩子:把聚合唯一真源
 /// [`ENTITIES_AGG`](crate::db::repos::entities::fts::ENTITIES_AGG) 拼成视图
-/// `entities_fts_src(id, meta, paths)`。
+/// `entities_fts_src(id, meta, paths)`。v30 复用同一钩子重建视图(常量 030 加了子孙 / 关系两段)。
 ///
-/// 视图是**迁移时快照**:029.sql 的 9 个触发器与回填只引用它,故 `029.sql` 里不出现任何聚合文本
-/// (`entities_fts_migration_tests::migration_029_has_no_aggregate_sql` 钉住)。改了常量就必须同时
-/// 出新迁移重建视图,否则守卫用例
+/// 视图是**迁移时快照**:029.sql 的 9 个触发器与回填只引用它,故 `029.sql` / `030.sql` 里不出现
+/// 任何聚合文本(`entities_fts_migration_tests::migration_029_has_no_aggregate_sql` /
+/// `migration_030_has_no_aggregate_sql` 钉住)。改了常量就必须同时出新迁移重建视图,否则守卫用例
 /// (`entities_fts_migration_tests::entities_fts_src_view_matches_rust_truth`)会指出视图已过期。
 pub(crate) fn create_entities_fts_src_view(conn: &Connection) -> rusqlite::Result<()> {
     use crate::db::repos::entities::fts::ENTITIES_AGG;
