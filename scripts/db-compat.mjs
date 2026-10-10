@@ -1,9 +1,14 @@
-// 迁移 027 下架了老表(notes/tags/tag_links/note_links/notes_fts/tag_merge_log/tag_aliases),
-// 028 又把实体收成一张表(去 `kind`/`name`、加 `meta`,老三种引用边并入 `link`)。
-// 验收脚本仍按老表名 / 老列名读数。本件在**只读连接**上装 TEMP 兼容视图,让老脚本不改 SQL 也能
-// 读到等价数据,只改「读数口径」不改产品代码。
+// 只读兼容层:验收脚本按老表名 / 老列名读数,这里在**只读连接**上装 TEMP 兼容视图,
+// 让老脚本不改 SQL 也能读到等价数据;只改「读数口径」,不改产品代码。
 //
-// 口径要点(2026-10-09 v29 重写):
+// 两层兼容,按库的实际形状自动选:
+//   (a) v31 改名别名(只在该库真有 `points`/`lines` 时装):`entities` -> `points`、
+//       `edges` -> `lines`、`entities_fts` -> `points_fts`、`entities_fts_src` -> `points_fts_src`。
+//       v30 库里 `entities`/`edges` 本身就是真表,装同名 TEMP 视图会把它遮蔽掉,所以要先探测。
+//   (b) 老老名(027/028 之前):notes / tags / tag_links / note_links / notes_fts /
+//       tag_merge_log / tag_aliases —— 一律建在 `entities` / `edges` 之上(两版通用)。
+//
+// 口径要点:
 //   - 实体二分由 **`path`** 表达,不再有 `kind`:树内实体 `path IS NOT NULL`(老标签),树外 `path IS NULL`
 //     (老笔记;真库 742 / 1373)。
 //   - `notes.content` / `notes_fts.content` = 新列 `meta`;`notes_fts.tags` = 新列 `paths`。
@@ -19,6 +24,16 @@
 //     可映射,028 的 `_id_map` 改写跳过它):视图**回译**这个偏移(`-1e9`),还原成 027 前老表的原始
 //     标签 id 命名空间,不让 1e9 量级 id 从兼容层漏出。
 //   - TEMP 视图不落主库文件,只读连接允许创建(DROP/CREATE TEMP 只动 temp schema)。
+//
+// v31 回译公式(旧列 `kind`/`remark` 由新列 `name_id` 推导,`source_id`/`target_id` 只是改名):
+//   `kind`   = CASE WHEN lines.name_id = 0 THEN 'child' ELSE 'link' END
+//              —— 保留名字点 `子级` 的 id 固定为 0(计划 §0.3 P0-1),故不再需要 settings 子查询;
+//                 `name_id` 为 NULL 或指向关系名点 => 老 `link`。
+//   `remark` = CASE WHEN lines.name_id = 0 THEN ''
+//                    ELSE COALESCE((SELECT n.meta FROM points n WHERE n.id = lines.name_id), '') END
+//              —— 无名字线(NULL)=> 空串(老模型 `remark` 是 `NOT NULL DEFAULT ''`,不能漏出 NULL);
+//                 有名线 => 名字点的 `meta`(真库 国籍/状态/所在);子级线(name_id = 0)=> 空串
+//                 (老 `child` 边的 `remark` 恒为空串,名字点 `子级` 不是「关系名」)。
 import { DatabaseSync } from 'node:sqlite';
 
 /** 024 给标签 id 加的整体偏移;遗留合并日志行按它回译(与迁移 027 的 entity_ids.rs 同一字面量)。 */
@@ -32,42 +47,77 @@ export const DB_PATH = process.env.LIFELOG_DB ?? 'C:/Users/23652/AppData/Roaming
 /** 树外(老笔记)实体的判定;视图里反复用,故抽成常量 */
 const NOTE = `(SELECT e2.path FROM entities e2 WHERE e2.id = e.source_id) IS NULL`;
 
+/** v31 改名别名:[源对象, 建视图 SQL];源对象不在就跳过(如 T1.2 早期还没有 points_fts)。
+ *  `entities` 显式按 v30 列序投影(与 `entities` 真表逐字同序),不让 `SELECT *` 的位置顺序漂移。 */
+const ALIASES = [
+  ['points', `CREATE TEMP VIEW temp.entities AS
+     SELECT id, meta, is_cited, created_at, color, parent_id, path, depth, sort_order FROM points`],
+  ['lines', `CREATE TEMP VIEW temp.edges AS
+     SELECT e.id, e.from_id AS source_id, e.to_id AS target_id,
+            CASE WHEN e.name_id = 0 THEN 'child' ELSE 'link' END AS kind,
+            -- 子级线不是「关系」:老模型 child 边的 remark 恒为空串,故 name_id = 0 不回译保留点文本
+            CASE WHEN e.name_id = 0 THEN ''
+                 ELSE COALESCE((SELECT n.meta FROM points n WHERE n.id = e.name_id), '') END AS remark,
+            e.created_at
+       FROM lines e`],
+  ['points_fts', `CREATE TEMP VIEW temp.entities_fts AS SELECT rowid, meta, paths FROM points_fts`],
+  ['points_fts_src', `CREATE TEMP VIEW temp.entities_fts_src AS SELECT * FROM points_fts_src`],
+];
+
+/** 写保护:v31 已无 `edges` 表,老脚本若写它要给出可读的中文提示(视图本身不可更新,这里再挂触发器说清原因)。 */
+const WRITE_GUARD = ['INSERT', 'UPDATE', 'DELETE'].map((op) => `CREATE TEMP TRIGGER edges_readonly_${op.toLowerCase()}
+  INSTEAD OF ${op} ON edges BEGIN
+    SELECT RAISE(ABORT, 'db-compat: v31 已无 edges 表(kind/remark 已删),写请改用 lines(name_id 承载关系名)');
+  END`);
+
+/** 老老名视图:[依赖对象, 建视图 SQL];依赖不齐就跳过(如无 FTS 表时 notes_fts 不建)。 */
 const VIEWS = [
-  `CREATE TEMP VIEW temp.notes AS
-     SELECT id, meta AS content, created_at FROM entities WHERE path IS NULL`,
-  `CREATE TEMP VIEW temp.tags AS
+  ['entities', `CREATE TEMP VIEW temp.notes AS
+     SELECT id, meta AS content, created_at FROM entities WHERE path IS NULL`],
+  ['entities', `CREATE TEMP VIEW temp.tags AS
      SELECT id,
             CASE WHEN instr(path, '/') = 0 THEN path
                  ELSE substr(path, length(rtrim(path, replace(path, '/', ''))) + 1) END AS name,
             parent_id, path, depth, sort_order, color
-       FROM entities WHERE path IS NOT NULL`,
-  `CREATE TEMP VIEW temp.tag_links AS
+       FROM entities WHERE path IS NOT NULL`],
+  ['entities edges', `CREATE TEMP VIEW temp.tag_links AS
      SELECT e.target_id AS tag_id, 'note' AS target_type, e.source_id AS target_id, e.remark
        FROM edges e JOIN entities t ON t.id = e.target_id
       WHERE e.kind = 'link' AND t.path IS NOT NULL AND ${NOTE}
      UNION ALL
      SELECT e.source_id AS tag_id, 'tag' AS target_type, e.target_id AS target_id, e.remark
        FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id
-      WHERE e.kind = 'link' AND s.path IS NOT NULL AND t.path IS NOT NULL`,
-  `CREATE TEMP VIEW temp.note_links AS
+      WHERE e.kind = 'link' AND s.path IS NOT NULL AND t.path IS NOT NULL`],
+  ['entities edges', `CREATE TEMP VIEW temp.note_links AS
      SELECT e.id, e.source_id, e.target_id, '' AS raw_title, e.created_at
        FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id
-      WHERE e.kind = 'link' AND s.path IS NULL AND t.path IS NULL`,
-  `CREATE TEMP VIEW temp.notes_fts AS
+      WHERE e.kind = 'link' AND s.path IS NULL AND t.path IS NULL`],
+  ['entities entities_fts', `CREATE TEMP VIEW temp.notes_fts AS
      SELECT rowid, '' AS name, meta AS content, paths AS tags FROM entities_fts
-      WHERE rowid IN (SELECT id FROM entities WHERE path IS NULL)`,
-  `CREATE TEMP VIEW temp.tag_merge_log AS
+      WHERE rowid IN (SELECT id FROM entities WHERE path IS NULL)`],
+  ['entity_merge_log', `CREATE TEMP VIEW temp.tag_merge_log AS
      SELECT id, ${UNOFFSET('source_entity_id')} AS source_tag_id,
             ${UNOFFSET('target_entity_id')} AS target_tag_id,
-            moved_child_ids, note_links, edges, at FROM entity_merge_log`,
-  `CREATE TEMP VIEW temp.tag_aliases AS
-     SELECT alias, entity_id AS tag_id FROM entity_aliases`,
+            moved_child_ids, note_links, edges, at FROM entity_merge_log`],
+  ['entity_aliases', `CREATE TEMP VIEW temp.tag_aliases AS
+     SELECT alias, entity_id AS tag_id FROM entity_aliases`],
 ];
+
+/** 对象是否存在(含 temp schema;别名视图建完要能被后继视图依赖探测到) */
+const has = (db, name) =>
+  !!db.prepare(
+    `SELECT 1 FROM sqlite_master WHERE name = ?1
+     UNION ALL SELECT 1 FROM sqlite_temp_master WHERE name = ?1`
+  ).get(name);
 
 /** 打开只读连接并装好老表兼容视图(用完自行 close) */
 export function openReadOnly(path = DB_PATH) {
   const db = new DatabaseSync('file:' + path, { readOnly: true });
-  for (const v of VIEWS) db.exec(v);
+  if (has(db, 'points') && has(db, 'lines')) {
+    for (const [src, sql] of ALIASES) if (has(db, src)) db.exec(sql);
+    if (has(db, 'edges')) db.exec(WRITE_GUARD.join(';\n'));
+  }
+  for (const [deps, sql] of VIEWS) if (deps.split(' ').every((n) => has(db, n))) db.exec(sql);
   return db;
 }
 
