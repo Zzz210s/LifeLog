@@ -26,9 +26,7 @@ export interface EditPanelProps {
   caretHint?: number | null;
   /** 点区块外且落点是另一个条目正文:先保存当前(成功才)再切过去 */
   onSwitchNote?: (id: number) => void;  /** 面板已卸载、无法就地显示错误时:错误交主窗错误条,不能让失败静默 */
-  onErrorFallback?: (message: string) => void;
-  /** 该笔记被多少条其它笔记引用(L3):>0 时在面板底部列出只读的反向引用来源 */
-  backlinkCount?: number;  noteMru?: SourceLinkOptions['mru']; // `[[` 补全的笔记 MRU(与主窗共用一份实例)
+  onErrorFallback?: (message: string) => void;  noteMru?: SourceLinkOptions['mru']; // `[[` 补全的笔记 MRU(与主窗共用一份实例)
 }
 
 /** 提交结果:ok 为假时 message 是中文原因;inline = 面板内已经显示过(卸载时才需要转交);
@@ -194,7 +192,8 @@ export function EditPanel(p: EditPanelProps): ReactNode {
       {/* 保存/取消按钮与「点其他位置即保存」提示已按用户要求删除:离开区块(点别处/切条目/失焦)即保存,Esc 取消;
           Ctrl+Enter 是「保存并回到预览」的快捷键,提示就放在这一行小字里 */}
       <EditFooter tagCount={tagCount} error={error} />
-      {(p.backlinkCount ?? 0) > 0 && <BacklinksPanel noteId={p.note.id} />}
+      {/* 反向引用来源(L3):面板自身在无入链时返回 null,不再需要外部计数来门控 */}
+      <BacklinksPanel noteId={p.note.id} />
     </li>
   );
 }

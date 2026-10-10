@@ -1,5 +1,5 @@
-//! L3 反向引用读取的后端用例(IPC `note_link_counts` / `note_links` 背后的仓库函数):
-//! 计数**批量**按 target 分组、未解析不入计数、入链标题取来源当前首行。
+//! L3 反向引用读取的后端用例(IPC `note_links` 背后的仓库函数):
+//! 未解析不入入链、入链标题取来源当前首行、同一来源去重。
 //! 从 `note_links.rs` 挂载(与 note_links_tests.rs / note_links_fix_tests.rs 并列)。
 use crate::db::migrate;
 use crate::db::repos::note_links;
@@ -28,26 +28,23 @@ fn link_counts_batch_ignore_unresolved() {
     let target = notes::create_plain(&mut c, "甲").unwrap();
     let a = notes::create_plain(&mut c, "源A\n[[甲]]").unwrap();
     let b = notes::create_plain(&mut c, "源B\n[[甲]]").unwrap();
-    let u = notes::create_plain(&mut c, "源C\n[[不存在的标题]]").unwrap();
+    notes::create_plain(&mut c, "源C\n[[不存在的标题]]").unwrap();
 
-    // 一页里混入"存在但没人引用"的 id 与不存在的 id:都不得出现在 Map 里
-    let m = note_links::list_links_page(&c, &[target.id, a.id, b.id, u.id, 9999]).unwrap();
-    assert_eq!(m.len(), 1, "只有被引用的目标进 Map");
-    assert_eq!(m.get(&target.id), Some(&2), "甲 被两个来源引用");
-
-    // 单条详情:入链恰两条,标题取来源首行(升序)
+    // 单条详情:入链恰两条,标题取来源首行(升序);未解析的来源不进列表
     let links = note_links::list_note_links(&c, target.id).unwrap();
+    assert_eq!(links.outbound.len(), 0, "目标自己没有出链");
     let titles: Vec<&str> = links.backlinks.iter().map(|b| b.title.as_str()).collect();
     assert_eq!(titles, vec!["源A", "源B"], "入链按来源 id 升序且标题取首行");
+    let ids: Vec<i64> = links.backlinks.iter().map(|b| b.source_id).collect();
+    assert_eq!(ids, vec![a.id, b.id]);
 }
 
 #[test]
 fn link_counts_do_not_double_count_one_source() {
     let mut c = db();
     let target = notes::create_plain(&mut c, "甲").unwrap();
-    // 同一来源正文写两遍同一个标题(大小写差异也归一):replace 只落一行 -> 计数为 1
+    // 同一来源正文写两遍同一个标题(大小写差异也归一):只留一条边 -> 入链只算一个人
     notes::create_plain(&mut c, "源\n[[甲]] 又 [[甲]]").unwrap();
-    let m = note_links::list_links_page(&c, &[target.id]).unwrap();
-    assert_eq!(m.get(&target.id), Some(&1), "同一来源算一个人");
-    assert!(note_links::list_links_page(&c, &[]).unwrap().is_empty(), "空入参短路");
+    let links = note_links::list_note_links(&c, target.id).unwrap();
+    assert_eq!(links.backlinks.len(), 1, "同一来源算一个人");
 }

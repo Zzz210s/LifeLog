@@ -14,7 +14,7 @@ const { updateNote, parseNoteSource } = vi.hoisted(() => ({
   updateNote: vi.fn(),
   parseNoteSource: vi.fn(),
 }));
-vi.mock('../../shared/api', () => ({ api: { updateNote, parseNoteSource } }));
+vi.mock('../../shared/api', () => ({ api: { updateNote, parseNoteSource , noteLinks: vi.fn(async () => ({ outbound: [], backlinks: [] })) } }));
 vi.mock('@tauri-apps/api/event', () => ({
   listen: () => Promise.resolve(() => undefined),
 }));

@@ -98,21 +98,6 @@ fn duplicate_raw_title_in_one_note_is_one_row() {
 }
 
 #[test]
-fn page_counts_group_by_target() {
-    let c = db();
-    seed(
-        &c,
-        "(1,'note','甲','2026-01-01'),(2,'note','源A','2026-01-02'),(3,'note','源B','2026-01-03')",
-    );
-    note_links::replace(&c, 2, &["甲".into()]).unwrap();
-    note_links::replace(&c, 3, &["甲".into()]).unwrap();
-    let m = note_links::list_links_page(&c, &[1, 2, 3]).unwrap();
-    assert_eq!(m.get(&1), Some(&2), "甲 被引用 2 次");
-    assert_eq!(m.get(&2), None, "没人引用源A");
-    assert!(note_links::list_links_page(&c, &[]).unwrap().is_empty(), "空入参短路");
-}
-
-#[test]
 fn list_note_links_returns_both_directions() {
     let c = db();
     seed(&c, "(1,'note','甲','2026-01-01'),(2,'note','源\n[[甲]]','2026-01-02')");

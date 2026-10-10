@@ -84,7 +84,6 @@ pub fn run() {
             commands::notes::query_group_page,
             commands::notes::update_note,
             commands::notes::delete_note,
-            commands::notes::note_link_counts,
             commands::notes::note_links,
             commands::notes::complete_notes,
             commands::parse::parse_note_source,

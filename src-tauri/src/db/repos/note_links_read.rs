@@ -159,23 +159,6 @@ pub fn list_note_links(conn: &Connection, note_id: i64) -> rusqlite::Result<Note
     Ok(NoteLinks { outbound, backlinks })
 }
 
-/// 一页笔记的被引用计数(`target_id -> 引用条数`),一条 SQL 批量取全(IPC `note_link_counts`)。
-/// 没人引用的 id 不进 Map(前端 `.get()` 得 undefined,与 0 同义);空入参直接短路。
-pub fn list_links_page(
-    conn: &Connection, note_ids: &[i64]
-) -> rusqlite::Result<HashMap<i64, i64>> {
-    if note_ids.is_empty() {
-        return Ok(HashMap::new());
-    }
-    let marks = vec!["?"; note_ids.len()].join(",");
-    let mut stmt = conn.prepare(&format!(
-        "SELECT target_id, COUNT(*) FROM edges WHERE kind = 'link' AND target_id IN ({marks})
-         GROUP BY target_id"
-    ))?;
-    let rows = stmt.query_map(params_from_iter(note_ids), |r| Ok((r.get(0)?, r.get(1)?)))?;
-    rows.collect()
-}
-
 /// 全部**已解析且非自指**的笔记间链接边 `(source_id, target_id)`,插入序;关系图 L4 画 link 边用。
 /// 自指写入侧就不落边,这里再挡一道:自指在图上是一条零长的线。
 /// 028 起 `edges(kind='link')` 也含笔记挂标签与标签关系,故两端都按树外实体(`path IS NULL`)收窄。

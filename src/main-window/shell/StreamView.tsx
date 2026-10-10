@@ -71,8 +71,6 @@ export interface StreamViewProps {
   unifiedRef: RefObject<UnifiedController | null>;
   /** 标签数据版本(`[[` 补全候选池的作废键) */
   dataVersion?: number;
-  /** 本页各笔记的被引用计数(L3,App 用 useBacklinkCounts 批量取后透传);缺省视为全 0 */
-  backlinkCounts?: Readonly<Record<number, number>>;
 }
 
 export function StreamView(p: StreamViewProps): ReactNode {
@@ -186,7 +184,6 @@ export function StreamView(p: StreamViewProps): ReactNode {
         onLinkError={p.onLinkError}
         onOpenNote={openNote}
         onUnresolvedNote={prefillNoteSearch}
-        backlinkCounts={p.backlinkCounts}
         noteMru={noteMru}
       />
     </div>

@@ -12,7 +12,7 @@ use rusqlite::{params, Connection};
 #[path = "note_links_read.rs"]
 pub mod read;
 pub use read::{
-    all_resolved, list_links_page, list_note_links, outbound_of, outbound_page, NoteLinks,
+    all_resolved, list_note_links, outbound_of, outbound_page, NoteLinks,
     OutboundLink,
 };
 

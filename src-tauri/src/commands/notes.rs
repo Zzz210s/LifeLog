@@ -1,6 +1,5 @@
 use crate::db::repos;
 use crate::db::Db;
-use std::collections::HashMap;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 #[cfg(test)]
@@ -103,16 +102,7 @@ pub fn query_group_page(
     )
 }
 
-/// 一页笔记的被引用计数(`target_id -> 引用条数`):**一次 `IN (...)` 批量取全**,
-/// 前端把 Map 分给各卡(设计 §3.0:50 张卡不能 50 次查询)。
-#[tauri::command]
-pub fn note_link_counts(app: AppHandle, note_ids: Vec<i64>) -> Result<HashMap<i64, i64>, String> {
-    let db: State<Db> = app.state();
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    repos::note_links::list_links_page(&conn, &note_ids).map_err(|e| e.to_string())
-}
-
-/// 单条笔记的出链 + 入链(卡片面板与编辑面板的反向引用列表,点开时才拉)。
+/// 单条笔记的出链 + 入链(编辑面板的反向引用列表,点开时才拉)。
 /// 入链按来源 id 升序,同一来源只出现一次(DISTINCT)。
 #[tauri::command]
 pub fn note_links(app: AppHandle, note_id: i64) -> Result<repos::note_links::NoteLinks, String> {

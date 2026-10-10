@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useSourceTagCount } from './use-source-tags';
 
 const { parseNoteSource } = vi.hoisted(() => ({ parseNoteSource: vi.fn() }));
-vi.mock('../../shared/api', () => ({ api: { parseNoteSource } }));
+vi.mock('../../shared/api', () => ({ api: { parseNoteSource , noteLinks: vi.fn(async () => ({ outbound: [], backlinks: [] })) } }));
 
 interface Deferred {
   resolve: (v: { content: string; tags: string[] }) => void;

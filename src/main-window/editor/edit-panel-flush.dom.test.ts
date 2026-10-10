@@ -14,7 +14,7 @@ const { updateNote, parseNoteSource } = vi.hoisted(() => ({
   updateNote: vi.fn(async () => null),
   parseNoteSource: vi.fn(async () => ({ content: '', tags: [] })),
 }));
-vi.mock('../../shared/api', () => ({ api: { updateNote, parseNoteSource } }));
+vi.mock('../../shared/api', () => ({ api: { updateNote, parseNoteSource , noteLinks: vi.fn(async () => ({ outbound: [], backlinks: [] })) } }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 

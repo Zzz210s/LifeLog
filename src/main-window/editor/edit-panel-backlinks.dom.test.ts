@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 /**
- * L3 编辑面板反向引用列表:backlinkCount>0 时列出**只读**来源(无跳转按钮);
- * 未传计数时不渲染也不拉取(既有编辑面板用例的 api 桩因此不受影响)。
+ * L3 编辑面板反向引用列表:面板自身在挂载时拉 `note_links`,
+ * 有入链时列出**只读**来源(无跳转按钮);无入链时不渲染空列表。
+ * 卡片上的「被引用 N」已按下线(见 stream/note-item-no-backlinks.dom.test.ts),
+ * 编辑面板不再依赖外部传入计数。
  */
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
@@ -26,14 +28,18 @@ const note: Note = { id: 7, content: '正文', created_at: '2026-10-01 08:00:00'
 let root: Root;
 let host: HTMLDivElement;
 
-async function mount(extra: Record<string, unknown>): Promise<void> {
+async function mount(): Promise<void> {
   await act(async () => {
-    root.render(createElement(EditPanel, { note, onSaved: () => {}, onCancel: () => {}, ...extra }));
+    root.render(createElement(EditPanel, { note, onSaved: () => {}, onCancel: () => {} }));
   });
 }
 
 beforeEach(() => {
   noteLinks.mockClear();
+  noteLinks.mockImplementation(async (_id: number) => ({
+    outbound: [],
+    backlinks: [{ sourceId: 5, title: '引用来源' }],
+  }));
   host = document.createElement('div');
   document.body.appendChild(host);
   root = createRoot(host);
@@ -45,17 +51,18 @@ afterEach(() => {
 });
 
 describe('编辑面板反向引用列表(L3)', () => {
-  it('backlinkCount>0:列出只读来源(无按钮,不可跳转)', async () => {
-    await mount({ backlinkCount: 1 });
+  it('有入链:列出只读来源(无按钮,不可跳转)', async () => {
+    await mount();
     const panel = host.querySelector('[data-testid="backlinks-panel"]');
     expect(panel?.textContent).toContain('引用来源');
     expect(panel!.querySelectorAll('button')).toHaveLength(0);
     expect(noteLinks).toHaveBeenCalledWith(7);
   });
 
-  it('未传 backlinkCount:不渲染也不拉取', async () => {
-    await mount({});
+  it('无入链:面板返回 null,不渲染空列表(仍会拉一次)', async () => {
+    noteLinks.mockImplementation(async (_id: number) => ({ outbound: [], backlinks: [] }));
+    await mount();
     expect(host.querySelector('[data-testid="backlinks-panel"]')).toBeNull();
-    expect(noteLinks).not.toHaveBeenCalled();
+    expect(noteLinks).toHaveBeenCalledWith(7);
   });
 });

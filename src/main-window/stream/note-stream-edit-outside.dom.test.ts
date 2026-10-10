@@ -11,7 +11,7 @@ import type { Note } from '../../shared/types';
 import { NoteStream } from './NoteStream';
 
 const { updateNote } = vi.hoisted(() => ({ updateNote: vi.fn() }));
-vi.mock('../../shared/api', () => ({ api: { updateNote } }));
+vi.mock('../../shared/api', () => ({ api: { updateNote, noteLinks: vi.fn(async () => ({ outbound: [], backlinks: [] })) } }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 

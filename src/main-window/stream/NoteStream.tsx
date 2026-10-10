@@ -42,8 +42,6 @@ export interface NoteStreamProps {
   onOpenNote: (id: number) => void;
   /** 点未解析的 chip:拿原文预填输入框 `@`(L2) */
   onUnresolvedNote: (title: string) => void;
-  /** 本页各笔记的被引用计数(按 id;L3 卡片「被引用 N」,缺省视为 0) */
-  backlinkCounts?: Readonly<Record<number, number>>;
   /** 笔记 MRU(`[[` 候选排序与采纳记账;与主窗共用一份实例) */
   noteMru?: EditPanelProps['noteMru'];
   /** 分组渲染接线(非空 = 分组模式;不传/传 null = 平铺,原行为不变) */
@@ -97,7 +95,6 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
       <EditPanel
         key={n.id}
         note={n}
-        backlinkCount={p.backlinkCounts?.[n.id]}
         noteMru={p.noteMru}
         caretHint={handoff.caretHint}
         onSaved={p.onEditSaved}
@@ -136,7 +133,6 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
         onLinkError={p.onLinkError}
         onOpenNote={p.onOpenNote}
         onUnresolvedNote={p.onUnresolvedNote}
-        backlinkCount={p.backlinkCounts?.[n.id]}
         onCellSaved={p.onEditSaved}
       />
     );

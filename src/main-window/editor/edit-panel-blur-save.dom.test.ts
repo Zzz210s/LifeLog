@@ -14,7 +14,7 @@ const { updateNote, parseNoteSource } = vi.hoisted(() => ({
   updateNote: vi.fn(),
   parseNoteSource: vi.fn(),
 }));
-vi.mock('../../shared/api', () => ({ api: { updateNote, parseNoteSource } }));
+vi.mock('../../shared/api', () => ({ api: { updateNote, parseNoteSource , noteLinks: vi.fn(async () => ({ outbound: [], backlinks: [] })) } }));
 
 // 宿主窗口失焦通道:mock 成可手动触发的订阅(Rust 侧 emit 的等价物)
 const tauriListeners: Array<{ event: string; handler: () => void }> = [];
