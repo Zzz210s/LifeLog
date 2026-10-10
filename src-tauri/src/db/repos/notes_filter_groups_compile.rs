@@ -34,8 +34,10 @@ pub(crate) fn item_predicate(it: &GroupItem, args: &mut Vec<Value>) -> Result<Op
             note_only(format!("NOT {}", tag_exists(&m)))
         }
         GroupItem::Presence { value } => match value.as_str() {
-            "any" => any_tag(),
-            "none" => format!("NOT ({})", any_tag()),
+            // 有无标签同口径:只判笔记(`n.path IS NULL`)的出边 —— 树内标签有出边不算
+            // 「有标签」,无出边的叶子标签不算「无标签」(2026-10-10 收窄)。
+            "any" => note_only(any_tag()),
+            "none" => note_only(format!("NOT ({})", any_tag())),
             _ => return Ok(None),
         },
         GroupItem::TreeMembership { value } => match tree_membership_predicate(value) {

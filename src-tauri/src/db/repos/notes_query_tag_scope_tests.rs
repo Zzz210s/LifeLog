@@ -112,6 +112,32 @@ fn expr_tag_filter_matches_structured_and_hits_notes_only() {
     }
 }
 
+/// ⑦ 有无标签(any/none)同口径:树内实体即便有出边也不算「有标签」,
+/// 无出边的叶子标签也不算「无标签」——否则 `none` 会把整棵树的叶子全捞进流。
+#[test]
+fn presence_any_and_none_are_narrowed_to_notes() {
+    let (c, a, b, c_tag, n_a, n_b) = fixture();
+    let any = FilterConditions { tag_presence: Some("any".into()), ..empty() };
+    assert_eq!(hit_ids(&c, &any), vec![n_a, n_b], "只有挂过标签的笔记算「有标签」");
+    for leaked in [a, b, c_tag] {
+        assert!(!hit_ids(&c, &any).contains(&leaked), "树内实体 {leaked} 有出边也不算有标签");
+    }
+    let none = FilterConditions { tag_presence: Some("none".into()), ..empty() };
+    assert!(hit_ids(&c, &none).is_empty(), "无出边的叶子标签不得算「无标签」:{:?}", hit_ids(&c, &none));
+}
+
+/// ⑧ 有无标签的条件栏读数与信息流条数一致(收窄后仍成立)
+#[test]
+fn presence_hits_count_equals_stream_rows() {
+    let (c, ..) = fixture();
+    for v in ["any", "none"] {
+        let cond = FilterConditions { tag_presence: Some(v.into()), ..empty() };
+        let stream = hit_ids(&c, &cond).len();
+        let reported = notes_hits::hits(&c, &cond).unwrap().groups[0].item_hits[0];
+        assert_eq!(reported as usize, stream, "{v} 读数必须与流一致");
+    }
+}
+
 /// ⑥ 纯关键词表达式不收窄(与结构化 Keyword 一致):带正文的树内实体照旧命中
 #[test]
 fn keyword_only_expr_is_not_narrowed_to_notes() {

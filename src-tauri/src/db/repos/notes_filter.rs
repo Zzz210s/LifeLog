@@ -86,7 +86,8 @@ pub fn empty() -> FilterConditions {
     FilterConditions::default()
 }
 
-/// "挂了任意一个标签"的谓词(时间标签已是普通标签,D3:它也计数)
+/// 「挂过出边(`link`)」的谓词(时间标签已是普通标签,D3:它也计数)。
+/// 本身不限定行域:调用方必须用 [`note_only`] 收窄到笔记,否则树内标签会被算成「有标签」。
 pub(crate) fn any_tag() -> String {
     "EXISTS (SELECT 1 FROM edges l WHERE l.kind = 'link' AND l.source_id = n.id)".to_string()
 }

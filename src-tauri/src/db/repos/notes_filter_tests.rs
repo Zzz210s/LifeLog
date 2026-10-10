@@ -52,19 +52,25 @@ fn exclude_tag_uses_not_exists() {
 }
 
 /// 有无标签:时间标签也是普通标签(D3),一律计入;any/none 必须成对。
+/// 2026-10-10 收窄:只判**笔记**(`n.path IS NULL`)的出入边 —— 树内标签有出边也不算
+/// 「有标签」,无出边的叶子标签也不算「无标签」(与 Tag/Relation 条件同口径)。
 #[test]
 fn tag_presence_counts_all_tags() {
     let c = FilterConditions { tag_presence: Some("none".into()), ..empty() };
     let (sql, _) = where_clause(&c).unwrap();
-    assert!(sql.contains("NOT (EXISTS (SELECT 1 FROM edges l"), "{sql}");
+    assert!(
+        sql.contains("(n.path IS NULL AND (NOT (EXISTS (SELECT 1 FROM edges l"),
+        "none 先收窄到笔记再判无出边:{sql}"
+    );
     assert!(!sql.contains("时间排序"), "不再有时间子树例外:{sql}");
 
     let c = FilterConditions { tag_presence: Some("any".into()), ..empty() };
     let (sql, _) = where_clause(&c).unwrap();
     assert!(
-        sql.contains("1=1 AND (((EXISTS (SELECT 1 FROM edges l"),
-        "any 谓词外层的组括号:{sql}"
+        sql.contains("(n.path IS NULL AND (EXISTS (SELECT 1 FROM edges l"),
+        "any 先收窄到笔记再判有出边:{sql}"
     );
+    assert!(sql.starts_with("1=1 AND ("), "谓词外层的组括号:{sql}");
     assert!(!sql.contains("NOT (EXISTS"), "any 不得带排除:{sql}");
 }
 
