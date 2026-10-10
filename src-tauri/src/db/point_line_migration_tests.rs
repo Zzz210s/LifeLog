@@ -7,7 +7,7 @@ fn count(c: &Connection, sql: &str) -> i64 {
 }
 
 /// 4 个点 / 5 条边:child 1 条、无名 link 1 条、名前 link 3 条(国籍 2 + 状态 1)。
-fn v30_fixture(extra: &str) -> Connection {
+pub(crate) fn v30_fixture(extra: &str) -> Connection {
     let c = Connection::open_in_memory().unwrap();
     c.execute_batch(&format!(
         "CREATE TABLE entities(

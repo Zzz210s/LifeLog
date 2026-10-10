@@ -1,7 +1,6 @@
-//! spec §3.7 七条对账的 Rust 落点。SQL **唯一真源**是 T1.0 写的
-//! `scripts/entity-migration/reconcile.sql`(同源给 `reconcile.mjs` 与 Rust):
-//! 这里只解析其中的标记块,不复制一行 SQL。跨出 `src-tauri` 的路径用 `CARGO_MANIFEST_DIR` 拼。
-//! 七条统一以 v28 结构(`entities.meta` / `entities.is_cited`)为前置:列不存在时整组跳过(N/A),
+//! spec §5.4 十条对账的 Rust 落点。SQL **唯一真源**是 `scripts/entity-migration/reconcile.sql`
+//! (同源给 `reconcile.mjs` 与 Rust):这里只解析其中的标记块,不复制一行 SQL。跨出 `src-tauri` 的路径用 `CARGO_MANIFEST_DIR` 拼。
+//! 十条统一以 v31 结构(`points.meta` / `lines.name_id` / `settings`)为前置:缺失时整组跳过(N/A),
 //! 逐条命名函数与计数在 [`reconcile_checks`]。
 use rusqlite::Connection;
 
@@ -13,7 +12,7 @@ pub const RECONCILE_SQL: &str = include_str!(concat!(
 
 use super::reconcile_checks::check_1_is_cited;
 
-/// 一个对账块:`n` 序号(spec §3.7 ①–⑦)、`title` 标题、`requires` 需要的表/列、`sql` 单条 SELECT。
+/// 一个对账块:`n` 序号(spec §5.4 ①–⑩)、`title` 标题、`requires` 需要的表/列、`sql` 单条 SELECT。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CheckBlock {
     pub n: String,
@@ -117,14 +116,14 @@ pub(crate) fn run_named(conn: &Connection, n: &str) -> rusqlite::Result<Vec<Stri
     run_check(conn, &b.sql)
 }
 
-/// 跑 spec §3.7 ①–⑦ 七条 modern 对账;任一命中即带序号/标题/命中行 panic。
-/// 七条统一要求 v28 结构,列不存在时整组跳过(N/A);
-/// 只依赖 `entities`/`edges`(以及连接注册的 `entity_name`/`entity_key`),阶段 4 删掉老表后仍可跑。
+/// 跑 spec §5.4 ①–⑩ 十条 modern 对账；任一命中即带序号/标题/命中行 panic。
+/// 十条统一要求 v31 结构（`points`/`lines`/`settings`），表/列不存在时整组跳过（N/A）；
+/// v30 旧库（`entities`/`edges`）因此在迁移前只报 N/A，不 panic。
 pub fn assert_cache_matches_edges(conn: &Connection) {
     let blocks = parse_checks(RECONCILE_SQL, "modern");
-    let seven: Vec<&CheckBlock> = blocks.iter().filter(|b| is_seven(&b.n)).collect();
-    assert_eq!(seven.len(), 7, "reconcile.sql 应含 1..7 七条 modern 对账");
-    for b in seven {
+    let ten: Vec<&CheckBlock> = blocks.iter().filter(|b| is_ten(&b.n)).collect();
+    assert_eq!(ten.len(), 10, "reconcile.sql 应含 1..10 十条 modern 对账");
+    for b in ten {
         if !missing_requirements(conn, &b.requires).unwrap_or_else(|e| panic!("对账 {} 前置检查失败: {e}", b.label())).is_empty() {
             continue; // v28 结构未就位 -> N/A
         }
@@ -139,6 +138,6 @@ pub fn assert_is_cited_matches_edges(conn: &Connection) {
     assert!(rows.is_empty(), "is_cited 与 link 入边不一致: {} 行 {rows:?}", rows.len());
 }
 
-fn is_seven(n: &str) -> bool {
-    matches!(n, "1" | "2" | "3" | "4" | "5" | "6" | "7")
+fn is_ten(n: &str) -> bool {
+    matches!(n, "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "10")
 }

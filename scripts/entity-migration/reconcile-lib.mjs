@@ -143,15 +143,16 @@ export function formatReport(report) {
   L.push('[计数读数]');
   for (const [k, v] of Object.entries(report.counts)) L.push(`${k}=${v}`);
   L.push('');
-  L.push('[对账] 0 行 / 单行 ok = PASS；七条统一要求 v28 结构（缺列整组 N/A）');
+  L.push('[对账] 0 行 / 单行 ok = PASS；十条 ①–⑩ 统一要求 v31 结构 points/lines/settings（缺表/列整组 N/A）');
   for (const c of report.checks) {
     L.push(`  [${c.n}] ${c.title}`);
     if (c.status === 'N/A') L.push(`      ${c.mode} N/A (缺表/列 ${(c.missing || []).join(',')})`);
     else if (c.status === 'ERR') L.push(`      ${c.mode} ERR ${c.error}`);
     else L.push(`      ${c.mode} ${c.status} (${c.rowCount} 行)`);
-    // ⑦ 的断号不是失败:只在报告里提示(合并态允许)
+    // ⑦ 的断号不是失败:只在报告里提示(合并态允许)。v30 走 id_gaps,v31 走 id_gaps_points。
     if (c.n === '7') {
-      const gaps = Number(report.counts.id_gaps);
+      const gaps = [report.counts.id_gaps, report.counts.id_gaps_points]
+        .map(Number).find((x) => Number.isFinite(x));
       if (Number.isFinite(gaps) && gaps > 0) L.push(`      INFO: 检测到 ${gaps} 处断号(合并态,允许)`);
     }
     for (const row of c.rows) L.push(`        ${JSON.stringify(row)}`);

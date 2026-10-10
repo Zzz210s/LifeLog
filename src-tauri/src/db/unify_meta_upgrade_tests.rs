@@ -1,5 +1,6 @@
-//! 老库升级链(spec §7.5 / 计划 Task 1.2 用例 ⑦):`v23 -> 28` 与 `v26 -> 28` 各自一次跑到 28,
-//! 且 spec §3.7 七条对账全 0 行。起点库用「空库 + MIGRATIONS 顺序重放」构造(单测里没有真库副本)。
+//! 老库升级链(spec §7.5 / 计划 Task 1.2 用例 ⑦):`v23 -> 28` 与 `v26 -> 28` 各自一次跑到 28。
+//! spec §5.4 十条对账要求 v31 结构(points/lines);本文件的库停在 v28/v30,故对账整组 N/A、不报错。
+//! 起点库用「空库 + MIGRATIONS 顺序重放」构造(单测里没有真库副本)。
 use super::*;
 use crate::db::repos::entities::reconcile::assert_cache_matches_edges;
 

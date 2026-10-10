@@ -89,6 +89,19 @@ fn ensure_reserved_point(conn: &Connection) -> rusqlite::Result<()> {
     Ok(())
 }
 
+/// 031 的第二个事务内前置钩子:用 Rust 常量 [`POINTS_AGG`] 拼出视图 `points_fts_src`。
+/// 必须在 [`prepare_point_line`](改表名)之后执行。视图引用 `lines`(此时可能还没建),
+/// SQLite 不在 `CREATE VIEW` 时校验被引用表,查询时才解析。`WHERE` 复用 [`NOT_PURE_NAME`],
+/// 与筛选 / 对账 / 守卫用例同一段文本。
+pub(crate) fn create_points_fts_src_view(conn: &Connection) -> rusqlite::Result<()> {
+    use crate::db::repos::entities::fts::{NOT_PURE_NAME, POINTS_AGG};
+    conn.execute_batch(&format!(
+        "DROP VIEW IF EXISTS points_fts_src;
+         CREATE VIEW points_fts_src(id, meta, paths) AS
+         SELECT e.id, e.meta, {POINTS_AGG} FROM points e WHERE {NOT_PURE_NAME};"
+    ))
+}
+
 /// 给 031 SQL 一个稳定的边源。新库把 `edges` 逐行拷进临时表;重放(`edges` 已随首个 031
 /// 删除)建同列空表,让关系名点与线的 INSERT 都自然变成空操作(幂等的关键)。
 /// 统一用临时表(不用视图),避免 `DROP VIEW` 撞上临时表时报 `use DROP TABLE`。

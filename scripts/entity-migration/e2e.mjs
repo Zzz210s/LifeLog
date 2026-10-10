@@ -2,7 +2,7 @@
 /**
  * T4.4 端到端验收(统一实体 / 统一元数据迁移后的核心面)。
  * 读数:
- *   ① user_version>=29(含迁移链 29/30 落点) + 对账七条全 PASS
+ *   ① user_version>=29(含迁移链 29/30 落点) + 对账无 FAIL(v30 基线十条 N/A;v31 起要求十条全 PASS)
  *   ② 当前筛选命中(IPC query_notes == 库侧按当前 filter_current 编译出的 SQL 命中数)
  *   ③ 树闭包(list_tags == 库侧 path IS NOT NULL 现场重算,不写死规模)
  *   ④ `#X`/`[[X]]` 目标域:自建笔记→笔记引用夹具,验 `[[X]]` 落成 link 边且图里可见
@@ -90,7 +90,7 @@ const dbFilterHits = (f) => {
   return n(`${CLOSURE} SELECT COUNT(*) n FROM entities e WHERE ${gs.length ? `1=1 AND (${gs.join(f.groupOp === 'or' ? ' OR ' : ' AND ')})` : '1=1'}`);
 };
 
-// ---------- ① 迁移版本 + 对账七条 ----------
+// ---------- ① 迁移版本 + 对账 ----------
 const sqlPath = fileURLToPath(new URL('./reconcile.sql', import.meta.url));
 const rec = runReconcile({ dbPath: DB_PATH, sqlPath });
 // 迁移链关键版本:版本号单调递增,user_version >= v 即链上含 v;除版本号外再钉每个版本的结构落点
@@ -98,9 +98,10 @@ const rec = runReconcile({ dbPath: DB_PATH, sqlPath });
 const CHAIN = [[29, 'table', 'entities_fts'], [30, 'view', 'entities_fts_src']];
 const marks = CHAIN.map(([v, t, nm]) => [v, n(`SELECT COUNT(*) n FROM sqlite_master WHERE type='${t}' AND name='${nm}'`)]);
 const chainOk = rec.user_version >= Math.max(...CHAIN.map(([v]) => v)) && marks.every(([, c]) => c === 1);
+const v31 = n("SELECT COUNT(*) n FROM sqlite_master WHERE type='table' AND name='points'") === 1;
 record(
-  '① user_version>=29 且迁移链关键版本(29/30)落点齐备 + 对账全 PASS(0 FAIL / 0 N/A)',
-  rec.user_version >= 29 && chainOk && rec.summary.fail === 0 && rec.summary.na === 0,
+  '① user_version>=29 且迁移链关键版本(29/30)落点齐备 + 对账无 FAIL(v30 基线十条 N/A;v31 起要求全 PASS)',
+  rec.user_version >= 29 && chainOk && rec.summary.fail === 0 && (!v31 || rec.summary.na === 0),
   `user_version=${rec.user_version} 链=${JSON.stringify(marks)} 对账 PASS ${rec.summary.pass} / FAIL ${rec.summary.fail} / N/A ${rec.summary.na}`,
 );
 
