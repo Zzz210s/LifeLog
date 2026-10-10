@@ -4,8 +4,8 @@
 use rusqlite::types::Value;
 
 use super::notes_filter::{
-    any_tag, carry_predicate, expr_error_message, keyword_predicate, single_line_predicate,
-    tag_exists, tag_predicate, tree_membership_predicate, FilterConditions,
+    any_tag, carry_predicate, expr_error_message, keyword_predicate, note_only,
+    single_line_predicate, tag_exists, tag_predicate, tree_membership_predicate, FilterConditions,
 };
 use super::notes_filter_groups::{
     item_is_blank, op_of, FilterGroup, GroupItem, MAX_KEYWORD_CHARS, MAX_TAG_ITEMS,
@@ -22,16 +22,16 @@ pub(crate) fn item_predicate(it: &GroupItem, args: &mut Vec<Value>) -> Result<Op
             keyword_predicate(k, args)
         }
         GroupItem::Tag { path, include_children } => {
-            tag_exists(&tag_predicate(path, !include_children, args))
+            note_only(tag_exists(&tag_predicate(path, !include_children, args)))
         }
         GroupItem::ExcludeTag { path, include_children } => {
             let m = tag_predicate(path, !include_children, args);
-            format!("NOT {}", tag_exists(&m))
+            note_only(format!("NOT {}", tag_exists(&m)))
         }
-        GroupItem::Relation { path } => tag_exists(&carry_predicate(path, args)),
+        GroupItem::Relation { path } => note_only(tag_exists(&carry_predicate(path, args))),
         GroupItem::ExcludeRelation { path } => {
             let m = carry_predicate(path, args);
-            format!("NOT {}", tag_exists(&m))
+            note_only(format!("NOT {}", tag_exists(&m)))
         }
         GroupItem::Presence { value } => match value.as_str() {
             "any" => any_tag(),
@@ -51,7 +51,7 @@ pub(crate) fn item_predicate(it: &GroupItem, args: &mut Vec<Value>) -> Result<Op
                 return Ok(None);
             }
             let ast = crate::expr::validate(value).map_err(|e| expr_error_message(value, &e))?;
-            crate::expr::compile(&ast, args)
+            crate::expr::compile_for_filter(&ast, args)
         }
     };
     Ok(Some(pred))
@@ -65,9 +65,11 @@ pub(crate) fn item_hit_predicate(
 ) -> Result<Option<String>, String> {
     match it {
         GroupItem::ExcludeTag { path, include_children } => {
-            Ok(Some(tag_exists(&tag_predicate(path, !include_children, args))))
+            Ok(Some(note_only(tag_exists(&tag_predicate(path, !include_children, args)))))
         }
-        GroupItem::ExcludeRelation { path } => Ok(Some(tag_exists(&carry_predicate(path, args)))),
+        GroupItem::ExcludeRelation { path } => {
+            Ok(Some(note_only(tag_exists(&carry_predicate(path, args)))))
+        }
         other => item_predicate(other, args),
     }
 }

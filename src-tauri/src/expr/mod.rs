@@ -22,6 +22,19 @@ pub use compile::compile;
 pub use describe::describe;
 pub use validate::validate;
 
+/// 筛选条件里的表达式片段(结构化条件 `Expr` 项的唯一入口):表达式含**标签叶子**时
+/// 收窄到树外实体(笔记),与结构化 Tag / Relation 条件同口径 —— 收在整段外面而不是
+/// 每个叶子上,是因为 `NOT` 必须整体取反(审计 2026-10-09 §1:`A --(remark)--> B`
+/// 是关系,不是「A 自己挂了 B」);纯关键词表达式不加收窄,与结构化 Keyword 条件一致。
+pub fn compile_for_filter(e: &ast::Expr, args: &mut Vec<rusqlite::types::Value>) -> String {
+    let sql = compile(e, args);
+    if compile::contains_tag(e) {
+        crate::db::repos::notes::notes_filter::note_only(sql)
+    } else {
+        sql
+    }
+}
+
 #[cfg(test)]
 #[path = "compile_tests.rs"]
 mod compile_tests;

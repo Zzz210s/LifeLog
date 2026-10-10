@@ -93,3 +93,8 @@ mod notes_query_relation_equiv_tests;
 #[cfg(test)]
 #[path = "notes_query_sort_tests.rs"]
 mod notes_query_sort_tests;
+
+/// 标签/关系条件只命树外实体(2026-10-10 读侧收口)
+#[cfg(test)]
+#[path = "notes_query_tag_scope_tests.rs"]
+mod notes_query_tag_scope_tests;

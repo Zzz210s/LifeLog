@@ -20,3 +20,13 @@ pub fn compile(e: &Expr, args: &mut Vec<Value>) -> String {
         Expr::Or(a, b) => format!("({} OR {})", compile(a, args), compile(b, args)),
     }
 }
+
+/// AST 里是否存在标签叶子(`#路径` / `#=路径`)
+pub fn contains_tag(e: &Expr) -> bool {
+    match e {
+        Expr::Tag { .. } => true,
+        Expr::Keyword(_) => false,
+        Expr::Not(inner) => contains_tag(inner),
+        Expr::And(a, b) | Expr::Or(a, b) => contains_tag(a) || contains_tag(b),
+    }
+}
