@@ -150,6 +150,9 @@ pub(crate) use entity_ids::*;
 mod unify_meta;
 pub(crate) use unify_meta::*;
 
+mod point_line;
+pub(crate) use point_line::*;
+
 /// 事务内前置钩子:`(版本, 钩子)` 成对登记,由 `migrate::apply` 在 `unchecked_transaction` 内、
 /// 迁移 SQL **之前**按登记顺序执行。与上面那些事务外钩子的区别:这些钩子产出迁移 SQL 要读的
 /// 临时状态(如 `_id_map`),必须与 SQL 在同一事务提交 / 回滚。登记顺序即执行顺序 ——
@@ -162,6 +165,7 @@ const PRE_HOOKS: &[(i64, PreHook)] = &[
     (UNIFY_META_VERSION, ensure_default_filter),
     (ENTITIES_FTS_VERSION, create_entities_fts_src_view),
     (FTS_CLOSURE_VERSION, create_entities_fts_src_view),
+    (POINT_LINE_VERSION, prepare_point_line),
 ];
 
 /// 跑某版本登记的事务内前置钩子(无登记 = 空操作);由 `migrate::apply` 在事务内调用。

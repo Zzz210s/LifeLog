@@ -39,6 +39,7 @@ const MIGRATIONS: &[&str] = &[
         include_str!("migrations/030_fts_closure.sql"),
         include_str!("migrations/030_fts_closure_triggers.sql")
     ),
+    include_str!("migrations/031_point_line.sql"),
 ];
 
 /// 012 的位次(1 起)与它删除的列名:SQLite 没有 `DROP COLUMN IF EXISTS`,
@@ -61,7 +62,7 @@ fn notes_has_column(conn: &Connection, column: &str) -> rusqlite::Result<bool> {
 /// 也会让 `edges_new` 的填入因两端新 id 在旧表里不存在而被拒。
 /// 006 重建仍被 tag_links 引用的父表 `tags` 时同理。
 /// PRAGMA foreign_keys 在事务内是 no-op,故必须在事务外关闭、提交后再打开。
-const FK_OFF_VERSIONS: &[i64] = &[6, 28];
+const FK_OFF_VERSIONS: &[i64] = &[6, 28, 31];
 
 /// 最新迁移版本号(= 迁移文件个数);供备份设施判断"是否有迁移要跑"
 pub fn latest_version() -> i64 {
