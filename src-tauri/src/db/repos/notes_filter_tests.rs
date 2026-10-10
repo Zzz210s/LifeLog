@@ -52,8 +52,7 @@ fn exclude_tag_uses_not_exists() {
 }
 
 /// 有无标签:时间标签也是普通标签(D3),一律计入;any/none 必须成对。
-/// 2026-10-10 收窄:只判**笔记**(`n.path IS NULL`)的出入边 —— 树内标签有出边也不算
-/// 「有标签」,无出边的叶子标签也不算「无标签」(与 Tag/Relation 条件同口径)。
+/// 2026-10-10 收窄:只判**笔记**(`n.path IS NULL`)的出入边(与 Tag/Relation 条件同口径)。
 #[test]
 fn tag_presence_counts_all_tags() {
     let c = FilterConditions { tag_presence: Some("none".into()), ..empty() };
