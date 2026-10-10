@@ -5,11 +5,22 @@ edition = "2021"
 # 关键:src-tauri 下有两个 bin(lifelog 与 src/bin/gen-upgrade-baseline.rs),缺 default-run 时
 # tauri CLI 会把 gen_upgrade_baseline 当成主二进制打进包里,装出来的 LifeLog.exe 启动即退出
 # (表现为 release\LifeLog.exe 与 deps\gen_upgrade_baseline.exe 逐字节相同)。
+# 另外 NSIS 会把 release 目录里的每个 *.exe 都收进安装包,故工具 bin 默认不参与构建(见 [features] tools)。
 default-run = "lifelog"
 
 [lib]
 name = "lifelog_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
+
+# 开发/基线工具特性:默认关闭,使 gen-upgrade-baseline 不进默认构建与 NSIS 安装包。
+# 需要时显式启用:cargo run --features tools --bin gen-upgrade-baseline
+[features]
+tools = []
+
+[[bin]]
+name = "gen-upgrade-baseline"
+path = "src/bin/gen-upgrade-baseline.rs"
+required-features = ["tools"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
