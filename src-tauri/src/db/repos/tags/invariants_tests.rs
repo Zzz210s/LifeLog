@@ -165,3 +165,8 @@ pub(crate) fn assert_filter_paths_exist(conn: &Connection) {
 #[cfg(test)]
 #[path = "invariants_cases_tests.rs"]
 mod cases;
+
+/// T3.5 副本串跑探针(默认忽略,需 `LIFELOG_COPY_DB`)。
+#[cfg(test)]
+#[path = "invariants_probe_tests.rs"]
+mod invariants_probe_tests;

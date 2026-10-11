@@ -135,17 +135,56 @@ fn child_edge_does_not_touch_fts() {
     assert_fts_matches_edges(&c);
 }
 
-/// ⑤ `is_cited` 增量:插非子级线把目标置 1,删掉后回 0(与对账同口径)
+/// ⑤ `is_cited` 增量:**只**随非子级线翻转:插非子级线把目标置 1,删掉后回 0;
+/// 子级线(`name_id = 0`)无论出现/消失都不改 `is_cited`(与对账 §5.4-① 同判据)。
 #[test]
 fn is_cited_follows_link_edges_incrementally() {
     let c = db();
-    let cited = |id: i64| c.query_row("SELECT is_cited FROM points WHERE id=?1", params![id], |r| {
-        r.get::<_, i64>(0)
-    }).unwrap();
+    let cited = |id: i64| {
+        c.query_row("SELECT is_cited FROM points WHERE id=?1", params![id], |r| r.get::<_, i64>(0))
+            .unwrap()
+    };
     assert_eq!(cited(2), 0, "无入链");
+    // 两条子级线先占位:子级线不算引用
+    c.execute(
+        "INSERT INTO lines(from_id,to_id,name_id,created_at) VALUES(5,2,0,'2026-01-01'),(6,2,0,'2026-01-01')",
+        [],
+    )
+    .unwrap();
+    assert_eq!(cited(2), 0, "子级线不置 is_cited");
     c.execute("INSERT INTO lines(from_id,to_id,name_id,created_at) VALUES(1,2,NULL,'2026-01-01')", []).unwrap();
-    assert_eq!(cited(2), 1);
+    assert_eq!(cited(2), 1, "非子级线置 1");
     c.execute("DELETE FROM lines WHERE from_id=1 AND to_id=2 AND (name_id IS NULL OR name_id <> 0)", []).unwrap();
-    assert_eq!(cited(2), 0);
+    assert_eq!(cited(2), 0, "删非子级线回 0,子级线仍在");
+    c.execute("DELETE FROM lines WHERE to_id=2 AND name_id=0", []).unwrap();
+    assert_eq!(cited(2), 0, "删子级线也不动 is_cited");
     assert_is_cited_matches_edges(&c);
+}
+
+/// `points_fts` 里该点有几行(纯名字点为 0)
+fn row_count(c: &Connection, id: i64) -> i64 {
+    c.query_row("SELECT COUNT(*) FROM points_fts WHERE rowid = ?1", params![id], |r| r.get(0)).unwrap()
+}
+
+/// ⑥ 名字点进出 FTS:线把它挂到 `name_id` 位后整行消失(纯名字点,位置判据),线移除后又回来。
+/// 这是 v31 **唯一新增**的刷新输入(§7.3 触发器 4/5:`lines_ai/ad` 必须刷 `name_id`);
+/// 判别力:若 `lines_ai/ad` 漏刷 `name_id`,挂线后行不会消失(本用例红)。
+#[test]
+fn name_point_enters_and_leaves_fts() {
+    let c = db();
+    c.execute(
+        "INSERT INTO points(id,meta,created_at,path,depth) VALUES(7,'引用名','2026-01-01',NULL,NULL)",
+        [],
+    )
+    .unwrap();
+    c.execute("INSERT INTO entity_aliases(alias,entity_id) VALUES('引用名别名',7)", []).unwrap();
+    assert_eq!(row_count(&c, 7), 1, "还没被当名字用的点占一行(自身别名进 paths)");
+    assert_eq!(paths(&c, 7), "引用名别名");
+    c.execute("INSERT INTO lines(from_id,to_id,name_id,created_at) VALUES(3,4,7,'2026-01-01')", []).unwrap();
+    assert_eq!(row_count(&c, 7), 0, "挂上名字线后成纯名字点,整行不得留在 FTS");
+    assert_fts_matches_edges(&c);
+    c.execute("DELETE FROM lines WHERE from_id=3 AND to_id=4 AND name_id=7", []).unwrap();
+    assert_eq!(row_count(&c, 7), 1, "线移除后名字点回到 FTS");
+    assert_eq!(paths(&c, 7), "引用名别名");
+    assert_fts_matches_edges(&c);
 }
