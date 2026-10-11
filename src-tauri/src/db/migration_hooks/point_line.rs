@@ -10,8 +10,9 @@ use rusqlite::{Connection, OptionalExtension};
 /// 031 的版本号(与 `MIGRATIONS` 追加 031 后的下标 +1 成对,见 `migrate.rs`)。
 pub(crate) const POINT_LINE_VERSION: i64 = 31;
 
-/// 保留名字点 `子级` 的固定 id(spec §14 P1 / 计划 P0-1)。真库点 id 从 1 起,0 可用。
-pub(crate) const TREE_NAME_ID: i64 = 0;
+/// 保留名字点 `子级` 的固定 id 真源在 [`crate::db::repos::entities::reserved::TREE_NAME_ID`]
+/// (spec §14 P1 / 计划 P0-1)。这里只重导出,迁移钩子与运行时自愈共用一个值。
+pub(crate) use crate::db::repos::entities::reserved::TREE_NAME_ID;
 
 fn table_exists(conn: &Connection, name: &str) -> rusqlite::Result<bool> {
     let n: i64 = conn.query_row(

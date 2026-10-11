@@ -12,6 +12,8 @@ pub const FILTER_CURRENT_KEY: &str = "filter_current";
 /// 关系图节点位置记忆(D1):JSON 对象,键是**标签实体 id**(字符串),值是该节点坐标。
 /// 阶段 1 标签 id 偏移后由迁移 027 的钩子把老 id 键改写成实体 id 键(`entity_ids::rewrite_graph_positions`)。
 pub const GRAPH_POSITIONS_KEY: &str = "graph_positions";
+/// 保留名字点 `子级` 的 id 记录(spec §3.3):值是点 id 的十进制字符串,写入真源在迁移 031。
+pub const TREE_LINE_NAME_ID_KEY: &str = "tree_line_name_id";
 
 /// 自动时间标签配置(设置页与创建路径共用一份读法)
 #[derive(Debug, PartialEq)]
@@ -55,6 +57,15 @@ pub fn get(conn: &Connection, key: &str) -> rusqlite::Result<Option<String>> {
     }
 }
 
+/// 读 `settings.tree_line_name_id`,带默认值:记录缺失 / 空串 / 非数字一律回退
+/// [`reserved::TREE_NAME_ID`](crate::db::repos::entities::reserved::TREE_NAME_ID)。
+/// 只兜底不修复库 —— 记录存在但悬空(指向不存在的点)时照样原样返回,由体检负责报错。
+pub fn tree_line_name_id(conn: &Connection) -> rusqlite::Result<i64> {
+    Ok(get(conn, TREE_LINE_NAME_ID_KEY)?
+        .and_then(|v| v.trim().parse::<i64>().ok())
+        .unwrap_or(crate::db::repos::entities::reserved::TREE_NAME_ID))
+}
+
 pub fn set(conn: &Connection, key: &str, value: &str) -> rusqlite::Result<()> {
     conn.execute(
         "INSERT INTO settings(key, value) VALUES(?1, ?2)
@@ -80,6 +91,16 @@ mod tests {
     fn get_missing_returns_none() {
         let c = db();
         assert_eq!(get(&c, "nope").unwrap(), None);
+    }
+
+    #[test]
+    fn tree_line_name_id_defaults_to_reserved_and_keeps_dangling_value() {
+        let c = db();
+        assert_eq!(tree_line_name_id(&c).unwrap(), 0, "缺失时回退保留点 id");
+        set(&c, TREE_LINE_NAME_ID_KEY, "9x").unwrap();
+        assert_eq!(tree_line_name_id(&c).unwrap(), 0, "非法值同样回退");
+        set(&c, TREE_LINE_NAME_ID_KEY, "7").unwrap();
+        assert_eq!(tree_line_name_id(&c).unwrap(), 7, "悬空 id 原样返回,交给体检报错");
     }
 
     #[test]

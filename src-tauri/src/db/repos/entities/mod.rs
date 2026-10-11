@@ -6,9 +6,15 @@ pub mod fts;
 pub mod ids;
 pub mod reconcile;
 pub mod reconcile_checks;
+/// T1.4 保留名字点 `子级` 的体检 / 自愈 / 恢复(spec §6.2)。
+pub mod reserved;
 
 #[cfg(test)]
 mod reconcile_tests;
+
+#[cfg(test)]
+#[path = "reserved_tests.rs"]
+mod reserved_tests;
 
 /// 阶段 4 收口守卫:旧偏移标识符不再出现在任何源码里。
 #[cfg(test)]

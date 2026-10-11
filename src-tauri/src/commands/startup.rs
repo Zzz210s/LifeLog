@@ -10,6 +10,8 @@ use serde::Serialize;
 use tauri::AppHandle;
 use tauri_plugin_autostart::ManagerExt;
 
+use crate::db::repos::entities::reserved;
+
 /// Run 值名:插件的 app_name 取 package_info().name(即 tauri.conf.json 的 productName)
 fn entry_name(app: &AppHandle) -> String {
     app.package_info().name.clone()
@@ -149,6 +151,36 @@ pub fn set_autostart(app: AppHandle, enabled: bool) -> Result<(), String> {
         return Err("开机启动未生效:注册表路径未指向当前程序,请再次点「修复」".into());
     }
     Ok(())
+}
+
+/// 启动期保留点自愈检查(spec §6.2 第二层防护):树线名字点 `子级` 缺失 / 悬空时,
+/// 按 `parent_id` 缓存把 719 条子级线找回,并把 `settings.tree_line_name_id` 写回。
+/// 返回找回的子级线数。失败给中文可操作原因,由 setup 弹框说明并以退出码 1 退出 ——
+/// 不允许静默继续(用户看到树还在,但「入树」判据与对账 ②/⑤/⑨ 已经崩了)。
+/// v31 结构未就位(点表不存在)时跳过:迁移尚未跑到 031,这里没有可自愈的对象。
+pub fn heal_reserved_name_point(conn: &rusqlite::Connection) -> Result<usize, String> {
+    let has_points: bool = conn
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'points'",
+            [],
+            |r| r.get::<_, i64>(0),
+        )
+        .map_err(|e| format!("检查点表失败: {e}"))?
+        > 0;
+    if !has_points {
+        return Ok(0);
+    }
+    if let Some(reason) = reserved::verify_reserved_name_point(conn)
+        .map_err(|e| format!("检查树线名字点失败: {e}"))?
+    {
+        eprintln!("启动检查:树线名字点需要自愈 —— {reason}");
+    }
+    let report = reserved::recover_tree_lines(conn)
+        .map_err(|e| format!("恢复树线名字点失败: {e}"))?;
+    if report.changed() {
+        eprintln!("启动检查:树线名字点已自愈({})", report.message());
+    }
+    Ok(report.lines_fixed)
 }
 
 #[cfg(test)]

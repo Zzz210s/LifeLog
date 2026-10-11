@@ -107,6 +107,9 @@ pub fn init(app: &tauri::AppHandle) -> Result<InitReport, OpenFailure> {
     std::fs::create_dir_all(&dir)
         .map_err(|e| OpenFailure::new(format!("创建应用数据目录失败: {e}")))?;
     let report = open(&dir.join(data_dir_migration::DB_FILE))?;
+    // 保留点 `子级` 启动自愈(spec §6.2):缺失 / 悬空即按 parent_id 缓存找回子级线。
+    // 失败按「数据库初始化失败」处理 —— 由 setup 弹中文对话框并以退出码 1 退出,不静默继续。
+    crate::commands::startup::heal_reserved_name_point(&report.conn).map_err(OpenFailure::new)?;
     app.manage(Db(std::sync::Mutex::new(report.conn)));
     // 备份失败原因同时存入进程内提示槽:主窗加载后由 take_backup_warning 取一次,
     // 走错误条显示(不阻断;启动对话框覆盖主窗从未打开的情形)
