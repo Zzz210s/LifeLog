@@ -14,6 +14,9 @@
 | `reconcile.mjs` | 对账 CLI，逐条打印读数与 PASS/FAIL/N/A；库不可写。 |
 | `reconcile.test.mjs` | `node:test`：SQL 可解析为十条、v30 旧库整组 N/A、计数读数、`requires` 门控。 |
 | `reconcile-v31.test.mjs` | v31 点/线夹具：十条全绿、逐条反例、保留点 id=0 与合并态放宽、变异自证。 |
+| `verify-031.mjs` | T1.5 阶段 1 收口编排：快照副本跑 031（`cargo --ignored migrate_snapshot_copy` + `LIFELOG_COPY_DB`）→ 十条对账 → 三条等价性 → 老库升级链 → 空库重放 → `--self-check` 反例自检。真库只读。 |
+| `verify-031-lib.mjs` | 三条等价性比对器（tree closure / feed_default / `points_fts.paths` 逐字节）+ 只读打开助手；口径与 `reconcile.sql` 一致。 |
+| `verify-031.test.mjs` | 上述比对器的 `node:test` 用例（v30/v31 最小夹具、变异自证、v30 形状报错）。 |
 
 Rust 侧同名逻辑在 `src-tauri/src/db/repos/entities/reconcile.rs`（解析/门控/断言）与
 `reconcile_checks.rs`（十条命名函数 + 计数），用例 `reconcile_tests.rs`。
@@ -34,8 +37,11 @@ cd F:/0-code/20-active/LifeLog
 node scripts/entity-migration/reconcile.mjs
 node scripts/entity-migration/snapshot.mjs --tag p31 --snapshot
 
-# 副本试跑 031（在副本文件上跑迁移，不碰真库），随后对副本对账
+# 副本试跑 031（在副本文件上跑迁移，不碰真库），随后对副本对账 + 三条等价性
 node scripts/entity-migration/reconcile.mjs --db F:/0-code/_lifelog-snapshots/lifelog.db.bak-p31-<stamp>
+
+# T1.5 阶段 1 收口编排（快照 -> 副本跑 031 -> 十条 + 三条等价性 + 老库/空库 + 反例自检）
+node scripts/entity-migration/verify-031.mjs --self-check
 
 # 十条全 PASS + §10.3 读数逐值命中 + §10.6 三条等价性全绿后，才停应用、对真库执行 031
 # 回滚：停应用 -> 用 p31 快照替换主库（含 -wal/-shm）-> 换回旧代码
@@ -80,6 +86,7 @@ node scripts/entity-migration/reconcile.mjs --db F:/0-code/_lifelog-snapshots/li
 ```bash
 node --test scripts/entity-migration/*.test.mjs    # TS 侧：v30 N/A + v31 十条 + 逐条反例（勿传目录，Node 24 不认）
 node scripts/entity-migration/reconcile.mjs          # 真库只读，退出码 0
+node scripts/entity-migration/verify-031.mjs --self-check   # 副本 031 + 十条 + 三条等价性 + 老库/空库
 node scripts/entity-migration/snapshot.mjs           # dry-run，不写盘
 cd src-tauri && cargo test --lib reconcile           # Rust 侧同名十条（v31 夹具）
 ```
@@ -104,3 +111,32 @@ integrity_check=ok  foreign_key_check=0 行
   跑前后真库 `.db` 与 `-wal` 的 sha256 / mtime 不变（`mode=ro` 未写一个字节）。
 - ⑦ 的连号只在**没发生过合并**的库上要求（`entity_merge_log` 为空）：自动合并与引用优化 A3 都会删点，
   断号是常态。真库 `id_gaps=1` 且有 3 条合并记录，故断号走 `INFO` 提示而非 FAIL。
+
+## T1.5 阶段 1 收口读数（2026-10-11，副本现场重算，HEAD b351a246）
+
+源:真库 v30 原样快照 `F:/0-code/_lifelog-snapshots/lifelog.db.bak-p31-pre-20261010T162007Z`
+（2026-10-10 生成；老库链用 v27 快照 `lifelog.db.bak-p05-20261009T050517Z`）。
+
+```
+副本 031: user_version=31
+points=2120 (min 0 / max 2120 / distinct 2120)  points_path_nonnull=742  points_path_null=1378
+lines=6403 (tree 719 / named 55 / unnamed 5629, dup_triple=0, dangling=0)  pure_name_points=4
+points_fts=2116  is_cited_points=654  tree_closure_points=742  feed_default_points=1374
+id_gaps_points=1（合并态，允许）  entity_aliases=15  id_merge_log=3
+integrity_check=ok  foreign_key_check=0 行
+对账结果: PASS 12 / FAIL 0 / N/A 0
+
+三条等价性（v30 基线 对 v31 副本）:
+  树闭包      v30=742  v31=742   逐 id 差 0/0
+  信息流默认  v30=1374 v31=1374  逐 id 差 0/0
+  FTS paths   行 2116/2116，sha256 相同，差异行 0（逐字节）
+
+老库升级链: v27 -> v31 对账 PASS 12/FAIL 0，points=2117 lines=7627 pure_name=2
+空库重放:   001..031 -> user_version=31，保留点=1，对账 PASS 12/FAIL 0；再跑一次幂等
+反例自检:   副本的副本删闭包内非 is_cited 父点 id=1374 的出子级线 -> 闭包 742->741，等价性 FAIL（如约）
+变异自证:   比对对象改成 v31 的 is_cited 集合 -> equivalence_tree_closure_is_compared_against_v30 变红
+```
+
+- 已知遗留（不在 T1.5 范围）:Rust 读写层仍按 v30 表名，`cargo test --lib` 在 HEAD 为
+  `407 passed / 365 failed / 9 ignored`，失败清一色 `no such table: entities|edges|entities_fts`；
+  读路径切换属 T2.1–T2.4。阶段 1 到此为止**不声称应用能跑**；真库迁移在 T2.5。
