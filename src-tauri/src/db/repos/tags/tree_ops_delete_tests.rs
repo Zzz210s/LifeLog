@@ -69,3 +69,20 @@ fn delete_missing_tag_rolls_back() {
     assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
 }
+
+/// ⑪ T3.3 保留点删除拒绝:`delete_subtree(0)` 给中文报错,子级线一条不动、库零变化
+#[test]
+fn delete_reserved_tree_name_point_rejected() {
+    let mut c = db();
+    notes::create_plain(&mut c, "a #工作/项目A").unwrap();
+    let tree_lines = count(&c, "SELECT COUNT(*) FROM lines WHERE name_id = 0");
+    assert!(tree_lines > 0);
+    let before = dump(&c);
+
+    let err = delete_subtree(&mut c, 0).unwrap_err();
+
+    assert!(err.contains("保留"), "要中文保留点提示: {err}");
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM lines WHERE name_id = 0"), tree_lines, "子级线不动");
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE id = 0"), 1);
+    assert_eq!(dump(&c), before, "库零变化");
+}

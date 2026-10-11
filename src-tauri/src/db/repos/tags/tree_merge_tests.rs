@@ -19,7 +19,7 @@ fn count(c: &Connection, sql: &str) -> i64 {
 }
 
 fn id_at(c: &Connection, path: &str) -> i64 {
-    c.query_row("SELECT id FROM entities WHERE path IS NOT NULL AND path=?1", [path], |r| r.get(0))
+    c.query_row("SELECT id FROM points WHERE path IS NOT NULL AND path=?1", [path], |r| r.get(0))
         .unwrap()
 }
 
@@ -29,12 +29,12 @@ fn rows(c: &Connection, sql: &str) -> Vec<String> {
     it.collect::<rusqlite::Result<Vec<_>>>().unwrap()
 }
 
-/// 全库快照(tags / tag_links / tag_aliases / entities_fts / settings 逐行),用于"零变化"断言
+/// 全库快照(tags / tag_links / tag_aliases / points_fts / settings 逐行),用于"零变化"断言
 fn snapshot(c: &Connection) -> String {
-    let tags = rows(c, "SELECT id||'|'||entity_name(meta)||'|'||COALESCE(parent_id,0)||'|'||path||'|'||depth FROM entities WHERE path IS NOT NULL ORDER BY id");
-    let links = rows(c, "SELECT (CASE WHEN s.path IS NOT NULL THEN e.source_id ELSE e.target_id END)||'|'||(CASE WHEN s.path IS NOT NULL THEN 'tag' ELSE 'note' END)||'|'||(CASE WHEN s.path IS NOT NULL THEN e.target_id ELSE e.source_id END) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND (s.path IS NOT NULL OR t.path IS NOT NULL) ORDER BY 1");
+    let tags = rows(c, "SELECT id||'|'||entity_name(meta)||'|'||COALESCE(parent_id,0)||'|'||path||'|'||depth FROM points WHERE path IS NOT NULL ORDER BY id");
+    let links = rows(c, "SELECT (CASE WHEN s.path IS NOT NULL THEN e.from_id ELSE e.to_id END)||'|'||(CASE WHEN s.path IS NOT NULL THEN 'tag' ELSE 'note' END)||'|'||(CASE WHEN s.path IS NOT NULL THEN e.to_id ELSE e.from_id END) FROM lines e JOIN points s ON s.id = e.from_id JOIN points t ON t.id = e.to_id WHERE (e.name_id IS NULL OR e.name_id <> 0) AND (s.path IS NOT NULL OR t.path IS NOT NULL) ORDER BY 1");
     let aliases = rows(c, "SELECT alias||'|'||entity_id FROM entity_aliases ORDER BY alias");
-    let fts = rows(c, "SELECT rowid||'|'||paths FROM entities_fts ORDER BY rowid");
+    let fts = rows(c, "SELECT rowid||'|'||paths FROM points_fts ORDER BY rowid");
     let settings = rows(c, "SELECT key||'|'||value FROM settings ORDER BY key");
     format!("{tags:?}\n{links:?}\n{aliases:?}\n{fts:?}\n{settings:?}")
 }
@@ -42,7 +42,7 @@ fn snapshot(c: &Connection) -> String {
 fn link_count(c: &Connection, tag_id: i64, note_id: i64) -> i64 {
     count(
         c,
-        &format!("SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND s.path IS NULL AND t.path IS NOT NULL AND e.target_id={tag_id} AND e.source_id={note_id}"),
+        &format!("SELECT COUNT(*) FROM lines e JOIN points s ON s.id = e.from_id JOIN points t ON t.id = e.to_id WHERE (e.name_id IS NULL OR e.name_id <> 0) AND s.path IS NULL AND t.path IS NOT NULL AND e.to_id={tag_id} AND e.from_id={note_id}"),
     )
 }
 
@@ -55,17 +55,17 @@ fn merge_moves_all_links_and_deletes_source() {
     }
     notes::create_plain(&mut c, "d #目标").unwrap();
     let (src, dst) = (id_at(&c, "源"), id_at(&c, "目标"));
-    let tags_before = count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL");
+    let tags_before = count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL");
 
     let r = merge_tags(&mut c, src, dst, false).unwrap();
 
     assert_eq!(r.moved_links, 3);
     assert_eq!(r.affected_notes, 3);
     assert!(r.aliases.is_empty());
-    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND (s.path IS NOT NULL OR t.path IS NOT NULL) AND (CASE WHEN s.path IS NOT NULL THEN e.source_id ELSE e.target_id END)={dst}")), 4);
-    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND (s.path IS NOT NULL OR t.path IS NOT NULL) AND (CASE WHEN s.path IS NOT NULL THEN e.source_id ELSE e.target_id END)={src}")), 0);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='源'"), 0);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL"), tags_before - 1);
+    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM lines e JOIN points s ON s.id = e.from_id JOIN points t ON t.id = e.to_id WHERE (e.name_id IS NULL OR e.name_id <> 0) AND (s.path IS NOT NULL OR t.path IS NOT NULL) AND (CASE WHEN s.path IS NOT NULL THEN e.from_id ELSE e.to_id END)={dst}")), 4);
+    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM lines e JOIN points s ON s.id = e.from_id JOIN points t ON t.id = e.to_id WHERE (e.name_id IS NULL OR e.name_id <> 0) AND (s.path IS NOT NULL OR t.path IS NOT NULL) AND (CASE WHEN s.path IS NOT NULL THEN e.from_id ELSE e.to_id END)={src}")), 0);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND path='源'"), 0);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL"), tags_before - 1);
     assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
 }
@@ -83,7 +83,7 @@ fn merge_dedupes_note_linked_to_both_tags() {
     assert_eq!(r.moved_links, 1, "只有 b 之外的那条链接真正改了 tag_id");
     assert_eq!(r.affected_notes, 2);
     assert_eq!(link_count(&c, dst, both.id), 1, "唯一键冲突行不产生重复链接");
-    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND (s.path IS NOT NULL OR t.path IS NOT NULL) AND (CASE WHEN s.path IS NOT NULL THEN e.source_id ELSE e.target_id END)={src}")), 0);
+    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM lines e JOIN points s ON s.id = e.from_id JOIN points t ON t.id = e.to_id WHERE (e.name_id IS NULL OR e.name_id <> 0) AND (s.path IS NOT NULL OR t.path IS NOT NULL) AND (CASE WHEN s.path IS NOT NULL THEN e.from_id ELSE e.to_id END)={src}")), 0);
     assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
 }
@@ -104,8 +104,8 @@ fn source_with_children_merges_subtree() {
 
     assert_eq!(r.affected_notes, 1, "源子树下那条笔记受影响");
     assert_eq!(r.aliases, vec!["源".to_string()]);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='目标/子'"), 1);
-    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND id={src}")), 0, "源已删");
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND path='目标/子'"), 1);
+    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND id={src}")), 0, "源已删");
     assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
     assert_filter_paths_exist(&c);

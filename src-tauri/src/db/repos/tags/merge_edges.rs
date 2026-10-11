@@ -43,8 +43,22 @@ fn column(conn: &Connection, sql: &str, id: i64) -> Result<Vec<(i64, Option<i64>
     rows.collect::<rusqlite::Result<Vec<_>>>().map_err(|e| e.to_string())
 }
 
-/// 插入一条名字线(`name_id` 为 None = 无名字线),返回是否真的新增(重复即 0)
+/// 插入一条名字线(`name_id` 为 None = 无名字线),返回是否真的新增(重复即 0)。
+/// 同名去重(T3.3):同一 `(from, to, name)` 三元组只留一条 —— 显式先查一道,
+/// 不单单依赖表达式唯一索引(`moved` 读数也因此与索引是否存在无关),`OR IGNORE` 兵底。
 fn insert(conn: &Connection, from: i64, to: i64, name_id: Option<i64>) -> Result<i64, String> {
+    let exists: bool = conn
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM lines
+               WHERE from_id = ?1 AND to_id = ?2
+                 AND COALESCE(name_id, -1) = COALESCE(?3, -1))",
+            params![from, to, name_id],
+            |r| r.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    if exists {
+        return Ok(0);
+    }
     conn.execute(
         "INSERT OR IGNORE INTO lines(from_id, to_id, name_id, created_at) \
          VALUES(?1, ?2, ?3, datetime('now', 'localtime'))",

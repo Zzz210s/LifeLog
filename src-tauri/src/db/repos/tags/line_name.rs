@@ -134,10 +134,22 @@ pub fn create_line(
     Ok(id)
 }
 
-/// 按 id 删一条线(幂等:不存在也算成功)。名字点若无别的线引用,由 GC(T3.3)回收。
-pub fn remove_line(conn: &Connection, line_id: i64) -> rusqlite::Result<()> {
-    conn.execute("DELETE FROM lines WHERE id = ?1", params![line_id])?;
-    Ok(())
+/// 按 id 删一条线(幂等:不存在也算成功)。若删掉的是某名字点的最后一条引用,
+/// 该名字点在收尾 [`super::tree::gc_orphans`] 里被回收(T3.3);`子级` 保留点恒不动。
+pub fn remove_line(conn: &mut Connection, line_id: i64) -> rusqlite::Result<()> {
+    let tx = conn.transaction()?;
+    let name_id: Option<i64> = tx
+        .query_row("SELECT name_id FROM lines WHERE id = ?1", params![line_id], |r| {
+            r.get::<_, Option<i64>>(0)
+        })
+        .optional()?
+        .flatten();
+    tx.execute("DELETE FROM lines WHERE id = ?1", params![line_id])?;
+    if let Some(nid) = name_id {
+        super::tree::queue_name_point_gc(&tx, nid)?;
+    }
+    super::tree::reclaim_name_points(&tx)?;
+    tx.commit()
 }
 
 #[cfg(test)]

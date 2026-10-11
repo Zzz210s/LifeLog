@@ -21,13 +21,13 @@ fn count(c: &Connection, sql: &str) -> i64 {
 }
 
 fn id_at(c: &Connection, path: &str) -> i64 {
-    c.query_row("SELECT id FROM entities WHERE path IS NOT NULL AND path=?1", [path], |r| r.get(0))
+    c.query_row("SELECT id FROM points WHERE path IS NOT NULL AND path=?1", [path], |r| r.get(0))
         .unwrap()
 }
 
 /// 笔记在 FTS 里的标签列(聚合路径,空格分隔)
 fn fts_tags(c: &Connection, note_id: i64) -> String {
-    c.query_row("SELECT paths FROM entities_fts WHERE rowid=?1", params![note_id], |r| {
+    c.query_row("SELECT paths FROM points_fts WHERE rowid=?1", params![note_id], |r| {
         r.get(0)
     })
     .unwrap()
@@ -103,11 +103,11 @@ fn merge_gcs_emptied_parent_container() {
     merge_tags(&mut c, src, dst, false).unwrap();
 
     assert_eq!(
-        count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path IN ('工作','工作/项目A')"),
+        count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND path IN ('工作','工作/项目A')"),
         0,
         "源与它变空的父容器一并回收"
     );
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='事业'"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND path='事业'"), 1);
     assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
 }
@@ -143,4 +143,41 @@ fn query(
     offset: i64,
 ) -> Result<Vec<crate::db::repos::notes::Note>, String> {
     query_all(c, &crate::db::repos::tags::test_support::with_note_domain(cond.clone()), offset)
+}
+
+/// ⑫ T3.3 用例③:合并搬线做同名去重 —— 源与目标都指向同一 X 且关系同名,
+/// 并完同一 `(from,to,name)` 三元组只留一条,全库无重复三元组
+#[test]
+fn merge_dedupes_same_name_lines_on_same_pair() {
+    use crate::db::repos::tags::set_tag_relation;
+    let mut c = db();
+    notes::create_plain(&mut c, "a #源").unwrap();
+    notes::create_plain(&mut c, "b #目标").unwrap();
+    notes::create_plain(&mut c, "c #X").unwrap();
+    let (src, dst, x) = (id_at(&c, "源"), id_at(&c, "目标"), id_at(&c, "X"));
+    set_tag_relation(&mut c, src, x, "国籍").unwrap();
+    set_tag_relation(&mut c, dst, x, "国籍").unwrap();
+    let nid: i64 = c
+        .query_row("SELECT id FROM points WHERE meta='国籍' AND path IS NULL", [], |r| r.get(0))
+        .unwrap();
+
+    merge_tags(&mut c, src, dst, false).unwrap();
+
+    assert_eq!(
+        count(
+            &c,
+            &format!("SELECT COUNT(*) FROM lines WHERE from_id={dst} AND to_id={x} AND name_id={nid}")
+        ),
+        1,
+        "同 pair 同名线只留一条"
+    );
+    assert_eq!(
+        count(
+            &c,
+            "SELECT COUNT(*) FROM (SELECT 1 FROM lines GROUP BY from_id, to_id, COALESCE(name_id,-1) HAVING COUNT(*) > 1)"
+        ),
+        0,
+        "全库无重复三元组"
+    );
+    assert_fts_matches_edges(&c);
 }

@@ -15,7 +15,7 @@ fn db() -> Connection {
 fn ent(c: &Connection, id: i64, meta: &str, cited: i64, parent: Option<i64>, path: Option<&str>) {
     let depth = path.map(|p| p.matches('/').count() as i64 + 1);
     c.execute(
-        "INSERT INTO entities(id, meta, is_cited, created_at, parent_id, path, depth)
+        "INSERT INTO points(id, meta, is_cited, created_at, parent_id, path, depth)
          VALUES(?1, ?2, ?3, '2026-01-01T00:00:00.000', ?4, ?5, ?6)",
         params![id, meta, cited, parent, path, depth],
     )
@@ -68,4 +68,29 @@ fn auto_merge_refuses_uncited_pair() {
     ent(&c, 2, "项目", 1, Some(1), Some("工作/项目"));
     ent(&c, 3, "项目", 0, Some(1), Some("工作/项目"));
     assert_eq!(next(&c), None, "有 is_cited=0 者不合并");
+}
+
+/// T3.3 用例②:自动合并按**位置**排除纯名字点 —— 即使 `is_cited` 被外力置 1,
+/// 只要它还处在 `name_id` 位且不在任何线两端,就不参与合并(两个近名点保持两行)
+#[test]
+fn auto_merge_skips_pure_name_points() {
+    let c = db();
+    ent(&c, 1, "工作", 0, None, Some("工作"));
+    ent(&c, 4, "甲", 0, Some(1), Some("工作/甲"));
+    ent(&c, 2, "国籍", 1, None, None);
+    ent(&c, 3, "国籍", 1, None, None);
+    // 3 被一条线当名字用 -> 纯名字点(位置判据);is_cited 已被外力置 1,绕开三重闸门第一道
+    c.execute(
+        "INSERT INTO lines(from_id, to_id, name_id, created_at)
+         VALUES(1, 4, 3, '2026-01-01T00:00:00.000')",
+        [],
+    )
+    .unwrap();
+    assert_eq!(next(&c), None, "纯名字点不参与自动合并");
+    assert_eq!(
+        c.query_row("SELECT COUNT(*) FROM points WHERE meta = '国籍'", [], |r| r.get::<_, i64>(0))
+            .unwrap(),
+        2,
+        "两行都在"
+    );
 }

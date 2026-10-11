@@ -17,7 +17,7 @@ fn count(c: &Connection, sql: &str) -> i64 {
 }
 
 fn id_at(c: &Connection, path: &str) -> i64 {
-    c.query_row("SELECT id FROM entities WHERE path IS NOT NULL AND path=?1", [path], |r| r.get(0)).unwrap()
+    c.query_row("SELECT id FROM points WHERE path IS NOT NULL AND path=?1", [path], |r| r.get(0)).unwrap()
 }
 
 fn segs(v: &[&str]) -> Vec<String> {
@@ -27,7 +27,7 @@ fn segs(v: &[&str]) -> Vec<String> {
 fn links(c: &Connection, tag_id: i64) -> i64 {
     count(
         c,
-        &format!("SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND s.path IS NULL AND t.path IS NOT NULL AND e.target_id={tag_id}"),
+        &format!("SELECT COUNT(*) FROM lines e JOIN points s ON s.id = e.from_id JOIN points t ON t.id = e.to_id WHERE (e.name_id IS NULL OR e.name_id <> 0) AND s.path IS NULL AND t.path IS NOT NULL AND e.to_id={tag_id}"),
     )
 }
 
@@ -41,8 +41,8 @@ fn snapshot(c: &Connection) -> String {
     };
     format!(
         "{:?}\n{:?}\n{:?}",
-        rows("SELECT id||'|'||entity_name(meta)||'|'||COALESCE(parent_id,0)||'|'||path||'|'||depth FROM entities WHERE path IS NOT NULL ORDER BY id"),
-        rows("SELECT (CASE WHEN s.path IS NOT NULL THEN e.source_id ELSE e.target_id END)||'|'||(CASE WHEN s.path IS NOT NULL THEN 'tag' ELSE 'note' END)||'|'||(CASE WHEN s.path IS NOT NULL THEN e.target_id ELSE e.source_id END) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND (s.path IS NOT NULL OR t.path IS NOT NULL) ORDER BY 1"),
+        rows("SELECT id||'|'||entity_name(meta)||'|'||COALESCE(parent_id,0)||'|'||path||'|'||depth FROM points WHERE path IS NOT NULL ORDER BY id"),
+        rows("SELECT (CASE WHEN s.path IS NOT NULL THEN e.from_id ELSE e.to_id END)||'|'||(CASE WHEN s.path IS NOT NULL THEN 'tag' ELSE 'note' END)||'|'||(CASE WHEN s.path IS NOT NULL THEN e.to_id ELSE e.from_id END) FROM lines e JOIN points s ON s.id = e.from_id JOIN points t ON t.id = e.to_id WHERE (e.name_id IS NULL OR e.name_id <> 0) AND (s.path IS NOT NULL OR t.path IS NOT NULL) ORDER BY 1"),
         rows("SELECT source_entity_id||'|'||target_entity_id||'|'||note_links FROM entity_merge_log ORDER BY id"),
     )
 }
@@ -56,8 +56,8 @@ fn merge_failure_rolls_back_whole_transaction() {
     notes::create_plain(&mut c, "b #Q/A").unwrap();
     let moved = id_at(&c, "Q/A");
     c.execute_batch(&format!(
-        "CREATE TRIGGER boom BEFORE DELETE ON entities
-           WHEN OLD.kind = 'tag' AND OLD.id = {moved}
+        "CREATE TRIGGER boom BEFORE DELETE ON points
+           WHEN OLD.id = {moved}
          BEGIN SELECT RAISE(ABORT, 'boom'); END;"
     ))
     .unwrap();
@@ -83,9 +83,9 @@ fn md_variant_is_not_merged_and_registers_plain_alias() {
     // 改名成 md 形态:raw 名与兄弟不同,ensure_sibling_free 放行 -> 收尾 sweep 发现纯文本同名
     rename(&mut c, x, "[郴](chēn)州市").unwrap();
 
-    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND id={x}")), 1, "meta 不同 -> 不合并");
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='P/郴州市'"), 1);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='P/[郴](chēn)州市'"), 1);
+    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND id={x}")), 1, "meta 不同 -> 不合并");
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND path='P/郴州市'"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND path='P/[郴](chēn)州市'"), 1);
     assert_eq!(count(&c, "SELECT COUNT(*) FROM entity_merge_log"), 0, "三重闸门未过 -> 无合并日志");
     assert_eq!(
         count(&c, "SELECT COUNT(*) FROM entity_aliases WHERE alias='郴州市'"),
@@ -123,9 +123,9 @@ fn merge_recursively_merges_colliding_children() {
 
     merge_tags(&mut c, src, dst, false).unwrap();
 
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='目标/子'"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND path='目标/子'"), 1);
     assert_eq!(links(&c, target_child), 2, "两棵子树的笔记并到同一个子标签");
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path LIKE '源%'"), 0, "旧子树无残留");
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND path LIKE '源%'"), 0, "旧子树无残留");
     assert_eq!(count(&c, "SELECT COUNT(*) FROM entity_merge_log"), 1, "嵌套的自动合并留一条日志(外层是手动合并,不记)");
     assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM entity_merge_log WHERE source_entity_id={src_child} AND target_entity_id={target_child}")), 1);
     assert_fts_matches_edges(&c);
@@ -142,8 +142,8 @@ fn rename_onto_existing_sibling_merges() {
 
     rename(&mut c, jia, "乙").unwrap();
 
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='P/乙'"), 1);
-    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND id={jia}")), 0, "被改名者并入");
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND path='P/乙'"), 1);
+    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND id={jia}")), 0, "被改名者并入");
     assert_eq!(links(&c, id_at(&c, "P/乙")), 2);
     assert_eq!(count(&c, "SELECT COUNT(*) FROM entity_merge_log"), 1);
     assert_fts_matches_edges(&c);

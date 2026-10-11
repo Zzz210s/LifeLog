@@ -108,3 +108,35 @@ fn drop_into_tree_adds_child_and_link_then_removal_clears_cited() {
         "meta 保留"
     );
 }
+
+/// T3.3 用例①:名字点随线存在 —— 仍有引用不回收,失去最后一条引用后由第二段回收
+#[test]
+fn gc_collects_orphan_name_point_after_last_line_removed() {
+    let c = db();
+    ent(&c, 1, "甲", 0, Some("甲"));
+    ent(&c, 2, "乙", 0, Some("乙"));
+    ent(&c, 3, "国籍", 0, None);
+    c.execute(
+        "INSERT INTO lines(from_id, to_id, name_id, created_at)
+         VALUES(1, 2, 3, '2026-01-01T00:00:00.000')",
+        [],
+    )
+    .unwrap();
+    queue_name_point_gc(&c, 3).unwrap();
+    gc_orphans(&c).unwrap();
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE id=3"), 1, "仍被线引用:不回收");
+    c.execute("DELETE FROM lines WHERE name_id = 3", []).unwrap();
+    queue_name_point_gc(&c, 3).unwrap();
+    gc_orphans(&c).unwrap();
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE id=3"), 0, "失去最后引用:回收");
+}
+
+/// T3.3 用例①(保护):保留点 `子级`(id=0)即使被登记也恒不回收(spec §6.2 第一层)
+#[test]
+fn gc_keeps_reserved_tree_name_point() {
+    let c = db();
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE id=0"), 1, "空库也有保留点");
+    queue_name_point_gc(&c, 0).unwrap();
+    gc_orphans(&c).unwrap();
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE id=0"), 1, "保留点恒受保护");
+}

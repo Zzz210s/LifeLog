@@ -62,27 +62,9 @@ pub fn link_note(conn: &Connection, note_id: i64, tag_id: i64) -> rusqlite::Resu
     crate::db::repos::entities::closure::sync_is_cited(conn, tag_id)
 }
 
-/// 精确回收孤儿:既无出线、又无**非子级线**入线才回收(循环删除,链有多长就循环多少次)。
-/// 子级线是结构线,不算引用(spec §3.1 / §3.2):有父不是「有用」,
-/// 这样 `时间/2026/10/08` 的引用者全删后整条死链能逐层回收。
-/// `path IS NOT NULL` 是 ≤ v27 `kind='tag'` 的等价选择器(spec §2.5),保证只碰树内空壳,
-/// 不误删树外笔记点(也不碰保留点 `子级`,它 `path IS NULL`)。
-pub(crate) fn gc_orphans(conn: &Connection) -> rusqlite::Result<()> {
-    loop {
-        let n = conn.execute(
-            "DELETE FROM points
-             WHERE path IS NOT NULL
-               AND NOT EXISTS (SELECT 1 FROM lines x WHERE x.from_id = points.id)
-               AND NOT EXISTS (
-                 SELECT 1 FROM lines y
-                 WHERE y.to_id = points.id AND (y.name_id IS NULL OR y.name_id <> 0))",
-            [],
-        )?;
-        if n == 0 {
-            return Ok(());
-        }
-    }
-}
+#[path = "tree_gc.rs"]
+mod gc;
+pub(crate) use gc::{gc_orphans, queue_name_point_gc, reclaim_name_points};
 
 // Task 4 命令层已接入:结构化/查询接口均有生产调用方,不再需要 allow(dead_code)
 #[path = "ensure.rs"]

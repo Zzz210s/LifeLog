@@ -77,6 +77,16 @@ pub fn set_tag_relation(
             .map_err(|e| e.to_string())?,
     };
     if !existing {
+        // 换名时旧名字点可能失去最后一条引用:先记下,换完交给 GC 核对回收(T3.3)
+        let old_name: Option<i64> = tx
+            .query_row(
+                "SELECT name_id FROM lines WHERE from_id = ?1 AND to_id = ?2 ORDER BY id LIMIT 1",
+                params![from_tag_id, to_tag_id],
+                |r| r.get(0),
+            )
+            .optional()
+            .map_err(|e| e.to_string())?
+            .flatten();
         let updated = tx
             .execute(
                 "UPDATE lines SET name_id = ?3
@@ -94,30 +104,41 @@ pub fn set_tag_relation(
             )
             .map_err(|e| e.to_string())?;
         }
+        if let Some(old) = old_name {
+            if Some(old) != name_id {
+                super::tree::queue_name_point_gc(&tx, old).map_err(|e| e.to_string())?;
+            }
+        }
     }
+    super::tree::reclaim_name_points(&tx).map_err(|e| e.to_string())?;
     tx.commit().map_err(|e| e.to_string())
 }
 
 /// 移除关系 A → B(幂等：不存在也算成功)。`name_id` 给了就只删那条有名线,不给只删无名字线
-/// (spec §8.1:一对多点可有多条线,删哪条必须能指定)。单条 DELETE 本身原子。
+/// (spec §8.1:一对多点可有多条线,删哪条必须能指定)。删完回收失去最后引用的名字点(T3.3)。
 pub fn remove_tag_relation(
     conn: &mut Connection,
     from_tag_id: i64,
     to_tag_id: i64,
     name_id: Option<i64>,
 ) -> Result<(), String> {
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
     match name_id {
-        Some(nid) => conn.execute(
+        Some(nid) => tx.execute(
             "DELETE FROM lines WHERE from_id = ?1 AND to_id = ?2 AND name_id = ?3",
             params![from_tag_id, to_tag_id, nid],
         ),
-        None => conn.execute(
+        None => tx.execute(
             "DELETE FROM lines WHERE from_id = ?1 AND to_id = ?2 AND name_id IS NULL",
             params![from_tag_id, to_tag_id],
         ),
     }
     .map_err(|e| e.to_string())?;
-    Ok(())
+    if let Some(nid) = name_id {
+        super::tree::queue_name_point_gc(&tx, nid).map_err(|e| e.to_string())?;
+    }
+    super::tree::reclaim_name_points(&tx).map_err(|e| e.to_string())?;
+    tx.commit().map_err(|e| e.to_string())
 }
 
 /// 标签路径;不存在返回 None(供"标签不存在"中文报错)

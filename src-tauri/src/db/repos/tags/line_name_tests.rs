@@ -150,13 +150,13 @@ fn remove_line_deletes_only_that_line() {
     let guo = resolve_or_create_name_point(&c, "国籍").unwrap();
     let named = create_line(&mut c, a, b, Some(guo)).unwrap();
 
-    remove_line(&c, unnamed).unwrap();
+    remove_line(&mut c, unnamed).unwrap();
 
     assert_eq!(line_count(&c, a, b), 1);
     assert_eq!(name_texts(&c, a, b), vec!["国籍"]);
-    remove_line(&c, unnamed).unwrap(); // 幂等:再删一次不报错
+    remove_line(&mut c, unnamed).unwrap(); // 幂等:再删一次不报错
     assert_eq!(line_count(&c, a, b), 1);
-    remove_line(&c, named).unwrap();
+    remove_line(&mut c, named).unwrap();
     assert_eq!(line_count(&c, a, b), 0);
 }
 

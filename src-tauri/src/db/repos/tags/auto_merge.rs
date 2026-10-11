@@ -80,6 +80,9 @@ pub(crate) fn next_duplicate(conn: &Connection) -> Result<Option<(i64, i64)>, St
             "SELECT COALESCE(parent_id, 0), entity_key(meta), meta
                FROM points
               WHERE is_cited = 1 AND instr(meta, char(10)) = 0
+                AND NOT (EXISTS(SELECT 1 FROM lines nl WHERE nl.name_id = points.id)
+                         AND NOT EXISTS(SELECT 1 FROM lines tl
+                                          WHERE tl.from_id = points.id OR tl.to_id = points.id))
               GROUP BY 1, 2, 3 HAVING COUNT(*) > 1
               ORDER BY MIN(id) LIMIT 1",
             [],
@@ -95,6 +98,9 @@ pub(crate) fn next_duplicate(conn: &Connection) -> Result<Option<(i64, i64)>, St
             "SELECT id FROM points
               WHERE COALESCE(parent_id, 0) = ?1 AND entity_key(meta) = ?2 AND meta = ?3
                 AND is_cited = 1 AND instr(meta, char(10)) = 0
+                AND NOT (EXISTS(SELECT 1 FROM lines nl WHERE nl.name_id = points.id)
+                         AND NOT EXISTS(SELECT 1 FROM lines tl
+                                          WHERE tl.from_id = points.id OR tl.to_id = points.id))
               ORDER BY id LIMIT 2",
         )
         .map_err(|e| e.to_string())?;

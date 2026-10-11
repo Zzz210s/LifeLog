@@ -87,3 +87,50 @@ fn t32_copy_readings() {
     assert!(!hit.is_empty(), "upsert 字节码必须用 idx_lines_uniq 消解冲突: {opened:?}");
     assert!(update_plan.contains("idx_lines_uniq"), "改名查线必须用 idx_lines_uniq: {update_plan}");
 }
+
+/// T3.3 验收探针(默认忽略):在 v31 派生副本上现场重算名字点 GC 读数。
+/// 用法:`LIFELOG_COPY_DB=<副本> cargo test --lib -- --ignored t33_gc_copy_readings --nocapture`。
+/// 只碰副本;证书禁止写真库。造/删的都是临时端点,树内子级线全程不动。
+#[test]
+#[ignore = "需要 LIFELOG_COPY_DB 指向 v31 派生副本"]
+fn t33_gc_copy_readings() {
+    let path = std::env::var("LIFELOG_COPY_DB").expect("需设 LIFELOG_COPY_DB 指向副本");
+    let mut c = Connection::open(&path).unwrap();
+    c.pragma_update(None, "foreign_keys", "ON").unwrap();
+    crate::db::sql_functions::register(&c).unwrap();
+
+    let pure_before = pure_name_count(&c);
+    let tree_lines_before = count(&c, "SELECT COUNT(*) FROM lines WHERE name_id = 0");
+    let reserved_before = count(&c, "SELECT COUNT(*) FROM points WHERE id = 0");
+
+    // 两个临时端点(不建树,树线数不变)+ 新建一个名字点 + 一条有名线
+    let base: i64 = count(&c, "SELECT COALESCE(MAX(id), 0) FROM points");
+    for (off, meta) in [(1i64, "T33临时端点1"), (2i64, "T33临时端点2")] {
+        c.execute(
+            "INSERT INTO points(id, meta, created_at) VALUES(?1, ?2, datetime('now','localtime'))",
+            rusqlite::params![base + off, meta],
+        )
+        .unwrap();
+    }
+    let nid = resolve_or_create_name_point(&c, "T33临时名").unwrap();
+    let line = create_line(&mut c, base + 1, base + 2, Some(nid)).unwrap();
+    let pure_named = pure_name_count(&c);
+
+    remove_line(&mut c, line).unwrap();
+    let pure_after = pure_name_count(&c);
+    let name_point_left = count(&c, &format!("SELECT COUNT(*) FROM points WHERE id = {nid}"));
+
+    c.execute("DELETE FROM points WHERE id IN (?1, ?2)", rusqlite::params![base + 1, base + 2])
+        .unwrap();
+
+    let tree_lines_after = count(&c, "SELECT COUNT(*) FROM lines WHERE name_id = 0");
+    let reserved_after = count(&c, "SELECT COUNT(*) FROM points WHERE id = 0");
+    println!(
+        "T3.3 副本读数: 纯名字点 {pure_before}->{pure_named}->{pure_after}; 名字点 {nid} 残留 {name_point_left}; 子级线 {tree_lines_before}->{tree_lines_after}; 保留点 {reserved_before}->{reserved_after}"
+    );
+    assert_eq!(pure_named, pure_before + 1, "建有名线后纯名字点 +1");
+    assert_eq!(pure_after, pure_before, "删线后 GC 回到原值");
+    assert_eq!(name_point_left, 0, "名字点已被回收");
+    assert_eq!(tree_lines_after, tree_lines_before, "子级线全程不变");
+    assert_eq!((reserved_before, reserved_after), (1, 1), "保留点恒在");
+}

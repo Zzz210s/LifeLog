@@ -77,6 +77,20 @@ pub(crate) fn merge_core(
     // ③ 出边/入边取并集(会成环/变自环的边按 R3 剔除)
     union_edges(conn, source_id, target_id)?;
     // ④ 清掉源残余的边(被 IGNORE 的重复链接 + 被剔除/已复制的关系边 + 源的入 child 边)
+    // 即将被删的线引用的名字点可能失去最后引用:先登记,交给 ⑦ 的 GC 核对回收(T3.3)
+    let doomed_names: Vec<i64> = {
+        let mut stmt = conn
+            .prepare(
+                "SELECT DISTINCT name_id FROM lines
+                  WHERE name_id IS NOT NULL AND (from_id = ?1 OR to_id = ?1)",
+            )
+            .map_err(|e| e.to_string())?;
+        let rows = stmt.query_map(params![source_id], |r| r.get(0)).map_err(|e| e.to_string())?;
+        rows.collect::<rusqlite::Result<Vec<_>>>().map_err(|e| e.to_string())?
+    };
+    for nid in doomed_names {
+        super::tree::queue_name_point_gc(conn, nid).map_err(|e| e.to_string())?;
+    }
     conn.execute(
         "DELETE FROM lines WHERE (name_id IS NULL OR name_id <> 0)
            AND (from_id = ?1 OR to_id = ?1)",
