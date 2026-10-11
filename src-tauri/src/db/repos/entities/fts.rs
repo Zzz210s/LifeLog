@@ -160,10 +160,11 @@ pub(crate) const POINTS_AGG: &str = concat!(
 
 /// 纯名字点的位置判据(v31,spec §5.4-⑧ / §7.1):出现在某条线的 `name_id` 位、
 /// 且不出现在任何线两端。这类点整行不进 FTS;别名 `e` = `points`。
+/// 内层别名用 `nl` / `tl`(不与热路径的 `n` 撞名),热路径版本由[`not_pure_name`]换别名。
 /// 视图 `points_fts_src` 的 `WHERE` 复用本段文本(守卫用例逐段比对)。
 pub(crate) const NOT_PURE_NAME: &str = concat!(
-    "NOT (EXISTS(SELECT 1 FROM lines n WHERE n.name_id = e.id) ",
-    "AND NOT EXISTS(SELECT 1 FROM lines t WHERE t.from_id = e.id OR t.to_id = e.id))"
+    "NOT (EXISTS(SELECT 1 FROM lines nl WHERE nl.name_id = e.id) ",
+    "AND NOT EXISTS(SELECT 1 FROM lines tl WHERE tl.from_id = e.id OR tl.to_id = e.id))"
 );
 
 /// v31 的显式重写(spec §7.2):结构变更后按受影响点 id 重写 FTS 行。

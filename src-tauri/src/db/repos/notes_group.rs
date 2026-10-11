@@ -92,7 +92,7 @@ pub fn skeleton(
         &ctes,
         &format!(
             "SELECT g.key AS key, COUNT(*) AS cnt, MIN(g.gok) AS gok
-         FROM entities n
+         FROM points n
          LEFT JOIN grp g ON g.note_id = n.id
          WHERE {frag}
          GROUP BY g.key

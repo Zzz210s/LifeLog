@@ -1,10 +1,9 @@
 //! 条件组 -> SQL 谓词编译与校验(自 `notes_filter_groups.rs` 拆出,守 200 行)。
-//! 组内按 `op` 拼、组间按 `group_op` 拼,括号显式加(不依赖 SQLite 运算符优先级);
-//! 用户输入只进 `?` 参数向量,永不进 SQL 文本。
+//! 组内按 `op` 拼、组间按 `group_op` 拼,括号显式加;用户输入只进 `?` 向量,永不进 SQL 文本。
 use rusqlite::types::Value;
 
 use super::notes_filter::{
-    any_tag, carry_predicate, expr_error_message, keyword_predicate, note_only,
+    any_tag, carry_predicate, expr_error_message, keyword_predicate, note_only, not_pure_name,
     single_line_predicate, tag_exists, tag_predicate, tree_membership_predicate, FilterConditions,
 };
 use super::notes_filter_groups::{
@@ -89,8 +88,8 @@ pub(crate) fn group_where(g: &FilterGroup, args: &mut Vec<Value>) -> Result<Opti
     Ok(Some(format!("({})", parts.join(sep))))
 }
 
-/// 条件 -> `WHERE` 之后的 SQL 片段与参数:组间按 `group_op` 拼接并整体再加一层括号
-/// (否则 `1=1 AND (a) OR (b)` 会因 OR 优先级被解析成 `(1=1 AND a) OR b`)。无有效子句 -> `1=1`。
+/// 条件 -> `WHERE` 之后的 SQL 片段与参数:先挂基集「非纯名字点」(P0-8,唯一真源 [`not_pure_name`]),
+/// 再按 `group_op` 拼接各组并整体套一层括号(否则 `1=1 AND (a) OR (b)` 会因 OR 优先级解析错)。
 pub fn where_clause(c: &FilterConditions) -> Result<(String, Vec<Value>), String> {
     let mut c = c.clone();
     super::notes_filter_groups::normalize_groups(&mut c);
@@ -101,11 +100,12 @@ pub fn where_clause(c: &FilterConditions) -> Result<(String, Vec<Value>), String
             frags.push(f);
         }
     }
+    let base = not_pure_name("n");
     if frags.is_empty() {
-        return Ok(("1=1".to_string(), args));
+        return Ok((base, args));
     }
     let sep = if op_of(&c.group_op) == "or" { " OR " } else { " AND " };
-    Ok((format!("1=1 AND ({})", frags.join(sep)), args))
+    Ok((format!("{base} AND 1=1 AND ({})", frags.join(sep)), args))
 }
 
 /// 校验(后端为唯一权威):先查**原始**组内/组间 op 取值(归一会把非法值静默压成 `and`,

@@ -13,7 +13,7 @@ pub const PAGE_SIZE: i64 = 50;
 pub struct OrderSql {
     /// 需要的 CTE 定义(`ord` + 各 `axis{i}`);空 = 纯时间排序(不需要 ord)
     pub ctes: Vec<String>,
-    /// page CTE 里 `FROM entities n` 之后的 LEFT JOIN 串(含前导空格)
+    /// page CTE 里 `FROM points n` 之后的 LEFT JOIN 串(含前导空格)
     pub joins: String,
     /// page CTE 额外选择的键列(`ax0.key AS k0`);外层按它排同一顺序
     pub page_cols: String,
@@ -105,9 +105,9 @@ pub fn run_page(
     let tail = format!(
         "SELECT n.id, n.meta, n.created_at, t.path
          FROM page p
-         JOIN entities n ON n.id = p.id
-         LEFT JOIN edges l ON l.kind = 'link' AND l.source_id = n.id
-         LEFT JOIN entities t ON t.id = l.target_id
+         JOIN points n ON n.id = p.id
+         LEFT JOIN lines l ON (l.name_id IS NULL OR l.name_id <> 0) AND l.from_id = n.id
+         LEFT JOIN points t ON t.id = l.to_id
          ORDER BY {outer_order}, t.path"
     );
     let sql = with_ctes(&all, &tail);

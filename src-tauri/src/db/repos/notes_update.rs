@@ -11,8 +11,8 @@ pub fn update(conn: &mut Connection, id: i64, content: &str) -> rusqlite::Result
     // 解析入口与 create 同一处:严格语法优先,严格失败处按库内已有路径兜底
     let (names, text) = super::parse_saved(conn, content)?;
     let tx = conn.transaction()?;
-    // 统一元数据(v28):正文只落 `entities.meta`,不再有 kind。
-    let rows = tx.execute("UPDATE entities SET meta=?1 WHERE id=?2", params![text, id])?;
+    // 统一元数据(v31):正文只落 `points.meta`,不再有 kind。
+    let rows = tx.execute("UPDATE points SET meta=?1 WHERE id=?2", params![text, id])?;
     if rows == 0 {
         return Ok(None); // 无该行:回滚空事务
     }
@@ -36,11 +36,12 @@ pub fn update(conn: &mut Connection, id: i64, content: &str) -> rusqlite::Result
 }
 
 /// 读取笔记当前标签的完整路径(树语义真源,供 update 的「标签被移除」审计日志对读)。
-/// 只取 link 目标中在树内的实体(`path IS NOT NULL`),树外笔记目标不计入标签。
+/// 只取非子级线目标中在树内的点(`path IS NOT NULL`),树外笔记目标不计入标签。
 fn tag_paths(conn: &rusqlite::Connection, id: i64) -> rusqlite::Result<Vec<String>> {
     let mut stmt = conn.prepare(
-        "SELECT t.path FROM edges l JOIN entities t ON t.id = l.target_id
-         WHERE l.kind='link' AND t.path IS NOT NULL AND l.source_id=?1 ORDER BY t.path",
+        "SELECT t.path FROM lines l JOIN points t ON t.id = l.to_id
+         WHERE (l.name_id IS NULL OR l.name_id <> 0) AND t.path IS NOT NULL AND l.from_id=?1
+         ORDER BY t.path",
     )?;
     let rows = stmt.query_map(params![id], |r| r.get(0))?;
     rows.collect()

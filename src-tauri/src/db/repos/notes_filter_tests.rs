@@ -8,7 +8,7 @@ fn tag(path: &str, include_children: bool) -> TagCond {
 
 #[test]
 fn empty_conditions_match_everything() {
-    assert_eq!(where_clause(&empty()).unwrap(), ("1=1".to_string(), vec![]));
+    assert_eq!(where_clause(&empty()).unwrap(), (not_pure_name("n"), vec![]));
     assert!(!oldest_first(&empty()));
 }
 
@@ -19,7 +19,7 @@ fn tag_include_children_uses_prefix() {
     assert!(sql.contains("t.path = ? OR substr(t.path, 1, length(?) + 1) = ? || '/'"));
     // 携带段:一次 EXISTS 子查询(不用递归 CTE),target 按 path 定位
     assert!(
-        sql.contains("cl.target_id IN (SELECT id FROM entities WHERE path = ?)"),
+        sql.contains("cl.to_id IN (SELECT id FROM points WHERE path = ?)"),
         "缺携带子查询:{sql}"
     );
     assert_eq!(args.len(), 4, "含子级直接段 3 个 + 携带定位 1 个");
@@ -55,22 +55,16 @@ fn exclude_tag_uses_not_exists() {
 /// 2026-10-10 收窄:只判**笔记**(`n.path IS NULL`)的出入边(与 Tag/Relation 条件同口径)。
 #[test]
 fn tag_presence_counts_all_tags() {
-    let c = FilterConditions { tag_presence: Some("none".into()), ..empty() };
-    let (sql, _) = where_clause(&c).unwrap();
-    assert!(
-        sql.contains("(n.path IS NULL AND (NOT (EXISTS (SELECT 1 FROM edges l"),
-        "none 先收窄到笔记再判无出边:{sql}"
-    );
+    let none = FilterConditions { tag_presence: Some("none".into()), ..empty() };
+    let (sql, _) = where_clause(&none).unwrap();
+    assert!(sql.contains("(n.path IS NULL AND (NOT (EXISTS (SELECT 1 FROM lines l"), "{sql}");
     assert!(!sql.contains("时间排序"), "不再有时间子树例外:{sql}");
 
-    let c = FilterConditions { tag_presence: Some("any".into()), ..empty() };
-    let (sql, _) = where_clause(&c).unwrap();
-    assert!(
-        sql.contains("(n.path IS NULL AND (EXISTS (SELECT 1 FROM edges l"),
-        "any 先收窄到笔记再判有出边:{sql}"
-    );
-    assert!(sql.starts_with("1=1 AND ("), "谓词外层的组括号:{sql}");
-    assert!(!sql.contains("NOT (EXISTS"), "any 不得带排除:{sql}");
+    let any = FilterConditions { tag_presence: Some("any".into()), ..empty() };
+    let (sql, _) = where_clause(&any).unwrap();
+    assert!(sql.contains("(n.path IS NULL AND (EXISTS (SELECT 1 FROM lines l"), "{sql}");
+    assert!(sql.contains("1=1 AND ("), "谓词外层的组括号:{sql}");
+    assert_eq!(sql.matches("(n.path IS NULL AND (EXISTS").count(), 1, "any 不得带排除:{sql}");
 }
 
 /// 短关键词(<=2 字符)退化 LIKE 时正文与标签两侧一视同仁(时间标签已是普通标签,D3)
@@ -190,7 +184,7 @@ fn invalid_expr_fails_where_clause_with_same_message() {
 fn blank_expr_is_unset_and_whitespace_keeps_semantics() {
     let blank = FilterConditions { expr: Some("   ".into()), ..empty() };
     assert!(validate(&blank).is_ok());
-    assert_eq!(where_clause(&blank).unwrap().0, "1=1");
+    assert_eq!(where_clause(&blank).unwrap().0, not_pure_name("n"));
     let padded = FilterConditions { expr: Some("  #工作  ".into()), ..empty() };
     let (sql, args) = where_clause(&padded).unwrap();
     assert!(sql.contains("substr"), "标签谓词照旧编译:{sql}");

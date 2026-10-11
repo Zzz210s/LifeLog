@@ -52,15 +52,16 @@ pub(crate) fn fold_tag_rows(
 #[cfg(test)]
 pub fn recent(conn: &Connection, limit: u32) -> rusqlite::Result<Vec<Note>> {
     let in_tree = crate::db::repos::entities::closure::in_tree_predicate("n");
+    let np = super::notes_filter::not_pure_name("n");
     let mut stmt = conn.prepare(&format!(
         "WITH feed AS (
-           SELECT n.id FROM entities n
-           WHERE NOT ({in_tree} AND instr(n.meta, char(10)) = 0)
+           SELECT n.id FROM points n
+           WHERE {np} AND NOT ({in_tree} AND instr(n.meta, char(10)) = 0)
            ORDER BY n.id DESC LIMIT ?1
          )
-         SELECT {} FROM entities n
-         LEFT JOIN edges l ON l.kind = 'link' AND l.source_id = n.id
-         LEFT JOIN entities t ON t.id = l.target_id
+         SELECT {} FROM points n
+         LEFT JOIN lines l ON (l.name_id IS NULL OR l.name_id <> 0) AND l.from_id = n.id
+         LEFT JOIN points t ON t.id = l.to_id
          WHERE n.id IN (SELECT id FROM feed)
          ORDER BY n.id DESC, t.path",
         columns()
@@ -76,7 +77,7 @@ pub fn recent(conn: &Connection, limit: u32) -> rusqlite::Result<Vec<Note>> {
 /// 注:统一元数据后不再有 `kind='note'`,按 id 直删(调用方只传笔记 id)。
 pub fn delete(conn: &mut Connection, id: i64) -> rusqlite::Result<()> {
     let tx = conn.transaction()?;
-    tx.execute("DELETE FROM entities WHERE id=?1", params![id])?;
+    tx.execute("DELETE FROM points WHERE id=?1", params![id])?;
     crate::db::repos::tags::gc_orphans(&tx)?;
     tx.commit()
 }
@@ -85,9 +86,9 @@ pub fn delete(conn: &mut Connection, id: i64) -> rusqlite::Result<()> {
 /// 路径是树语义真源(同名末级可能出现在多个父级下),update/create 事务内共用。
 pub(crate) fn read_full(conn: &Connection, id: i64) -> rusqlite::Result<Option<Note>> {
     let mut stmt = conn.prepare(&format!(
-        "SELECT {} FROM entities n
-         LEFT JOIN edges l ON l.kind = 'link' AND l.source_id = n.id
-         LEFT JOIN entities t ON t.id = l.target_id
+        "SELECT {} FROM points n
+         LEFT JOIN lines l ON (l.name_id IS NULL OR l.name_id <> 0) AND l.from_id = n.id
+         LEFT JOIN points t ON t.id = l.to_id
          WHERE n.id = ?1 ORDER BY t.path",
         columns()
     ))?;
@@ -111,10 +112,12 @@ pub struct NoteTitle {
 /// 有前缀时的候选上限:前端还要用 `scoreFuzzy` 精排取前 8,粗筛给足冗余即可。
 pub const COMPLETE_NOTES_LIMIT: usize = 200;
 
-/// 全部实体的**显示首行**(`links::display_title` 口径:只裁首尾空白、大小写与标签词元原样保留);
-/// 首行剥标签后为空的不进池(统一元数据后 `[[ ]]` 补全池 = 全部实体,spec §5.1);按 id 升序。
+/// 全部点的**显示首行**(`links::display_title` 口径:只裁首尾空白、大小写与标签词元原样保留);
+/// 首行剥标签后为空的不进池(统一元数据后 `[[ ]]` 补全池 = 全部点 − 纯名字点,spec §5.2);按 id 升序。
 pub fn all_titles(conn: &Connection) -> rusqlite::Result<Vec<NoteTitle>> {
-    let mut stmt = conn.prepare("SELECT id, meta FROM entities ORDER BY id")?;
+    let np = super::notes_filter::not_pure_name("p");
+    let mut stmt =
+        conn.prepare(&format!("SELECT p.id, p.meta FROM points p WHERE {np} ORDER BY p.id"))?;
     let rows = stmt.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))?;
     let mut out = Vec::new();
     for row in rows {

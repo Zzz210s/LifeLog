@@ -1,7 +1,7 @@
 //! 条件组语义验收(设计 2026-10-06 §5):组内 / 组间 op 的 SQL 语义、空组丢弃、
 //! 与手写表达式逐值等价、括号正确、非法 op 被 validate 拦下。
 use crate::db::migrate;
-use crate::db::repos::notes::notes_filter::{validate, where_clause, FilterConditions, FilterGroup, TagCond};
+use crate::db::repos::notes::notes_filter::{not_pure_name, validate, where_clause, FilterConditions, FilterGroup, TagCond};
 use crate::db::repos::notes::notes_filter_groups::GroupItem;
 use crate::db::repos::notes::{create_plain, query as query_all};
 use rusqlite::Connection;
@@ -64,7 +64,7 @@ fn empty_groups_are_dropped_and_or_empty_is_not_false() {
     create_plain(&mut c, "甲笔记 #甲").unwrap();
     create_plain(&mut c, "无关").unwrap();
     let only_empty = FilterConditions { groups: vec![grp("or", vec![])], ..Default::default() };
-    assert_eq!(where_clause(&only_empty).unwrap().0, "1=1");
+    assert_eq!(where_clause(&only_empty).unwrap().0, not_pure_name("n"));
     let with_empty = FilterConditions {
         groups: vec![grp("or", vec![]), grp("and", vec![tag("甲")])],
         ..Default::default()
@@ -89,7 +89,7 @@ fn group_op_is_parenthesized_before_and() {
         ..Default::default()
     };
     let (sql, _) = where_clause(&grouped).unwrap();
-    assert!(sql.starts_with("1=1 AND (("), "组间 OR 必须先整体成组:{sql}");
+    assert!(sql.contains("1=1 AND (("), "组间 OR 必须先整体成组:{sql}");
     assert!(sql.contains(" OR "), "{sql}");
 }
 

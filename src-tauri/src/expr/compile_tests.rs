@@ -49,7 +49,7 @@ fn or_and_parens_map_to_boolean_sql() {
     // (一次物化标签 id 集合,不再贡献第二个相关 EXISTS;见 filter_predicates::carry_predicate)
     assert_eq!(sql.matches("EXISTS (").count(), 3, "{sql}");
     assert_eq!(
-        sql.matches("t.id IN (SELECT d.id FROM entities d").count(),
+        sql.matches("t.id IN (SELECT d.id FROM points d").count(),
         3,
         "三个标签各一段物化携带集合:{sql}"
     );
@@ -70,7 +70,7 @@ fn short_keyword_uses_like_on_meta_and_tag_paths() {
 #[test]
 fn long_keyword_uses_fts() {
     let (sql, args) = frag("会议记录复盘");
-    assert!(sql.contains("entities_fts MATCH ?"), "{sql}");
+    assert!(sql.contains("points_fts MATCH ?"), "{sql}");
     assert_eq!(args.len(), 1);
 }
 

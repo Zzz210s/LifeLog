@@ -7,7 +7,7 @@ use rusqlite::types::Value;
 use rusqlite::Connection;
 use serde::Serialize;
 
-use super::notes::notes_filter::{normalize_groups, FilterConditions};
+use super::notes::notes_filter::{normalize_groups, not_pure_name, FilterConditions};
 use super::notes::notes_filter_groups_compile::{group_where, item_hit_predicate};
 
 /// 一个组的读数:组内 op + 逐项读数(与 items 同序)+ 整组命中数(OR 组必给)
@@ -53,11 +53,11 @@ pub fn hits(conn: &Connection, c: &FilterConditions) -> Result<ConditionHits, St
     Ok(ConditionHits { groups: out })
 }
 
-/// 数满足谓词的实体数(谓词自带 EXISTS 包装 / NOT / IN;值只进参数向量)。
-/// 迁后信息流 = 当前筛选结果(不再有 `kind='note'` 收窄,见 spec §4.1)。
+/// 数满足谓词的点数(谓词自带 EXISTS 包装 / NOT / IN;值只进参数向量)。
+/// 基集与信息流同口径:先挂「非纯名字点」(P0-8),保证「条件栏命中数 == 信息流条数」。
 fn count_predicate(conn: &Connection, predicate: &str, args: Vec<Value>) -> Result<i64, String> {
     conn.query_row(
-        &format!("SELECT COUNT(*) FROM entities n WHERE ({predicate})"),
+        &format!("SELECT COUNT(*) FROM points n WHERE ({} AND ({predicate}))", not_pure_name("n")),
         rusqlite::params_from_iter(args),
         |r| r.get(0),
     )

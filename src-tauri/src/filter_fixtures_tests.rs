@@ -3,7 +3,7 @@
 //! (见 `src/shared/fixtures.test.ts`:isValidTagPath / parseFilterJson / applyTagPick),
 //! Rust 侧喂给真源实现(tags::parse_tag_path / notes_filter::validate / where_clause / expr::validate)。
 //! 后端仍是唯一权威,这里只做"同一份向量两边判定一致"的漂移探测。
-use crate::db::repos::notes::notes_filter::{normalize_groups, validate, where_clause};
+use crate::db::repos::notes::notes_filter::{normalize_groups, not_pure_name, validate, where_clause};
 use crate::db::repos::notes::notes_sort::{effective_sorts, oldest_first};
 use crate::db::repos::notes::FilterConditions;
 use crate::tags::parse_tag_path;
@@ -116,8 +116,9 @@ fn conditions_match_shared_fixture() {
         let mut raw = parsed.unwrap_or_else(|err| panic!("第 {i} 条反序列化失败:{err}"));
         validate(&raw).unwrap_or_else(|err| panic!("第 {i} 条:validate 报错:{err}"));
         let n = e.normalized.as_ref().unwrap();
+        let frag = where_clause(&raw).expect("合法条件不得报错").0;
         assert_eq!(
-            where_clause(&raw).expect("合法条件不得报错").0 == "1=1",
+            frag == not_pure_name("n"),
             e.empty.unwrap(),
             "第 {i} 条:空/收窄判定不一致(为何:{})",
             e.why

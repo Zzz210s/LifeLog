@@ -38,7 +38,7 @@ pub fn query_grouped(
         "page AS (
            SELECT n.id AS id, g.key AS gk, g.gok AS gg,
                   ROW_NUMBER() OVER (PARTITION BY g.key ORDER BY {}) AS rn
-           FROM entities n
+           FROM points n
            LEFT JOIN grp g ON g.note_id = n.id{}
            WHERE {frag}
          )",
@@ -49,9 +49,9 @@ pub fn query_grouped(
     let tail = format!(
         "SELECT p.gk, n.id, n.meta, n.created_at, t.path
          FROM page p
-         JOIN entities n ON n.id = p.id
-         LEFT JOIN edges l ON l.kind = 'link' AND l.source_id = n.id
-         LEFT JOIN entities t ON t.id = l.target_id
+         JOIN points n ON n.id = p.id
+         LEFT JOIN lines l ON (l.name_id IS NULL OR l.name_id <> 0) AND l.from_id = n.id
+         LEFT JOIN points t ON t.id = l.to_id
          WHERE p.rn <= {PER_GROUP}
          ORDER BY (p.gk IS NULL), p.gg, p.gk, p.rn, t.path"
     );
@@ -105,7 +105,7 @@ pub fn query_group_page(
     let page_body = format!(
         "page AS (
            SELECT n.id AS id{}
-           FROM entities n
+           FROM points n
            LEFT JOIN grp g ON g.note_id = n.id{}
            WHERE {frag} AND {group_pred}
            ORDER BY {}

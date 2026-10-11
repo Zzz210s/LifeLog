@@ -11,8 +11,8 @@ use serde::{Deserialize, Serialize};
 #[path = "filter_predicates.rs"]
 pub(crate) mod filter_predicates;
 pub(crate) use filter_predicates::{
-    carry_predicate, keyword_predicate, note_only, single_line_predicate, tag_exists, tag_predicate,
-    tree_membership_predicate,
+    carry_predicate, keyword_predicate, note_only, not_pure_name, single_line_predicate, tag_exists,
+    tag_predicate, tree_membership_predicate,
 };
 /// 排序数据模型与生效排序的唯一入口(自本文件拆出守 200 行)
 pub use super::notes_sort::{validate_sorts, SortCond};
@@ -86,10 +86,12 @@ pub fn empty() -> FilterConditions {
     FilterConditions::default()
 }
 
-/// 「挂过出边(`link`)」的谓词(时间标签已是普通标签,D3:它也计数)。
+/// 「挂过出边(非子级线)」的谓词(时间标签已是普通标签,D3:它也计数)。
 /// 本身不限定行域:调用方必须用 [`note_only`] 收窄到笔记,否则树内标签会被算成「有标签」。
 pub(crate) fn any_tag() -> String {
-    "EXISTS (SELECT 1 FROM edges l WHERE l.kind = 'link' AND l.source_id = n.id)".to_string()
+    "EXISTS (SELECT 1 FROM lines l WHERE (l.name_id IS NULL OR l.name_id <> 0) \
+     AND l.from_id = n.id)"
+        .to_string()
 }
 
 /// 表达式非法的用户可见中文原因(**两条路径共用同一份文案**):

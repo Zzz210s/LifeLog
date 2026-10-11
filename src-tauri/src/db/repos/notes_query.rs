@@ -33,7 +33,7 @@ pub fn query(
     let page_body = format!(
         "page AS (
            SELECT n.id AS id{}
-           FROM entities n{}
+           FROM points n{}
            WHERE ({frag})
            ORDER BY {}
            LIMIT {PAGE_SIZE} OFFSET ?
@@ -50,7 +50,7 @@ pub fn query(
 pub fn count_matching(conn: &Connection, conditions: &FilterConditions) -> Result<i64, String> {
     let (frag, args) = where_clause(conditions)?;
     conn.query_row(
-        &format!("SELECT COUNT(*) FROM entities n WHERE ({frag})"),
+        &format!("SELECT COUNT(*) FROM points n WHERE ({frag})"),
         rusqlite::params_from_iter(args),
         |r| r.get(0),
     )
@@ -98,3 +98,8 @@ mod notes_query_sort_tests;
 #[cfg(test)]
 #[path = "notes_query_tag_scope_tests.rs"]
 mod notes_query_tag_scope_tests;
+
+/// 基集排除纯名字点 + <3 字关键词退化(T2.2 / P0-8)
+#[cfg(test)]
+#[path = "notes_query_pure_name_tests.rs"]
+mod notes_query_pure_name_tests;
