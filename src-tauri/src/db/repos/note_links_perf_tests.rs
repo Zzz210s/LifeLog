@@ -7,11 +7,67 @@
 //!
 //! ① 非 ignored:`EXPLAIN QUERY PLAN` 里不许再出现 `SCAN points`,并要求两处主键点查,
 //!    以及按 `to_id` 反查的闭包 / 入链形状走 `idx_lines_to`(不依赖真库,CI 可跑);
+//!    T4.4 补三条热路径计划守卫:信息流基集走 `idx_lines_name`、侧栏树计数走 `idx_lines_to`、
+//!    图闭包上溯(`graph::NODES_SQL`)不得退回扫全部子级线;
 //! ② ignored(真库只读,`LIFELOG_GRAPH_DB`):`all_resolved` 与 `graph_data_dto` 的 min/中位耗时。
 use super::read::ALL_RESOLVED_SQL;
 use crate::db::migrate;
+use crate::db::repos::graph::NODES_SQL;
+use crate::db::repos::notes::notes_filter;
+use crate::db::repos::tags::tree::query::COUNTS_SQL;
 use rusqlite::{Connection, OpenFlags};
 use std::time::{Duration, Instant};
+
+fn plan_of(c: &Connection, sql: &str) -> Vec<String> {
+    c.prepare(&format!("EXPLAIN QUERY PLAN {sql}"))
+        .unwrap()
+        .query_map([], |r| r.get::<_, String>(3))
+        .unwrap()
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .unwrap()
+}
+
+fn mem_db() -> Connection {
+    let c = Connection::open_in_memory().unwrap();
+    migrate::run(&c).unwrap();
+    c
+}
+
+/// 信息流基集判据(`NOT_PURE_NAME`)必须走 `idx_lines_name` 点查,不得全表扫 `points`。
+/// 变异:把 `NOT_PURE_NAME` 换成对 `points` 的全表 `EXISTS` 常量 -> 本用例变红。
+#[test]
+fn feed_plan_uses_idx_lines_name() {
+    let c = mem_db();
+    let (frag, _) = notes_filter::where_clause(&notes_filter::empty()).unwrap();
+    let p = plan_of(&c, &format!("SELECT n.id FROM points n WHERE ({frag})"));
+    assert!(
+        p.iter().any(|l| l.contains("idx_lines_name")),
+        "基集判据没走 idx_lines_name(纯名字点探测退化成扫表):{p:#?}"
+    );
+    assert!(
+        !p.iter().any(|l| l.contains("SCAN points")),
+        "基集判据出现 SCAN points(全表扫):{p:#?}"
+    );
+}
+
+/// 侧栏树 `counts` 的含子级计数必须走 `idx_lines_to`,不得扫 `points`。
+#[test]
+fn tree_counts_plan_uses_idx_lines_to() {
+    let p = plan_of(&mem_db(), COUNTS_SQL);
+    assert!(p.iter().any(|l| l.contains("idx_lines_to")), "树计数没走 idx_lines_to:{p:#?}");
+    assert!(!p.iter().any(|l| l.contains("SCAN points")), "树计数出现 SCAN points:{p:#?}");
+}
+
+/// 图闭包上溯必须按 `to_id` 走 `idx_lines_to`。
+/// 变异:去掉 `NODES_SQL` 里的 `INDEXED BY idx_lines_to` -> 本用例变红(实测节点查询 9.6ms -> 41.8ms)。
+#[test]
+fn graph_nodes_plan_uses_idx_lines_to() {
+    let p = plan_of(&mem_db(), NODES_SQL);
+    assert!(
+        p.iter().any(|l| l.contains("idx_lines_to")),
+        "图闭包上溯退化成扫子级线(没走 idx_lines_to):{p:#?}"
+    );
+}
 
 fn plan_lines(c: &Connection) -> Vec<String> {
     let mut stmt = c

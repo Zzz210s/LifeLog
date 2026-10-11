@@ -80,7 +80,7 @@ mod ops_sql;
 #[path = "path.rs"]
 mod path;
 #[path = "query.rs"]
-mod query;
+pub(crate) mod query;
 #[path = "replace.rs"]
 mod replace;
 #[path = "similar.rs"]

@@ -1,16 +1,10 @@
 //! 关系图数据仓库层(G1 Task 1):节点、父子边、共现边、笔记间链接边(L4)。**只读**,不写库不加表。
 //!
-//! v31 点/线(spec §5.2):节点与树/共现边统一读 `points`/`lines`;节点 = §3.3 渲染闭包
-//! (`is_cited=1` ∪ 沿入子级线上溯的全部祖先,见 `entities::closure`),
-//! 父子边 = 子级线(`lines WHERE name_id = 0`),共现边 = 非子级线(`name_id IS NULL OR <> 0`)自连接。
-//! 纯名字点(`子级`/关系名点)`path IS NULL`、`is_cited = 0`,天然不进闭包种子。
-//! 笔记间链接边由 `note_links::all_resolved` 供给(签名不动);`link_degrees` 链接侧同样读非子级线。
-//! `GraphLink` 的 `a`/`b` 是**实体 id**,与闭包节点 id 同一命名空间(前端按位置分流)。
-//!
-//! 口径与标签侧保持一致:节点计数复用 `tags::tree::query::counts` 的「含子级去重笔记数」算法
-//! (一条笔记同时链了父与子时只算一次),否则侧栏计数与筛选结果会对不上;共现边权重 = 共同出现的
-//! **笔记数**(不是链接对数),出现笔记数超过阈值的枢纽标签一律不参与 —— 实测去掉后
-//! 边数从 2628 降到 771,图才不至于糊成毛球。
+//! v31 点/线(spec §5.2):节点 = §3.3 渲染闭包(`is_cited=1` ∪ 沿入子级线上溯的全部祖先),
+//! 父子边 = 子级线(`lines WHERE name_id = 0`),共现边 = 非子级线自连接;纯名字点 `path IS NULL`、
+//! `is_cited = 0`,天然不进闭包种子。链接边由 `note_links::all_resolved` 供给(`GraphLink` 的
+//! `a`/`b` 是实体 id,与闭包节点 id 同空间)。节点计数口径与 `tags::query::counts` 同源;
+//! 共现边按枢纽阈值排除大标签(阈值 60 下 v31 现场 735 条,见 `graph_calibration_tests`)。
 use super::note_links;
 use rusqlite::{Connection, Result as SqlResult};
 
@@ -60,18 +54,19 @@ pub struct GraphEdge {
     pub weight: i64,
 }
 
-/// 全部闭包节点 + 含子级/本级**去重**引用源数 + 次序键,按 path 升序(一次采完)。
-/// 节点集合 = §3.3 渲染闭包(`is_cited=1` ∪ 沿入子级线上溯的祖先),与侧栏树同源。
-/// 种子额外要求 `path IS NOT NULL`:被 `[[ ]]` 引用的笔记(`is_cited=1`、无 path)与纯名字点
-/// 若混进 `up` 会让 `t.path` 读到 NULL 而报错 —— 排除后与侧栏 `tags` 视图同源。
-/// `roll` 只算含子级(与 tags::query::counts 同口径),`selfc` 只算本级 —— 两聚合分开,
-/// 别用一个 COUNT 兼两义(层级过滤写进 SELECT 会让 LEFT JOIN 退化成内连接,没有链接的节点消失)。
-pub fn nodes(conn: &Connection) -> SqlResult<Vec<GraphNode>> {
-    let mut stmt = conn.prepare(
-        "WITH RECURSIVE up(id) AS (
+/// 渲染闭包节点 + 含子级/本级**去重**引用源数 + 次序键,按 path 升序(一次采完)。
+/// 节点集合 = §3.3 渲染闭包(`is_cited=1` ∪ 沿入子级线上溯的祖先),与侧栏树同源;种子额外要求
+/// `path IS NOT NULL`(否则被 `[[ ]]` 引用的笔记会让 `t.path` 读到 NULL)。`roll` 只算含子级、
+/// `selfc` 只算本级(别用一个 COUNT 兼两义,否则无链接节点会被 LEFT JOIN 吞掉)。
+///
+/// SQL 抽成常量供 `note_links_perf_tests::graph_nodes_plan_uses_idx_lines_to` 跑 `EXPLAIN`。
+/// `l INDEXED BY idx_lines_to` 是 T4.4 修复:规划器曾改选 `idx_lines_name` + `SCAN up`,
+/// 把 9.4ms 的闭包查询拖到 41.8ms;显式按 `to_id` 上溯后回到 9.6ms。
+pub(crate) const NODES_SQL: &str = "WITH RECURSIVE up(id) AS (
            SELECT id FROM points WHERE is_cited = 1 AND path IS NOT NULL
            UNION
-           SELECT l.from_id FROM lines l JOIN up ON l.to_id = up.id WHERE l.name_id = 0
+           SELECT l.from_id FROM lines l INDEXED BY idx_lines_to
+             JOIN up ON l.to_id = up.id WHERE l.name_id = 0
          ),
          sub(root, leaf) AS (
            SELECT id, id FROM up
@@ -86,8 +81,10 @@ pub fn nodes(conn: &Connection) -> SqlResult<Vec<GraphNode>> {
          SELECT t.id, t.path, t.depth, t.parent_id, COALESCE(roll.n, 0), COALESCE(selfc.n, 0), t.sort_order
          FROM up JOIN points t ON t.id = up.id
          LEFT JOIN roll ON roll.root = t.id LEFT JOIN selfc ON selfc.id = t.id
-         ORDER BY t.path",
-    )?;
+         ORDER BY t.path";
+
+pub fn nodes(conn: &Connection) -> SqlResult<Vec<GraphNode>> {
+    let mut stmt = conn.prepare(NODES_SQL)?;
     let rows = stmt.query_map([], |r| {
         Ok(GraphNode {
             id: r.get(0)?,
@@ -197,3 +194,5 @@ pub fn co_edges(conn: &Connection, hub_threshold: i64) -> SqlResult<Vec<GraphEdg
 #[cfg(test)] #[path = "graph_links_tests.rs"] mod graph_links_tests;
 // T4.2 阈值标定读数(真库只读,默认 ignored)
 #[cfg(test)] #[path = "graph_calibration_tests.rs"] mod graph_calibration_tests;
+// T4.4 点/线热路径读数与查询计划守卫(真库/副本只读,默认部分 ignored)
+#[cfg(test)] #[path = "perf_point_line_tests.rs"] mod perf_point_line_tests;

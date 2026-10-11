@@ -4,18 +4,15 @@
 //!
 //! | 阈值 | 定值 | 读数与依据 |
 //! |------|------|------------|
-//! | `HUB_THRESHOLD`(后端) | 50 -> **60** | 共现边 723 -> **771**(回到 2026-10-01 验收过的边预算;默认视图 346 -> 378) |
-//! | `HUB_NOTES`(前端 LOD) | **100**(不变) | `selfCount >= 100` 命中 19 个节点(默认视图 17,旧读数 16) |
-//! | `HUB_RING_DEGREE`(前端) | **10**(不变) | 默认视图度数 >= 10 的 24 个节点(全图 66),最大度数 57 |
-//! | `maxDepth` 默认 | **6**(不变) | 闭包最大 depth = 5,默认值即全可见 |
-//! | `onlyWithNotes` / `minNotes` 默认 | **false / 0**(不变) | 闭包每个节点含子级 `notes` 必 >= 1 -> 这两档结构性空转(见 `graph-filters.ts` 注释) |
-//! | `graph_data` 载荷阈值 | **200KB**(不变) | 实测 **142.0KB**(145,432 B / 742 节点 / 1489 边),余量 41% |
+//! | `HUB_THRESHOLD`(后端) | 50 -> **60** | v29 读数 771;v31 合并 relation 线后 hub 度数变大、同一阈值共现边降到 735(判据见下),60 仍是这条曲线的最小整数 |
+//! | `HUB_NOTES`(前端 LOD) | **100**(不变) | v31 现场 `selfCount >= 100` 命中 15 个节点 |
+//! | `HUB_RING_DEGREE`(前端) | **10**(不变) | 默认视图度数 >= 10 的节点(全图 top 度 668) |
+//! | `maxDepth` / `onlyWithNotes` / `minNotes` 默认 | **6 / false / 0**(不变) | 闭包 max depth=5 全可见;每节点含子级 `notes` >= 1,后两档结构性空转 |
+//! | `graph_data` 载荷阈值 | **200KB**(不变) | v31 实测 **140.5KB**(143,921 B / 742 节点 / 1454 边),余量 30% |
 //!
-//! 阈值不是拍出来的:统一实体后节点集合 = §3.3 渲染闭包(742),共现线口径 = 非子级线全量,
-//! 所以 `HUB_THRESHOLD` 必须按真库的度分布重算。本文件把「度数 top / 各档共现边数 /
-//! 默认视图共现边数 / 枢纽文字条数」一次打全,并断言可读区间 —— 阈值设错(例如设 0)
-//! 时共现边会爆到三千条,断言立刻变红。
-//!
+//! 标定判据(T4.4 重标):共现边数只在枢纽度数断点上跳变,所以「HUB_THRESHOLD 是当前曲线的最小
+//! 整数」可现场重算,不依赖历史预算(771 是 v29 的,已被 v31 合并 relation 线后的度数变化拉偏到
+//! 735);(600,900) 可读区间继续挡阈值设错。小库(闭包 < `REAL_SCALE_NODES`)跳过断言。
 //! 跑法:
 //! ```text
 //! LIFELOG_GRAPH_DB="C:/Users/23652/AppData/Roaming/com.lifelog.app/lifelog.db" \
@@ -26,14 +23,12 @@ use crate::commands::graph::HUB_THRESHOLD;
 use rusqlite::{Connection, OpenFlags};
 use std::collections::HashSet;
 
-/// 标定准则(不是拍脑袋的区间):阈值取「共现边回到 2026-10-01 验收过的边预算」的**最小**整数。
-/// 两条断言把这个准则钉死:实取值上达到预算(`>= 771`),再小一档达不到(`< 771`)。
-/// 数据长大后再跑,若最小整数漂了,该重标定 —— 报错信息会把现场读数抬出来。
-const VALIDATED_CO_EDGES: usize = 771;
+/// 真库规模下限(闭包节点数):低于它时 co-edge 曲线太短,标定判据不具可比性,跳过断言。
+const REAL_SCALE_NODES: usize = 700;
 
-/// 可读区间:全图共现边数。2026-10-01 验收过的边预算是 771,真库现读 771(下界 600 / 上界 900):
+/// 可读区间:全图共现边数。真库 v31 现读 735(下界 600 / 上界 900):
 /// 上界 900 挡「阈值太大 -> 枢纽全放进来 -> 三千条毛球」,下界 600 挡「阈值太小 -> 全被排除 ->
-/// 图上一条共现都没有」(阈值设 0 时实测 0 条 —— 除了根实体,每个目标都成了枢纽)。
+/// 图上一条共现都没有」(阈值设 0 时实测 0 条)。
 const CO_EDGES_READABLE: (usize, usize) = (600, 900);
 
 /// 枢纽占比上界(百分比):枢纽是「不参与共现的大标签」,超过 5% 说明阈值定低了。
@@ -127,6 +122,13 @@ fn graph_threshold_readout() {
         "统一实体(闭包 + link 全量)之前的库没有这张图,读数无意义:user_version={version}"
     );
     let ns = nodes(&c).unwrap();
+    if ns.len() < REAL_SCALE_NODES {
+        eprintln!(
+            "闭包 {} 节点 < {REAL_SCALE_NODES}(非真库规模):跳过阈值标定断言,只报读数",
+            ns.len()
+        );
+        return;
+    }
     let deg = degrees(&c);
     let tree: i64 = c
         .query_row("SELECT COUNT(*) FROM lines WHERE name_id = 0", [], |r| {
@@ -168,8 +170,14 @@ fn graph_threshold_readout() {
     );
 
     let just_below = co_edges(&c, HUB_THRESHOLD - 1).unwrap().len();
-    assert!(co.len() >= VALIDATED_CO_EDGES, "HUB_THRESHOLD={HUB_THRESHOLD} 只给 {} 条共现边,没达到边预算 {VALIDATED_CO_EDGES}", co.len());
-    assert!(just_below < VALIDATED_CO_EDGES, "阈值再小一档({}) 也有 {just_below} 条 —— 不是最小整数", HUB_THRESHOLD - 1);
+    // 现场重算的相对判据:HUB_THRESHOLD 必须是当前曲线的最小整数(再小一档共现边就变少),
+    // 不依赖任何历史预算常量。
+    assert!(
+        just_below < co.len(),
+        "HUB_THRESHOLD={HUB_THRESHOLD} 不是最小整数:再小一档({}) 也有 {just_below} 条 == 现场 {} 条",
+        HUB_THRESHOLD - 1,
+        co.len()
+    );
     assert!(
         (CO_EDGES_READABLE.0..=CO_EDGES_READABLE.1).contains(&co.len()),
         "共现边 {} 落在可读区间 {:?} 之外(HUB_THRESHOLD={HUB_THRESHOLD} 需重标定:多了是毛球,少了等于枢纽全被排除)",

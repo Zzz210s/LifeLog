@@ -33,9 +33,9 @@ pub struct TagCount {
 /// 按链接数求和会把同一个来源算多次,使侧栏计数(809)与标签筛选结果(318)对不上。
 /// 028 起口径变更(已定 T2.2):去重对象从「笔记」改成「引用源」—— 老 `tagging` 并入 `link`,
 /// 标签间的引用同样计入。
-pub fn counts(conn: &Connection) -> rusqlite::Result<Vec<TagCount>> {
-    let mut stmt = conn.prepare(
-        "WITH RECURSIVE sub(root, leaf) AS (
+/// 侧栏树计数的 SQL 真源(抽成常量供 `note_links_perf_tests::tree_counts_plan_uses_idx_lines_to`
+/// 跑 `EXPLAIN QUERY PLAN`)。
+pub(crate) const COUNTS_SQL: &str = "WITH RECURSIVE sub(root, leaf) AS (
            SELECT id, id FROM points WHERE path IS NOT NULL
            UNION ALL SELECT s.root, t.id FROM points t JOIN sub s ON t.parent_id = s.leaf
              WHERE t.path IS NOT NULL
@@ -51,8 +51,10 @@ pub fn counts(conn: &Connection) -> rusqlite::Result<Vec<TagCount>> {
          LEFT JOIN own ON own.tag_id = t.id
          LEFT JOIN roll ON roll.root = t.id
          WHERE t.path IS NOT NULL
-         ORDER BY t.path",
-    )?;
+         ORDER BY t.path";
+
+pub fn counts(conn: &Connection) -> rusqlite::Result<Vec<TagCount>> {
+    let mut stmt = conn.prepare(COUNTS_SQL)?;
     let rows = stmt.query_map([], |r| {
         Ok(TagCount {
             id: r.get(0)?,
