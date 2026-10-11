@@ -1,7 +1,7 @@
-//! 标签关系数据层测试(设计 2026-10-06 §4 / 计划 Task 1):
-//! 一条边 `(A,'tag',B)` = 「A 具有 B 所表示的属性」;任何标签都可被指向(is_type 已取消);
+//! 标签关系数据层测试(设计 2026-10-06 §4;v31 点/线):
+//! 一条非子级线 `A → B` = 「A 具有 B 所表示的属性」;任何标签都可被指向(is_type 已取消);
 //! 幂等、自指向/2 环/3 环被拒。全部用内存库;真实库只读。
-//! 读方审计(删除清边 / gc 保护 / FTS / 导出 / 备注)拆到 `relation_read_tests.rs`(守 200 行上限)。
+//! 读方审计(删除清线 / gc 保护 / FTS / 导出 / 线名)拆到 `relation_read_tests.rs`(守 200 行上限)。
 use super::*;
 use crate::db::{migrate, repos};
 use rusqlite::Connection;
@@ -20,7 +20,8 @@ fn ensure(c: &Connection, path: &str) -> i64 {
 /// 当前关系边数(唯一存储读数)
 fn relation_edges(c: &Connection) -> i64 {
     c.query_row(
-        "SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND s.path IS NOT NULL",
+        "SELECT COUNT(*) FROM lines l JOIN points s ON s.id = l.from_id JOIN points t ON t.id = l.to_id \
+         WHERE (l.name_id IS NULL OR l.name_id <> 0) AND s.path IS NOT NULL",
         [],
         |r| r.get(0),
     )
@@ -43,7 +44,8 @@ fn set_relation_adds_edge_and_lists_out_edges() {
     assert_eq!(out[0].to_tag_id, yi);
     assert_eq!(out[0].path, "乙");
     assert_eq!(out[0].name, "乙");
-    assert_eq!(out[0].remark, "");
+    assert_eq!(out[0].name_id, None, "空线名 = 无名字线");
+    assert_eq!(out[0].name_text, "");
     assert!(list_tag_relations(&c, yi).unwrap().is_empty(), "反向不是出边");
 }
 

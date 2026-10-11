@@ -1,18 +1,16 @@
 //! 关系图数据仓库层(G1 Task 1):节点、父子边、共现边、笔记间链接边(L4)。**只读**,不写库不加表。
 //!
-//! T4.3 起节点与树/共现边统一读 `entities`/`edges`;028 起节点 = §3.3 渲染闭包
-//! (`is_cited=1` ∪ 夹在 `child` 树上的全部祖先,见 `entities::closure`),
-//! 父子边 = `edges(kind='child')`,共现边 = `edges(kind='link')` 自连接。
-//! 笔记间链接边由 `note_links::all_resolved` 供给(读 `edges(kind='link')`,签名不动),
-//! `link_degrees` 的链接侧同样读 `edges(kind='link')`,标签侧是指向闭包节点的 `link` 边。
+//! v31 点/线(spec §5.2):节点与树/共现边统一读 `points`/`lines`;节点 = §3.3 渲染闭包
+//! (`is_cited=1` ∪ 沿入子级线上溯的全部祖先,见 `entities::closure`),
+//! 父子边 = 子级线(`lines WHERE name_id = 0`),共现边 = 非子级线(`name_id IS NULL OR <> 0`)自连接。
+//! 纯名字点(`子级`/关系名点)`path IS NULL`、`is_cited = 0`,天然不进闭包种子。
+//! 笔记间链接边由 `note_links::all_resolved` 供给(签名不动);`link_degrees` 链接侧同样读非子级线。
 //! `GraphLink` 的 `a`/`b` 是**实体 id**,与闭包节点 id 同一命名空间(前端按位置分流)。
 //!
-//! 口径与标签侧保持一致:
-//! - 节点计数复用 `tags::tree::query::counts` 的「含子级去重笔记数」算法(一条笔记同时链了
-//!   父与子时只算一次),否则侧栏计数与筛选结果会对不上。
-//! - 共现边 = 同一条笔记上共同出现的标签对,权重 = 共同出现的笔记数(注意是笔记数,不是
-//!   链接对数)。出现笔记数超过阈值的枢纽标签(如"时间"这类)一律不参与 —— 实测去掉后
-//!   边数从 2628 降到 771,图才不至于糊成毛球。
+//! 口径与标签侧保持一致:节点计数复用 `tags::tree::query::counts` 的「含子级去重笔记数」算法
+//! (一条笔记同时链了父与子时只算一次),否则侧栏计数与筛选结果会对不上;共现边权重 = 共同出现的
+//! **笔记数**(不是链接对数),出现笔记数超过阈值的枢纽标签一律不参与 —— 实测去掉后
+//! 边数从 2628 降到 771,图才不至于糊成毛球。
 use super::note_links;
 use rusqlite::{Connection, Result as SqlResult};
 
@@ -62,30 +60,31 @@ pub struct GraphEdge {
     pub weight: i64,
 }
 
-/// 全部闭包节点 + 含子级**去重**引用源数 + 本级去重引用源数 + 次序键,按 path 升序(一次采完)。
-/// 节点集合 = §3.3 渲染闭包(`is_cited=1` ∪ 祖先),028 起与侧栏树同源。
-/// 种子额外要求 `path IS NOT NULL`:笔记(树外实体)被 `[[ ]]` 引用后 `is_cited=1`,但它不是树节点
-/// (无 path),若混进 `up` 会让 `t.path` 读到 NULL 而报错 —— 排除后才真正与侧栏 `tags` 视图同源。
-/// `roll` 只算含子级(与 tags::query::counts 同口径),`selfc` 只算本级 —— 两个聚合分开,
+/// 全部闭包节点 + 含子级/本级**去重**引用源数 + 次序键,按 path 升序(一次采完)。
+/// 节点集合 = §3.3 渲染闭包(`is_cited=1` ∪ 沿入子级线上溯的祖先),与侧栏树同源。
+/// 种子额外要求 `path IS NOT NULL`:被 `[[ ]]` 引用的笔记(`is_cited=1`、无 path)与纯名字点
+/// 若混进 `up` 会让 `t.path` 读到 NULL 而报错 —— 排除后与侧栏 `tags` 视图同源。
+/// `roll` 只算含子级(与 tags::query::counts 同口径),`selfc` 只算本级 —— 两聚合分开,
 /// 别用一个 COUNT 兼两义(层级过滤写进 SELECT 会让 LEFT JOIN 退化成内连接,没有链接的节点消失)。
 pub fn nodes(conn: &Connection) -> SqlResult<Vec<GraphNode>> {
     let mut stmt = conn.prepare(
         "WITH RECURSIVE up(id) AS (
-           SELECT id FROM entities WHERE is_cited = 1 AND path IS NOT NULL
+           SELECT id FROM points WHERE is_cited = 1 AND path IS NOT NULL
            UNION
-           SELECT e.source_id FROM edges e JOIN up ON e.target_id = up.id WHERE e.kind = 'child'
+           SELECT l.from_id FROM lines l JOIN up ON l.to_id = up.id WHERE l.name_id = 0
          ),
          sub(root, leaf) AS (
            SELECT id, id FROM up
-           UNION ALL SELECT s.root, e.id FROM entities e JOIN sub s ON e.parent_id = s.leaf
+           UNION ALL SELECT s.root, p.id FROM points p JOIN sub s ON p.parent_id = s.leaf
          ),
-         roll AS (SELECT sub.root AS root, COUNT(DISTINCT l.source_id) AS n
-                  FROM sub JOIN edges l ON l.target_id = sub.leaf AND l.kind = 'link'
+         roll AS (SELECT sub.root AS root, COUNT(DISTINCT l.from_id) AS n
+                  FROM sub JOIN lines l
+                    ON l.to_id = sub.leaf AND (l.name_id IS NULL OR l.name_id <> 0)
                   GROUP BY sub.root),
-         selfc AS (SELECT target_id AS id, COUNT(DISTINCT source_id) AS n
-                   FROM edges WHERE kind = 'link' GROUP BY target_id)
+         selfc AS (SELECT to_id AS id, COUNT(DISTINCT from_id) AS n
+                   FROM lines WHERE name_id IS NULL OR name_id <> 0 GROUP BY to_id)
          SELECT t.id, t.path, t.depth, t.parent_id, COALESCE(roll.n, 0), COALESCE(selfc.n, 0), t.sort_order
-         FROM up JOIN entities t ON t.id = up.id
+         FROM up JOIN points t ON t.id = up.id
          LEFT JOIN roll ON roll.root = t.id LEFT JOIN selfc ON selfc.id = t.id
          ORDER BY t.path",
     )?;
@@ -103,10 +102,12 @@ pub fn nodes(conn: &Connection) -> SqlResult<Vec<GraphNode>> {
     rows.collect()
 }
 
-/// 父子边:每条非根实体一条,方向恒为 父 -> 子(子边必在闭包内,由 `child` 结构决定)
+/// 父子边:每条非根实体一条,方向恒为 父 -> 子(子边必在闭包内,由入子级线决定;
+/// 子级线 = `name_id = 0` 的保留点 `子级`)
 pub fn tree_edges(conn: &Connection) -> SqlResult<Vec<GraphEdge>> {
-    let mut stmt = conn
-        .prepare("SELECT source_id, target_id FROM edges WHERE kind = 'child' ORDER BY target_id")?;
+    let mut stmt = conn.prepare(
+        "SELECT from_id, to_id FROM lines WHERE name_id = 0 ORDER BY to_id",
+    )?;
     let rows = stmt.query_map([], |r| {
         Ok(GraphEdge {
             a: r.get(0)?,
@@ -128,32 +129,32 @@ pub fn link_edges(conn: &Connection) -> SqlResult<Vec<GraphLink>> {
         .collect())
 }
 
-/// 某实体(含子孙)的「出链 N / 入链 M」:一条 SQL 取两个计数,零额外 IPC 也能给信息条。
-/// `COUNT(DISTINCT nl.id)`:一条实体同时挂祖先与子孙时 `link` 边重复出现,
+/// 某实体(含子孙)的「出链 N / 入链 M」:一条 SQL 取两个计数。
+/// `COUNT(DISTINCT nl.id)`:一条实体同时挂祖先与子孙时非子级线重复出现,
 /// 不去重就会把同一条链接按实体数算好几遍(与 `nodes` 的去重口径同源)。
-/// 阶段 4 起链接侧读 `edges(kind='link')`(`note_links` 已随 027 下架);
-/// 028 起老 `tagging`/`relation` 全并入 `link`,故两侧都要按 `path IS NULL` 收窄:
-/// `tl` 只认树外来源(笔记挂标签),`nl` 只认笔记间的 `[[ ]]` 链接。
-/// 实体不存在时两数都是 0(不报错)。
+/// v31 起链接侧读非子级线(`name_id IS NULL OR name_id <> 0`);两侧都按 `path IS NULL` 收窄:
+/// `tl` 只认树外来源(笔记挂标签),`nl` 只认笔记间的 `[[ ]]` 链接。实体不存在时两数都是 0。
 pub fn link_degrees(conn: &Connection, tag_id: i64) -> SqlResult<LinkDegrees> {
     conn.query_row(
         "WITH RECURSIVE sub(leaf) AS (
-           SELECT id FROM entities WHERE path IS NOT NULL AND id = ?1
-           UNION ALL SELECT e.id FROM entities e JOIN sub s ON e.parent_id = s.leaf
+           SELECT id FROM points WHERE path IS NOT NULL AND id = ?1
+           UNION ALL SELECT p.id FROM points p JOIN sub s ON p.parent_id = s.leaf
          )
          SELECT
            (SELECT COUNT(DISTINCT nl.id) FROM sub
-              JOIN edges tl ON tl.kind = 'link' AND tl.target_id = sub.leaf
-                AND tl.source_id IN (SELECT id FROM entities WHERE path IS NULL)
-              JOIN edges nl ON nl.kind = 'link' AND nl.source_id = tl.source_id
-                AND nl.target_id IN (SELECT id FROM entities WHERE path IS NULL)
-              WHERE nl.source_id <> nl.target_id),
+              JOIN lines tl ON (tl.name_id IS NULL OR tl.name_id <> 0) AND tl.to_id = sub.leaf
+                AND tl.from_id IN (SELECT id FROM points WHERE path IS NULL)
+              JOIN lines nl ON (nl.name_id IS NULL OR nl.name_id <> 0)
+                AND nl.from_id = tl.from_id
+                AND nl.to_id IN (SELECT id FROM points WHERE path IS NULL)
+              WHERE nl.from_id <> nl.to_id),
            (SELECT COUNT(DISTINCT nl.id) FROM sub
-              JOIN edges tl ON tl.kind = 'link' AND tl.target_id = sub.leaf
-                AND tl.source_id IN (SELECT id FROM entities WHERE path IS NULL)
-              JOIN edges nl ON nl.kind = 'link' AND nl.target_id = tl.source_id
-                AND nl.source_id IN (SELECT id FROM entities WHERE path IS NULL)
-              WHERE nl.source_id <> nl.target_id)",
+              JOIN lines tl ON (tl.name_id IS NULL OR tl.name_id <> 0) AND tl.to_id = sub.leaf
+                AND tl.from_id IN (SELECT id FROM points WHERE path IS NULL)
+              JOIN lines nl ON (nl.name_id IS NULL OR nl.name_id <> 0)
+                AND nl.to_id = tl.from_id
+                AND nl.from_id IN (SELECT id FROM points WHERE path IS NULL)
+              WHERE nl.from_id <> nl.to_id)",
         [tag_id],
         |r| {
             Ok(LinkDegrees {
@@ -164,21 +165,22 @@ pub fn link_degrees(conn: &Connection, tag_id: i64) -> SqlResult<LinkDegrees> {
     )
 }
 
-/// 共现边:`a.target_id < b.target_id` 保证每条无向边只出现一次;枢纽实体两端都不参与。
+/// 共现边:`a.to_id < b.to_id` 保证每条无向边只出现一次;枢纽实体两端都不参与。
 pub fn co_edges(conn: &Connection, hub_threshold: i64) -> SqlResult<Vec<GraphEdge>> {
     let mut stmt = conn.prepare(
-        "WITH hub AS (
-           SELECT target_id FROM edges WHERE kind = 'link'
-           GROUP BY target_id HAVING COUNT(DISTINCT source_id) > ?1
+        "WITH non_tree AS (SELECT from_id, to_id, id FROM lines
+                            WHERE name_id IS NULL OR name_id <> 0),
+         hub AS (
+           SELECT to_id FROM non_tree
+           GROUP BY to_id HAVING COUNT(DISTINCT from_id) > ?1
          )
-         SELECT a.target_id, b.target_id, COUNT(*) AS w
-         FROM edges a JOIN edges b
-           ON a.source_id = b.source_id AND a.target_id < b.target_id
-         WHERE a.kind = 'link' AND b.kind = 'link'
-           AND a.target_id NOT IN (SELECT target_id FROM hub)
-           AND b.target_id NOT IN (SELECT target_id FROM hub)
-         GROUP BY a.target_id, b.target_id
-         ORDER BY a.target_id, b.target_id",
+         SELECT a.to_id, b.to_id, COUNT(*) AS w
+         FROM non_tree a JOIN non_tree b
+           ON a.from_id = b.from_id AND a.to_id < b.to_id
+         WHERE a.to_id NOT IN (SELECT to_id FROM hub)
+           AND b.to_id NOT IN (SELECT to_id FROM hub)
+         GROUP BY a.to_id, b.to_id
+         ORDER BY a.to_id, b.to_id",
     )?;
     let rows = stmt.query_map([hub_threshold], |r| {
         Ok(GraphEdge {

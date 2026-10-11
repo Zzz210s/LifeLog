@@ -1,14 +1,13 @@
-//! 导出「引用路径」列的闭包真源(与 030 的 FTS 聚合 [`crate::db::repos::entities::fts::ENTITIES_AGG`]
+//! 导出「引用路径」列的闭包真源(与 v31 的 FTS 聚合 [`crate::db::repos::entities::fts::POINTS_AGG`]
 //! 逐层同口径,故规则写在两处:闭包维度必须一起改)。
 //!
-//! 每个实体的引用列 = 下列集合的显示名(去重、按显示名升序):
-//!   ① 出 `link` 边的直链目标 `T`;
+//! 每个点的引用列 = 下列集合的显示名(去重、按显示名升序):
+//!   ① 出**非子级线**(`name_id IS NULL OR name_id <> 0`)的直链目标 `T`;
 //!   ② `T` 的子孙(沿 `parent_id` 递归);
-//!   ③ `T` **及其祖先链**上每个树内实体出 `link` 边指向的 `B`,以及 `B` 的子孙。
+//!   ③ `T` **及其祖先链**上每个树内点出非子级线指向的 `B`,以及 `B` 的子孙。
 //!
-//! ③ 沿祖先链走:笔记挂 `A/sub` 时,祖先 `A` 的关系(`A --(remark)--> B`)同样成立,
-//! 与筛选侧 `carry_predicate`(命中集 = 关系源本身 ∪ 后代)同一口径。
-//! `remark` 不参与(只影响显示,审计 R6)。展开最多一跳,不递归关系链。
+//! ③ 沿祖先链走:笔记挂 `A/sub` 时,祖先 `A` 的关系同样成立,
+//! 与筛选侧 `carry_predicate`(命中集 = 关系源本身 ∪ 后代)同一口径。名字文本不参与。展开最多一跳。
 use crate::links::display_title;
 use crate::tag_label::label_plain;
 use rusqlite::Connection;
@@ -21,7 +20,7 @@ struct Ent {
     parent_id: Option<i64>,
 }
 
-/// 每个实体的出链闭包显示名(按 source_id 分组,组内按显示名升序)。无出链的实体不出现。
+/// 每个点的出线闭包显示名(按 source_id 分组,组内按显示名升序)。无出线的点不出现。
 pub(super) fn refs_by_source(conn: &Connection) -> Result<HashMap<i64, Vec<String>>, String> {
     let ents = load_entities(conn)?;
     let out = load_out_links(conn)?;
@@ -61,7 +60,7 @@ fn display_of(e: Option<&Ent>) -> Option<String> {
 
 fn load_entities(conn: &Connection) -> Result<HashMap<i64, Ent>, String> {
     let mut stmt = conn
-        .prepare("SELECT id, path, meta, parent_id FROM entities")
+        .prepare("SELECT id, path, meta, parent_id FROM points")
         .map_err(|e| e.to_string())?;
     let rows = stmt
         .query_map([], |r| {
@@ -85,7 +84,9 @@ fn load_entities(conn: &Connection) -> Result<HashMap<i64, Ent>, String> {
 
 fn load_out_links(conn: &Connection) -> Result<HashMap<i64, Vec<i64>>, String> {
     let mut stmt = conn
-        .prepare("SELECT source_id, target_id FROM edges WHERE kind = 'link'")
+        .prepare(
+            "SELECT from_id, to_id FROM lines WHERE name_id IS NULL OR name_id <> 0",
+        )
         .map_err(|e| e.to_string())?;
     let rows = stmt
         .query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?)))

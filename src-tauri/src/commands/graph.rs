@@ -50,11 +50,12 @@ pub struct GraphData {
 ///
 /// 60 是「共现边回到 2026-10-01 验收过的 771 / 381 边预算」的**最小**整数(共现边数只在
 /// 枢纽的度数断点上跳变:53 -> 740、60 -> 771);枢纽占比 24/742 = 3.2%(旧读数 22/742 = 3.0%)。
-/// 老 `relation` 边(24 条 tag->tag 的 `link`)对枢纽集合与共现边数**零影响**(带它 / 只认
+/// 老 `relation` 线(24 条 tag->tag 的非子级线)对枢纽集合与共现边数**零影响**(带它 / 只认
 /// 笔记源两套算逐值相同,已实测),边预算的变化纯来自笔记数增长。
 pub(crate) const HUB_THRESHOLD: i64 = 60;
 
-/// 图数据 DTO 组装(自命令抽出):节点(闭包 + 含子级/本级计数)、父子边、共现边、笔记间链接边(L4)。
+/// 图数据 DTO 组装(自命令抽出):节点(闭包 + 含子级/本级计数)、子级边、共现边、笔记间链接边(L4)。
+/// v31 起标签侧边来自 `lines`(子级线 = `name_id = 0`,共现/链接侧 = 非子级线);前端 `kind` 是边分类。
 /// 抽出来是为了让真库阈值标定用例(`graph_calibration_tests::graph_threshold_readout`)能拿
 /// 与 IPC 完全相同的一份载荷去量字节数 —— 载荷阈值只有在同一份映射上量才有意义。
 pub(crate) fn graph_data_dto(conn: &rusqlite::Connection) -> Result<GraphData, String> {
@@ -97,7 +98,7 @@ pub(crate) fn graph_data_dto(conn: &rusqlite::Connection) -> Result<GraphData, S
     })
 }
 
-/// 图数据 IPC:节点 + 父子边 + 共现边 + 链接边
+/// 图数据 IPC:节点 + 子级边 + 共现边 + 链接边
 #[tauri::command]
 pub fn graph_data(app: AppHandle) -> Result<GraphData, String> {
     let db: State<Db> = app.state();

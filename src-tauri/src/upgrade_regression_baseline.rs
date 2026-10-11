@@ -1,9 +1,9 @@
 //! 迁移后基线的生成(计划 T3.5 / spec §7.5):`citations` **现算自库的 `link` 边**,不是现算自正文。
 //!
 //! * fixture 语料当库:每条向量按**产品写路径**(`notes::create_with`)落成一篇笔记,
-//!   再读回它的 `edges(kind='link')` 目标 id。`[[X]]` 只在库内已存在的实体里裁决
-//!   (未解析不落边),`#X` 沿 `parent_id` 逐段寻址、未命中自动建树 —— 与真库口径同一份代码。
-//! * 真库抽样:每条实体的 `citations` 直接读它现成的边,不重解析正文。
+//!   再读回它的**非子级线**目标 id。`[[X]]` 只在库内已存在的点里裁决
+//!   (未解析不落线),`#X` 沿 `parent_id` 逐段寻址、未命中自动建树 —— 与真库口径同一份代码。
+//! * 真库抽样:每条点的 `citations` 直接读它现成的线,不重解析正文。
 //!
 //! 生成器与回归测试都调本模块,口径不会两处各写一遍。
 use super::{BaselineEntry, Case, Expect, SOURCE_DB, SOURCE_FIXTURE};
@@ -44,10 +44,12 @@ fn fresh_db() -> Result<Connection, String> {
     Ok(conn)
 }
 
-/// 现算一条实体的 `link` 边目标:按边 `id`(= 落库序:写入侧先标签目标、后正文链接)升序
+/// 现算一条点的引用线目标:按线 `id`(= 落库序:写入侧先标签目标、后正文链接)升序;
+/// 子级线(`name_id = 0`)不算引用。
 fn citations_of(conn: &Connection, id: i64) -> rusqlite::Result<Vec<i64>> {
-    let mut stmt = conn
-        .prepare("SELECT target_id FROM edges WHERE source_id = ?1 AND kind = 'link' ORDER BY id")?;
+    let mut stmt = conn.prepare(
+        "SELECT to_id FROM lines WHERE from_id = ?1 AND (name_id IS NULL OR name_id <> 0) ORDER BY id",
+    )?;
     let rows = stmt.query_map([id], |r| r.get(0))?;
     rows.collect()
 }
@@ -59,7 +61,7 @@ pub fn sample_db(path: &Path, limit: usize) -> Result<Vec<BaselineEntry>, String
     let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)
         .map_err(|e| format!("只读打开 {} 失败: {e}", path.display()))?;
     let mut stmt = conn
-        .prepare("SELECT id, meta FROM entities ORDER BY id")
+        .prepare("SELECT id, meta FROM points ORDER BY id")
         .map_err(|e| format!("准备查询失败: {e}"))?;
     let rows = stmt
         .query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))

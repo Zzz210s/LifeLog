@@ -1,6 +1,6 @@
 //! 导出行为测试(自 notes_export.rs 拆出,守 200 行上限):
 //! 导出 = 信息流**当前筛选结果**(settings.filter_current),列为 id / 正文(meta) /
-//! 创建时间 / 引用路径列表(`edges.kind='link'` 目标:树内实体给路径,树外给标题)。
+//! 创建时间 / 引用路径列表(v31 非子级线闭包:树内点给路径,树外给标题)。
 use super::*;
 use crate::db::migrate;
 use crate::db::repos::notes::create_plain;
@@ -65,7 +65,7 @@ fn row_carries_id_meta_created_at_and_link_paths() {
     let mut c = db();
     create_plain(&mut c, "乙\n第二行").unwrap(); // 多行 -> 即使被引用进树仍在默认筛选内
     create_plain(&mut c, "记录 #甲 [[乙]]").unwrap();
-    c.execute("UPDATE entities SET created_at='2026-01-02' WHERE id=2", []).unwrap();
+    c.execute("UPDATE points SET created_at='2026-01-02' WHERE id=2", []).unwrap();
 
     let r = rows(&c).unwrap();
     assert_eq!(ids(&r), vec![2, 1], "按 id 降序(最新在前)");
@@ -82,7 +82,7 @@ fn md_tag_name_exports_as_plain_text() {
     let mut c = db();
     create_plain(&mut c, "莽山栈道 #地点/郴chen州市/宜章县").unwrap();
     let id: i64 = c
-        .query_row("SELECT id FROM entities WHERE path='地点/郴chen州市'", [], |r| r.get(0))
+        .query_row("SELECT id FROM points WHERE path='地点/郴chen州市'", [], |r| r.get(0))
         .unwrap();
     rename(&mut c, id, "[郴](chēn)州市").unwrap();
 
@@ -175,11 +175,11 @@ fn export_notes_survives_overlong_meta() {
 fn export_real_db_readout() {
     let path = std::env::var("LIFELOG_EXPORT_DB").expect("未设 LIFELOG_EXPORT_DB");
     let c = Connection::open_with_flags(&path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
-    let entities: i64 = c.query_row("SELECT COUNT(*) FROM entities", [], |r| r.get(0)).unwrap();
+    let entities: i64 = c.query_row("SELECT COUNT(*) FROM points", [], |r| r.get(0)).unwrap();
     let (frag, args) = where_clause(&current_filter(&c)).unwrap();
     let expected: i64 = c
         .query_row(
-            &format!("SELECT COUNT(*) FROM entities n WHERE ({frag})"),
+            &format!("SELECT COUNT(*) FROM points n WHERE ({frag})"),
             rusqlite::params_from_iter(args),
             |r| r.get(0),
         )

@@ -8,27 +8,27 @@ fn db() -> Connection {
     let c = Connection::open_in_memory().unwrap();
     migrate::run(&c).unwrap();
     c.execute_batch(
-        "INSERT INTO entities(id,meta,created_at,path,depth,parent_id) VALUES
+        "INSERT INTO points(id,meta,created_at,path,depth,parent_id) VALUES
            (10,'甲','2026-01-01','甲',1,NULL),(11,'一','2026-01-01','甲/一',2,10),
            (12,'二','2026-01-01','甲/二',2,10),(20,'乙','2026-01-01','乙',1,NULL);
-         INSERT INTO entities(id,meta,created_at) VALUES
+         INSERT INTO points(id,meta,created_at) VALUES
            (1,'甲','2026-01-01'),(2,'乙','2026-01-02');
-         INSERT INTO edges(source_id,target_id,kind,created_at) VALUES
-           (10,11,'child','2026-01-01'),(10,12,'child','2026-01-01'),
-           (1,11,'link','2026-01-01'),(1,20,'link','2026-01-01'),
-           (2,12,'link','2026-01-01'),(2,20,'link','2026-01-01');",
+         INSERT INTO lines(id,from_id,to_id,name_id,created_at) VALUES
+           (1,10,11,0,'2026-01-01'),(2,10,12,0,'2026-01-01'),
+           (3,1,11,NULL,'2026-01-01'),(4,1,20,NULL,'2026-01-01'),
+           (5,2,12,NULL,'2026-01-01'),(6,2,20,NULL,'2026-01-01');",
     )
     .unwrap();
     c
 }
 
-/// 链接四态:已解析 / 未解析(D2 不落边)/ 自指(不落边)/ 已解析的反向。
-/// 阶段 4(027)后 `link_edges` 与 `link_degrees` 都读 `edges(kind='link')`。
+/// 链接四态:已解析 / 未解析(不落线)/ 自指(不落线)/ 已解析的反向。
+/// v31 起 `link_edges` 与 `link_degrees` 都读非子级线。
 fn with_links() -> Connection {
     let c = db();
     c.execute_batch(
-        "INSERT INTO edges(source_id,target_id,kind,created_at) VALUES
-           (1,2,'link','2026-01-01'),(2,1,'link','2026-01-01');",
+        "INSERT INTO lines(from_id,to_id,name_id,created_at) VALUES
+           (1,2,NULL,'2026-01-01'),(2,1,NULL,'2026-01-01');",
     )
     .unwrap();
     c
@@ -77,7 +77,7 @@ fn link_degrees_dedupe_note_tagged_in_both_ancestor_and_descendant() {
     let c = with_links();
     // 笔记 1 同时挂 甲 与 甲/一:子树聚合按 DISTINCT 链接 id 去重,不能按挂载次数算两遍
     c.execute(
-        "INSERT INTO edges(source_id,target_id,kind,created_at) VALUES (1,10,'link','2026-01-01')",
+        "INSERT INTO lines(from_id,to_id,name_id,created_at) VALUES (1,10,NULL,'2026-01-01')",
         [],
     )
     .unwrap();

@@ -1,6 +1,6 @@
-//! 标签关系的读方审计(设计 2026-10-06 §10 R8 / 计划 Task 1 §6):
-//! 收成两态后逐项复查 —— 删除标签显式清边、gc_orphans 保护"被指向"的标签、
-//! 关系边不进 FTS / 不进导出 / 不改笔记 tags 列;备注只来自名字里的 md 备注(仅显示)。
+//! 标签关系的读方审计(设计 2026-10-06 §10 R8 / 计划 Task 1 §6;v31 点/线):
+//! 收成两态后逐项复查 —— 删除标签显式清线、gc_orphans 保护"被指向"的标签、
+//! 关系线不进 FTS / 不进导出 / 不改笔记 tags 列;线名只来自名字点(仅显示)。
 use super::*;
 use crate::db::repos::notes;
 use crate::db::repos::tags::delete_subtree;
@@ -26,37 +26,37 @@ fn segs(c: &Connection, parts: &[&str]) -> i64 {
 }
 
 fn id_at(c: &Connection, path: &str) -> i64 {
-    c.query_row("SELECT id FROM entities WHERE path IS NOT NULL AND path=?1", params![path], |r| r.get(0)).unwrap()
+    c.query_row("SELECT id FROM points WHERE path IS NOT NULL AND path=?1", params![path], |r| r.get(0)).unwrap()
 }
 
 fn count(c: &Connection, sql: &str) -> i64 {
     c.query_row(sql, [], |r| r.get(0)).unwrap()
 }
 
-/// ① 删除被指向的标签:指向它的边必须被显式清掉(target_id 上没有外键)
+/// ① 删除被指向的标签:指向它的线必须被显式清掉(to_id 上没有外键)
 #[test]
 fn delete_target_cleans_incoming_edges() {
     let mut c = db();
     let jia = ensure(&c, "甲");
     let target = segs(&c, &["地点轴", "国籍"]);
     set_tag_relation(&mut c, jia, target, "").unwrap();
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND s.path IS NOT NULL"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM lines l JOIN points s ON s.id = l.from_id JOIN points t ON t.id = l.to_id WHERE (l.name_id IS NULL OR l.name_id <> 0) AND s.path IS NOT NULL"), 1);
 
     let root = id_at(&c, "地点轴");
     delete_subtree(&mut c, root).unwrap();
 
     assert_eq!(
-        count(&c, "SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND s.path IS NOT NULL"),
+        count(&c, "SELECT COUNT(*) FROM lines l JOIN points s ON s.id = l.from_id JOIN points t ON t.id = l.to_id WHERE (l.name_id IS NULL OR l.name_id <> 0) AND s.path IS NOT NULL"),
         0,
-        "指向被删标签的边要清掉,不能留悬空 target_id"
+        "指向被删标签的线要清掉,不能留悬挂 to_id"
     );
     assert_eq!(
         count(
             &c,
-            "SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND s.path IS NOT NULL AND e.target_id NOT IN (SELECT id FROM entities WHERE path IS NOT NULL)"
+            "SELECT COUNT(*) FROM lines l JOIN points s ON s.id = l.from_id JOIN points t ON t.id = l.to_id WHERE (l.name_id IS NULL OR l.name_id <> 0) AND s.path IS NOT NULL AND l.to_id NOT IN (SELECT id FROM points WHERE path IS NOT NULL)"
         ),
         0,
-        "无悬空关系行"
+        "无悬挂关系行"
     );
 }
 
@@ -73,12 +73,12 @@ fn delete_source_cascades_outgoing_edges() {
     delete_subtree(&mut c, src).unwrap();
 
     assert_eq!(
-        count(&c, "SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND s.path IS NOT NULL"),
+        count(&c, "SELECT COUNT(*) FROM lines l JOIN points s ON s.id = l.from_id JOIN points t ON t.id = l.to_id WHERE (l.name_id IS NULL OR l.name_id <> 0) AND s.path IS NOT NULL"),
         1,
-        "起点的出边随之消失,别的边不受影响"
+        "起点的出线随之消失,别的线不受影响"
     );
     assert_eq!(count_relations_to(&c, guo).unwrap(), 1, "目标仍被指向");
-    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND id={guo}")), 1, "目标仍在");
+    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND id={guo}")), 1, "目标仍在");
 }
 
 /// ③ gc_orphans:被指向的标签是"有用处的空壳",不得像无关空壳一样被回收(R7)
@@ -92,12 +92,12 @@ fn gc_orphans_keeps_relation_target() {
 
     gc_orphans(&c).unwrap();
 
-    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND id={guo}")), 1, "被指向的标签留下");
-    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND id={junk}")), 0, "无关空壳仍回收");
+    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND id={guo}")), 1, "被指向的标签留下");
+    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND id={junk}")), 0, "无关空壳仍回收");
 }
 
-/// ④ 读方审计:插入关系边后笔记的 tags 列 / FTS / 导出全不变。
-/// 标签 id 在偏移区间、笔记 id 在原值区间:任何漏掉 `kind`/方向的读方都可能把关系边
+/// ④ 读方审计:插入关系线后笔记的 tags 列 / FTS / 导出全不变。
+/// 标签 id 在偏移区间、笔记 id 在原值区间:任何漏掉方向/名字的读方都可能把关系线
 /// 当成这条笔记的链接(强变异敏感)。
 #[test]
 fn relation_edges_do_not_change_note_tags_fts_or_export() {
@@ -109,10 +109,10 @@ fn relation_edges_do_not_change_note_tags_fts_or_export() {
     assert_ne!(jia, note.id, "标签与笔记是两行");
     let tags_before = repos::notes::read_full(&c, note.id).unwrap().unwrap().tags;
     let fts_before: String = c
-        .query_row("SELECT paths FROM entities_fts WHERE rowid=?1", params![note.id], |r| r.get(0))
+        .query_row("SELECT paths FROM points_fts WHERE rowid=?1", params![note.id], |r| r.get(0))
         .unwrap();
-    // 导出 = 信息流当前筛选结果:关系边属于 乙 自己的出链,只改 乙 的引用列;
-    // 这里钉住「这条笔记自己的导出行」逐字段不变(关系边不得混进笔记的引用列表)。
+    // 导出 = 信息流当前筛选结果:关系线属于 乙 自己的出线,只改 乙 的引用列;
+    // 这里钉住「这条笔记自己的导出行」逐字段不变(关系线不得混进笔记的引用列表)。
     let note_row = |c: &Connection| {
         notes_export::rows(c)
             .unwrap()
@@ -126,17 +126,17 @@ fn relation_edges_do_not_change_note_tags_fts_or_export() {
 
     let tags_after = repos::notes::read_full(&c, note.id).unwrap().unwrap().tags;
     let fts_after: String = c
-        .query_row("SELECT paths FROM entities_fts WHERE rowid=?1", params![note.id], |r| r.get(0))
+        .query_row("SELECT paths FROM points_fts WHERE rowid=?1", params![note.id], |r| r.get(0))
         .unwrap();
-    assert_eq!(tags_after, vec!["甲".to_string()], "关系边不得混进笔记的 tags 列");
-    assert_eq!(tags_before, tags_after, "插入关系边不得改变笔记的 tags 列");
-    assert_eq!(fts_before, fts_after, "插入关系边不得改写 FTS 标签列");
-    assert_eq!(note_row(&c), export_before, "关系边不得改写笔记自己的导出行");
+    assert_eq!(tags_after, vec!["甲".to_string()], "关系线不得混进笔记的 tags 列");
+    assert_eq!(tags_before, tags_after, "插入关系线不得改变笔记的 tags 列");
+    assert_eq!(fts_before, fts_after, "插入关系线不得改写 FTS 标签列");
+    assert_eq!(note_row(&c), export_before, "关系线不得改写笔记自己的导出行");
 }
 
-/// ⑤ 逐标签读数与批量事实口径一致:都给出 name 与**边上的属性名**(不取目标名的 md 备注)
+/// ⑤ 逐标签读数与批量事实口径一致:都给出 name 与**线的名字文本**(不取目标名的 md 备注)
 #[test]
-fn relation_ref_carries_edge_remark() {
+fn relation_ref_carries_edge_name() {
     let mut c = db();
     let author = ensure(&c, "作者/丸尾");
     let guo = ensure(&c, "[国籍](国别)");
@@ -146,7 +146,8 @@ fn relation_ref_carries_edge_remark() {
     let one = &out[0];
     assert_eq!(one.path, "[国籍](国别)");
     assert_eq!(one.name, "[国籍](国别)", "name 是原始末段名");
-    assert_eq!(one.remark, "国籍", "remark 取边上的属性名,不是目标名的 md 备注");
+    assert_eq!(one.name_text, "国籍", "nameText 取线的名字点,不是目标名的 md 备注");
+    assert!(one.name_id.is_some(), "非空线名必须带名字点 id");
 
     let facts = tag_facts(&c).unwrap();
     assert_eq!(facts.facts.len(), 1);

@@ -16,7 +16,7 @@ pub struct Row {
     /// 正文/名称(统一实体的 `meta`)
     pub meta: String,
     pub created_at: String,
-    /// 出链目标显示名列表(`edges.kind='link'`),空格分隔
+    /// 出线目标显示名列表(v31 非子级线),空格分隔
     pub refs: String,
 }
 
@@ -43,14 +43,14 @@ fn current_filter(conn: &Connection) -> FilterConditions {
         .unwrap_or_default()
 }
 
-/// 导出 = 信息流**当前筛选结果**(全部实体中的命中),按实体 id 降序(最新在前);
-/// 引用列聚合该实体的出 `link` 闭包显示名(见 [`super::notes_export_refs`])。
+/// 导出 = 信息流**当前筛选结果**(全部点中的命中),按点 id 降序(最新在前);
+/// 引用列聚合该点的出非子级线闭包显示名(见 [`super::notes_export_refs`])。
 pub fn rows(conn: &Connection) -> Result<Vec<Row>, String> {
     let (frag, args) = where_clause(&current_filter(conn))?;
     let refs = refs_by_source(conn)?;
     let mut stmt = conn
         .prepare(&format!(
-            "SELECT n.id, n.meta, n.created_at FROM entities n WHERE ({frag}) ORDER BY n.id DESC"
+            "SELECT n.id, n.meta, n.created_at FROM points n WHERE ({frag}) ORDER BY n.id DESC"
         ))
         .map_err(|e| e.to_string())?;
     let mapped = stmt

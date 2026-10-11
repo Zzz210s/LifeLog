@@ -11,7 +11,7 @@
 //! | `onlyWithNotes` / `minNotes` 默认 | **false / 0**(不变) | 闭包每个节点含子级 `notes` 必 >= 1 -> 这两档结构性空转(见 `graph-filters.ts` 注释) |
 //! | `graph_data` 载荷阈值 | **200KB**(不变) | 实测 **142.0KB**(145,432 B / 742 节点 / 1489 边),余量 41% |
 //!
-//! 阈值不是拍出来的:统一实体后节点集合 = §3.3 渲染闭包(742),共现边口径 = `link` 全量,
+//! 阈值不是拍出来的:统一实体后节点集合 = §3.3 渲染闭包(742),共现线口径 = 非子级线全量,
 //! 所以 `HUB_THRESHOLD` 必须按真库的度分布重算。本文件把「度数 top / 各档共现边数 /
 //! 默认视图共现边数 / 枢纽文字条数」一次打全,并断言可读区间 —— 阈值设错(例如设 0)
 //! 时共现边会爆到三千条,断言立刻变红。
@@ -57,12 +57,13 @@ fn real_db() -> Connection {
     Connection::open_with_flags(&path, OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap()
 }
 
-/// `(目标 id, 度数)` 按度数降序、同度按 id 升序;度数 = `link` 入边的去重来源数
+/// `(目标 id, 度数)` 按度数降序、同度按 id 升序;度数 = 非子级线的去重来源数
 fn degrees(c: &Connection) -> Vec<(i64, i64)> {
     let mut stmt = c
         .prepare(
-            "SELECT target_id, COUNT(DISTINCT source_id) n FROM edges WHERE kind = 'link'
-             GROUP BY target_id ORDER BY n DESC, target_id",
+            "SELECT to_id, COUNT(DISTINCT from_id) n FROM lines
+             WHERE name_id IS NULL OR name_id <> 0
+             GROUP BY to_id ORDER BY n DESC, to_id",
         )
         .unwrap();
     let rows = stmt
@@ -86,7 +87,7 @@ fn collapsed_ids(c: &Connection) -> HashSet<i64> {
         .unwrap_or_else(|_| "时间/{y}/{m}/{d}".to_string());
     let root: Option<i64> = c
         .query_row(
-            "SELECT id FROM entities WHERE path = ?1",
+            "SELECT id FROM points WHERE path = ?1",
             [tpl.split('/').next().unwrap_or_default()],
             |r| r.get(0),
         )
@@ -95,8 +96,8 @@ fn collapsed_ids(c: &Connection) -> HashSet<i64> {
     let mut stmt = c
         .prepare(
             "WITH RECURSIVE s(id) AS (
-               SELECT id FROM entities WHERE parent_id = ?1
-               UNION ALL SELECT e.id FROM entities e JOIN s ON e.parent_id = s.id)
+               SELECT id FROM points WHERE parent_id = ?1
+               UNION ALL SELECT p.id FROM points p JOIN s ON p.parent_id = s.id)
              SELECT id FROM s",
         )
         .unwrap();
@@ -128,7 +129,7 @@ fn graph_threshold_readout() {
     let ns = nodes(&c).unwrap();
     let deg = degrees(&c);
     let tree: i64 = c
-        .query_row("SELECT COUNT(*) FROM edges WHERE kind = 'child'", [], |r| {
+        .query_row("SELECT COUNT(*) FROM lines WHERE name_id = 0", [], |r| {
             r.get(0)
         })
         .unwrap();
@@ -136,7 +137,7 @@ fn graph_threshold_readout() {
     let hubs = hub_count(&deg, HUB_THRESHOLD);
     let labels = ns.iter().filter(|n| n.self_count >= HUB_NOTES).count();
     let name = |id: i64| -> String {
-        c.query_row("SELECT COALESCE(path, substr(meta, 1, 12)) FROM entities WHERE id = ?1", [id], |r| r.get(0))
+        c.query_row("SELECT COALESCE(path, substr(meta, 1, 12)) FROM points WHERE id = ?1", [id], |r| r.get(0))
             .unwrap_or_else(|_| format!("(已删 id={id})"))
     };
 

@@ -4,23 +4,35 @@ use crate::commands::graph::HUB_THRESHOLD;
 use crate::db::migrate;
 
 /// 造数据:甲/乙 两个根,甲下 甲/一、甲/二;
-/// 笔记 1 引 甲/一 + 乙,笔记 2 引 甲/二 + 乙(故 乙 出现 2 条、甲/一 与 甲/二 各 1 条)
+/// 笔记 1 引 甲/一 + 乙,笔记 2 引 甲/二 + 乙(故 乙 出现 2 条、甲/一 与 甲/二 各 1 条);
+/// 点 90 只在 `name_id` 位 = 纯名字点(不得进图节点)。
 fn db() -> Connection {
     let c = Connection::open_in_memory().unwrap();
     migrate::run(&c).unwrap();
     c.execute_batch(
-        "INSERT INTO entities(id,meta,is_cited,created_at,path,depth,parent_id) VALUES
+        "INSERT INTO points(id,meta,is_cited,created_at,path,depth,parent_id) VALUES
            (10,'甲',0,'2026-01-01','甲',1,NULL),(11,'一',1,'2026-01-01','甲/一',2,10),
-           (12,'二',1,'2026-01-01','甲/二',2,10),(20,'乙',1,'2026-01-01','乙',1,NULL);
-         INSERT INTO entities(id,meta,created_at) VALUES
+           (12,'二',1,'2026-01-01','甲/二',2,10),(20,'乙',1,'2026-01-01','乙',1,NULL),
+           (90,'线名',0,'2026-01-01',NULL,NULL,NULL);
+         INSERT INTO points(id,meta,created_at) VALUES
            (1,'a','2026-01-01'),(2,'b','2026-01-02');
-         INSERT INTO edges(source_id,target_id,kind,created_at) VALUES
-           (10,11,'child','2026-01-01'),(10,12,'child','2026-01-01'),
-           (1,11,'link','2026-01-01'),(1,20,'link','2026-01-01'),
-           (2,12,'link','2026-01-01'),(2,20,'link','2026-01-01');",
+         INSERT INTO lines(id,from_id,to_id,name_id,created_at) VALUES
+           (1,10,11,0,'2026-01-01'),(2,10,12,0,'2026-01-01'),
+           (3,1,11,90,'2026-01-01'),(4,1,20,NULL,'2026-01-01'),
+           (5,2,12,NULL,'2026-01-01'),(6,2,20,NULL,'2026-01-01');",
     )
     .unwrap();
     c
+}
+
+/// 图节点集合 = 闭包,纯名字点不得进(计划 T2.3 变异自证用例:把种子改成「全部点」即红)。
+#[test]
+fn graph_nodes_exclude_pure_name_points() {
+    let c = db();
+    let ns = nodes(&c).unwrap();
+    let ids: Vec<i64> = ns.iter().map(|n| n.id).collect();
+    assert!(!ids.contains(&90), "纯名字点(只在 name_id 位)不得成为图节点:{ids:?}");
+    assert_eq!(ns.len(), 4, "闭包还是 甲 / 甲·一 / 甲·二 / 乙 四点");
 }
 
 #[test]
@@ -51,7 +63,7 @@ fn nodes_carry_self_and_subtree_counts() {
 #[test]
 fn nodes_carry_sort_order() {
     let c = db();
-    c.execute("UPDATE entities SET sort_order = 7 WHERE id = 20", [])
+    c.execute("UPDATE points SET sort_order = 7 WHERE id = 20", [])
         .unwrap();
     let ns = nodes(&c).unwrap();
     assert_eq!(ns.iter().find(|n| n.path == "乙").unwrap().sort_order, 7);
@@ -101,33 +113,33 @@ fn co_edges_hub_boundary_is_strictly_greater() {
     let mut batch = String::new();
     for i in 100..=(100 + t) {
         batch.push_str(&format!(
-            "INSERT INTO entities(id,meta,created_at) VALUES ({i},'x','2026-01-01');"
+            "INSERT INTO points(id,meta,created_at) VALUES ({i},'x','2026-01-01');"
         ));
     }
     // 丙 = t 条笔记(恰好等于阈值)、丁 = t+1 条(枢纽);戊/己 是各自的共现对手方(5 / 11 条)
     batch.push_str(
-        "INSERT INTO entities(id,meta,created_at,path,depth) VALUES
+        "INSERT INTO points(id,meta,created_at,path,depth) VALUES
            (30,'丙','2026-01-01','丙',1),(31,'丁','2026-01-01','丁',1),
            (40,'戊','2026-01-01','戊',1),(41,'己','2026-01-01','己',1);",
     );
     for i in 100..(100 + t) {
         batch.push_str(&format!(
-            "INSERT INTO edges(source_id,target_id,kind,created_at) VALUES ({i},30,'link','2026-01-01');"
+            "INSERT INTO lines(from_id,to_id,name_id,created_at) VALUES ({i},30,NULL,'2026-01-01');"
         ));
     }
     for i in 100..=(100 + t) {
         batch.push_str(&format!(
-            "INSERT INTO edges(source_id,target_id,kind,created_at) VALUES ({i},31,'link','2026-01-01');"
+            "INSERT INTO lines(from_id,to_id,name_id,created_at) VALUES ({i},31,NULL,'2026-01-01');"
         ));
     }
     for i in 100..105 {
         batch.push_str(&format!(
-            "INSERT INTO edges(source_id,target_id,kind,created_at) VALUES ({i},40,'link','2026-01-01');"
+            "INSERT INTO lines(from_id,to_id,name_id,created_at) VALUES ({i},40,NULL,'2026-01-01');"
         ));
     }
     for i in 100..111 {
         batch.push_str(&format!(
-            "INSERT INTO edges(source_id,target_id,kind,created_at) VALUES ({i},41,'link','2026-01-01');"
+            "INSERT INTO lines(from_id,to_id,name_id,created_at) VALUES ({i},41,NULL,'2026-01-01');"
         ));
     }
     c.execute_batch(&batch).unwrap();
@@ -153,12 +165,12 @@ fn co_edges_hub_boundary_is_strictly_greater() {
 fn co_edges_are_undirected_once_with_note_count_weight() {
     let c = db();
     c.execute_batch(
-        "INSERT INTO entities(id,meta,created_at) VALUES (3,'c','2026-01-03'),(4,'d','2026-01-04');
-         INSERT INTO entities(id,meta,created_at,path,depth) VALUES
+        "INSERT INTO points(id,meta,created_at) VALUES (3,'c','2026-01-03'),(4,'d','2026-01-04');
+         INSERT INTO points(id,meta,created_at,path,depth) VALUES
            (30,'丙','2026-01-03','丙',1),(31,'丁','2026-01-03','丁',1);
-         INSERT INTO edges(source_id,target_id,kind,created_at) VALUES
-           (3,30,'link','2026-01-03'),(3,31,'link','2026-01-03'),
-           (4,30,'link','2026-01-03'),(4,31,'link','2026-01-03');",
+         INSERT INTO lines(from_id,to_id,name_id,created_at) VALUES
+           (3,30,NULL,'2026-01-03'),(3,31,NULL,'2026-01-03'),
+           (4,30,NULL,'2026-01-03'),(4,31,NULL,'2026-01-03');",
     )
     .unwrap();
     let es = co_edges(&c, 99).unwrap();
