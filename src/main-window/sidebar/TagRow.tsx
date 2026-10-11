@@ -164,21 +164,22 @@ export function TagRow(p: TagRowProps): ReactNode {
         <span className="shrink-0 rounded-xs bg-danger-soft px-1 text-micro text-danger">已排除</span>
       )}
       {/* 关系小字紧跟标签名(离名字最近),计数导轨留行尾(ml-auto 仍把它推到最右)。
-          小字只显示**值**(目标标签名),属性名降级到悬停 data-tip(信息位常给,不依赖截断);
-          小字可收缩(min-w-0 + shrink)并封顶 8rem:宽度不够时先由它省略,名字保持完整。 */}
+          T4.3(spec §9.2 第 1 行):chip 文案 = 「名字 + 被引用点」(空格分隔、不画箭头);无名字线只给值(与 v30 逐字相同)。
+          名字仍降级到悬停 data-tip,截断时原生 title 给完整 chip 文本;小字可收缩并封顶 8rem,宽度不够先由它省略,名字保持完整。 */}
       {p.showRelations === true &&
         relationChips.shown.map((r, i) => {
           const value = relationValue(r);
-          const tip = relationValueTip(r);
+          const name = relationValueTip(r);
+          const text = name === '' ? value : `${name} ${value}`;
           return (
             <span
               key={`${r.toTagId}-${i}`}
               data-tag-relation
-              data-tip={tip === '' ? undefined : tip}
+              data-tip={name === '' ? undefined : name}
               className="min-w-0 max-w-[8rem] shrink truncate rounded-xs bg-tag px-1 text-micro text-muted"
-              onMouseEnter={hoverTitle(value)}
+              onMouseEnter={hoverTitle(text)}
             >
-              {value}
+              {text}
             </span>
           );
         })}

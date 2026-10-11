@@ -53,7 +53,7 @@ describe('档案卡片:一条关系一行,两列', () => {
   // 判别力:卡片若按行内口径去重,labels 会少一条(出生地 消失)
   it('同值多名字:行内按「名字 + 值」各占一位、卡片不去重(两条各带自己的名字)', () => {
     const row = h.render({ relations: SAME_TARGET, showRelations: true });
-    expect(h.chips().map((el) => el.textContent)).toEqual(['中国大陆', '中国大陆', '+1']);
+    expect(h.chips().map((el) => el.textContent)).toEqual(['国籍 中国大陆', '出生地 中国大陆', '+1']);
     hover(h.name(row));
     expect(labels()).toEqual(['国籍', '出生地', '国籍']);
     expect(values()).toEqual(['中国大陆', '中国大陆', '日本']);

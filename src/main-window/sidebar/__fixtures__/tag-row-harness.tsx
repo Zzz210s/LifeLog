@@ -13,6 +13,7 @@ import type { RelationRef } from '../../../shared/types';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
+/** 一条关系线:v31 名字挂在**点**上(`nameText`),空串 = 无名字线(T4.3:chip 显示「名字 值」/只有值) */
 export const rel = (toTagId: number, name: string, nameText = ''): RelationRef => ({
   toTagId,
   path: name,
