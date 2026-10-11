@@ -1,5 +1,5 @@
-//! `note_links` 仓库层用例:替换写入(已解析边落 `edges(kind='link')`)/ 双向读取(读 `edges`)。
-//! 阶段 4(027)后老 `note_links` 表已下架,本文件全部对 `edges`/`entities` 断言。
+//! `note_links` 仓库层用例:替换写入(已解析链接落 `lines(name_id IS NULL)`)/ 双向读取(读 `lines`)。
+//! 阶段 4(027)后老 `note_links` 表已下架;v31 起表名为 `lines`/`points`(无名字线 = 老 `kind='link'`)。
 //! 从 `note_links.rs` 挂载,仓库层函数按 `note_links::x` 调。
 use crate::db::migrate;
 use crate::db::repos::note_links;
@@ -19,21 +19,21 @@ fn count(c: &Connection, sql: &str) -> i64 {
     c.query_row(sql, [], |r| r.get(0)).unwrap()
 }
 
-/// 直接造笔记实体(阶段 4:边指向 `entities`,老 `notes` 表已不在)
+/// 直接造笔记点(v31:表名 `points`,老 `entities` 已下架)
 /// 行仍写作 `(id,'note',正文,时间)`:第二列(旧 kind)由 `column3/column4` 跳过。
 fn seed(c: &Connection, rows: &str) {
     c.execute_batch(&format!(
-        "INSERT INTO entities(id, meta, created_at)
+        "INSERT INTO points(id, meta, created_at)
          SELECT column1, column3, column4 FROM (VALUES {rows});"
     ))
     .unwrap();
 }
 
-/// 某来源的已解析链接边 `(source_id, target_id)`,按 target 升序
+/// 某来源的全部已解析链接线 `(from_id, to_id)`,按目标升序
 fn edges_of(c: &Connection, source_id: i64) -> Vec<(i64, i64)> {
     c.prepare(
-        "SELECT source_id, target_id FROM edges
-         WHERE kind = 'link' AND source_id = ?1 ORDER BY target_id",
+        "SELECT from_id, to_id FROM lines
+         WHERE name_id IS NULL AND from_id = ?1 ORDER BY to_id",
     )
     .unwrap()
     .query_map([source_id], |r| Ok((r.get(0)?, r.get(1)?)))
@@ -49,7 +49,7 @@ fn replace_resolves_by_first_line() {
     let n = note_links::replace(&c, 2, &["目标笔记".into(), "不存在的标题".into()]).unwrap();
     assert_eq!(n, 1, "只有一条解析成功");
     assert_eq!(edges_of(&c, 2), vec![(2, 1)], "未解析不落边(D2 选项 A)");
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM edges WHERE kind='link'"), 1, "只有已解析的那条");
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM lines WHERE name_id IS NULL"), 1, "只有已解析的那条");
 }
 
 #[test]
@@ -59,7 +59,7 @@ fn replace_is_replacement_semantics() {
     note_links::replace(&c, 2, &["甲".into()]).unwrap();
     note_links::replace(&c, 2, &["不存在".into()]).unwrap();
     assert!(edges_of(&c, 2).is_empty(), "第二次把已解析边整批替换掉");
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM edges WHERE kind='link'"), 0);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM lines WHERE name_id IS NULL"), 0);
 }
 
 #[test]
@@ -68,7 +68,7 @@ fn self_link_is_skipped() {
     seed(&c, "(1,'note','自指','2026-01-01')");
     let n = note_links::replace(&c, 1, &["自指".into()]).unwrap();
     assert_eq!(n, 0, "指向自己不建边");
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM edges WHERE kind='link'"), 0);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM lines WHERE name_id IS NULL"), 0);
 }
 
 #[test]
@@ -91,7 +91,7 @@ fn duplicate_raw_title_in_one_note_is_one_row() {
     );
     note_links::replace(&c, 2, &["甲".into(), "甲".into()]).unwrap();
     assert_eq!(
-        count(&c, "SELECT COUNT(*) FROM edges WHERE kind='link' AND source_id = 2"),
+        count(&c, "SELECT COUNT(*) FROM lines WHERE name_id IS NULL AND from_id = 2"),
         1,
         "同一目标写两遍只留一条边"
     );
@@ -120,7 +120,7 @@ fn outbound_reparse_marks_renamed_target_unresolved() {
     let c = db();
     seed(&c, "(1,'note','甲','2026-01-01'),(2,'note','源 [[甲]]','2026-01-02')");
     note_links::replace(&c, 2, &["甲".into()]).unwrap();
-    c.execute_batch("UPDATE entities SET meta='甲改' WHERE id=1;").unwrap();
+    c.execute_batch("UPDATE points SET meta='甲改' WHERE id=1;").unwrap();
     let out = note_links::list_note_links(&c, 2).unwrap();
     assert_eq!(out.outbound[0].raw_title, "甲", "正文原文不改");
     assert_eq!(out.outbound[0].target_id, None, "重解析不回已解析边 -> 未解析");

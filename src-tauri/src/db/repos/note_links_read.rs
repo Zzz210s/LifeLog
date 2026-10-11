@@ -1,5 +1,7 @@
 //! 笔记间链接的**读取**层(自 note_links.rs 拆出以守 200 行上限;写入见 note_links.rs)。
-//! 阶段 4(T4.6):已解析边读 `edges(kind='link')`,来源/目标正文读 `entities`;
+//! 阶段 4(T4.6):已解析线读 `lines`(非子级线),来源/目标正文读 `points`;
+//! v31:`#X` 笔记挂标签与 `[[Y]]` 笔记间链接都是无名字线(`name_id IS NULL`),
+//! 笔记间链接额外要求两端都是树外点(`path IS NULL`)。
 //! 出链的「未解析」在读取时从来源正文重解析得到(D2 选项 A:未解析不落边)。
 //! 标题一律实时算(`links::display_title`):目标改名后显示跟随。
 //! 消费方:L2 笔记读取(`read_full` / `outbound_page`)、L3 反向引用面板与编辑面板、
@@ -42,12 +44,12 @@ fn row_title(row: &rusqlite::Row<'_>, base: usize) -> rusqlite::Result<String> {
     Ok(display_title(&row.get::<_, String>(base)?))
 }
 
-/// 某来源的全部已解析链接目标:`target_id -> 目标显示标题`,按边 id 升序
+/// 某来源的全部已解析链接目标:`target_id -> 目标显示标题`,按线 id 升序
 fn edge_targets(conn: &Connection, source_id: i64) -> rusqlite::Result<HashMap<i64, String>> {
     let mut stmt = conn.prepare(
-        "SELECT e.target_id, t.meta FROM edges e
-         JOIN entities t ON t.id = e.target_id
-         WHERE e.kind = 'link' AND e.source_id = ?1 ORDER BY e.id",
+        "SELECT l.to_id, t.meta FROM lines l
+         JOIN points t ON t.id = l.to_id
+         WHERE (l.name_id IS NULL OR l.name_id <> 0) AND l.from_id = ?1 ORDER BY l.id",
     )?;
     let mut rows = stmt.query(params![source_id])?;
     let mut map = HashMap::new();
@@ -90,7 +92,7 @@ fn outbound_rows(
 /// 单条笔记的出链(按正文出现顺序)。笔记读取路径(read_full)用它,编辑面板同源。
 pub fn outbound_of(conn: &Connection, note_id: i64) -> rusqlite::Result<Vec<OutboundLink>> {
     use rusqlite::OptionalExtension;
-    let sql = "SELECT meta FROM entities WHERE id = ?1";
+    let sql = "SELECT meta FROM points WHERE id = ?1";
     let content: Option<String> =
         conn.query_row(sql, params![note_id], |r| r.get(0)).optional()?;
     let Some(content) = content else {
@@ -112,7 +114,7 @@ pub fn outbound_page(
     let marks = vec!["?"; note_ids.len()].join(",");
     let mut contents: HashMap<i64, String> = HashMap::new();
     let mut stmt = conn.prepare(&format!(
-        "SELECT id, meta FROM entities WHERE id IN ({marks})"
+        "SELECT id, meta FROM points WHERE id IN ({marks})"
     ))?;
     let mut rows = stmt.query(params_from_iter(note_ids))?;
     while let Some(row) = rows.next()? {
@@ -120,9 +122,10 @@ pub fn outbound_page(
     }
     let mut grouped: HashMap<i64, HashMap<i64, String>> = HashMap::new();
     let mut stmt = conn.prepare(&format!(
-        "SELECT e.source_id, e.target_id, t.meta FROM edges e
-         JOIN entities t ON t.id = e.target_id
-         WHERE e.kind = 'link' AND e.source_id IN ({marks}) ORDER BY e.source_id, e.id"
+        "SELECT l.from_id, l.to_id, t.meta FROM lines l
+         JOIN points t ON t.id = l.to_id
+         WHERE (l.name_id IS NULL OR l.name_id <> 0) AND l.from_id IN ({marks})
+         ORDER BY l.from_id, l.id"
     ))?;
     let mut rows = stmt.query(params_from_iter(note_ids))?;
     while let Some(row) = rows.next()? {
@@ -147,9 +150,9 @@ pub fn outbound_page(
 pub fn list_note_links(conn: &Connection, note_id: i64) -> rusqlite::Result<NoteLinks> {
     let outbound = outbound_of(conn, note_id)?;
     let mut in_stmt = conn.prepare(
-        "SELECT DISTINCT e.source_id, s.meta FROM edges e
-         JOIN entities s ON s.id = e.source_id
-         WHERE e.kind = 'link' AND e.target_id = ?1 ORDER BY e.source_id",
+        "SELECT DISTINCT l.from_id, s.meta FROM lines l
+         JOIN points s ON s.id = l.from_id
+         WHERE (l.name_id IS NULL OR l.name_id <> 0) AND l.to_id = ?1 ORDER BY l.from_id",
     )?;
     let backlinks = in_stmt
         .query_map(params![note_id], |r| {
@@ -159,20 +162,21 @@ pub fn list_note_links(conn: &Connection, note_id: i64) -> rusqlite::Result<Note
     Ok(NoteLinks { outbound, backlinks })
 }
 
-/// 全部**已解析且非自指**的笔记间链接边 `(source_id, target_id)`,插入序;关系图 L4 画 link 边用。
-/// 自指写入侧就不落边,这里再挡一道:自指在图上是一条零长的线。
-/// 028 起 `edges(kind='link')` 也含笔记挂标签与标签关系,故两端都按树外实体(`path IS NULL`)收窄。
+/// 全部**已解析且非自指**的笔记间链接线 `(from_id, to_id)`,插入序;关系图 L4 画 link 线用。
+/// 自指写入侧就不落线,这里再挡一道:自指在图上是一条零长的线。
+/// 笔记间链接 = **无名字线**(`name_id IS NULL`;v30 `edges(kind='link')` 也含笔记挂标签与标签关系,
+/// 故两端都按树外点(`path IS NULL`)收窄)。
 ///
 /// SQL 抽成常量:守卫用例(`note_links_perf_tests`)对同一份文本跑 `EXPLAIN QUERY PLAN`。
-/// 两端判据写成**相关子查询**(逐行按 `entities` 主键点查),不是
-/// `IN (SELECT id FROM entities WHERE path IS NULL)` —— 后者无可用索引(`idx_entities_path`
-/// 是部分索引,只管非 NULL),规划器会对 `entities` 全表扫两次(真库 5.1MB)。
+/// 两端判据写成**相关子查询**(逐行按 `points` 主键点查),不是
+/// `IN (SELECT id FROM points WHERE path IS NULL)` —— 后者无可用的部分索引(`idx_points_path`
+/// 只管非 NULL),规划器会对 `points` 全表扫两次(真库 5.1MB)。
 pub(crate) const ALL_RESOLVED_SQL: &str = "\
-    SELECT e.source_id, e.target_id FROM edges e
-     WHERE e.kind = 'link' AND e.source_id <> e.target_id
-       AND EXISTS(SELECT 1 FROM entities s WHERE s.id = e.source_id AND s.path IS NULL)
-       AND EXISTS(SELECT 1 FROM entities t WHERE t.id = e.target_id AND t.path IS NULL)
-     ORDER BY e.id";
+    SELECT l.from_id, l.to_id FROM lines l
+     WHERE (l.name_id IS NULL OR l.name_id <> 0) AND l.from_id <> l.to_id
+       AND EXISTS(SELECT 1 FROM points s WHERE s.id = l.from_id AND s.path IS NULL)
+       AND EXISTS(SELECT 1 FROM points t WHERE t.id = l.to_id AND t.path IS NULL)
+     ORDER BY l.id";
 
 pub fn all_resolved(conn: &Connection) -> rusqlite::Result<Vec<(i64, i64)>> {
     let mut stmt = conn.prepare(ALL_RESOLVED_SQL)?;

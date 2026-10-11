@@ -1,17 +1,18 @@
 //! 只读:被携带的标签路径集合(条件栏摘要 `+携带` 小字的数据源)。
-//! 「被携带」= `edges` 里 `kind='link'` 且**引用方是树内实体**(`ca.path IS NOT NULL`)
-//! 的 `target_id` 指向的实体路径,方向与 `filter_predicates::carry_predicate` 一致
-//! (携带者 `source_id` -> 被携带 `target_id`)。028 起老 `relation` 边并入 `link`,
-//! 树外实体(`path` 为 NULL),如笔记挂标签,不参与携带;`tagging` 边是笔记挂标签,不算。
-//! JOIN entities 顺带排掉悬空行,`DISTINCT` 去重、路径升序。
+//! 「被携带」= `lines` 里**非子级线**(`name_id IS NULL OR name_id <> 0`)且**引用方是树内点**
+//! (`ca.path IS NOT NULL`)的 `to_id` 指向的点路径,方向与 `filter_predicates::carry_predicate` 一致
+//! (携带者 `from_id` -> 被携带 `to_id`)。028 / v31 起老 `relation` 边并入非子级线,
+//! 树外实体(`path` 为 NULL),如笔记挂标签,不参与携带;笔记挂标签是非子级线,不算。
+//! JOIN points 顺带排掉悬空行,`DISTINCT` 去重、路径升序。
 use rusqlite::Connection;
 
 /// 有携带者的标签路径(去重、升序);无携带关系时返回空表
 pub fn carried_paths(conn: &Connection) -> rusqlite::Result<Vec<String>> {
     let mut stmt = conn.prepare(
-        "SELECT DISTINCT t.path FROM edges l JOIN entities t ON t.id = l.target_id \
-         JOIN entities ca ON ca.id = l.source_id \
-         WHERE l.kind = 'link' AND ca.path IS NOT NULL AND t.path IS NOT NULL ORDER BY t.path",
+        "SELECT DISTINCT t.path FROM lines l JOIN points t ON t.id = l.to_id \
+         JOIN points ca ON ca.id = l.from_id \
+         WHERE (l.name_id IS NULL OR l.name_id <> 0) AND ca.path IS NOT NULL AND t.path IS NOT NULL \
+         ORDER BY t.path",
     )?;
     let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
     rows.collect()
@@ -29,18 +30,19 @@ mod tests {
         c
     }
 
-    /// 直接写新表(028 起无 kind/name/content);`path` 非空 = 树内实体
+    /// 直接写新表(points/lines);`path` 非空 = 树内点
     fn ent(c: &Connection, id: i64, meta: &str, path: Option<&str>) {
         c.execute(
-            "INSERT INTO entities(id, meta, created_at, path, depth) VALUES(?1, ?2, '2026-01-01', ?3, 1)",
+            "INSERT INTO points(id, meta, created_at, path, depth) VALUES(?1, ?2, '2026-01-01', ?3, 1)",
             rusqlite::params![id, meta, path],
         )
         .unwrap();
     }
 
+    /// 无名字线(v30 的 `kind='link'`)
     fn link(c: &Connection, source: i64, target: i64) {
         c.execute(
-            "INSERT INTO edges(source_id, target_id, kind, created_at) VALUES(?1, ?2, 'link', '2026-01-01')",
+            "INSERT INTO lines(from_id, to_id, name_id, created_at) VALUES(?1, ?2, NULL, '2026-01-01')",
             rusqlite::params![source, target],
         )
         .unwrap();

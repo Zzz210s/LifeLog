@@ -1,8 +1,9 @@
 //! 标签树仓库层(MVP-2 Task 3):建路径、链接、孤儿回收;结构变更见 ops,查询见 query。
-//! T4.1 起树真源是 `edges(kind='child')`,`entities.parent_id/path/depth` 是派生缓存
+//! T4.1 起树真源是 `edges(kind='child')`,v31 起是**子级线** `lines(name_id = 0)`,
+//! `points.parent_id/path/depth` 是派生缓存
 //! (写路径同事务维护,见 ensure/ops/merge);路径前缀比较一律用 substr 而非 LIKE
 //! (存量标签名可能含 % 或 _),ensure_path/link_note 收在调用方事务里。
-//! 空标签回收策略:既无出边、又无 `child` 以外的入边才回收(link_paths 与 delete_subtree 一致)。
+//! 空标签回收策略:既无出线、又无**非子级线**入线才回收(link_paths 与 delete_subtree 一致)。
 //! 路径 -> id 的解析漏斗与链接替换已拆到 link.rs(replace::replace_links),本文件只留树本身。
 use rusqlite::{params, Connection};
 
@@ -12,29 +13,31 @@ use crate::db::repos::entities::fts::ENTITIES_AGG;
 const COMPLETE_LIMIT: i64 = 50;
 
 /// 子树 id(含自身),按深度降序 —— 先子后父,便于删除与统计。
-/// v28 起树内实体由 `path` 表达、`child` 边承载父子,不再有 `kind` 列(spec §2.5 / §10-P3)。
+/// v28 起树内实体由 `path` 表达、`parent_id` 承载父子,不再有 `kind` 列(spec §2.5 / §10-P3);
+/// v31 只换表名 `entities` -> `points`(派生缓存不变)。
 pub fn subtree_ids(conn: &Connection, tag_id: i64) -> rusqlite::Result<Vec<i64>> {
     let mut stmt = conn.prepare(
         "WITH RECURSIVE sub(id, depth) AS (
-           SELECT id, depth FROM entities WHERE id = ?1
+           SELECT id, depth FROM points WHERE id = ?1
            UNION ALL
-           SELECT t.id, t.depth FROM entities t JOIN sub s ON t.parent_id = s.id
+           SELECT t.id, t.depth FROM points t JOIN sub s ON t.parent_id = s.id
          ) SELECT id FROM sub ORDER BY depth DESC, id",
     )?;
     let rows = stmt.query_map(params![tag_id], |r| r.get(0))?;
     rows.collect()
 }
 
-/// 子树内被链接到的引用源 id(结构变更后重写 FTS 行的输入):
-/// `link` 边的 `source_id`(spec §2.4,老 `tagging`/`relation`/`link` 三种迁后都是 `link`)。
+/// 子树内被引用到的来源点 id(结构变更后重写 FTS 行的输入):
+/// **非子级线**(`name_id IS NULL OR name_id <> 0`)的 `from_id`(spec §2.4;v30 老
+/// `tagging`/`relation`/`link` 三种迁后都是无名字线或名字线)。
 pub(crate) fn linked_notes(conn: &Connection, tag_ids: &[i64]) -> rusqlite::Result<Vec<i64>> {
     if tag_ids.is_empty() {
         return Ok(Vec::new());
     }
     let marks = vec!["?"; tag_ids.len()].join(",");
     let mut stmt = conn.prepare(&format!(
-        "SELECT DISTINCT source_id FROM edges
-         WHERE kind = 'link' AND target_id IN ({marks}) ORDER BY source_id"
+        "SELECT DISTINCT from_id FROM lines
+         WHERE (name_id IS NULL OR name_id <> 0) AND to_id IN ({marks}) ORDER BY from_id"
     ))?;
     let rows = stmt.query_map(rusqlite::params_from_iter(tag_ids.iter()), |r| r.get(0))?;
     rows.collect()

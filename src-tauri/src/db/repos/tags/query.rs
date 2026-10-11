@@ -36,17 +36,18 @@ pub struct TagCount {
 pub fn counts(conn: &Connection) -> rusqlite::Result<Vec<TagCount>> {
     let mut stmt = conn.prepare(
         "WITH RECURSIVE sub(root, leaf) AS (
-           SELECT id, id FROM entities WHERE path IS NOT NULL
-           UNION ALL SELECT s.root, t.id FROM entities t JOIN sub s ON t.parent_id = s.leaf
+           SELECT id, id FROM points WHERE path IS NOT NULL
+           UNION ALL SELECT s.root, t.id FROM points t JOIN sub s ON t.parent_id = s.leaf
              WHERE t.path IS NOT NULL
          ),
-         own AS (SELECT target_id AS tag_id, COUNT(DISTINCT source_id) AS n FROM edges
-                 WHERE kind = 'link' GROUP BY target_id),
-         roll AS (SELECT sub.root AS root, COUNT(DISTINCT l.source_id) AS n
-                  FROM sub JOIN edges l ON l.target_id = sub.leaf AND l.kind = 'link'
+         own AS (SELECT to_id AS tag_id, COUNT(DISTINCT from_id) AS n FROM lines
+                 WHERE (name_id IS NULL OR name_id <> 0) GROUP BY to_id),
+         roll AS (SELECT sub.root AS root, COUNT(DISTINCT l.from_id) AS n
+                  FROM sub JOIN lines l ON l.to_id = sub.leaf
+                    AND (l.name_id IS NULL OR l.name_id <> 0)
                   GROUP BY sub.root)
          SELECT t.id, t.path, t.depth, t.sort_order, COALESCE(own.n, 0), COALESCE(roll.n, 0)
-         FROM entities t
+         FROM points t
          LEFT JOIN own ON own.tag_id = t.id
          LEFT JOIN roll ON roll.root = t.id
          WHERE t.path IS NOT NULL
@@ -65,10 +66,10 @@ pub fn counts(conn: &Connection) -> rusqlite::Result<Vec<TagCount>> {
     rows.collect()
 }
 
-/// 路径前缀补全(substr 字面比较而非 LIKE:名称可能含 % 或 _)
+/// 路径前缀补全(substr 字面比较而非 LIKE:名称可能含 % 或 _);`path IS NOT NULL` 天然排除纯名字点。
 pub fn complete(conn: &Connection, prefix: &str) -> rusqlite::Result<Vec<String>> {
     let mut stmt = conn.prepare(
-        "SELECT path FROM entities WHERE path IS NOT NULL
+        "SELECT path FROM points WHERE path IS NOT NULL
            AND substr(path, 1, length(?1)) = ?1 ORDER BY path LIMIT ?2",
     )?;
     let rows = stmt.query_map(params![prefix, COMPLETE_LIMIT], |r| r.get(0))?;
@@ -135,7 +136,7 @@ pub fn complete_with_aliases(
 /// 由纯函数 `similar_paths` 精确判定;整表扫描只在"标签 + 别名候选占不满展示上限"时才发生,
 /// 量级是标签总数(百级),不构成每击键都扫表的负担。
 fn all_tag_paths(conn: &Connection) -> rusqlite::Result<Vec<String>> {
-    let mut stmt = conn.prepare("SELECT path FROM entities WHERE path IS NOT NULL ORDER BY path")?;
+    let mut stmt = conn.prepare("SELECT path FROM points WHERE path IS NOT NULL ORDER BY path")?;
     let rows = stmt.query_map([], |r| r.get(0))?;
     rows.collect()
 }
@@ -144,7 +145,7 @@ fn all_tag_paths(conn: &Connection) -> rusqlite::Result<Vec<String>> {
 /// 重复项由调用方按 path 去重)。前缀比较与标签一致用 substr,存量别名可能含 % 或 _
 fn alias_targets(conn: &Connection, prefix: &str) -> rusqlite::Result<Vec<String>> {
     let mut stmt = conn.prepare(
-        "SELECT t.path FROM entity_aliases a JOIN entities t ON t.id = a.entity_id
+        "SELECT t.path FROM entity_aliases a JOIN points t ON t.id = a.entity_id
          WHERE t.path IS NOT NULL AND substr(a.alias, 1, length(?1)) = ?1
          ORDER BY t.path LIMIT ?2",
     )?;
@@ -165,8 +166,8 @@ pub fn impact(conn: &Connection, tag_id: i64) -> rusqlite::Result<(i64, i64)> {
     let marks = vec!["?"; ids.len()].join(",");
     let notes: i64 = conn.query_row(
         &format!(
-            "SELECT COUNT(DISTINCT source_id) FROM edges
-             WHERE kind = 'link' AND target_id IN ({marks})"
+            "SELECT COUNT(DISTINCT from_id) FROM lines
+             WHERE (name_id IS NULL OR name_id <> 0) AND to_id IN ({marks})"
         ),
         rusqlite::params_from_iter(ids.iter()),
         |r| r.get(0),

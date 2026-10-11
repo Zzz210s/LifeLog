@@ -5,13 +5,13 @@
 //! 匹配标签(`MIN`),一条笔记多值时即树序第一个。
 use rusqlite::types::Value;
 
-/// 树序键递归 CTE 主体(不含 `WITH RECURSIVE` 前缀;多条排序条件共用一份 ord)。
-/// 迁后无 `kind` 列:树内实体从 `path IS NOT NULL` 且无父级起(根),沿 `parent_id` 下降。
+/// 树序键递归 CTE 主体(不含 `WITH RECURSIVE` 前缀;多条排序条件共用一份ord)。
+/// 迁后无 `kind` 列,v31 只换表名:树内点从 `path IS NOT NULL` 且无父级起(根),沿 `parent_id` 下降。
 pub const ORD_BODY: &str = "ord(id, key) AS (
-  SELECT id, printf('%06d', sort_order) FROM entities WHERE path IS NOT NULL AND parent_id IS NULL
+  SELECT id, printf('%06d', sort_order) FROM points WHERE path IS NOT NULL AND parent_id IS NULL
   UNION ALL
   SELECT e.id, o.key || '/' || printf('%06d', e.sort_order)
-  FROM entities e JOIN ord o ON e.parent_id = o.id
+  FROM points e JOIN ord o ON e.parent_id = o.id
 )";
 
 /// 一条标签轴排序的片段:CTE 定义 + 与 `notes` 的 LEFT JOIN + 键列名
@@ -32,11 +32,11 @@ pub fn axis_sql(index: usize, path: &str, args: &mut Vec<Value>) -> AxisSql {
     AxisSql {
         cte: format!(
             "axis{index}(note_id, key) AS (
-               SELECT l.source_id, MIN(o.key)
-               FROM edges l JOIN entities t ON t.id = l.target_id JOIN ord o ON o.id = t.id
-               WHERE l.kind = 'link'
+               SELECT l.from_id, MIN(o.key)
+               FROM lines l JOIN points t ON t.id = l.to_id JOIN ord o ON o.id = t.id
+               WHERE (l.name_id IS NULL OR l.name_id <> 0)
                  AND (t.path = ? OR substr(t.path, 1, length(?) + 1) = ? || '/')
-               GROUP BY l.source_id
+               GROUP BY l.from_id
              )"
         ),
         join: format!("LEFT JOIN axis{index} ax{index} ON ax{index}.note_id = n.id"),
