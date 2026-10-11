@@ -67,9 +67,9 @@ pub(crate) fn merge_core(
     // ② 笔记链接整行转移(只动树外来源 = 老 `tagging`):目标已有同一笔记的链接时被主键挡下,
     // 不计入 movedLinks。树内来源的关联(老 `relation`)留给 ③ 的并集处理(需判环)。
     conn.execute(
-        "UPDATE OR IGNORE edges SET target_id = ?1
-          WHERE kind = 'link' AND target_id = ?2
-            AND (SELECT path FROM entities WHERE id = edges.source_id) IS NULL",
+        "UPDATE OR IGNORE lines SET to_id = ?1
+          WHERE (name_id IS NULL OR name_id <> 0) AND to_id = ?2
+            AND (SELECT path FROM points WHERE id = lines.from_id) IS NULL",
         params![target_id, source_id],
     )
     .map_err(|e| e.to_string())?;
@@ -78,12 +78,13 @@ pub(crate) fn merge_core(
     union_edges(conn, source_id, target_id)?;
     // ④ 清掉源残余的边(被 IGNORE 的重复链接 + 被剔除/已复制的关系边 + 源的入 child 边)
     conn.execute(
-        "DELETE FROM edges WHERE kind = 'link' AND (source_id = ?1 OR target_id = ?1)",
+        "DELETE FROM lines WHERE (name_id IS NULL OR name_id <> 0)
+           AND (from_id = ?1 OR to_id = ?1)",
         params![source_id],
     )
     .map_err(|e| e.to_string())?;
     conn.execute(
-        "DELETE FROM edges WHERE kind = 'child' AND target_id = ?1",
+        "DELETE FROM lines WHERE name_id = 0 AND to_id = ?1",
         params![source_id],
     )
     .map_err(|e| e.to_string())?;
@@ -94,7 +95,7 @@ pub(crate) fn merge_core(
         Vec::new()
     };
     // ⑥ 删除源标签实体(外键级联兜底清理残余边)
-    conn.execute("DELETE FROM entities WHERE id = ?1", params![source_id])
+    conn.execute("DELETE FROM points WHERE id = ?1", params![source_id])
         .map_err(|e| e.to_string())?;
     // ⑦ 统一收尾:筛选条件级联 -> 受影响笔记 FTS 重写 -> 孤儿回收
     finish_core(
@@ -116,7 +117,7 @@ pub(crate) fn merge_core(
 /// 标签路径;不存在返回 None(供"标签不存在"中文报错)
 fn path_of(conn: &Connection, id: i64) -> rusqlite::Result<Option<String>> {
     conn.query_row(
-        "SELECT path FROM entities WHERE id = ?1 AND path IS NOT NULL",
+        "SELECT path FROM points WHERE id = ?1 AND path IS NOT NULL",
         params![id],
         |r| r.get(0),
     )
@@ -134,7 +135,7 @@ pub(crate) fn sibling_by_name(
     exclude: i64,
 ) -> Result<Option<i64>, String> {
     conn.query_row(
-        "SELECT id FROM entities
+        "SELECT id FROM points
          WHERE path IS NOT NULL AND COALESCE(parent_id, 0) = COALESCE(?1, 0)
            AND entity_key(meta) = entity_key(?2) AND id <> ?3
          ORDER BY id LIMIT 1",

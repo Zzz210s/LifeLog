@@ -54,15 +54,15 @@ pub(crate) fn create_with(
         names.push(p.to_string());
     }
     let tx = conn.transaction()?;
-    // 统一元数据(v28):笔记行只落 `entities(meta)`,不再有 kind;id 取全表 `MAX(id)+1`
+    // 统一元数据(v28):笔记行只落 `points(meta)`,不再有 kind;id 取全表 `MAX(id)+1`
     // (spec §2.2 全库连号:笔记与标签同一命名空间,复用一个自增序列)。
     let id: i64 = tx.query_row(
-        "SELECT COALESCE(MAX(id), 0) + 1 FROM entities",
+        "SELECT COALESCE(MAX(id), 0) + 1 FROM points",
         [],
         |r| r.get(0),
     )?;
     tx.execute(
-        "INSERT INTO entities(id, meta, created_at)
+        "INSERT INTO points(id, meta, created_at)
          VALUES(?1, ?2, datetime('now', 'localtime'))",
         params![id, text],
     )?;
@@ -73,8 +73,8 @@ pub(crate) fn create_with(
     Ok(note)
 }
 
-/// 保存路径的引用写入:`#标签` 与 `[[链接]]` 目标求**并集**后一次落 `edges(kind='link')`
-/// (spec §5.2:二者同一种边;分两次替换会互相抹掉)。在调用方事务内执行,失败整批回滚。
+/// 保存路径的引用写入:`#标签` 与 `[[链接]]` 目标求**并集**后一次落 `lines(name_id = NULL)`
+/// (spec §5.2:二者同一种线;分两次替换会互相抹掉)。在调用方事务内执行,失败整批回滚。
 fn write_saved_links(
     tx: &rusqlite::Transaction<'_>,
     id: i64,

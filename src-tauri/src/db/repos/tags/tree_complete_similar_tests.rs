@@ -13,7 +13,7 @@ fn db() -> Connection {
 }
 
 fn id_at(c: &Connection, path: &str) -> i64 {
-    c.query_row("SELECT id FROM entities WHERE path IS NOT NULL AND path=?1", [path], |r| r.get(0))
+    c.query_row("SELECT id FROM points WHERE path IS NOT NULL AND path=?1", [path], |r| r.get(0))
         .unwrap()
 }
 

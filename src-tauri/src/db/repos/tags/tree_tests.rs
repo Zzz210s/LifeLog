@@ -18,7 +18,7 @@ fn count(c: &Connection, sql: &str) -> i64 {
 /// 标签表全量快照(按 id 排序),用于"不改库"断言
 fn dump(c: &Connection) -> Vec<String> {
     let mut stmt = c
-        .prepare("SELECT id, entity_name(meta), COALESCE(parent_id, 0), path, depth FROM entities WHERE path IS NOT NULL ORDER BY id")
+        .prepare("SELECT id, entity_name(meta), COALESCE(parent_id, 0), path, depth FROM points WHERE path IS NOT NULL ORDER BY id")
         .unwrap();
     let rows = stmt
         .query_map([], |r| {
@@ -56,19 +56,19 @@ fn ensure_path_creates_ancestors_once() {
     let leaf = ensure_path(&c, &segs(&["工作", "项目A"])).unwrap();
     assert_eq!(ensure_path(&c, &segs(&["工作", "项目A"])).unwrap(), leaf);
     assert_eq!(ensure_path(&c, &segs(&["工作"])).unwrap(), id_at(&c, "工作"));
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL"), 2);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL"), 2);
     assert_eq!(
-        count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='工作' AND entity_name(meta)='工作' AND depth=1 AND parent_id IS NULL"),
+        count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND path='工作' AND entity_name(meta)='工作' AND depth=1 AND parent_id IS NULL"),
         1
     );
     assert_eq!(
-        count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='工作/项目A' AND entity_name(meta)='项目A' AND depth=2 AND parent_id=(SELECT id FROM entities WHERE path IS NOT NULL AND path='工作')"),
+        count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND path='工作/项目A' AND entity_name(meta)='项目A' AND depth=2 AND parent_id=(SELECT id FROM points WHERE path IS NOT NULL AND path='工作')"),
         1
     );
     assert_eq!(dump(&c).len(), 2);
     // 空路径段是调用方错误:报错而不是建出畸形节点
     assert!(ensure_path(&c, &[]).is_err());
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL"), 2);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL"), 2);
 }
 
 /// ② 链接只落在末端:父级 self_count 为 0,subtree_count 含子级链接
@@ -138,7 +138,7 @@ mod legacy_name_tests;
 
 /// 按路径取标签 id(两份测试文件共用:父模块定义,子模块用 super::* 取)
 fn id_at(c: &Connection, path: &str) -> i64 {
-    c.query_row("SELECT id FROM entities WHERE path IS NOT NULL AND path=?1", [path], |r| r.get(0))
+    c.query_row("SELECT id FROM points WHERE path IS NOT NULL AND path=?1", [path], |r| r.get(0))
         .unwrap()
 }
 

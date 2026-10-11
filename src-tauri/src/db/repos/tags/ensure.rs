@@ -1,6 +1,7 @@
 //! 标签路径建树(自 tags_tree.rs 拆出以守 200 行上限):
 //! 按路径段逐级复用/创建节点,并把"path 命中但身份不符"的存量占位行就地规整进树。
-//! 统一元数据(v28)后节点就是 `entities` 行(无 `kind`),树真源是 `edges(kind='child')`;
+//! 统一元数据(v28)后节点就是 `points` 行(无 `kind`),树真源是**子级线**
+//! `lines(name_id = 0, from = 父, to = 子)`(v31,spec §3);
 //! 名字 = `entity_name(meta)`,派生缓存(parent_id/path/depth)由本文件与子模块在同一事务里维护。
 //! 不自行开事务,收在调用方事务里(link_paths / 创建笔记 / 迁移同事务)。
 use crate::db::repos::entities::ids;
@@ -25,7 +26,7 @@ pub fn ensure_path(conn: &Connection, segments: &[String]) -> rusqlite::Result<i
         let depth = (i + 1) as i64;
         let found: Option<(i64, String, Option<i64>, i64)> = conn
             .query_row(
-                "SELECT id, entity_name(meta), parent_id, depth FROM entities WHERE path = ?1",
+                "SELECT id, entity_name(meta), parent_id, depth FROM points WHERE path = ?1",
                 params![prefix],
                 |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
             )
@@ -39,7 +40,7 @@ pub fn ensure_path(conn: &Connection, segments: &[String]) -> rusqlite::Result<i
             None => {
                 let id = ids::next_entity_id(conn)?;
                 conn.execute(
-                    "INSERT INTO entities(id, meta, parent_id, path, depth, created_at)
+                    "INSERT INTO points(id, meta, parent_id, path, depth, created_at)
                      VALUES(?1, ?2, ?3, ?4, ?5, datetime('now', 'localtime'))",
                     params![id, seg, parent, prefix, depth],
                 )?;
@@ -54,11 +55,11 @@ pub fn ensure_path(conn: &Connection, segments: &[String]) -> rusqlite::Result<i
     Ok(leaf)
 }
 
-/// 建一条父 -> 子边(唯一约束天然去重)
+/// 建一条父 -> 子级的子级线(`name_id = 0` 保留点「子级」;唯一索引天然去重)
 pub(crate) fn link_child(conn: &Connection, parent_id: i64, child_id: i64) -> rusqlite::Result<()> {
     conn.execute(
-        "INSERT OR IGNORE INTO edges(source_id, target_id, kind, remark, created_at)
-         VALUES(?1, ?2, 'child', '', datetime('now', 'localtime'))",
+        "INSERT OR IGNORE INTO lines(from_id, to_id, name_id, created_at)
+         VALUES(?1, ?2, 0, datetime('now', 'localtime'))",
         params![parent_id, child_id],
     )?;
     Ok(())
@@ -76,19 +77,19 @@ fn reconcile(
     old_depth: i64,
 ) -> rusqlite::Result<()> {
     conn.execute(
-        "UPDATE entities SET meta = ?1, parent_id = ?2, depth = ?3 WHERE id = ?4",
+        "UPDATE points SET meta = ?1, parent_id = ?2, depth = ?3 WHERE id = ?4",
         params![name, parent, depth, id],
     )?;
-    conn.execute("DELETE FROM edges WHERE kind = 'child' AND target_id = ?1", params![id])?;
+    conn.execute("DELETE FROM lines WHERE name_id = 0 AND to_id = ?1", params![id])?;
     if let Some(p) = parent {
         link_child(conn, p, id)?;
     }
     if depth != old_depth {
         conn.execute(
             "WITH RECURSIVE sub(id) AS (
-               SELECT id FROM entities WHERE parent_id = ?1
-               UNION ALL SELECT t.id FROM entities t JOIN sub s ON t.parent_id = s.id
-             ) UPDATE entities SET depth = depth + ?2 WHERE id IN (SELECT id FROM sub)",
+               SELECT id FROM points WHERE parent_id = ?1
+               UNION ALL SELECT t.id FROM points t JOIN sub s ON t.parent_id = s.id
+             ) UPDATE points SET depth = depth + ?2 WHERE id IN (SELECT id FROM sub)",
             params![id, depth - old_depth],
         )?;
     }

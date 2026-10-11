@@ -71,7 +71,7 @@ pub(crate) fn parse_saved(
 /// 差别是这里仍按 `path` 缓存取候选列表,而 `existing_id` 已改逐段寻址,不读 path)
 fn known_tag_paths(conn: &Connection) -> rusqlite::Result<Vec<String>> {
     let mut stmt = conn.prepare(
-        "SELECT path FROM entities WHERE path IS NOT NULL
+        "SELECT path FROM points WHERE path IS NOT NULL
            AND (parent_id IS NOT NULL OR instr(path, '/') = 0)",
     )?;
     let rows = stmt.query_map([], |r| r.get(0))?;

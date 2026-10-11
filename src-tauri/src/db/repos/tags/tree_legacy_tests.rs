@@ -15,7 +15,7 @@ fn count(c: &Connection, sql: &str) -> i64 {
 }
 
 fn id_at(c: &Connection, path: &str) -> i64 {
-    c.query_row("SELECT id FROM entities WHERE path IS NOT NULL AND path=?1", [path], |r| r.get(0))
+    c.query_row("SELECT id FROM points WHERE path IS NOT NULL AND path=?1", [path], |r| r.get(0))
         .unwrap()
 }
 
@@ -32,13 +32,13 @@ fn rename_legacy_flat_root_does_not_create_phantom_prefix() {
 
     rename(&mut c, legacy, "c").unwrap();
 
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL"), 1);
     assert_eq!(
-        count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND entity_name(meta)='c' AND path='c' AND depth=1 AND parent_id IS NULL"),
+        count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND entity_name(meta)='c' AND path='c' AND depth=1 AND parent_id IS NULL"),
         1,
         "根行 path 必须等于 name"
     );
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='a/c'"), 0, "不得留下幻影前缀");
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND path='a/c'"), 0, "不得留下幻影前缀");
     assert_eq!(complete(&c, "a/").unwrap(), Vec::<String>::new());
     assert_eq!(complete(&c, "c").unwrap(), vec!["c"]);
 }
@@ -61,10 +61,10 @@ fn rename_into_legacy_path_no_longer_errors() {
     let work = id_at(&c, "工作");
     rename(&mut c, work, "事业").unwrap();
 
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='事业' AND entity_name(meta)='事业'"), 1);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path LIKE '工作%'"), 0, "旧路径不残留");
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND path='事业' AND entity_name(meta)='事业'"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND path LIKE '工作%'"), 0, "旧路径不残留");
     assert_eq!(
-        count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='事业/项目A'"),
+        count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND path='事业/项目A'"),
         2,
         "派生路径与存量平铺行同名:path 只是显示缓存(P0-1),两行并存"
     );
@@ -82,9 +82,9 @@ fn move_into_legacy_path_no_longer_errors() {
     let life = id_at(&c, "生活");
     move_to(&mut c, leaf, Some(life)).unwrap();
 
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='工作/项目A'"), 0);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND path='工作/项目A'"), 0);
     assert_eq!(
-        count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='生活/项目A'"),
+        count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND path='生活/项目A'"),
         2,
         "搬来的子树与存量平铺行同名:path 只是显示缓存(P0-1)"
     );
@@ -99,9 +99,9 @@ fn delete_subtree_recycles_emptied_ancestor() {
 
     delete_subtree(&mut c, leaf).unwrap();
 
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL"), 0, "工作 无链接且无子节点 -> 一并回收");
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND (s.path IS NOT NULL OR t.path IS NOT NULL)"), 0);
-    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM entities WHERE path IS NULL AND id={}", n.id)), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL"), 0, "工作 无链接且无子节点 -> 一并回收");
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM lines e JOIN points s ON s.id = e.from_id JOIN points t ON t.id = e.to_id WHERE (e.name_id IS NULL OR e.name_id <> 0) AND (s.path IS NOT NULL OR t.path IS NOT NULL)"), 0);
+    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM points WHERE path IS NULL AND id={}", n.id)), 1);
 }
 
 /// Warning 2 反向:仍有其它子节点、或自己直链笔记的容器必须保留
@@ -118,11 +118,11 @@ fn delete_subtree_keeps_container_still_in_use() {
     delete_subtree(&mut c, pa).unwrap();
     delete_subtree(&mut c, lz).unwrap();
 
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='工作'"), 1, "还有子节点");
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='工作/项目B'"), 1);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='工作/项目A'"), 0);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='生活'"), 1, "自己直链笔记");
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='生活/子'"), 0);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND path='工作'"), 1, "还有子节点");
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND path='工作/项目B'"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND path='工作/项目A'"), 0);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND path='生活'"), 1, "自己直链笔记");
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND path='生活/子'"), 0);
 }
 
 /// 小项:impact 对不存在的 tag_id 报错(与 delete_subtree 同口径)

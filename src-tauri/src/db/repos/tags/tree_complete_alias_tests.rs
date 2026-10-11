@@ -13,7 +13,7 @@ fn db() -> Connection {
 }
 
 fn id_at(c: &Connection, path: &str) -> i64 {
-    c.query_row("SELECT id FROM entities WHERE path IS NOT NULL AND path=?1", [path], |r| r.get(0))
+    c.query_row("SELECT id FROM points WHERE path IS NOT NULL AND path=?1", [path], |r| r.get(0))
         .unwrap()
 }
 
@@ -52,7 +52,7 @@ fn alias_prefix_matches_alias_string_and_returns_target_path() {
         vec![item("追番", "tag"), item("追番/日漫", "tag")]
     );
     // 别名不产生新节点:整个库只有 追番 与 追番/日漫
-    let n: i64 = c.query_row("SELECT COUNT(*) FROM entities WHERE path IS NOT NULL", [], |r| r.get(0)).unwrap();
+    let n: i64 = c.query_row("SELECT COUNT(*) FROM points WHERE path IS NOT NULL", [], |r| r.get(0)).unwrap();
     assert_eq!(n, 2);
 }
 

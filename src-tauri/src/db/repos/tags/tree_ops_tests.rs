@@ -19,14 +19,14 @@ fn count(c: &Connection, sql: &str) -> i64 {
 }
 
 fn id_at(c: &Connection, path: &str) -> i64 {
-    c.query_row("SELECT id FROM entities WHERE path IS NOT NULL AND path=?1", [path], |r| r.get(0))
+    c.query_row("SELECT id FROM points WHERE path IS NOT NULL AND path=?1", [path], |r| r.get(0))
         .unwrap()
 }
 
 /// 标签表全量快照(按 id 排序),用于"不改库"断言
 fn dump(c: &Connection) -> Vec<String> {
     let mut stmt = c
-        .prepare("SELECT id, entity_name(meta), COALESCE(parent_id, 0), path, depth FROM entities WHERE path IS NOT NULL ORDER BY id")
+        .prepare("SELECT id, entity_name(meta), COALESCE(parent_id, 0), path, depth FROM points WHERE path IS NOT NULL ORDER BY id")
         .unwrap();
     let rows = stmt
         .query_map([], |r| {
@@ -62,10 +62,10 @@ fn rename_updates_whole_subtree_paths_and_fts() {
 
     rename(&mut c, root, "事业").unwrap();
 
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL"), 2);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='事业' AND entity_name(meta)='事业' AND depth=1 AND parent_id IS NULL"), 1);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='事业/项目A' AND entity_name(meta)='项目A' AND depth=2 AND parent_id=(SELECT id FROM entities WHERE path IS NOT NULL AND path='事业')"), 1);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path IN ('工作','工作/项目A')"), 0);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL"), 2);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND path='事业' AND entity_name(meta)='事业' AND depth=1 AND parent_id IS NULL"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND path='事业/项目A' AND entity_name(meta)='项目A' AND depth=2 AND parent_id=(SELECT id FROM points WHERE path IS NOT NULL AND path='事业')"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND path IN ('工作','工作/项目A')"), 0);
     // FTS 聚合的是完整路径:新路径可搜、旧路径不再命中
     // (父级名称本身不直链笔记,2 字符关键词按标签名匹配不会命中父级)
     assert_eq!(hits(&c, "会议记录"), 1);
@@ -88,14 +88,14 @@ fn move_to_reparents_and_rewrites_paths() {
     move_to(&mut c, leaf, Some(life)).unwrap();
 
     let life2 = id_at(&c, "生活");
-    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='生活/项目A' AND entity_name(meta)='项目A' AND depth=2 AND parent_id={life2}")), 1);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='工作/项目A'"), 0);
+    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND path='生活/项目A' AND entity_name(meta)='项目A' AND depth=2 AND parent_id={life2}")), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND path='工作/项目A'"), 0);
     assert_eq!(hits(&c, "生活/项目A"), 2,
         "note a 直链它;note b 挂父级「生活」,子孙闭包让它的 paths 也含「生活/项目A」");
     assert_eq!(hits(&c, "工作/项目A"), 0);
 
     move_to(&mut c, leaf, None).unwrap();
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='项目A' AND depth=1 AND parent_id IS NULL"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND path='项目A' AND depth=1 AND parent_id IS NULL"), 1);
     assert_eq!(hits(&c, "项目A"), 1);
     assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
@@ -118,7 +118,7 @@ fn move_into_own_subtree_rejected_and_db_untouched() {
     assert_eq!(
         count(
             &c,
-            "SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND s.path IS NULL AND t.path IS NOT NULL AND e.target_id = (SELECT id FROM entities WHERE path IS NOT NULL AND path='工作/项目A')"
+            "SELECT COUNT(*) FROM lines l JOIN points s ON s.id = l.from_id JOIN points t ON t.id = l.to_id WHERE l.name_id IS NULL AND s.path IS NULL AND t.path IS NOT NULL AND l.to_id = (SELECT id FROM points WHERE path IS NOT NULL AND path='工作/项目A')"
         ),
         1,
         "笔记 -> 叶子标签的那条链接仍在"
@@ -126,8 +126,8 @@ fn move_into_own_subtree_rejected_and_db_untouched() {
     assert_eq!(
         count(
             &c,
-            "SELECT COUNT(*) FROM entities_fts WHERE meta <> ''
-               AND rowid IN (SELECT id FROM entities WHERE path IS NULL)"
+            "SELECT COUNT(*) FROM points_fts WHERE meta <> ''
+               AND rowid IN (SELECT id FROM points WHERE path IS NULL)"
         ),
         1,
         "只有笔记有正文"

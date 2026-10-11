@@ -5,8 +5,8 @@
 //! 所以老用例在**测试侧**把这条默认筛选追加进去(见 [`with_note_domain`]),
 //! 结果集收窄用 [`is_note`](树外实体 = `path IS NULL`)。
 //!
-//! 直接对 `entities`/`edges` 写 SQL 的用例不需要本模块:树内实体 = `path IS NOT NULL`,
-//! 树外实体(笔记)= `path IS NULL`,正文/名字 = `meta`,引用边一律 `edges.kind = 'link'`。
+//! 直接对 `points`/`lines` 写 SQL 的用例不需要本模块:树内点 = `path IS NOT NULL`,
+//! 树外点(笔记)= `path IS NULL`,正文/名字 = `meta`,引用线一律无名字线(`name_id IS NULL`)。
 use crate::db::repos::notes::notes_filter::FilterConditions;
 use crate::db::repos::notes::notes_filter_groups::{FilterGroup, GroupItem};
 use rusqlite::Connection;
@@ -31,6 +31,6 @@ pub(crate) fn with_note_domain(mut c: FilterConditions) -> FilterConditions {
 /// 老用例口径的「笔记域」:统一元数据后 `query` 的域是全实体(spec §4.1),
 /// 这些用例关心的是树外实体(老 `kind='note'`),在测试侧就地收窄。
 pub(crate) fn is_note(conn: &Connection, id: i64) -> bool {
-    conn.query_row("SELECT path IS NULL FROM entities WHERE id = ?1", [id], |r| r.get(0))
+    conn.query_row("SELECT path IS NULL FROM points WHERE id = ?1", [id], |r| r.get(0))
         .unwrap_or(false)
 }

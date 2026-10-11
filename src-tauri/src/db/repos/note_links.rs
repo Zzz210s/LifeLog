@@ -93,23 +93,23 @@ pub(crate) fn resolve_titles(
     Ok(out)
 }
 
-/// 以 id 集合整体替换来源的全部 `link` 边(删多余、补缺失,`UNIQUE` 去重),收尾回收孤儿。
+/// 以 id 集合整体替换来源的全部**无名字线**(删多余、补缺失,唯一索引去重),收尾回收孤儿。
 /// 标签(`#X`)与链接(`[[X]]`)的目标由调用方求并集后从这里一次落库 ——
-/// 二者同一种边,分两次替换会互相抹掉。
+/// 二者同一种线,分两次替换会互相抹掉。
 pub(crate) fn replace_ids(
     conn: &Connection,
     source_id: i64,
     ids: &[i64],
 ) -> rusqlite::Result<usize> {
     conn.execute(
-        "DELETE FROM edges WHERE kind = 'link' AND source_id = ?1",
+        "DELETE FROM lines WHERE from_id = ?1 AND name_id IS NULL",
         params![source_id],
     )?;
     let mut written = 0usize;
     for t in ids {
         written += conn.execute(
-            "INSERT OR IGNORE INTO edges(source_id, target_id, kind, remark, created_at)
-             VALUES(?1, ?2, 'link', '', datetime('now','localtime'))",
+            "INSERT OR IGNORE INTO lines(from_id, to_id, name_id, created_at)
+             VALUES(?1, ?2, NULL, datetime('now','localtime'))",
             params![source_id, t],
         )?;
     }
@@ -120,7 +120,7 @@ pub(crate) fn replace_ids(
 /// 替换一条来源的全部链接(替换语义,只按正文里的 `[[ ]]` 标题解析)。
 /// 生产保存路径已改走 [`replace_ids`](并入标签目标),此入口只剩 note_links 单测在用。
 ///
-/// 返回**解析成功**(`edges` 落边)的条数。
+/// 返回**解析成功**(`lines` 落线)的条数。
 #[cfg(test)]
 pub fn replace(conn: &Connection, source_id: i64, titles: &[String]) -> rusqlite::Result<usize> {
     let ids = resolve_titles(conn, source_id, titles)?;

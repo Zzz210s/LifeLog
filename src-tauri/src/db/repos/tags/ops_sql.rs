@@ -1,7 +1,7 @@
 //! 标签树结构变更的底层动作(自 tags_tree_ops.rs 拆出以守 200 行上限):
 //! 结构操作所需的最小行读取、同级重名校验、子树 path/depth 重写、父子边重挂。
-//! T4.1 起标签行是 `entities` 里的树内实体(`path IS NOT NULL`),树真源是 `edges(kind='child')`;
-//! 028 起无 `name` 列,显示名统一取 `entity_name(meta)`。
+//! T4.1 起标签行是 `points` 里的树内点(`path IS NOT NULL`),树真源是**子级线**
+//! `lines(name_id = 0)`(v31,spec §3);028 起无 `name` 列,显示名统一取 `entity_name(meta)`。
 //! 全部函数式(接收 `&Connection`),事务由调用方(tags_tree_ops)打开。
 use rusqlite::{params, Connection, OptionalExtension};
 
@@ -18,7 +18,7 @@ pub(crate) struct Node {
 /// 读取单个标签行;不存在时报中文错(界面直接展示)
 pub(crate) fn load(conn: &Connection, tag_id: i64) -> Result<Node, String> {
     conn.query_row(
-        "SELECT entity_name(meta), parent_id, path, depth FROM entities \
+        "SELECT entity_name(meta), parent_id, path, depth FROM points \
          WHERE id = ?1 AND path IS NOT NULL",
         params![tag_id],
         |r| {
@@ -45,7 +45,7 @@ pub(crate) fn ensure_sibling_free(
 ) -> Result<(), String> {
     let n: i64 = conn
         .query_row(
-            "SELECT COUNT(*) FROM entities
+            "SELECT COUNT(*) FROM points
              WHERE path IS NOT NULL AND COALESCE(parent_id, 0) = COALESCE(?1, 0)
                AND entity_key(meta) = entity_key(?2) AND id <> ?3",
             params![parent, name, id],
@@ -62,7 +62,7 @@ pub(crate) fn ensure_sibling_free(
 /// 不用 LIKE(名称可能含 %) —— substr 比较前缀、substr 截取剩余段。
 pub(crate) fn rewrite_subtree_paths(conn: &Connection, old: &str, new: &str) -> rusqlite::Result<()> {
     conn.execute(
-        "UPDATE entities SET path = ?2 || substr(path, length(?1) + 1)
+        "UPDATE points SET path = ?2 || substr(path, length(?1) + 1)
          WHERE path IS NOT NULL AND (
            path = ?1
            OR (length(path) > length(?1) AND substr(path, 1, length(?1) + 1) = ?1 || '/'))",
@@ -78,21 +78,21 @@ pub(crate) fn shift_subtree_depths(conn: &Connection, tag_id: i64, delta: i64) -
     }
     conn.execute(
         "WITH RECURSIVE sub(id) AS (
-           SELECT id FROM entities WHERE parent_id = ?1
-           UNION ALL SELECT t.id FROM entities t JOIN sub s ON t.parent_id = s.id
-         ) UPDATE entities SET depth = depth + ?2 WHERE id IN (SELECT id FROM sub)",
+           SELECT id FROM points WHERE parent_id = ?1
+           UNION ALL SELECT t.id FROM points t JOIN sub s ON t.parent_id = s.id
+         ) UPDATE points SET depth = depth + ?2 WHERE id IN (SELECT id FROM sub)",
         params![tag_id, delta],
     )?;
     Ok(())
 }
 
-/// 重挂标签的父指针边:先断开旧的入 child 边,再按新父建(新父为 None 只断不建)
+/// 重挂点的父指针子级线:先断开旧的入子级线,再按新父建(新父为 None 只断不建)
 pub(crate) fn repoint_child(
     conn: &Connection,
     child_id: i64,
     parent: Option<i64>,
 ) -> rusqlite::Result<()> {
-    conn.execute("DELETE FROM edges WHERE kind = 'child' AND target_id = ?1", params![child_id])?;
+    conn.execute("DELETE FROM lines WHERE name_id = 0 AND to_id = ?1", params![child_id])?;
     if let Some(p) = parent {
         link_child(conn, p, child_id)?;
     }
@@ -117,7 +117,7 @@ pub(crate) fn apply_sibling_order(
 ) -> Result<(), String> {
     let mut stmt = conn
         .prepare(
-            "SELECT id FROM entities
+            "SELECT id FROM points
              WHERE path IS NOT NULL AND COALESCE(parent_id, 0) = COALESCE(?1, 0) AND id <> ?2
              ORDER BY sort_order, path",
         )
@@ -145,7 +145,7 @@ pub(crate) fn apply_sibling_order(
     ordered.insert(idx.min(ordered.len()), tag_id);
     for (i, id) in ordered.iter().enumerate() {
         conn.execute(
-            "UPDATE entities SET sort_order = ?2 WHERE id = ?1 AND path IS NOT NULL",
+            "UPDATE points SET sort_order = ?2 WHERE id = ?1 AND path IS NOT NULL",
             params![id, i as i64],
         )
         .map_err(|e| e.to_string())?;

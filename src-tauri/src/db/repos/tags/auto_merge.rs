@@ -38,7 +38,7 @@ pub(crate) fn write_merge_log(
 ) -> Result<(), String> {
     let kids: Vec<i64> = {
         let mut stmt = conn
-            .prepare("SELECT id FROM entities WHERE parent_id = ?1 ORDER BY id")
+            .prepare("SELECT id FROM points WHERE parent_id = ?1 ORDER BY id")
             .map_err(|e| e.to_string())?;
         let rows = stmt.query_map(params![source_id], |r| r.get(0)).map_err(|e| e.to_string())?;
         rows.collect::<rusqlite::Result<Vec<_>>>().map_err(|e| e.to_string())?
@@ -46,13 +46,14 @@ pub(crate) fn write_merge_log(
     let note_links = note_links_of_subtree(conn, source_id)?;
     let edges: i64 = conn
         .query_row(
-            "SELECT COUNT(*) FROM edges WHERE kind='link' AND (source_id=?1 OR target_id=?1)",
+            "SELECT COUNT(*) FROM lines WHERE (name_id IS NULL OR name_id <> 0)
+               AND (from_id = ?1 OR to_id = ?1)",
             params![source_id],
             |r| r.get(0),
         )
         .map_err(|e| e.to_string())?;
     let meta_snapshot: String = conn
-        .query_row("SELECT meta FROM entities WHERE id = ?1", params![source_id], |r| r.get(0))
+        .query_row("SELECT meta FROM points WHERE id = ?1", params![source_id], |r| r.get(0))
         .map_err(|e| e.to_string())?;
     conn.execute(
         "INSERT INTO entity_merge_log(source_entity_id, target_entity_id, moved_child_ids, note_links, edges, meta_snapshot)
@@ -77,7 +78,7 @@ pub(crate) fn next_duplicate(conn: &Connection) -> Result<Option<(i64, i64)>, St
     let group = conn
         .query_row(
             "SELECT COALESCE(parent_id, 0), entity_key(meta), meta
-               FROM entities
+               FROM points
               WHERE is_cited = 1 AND instr(meta, char(10)) = 0
               GROUP BY 1, 2, 3 HAVING COUNT(*) > 1
               ORDER BY MIN(id) LIMIT 1",
@@ -91,7 +92,7 @@ pub(crate) fn next_duplicate(conn: &Connection) -> Result<Option<(i64, i64)>, St
     };
     let mut stmt = conn
         .prepare(
-            "SELECT id FROM entities
+            "SELECT id FROM points
               WHERE COALESCE(parent_id, 0) = ?1 AND entity_key(meta) = ?2 AND meta = ?3
                 AND is_cited = 1 AND instr(meta, char(10)) = 0
               ORDER BY id LIMIT 2",
@@ -112,7 +113,7 @@ fn note_links_of_subtree(conn: &Connection, tag_id: i64) -> Result<i64, String> 
     }
     let marks = vec!["?"; ids.len()].join(",");
     conn.query_row(
-        &format!("SELECT COUNT(*) FROM edges WHERE kind='link' AND target_id IN ({marks})"),
+        &format!("SELECT COUNT(*) FROM lines WHERE (name_id IS NULL OR name_id <> 0) AND to_id IN ({marks})"),
         rusqlite::params_from_iter(ids.iter()),
         |r| r.get(0),
     )

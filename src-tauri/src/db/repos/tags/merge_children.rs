@@ -28,16 +28,16 @@ pub(crate) fn attach_children(
     let (src_depth, src_path) = depth_path(conn, source_id)?;
     let (dst_depth, dst_path) = depth_path(conn, target_id)?;
     shift_descendant_depths(conn, source_id, dst_depth - src_depth)?;
-    // ③ 父子边整批改挂到目标(剩余子标签的入 child 边)
+    // ③ 父子线整批改挂到目标(剩余子点的入子级线)
     conn.execute(
-        "UPDATE edges SET source_id = ?2 WHERE kind = 'child' AND source_id = ?1",
+        "UPDATE lines SET from_id = ?2 WHERE name_id = 0 AND from_id = ?1",
         params![source_id, target_id],
     )
     .map_err(|e| e.to_string())?;
     // ④ 依次挂到目标末尾,保留彼此相对顺序
     let base: i64 = conn
         .query_row(
-            "SELECT COALESCE(MAX(sort_order), -1) + 1 FROM entities
+            "SELECT COALESCE(MAX(sort_order), -1) + 1 FROM points
              WHERE path IS NOT NULL AND parent_id = ?1",
             params![target_id],
             |r| r.get(0),
@@ -45,14 +45,14 @@ pub(crate) fn attach_children(
         .map_err(|e| e.to_string())?;
     for (i, cid) in remaining.iter().enumerate() {
         conn.execute(
-            "UPDATE entities SET parent_id = ?1, sort_order = ?2 WHERE id = ?3 AND path IS NOT NULL",
+            "UPDATE points SET parent_id = ?1, sort_order = ?2 WHERE id = ?3 AND path IS NOT NULL",
             params![target_id, base + i as i64, cid],
         )
         .map_err(|e| e.to_string())?;
     }
     // ⑤ 子树 path 前缀重写(只改后代,不含源自己 —— 源的 path 由调用方删除处理)
     conn.execute(
-        "UPDATE entities SET path = ?2 || substr(path, length(?1) + 1)
+        "UPDATE points SET path = ?2 || substr(path, length(?1) + 1)
          WHERE path IS NOT NULL
            AND length(path) > length(?1) AND substr(path, 1, length(?1) + 1) = ?1 || '/'",
         params![src_path, dst_path],
@@ -64,7 +64,7 @@ pub(crate) fn attach_children(
 fn child_rows(conn: &Connection, parent: i64) -> Result<Vec<(i64, String)>, String> {
     let mut stmt = conn
         .prepare(
-            "SELECT id, entity_name(meta) FROM entities WHERE path IS NOT NULL AND parent_id = ?1
+            "SELECT id, entity_name(meta) FROM points WHERE path IS NOT NULL AND parent_id = ?1
              ORDER BY sort_order, path",
         )
         .map_err(|e| e.to_string())?;
@@ -77,7 +77,7 @@ fn child_rows(conn: &Connection, parent: i64) -> Result<Vec<(i64, String)>, Stri
 fn child_ids(conn: &Connection, parent: i64) -> Result<Vec<i64>, String> {
     let mut stmt = conn
         .prepare(
-            "SELECT id FROM entities WHERE path IS NOT NULL AND parent_id = ?1
+            "SELECT id FROM points WHERE path IS NOT NULL AND parent_id = ?1
              ORDER BY sort_order, path",
         )
         .map_err(|e| e.to_string())?;
@@ -87,7 +87,7 @@ fn child_ids(conn: &Connection, parent: i64) -> Result<Vec<i64>, String> {
 
 fn depth_path(conn: &Connection, id: i64) -> Result<(i64, String), String> {
     conn.query_row(
-        "SELECT depth, path FROM entities WHERE id = ?1 AND path IS NOT NULL",
+        "SELECT depth, path FROM points WHERE id = ?1 AND path IS NOT NULL",
         params![id],
         |r| Ok((r.get(0)?, r.get(1)?)),
     )
@@ -100,9 +100,9 @@ fn shift_descendant_depths(conn: &Connection, tag_id: i64, delta: i64) -> Result
     }
     conn.execute(
         "WITH RECURSIVE sub(id) AS (
-           SELECT id FROM entities WHERE parent_id = ?1
-           UNION ALL SELECT t.id FROM entities t JOIN sub s ON t.parent_id = s.id
-         ) UPDATE entities SET depth = depth + ?2 WHERE id IN (SELECT id FROM sub)",
+           SELECT id FROM points WHERE parent_id = ?1
+           UNION ALL SELECT t.id FROM points t JOIN sub s ON t.parent_id = s.id
+         ) UPDATE points SET depth = depth + ?2 WHERE id IN (SELECT id FROM sub)",
         params![tag_id, delta],
     )
     .map_err(|e| e.to_string())?;

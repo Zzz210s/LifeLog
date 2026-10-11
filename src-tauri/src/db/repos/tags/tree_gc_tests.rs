@@ -1,5 +1,5 @@
-//! T1.4 孤儿回收新判据(无出边 且 无 `link` 入边,`child` 入边不算)与「拖入树补 `link`」。
-//! 夹具 = 全新库(`migrate::run` 到最新 v29),直接读写 `entities` / `edges`。
+//! T1.4 孤儿回收新判据(无出线 且 无**非子级线**入线,子级线不算)与「拖入树补无名字线」。
+//! 夹具 = 全新库(`migrate::run` 到最新 v31),直接读写 `points` / `lines`。
 use super::*;
 use crate::db::migrate;
 use rusqlite::{params, Connection};
@@ -13,7 +13,7 @@ fn db() -> Connection {
 fn ent(c: &Connection, id: i64, meta: &str, cited: i64, path: Option<&str>) {
     let depth = path.map(|p| p.matches('/').count() as i64 + 1);
     c.execute(
-        "INSERT INTO entities(id, meta, is_cited, created_at, parent_id, path, depth)
+        "INSERT INTO points(id, meta, is_cited, created_at, parent_id, path, depth)
          VALUES(?1, ?2, ?3, '2026-01-01T00:00:00.000', NULL, ?4, ?5)",
         params![id, meta, cited, path, depth],
     )
@@ -21,10 +21,11 @@ fn ent(c: &Connection, id: i64, meta: &str, cited: i64, path: Option<&str>) {
 }
 
 fn edge(c: &Connection, source: i64, target: i64, kind: &str) {
+    let name_id: Option<i64> = if kind == "child" { Some(0) } else { None };
     c.execute(
-        "INSERT INTO edges(source_id, target_id, kind, remark, created_at)
-         VALUES(?1, ?2, ?3, '', '2026-01-01T00:00:00.000')",
-        params![source, target, kind],
+        "INSERT INTO lines(from_id, to_id, name_id, created_at)
+         VALUES(?1, ?2, ?3, '2026-01-01T00:00:00.000')",
+        params![source, target, name_id],
     )
     .unwrap();
 }
@@ -38,13 +39,13 @@ fn count(c: &Connection, sql: &str) -> i64 {
     c.query_row(sql, [], |r| r.get(0)).unwrap()
 }
 
-/// 老判据(入边 `y.kind <> 'child'`)与新判据(`y.kind = 'link'`)在 v28 上等价。
-const OLD_SET: &str = "SELECT id FROM entities WHERE path IS NOT NULL
-   AND NOT EXISTS(SELECT 1 FROM edges x WHERE x.source_id = entities.id)
-   AND NOT EXISTS(SELECT 1 FROM edges y WHERE y.target_id = entities.id AND y.kind <> 'child')";
-const NEW_SET: &str = "SELECT id FROM entities WHERE path IS NOT NULL
-   AND NOT EXISTS(SELECT 1 FROM edges x WHERE x.source_id = entities.id)
-   AND NOT EXISTS(SELECT 1 FROM edges y WHERE y.target_id = entities.id AND y.kind = 'link')";
+/// 老判据(入线不是子级线)与新判据(入无名字线)在只存在子级线/无名字线的库上等价。
+const OLD_SET: &str = "SELECT id FROM points WHERE path IS NOT NULL
+   AND NOT EXISTS(SELECT 1 FROM lines x WHERE x.from_id = points.id)
+   AND NOT EXISTS(SELECT 1 FROM lines y WHERE y.to_id = points.id AND (y.name_id IS NULL OR y.name_id <> 0))";
+const NEW_SET: &str = "SELECT id FROM points WHERE path IS NOT NULL
+   AND NOT EXISTS(SELECT 1 FROM lines x WHERE x.from_id = points.id)
+   AND NOT EXISTS(SELECT 1 FROM lines y WHERE y.to_id = points.id AND y.name_id IS NULL)";
 
 #[test]
 fn gc_predicate_equals_legacy_kind_not_child() {
@@ -58,8 +59,8 @@ fn gc_predicate_equals_legacy_kind_not_child() {
     let mut new = ids(&c, NEW_SET);
     old.sort_unstable();
     new.sort_unstable();
-    assert_eq!(old, new, "只剩 child/link 两种 kind 后两条入边判据等价");
-    assert_eq!(new, Vec::<i64>::new(), "2 有 link 入边、3 有出边,都不是孤儿");
+    assert_eq!(old, new, "只剩子级线/无名字线两种形态后两条入线判据等价");
+    assert_eq!(new, Vec::<i64>::new(), "2 有无名字线入线、3 有出线,都不是孤儿");
 }
 
 #[test]
@@ -81,11 +82,11 @@ fn gc_collects_dead_chain_layer_by_layer() {
     ent(&c, 12, "笔记2", 0, None);
     edge(&c, 12, 11, "link");
 
-    c.execute("DELETE FROM entities WHERE id = 5", []).unwrap();
+    c.execute("DELETE FROM points WHERE id = 5", []).unwrap();
     gc_orphans(&c).unwrap();
 
-    assert_eq!(ids(&c, "SELECT id FROM entities WHERE id IN (1,2,3,4)"), Vec::<i64>::new(), "死链逐层回收");
-    assert_eq!(ids(&c, "SELECT id FROM entities WHERE id IN (10,11,12) ORDER BY id"), vec![10, 11, 12]);
+    assert_eq!(ids(&c, "SELECT id FROM points WHERE id IN (1,2,3,4)"), Vec::<i64>::new(), "死链逐层回收");
+    assert_eq!(ids(&c, "SELECT id FROM points WHERE id IN (10,11,12) ORDER BY id"), vec![10, 11, 12]);
 }
 
 #[test]
@@ -94,15 +95,15 @@ fn drop_into_tree_adds_child_and_link_then_removal_clears_cited() {
     ent(&c, 1, "工作", 0, Some("工作"));
     ent(&c, 20, "待归档笔记", 0, None);
     crate::db::repos::tags::write::drop_into_tree(&c, 1, 20).unwrap();
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM edges WHERE source_id=1 AND target_id=20 AND kind='child'"), 1);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM edges WHERE source_id=1 AND target_id=20 AND kind='link'"), 1);
-    assert_eq!(count(&c, "SELECT is_cited FROM entities WHERE id=20"), 1, "被放置 = 被引用");
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM lines WHERE from_id=1 AND to_id=20 AND name_id=0"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM lines WHERE from_id=1 AND to_id=20 AND name_id IS NULL"), 1);
+    assert_eq!(count(&c, "SELECT is_cited FROM points WHERE id=20"), 1, "被放置 = 被引用");
 
-    c.execute("DELETE FROM edges WHERE source_id=1 AND target_id=20 AND kind='link'", []).unwrap();
+    c.execute("DELETE FROM lines WHERE from_id=1 AND to_id=20 AND name_id IS NULL", []).unwrap();
     crate::db::repos::entities::closure::sync_is_cited(&c, 20).unwrap();
-    assert_eq!(count(&c, "SELECT is_cited FROM entities WHERE id=20"), 0, "从树移除后回 0");
+    assert_eq!(count(&c, "SELECT is_cited FROM points WHERE id=20"), 0, "从树移除后回 0");
     assert_eq!(
-        c.query_row("SELECT meta FROM entities WHERE id=20", [], |r| r.get::<_, String>(0)).unwrap(),
+        c.query_row("SELECT meta FROM points WHERE id=20", [], |r| r.get::<_, String>(0)).unwrap(),
         "待归档笔记",
         "meta 保留"
     );

@@ -21,7 +21,7 @@ fn existing_id(conn: &Connection, path: &str) -> rusqlite::Result<Option<i64>> {
     for seg in &segs {
         let next: Option<i64> = conn
             .query_row(
-                "SELECT id FROM entities WHERE path IS NOT NULL
+                "SELECT id FROM points WHERE path IS NOT NULL
                    AND parent_id IS ?1 AND entity_name(meta) = ?2
                  ORDER BY id LIMIT 1",
                 params![parent, seg],

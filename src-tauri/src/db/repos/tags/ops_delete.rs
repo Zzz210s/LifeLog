@@ -18,17 +18,17 @@ pub fn delete_subtree(conn: &mut Connection, tag_id: i64) -> Result<(), String> 
     let mut args = ids.clone();
     args.extend_from_slice(&ids);
     tx.execute(
-        &format!("DELETE FROM edges WHERE source_id IN ({marks}) OR target_id IN ({marks})"),
+        &format!("DELETE FROM lines WHERE from_id IN ({marks}) OR to_id IN ({marks})"),
         rusqlite::params_from_iter(args.iter()),
     )
     .map_err(|e| e.to_string())?;
     // 删除标签**不**重写 filter_current 条件(S7):已删路径自然筛不出笔记,由用户自行调整。
     tx.execute(
-        &format!("DELETE FROM entities WHERE id IN ({marks})"),
+        &format!("DELETE FROM points WHERE id IN ({marks})"),
         rusqlite::params_from_iter(ids.iter()),
     )
     .map_err(|e| e.to_string())?;
-    // 实体行已删:实体的 FTS 行由 026/027 的 entities_ad 触发器清理
+    // 点行已删:点的 FTS 行由 031 的 points_ad 触发器清理
     finish(&tx, PostWrite { entities: &[], path_change: None, gc: true })
         .map_err(|e| e.to_string())?;
     tx.commit().map_err(|e| e.to_string())

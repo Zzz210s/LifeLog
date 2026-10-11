@@ -6,6 +6,6 @@ use rusqlite::Connection;
 
 /// 下一个实体 id:全表 `MAX(id)+1`;空库时从 1 起。
 pub fn next_entity_id(conn: &Connection) -> rusqlite::Result<i64> {
-    let max: Option<i64> = conn.query_row("SELECT MAX(id) FROM entities", [], |r| r.get(0))?;
+    let max: Option<i64> = conn.query_row("SELECT MAX(id) FROM points", [], |r| r.get(0))?;
     Ok(max.map(|m| m + 1).unwrap_or(1))
 }

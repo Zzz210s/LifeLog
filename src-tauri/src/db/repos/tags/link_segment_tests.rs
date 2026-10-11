@@ -1,6 +1,6 @@
 //! `#X` 逐段寻址(spec 2026-10-08 §5.1 / P3 / P5):沿 `parent_id` 逐段比较
 //! `entity_name(meta)`(**不读 `path`**),同父同名取 id 最小;`path` 只是显示缓存,
-//! 名字含 `/` 时不可作寻址依据。用例直接摆 `entities` 行,以造出 `ensure_path` 不会产生的场面。
+//! 名字含 `/` 时不可作寻址依据。用例直接摆 `points` 行,以造出 `ensure_path` 不会产生的场面。
 use super::*;
 use crate::db::migrate;
 use rusqlite::{params, Connection};
@@ -14,15 +14,15 @@ fn db() -> Connection {
 /// 直接摆一行树内实体(绕过 ensure_path:同父同名 / path 缓存不对等场面只有手摆得到)
 fn insert(c: &Connection, id: i64, name: &str, parent: Option<i64>, path: &str, depth: i64) {
     c.execute(
-        "INSERT INTO entities(id, meta, parent_id, path, depth, created_at)
+        "INSERT INTO points(id, meta, parent_id, path, depth, created_at)
          VALUES(?1, ?2, ?3, ?4, ?5, datetime('now','localtime'))",
         params![id, name, parent, path, depth],
     )
     .unwrap();
     if let Some(p) = parent {
         c.execute(
-            "INSERT INTO edges(source_id, target_id, kind, remark, created_at)
-             VALUES(?1, ?2, 'child', '', datetime('now','localtime'))",
+            "INSERT INTO lines(from_id, to_id, name_id, created_at)
+             VALUES(?1, ?2, 0, datetime('now','localtime'))",
             params![p, id],
         )
         .unwrap();
@@ -81,7 +81,7 @@ fn phantom_level_does_not_capture_path() {
 fn notes_outside_tree_are_not_addressable() {
     let c = db();
     c.execute(
-        "INSERT INTO entities(id, meta, created_at) VALUES(61, 'a', datetime('now','localtime'))",
+        "INSERT INTO points(id, meta, created_at) VALUES(61, 'a', datetime('now','localtime'))",
         [],
     )
     .unwrap();

@@ -3,9 +3,9 @@
 //! 曾经服务于待办的「按既有 tag_id 绕开校验」入口(resolve_id)已随命令一并删除。
 
 /// 按 id 集合替换笔记的引用(增量:只删多余的、只补缺失的),收尾精确回收孤儿。
-/// FTS 重写由 `edges_ai`/`edges_ad` 触发器负责(本函数只动 `edges`)。
-/// 统一元数据(v28)后目标边都是 `link`,本函数只用于标签路径解析后的落库(标签们);
-/// 笔记保存路径的「标签 + 链接并集」由 `note_links::replace_ids` 一次完成。
+/// FTS 重写由 `lines_ai`/`lines_ad` 触发器负责(本函数只动 `lines`)。
+/// 统一元数据(v28)后目标线都是**无名字线**(`name_id IS NULL`),本函数只用于标签路径解析后的
+/// 落库(标签们);笔记保存路径的「标签 + 链接并集」由 `note_links::replace_ids` 一次完成。
 /// 唯一调用方是 §测试专用§ 的 `link_paths`,故随之一并入 `cfg(test)`。
 #[cfg(test)]
 pub(crate) fn replace_links(
@@ -18,7 +18,7 @@ pub(crate) fn replace_links(
     use super::{gc_orphans, link_note};
     let existing: Vec<i64> = {
         let mut stmt = conn.prepare(
-            "SELECT target_id FROM edges WHERE kind = 'link' AND source_id = ?1",
+            "SELECT to_id FROM lines WHERE name_id IS NULL AND from_id = ?1",
         )?;
         let rows = stmt.query_map(params![note_id], |r| r.get(0))?;
         rows.collect::<rusqlite::Result<Vec<i64>>>()?
@@ -26,7 +26,7 @@ pub(crate) fn replace_links(
     for tid in &existing {
         if !ids.contains(tid) {
             conn.execute(
-                "DELETE FROM edges WHERE kind = 'link' AND source_id = ?2 AND target_id = ?1",
+                "DELETE FROM lines WHERE name_id IS NULL AND from_id = ?2 AND to_id = ?1",
                 params![tid, note_id],
             )?;
         }

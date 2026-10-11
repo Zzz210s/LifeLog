@@ -7,7 +7,7 @@
 //! 路径 -> id 的解析漏斗与链接替换已拆到 link.rs(replace::replace_links),本文件只留树本身。
 use rusqlite::{params, Connection};
 
-use crate::db::repos::entities::fts::ENTITIES_AGG;
+use crate::db::repos::entities::fts::refresh_points_fts;
 
 /// 前缀补全返回上限:前缀过短时不一次吐全库
 const COMPLETE_LIMIT: i64 = 50;
@@ -43,48 +43,39 @@ pub(crate) fn linked_notes(conn: &Connection, tag_ids: &[i64]) -> rusqlite::Resu
     rows.collect()
 }
 
-/// `entities_fts` 的显式重写:结构变更(改名/移动/删除/合并)后按受影响实体 id 重写。
-/// 聚合口径真源 = [`ENTITIES_AGG`](每实体统一求值:自身段 + 出 `link` 边目标段,spec §6.2)。
+/// `points_fts` 的显式重写:结构变更(改名/移动/删除/合并)后按受影响点 id 重写。
+/// 聚合口径真源 = [`crate::db::repos::entities::fts::POINTS_AGG`](视图 `points_fts_src`,
+/// 每点统一求值:自身段 + 出**非子级线**目标段,spec §6.2)。
 pub(crate) fn refresh_entities_fts(conn: &Connection, entity_ids: &[i64]) -> rusqlite::Result<()> {
-    for id in entity_ids {
-        conn.execute("DELETE FROM entities_fts WHERE rowid = ?1", params![id])?;
-        conn.execute(
-            &format!(
-                "INSERT INTO entities_fts(rowid, meta, paths)
-                 SELECT e.id, e.meta, {ENTITIES_AGG} FROM entities e WHERE e.id = ?1"
-            ),
-            params![id],
-        )?;
-    }
-    Ok(())
+    refresh_points_fts(conn, entity_ids)
 }
 
-/// 链接笔记到标签(幂等)。方向 = 引用方 -> 被引用方(spec §2.3),同向同类边由唯一约束去重。
+/// 链接笔记到标签(幂等)。方向 = 引用方 -> 被引用方(spec §2.3),同向同类线由唯一索引去重。
 /// 生产保存路径改走 `note_links::replace_ids`,此处仅剩 `tags::replace::replace_links`(测试专用)在用。
 #[cfg(test)]
 pub fn link_note(conn: &Connection, note_id: i64, tag_id: i64) -> rusqlite::Result<()> {
     conn.execute(
-        "INSERT OR IGNORE INTO edges(source_id, target_id, kind, remark, created_at)
-         VALUES(?1, ?2, 'link', '', datetime('now', 'localtime'))",
+        "INSERT OR IGNORE INTO lines(from_id, to_id, name_id, created_at)
+         VALUES(?1, ?2, NULL, datetime('now', 'localtime'))",
         params![note_id, tag_id],
     )?;
     crate::db::repos::entities::closure::sync_is_cited(conn, tag_id)
 }
 
-/// 精确回收孤儿:既无出边、又无 `link` 入边才回收(循环删除,链有多长就循环多少次)。
-/// `child` 入边是结构边,不算引用(spec §3.1 / §3.2):有父不是「有用」,
+/// 精确回收孤儿:既无出线、又无**非子级线**入线才回收(循环删除,链有多长就循环多少次)。
+/// 子级线是结构线,不算引用(spec §3.1 / §3.2):有父不是「有用」,
 /// 这样 `时间/2026/10/08` 的引用者全删后整条死链能逐层回收。
 /// `path IS NOT NULL` 是 ≤ v27 `kind='tag'` 的等价选择器(spec §2.5),保证只碰树内空壳,
-/// 不误删树外笔记实体。
+/// 不误删树外笔记点(也不碰保留点 `子级`,它 `path IS NULL`)。
 pub(crate) fn gc_orphans(conn: &Connection) -> rusqlite::Result<()> {
     loop {
         let n = conn.execute(
-            "DELETE FROM entities
+            "DELETE FROM points
              WHERE path IS NOT NULL
-               AND NOT EXISTS (SELECT 1 FROM edges x WHERE x.source_id = entities.id)
+               AND NOT EXISTS (SELECT 1 FROM lines x WHERE x.from_id = points.id)
                AND NOT EXISTS (
-                 SELECT 1 FROM edges y
-                 WHERE y.target_id = entities.id AND y.kind = 'link')",
+                 SELECT 1 FROM lines y
+                 WHERE y.to_id = points.id AND (y.name_id IS NULL OR y.name_id <> 0))",
             [],
         )?;
         if n == 0 {
