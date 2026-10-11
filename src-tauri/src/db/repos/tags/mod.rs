@@ -3,12 +3,14 @@
 //! 门面导出:子模块的公开项都经 `pub use ...::*` 上浮,调用方写短路径即可,例如
 //! `crate::db::repos::tags::link_paths`、`tags::merge_tags`、`tags::set_tag_relation`、`tags::resolve`、`tags::finish`。
 //! **撞名项:当前无** —— 子模块没有任何同名导出,故全部走 glob 门面。
+//! line_name 的读点/建线/改名/删线自 T3.2 起上浮,命令层写短路径即可。
 //! tree 自身的内部子模块(ensure / path / replace / query / ops / ops_sql / order_support /
 //! similar)仍挂在 tree 下:要按子模块显式指路时写 `crate::db::repos::tags::tree::<项>`
 //! (例如测试用的 `tags::tree::counts`),这些子模块不单独上浮到 tags 命名空间。
 pub mod alias;
 pub mod auto_merge;
 pub mod facts;
+pub mod line_name;
 pub mod merge;
 pub(crate) mod merge_children;
 pub(crate) mod merge_edges;
@@ -47,6 +49,7 @@ mod fts_tag_plain_tests;
 
 pub use alias::*;
 pub use facts::*;
+pub use line_name::*;
 pub use merge::*;
 pub use relation::*;
 pub use tree::*;

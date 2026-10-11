@@ -31,6 +31,16 @@ fn line_name(c: &Connection, from: i64, to: i64) -> String {
     .unwrap()
 }
 
+/// 该名字文本在库里建了几个点(逐字节等值)
+fn name_points(c: &Connection, meta: &str) -> i64 {
+    c.query_row(
+        "SELECT COUNT(*) FROM points WHERE meta = ?1 AND path IS NULL",
+        rusqlite::params![meta],
+        |r| r.get(0),
+    )
+    .unwrap()
+}
+
 /// ① 写入的名字落在线指向的名字点上,逐标签读数原样返回
 #[test]
 fn set_relation_stores_name_on_the_line() {
@@ -48,7 +58,7 @@ fn set_relation_stores_name_on_the_line() {
     assert_eq!(out[0].path, "地点轴/日本");
 }
 
-/// ② 改名字只改线的 name_id,不增线(表达式唯一索引仍按 (from,to,名字) 去重)
+/// ② 改名字只改线的 name_id,不增线(同一条线换名字 = 换 name_id,spec §3.2)
 #[test]
 fn set_relation_updates_name_without_adding_lines() {
     let mut c = db();
@@ -71,7 +81,8 @@ fn set_relation_updates_name_without_adding_lines() {
     assert_eq!(list_tag_relations(&c, a).unwrap()[0].name_text, "出生地");
 }
 
-/// ③ 空名字合法(R12):线回无名字线,`nameId` 为 null、`nameText` 为空串
+/// ③ 空名字合法(R12):线回无名字线,`nameId` 为 null、`nameText` 为空串;
+/// 先命名再清空走同一条路径,旧名字点随即不再被任何线引用(T3.3 的 GC 输入)
 #[test]
 fn empty_name_makes_an_unnamed_line() {
     let mut c = db();
@@ -83,10 +94,19 @@ fn empty_name_makes_an_unnamed_line() {
     let out = list_tag_relations(&c, a).unwrap();
     assert_eq!(out[0].name_id, None, "空名字 = 无名字线");
     assert_eq!(out[0].name_text, "");
-    // 先写名字再清空也走同一条 upsert
+
     set_tag_relation(&mut c, a, b, "国籍").unwrap();
+    assert!(list_tag_relations(&c, a).unwrap()[0].name_id.is_some());
     set_tag_relation(&mut c, a, b, "").unwrap();
-    assert_eq!(list_tag_relations(&c, a).unwrap()[0].name_id, None);
+    assert_eq!(list_tag_relations(&c, a).unwrap()[0].name_id, None, "清空名字 = name_id 回 NULL");
+    let refs: i64 = c
+        .query_row(
+            "SELECT COUNT(*) FROM lines WHERE name_id = (SELECT id FROM points WHERE meta='国籍')",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(refs, 0, "旧名字点已无引用,等待 GC");
 }
 
 /// ④ 名字来自名字点,**不**取目标标签名字里的 md 备注。
@@ -121,6 +141,20 @@ fn tag_facts_carry_line_names() {
     assert_eq!(names, vec!["出生地", "国籍"], "按目标路径升序,各自带自己的名字");
 }
 
+/// ⑥ 名字的变更不影响关系语义:入线计数不因名字改变
+#[test]
+fn line_name_does_not_change_relation_semantics() {
+    let mut c = db();
+    let author = ensure(&c, "作者/丸尾常喜");
+    let japan = ensure(&c, "地点轴/日本");
+    set_tag_relation(&mut c, author, japan, "国籍").unwrap();
+    let before = count_relations_to(&c, japan).unwrap();
+    set_tag_relation(&mut c, author, japan, "出生地").unwrap();
+
+    assert_eq!(count_relations_to(&c, japan).unwrap(), before, "入线计数与名字无关");
+    assert_eq!(list_tag_relations(&c, japan).unwrap().len(), 0, "名字不造出新线");
+}
+
 /// ⑦ 合并标签时名字跟着线一起搬(`merge_edges::union_edges` 逐线带 name_id)
 #[test]
 fn merge_moves_line_name() {
@@ -136,16 +170,23 @@ fn merge_moves_line_name() {
     assert_eq!(list_tag_relations(&c, dst).unwrap()[0].name_text, "国籍");
 }
 
-/// ⑥ 名字的变更不影响关系语义:入线计数不因名字改变
+/// ⑧ **逐字节**匹配名字点(spec §14 P10):近名不同字不折叠;`entity_key` 会折叠的
+/// ASCII 大小写差异也不折叠。判别力:把 `meta` 精确匹配改成 `entity_key(meta)` 折叠匹配,
+/// 本用例立即红(GuoJi / guoji 会被并成一个点)。
 #[test]
-fn line_name_does_not_change_relation_semantics() {
+fn name_point_match_is_byte_exact_not_folded() {
     let mut c = db();
-    let author = ensure(&c, "作者/丸尾常喜");
-    let japan = ensure(&c, "地点轴/日本");
-    set_tag_relation(&mut c, author, japan, "国籍").unwrap();
-    let before = count_relations_to(&c, japan).unwrap();
-    set_tag_relation(&mut c, author, japan, "出生地").unwrap();
+    let a = ensure(&c, "甲");
+    let b = ensure(&c, "乙");
+    let d = ensure(&c, "丙");
+    let e = ensure(&c, "丁");
+    set_tag_relation(&mut c, a, b, "国籍").unwrap();
+    set_tag_relation(&mut c, a, d, "国别").unwrap();
+    assert_eq!(name_points(&c, "国籍"), 1);
+    assert_eq!(name_points(&c, "国别"), 1, "近名不同字不得折叠");
 
-    assert_eq!(count_relations_to(&c, japan).unwrap(), before, "入线计数与名字无关");
-    assert_eq!(list_tag_relations(&c, japan).unwrap().len(), 0, "名字不造出新线");
+    set_tag_relation(&mut c, e, b, "GuoJi").unwrap();
+    set_tag_relation(&mut c, e, d, "guoji").unwrap();
+    assert_eq!(name_points(&c, "GuoJi"), 1);
+    assert_eq!(name_points(&c, "guoji"), 1, "逐字节匹配:guoji 不折叠到 GuoJi");
 }

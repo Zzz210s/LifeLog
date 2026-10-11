@@ -15,8 +15,8 @@ pub struct TagImpact {
     pub carriers: i64,
 }
 
-/// 取库连接并转调:锁中毒等基础设施错误统一转字符串
-fn with_conn<T>(
+/// 取库连接并转调:锁中毒等基础设施错误统一转字符串(关系写命令在 tags_relation.rs,复用本函数)
+pub(super) fn with_conn<T>(
     app: &AppHandle,
     f: impl FnOnce(&mut rusqlite::Connection) -> Result<T, String>,
 ) -> Result<T, String> {
@@ -124,26 +124,7 @@ pub fn remove_tag_alias(app: AppHandle, alias: String) -> Result<(), String> {
     with_conn(&app, |c| tags::remove(c, &alias).map_err(|e| e.to_string()))
 }
 
-/// 建立标签关系 A -> B(幂等):自指向 / 成环 / 标签不存在都给中文错且不写库。
-/// 任何标签都可被指向(设计 2026-10-06 R2:is_type 已取消)
-/// `remark` 是**边上**的属性名(可空 = 只声明有关系);已存在同向边时只改属性名,不增行。
-#[tauri::command]
-pub fn set_tag_relation(
-    app: AppHandle,
-    from_tag: i64,
-    to_tag: i64,
-    remark: String,
-) -> Result<(), String> {
-    with_conn(&app, |c| tags::set_tag_relation(c, from_tag, to_tag, &remark))
-}
-
-/// 移除标签关系 A -> B(幂等:不存在也算成功)
-#[tauri::command]
-pub fn remove_tag_relation(app: AppHandle, from_tag: i64, to_tag: i64) -> Result<(), String> {
-    with_conn(&app, |c| tags::remove_tag_relation(c, from_tag, to_tag))
-}
-
-/// 某标签的全部出边(A -> ?):每项含目标 id / 路径 / 末段名 / **边上的属性名**(仅显示用)
+/// 某标签的全部出边(A -> ?):每项含目标 id / 路径 / 末段名 / **线的名字点与文本**(仅显示用)
 #[tauri::command]
 pub fn list_tag_relations(app: AppHandle, from_tag: i64) -> Result<Vec<tags::RelationRef>, String> {
     with_conn(&app, |c| tags::list_tag_relations(c, from_tag).map_err(|e| e.to_string()))

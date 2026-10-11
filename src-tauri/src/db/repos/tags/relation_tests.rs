@@ -116,10 +116,10 @@ fn remove_relation_deletes_edge_and_is_idempotent() {
     let jia = ensure(&c, "甲");
     let yi = ensure(&c, "乙");
     set_tag_relation(&mut c, jia, yi, "").unwrap();
-    remove_tag_relation(&mut c, jia, yi).unwrap();
+    remove_tag_relation(&mut c, jia, yi, None).unwrap();
     assert_eq!(relation_edges(&c), 0);
     assert!(list_tag_relations(&c, jia).unwrap().is_empty());
-    remove_tag_relation(&mut c, jia, yi).unwrap(); // 幂等:再删一次不报错
+    remove_tag_relation(&mut c, jia, yi, None).unwrap(); // 幂等:再删一次不报错
     assert_eq!(relation_edges(&c), 0);
 }
 

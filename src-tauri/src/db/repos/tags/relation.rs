@@ -1,47 +1,39 @@
 //! 标签关系(relation)数据层(设计 2026-10-06 §2 §4):一条边取代「携带 / 类型 / 设为类型」三个概念。
 //!
-//! `edges(kind='link', source_id = A, target_id = B, remark = 属性名)` 读作
-//! 「A 具有「属性名」所表示的属性，值是 B」，如 `作者/丸尾常喜 --(国籍)--> 地点轴/日本`；
+//! `lines(from_id = A, to_id = B, name_id = 名字点)` 读作
+//! 「A 具有「名字」所表示的属性，值是 B」，如 `作者/丸尾常喜 --(国籍)--> 地点轴/日本`；
 //! 方向固定 A -> B；任何标签都可被指向（`tags.is_type` 已由迁移 022 取消）。
-//! 028 起关系的判别不再是 `kind` 而是**来源是树内实体**:老 `relation` 与 `tagging` 都并入 `link`,
-//! 树内来源(`path IS NOT NULL`)的 `link` 即关系,树外来源(笔记正文里的 `[[ ]]`)不算。
-//! 唯一约束 `(source_id, kind, target_id)` 天然去重，重复添加幂等。
-//! 两端有外键：删除标签时指向它的边由 `ON DELETE CASCADE` 清理。
+//! 028 起关系的判别不再是 `kind` 而是**来源是树内点**:树内来源(`path IS NOT NULL`)、
+//! 且不是子级线(`name_id` 非保留点 `子级`)的线即关系,树外来源(笔记正文里的 `[[ ]]`)不算。
+//! 唯一索引 `idx_lines_uniq(from_id, to_id, COALESCE(name_id, -1))` 天然去重，重复添加幂等。
+//! 两端有外键：删除标签时指向它的线由 `ON DELETE CASCADE` 清理。
 //!
 //! 语义口径（设计 §4，勿在此处自由发挥）:
 //! - 只查一跳，不传递：A→B、B→C ≠ A→C（R1）
 //! - 拒绝自指向与环：A→A、A→B→A、A→B→C→A 一律拒绝（R3）
-//! - 箭头上的属性名**存在边上**（`tag_links.remark`，迁移 023）：读作「A 具有「属性名」所表示的
-//!   属性，值是 B」，例如 `作者/丸尾常喜 --(国籍)--> 地点轴/日本`。同一个 `地点轴/日本`
-//!   可以既是「国籍」又是「出生地」，所以属性名不能借用目标标签自己名字里的 md 备注
-//!   （`[国籍](国别)` 那只驱动标签名的悬浮显示）。属性名只影响显示，不参与筛选 / FTS / 计数（R6）
+//! - 名字是**名字点**(`points.meta`，spec §6.4)：读作「A 具有「名字」所表示的属性，值是 B」。
+//!   同一个 `地点轴/日本` 可以既是「国籍」又是「出生地」(同对可并存多条同名线之外的名字线，P9)；
+//!   名字点匹配**逐字节** `meta`，不走 `entity_key` 折叠（P10）。名字只影响显示，
+//!   不参与筛选 / FTS / 计数（R6）
 use rusqlite::{params, Connection, OptionalExtension};
-use serde::Serialize;
 use std::collections::HashSet;
 
-/// 关系线一端(供菜单、侧栏与关系图信息条直读):目标点 id + 完整路径 + 末段名 + **线名**
-#[derive(Serialize, Debug, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct RelationRef {
-    pub to_tag_id: i64,
-    pub path: String,
-    pub name: String,
-    /// 线名点 id(`lines.name_id`;None = 无名字线)
-    pub name_id: Option<i64>,
-    /// 线名文本(名字点的 `meta`;无名字线为空串)
-    pub name_text: String,
-}
+#[path = "relation_read.rs"]
+mod relation_read;
+pub use relation_read::*;
 
 /// 关系链深度上限:正常标签体系远达不到，只在数据异常时兜底，避免环上死循环
 const MAX_RELATION_DEPTH: usize = 64;
 
-/// 建立关系 A → B(幂等)：校验两端存在 -> 拒绝自指向 -> 沿关系方向 DFS 查环 -> upsert。
-/// 整事务:校验失败或写入失败都零变化。关系行**不**参与 FTS / 路径 / 笔记标签集合，
-/// 故这里有意不调 `tags_write::finish`（与迁移前的携带写入同一口径）。
+/// 建立关系 A → B(幂等)：校验两端存在 -> 拒绝自指向 -> 沿关系方向 DFS 查环 -> 写线。
+/// 整事务:校验失败或写入失败都零变化。线**不**参与 FTS / 路径 / 笔记标签集合，
+/// 故这里有意不调 `tags_write::finish`(与迁移前的携带写入同一口径);线的增删改由
+/// 031 的触发器维护 `points_fts` 与 `is_cited`。
 ///
-/// `remark` 是**边上**的属性名(可空 = 只声明有关系)。已存在同向边时只改这一行的属性名，
-/// 不增行 —— upsert 的 UPDATE 只命中 `target_type='tag'` 行，FTS 的两个聚合触发器都带
-/// `WHEN target_type='note'`，所以不会造成索引漂移(003 那条「禁止 UPDATE」的约束是针对笔记链接的)。
+/// `remark` 是**关系名文本**(P6):空串 = 清除名字(该线回无名字线);非空 = 逐字节匹配纯名字点,
+/// 没有就建点,再把既有线的 `name_id` 指过去 —— v30 口径保留:同一对 `(from, to)` 的既有线
+/// 只换名字,不新开线(spec §3.2「同一条线换名字 = 换 name_id」)。该对还没有线时,插入由
+/// `idx_lines_uniq(from_id, to_id, COALESCE(name_id, -1))` 的表达式 conflict target 兜底。
 pub fn set_tag_relation(
     conn: &mut Connection,
     from_tag_id: i64,
@@ -58,90 +50,86 @@ pub fn set_tag_relation(
     let to = path_of(&tx, to_tag_id)
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("标签不存在: {to_tag_id}"))?;
-    // 新边 A -> B 成环 <=> 已存在 B -> ... -> A 的路径
+    // 新线 A -> B 成环 <=> 已存在 B -> ... -> A 的路径
     if reaches(&tx, to_tag_id, from_tag_id).map_err(|e| e.to_string())? {
         return Err(format!("会形成循环：建立「{from}」到「{to}」的关系会让「{from}」绕回自己"));
     }
-    tx.execute(
-        "INSERT INTO edges(source_id, target_id, kind, remark, created_at)
-         VALUES(?1, ?2, 'link', ?3, datetime('now', 'localtime'))
-         ON CONFLICT(source_id, kind, target_id) DO UPDATE SET remark = excluded.remark
-         WHERE edges.remark IS NOT excluded.remark",
-        params![from_tag_id, to_tag_id, remark],
-    )
-    .map_err(|e| e.to_string())?;
+    let name_id: Option<i64> = if remark.is_empty() {
+        None
+    } else {
+        Some(super::line_name::resolve_or_create_name_point(&tx, remark).map_err(|e| e.to_string())?)
+    };
+    // 这个 (from,to,name) 的线已在 -> 幂等返回;否则把该对既有线的名字换掉,没有线才插。
+    let existing: bool = match name_id {
+        Some(nid) => tx
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM lines WHERE from_id = ?1 AND to_id = ?2 AND name_id = ?3)",
+                params![from_tag_id, to_tag_id, nid],
+                |r| r.get(0),
+            )
+            .map_err(|e| e.to_string())?,
+        None => tx
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM lines WHERE from_id = ?1 AND to_id = ?2 AND name_id IS NULL)",
+                params![from_tag_id, to_tag_id],
+                |r| r.get(0),
+            )
+            .map_err(|e| e.to_string())?,
+    };
+    if !existing {
+        let updated = tx
+            .execute(
+                "UPDATE lines SET name_id = ?3
+                  WHERE id = (SELECT id FROM lines WHERE from_id = ?1 AND to_id = ?2 ORDER BY id LIMIT 1)",
+                params![from_tag_id, to_tag_id, name_id],
+            )
+            .map_err(|e| e.to_string())?;
+        if updated == 0 {
+            tx.execute(
+                "INSERT INTO lines(from_id, to_id, name_id, created_at)
+                 VALUES(?1, ?2, ?3, datetime('now', 'localtime'))
+                 ON CONFLICT(from_id, to_id, COALESCE(name_id, -1))
+                 DO UPDATE SET name_id = excluded.name_id",
+                params![from_tag_id, to_tag_id, name_id],
+            )
+            .map_err(|e| e.to_string())?;
+        }
+    }
     tx.commit().map_err(|e| e.to_string())
 }
 
-/// 移除关系 A → B(幂等：不存在也算成功)。单条 DELETE 本身原子，无需显式事务。
+/// 移除关系 A → B(幂等：不存在也算成功)。`name_id` 给了就只删那条有名线,不给只删无名字线
+/// (spec §8.1:一对多点可有多条线,删哪条必须能指定)。单条 DELETE 本身原子。
 pub fn remove_tag_relation(
     conn: &mut Connection,
     from_tag_id: i64,
     to_tag_id: i64,
+    name_id: Option<i64>,
 ) -> Result<(), String> {
-    conn.execute(
-        "DELETE FROM edges WHERE source_id = ?1 AND kind = 'link' AND target_id = ?2",
-        params![from_tag_id, to_tag_id],
-    )
+    match name_id {
+        Some(nid) => conn.execute(
+            "DELETE FROM lines WHERE from_id = ?1 AND to_id = ?2 AND name_id = ?3",
+            params![from_tag_id, to_tag_id, nid],
+        ),
+        None => conn.execute(
+            "DELETE FROM lines WHERE from_id = ?1 AND to_id = ?2 AND name_id IS NULL",
+            params![from_tag_id, to_tag_id],
+        ),
+    }
     .map_err(|e| e.to_string())?;
     Ok(())
-}
-
-/// 本标签的全部出线(A → ?),按目标路径升序;每项带线的名字点 id 与文本(无名字线为 None/空串)
-pub fn list_tag_relations(conn: &Connection, from_tag_id: i64) -> rusqlite::Result<Vec<RelationRef>> {
-    let mut stmt = conn.prepare(
-        "SELECT t.id, t.path, l.name_id, COALESCE(n.meta, '') FROM lines l
-         JOIN points t ON t.id = l.to_id AND t.path IS NOT NULL
-         LEFT JOIN points n ON n.id = l.name_id
-         WHERE l.from_id = ?1 AND (l.name_id IS NULL OR l.name_id <> 0) ORDER BY t.path",
-    )?;
-    let rows = stmt.query_map(params![from_tag_id], |r| {
-        Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get::<_, Option<i64>>(2)?, r.get::<_, String>(3)?))
-    })?;
-    rows.map(|row| row.map(|(id, path, name_id, name_text)| relation_ref(id, &path, name_id, name_text)))
-        .collect()
-}
-
-/// 指向本标签的线数(删除确认文案「该标签被 N 个标签指向」的读数):
-/// 只数 `to_id` 就是本标签的直接入线 —— 不含传递,也**不含指向子孙标签的线**;
-/// 只算树内来源(标签关系)且排除子级线,笔记的链接入线不算「被标签指向」。
-pub fn count_relations_to(conn: &Connection, to_tag_id: i64) -> rusqlite::Result<i64> {
-    conn.query_row(
-        "SELECT COUNT(*) FROM lines WHERE (name_id IS NULL OR name_id <> 0) AND to_id = ?1
-           AND from_id IN (SELECT id FROM points WHERE path IS NOT NULL)",
-        params![to_tag_id],
-        |r| r.get(0),
-    )
-}
-
-/// 由 (id, path, 线名点 id, 线名文本) 组装一条关系读数:name = 路径末段
-pub(super) fn relation_ref(
-    to_tag_id: i64,
-    path: &str,
-    name_id: Option<i64>,
-    name_text: String,
-) -> RelationRef {
-    let name = leaf(path);
-    RelationRef { to_tag_id, path: path.to_string(), name, name_id, name_text }
 }
 
 /// 标签路径;不存在返回 None(供"标签不存在"中文报错)
 fn path_of(conn: &Connection, id: i64) -> rusqlite::Result<Option<String>> {
     conn.query_row(
-        "SELECT path FROM entities WHERE id = ?1 AND path IS NOT NULL",
+        "SELECT path FROM points WHERE id = ?1 AND path IS NOT NULL",
         params![id],
         |r| r.get(0),
     )
     .optional()
 }
 
-/// 路径末段(标签名);`/` 是路径分隔符，单段路径即整串
-pub(super) fn leaf(path: &str) -> String {
-    path.rsplit('/').next().unwrap_or(path).to_string()
-}
-
-/// 名字里的 md 备注（如 `[国籍](国别)`）由前端的 `renderTagLabel` 直接从标签名解析，
-/// **不再**参与关系显示：属性名存在边上（迁移 023），同一个目标标签可以承担多个属性名。
 /// 沿「关系」方向(A -> B)从 `from` 出发能否到达 `to`。
 /// 迭代 DFS + 已访集合:数据异常成环时也不会死循环;访问节点数超过上限即报错兜底。
 /// 同模块的合并路径(merge)复用它判「迁移后是否成环」，故对 tags 子树可见。
@@ -161,7 +149,7 @@ pub(super) fn reaches(conn: &Connection, from: i64, to: i64) -> rusqlite::Result
             )));
         }
         let mut stmt = conn.prepare(
-            "SELECT target_id FROM edges WHERE source_id = ?1 AND kind = 'link'",
+            "SELECT to_id FROM lines WHERE from_id = ?1 AND (name_id IS NULL OR name_id <> 0)",
         )?;
         let rows = stmt.query_map(params![cur], |r| r.get::<_, i64>(0))?;
         for row in rows {
@@ -180,5 +168,5 @@ mod relation_tests;
 mod relation_read_tests;
 
 #[cfg(test)]
-#[path = "relation_remark_tests.rs"]
-mod relation_remark_tests;
+#[path = "relation_name_tests.rs"]
+mod relation_name_tests;
