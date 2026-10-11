@@ -162,8 +162,11 @@ pub(crate) const POINTS_AGG: &str = concat!(
 /// 且不出现在任何线两端。这类点整行不进 FTS;别名 `e` = `points`。
 /// 内层别名用 `nl` / `tl`(不与热路径的 `n` 撞名),热路径版本由[`not_pure_name`]换别名。
 /// 视图 `points_fts_src` 的 `WHERE` 复用本段文本(守卫用例逐段比对)。
+///
+/// `e.id <> 0` 是保留点 `子级` 的显式排除(spec §3.3 / §14 P1,id 固定为 0):空树库里它没有任何
+/// `name_id` 角色,纯位置判据不成立,不加会把它算作普通点、漏进基集(与对账 §5.4-⑦ 同源)。
 pub(crate) const NOT_PURE_NAME: &str = concat!(
-    "NOT (EXISTS(SELECT 1 FROM lines nl WHERE nl.name_id = e.id) ",
+    "e.id <> 0 AND NOT (EXISTS(SELECT 1 FROM lines nl WHERE nl.name_id = e.id) ",
     "AND NOT EXISTS(SELECT 1 FROM lines tl WHERE tl.from_id = e.id OR tl.to_id = e.id))"
 );
 

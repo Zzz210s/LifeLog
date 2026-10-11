@@ -19,7 +19,7 @@ fn contents(notes: &[crate::db::repos::notes::Note]) -> Vec<String> {
 }
 
 fn at(c: &Connection, id: i64, ts: &str) {
-    c.execute("UPDATE entities SET created_at=?1 WHERE id=?2", params![ts, id]).unwrap();
+    c.execute("UPDATE points SET created_at=?1 WHERE id=?2", params![ts, id]).unwrap();
 }
 
 #[test]

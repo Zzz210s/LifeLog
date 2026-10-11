@@ -19,12 +19,12 @@ fn db() -> Connection {
 }
 
 fn id_at(c: &Connection, path: &str) -> i64 {
-    c.query_row("SELECT id FROM entities WHERE path IS NOT NULL AND path=?1", [path], |r| r.get(0)).unwrap()
+    c.query_row("SELECT id FROM points WHERE path IS NOT NULL AND path=?1", [path], |r| r.get(0)).unwrap()
 }
 
 /// 库内全部标签路径(升序,用于"一个节点也不许新建"的整表比对)
 fn paths(c: &Connection) -> Vec<String> {
-    let mut stmt = c.prepare("SELECT path FROM entities WHERE path IS NOT NULL ORDER BY path").unwrap();
+    let mut stmt = c.prepare("SELECT path FROM points WHERE path IS NOT NULL ORDER BY path").unwrap();
     let rows = stmt.query_map([], |r| r.get(0)).unwrap();
     rows.collect::<rusqlite::Result<Vec<String>>>().unwrap()
 }

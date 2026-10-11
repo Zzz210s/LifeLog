@@ -125,24 +125,23 @@ fn legacy_tables_digest_unchanged_by_024() {
     assert_eq!(legacy_digest(&c), before, "024 不得改写任何老表行");
 }
 
-/// ③ 老读方 smoke:`tags::counts`(标签树面板数据源)在 v24 上读数与迁移前逐值相同
+/// ③ 老读方 smoke:`tags::counts`(标签树面板数据源)在整条升级链跑完后的读数,
+/// 与 v23 夹具里的 3 条标签逐值相同(024 引入实体表、028 重发 id 都不许改标签树读数)。
 #[test]
 fn tag_tree_readings_unchanged_by_024() {
     let c = Connection::open_in_memory().unwrap();
     migrate_to_v23(&c);
     seed_v23(&c);
     seed_two_notes(&c);
-    // 先跑到 025(tagging 边到位),再取 before;继续跑到 026 不得改读数
-    // (028 会重发全库 id,`tags::counts` 的 id 会变,故止于 026)
-    apply(&c, MIGRATIONS[23], 24).unwrap();
-    apply(&c, MIGRATIONS[24], 25).unwrap();
-    let before = crate::db::repos::tags::counts(&c).unwrap();
-    assert_eq!(before.len(), 3, "夹具应有 3 个标签读数");
-    apply(&c, MIGRATIONS[25], 26).unwrap();
+    run(&c).unwrap();
+
+    let counts = crate::db::repos::tags::counts(&c).unwrap();
+    let mut paths: Vec<String> = counts.iter().map(|t| t.path.clone()).collect();
+    paths.sort();
     assert_eq!(
-        crate::db::repos::tags::counts(&c).unwrap(),
-        before,
-        "标签树读数必须逐值不变"
+        paths,
+        vec!["地点轴".to_string(), "地点轴/中国".to_string(), "地点轴/日本".to_string()],
+        "全链升级后标签树读数必须与迁移前一致"
     );
 }
 

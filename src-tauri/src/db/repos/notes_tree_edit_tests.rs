@@ -16,7 +16,7 @@ fn count(c: &Connection, sql: &str) -> i64 {
 }
 
 fn id_at(c: &Connection, path: &str) -> i64 {
-    c.query_row("SELECT id FROM entities WHERE path IS NOT NULL AND path=?1", [path], |r| r.get(0))
+    c.query_row("SELECT id FROM points WHERE path IS NOT NULL AND path=?1", [path], |r| r.get(0))
         .unwrap()
 }
 
@@ -33,12 +33,12 @@ fn update_keeps_nested_tag_of_other_note() {
 
     notes::update(&mut c, a.id, "一改").unwrap();
 
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='a'"), 1, "父节点有子节点,不得当孤儿回收");
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='a/b'"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND path='a'"), 1, "父节点有子节点,不得当孤儿回收");
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND path='a/b'"), 1);
     let leaf = id_at(&c, "a/b");
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND (s.path IS NOT NULL OR t.path IS NOT NULL) AND (CASE WHEN s.path IS NOT NULL THEN e.source_id ELSE e.target_id END)=(SELECT id FROM entities WHERE path IS NOT NULL AND path='a')"), 0);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM lines e JOIN points s ON s.id = e.from_id JOIN points t ON t.id = e.to_id WHERE (e.name_id IS NULL OR e.name_id <> 0) AND (s.path IS NOT NULL OR t.path IS NOT NULL) AND (CASE WHEN s.path IS NOT NULL THEN e.from_id ELSE e.to_id END)=(SELECT id FROM points WHERE path IS NOT NULL AND path='a')"), 0);
     assert_eq!(
-        count(&c, &format!("SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND s.path IS NULL AND t.path IS NOT NULL AND e.target_id={leaf}")),
+        count(&c, &format!("SELECT COUNT(*) FROM lines e JOIN points s ON s.id = e.from_id JOIN points t ON t.id = e.to_id WHERE (e.name_id IS NULL OR e.name_id <> 0) AND s.path IS NULL AND t.path IS NOT NULL AND e.to_id={leaf}")),
         1,
         "另一条笔记仍应带 a/b"
     );
@@ -56,9 +56,9 @@ fn delete_keeps_nested_tag_of_other_note() {
 
     notes::delete(&mut c, a.id).unwrap();
 
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='a'"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND path='a'"), 1);
     assert_eq!(
-        count(&c, &format!("SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND s.path IS NULL AND t.path IS NOT NULL AND e.target_id={}", id_at(&c, "a/b"))),
+        count(&c, &format!("SELECT COUNT(*) FROM lines e JOIN points s ON s.id = e.from_id JOIN points t ON t.id = e.to_id WHERE (e.name_id IS NULL OR e.name_id <> 0) AND s.path IS NULL AND t.path IS NOT NULL AND e.to_id={}", id_at(&c, "a/b"))),
         1
     );
     assert_eq!(query(&c, &f("a/b"), 0).unwrap().len(), 1);
@@ -75,8 +75,8 @@ fn update_keeps_unchanged_tag_node_identity() {
     notes::update(&mut c, a.id, "新 #保持 #新增").unwrap();
 
     assert_eq!(id_at(&c, "保持"), keep);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='换掉'"), 0, "无链接又无子节点才回收");
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='新增'"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND path='换掉'"), 0, "无链接又无子节点才回收");
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND path='新增'"), 1);
 }
 
 /// 更新粒度:旧标签(名称含空格,新语法不再产生)只在确实无人引用时才回收
@@ -86,18 +86,18 @@ fn update_keeps_legacy_tag_used_by_other_note() {
     let a = notes::create_plain(&mut c, "a").unwrap();
     let b = notes::create_plain(&mut c, "b").unwrap();
     // 模拟 006 原样保留的存量平铺标签(先建笔记再插标签,否则会被无引用回收扫掉)。
-    // 夹具直接建新表:标签实体 = `path` 非空的 entities 行,链接是 link 边(笔记 -> 标签)。
+    // 夹具直接建新表:标签点 = `path` 非空的 points 行,链接是无名字线(笔记 -> 标签)。
     let legacy = 1000i64;
     c.execute(
-        "INSERT INTO entities(id, meta, created_at, path, depth) \
+        "INSERT INTO points(id, meta, created_at, path, depth) \
          VALUES(?1, '工作 计划', datetime('now','localtime'), '工作 计划', 1)",
         rusqlite::params![legacy],
     )
     .unwrap();
     c.execute(
-        "INSERT INTO edges(source_id, target_id, kind, remark, created_at) \
-         VALUES(?1, ?3, 'link', '', datetime('now','localtime')), \
-                (?2, ?3, 'link', '', datetime('now','localtime'))",
+        "INSERT INTO lines(from_id, to_id, name_id, created_at) \
+         VALUES(?1, ?3, NULL, datetime('now','localtime')), \
+                (?2, ?3, NULL, datetime('now','localtime'))",
         rusqlite::params![a.id, b.id, legacy],
     )
     .unwrap();
@@ -105,10 +105,10 @@ fn update_keeps_legacy_tag_used_by_other_note() {
     // b 不再引用该旧标签;a 仍引用 -> 节点与 a 的链接都必须保留
     notes::update(&mut c, b.id, "b 改了").unwrap();
 
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND path='工作 计划'"), 1);
-    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND (s.path IS NOT NULL OR t.path IS NOT NULL) AND (CASE WHEN s.path IS NOT NULL THEN e.source_id ELSE e.target_id END)={legacy}")), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND path='工作 计划'"), 1);
+    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM lines e JOIN points s ON s.id = e.from_id JOIN points t ON t.id = e.to_id WHERE (e.name_id IS NULL OR e.name_id <> 0) AND (s.path IS NOT NULL OR t.path IS NOT NULL) AND (CASE WHEN s.path IS NOT NULL THEN e.from_id ELSE e.to_id END)={legacy}")), 1);
     assert_eq!(
-        count(&c, &format!("SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND (s.path IS NOT NULL OR t.path IS NOT NULL) AND (CASE WHEN s.path IS NOT NULL THEN e.source_id ELSE e.target_id END)={legacy} AND (CASE WHEN s.path IS NOT NULL THEN e.target_id ELSE e.source_id END)={}", a.id)),
+        count(&c, &format!("SELECT COUNT(*) FROM lines e JOIN points s ON s.id = e.from_id JOIN points t ON t.id = e.to_id WHERE (e.name_id IS NULL OR e.name_id <> 0) AND (s.path IS NOT NULL OR t.path IS NOT NULL) AND (CASE WHEN s.path IS NOT NULL THEN e.from_id ELSE e.to_id END)={legacy} AND (CASE WHEN s.path IS NOT NULL THEN e.to_id ELSE e.from_id END)={}", a.id)),
         1
     );
 }

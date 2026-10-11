@@ -20,7 +20,7 @@ fn create_parses_tags_and_links() {
     let mut c = db();
     let n = create_plain(&mut c, "看完了 #流浪地球 #科幻").unwrap();
     assert_eq!(n.tags, vec!["流浪地球", "科幻"]);
-    let links = count(&c, "SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND (s.path IS NOT NULL OR t.path IS NOT NULL)", &[]);
+    let links = count(&c, "SELECT COUNT(*) FROM lines e JOIN points s ON s.id = e.from_id JOIN points t ON t.id = e.to_id WHERE (e.name_id IS NULL OR e.name_id <> 0) AND (s.path IS NOT NULL OR t.path IS NOT NULL)", &[]);
     assert_eq!(links, 2);
 }
 
@@ -29,7 +29,7 @@ fn tags_reused_across_notes() {
     let mut c = db();
     create_plain(&mut c, "a #x").unwrap();
     create_plain(&mut c, "b #x").unwrap();
-    let tags = count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND entity_name(meta)='x'", &[]);
+    let tags = count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND entity_name(meta)='x'", &[]);
     assert_eq!(tags, 1);
 }
 
@@ -84,17 +84,18 @@ fn delete_removes_note_links_and_orphan_tags() {
     let n = create_plain(&mut c, "a #孤儿").unwrap();
     create_plain(&mut c, "b #共用").unwrap();
     delete(&mut c, n.id).unwrap();
-    let notes = count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NULL", &[]);
+    // 排除保留点 `子级`(id = 0):它也是 `path IS NULL` 的一行(spec §3.3)
+    let notes = count(&c, "SELECT COUNT(*) FROM points WHERE path IS NULL AND id <> 0", &[]);
     assert_eq!(notes, 1);
     let links = count(
         &c,
-        "SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND s.path IS NULL AND t.path IS NOT NULL AND e.source_id=?1",
+        "SELECT COUNT(*) FROM lines e JOIN points s ON s.id = e.from_id JOIN points t ON t.id = e.to_id WHERE (e.name_id IS NULL OR e.name_id <> 0) AND s.path IS NULL AND t.path IS NOT NULL AND e.from_id=?1",
         &[&n.id],
     );
     assert_eq!(links, 0);
-    let orphan = count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND entity_name(meta)='孤儿'", &[]);
+    let orphan = count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND entity_name(meta)='孤儿'", &[]);
     assert_eq!(orphan, 0);
-    let kept = count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND entity_name(meta)='共用'", &[]);
+    let kept = count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND entity_name(meta)='共用'", &[]);
     assert_eq!(kept, 1);
     assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
@@ -105,7 +106,7 @@ fn delete_also_cleans_fts_row() {
     let mut c = db();
     let n = create_plain(&mut c, "要删的 #测试").unwrap();
     delete(&mut c, n.id).unwrap();
-    let fts = count(&c, "SELECT COUNT(*) FROM entities_fts WHERE meta <> ''", &[]);
+    let fts = count(&c, "SELECT COUNT(*) FROM points_fts WHERE meta <> ''", &[]);
     assert_eq!(fts, 0);
     assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
@@ -120,8 +121,8 @@ fn create_resolves_links_in_same_transaction() {
     assert_eq!(src.tags, vec!["随记"]);
     assert_eq!(src.content, "看 [[聚会记录]] 和 [[没有这条]] 还有");
     let rows: Vec<i64> = c
-        .prepare("SELECT target_id FROM edges WHERE kind='link' AND source_id=?1
-                  AND target_id IN (SELECT id FROM entities WHERE path IS NULL) ORDER BY target_id")
+        .prepare("SELECT to_id FROM lines WHERE (name_id IS NULL OR name_id <> 0) AND from_id=?1
+                  AND to_id IN (SELECT id FROM points WHERE path IS NULL) ORDER BY to_id")
         .unwrap()
         .query_map([src.id], |r| r.get(0))
         .unwrap()

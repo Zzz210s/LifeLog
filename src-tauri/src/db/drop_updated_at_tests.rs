@@ -37,7 +37,7 @@ fn count(conn: &Connection, sql: &str) -> i64 {
 fn has_column(conn: &Connection, column: &str) -> bool {
     count(
         conn,
-        &format!("SELECT COUNT(*) FROM pragma_table_info('entities') WHERE name='{column}'"),
+        &format!("SELECT COUNT(*) FROM pragma_table_info('points') WHERE name='{column}'"),
     ) > 0
 }
 
@@ -62,10 +62,10 @@ fn upgrading_legacy_db_drops_column_without_touching_data() {
 
     assert_eq!(count(&c, "PRAGMA user_version"), latest_version());
     // 数据一字不动:笔记实体、索引行都还在,正文可读
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NULL"), 1);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities_fts WHERE meta <> ''"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path IS NULL AND id <> 0"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points_fts WHERE meta <> ''"), 1);
     let content: String = c
-        .query_row("SELECT meta FROM entities WHERE path IS NULL", [], |r| r.get(0))
+        .query_row("SELECT meta FROM points WHERE path IS NULL AND id <> 0", [], |r| r.get(0))
         .unwrap();
     assert_eq!(content, "历史 #甲"); // 裸 SQL 插入不剥离标签,正文逐字节不动
 }
@@ -76,13 +76,13 @@ fn triggers_survive_the_drop_column() {
     // entities_ai 触发器仍建索引行
     let n = create_plain(&mut c, "新笔记 #乙").unwrap();
     assert_eq!(
-        count(&c, &format!("SELECT COUNT(*) FROM entities_fts WHERE rowid={}", n.id)),
+        count(&c, &format!("SELECT COUNT(*) FROM points_fts WHERE rowid={}", n.id)),
         1
     );
     // entities_au 触发器仍按当前链接重写索引
     update(&mut c, n.id, "改后 #丙").unwrap().unwrap();
     let tags: String = c
-        .query_row("SELECT paths FROM entities_fts WHERE rowid=?1", [n.id], |r| r.get(0))
+        .query_row("SELECT paths FROM points_fts WHERE rowid=?1", [n.id], |r| r.get(0))
         .unwrap();
     assert!(tags.contains("丙") && !tags.contains("乙"), "FTS 未随更新收敛: {tags}");
 }

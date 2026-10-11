@@ -21,7 +21,7 @@ fn count(c: &Connection, sql: &str) -> i64 {
 }
 
 fn id_at(c: &Connection, path: &str) -> i64 {
-    c.query_row("SELECT id FROM entities WHERE path IS NOT NULL AND path=?1", params![path], |r| r.get(0))
+    c.query_row("SELECT id FROM points WHERE path IS NOT NULL AND path=?1", params![path], |r| r.get(0))
         .unwrap()
 }
 
@@ -34,7 +34,7 @@ fn incoming_carries(c: &Connection, carried_id: i64) -> i64 {
     count(
         c,
         &format!(
-            "SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND s.path IS NOT NULL AND e.target_id={carried_id}"
+            "SELECT COUNT(*) FROM lines e JOIN points s ON s.id = e.from_id JOIN points t ON t.id = e.to_id WHERE (e.name_id IS NULL OR e.name_id <> 0) AND s.path IS NOT NULL AND e.to_id={carried_id}"
         ),
     )
 }
@@ -48,8 +48,8 @@ fn gc_orphans_keeps_carried_tag() {
     let junk = ensure_path(&c, &segs(&["空壳"])).unwrap();
     // 直接建携带行:本用例只关心 gc 判据,不经过 set_tag_relation 的校验与事务
     c.execute(
-        "INSERT INTO edges(source_id, target_id, kind, remark, created_at)
-         VALUES(?1, ?2, 'link', '', datetime('now', 'localtime'))",
+        "INSERT INTO lines(from_id, to_id, name_id, created_at)
+         VALUES(?1, ?2, NULL, datetime('now', 'localtime'))",
         params![carrier, carried],
     )
     .unwrap();
@@ -57,17 +57,17 @@ fn gc_orphans_keeps_carried_tag() {
     gc_orphans(&c).unwrap();
 
     assert_eq!(
-        count(&c, &format!("SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND id={carried}")),
+        count(&c, &format!("SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND id={carried}")),
         1,
         "被携带的标签不是孤儿,必须留下"
     );
     assert_eq!(
-        count(&c, &format!("SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND id={carrier}")),
+        count(&c, &format!("SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND id={carrier}")),
         1,
         "携带者有携带行,不是孤儿"
     );
     assert_eq!(
-        count(&c, &format!("SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND id={junk}")),
+        count(&c, &format!("SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND id={junk}")),
         0,
         "无关空壳仍要被回收"
     );
@@ -92,7 +92,7 @@ fn delete_subtree_cleans_incoming_carry_rows() {
         "指向已删标签的携带行必须清干净"
     );
     assert_eq!(
-        count(&c, &format!("SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND id={carried}")),
+        count(&c, &format!("SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND id={carried}")),
         0,
         "标签本身已删"
     );
@@ -115,14 +115,14 @@ fn merge_source_carrying_target_leaves_no_self_carry() {
         count(
             &c,
             &format!(
-                "SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND s.path IS NOT NULL AND e.source_id={dst} AND e.target_id={dst}"
+                "SELECT COUNT(*) FROM lines e JOIN points s ON s.id = e.from_id JOIN points t ON t.id = e.to_id WHERE (e.name_id IS NULL OR e.name_id <> 0) AND s.path IS NOT NULL AND e.from_id={dst} AND e.to_id={dst}"
             )
         ),
         0,
         "不得出现自携带行"
     );
     assert_eq!(
-        count(&c, "SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND s.path IS NOT NULL"),
+        count(&c, "SELECT COUNT(*) FROM lines e JOIN points s ON s.id = e.from_id JOIN points t ON t.id = e.to_id WHERE (e.name_id IS NULL OR e.name_id <> 0) AND s.path IS NOT NULL"),
         0,
         "源的携带行随源一起消失(源携带的目标不迁成自携带,也不凭空多出)"
     );
@@ -149,7 +149,7 @@ fn merge_carried_source_leaves_no_dangling_carry() {
         0,
         "指向已删源的携带行必须清干净(悬空行)"
     );
-    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND id={jia}")), 1, "甲仍存在");
+    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND id={jia}")), 1, "甲仍存在");
     assert_no_dangling_carries(&c);
     assert_carry_acyclic(&c);
     assert_no_orphan_tags(&c);
@@ -170,16 +170,16 @@ fn merge_source_carrying_x_which_carries_target_leaves_no_cycle() {
     merge_tags(&mut c, src, dst, false).unwrap();
 
     assert_eq!(
-        count(&c, &format!("SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND s.path IS NOT NULL AND e.source_id={dst} AND e.target_id={x}")),
+        count(&c, &format!("SELECT COUNT(*) FROM lines e JOIN points s ON s.id = e.from_id JOIN points t ON t.id = e.to_id WHERE (e.name_id IS NULL OR e.name_id <> 0) AND s.path IS NOT NULL AND e.from_id={dst} AND e.to_id={x}")),
         0,
         "目标→X 会与 X→目标 成环,必须剔除"
     );
     assert_eq!(
-        count(&c, &format!("SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id JOIN entities t ON t.id = e.target_id WHERE e.kind = 'link' AND s.path IS NOT NULL AND e.source_id={x} AND e.target_id={dst}")),
+        count(&c, &format!("SELECT COUNT(*) FROM lines e JOIN points s ON s.id = e.from_id JOIN points t ON t.id = e.to_id WHERE (e.name_id IS NULL OR e.name_id <> 0) AND s.path IS NOT NULL AND e.from_id={x} AND e.to_id={dst}")),
         1,
         "X→目标 原样保留"
     );
-    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND id={src}")), 0, "源已删");
+    assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND id={src}")), 0, "源已删");
     assert_no_dangling_carries(&c);
     assert_carry_acyclic(&c);
 }

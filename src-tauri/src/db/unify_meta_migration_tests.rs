@@ -67,7 +67,7 @@ fn rebuild_readouts_match_legacy_counts() {
     );
     assert_eq!((old_entities, old_tags, old_cited), (7, 5, 3), "夹具基线");
 
-    run(&c).unwrap();
+    run_to(&c, 28).unwrap();
     assert_eq!(count(&c, "SELECT COUNT(*) FROM entities"), old_entities);
     assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL"), old_tags);
     assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE is_cited = 1"), old_cited, "child 入边不算引用");
@@ -91,7 +91,7 @@ fn relation_and_tagging_edges_merge_into_one_link_with_remark() {
     let c = v27();
     old_edge(&c, 501, 1000000002, "link", "属性X"); // 与既有 tagging(501 -> 日本) 同对
     let old_edges = count(&c, "SELECT COUNT(*) FROM edges");
-    run(&c).unwrap();
+    run_to(&c, 28).unwrap();
 
     assert_eq!(count(&c, "SELECT COUNT(*) FROM edges WHERE kind='child'"), 2);
     assert_eq!(count(&c, "SELECT COUNT(*) FROM edges WHERE kind='link'"), 5);
@@ -136,7 +136,7 @@ fn aliases_and_merge_log_are_remapped() {
 #[test]
 fn legacy_indexes_and_old_triggers_are_gone() {
     let c = v27();
-    run(&c).unwrap();
+    run_to(&c, 29).unwrap();
     let idx = text(&c, "SELECT sql FROM sqlite_master WHERE type='index' AND name='idx_entities_path'");
     assert!(idx.starts_with("CREATE INDEX"), "必须普通索引: {idx}");
     assert!(idx.contains("WHERE path IS NOT NULL"), "必须带部分索引谓词: {idx}");
@@ -160,13 +160,13 @@ fn legacy_indexes_and_old_triggers_are_gone() {
 #[test]
 fn second_run_is_a_noop() {
     let c = v27();
-    run(&c).unwrap();
+    run_to(&c, 28).unwrap();
     let before = (
         count(&c, "PRAGMA user_version"),
         count(&c, "SELECT COUNT(*) FROM entities"),
         count(&c, "SELECT COUNT(*) FROM edges"),
     );
-    run(&c).unwrap();
+    run_to(&c, 28).unwrap();
     assert_eq!(
         (
             count(&c, "PRAGMA user_version"),

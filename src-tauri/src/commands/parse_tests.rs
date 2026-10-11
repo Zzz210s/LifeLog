@@ -60,7 +60,7 @@ fn command_matches_save_with_md_path_in_library() {
     let leaf = "地点/中国大陆/湖南省/[郴](chēn)州市/宜章县";
     create_plain(&mut conn, &format!("莽山栈道 #{mid}/宜章县")).unwrap();
     let mid_id: i64 = conn
-        .query_row("SELECT id FROM entities WHERE path IS NOT NULL AND path=?1", [mid], |r| r.get(0))
+        .query_row("SELECT id FROM points WHERE path IS NOT NULL AND path=?1", [mid], |r| r.get(0))
         .unwrap();
     rename(&mut conn, mid_id, "[郴](chēn)州市").unwrap();
 

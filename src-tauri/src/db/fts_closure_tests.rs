@@ -15,19 +15,20 @@ fn db() -> Connection {
     let c = Connection::open_in_memory().unwrap();
     migrate::run(&c).unwrap();
     c.execute_batch(
-        "INSERT INTO entities(id,meta,created_at,path,depth,parent_id,sort_order) VALUES
+        "INSERT INTO points(id,meta,created_at,path,depth,parent_id,sort_order) VALUES
            (1,'记一','2026-01-01',NULL,NULL,NULL,0),
            (2,'记二','2026-01-02',NULL,NULL,NULL,0),
            (10,'aaa','2026-01-01','aaa',1,NULL,0),
            (11,'aaa/sub','2026-01-01','aaa/sub',2,10,0),
            (12,'aaa/sub/deep','2026-01-01','aaa/sub/deep',3,11,0),
-           (13,'bbb','2026-01-01','bbb',1,NULL,0);
-         INSERT INTO edges(source_id,target_id,kind,remark,created_at) VALUES
-           (10,13,'link','关系','2026-01-01'),
-           (10,11,'child','','2026-01-01'),
-           (11,12,'child','','2026-01-01'),
-           (1,11,'link','','2026-01-01'),
-           (2,10,'link','','2026-01-01');",
+           (13,'bbb','2026-01-01','bbb',1,NULL,0),
+           (100,'关系','2026-01-01',NULL,NULL,NULL,0);
+         INSERT INTO lines(from_id,to_id,name_id,created_at) VALUES
+           (10,13,100,'2026-01-01'),
+           (10,11,0,'2026-01-01'),
+           (11,12,0,'2026-01-01'),
+           (1,11,NULL,'2026-01-01'),
+           (2,10,NULL,'2026-01-01');",
     )
     .unwrap();
     c
@@ -68,13 +69,13 @@ fn search_hits_through_ancestor_relation_and_descendants() {
 fn search_still_hits_after_direct_edge_is_deleted() {
     let c = db();
     c.execute(
-        "INSERT INTO edges(source_id,target_id,kind,remark,created_at) VALUES(1,13,'link','','2026-01-01')",
+        "INSERT INTO lines(from_id,to_id,name_id,created_at) VALUES(1,13,NULL,'2026-01-01')",
         [],
     )
     .unwrap();
     set_keyword_filter(&c, "bbb");
     assert!(hit_ids(&c).contains(&1), "直链存在时命中");
-    c.execute("DELETE FROM edges WHERE source_id = 1 AND target_id = 13 AND kind = 'link'", [])
+    c.execute("DELETE FROM lines WHERE from_id = 1 AND to_id = 13 AND (name_id IS NULL OR name_id <> 0)", [])
         .unwrap();
     set_keyword_filter(&c, "bbb");
     assert!(hit_ids(&c).contains(&1), "删掉直链 bbb 后仍经祖先关系命中");
@@ -101,12 +102,12 @@ fn export_refs_include_closure_targets() {
 fn later_relation_edge_refreshes_ancestor_link_sources() {
     let c = db();
     c.execute(
-        "INSERT INTO entities(id,meta,created_at,path,depth,parent_id,sort_order) VALUES(14,'ccc','2026-01-01','ccc',1,NULL,0)",
+        "INSERT INTO points(id,meta,created_at,path,depth,parent_id,sort_order) VALUES(14,'ccc','2026-01-01','ccc',1,NULL,0)",
         [],
     )
     .unwrap();
     c.execute(
-        "INSERT OR IGNORE INTO edges(source_id,target_id,kind,remark,created_at) VALUES(10,14,'link','','2026-01-01')",
+        "INSERT OR IGNORE INTO lines(from_id,to_id,name_id,created_at) VALUES(10,14,NULL,'2026-01-01')",
         [],
     )
     .unwrap();

@@ -17,7 +17,7 @@ fn fresh_run_reaches_v24_clean() {
     assert!(latest_version() >= 24, "本用例只要求跑过 024;后续迁移会继续抬升");
     let v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
     assert_eq!(v, latest_version(), "新库应跑到最新版本");
-    assert!(table_exists(&c, "entities") && table_exists(&c, "edges"));
+    assert!(table_exists(&c, "points") && table_exists(&c, "lines"));
     let ok: String = c
         .query_row("PRAGMA integrity_check", [], |r| r.get(0))
         .unwrap();

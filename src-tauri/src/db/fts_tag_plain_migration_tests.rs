@@ -52,7 +52,7 @@ fn fts(conn: &Connection) -> String {
 
 /// 升级后读 `entities_fts`(阶段 4 的索引真源;029 起聚合列叫 `paths`)
 fn entity_fts(conn: &Connection) -> String {
-    conn.query_row("SELECT paths FROM entities_fts WHERE rowid=1", [], |r| r.get(0)).unwrap()
+    conn.query_row("SELECT paths FROM points_fts WHERE rowid=1", [], |r| r.get(0)).unwrap()
 }
 
 /// 关键词命中数:统一实体后 `query` 的域是全实体,故按旧口径补上「笔记域」条件

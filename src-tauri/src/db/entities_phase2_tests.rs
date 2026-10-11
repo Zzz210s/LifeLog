@@ -2,7 +2,9 @@
 //! `ON DELETE CASCADE` 与今天 `delete_subtree`/`gc_orphans` 逐值一致（spec §2.3），
 //! 并补「老链接表 <-> `edges`」双向等价与阶段 2 对账读数。分节:级联 ①–④、对账 ⑤–⑨。
 //! 夹具停在 v26(阶段 2 终态):028 会重发全库 id 并把老链接表下架,偏移/老表断言只在 v26 成立。
-use super::entities_phase2_fixture::{edge_dump, ids, seeded_v26, tag, NEW_ORPHANS, OLD_ORPHANS};
+use super::entities_phase2_fixture::{
+    edge_dump, ids, line_dump, seeded_v26, tag, NEW_ORPHANS, OLD_ORPHANS,
+};
 use super::entities_tags_fixture::{
     add_tag, count, migrate_to_v23, seed_notes, seed_v23, LEGACY_ENTITY_ID_OFFSET,
 };
@@ -43,11 +45,11 @@ fn delete_note_cascades_edges() {
 fn final_schema_cascades_edges() {
     let c = seeded_v26();
     run(&c).unwrap();
-    let before = edge_dump(&c);
-    let note = ids(&c, "SELECT id FROM entities WHERE path IS NULL ORDER BY id")[0];
-    c.execute("DELETE FROM entities WHERE id = ?1", [note]).unwrap();
+    let before = line_dump(&c);
+    let note = ids(&c, "SELECT id FROM points WHERE path IS NULL AND id <> 0 ORDER BY id")[0];
+    c.execute("DELETE FROM points WHERE id = ?1", [note]).unwrap();
     assert_eq!(
-        count(&c, &format!("SELECT COUNT(*) FROM edges WHERE source_id = {note} OR target_id = {note}")),
+        count(&c, &format!("SELECT COUNT(*) FROM lines WHERE from_id = {note} OR to_id = {note}")),
         0,
         "删笔记后不得残留任何以它为端的边"
     );
@@ -59,7 +61,7 @@ fn final_schema_cascades_edges() {
         .collect();
     let kept: Vec<String> = before.iter().filter(|e| !gone.contains(e)).cloned().collect();
     assert!(!gone.is_empty(), "夹具里该笔记应至少有一条出边");
-    assert_eq!(edge_dump(&c), kept, "只带走该笔记的边,其余逐条不动");
+    assert_eq!(line_dump(&c), kept, "只带走该笔记的边,其余逐条不动");
 }
 
 /// ② 删被笔记链接的叶子标签：tagging / child / relation 入边一起消失，父标签仍在。

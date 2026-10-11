@@ -26,7 +26,7 @@ fn at_version(n: usize) -> Connection {
 fn migrations_create_tables_and_bump_version() {
     let conn = db();
     assert_eq!(count(&conn, "PRAGMA user_version"), latest_version());
-    for table in ["settings", "entities", "edges"] {
+    for table in ["settings", "points", "lines"] {
         let n = count(
             &conn,
             &format!("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='{table}'"),
@@ -34,7 +34,7 @@ fn migrations_create_tables_and_bump_version() {
         assert_eq!(n, 1, "table missing: {table}");
     }
     // 027 后老表一个不留
-    for gone in ["notes", "tags", "tag_links", "note_links", "tag_aliases", "tag_merge_log"] {
+    for gone in ["notes", "tags", "tag_links", "note_links", "tag_aliases", "tag_merge_log", "entities", "edges", "entities_fts"] {
         let n = count(
             &conn,
             &format!("SELECT COUNT(*) FROM sqlite_master WHERE name='{gone}'"),
@@ -56,42 +56,6 @@ fn migrations_are_idempotent() {
     assert_eq!(count(&conn, "PRAGMA user_version"), latest_version());
 }
 
-#[test]
-fn final_schema_has_entities_fts_and_nine_triggers() {
-    let conn = Connection::open_in_memory().unwrap();
-    run(&conn).unwrap();
-    // v2 信息流:diary 表移除
-    assert_eq!(count(&conn, "SELECT COUNT(*) FROM sqlite_master WHERE name='diary_entries'"), 0);
-    // 老 FTS 与老触发器全下架
-    for gone in ["notes_fts", "notes_ai", "notes_ad", "notes_au", "tag_links_ai", "tag_links_ad",
-                 "tag_aliases_ai", "tag_aliases_au", "tag_aliases_ad"] {
-        assert_eq!(
-            count(&conn, &format!("SELECT COUNT(*) FROM sqlite_master WHERE name='{gone}'")),
-            0,
-            "老对象应已下架: {gone}"
-        );
-    }
-    // 新 9 个触发器齐备(8 个 026 + 027 重建;entities_fts 覆盖实体)
-    for name in [
-        "entities_ai", "entities_ad", "entities_au", "edges_ai", "edges_ad", "edges_au",
-        "entity_aliases_ai", "entity_aliases_au", "entity_aliases_ad",
-    ] {
-        assert_eq!(
-            count(&conn, &format!("SELECT COUNT(*) FROM sqlite_master WHERE name='{name}'")),
-            1,
-            "missing: {name}"
-        );
-    }
-    // 三条中文笔记入索引(触发器自动同步)
-    for (i, text) in ["今天心情很好", "天气不错", "看完了 #电影 神作"].iter().enumerate() {
-        conn.execute(
-            "INSERT INTO entities(id, meta, created_at) VALUES(?1, ?2, '2026-01-01T00:00:00.000')",
-            rusqlite::params![i as i64 + 1, text],
-        )
-        .unwrap();
-    }
-    assert_eq!(count(&conn, "SELECT COUNT(*) FROM entities_fts WHERE meta <> ''"), 3);
-}
 
 /// 升级路径:旧库已有笔记,迁移必须回填 FTS 行,否则 >=3 字符关键词走 FTS 分支永久搜不到。
 #[test]
@@ -109,14 +73,14 @@ fn migration_backfills_fts_for_preexisting_notes() {
     run(&conn).unwrap();
 
     // 回填后索引行数与实体数一致(触发器在场不等于历史数据已索引;029 起一行一实体)
-    let entities = count(&conn, "SELECT COUNT(*) FROM entities");
-    let fts = count(&conn, "SELECT COUNT(*) FROM entities_fts WHERE meta <> ''");
-    assert_eq!(fts, entities, "entities_fts 未回填历史实体");
+    let points = count(&conn, "SELECT COUNT(*) FROM points WHERE id <> 0");
+    let fts = count(&conn, "SELECT COUNT(*) FROM points_fts WHERE meta <> ''");
+    assert_eq!(fts, points, "points_fts 未回填历史点(保留点不进索引)");
     assert_eq!(
         count(
             &conn,
-            "SELECT COUNT(*) FROM entities_fts \
-             WHERE rowid = (SELECT id FROM entities WHERE meta='买牛奶')"
+            "SELECT COUNT(*) FROM points_fts \
+             WHERE rowid = (SELECT id FROM points WHERE meta='买牛奶')"
         ),
         1,
         "历史笔记自己必须有索引行"
@@ -135,14 +99,14 @@ fn migration_backfills_fts_for_preexisting_notes() {
     assert_eq!(
         count(
             &conn,
-            "SELECT COUNT(*) FROM edges e JOIN entities t ON t.id = e.target_id \
-             WHERE e.kind='link' AND t.path IS NULL"
+            "SELECT COUNT(*) FROM lines e JOIN points t ON t.id = e.to_id \
+             WHERE (e.name_id IS NULL OR e.name_id <> 0) AND t.path IS NULL"
         ),
         0,
         "引用边不得指向树外实体(diary 链接不得成活)"
     );
     assert_eq!(
-        count(&conn, "SELECT COUNT(*) FROM entities WHERE path='验收标签'"),
+        count(&conn, "SELECT COUNT(*) FROM points WHERE path='验收标签'"),
         0,
         "孤儿 tag 应清理"
     );
@@ -171,10 +135,10 @@ fn migration_015_upgrades_v14_and_is_idempotent() {
 
     run(&conn).unwrap();
 
-    assert_eq!(count(&conn, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL"), 1);
-    assert_eq!(count(&conn, "SELECT COUNT(*) FROM entities WHERE path IS NULL"), 1);
-    assert_eq!(count(&conn, "SELECT COUNT(*) FROM edges WHERE kind='link'"), 1);
-    let snap = || (count(&conn, "PRAGMA user_version"), count(&conn, "SELECT COUNT(*) FROM entities"));
+    assert_eq!(count(&conn, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL"), 1);
+    assert_eq!(count(&conn, "SELECT COUNT(*) FROM points WHERE path IS NULL AND id <> 0"), 1);
+    assert_eq!(count(&conn, "SELECT COUNT(*) FROM lines WHERE (name_id IS NULL OR name_id <> 0)"), 1);
+    let snap = || (count(&conn, "PRAGMA user_version"), count(&conn, "SELECT COUNT(*) FROM points"));
     let first = snap();
     run(&conn).unwrap(); // 版本闸门:第二次 no-op
     assert_eq!(snap(), first);
@@ -185,7 +149,7 @@ fn migration_015_upgrades_v14_and_is_idempotent() {
 fn deleting_target_tag_cascades_aliases() {
     let conn = db();
     conn.execute_batch(
-        "INSERT INTO entities(id, meta, created_at, path, depth)
+        "INSERT INTO points(id, meta, created_at, path, depth)
            VALUES(1000000001,'甲','2026-01-01','甲',1),
                  (1000000002,'乙','2026-01-01','乙',1);
          INSERT INTO entity_aliases(alias, entity_id)
@@ -193,7 +157,7 @@ fn deleting_target_tag_cascades_aliases() {
     )
     .unwrap();
     assert_eq!(count(&conn, "SELECT COUNT(*) FROM entity_aliases"), 3);
-    conn.execute("DELETE FROM entities WHERE id = 1000000001", []).unwrap();
+    conn.execute("DELETE FROM points WHERE id = 1000000001", []).unwrap();
     assert_eq!(count(&conn, "SELECT COUNT(*) FROM entity_aliases"), 1, "只清目标标签的别名");
     assert_eq!(count(&conn, "SELECT entity_id FROM entity_aliases"), 1000000002, "幸存别名仍指向乙");
 }

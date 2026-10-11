@@ -69,3 +69,7 @@ pub fn handler() -> impl Fn(Invoke<tauri::Wry>) -> bool + Send + Sync + 'static 
         crate::commands::windowing::end_input_drag,
     ]
 }
+
+#[cfg(test)]
+#[path = "registry_tests.rs"]
+mod registry_tests;

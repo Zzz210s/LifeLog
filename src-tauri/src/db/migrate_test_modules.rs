@@ -37,6 +37,10 @@ mod drop_updated_at_tests;
 mod migrate_tests;
 
 #[cfg(test)]
+#[path = "final_schema_tests.rs"]
+mod final_schema_tests;
+
+#[cfg(test)]
 #[path = "backfill_hook_tests.rs"]
 mod backfill_hook_tests;
 

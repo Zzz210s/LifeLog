@@ -7,10 +7,11 @@ use super::entities_tags_fixture::migrated_to_v26;
 use super::*;
 use crate::db::repos::entities::fts::{ENTITIES_AGG, MIGRATION_029_SQL, MIGRATION_030_SQL};
 
-/// v26 夹具(3 标签 + 2 笔记 + 7 边)一次跑到最新(30);027/028/029/030 的钩子由 `run` 负责。
+/// v26 夹具(3 标签 + 2 笔记 + 7 边)跑到 **030**(不跑 031:本文件守的是 v29/v30 的
+/// `entities_fts` / 9+7 个触发器 / `entities_fts_src` 视图;031 会把它们换成 points/lines 那套)。
 fn v30() -> Connection {
     let c = migrated_to_v26();
-    run(&c).unwrap();
+    run_to(&c, 30).unwrap();
     c
 }
 

@@ -1,7 +1,7 @@
 //! 共享测试向量 `fixtures/entity-link-targets.json` 的 Rust 侧断言(spec §5.1 / P5):
 //! 唯一匹配键 = `entity_key(meta)`(首行归一化),同键取 `id` 最小;不再有「标签优先 / 笔记优先」。
 //! 前端 `src/shared/entity-link-targets.test.ts` 读同一份文件跑 `resolveLinkTarget`;
-//! 这里把向量灌进最小 `entities` 表,走**生产**的 `note_links::candidates` 取候选,再跑 `resolve_target`。
+//! 这里把向量灌进最小 `points` 表(v31 表名),走**生产**的 `note_links::candidates` 取候选,再跑 `resolve_target`。
 //! 另附一条升级回归守卫:链接目标切到实体裁决后,「标签 + 链接同篇」正文的解析三元组
 //! 仍与冻结的旧形状基线 `fixtures/upgrade-regression.baseline.legacy.json` 逐字节一致(spec §5.3)。
 use crate::db::repos::note_links::{candidates, resolve_target};
@@ -52,16 +52,16 @@ fn fixture() -> Targets {
     serde_json::from_str(FIXTURE).expect("fixtures/entity-link-targets.json 必须是合法 JSON 对象")
 }
 
-/// 把向量灌进最小 `entities` 表,再用**生产的** `candidates()` 取值 —— 取键口径与写入/读取侧同一份
+/// 把向量灌进最小 `points` 表(v31 表名),再用**生产的** `candidates()` 取值 —— 取键口径与写入/读取侧同一份
 fn fixture_db(t: &Targets) -> Connection {
     let c = Connection::open_in_memory().unwrap();
     c.execute_batch(
-        "CREATE TABLE entities(id INTEGER PRIMARY KEY, meta TEXT NOT NULL DEFAULT '', path TEXT);",
+        "CREATE TABLE points(id INTEGER PRIMARY KEY, meta TEXT NOT NULL DEFAULT '', path TEXT);",
     )
     .unwrap();
     for e in &t.entities {
         c.execute(
-            "INSERT INTO entities(id, meta, path) VALUES(?1, ?2, ?3)",
+            "INSERT INTO points(id, meta, path) VALUES(?1, ?2, ?3)",
             params![e.id, e.meta, e.path],
         )
         .unwrap();

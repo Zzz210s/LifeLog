@@ -65,7 +65,7 @@ fn migration_006_turns_flat_tags_into_roots() {
 
     let mut stmt = conn
         .prepare(
-            "SELECT id, meta, parent_id, path, depth FROM entities \
+            "SELECT id, meta, parent_id, path, depth FROM points \
              WHERE path IS NOT NULL ORDER BY id",
         )
         .unwrap();
@@ -158,10 +158,10 @@ fn migration_006_is_idempotent() {
     .unwrap();
     let snapshot = |c: &Connection| {
         (
-            count(c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL"),
-            count(c, "SELECT COUNT(*) FROM edges WHERE kind='link'"),
-            count(c, "SELECT COUNT(*) FROM entities_fts"),
-            text(c, "SELECT path FROM entities WHERE path IS NOT NULL"),
+            count(c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL"),
+            count(c, "SELECT COUNT(*) FROM lines WHERE (name_id IS NULL OR name_id <> 0)"),
+            count(c, "SELECT COUNT(*) FROM points_fts"),
+            text(c, "SELECT path FROM points WHERE path IS NOT NULL"),
             count(c, "PRAGMA user_version"),
         )
     };
@@ -187,7 +187,7 @@ fn migration_006_keeps_legacy_names_with_spaces() {
         let n = count(
             &conn,
             &format!(
-                "SELECT COUNT(*) FROM entities WHERE meta='{name}' AND path='{name}' \
+                "SELECT COUNT(*) FROM points WHERE meta='{name}' AND path='{name}' \
                  AND depth=1 AND parent_id IS NULL"
             ),
         );

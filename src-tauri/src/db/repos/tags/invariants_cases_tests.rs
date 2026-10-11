@@ -32,17 +32,17 @@ fn fts_invariant_catches_manual_update_drift() {
     let note = crate::db::repos::notes::create_plain(&mut c, "x #甲").unwrap();
     let jia = id_at(&c, "甲");
 
-    // 变异 ①:直接删实体索引行(绕开所有仓库层入口)
-    c.execute("DELETE FROM entities_fts WHERE rowid = ?1", params![note.id]).unwrap();
+    // 变异 ①:直接删点的索引行(绕开所有仓库层入口)
+    c.execute("DELETE FROM points_fts WHERE rowid = ?1", params![note.id]).unwrap();
     let err = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| assert_fts_matches_edges(&c)))
         .expect_err("测试台必须抓到被删掉的 FTS 行");
     let msg = panic_message(err);
-    assert!(msg.contains(&format!("实体 {}", note.id)), "报错要带实体 id: {msg}");
+    assert!(msg.contains(&format!("点 {}", note.id)), "报错要带点 id: {msg}");
     assert!(msg.contains('甲'), "报错要带两侧取值: {msg}");
 
     // 变异 ②:直接删 tagging 边(edges_ad 会刷新 FTS,但甲确实成了孤儿)
     c.execute(
-        "DELETE FROM edges WHERE kind = 'link' AND target_id = ?1",
+        "DELETE FROM lines WHERE (name_id IS NULL OR name_id <> 0) AND to_id = ?1",
         params![jia],
     )
     .unwrap();
@@ -53,7 +53,7 @@ fn fts_invariant_catches_manual_update_drift() {
 
 /// 测试台自身的读库入口:`SELECT id FROM entities WHERE path IS NOT NULL AND path = ?1`
 fn id_at(conn: &Connection, path: &str) -> i64 {
-    conn.query_row("SELECT id FROM entities WHERE path IS NOT NULL AND path = ?1", params![path], |r| r.get(0))
+    conn.query_row("SELECT id FROM points WHERE path IS NOT NULL AND path = ?1", params![path], |r| r.get(0))
         .unwrap()
 }
 

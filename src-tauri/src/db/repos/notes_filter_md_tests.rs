@@ -18,7 +18,7 @@ fn db() -> Connection {
 }
 
 fn tag_id(c: &Connection, path: &str) -> i64 {
-    c.query_row("SELECT id FROM entities WHERE path=?1 AND path IS NOT NULL", [path], |r| r.get(0))
+    c.query_row("SELECT id FROM points WHERE path=?1 AND path IS NOT NULL", [path], |r| r.get(0))
         .unwrap()
 }
 

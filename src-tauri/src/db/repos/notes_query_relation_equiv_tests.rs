@@ -17,11 +17,11 @@ fn db() -> Connection {
 /// 手工参考命中集:笔记挂的标签 t 落在某个「经 relation 边指向 `path` 标签」的携带者 ca
 /// 的子树内(自带或后代)—— 不引用被测量的 `filter_predicates` 代码。
 fn reference_relation_hits(c: &Connection, path: &str) -> Vec<String> {
-    let sql = "SELECT DISTINCT n.meta FROM entities n \
-         JOIN edges l ON l.kind='link' AND l.source_id=n.id \
-         JOIN entities t ON t.id=l.target_id \
-         WHERE EXISTS (SELECT 1 FROM entities ca JOIN edges cl ON cl.source_id=ca.id AND cl.kind='link' \
-                         JOIN entities rt ON rt.id=cl.target_id \
+    let sql = "SELECT DISTINCT n.meta FROM points n \
+         JOIN lines l ON (l.name_id IS NULL OR l.name_id <> 0) AND l.from_id=n.id \
+         JOIN points t ON t.id=l.to_id \
+         WHERE EXISTS (SELECT 1 FROM points ca JOIN lines cl ON cl.from_id=ca.id AND (cl.name_id IS NULL OR cl.name_id <> 0) \
+                         JOIN points rt ON rt.id=cl.to_id \
                         WHERE rt.path=?1 AND ca.path IS NOT NULL \
                           AND (t.path=ca.path OR substr(t.path,1,length(ca.path)+1)=ca.path||'/'))";
     let mut st = c.prepare(sql).unwrap();
@@ -69,7 +69,7 @@ fn hits(c: &Connection, cond: &FilterConditions) -> Vec<String> {
 }
 
 fn id_at(c: &Connection, path: &str) -> i64 {
-    c.query_row("SELECT id FROM entities WHERE path IS NOT NULL AND path=?1", params![path], |r| r.get(0)).unwrap()
+    c.query_row("SELECT id FROM points WHERE path IS NOT NULL AND path=?1", params![path], |r| r.get(0)).unwrap()
 }
 
 /// 字段改名不改语义(设计 2026-10-06 §10 R10b):同一份条件分别写成新字段名 `relations`

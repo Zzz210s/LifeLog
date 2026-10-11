@@ -109,7 +109,7 @@ fn migration_success_reports_backup_path_and_no_warning() {
     assert_eq!(
         scalar(
             &report.conn,
-            "SELECT COUNT(*) FROM pragma_table_info('entities') WHERE name='path'"
+            "SELECT COUNT(*) FROM pragma_table_info('points') WHERE name='path'"
         ),
         1,
         "标签树的 path 缓存应已生效(006 的形态在实体上)"
@@ -133,5 +133,9 @@ fn backup_failure_becomes_warning_and_migration_still_runs() {
     );
     // 备份失败不影响迁移结果
     assert_eq!(scalar(&report.conn, "PRAGMA user_version"), latest_version());
-    assert_eq!(scalar(&report.conn, "SELECT COUNT(*) FROM entities WHERE path IS NULL"), 1);
+    // 保留点 `子级`(id = 0)也是 `path IS NULL`,树外笔记这里只数 1 条
+    assert_eq!(
+        scalar(&report.conn, "SELECT COUNT(*) FROM points WHERE path IS NULL AND id <> 0"),
+        1
+    );
 }

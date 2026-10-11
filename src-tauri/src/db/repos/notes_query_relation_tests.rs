@@ -34,7 +34,7 @@ fn hits(c: &Connection, cond: &FilterConditions) -> Vec<String> {
 }
 
 fn id_at(c: &Connection, path: &str) -> i64 {
-    c.query_row("SELECT id FROM entities WHERE path IS NOT NULL AND path=?1", params![path], |r| r.get(0)).unwrap()
+    c.query_row("SELECT id FROM points WHERE path IS NOT NULL AND path=?1", params![path], |r| r.get(0)).unwrap()
 }
 
 /// ① 类型命中 = 被认领标签的子树 ∪ 携带该类型的标签子树;认领与携带两条腿都生效

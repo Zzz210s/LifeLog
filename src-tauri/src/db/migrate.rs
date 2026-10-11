@@ -87,15 +87,22 @@ fn apply(conn: &Connection, sql: &str, version: i64) -> rusqlite::Result<()> {
     tx.commit()
 }
 
-/// 按 PRAGMA user_version 顺序执行未应用的迁移。
+/// 按 PRAGMA user_version 顺序执行未应用的迁移,直到 [`latest_version`]。
 /// 无论本次有没有迁移要跑,入口先挂上连接级标量函数:库已是最新版本时触发器仍在用
 /// `tag_plain`,漏挂就是运行时写笔记直接报 `no such function`。
 pub fn run(conn: &Connection) -> rusqlite::Result<()> {
+    run_to(conn, latest_version())
+}
+
+/// 迁移链的可停点版本(仅测试用):历史迁移用例要断言 v24 / v30 等**中间版本**的 schema,
+/// 而 031 会把 `entities`/`edges` 改名成 `points`/`lines`、下架旧 FTS 物件。
+/// 钩子分发与 [`run`] 同一份,不会各写一套(停在 `target` 之前的版本一律不动)。
+fn run_to(conn: &Connection, target: i64) -> rusqlite::Result<()> {
     super::sql_functions::register(conn)?;
     let current: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
     for (i, sql) in MIGRATIONS.iter().enumerate() {
         let v = (i + 1) as i64;
-        if v <= current {
+        if v <= current || v > target {
             continue;
         }
         if v == migration_hooks::TIME_TAG_VERSION {

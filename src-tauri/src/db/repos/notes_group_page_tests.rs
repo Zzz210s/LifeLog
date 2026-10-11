@@ -91,9 +91,9 @@ fn multi_valued_note_enters_exactly_one_group_by_tree_order() {
     create_plain(&mut c, "E1 #轴/甲").unwrap();
     // 树序:甲=0、乙=1(创建序相反,保证取的是树序而不是 id/路径序)
     c.execute(
-        "UPDATE entities SET sort_order = CASE path WHEN '轴/甲' THEN 0 ELSE 1 END
+        "UPDATE points SET sort_order = CASE path WHEN '轴/甲' THEN 0 ELSE 1 END
          WHERE path IS NOT NULL
-           AND parent_id = (SELECT id FROM entities WHERE path = '轴')",
+           AND parent_id = (SELECT id FROM points WHERE path = '轴')",
         [],
     )
     .unwrap();

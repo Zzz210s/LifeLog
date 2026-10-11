@@ -9,14 +9,14 @@ use tauri::{AppHandle, Manager, State};
 pub struct DbInfo {
     /// 数据库文件绝对路径(app_data_dir + 主库文件名,与 db::init 打开的是同一个文件)
     pub path: String,
-    /// 条目数:统一实体后 = `COUNT(*) FROM entities`(笔记 + 标签,spec §6.6)
+    /// 条目数:点/线重构后 = `COUNT(*) FROM points`(笔记 + 标签 + 名字点,spec §6.6 / §7.2)
     pub entities: u64,
 }
 
-/// 条目总数(全部实体):设置页「条目 N 条」的唯一口径真源,便于单测
+/// 条目总数(全部点):设置页「条目 N 条」的唯一口径真源,便于单测
 pub fn count_entities(conn: &Connection) -> Result<u64, String> {
     let n: i64 = conn
-        .query_row("SELECT COUNT(*) FROM entities", [], |r| r.get(0))
+        .query_row("SELECT COUNT(*) FROM points", [], |r| r.get(0))
         .map_err(|e| e.to_string())?;
     Ok(n.max(0) as u64)
 }

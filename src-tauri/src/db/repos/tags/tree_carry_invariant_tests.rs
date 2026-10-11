@@ -9,9 +9,9 @@ fn carry_acyclic_invariant_catches_manual_two_cycle() {
     let a = ensure_path(&c, &segs(&["甲"])).unwrap();
     let b = ensure_path(&c, &segs(&["乙"])).unwrap();
     c.execute(
-        "INSERT INTO edges(source_id, target_id, kind, remark, created_at)
-         VALUES(?1,?2,'link','',datetime('now','localtime')),
-                (?2,?1,'link','',datetime('now','localtime'))",
+        "INSERT INTO lines(from_id, to_id, name_id, created_at)
+         VALUES(?1,?2,NULL,datetime('now','localtime')),
+                (?2,?1,NULL,datetime('now','localtime'))",
         params![a, b],
     )
     .unwrap();

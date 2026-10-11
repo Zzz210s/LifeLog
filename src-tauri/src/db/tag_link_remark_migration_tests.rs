@@ -41,10 +41,11 @@ fn add_tag(c: &Connection, id: i64, path: &str) {
 #[test]
 fn fresh_db_has_remark_column() {
     let c = Connection::open_in_memory().unwrap();
-    run(&c).unwrap();
+    // 链停到 028:023 的 remark 列此时落在 `edges` 上(031 会把 edges 换成 lines、remark 换成 name_id)
+    run_to(&c, 28).unwrap();
     assert!(latest_version() >= 23, "本用例只要求跑过 023;后续迁移会继续抬升");
     let v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
-    assert_eq!(v, latest_version(), "新库应跑到最新版本");
+    assert_eq!(v, 28, "本用例验的是 v28 口径的引用边表");
     assert!(col_exists(&c, "edges", "remark"), "023 起引用边就有 remark 列(027 后表名是 edges)");
 }
 
@@ -63,7 +64,7 @@ fn upgrade_from_v22_keeps_edges_and_defaults_remark_empty() {
         .unwrap();
     }
 
-    run(&c).unwrap();
+    run_to(&c, 28).unwrap();
 
     assert!(col_exists(&c, "edges", "remark"), "027 后引用边表叫 edges,remark 列仍在");
     assert_eq!(

@@ -7,7 +7,7 @@ fn update_missing_id_writes_no_links() {
     let mut c = db();
     create_plain(&mut c, "甲").unwrap();
     assert!(update(&mut c, 9999, "正文 [[甲]]").unwrap().is_none());
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM edges WHERE kind='link'", &[]), 0, "回滚的 tx 不留下链接边");
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM lines WHERE (name_id IS NULL OR name_id <> 0)", &[]), 0, "回滚的 tx 不留下链接边");
 }
 
 #[test]
@@ -20,12 +20,12 @@ fn tag_shaped_link_title_produces_no_link() {
     assert_eq!(
         count(
             &c,
-            "SELECT COUNT(*) FROM edges WHERE kind='link'
-               AND target_id IN (SELECT id FROM entities WHERE path IS NULL)",
+            "SELECT COUNT(*) FROM lines WHERE (name_id IS NULL OR name_id <> 0)
+               AND to_id IN (SELECT id FROM points WHERE path IS NULL)",
             &[]
         ),
         0,
         "不产生笔记间链接(指向标签的 link 边是 #甲 自己)"
     );
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND entity_name(meta)='甲'", &[]), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND entity_name(meta)='甲'", &[]), 1);
 }

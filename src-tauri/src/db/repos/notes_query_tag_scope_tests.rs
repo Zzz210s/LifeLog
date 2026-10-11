@@ -52,7 +52,7 @@ fn fixture() -> (Connection, i64, i64, i64, i64, i64) {
 }
 
 fn id_at(c: &Connection, path: &str) -> i64 {
-    c.query_row("SELECT id FROM entities WHERE path=?1", [path], |r| r.get(0)).unwrap()
+    c.query_row("SELECT id FROM points WHERE path=?1", [path], |r| r.get(0)).unwrap()
 }
 
 /// ① 筛 `B`:挂 A 的笔记经 carry 命中、挂 B/sub 的经含子级命中;
@@ -94,7 +94,7 @@ fn export_rows_equal_filter_hits() {
 #[test]
 fn relation_filter_does_not_pull_in_tree_entities_with_content() {
     let (c, _a, _b, c_tag, n_a, _n_b) = fixture();
-    c.execute("UPDATE entities SET meta='C\n第二行' WHERE id=?1", [c_tag]).unwrap();
+    c.execute("UPDATE points SET meta='C\n第二行' WHERE id=?1", [c_tag]).unwrap();
     let ids = hit_ids(&c, &relation("B"));
     assert_eq!(ids, vec![n_a], "只有笔记经 A 子树命中 B");
     assert!(!ids.contains(&c_tag), "带正文的树内实体不得经关系边冒出来");
@@ -142,7 +142,7 @@ fn presence_hits_count_equals_stream_rows() {
 #[test]
 fn keyword_only_expr_is_not_narrowed_to_notes() {
     let (c, _a, _b, c_tag, _n_a, _n_b) = fixture();
-    c.execute("UPDATE entities SET meta='关键词C\n第二行' WHERE id=?1", [c_tag]).unwrap();
+    c.execute("UPDATE points SET meta='关键词C\n第二行' WHERE id=?1", [c_tag]).unwrap();
     let expr = FilterConditions { expr: Some("\"第二\"".into()), ..empty() };
     assert_eq!(hit_ids(&c, &expr), vec![c_tag], "纯关键词表达式保持原域");
 }

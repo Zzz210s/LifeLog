@@ -35,9 +35,14 @@ fn upgrade_from_v26_to_latest_passes_reconcile_and_drops_legacy_objects() {
 
     run(&c).unwrap();
     assert_eq!(count(&c, "PRAGMA user_version"), latest_version());
+    assert_eq!(
+        count(&c, "SELECT COUNT(*) FROM sqlite_master WHERE name='entities_fts_src'"),
+        0,
+        "031 已用 points_fts_src 取代过渡视图"
+    );
     let view_sql: String =
-        c.query_row("SELECT sql FROM sqlite_master WHERE name='entities_fts_src'", [], |r| r.get(0)).unwrap();
-    assert!(!view_sql.contains("tag_paths"), "029 重建的视图不再用旧列");
+        c.query_row("SELECT sql FROM sqlite_master WHERE name='points_fts_src'", [], |r| r.get(0)).unwrap();
+    assert!(!view_sql.contains("tag_paths"), "029/031 重建的视图不再用旧列");
     assert_eq!(count(&c, "SELECT COUNT(*) FROM pragma_foreign_key_check"), 0);
     assert_cache_matches_edges(&c);
 }

@@ -87,12 +87,12 @@ fn upgrade_merges_type_edges_into_tag_and_drops_is_type() {
     assert!(!col_exists(&c, "entities", "is_type"), "022 后 is_type 列必须消失");
     // 022 把 'type' 并入 'tag',028 再把 tagging/relation 全并成 link;无笔记,故 3 个标签拿 id 1..3
     assert_eq!(
-        count(&c, "SELECT COUNT(*) FROM edges WHERE kind='link'"),
+        count(&c, "SELECT COUNT(*) FROM lines WHERE (name_id IS NULL OR name_id <> 0)"),
         2,
         "原 'type' 边与既有 'tag' 边并集"
     );
     assert_eq!(
-        count(&c, "SELECT COUNT(*) FROM edges WHERE kind='link' AND source_id=2 AND target_id=1"),
+        count(&c, "SELECT COUNT(*) FROM lines WHERE (name_id IS NULL OR name_id <> 0) AND from_id=2 AND to_id=1"),
         1,
         "中国 -> 国籍 的边"
     );
@@ -153,20 +153,20 @@ fn historical_tag_edges_are_preserved_exactly() {
     // (028 重发 id,故不比原 id)
     assert_eq!(before.len(), 24, "夹具非空");
     assert_eq!(
-        count(&c, "SELECT COUNT(*) FROM edges WHERE kind='link'"),
+        count(&c, "SELECT COUNT(*) FROM lines WHERE (name_id IS NULL OR name_id <> 0)"),
         24,
         "24 条历史 'tag' 边原样保留"
     );
     assert_eq!(
-        count(&c, "SELECT COUNT(DISTINCT source_id) FROM edges WHERE kind='link'"),
+        count(&c, "SELECT COUNT(DISTINCT from_id) FROM lines WHERE (name_id IS NULL OR name_id <> 0)"),
         24,
         "24 条边的来源互不相同"
     );
     assert_eq!(
         count(
             &c,
-            "SELECT COUNT(*) FROM edges e JOIN entities t ON t.id = e.target_id \
-             WHERE e.kind='link' AND t.meta='地点轴/国籍'"
+            "SELECT COUNT(*) FROM lines e JOIN points t ON t.id = e.to_id \
+             WHERE (e.name_id IS NULL OR e.name_id <> 0) AND t.meta='地点轴/国籍'"
         ),
         24,
         "边都指向国籍标签"

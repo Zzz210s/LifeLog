@@ -28,8 +28,8 @@ fn fresh_run_reaches_latest_clean() {
     assert!(latest_version() >= 26, "024/025/026 已注册");
     let v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
     assert_eq!(v, latest_version());
-    assert!(table_exists(&c, "entities") && table_exists(&c, "edges"));
-    assert!(table_exists(&c, "entity_aliases") && table_exists(&c, "entities_fts"), "026 建了 FTS 与别名表");
+    assert!(table_exists(&c, "points") && table_exists(&c, "lines"));
+    assert!(table_exists(&c, "entity_aliases") && table_exists(&c, "points_fts"), "026 建了 FTS 与别名表");
     let ok: String = c
         .query_row("PRAGMA integrity_check", [], |r| r.get(0))
         .unwrap();
@@ -39,7 +39,7 @@ fn fresh_run_reaches_latest_clean() {
         stmt.query([]).unwrap().next().unwrap().is_none(),
         "外键检查应为空"
     );
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NULL"), 0);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path IS NULL AND id <> 0"), 0);
 }
 
 /// ② 笔记搬入:id 原值(spec §12 D1)、`legacy_id` 溯源、`name` 为 NULL、正文/时间逐值;

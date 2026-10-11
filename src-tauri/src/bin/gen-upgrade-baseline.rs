@@ -6,7 +6,8 @@
 //!   cargo run --bin gen-upgrade-baseline -- --db <真库路径> --sample 300 --out <仓库外快照路径>
 //!
 //! 形状 `{source, why, content, expect:{citations,title}}`:`citations` = 该条落下的
-//! `edges(kind='link')` 目标实体 id(fixture 条目按产品写路径现算;`--db` 条目直接读现成边)。
+//! 非子级线(`lines` 里 `name_id IS NULL OR name_id <> 0`)目标点 id(fixture 条目按产品写路径现算;
+//! `--db` 条目直接读现成线)。
 //! `--db` 以 SQLITE_OPEN_READ_ONLY 打开真库(零写入),输出只落仓库外的快照区
 //! `F:\0-code\_lifelog-snapshots\`(公开仓库不收真库正文)。
 use lifelog_lib::upgrade_regression::{self, baseline, BaselineEntry, COVERED_CATEGORIES, SOURCE_DB};

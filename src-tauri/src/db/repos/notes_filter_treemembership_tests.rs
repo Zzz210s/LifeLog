@@ -18,16 +18,16 @@ fn db() -> Connection {
     let c = Connection::open_in_memory().unwrap();
     crate::db::migrate::run(&c).unwrap();
     c.execute_batch(
-        "INSERT INTO entities(id,meta,is_cited,created_at,path,depth,parent_id) VALUES
+        "INSERT INTO points(id,meta,is_cited,created_at,path,depth,parent_id) VALUES
            (1,'甲',0,'2026-01-01','甲',1,NULL),
            (2,'中',0,'2026-01-01','甲/中',2,1),
            (3,'叶',1,'2026-01-01','甲/中/叶',3,2),
            (10,'单行笔记',0,'2026-01-02',NULL,NULL,NULL),
            (11,'多行' || char(10) || '第二行',0,'2026-01-03',NULL,NULL,NULL),
            (12,'引用叶',0,'2026-01-04',NULL,NULL,NULL);
-         INSERT INTO edges(source_id,target_id,kind,created_at) VALUES
-           (1,2,'child','2026-01-01'),(2,3,'child','2026-01-01'),
-           (12,3,'link','2026-01-04');",
+         INSERT INTO lines(from_id,to_id,name_id,created_at) VALUES
+           (1,2,0,'2026-01-01'),(2,3,0,'2026-01-01'),
+           (12,3,NULL,'2026-01-04');",
     )
     .unwrap();
     c
@@ -39,7 +39,7 @@ fn hits(c: &Connection, item: &str) -> Vec<i64> {
     let conds: FilterConditions = serde_json::from_str(&json).unwrap();
     let (frag, args) = where_clause(&conds).unwrap();
     let mut stmt = c
-        .prepare(&format!("SELECT n.id FROM entities n WHERE ({frag}) ORDER BY n.id"))
+        .prepare(&format!("SELECT n.id FROM points n WHERE ({frag}) ORDER BY n.id"))
         .unwrap();
     let rows = stmt.query_map(params_from_iter(args), |r| r.get(0)).unwrap();
     rows.map(|r| r.unwrap()).collect()
@@ -72,9 +72,10 @@ fn tree_membership_uses_closure_not_raw_is_cited() {
     assert_eq!(out, vec![10, 11, 12], "闭包口径:out = 树外实体");
     assert!(!out.contains(&1) && !out.contains(&2), "中间节点仍在树内(裸 is_cited 会漏进来)");
     let raw_is_cited_zero: Vec<i64> = {
-        let mut stmt = c.prepare("SELECT id FROM entities WHERE is_cited = 0 ORDER BY id").unwrap();
+        let mut stmt = c.prepare("SELECT id FROM points WHERE is_cited = 0 AND id <> 0 ORDER BY id").unwrap();
         stmt.query_map([], |r| r.get(0)).unwrap().map(|r| r.unwrap()).collect()
     };
+    // 裸口径基准:排除保留点 `子级`(id = 0,spec §3.3),否则它也会落进 out
     assert_eq!(raw_is_cited_zero, vec![1, 2, 10, 11, 12], "裸口径会把 1、2 也算进 out");
 }
 
@@ -101,12 +102,12 @@ fn preset_filter_roundtrips_and_equals_non_tree_entities() {
     validate(&conds).expect("预置筛选必须通过校验");
     let (frag, args) = where_clause(&conds).unwrap();
     let mut stmt = c
-        .prepare(&format!("SELECT n.id FROM entities n WHERE ({frag}) ORDER BY n.id"))
+        .prepare(&format!("SELECT n.id FROM points n WHERE ({frag}) ORDER BY n.id"))
         .unwrap();
     let got: Vec<i64> =
         stmt.query_map(params_from_iter(args), |r| r.get(0)).unwrap().map(|r| r.unwrap()).collect();
     let expected: Vec<i64> = {
-        let mut s = c.prepare("SELECT id FROM entities WHERE path IS NULL ORDER BY id").unwrap();
+        let mut s = c.prepare("SELECT id FROM points WHERE path IS NULL AND id <> 0 ORDER BY id").unwrap();
         s.query_map([], |r| r.get(0)).unwrap().map(|r| r.unwrap()).collect()
     };
     assert_eq!(expected, vec![10, 11, 12], "夹具里的树外(笔记)集合");

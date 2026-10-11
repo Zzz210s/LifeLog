@@ -42,6 +42,16 @@ pub(crate) fn edge_dump(c: &Connection) -> Vec<String> {
     s.query_map([], |r| r.get::<_, String>(0)).unwrap().map(|x| x.unwrap()).collect()
 }
 
+/// v31 端的线摘要(`from|to|名字`,名字无则 -1),与 [`edge_dump`] 同用途、同序。
+pub(crate) fn line_dump(c: &Connection) -> Vec<String> {
+    let mut s = c
+        .prepare(
+            "SELECT from_id||'|'||to_id||'|'||COALESCE(name_id,-1) FROM lines              ORDER BY from_id, to_id, id",
+        )
+        .unwrap();
+    s.query_map([], |r| r.get::<_, String>(0)).unwrap().map(|x| x.unwrap()).collect()
+}
+
 /// 今天 `gc_orphans` 的三条件(无出 `tag_links`、非关系目标、无子节点)。
 pub(crate) const OLD_ORPHANS: &str = "SELECT id FROM tags WHERE \
   NOT EXISTS (SELECT 1 FROM tag_links l WHERE l.tag_id = tags.id) \

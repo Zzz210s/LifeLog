@@ -46,7 +46,7 @@ fn subtree_tags(conn: &Connection) -> i64 {
     } else {
         count(
             conn,
-            &format!("SELECT COUNT(*) FROM entities WHERE path IS NOT NULL AND ({SUBTREE_PATHS})"),
+            &format!("SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND ({SUBTREE_PATHS})"),
         )
     }
 }
@@ -63,12 +63,12 @@ fn subtree_links(conn: &Connection) -> i64 {
             ),
         )
     } else {
-        let ids = format!("SELECT id FROM entities WHERE path IS NOT NULL AND ({SUBTREE_PATHS})");
+        let ids = format!("SELECT id FROM points WHERE path IS NOT NULL AND ({SUBTREE_PATHS})");
         count(
             conn,
             &format!(
-                "SELECT COUNT(*) FROM edges e WHERE e.kind = 'link' \
-                 AND (e.target_id IN ({ids}) OR e.source_id IN ({ids}))"
+                "SELECT COUNT(*) FROM lines e WHERE (e.name_id IS NULL OR e.name_id <> 0) \
+                 AND (e.to_id IN ({ids}) OR e.from_id IN ({ids}))"
             ),
         )
     }
@@ -76,12 +76,12 @@ fn subtree_links(conn: &Connection) -> i64 {
 
 /// 终态树内实体数(≤ v27 `tags` 行数的等价读法)
 fn tag_count(conn: &Connection) -> i64 {
-    count(conn, "SELECT COUNT(*) FROM entities WHERE path IS NOT NULL")
+    count(conn, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL")
 }
 
 /// 终态树外实体数(≤ v27 `notes` 行数的等价读法)
 fn note_count(conn: &Connection) -> i64 {
-    count(conn, "SELECT COUNT(*) FROM entities WHERE path IS NULL")
+    count(conn, "SELECT COUNT(*) FROM points WHERE path IS NULL AND id <> 0")
 }
 
 /// (id, 正文, created_at) 快照:正文与创建时间必须逐字节不变。
@@ -94,7 +94,7 @@ fn notes_snapshot(conn: &Connection) -> Vec<(i64, String, String)> {
         return rows.collect::<rusqlite::Result<Vec<_>>>().unwrap();
     }
     let mut stmt = conn
-        .prepare("SELECT id, meta, created_at FROM entities WHERE path IS NULL ORDER BY id")
+        .prepare("SELECT id, meta, created_at FROM points WHERE path IS NULL AND id <> 0 ORDER BY id")
         .unwrap();
     let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
     rows.collect::<rusqlite::Result<Vec<_>>>().unwrap()
@@ -124,12 +124,12 @@ fn upgrade_drops_both_subtrees_and_keeps_everything_else() {
     assert_eq!(notes_snapshot(&c), before, "正文与 created_at 一字节不改");
     assert_eq!(note_count(&c), 5);
     // 对照标签原样:待办(含父级)、电影、donex、工作/done、存量 done.
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path='待办'"), 1);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path='待办/支付'"), 1);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path='电影'"), 1);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path='donex'"), 1, "donex 不是 done");
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path='工作/done'"), 1, "末级同名不删");
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE path='done.'"), 1, "存量平铺标签不删");
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path='待办'"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path='待办/支付'"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path='电影'"), 1);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path='donex'"), 1, "donex 不是 done");
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path='工作/done'"), 1, "末级同名不删");
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path='done.'"), 1, "存量平铺标签不删");
 }
 
 #[test]
@@ -139,13 +139,13 @@ fn migration_is_idempotent_when_replayed() {
     run(&c).unwrap();
     let after_first = notes_snapshot(&c);
     let tags_after = tag_count(&c);
-    let links_after = count(&c, "SELECT COUNT(*) FROM edges WHERE kind='link'");
+    let links_after = count(&c, "SELECT COUNT(*) FROM lines WHERE (name_id IS NULL OR name_id <> 0)");
 
     run(&c).unwrap(); // 版本闸门:第二次 no-op
     assert_eq!(count(&c, "PRAGMA user_version"), latest_version());
     assert_eq!(subtree_tags(&c), 0);
     assert_eq!(notes_snapshot(&c), after_first);
     assert_eq!(tag_count(&c), tags_after);
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM edges WHERE kind='link'"), links_after);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM lines WHERE (name_id IS NULL OR name_id <> 0)"), links_after);
 }
 

@@ -88,26 +88,26 @@ fn drift_rows_are_backfilled_before_legacy_drop() {
     )
     .unwrap();
     // 回填前新表里确实没有它们
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE id=503"), 0);
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM entities WHERE id=503"), 0, "回填前 v26 表里没有它");
 
     run(&c).unwrap();
 
     assert_eq!(
-        count(&c, "SELECT COUNT(*) FROM entities WHERE path IS NULL AND meta='漂移笔记'"),
+        count(&c, "SELECT COUNT(*) FROM points WHERE path IS NULL AND meta='漂移笔记'"),
         1,
         "漂移笔记必须回填,否则丢用户数据"
     );
     assert_eq!(
-        count(&c, "SELECT COUNT(*) FROM entities WHERE path='地点轴/新页'"),
+        count(&c, "SELECT COUNT(*) FROM points WHERE path='地点轴/新页'"),
         1,
         "漂移标签必须回填"
     );
     assert_eq!(
         count(
             &c,
-            "SELECT COUNT(*) FROM edges e JOIN entities s ON s.id = e.source_id \
-             JOIN entities t ON t.id = e.target_id \
-             WHERE e.kind='link' AND s.meta='漂移笔记' AND t.path='地点轴/新页'"
+            "SELECT COUNT(*) FROM lines e JOIN points s ON s.id = e.from_id \
+             JOIN points t ON t.id = e.to_id \
+             WHERE (e.name_id IS NULL OR e.name_id <> 0) AND s.meta='漂移笔记' AND t.path='地点轴/新页'"
         ),
         1,
         "漂移链接必须回填成 link 边"
@@ -115,8 +115,8 @@ fn drift_rows_are_backfilled_before_legacy_drop() {
     assert_eq!(
         count(
             &c,
-            "SELECT COUNT(*) FROM entities_fts \
-             WHERE rowid = (SELECT id FROM entities WHERE meta='漂移笔记')"
+            "SELECT COUNT(*) FROM points_fts \
+             WHERE rowid = (SELECT id FROM points WHERE meta='漂移笔记')"
         ),
         1
     );
@@ -144,9 +144,9 @@ fn v27_replay_is_a_noop() {
     run(&c).unwrap();
     let snap = || {
         (
-            count(&c, "SELECT COUNT(*) FROM entities"),
-            count(&c, "SELECT COUNT(*) FROM edges"),
-            count(&c, "SELECT COUNT(*) FROM entities_fts"),
+            count(&c, "SELECT COUNT(*) FROM points"),
+            count(&c, "SELECT COUNT(*) FROM lines"),
+            count(&c, "SELECT COUNT(*) FROM points_fts"),
             count(&c, "PRAGMA user_version"),
         )
     };
