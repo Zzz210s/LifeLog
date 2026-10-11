@@ -110,9 +110,11 @@ const has = (db, name) =>
      UNION ALL SELECT 1 FROM sqlite_temp_master WHERE name = ?1`
   ).get(name);
 
-/** 打开只读连接并装好老表兼容视图(用完自行 close) */
-export function openReadOnly(path = DB_PATH) {
-  const db = new DatabaseSync('file:' + path, { readOnly: true });
+/** 打开连接并装好老表兼容视图(用完自行 close)。
+ *  `readOnly: true`(默认)给只读读数用;写脚本只在**非 v31 库**上用 `readOnly: false` ——
+ *  v31 库走写路径会被 `WRITE_GUARD` 拦下(没有 `edges` 表),这是刻意的。 */
+export function openCompat(path = DB_PATH, { readOnly = true } = {}) {
+  const db = new DatabaseSync('file:' + path, { readOnly });
   if (has(db, 'points') && has(db, 'lines')) {
     for (const [src, sql] of ALIASES) if (has(db, src)) db.exec(sql);
     if (has(db, 'edges')) db.exec(WRITE_GUARD.join(';\n'));
@@ -120,6 +122,9 @@ export function openReadOnly(path = DB_PATH) {
   for (const [deps, sql] of VIEWS) if (deps.split(' ').every((n) => has(db, n))) db.exec(sql);
   return db;
 }
+
+/** 打开只读连接并装好老表兼容视图(用完自行 close) */
+export const openReadOnly = (path = DB_PATH) => openCompat(path, { readOnly: true });
 
 /** 一次性只读查询(自动 close);fn 内可用老表名 */
 export const ro = (fn, path = DB_PATH) => {

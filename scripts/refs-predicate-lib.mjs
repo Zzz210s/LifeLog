@@ -6,12 +6,18 @@
  *  - 标签 / 排除标签 / 关系 / 排除关系一律收窄到「树外实体(笔记)」行(`n.path IS NULL`),
  *    与产品 `note_only(...)` 一致 —— 不收窄时 tag→tag 边的**源标签自己**会进命中集
  *    (预演实测 `地点轴/所在` +10、`状态/已完成` +7)。
- *  - 关键词 >=3 字走 `entities_fts MATCH '"k"*'`,否则退化为正文 / 被引用实体子串 LIKE。
+ *  - 关键词 >=3 字走 FTS MATCH(v31 用 `points_fts`;旧库 `entities_fts`),否则退化为正文 / 被引用实体子串 LIKE。
  *  - `presence`(any/none)与 `treeMembership`、`singleLine` 不收窄(产品同样如此)。
  *  - 用户输入只进 `?` 参数,永不进 SQL 文本。
  */
 export function buildPredicates(db) {
   const all = (sql, ...a) => db.prepare(sql).all(...a);
+  // FTS MATCH 必须是真表,不能是 `db-compat` 的 `entities_fts` **视图**(视图不支持 MATCH):
+  // v31 真表叫 `points_fts`,v30 及更早叫 `entities_fts`,按库现场探测。
+  const hasRel = (n) => !!db.prepare(
+    'SELECT 1 FROM sqlite_master WHERE name = ?1 UNION ALL SELECT 1 FROM sqlite_temp_master WHERE name = ?1'
+  ).get(n);
+  const FTS = hasRel('points_fts') ? 'points_fts' : 'entities_fts';
 
   const CARRY = `t.id IN (SELECT d.id FROM entities d
     JOIN edges cl ON cl.kind = 'link' JOIN entities ca ON ca.id = cl.source_id
@@ -32,7 +38,7 @@ export function buildPredicates(db) {
   const kwPred = (k, args) => {
     if ([...k].length >= 3) {
       args.push(`"${k.replaceAll('"', '""')}"*`);
-      return 'n.id IN (SELECT rowid FROM entities_fts WHERE entities_fts MATCH ?)';
+      return `n.id IN (SELECT rowid FROM ${FTS} WHERE ${FTS} MATCH ?)`;
     }
     args.push(`%${k}%`, `%${k}%`, `%${k}%`);
     return `(n.meta LIKE ? OR EXISTS (SELECT 1 FROM edges l JOIN entities t ON t.id = l.target_id

@@ -11,7 +11,7 @@
  * 用法: node scripts/refs-optimize-readout.mjs --db <路径> [--out <json 路径>]
  */
 import { writeFileSync } from 'node:fs';
-import { DatabaseSync } from 'node:sqlite';
+import { openReadOnly } from './db-compat.mjs';
 import { buildPredicates } from './refs-predicate-lib.mjs';
 import { sidebarCounts } from './refs-sidebar-lib.mjs';
 import { graphReadout } from './refs-graph-lib.mjs';
@@ -27,7 +27,7 @@ if (!opt.db) {
   console.error('用法: node scripts/refs-optimize-readout.mjs --db <路径> [--out <json 路径>]');
   process.exit(2);
 }
-const db = new DatabaseSync(opt.db, { readOnly: true });
+const db = openReadOnly(opt.db);
 const all = (sql, ...a) => db.prepare(sql).all(...a);
 const one = (sql, ...a) => db.prepare(sql).get(...a);
 const n1 = (sql) => one(`SELECT COUNT(*) c FROM ${sql}`).c;

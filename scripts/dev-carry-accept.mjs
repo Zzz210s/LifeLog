@@ -16,7 +16,7 @@ import { rmSync } from 'node:fs';
 import { ensureMain, recorder } from './cdp-lib.mjs';
 import {
   addCarryViaPanel, appNoteTags, carrierPathsOf, carryRowsFrom, carryRowsTo, cascadeDeleteProbe, clearChips, clickTagPath, condIds,
-  counts, danglingTagRows, excludeCond, fixtureNoteIds, fixtureTagIds, fmt, ipc, noteIdOf, orphanShellProbe,
+  counts, danglingTagRows, EMPTY, excludeCond, fixtureNoteIds, fixtureTagIds, fmt, ipc, noteIdOf, orphanShellProbe,
   pressEsc, purgeCarryFixtures, queryCount, relationOutPaths, requireApp, sidebarDiff, sleep, summaryCarryMarks, summaryText,
   tagCond, tagCountsViaApp, tagIdOf, timeWithAndWithoutCarry, waitFor, xlsxCellDiff,
 } from './carry-accept-lib.mjs';
@@ -104,10 +104,10 @@ try {
     !setC.includes(idA) && !setC.includes(idAs) && setC.includes(idB) && setC.includes(idC) && setA.includes(idA) && setB.includes(idA),
     `筛丙 命中 id=${fmt(setC)}(须不含 甲笔记 ${idA} / 甲子笔记 ${idAs});筛甲 含甲笔记=${setA.includes(idA)};筛乙 含甲笔记=${setB.includes(idA)}`);
 
-  // --- 8.4 排除与包含互补 ---
-  const total = counts().notes;
+  // --- 8.4 排除与包含互补(携带/排除谓词都只作用于笔记:分母 = 笔记域,不是含标签的全点集) ---
+  const total = await queryCount(cdp, { ...EMPTY, tagPresence: 'any' }) + await queryCount(cdp, { ...EMPTY, tagPresence: 'none' });
   const exclB = await queryCount(cdp, excludeCond(B));
-  record('读数4 包含 + 排除 = 全库(无黑洞)', hitB + exclB === total, `包含(乙)=${hitB} + 排除(乙)=${exclB} = ${hitB + exclB}(全库 ${total})`);
+  record('读数4 包含 + 排除 = 笔记域(无黑洞)', hitB + exclB === total, `包含(乙)=${hitB} + 排除(乙)=${exclB} = ${hitB + exclB}(笔记域 ${total} / 库 notes ${counts().notes})`);
 
   // --- 8.5 摘要 `+携带`:库/命令侧独立确认「乙 有携带者、甲 没有」,再与 DOM 标记比对 ---
   await clearChips(cdp);

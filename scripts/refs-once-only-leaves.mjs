@@ -18,7 +18,7 @@
  *   R8 兜底           其余 -> 不确定 / 保留(待人工确认)
  * 用法: node scripts/refs-once-only-leaves.mjs --db <真库> --out <csv>
  */
-import { DatabaseSync } from 'node:sqlite';
+import { openReadOnly } from './db-compat.mjs';
 import { writeFileSync } from 'node:fs';
 
 const argv = process.argv.slice(2);
@@ -32,7 +32,7 @@ if (!opt.db || !opt.out) {
   console.error('用法: node scripts/refs-once-only-leaves.mjs --db <真库> --out <csv>');
   process.exit(2);
 }
-const db = new DatabaseSync(opt.db, { readOnly: true });
+const db = openReadOnly(opt.db);
 const all = (sql, ...a) => db.prepare(sql).all(...a);
 
 const firstLine = (meta) => {

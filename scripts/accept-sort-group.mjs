@@ -127,7 +127,10 @@ const hitsExpr = nums(ids(await allPages(call, C({ groups: [{ op: 'and', items: 
 rec('C2 条件组 (A or B) and C 命中集 = 手写表达式', sameIds(hitsGroup, hitsExpr) && hitsGroup.length > 0, `组 ${hitsGroup.length} 条 / 表达式 ${hitsExpr.length} 条`);
 const inc = await allPages(call, C({ groups: [{ op: 'and', items: [tagItem(OR_A)] }] }));
 const exc = await allPages(call, C({ groups: [{ op: 'and', items: [{ kind: 'excludeTag', path: OR_A, includeChildren: true }] }] }));
-rec('C3 排除侧互补:命中 + 排除 = 全库(同一应用谓词)', inc.length + exc.length === total, `${inc.length} + ${exc.length} = ${inc.length + exc.length} vs 全库 ${total}`);
+// 标签/排除谓词一律 `note_only`,故互补判据的分母必须是**笔记域**,不是含标签的全点集 `total`
+// (2026-10-11 T4.5:全点 2116 = 笔记 1374 + 标签 742;现场用「有任何标签 OR 无任何标签」取笔记域)。
+const noteUniverse = (await allPages(call, C({ groups: [{ op: 'or', items: [{ kind: 'presence', value: 'any' }, { kind: 'presence', value: 'none' }] }] }))).length;
+rec('C3 排除侧互补:命中 + 排除 = 笔记域(同一应用谓词)', inc.length + exc.length === noteUniverse, `${inc.length} + ${exc.length} = ${inc.length + exc.length} vs 笔记域 ${noteUniverse}(全点 ${total})`);
 const shot2 = await shot(cdp, 't6-2-condition-group.png');
 await reload(cdp);
 

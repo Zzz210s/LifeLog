@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * 标签关系统一端到端读数,覆盖设计 docs/superpowers/specs/2026-10-06-tag-relation-design.md §11 的 1-8:
- *   1 迁移 022+023:user_version 23 / is_type 列消失 / 目标只有 note+tag / 24 条原边原样 / integrity ok
+ *   1 迁移 022+023:版本基准(>= 27,现库 31)/ is_type 列消失 / 目标只有 note+tag / 原边原样(现场重算)/ integrity ok
  *   2 关系:加/移除幂等;属性名存边上(同向重复 set 只改 remark);自指向 / 2 环 / 3 环被拒;删被指向标签后无悬空边
  *   3 筛选:关系条件命中 = 指向该标签的标签及其子树下的笔记;排除侧互补;旧字段名 types 回读
  *   4 自动合并:移动成同父同名 → 整棵并(笔记并集/子标签搬/边并集);tag_merge_log 有记录

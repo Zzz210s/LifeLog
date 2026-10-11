@@ -16,7 +16,7 @@
  *   且快照必须落在快照目录、存在,同时 tasklist 查无 LifeLog.exe;三重不满足即拒绝。
  * 用法: node scripts/refs-optimize-ops.mjs --db <副本路径> [--apply] [--json <路径>]
  */
-import { DatabaseSync } from 'node:sqlite';
+import { openCompat } from './db-compat.mjs';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { execSync } from 'node:child_process';
@@ -57,7 +57,14 @@ if (target.toLowerCase() === REAL) {
   opt.snapshotHash = createHash('sha256').update(readFileSync(snap)).digest('hex');
 }
 if (!existsSync(target)) { console.error(`找不到库文件: ${target}`); process.exit(2); }
-const db = new DatabaseSync(target, { readOnly: !opt.apply });
+const db = openCompat(target, { readOnly: !opt.apply });
+// v31 起 `edges` 换 `lines`(关系名在 `name_id`、保留点 id=0),本脚本的写路径面向旧 `entities/edges` 模型,
+// 在 v31 库上写只会误导;只允许 dry-run 读数,写请求直接拒绝。
+const uv = db.prepare('PRAGMA user_version').get().user_version;
+if (opt.apply && uv >= 31) {
+  console.error(`拒绝执行:本脚本写路径面向 v30 及更早的 entities/edges 语义,现库 user_version=${uv}(>= 31)。`);
+  process.exit(3);
+}
 const vectors = JSON.parse(readFileSync('fixtures/tag-label.json', 'utf8'));
 const cases = Array.isArray(vectors) ? vectors : (vectors.cases ?? []);
 if (cases.filter((c) => tagLabelPlain(c.raw) !== c.plain).length > 0) { console.error('tag_plain 自检失败(fixtures/tag-label.json 对不上),拒绝执行'); process.exit(3); }

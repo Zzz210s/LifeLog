@@ -5,7 +5,7 @@
  * 样式沿用仓内令牌 src/shared/theme.css(--color-* / text-* / rounded-sm),亮暗可切。
  * 用法: node scripts/refs-preview-html.mjs --out <html>
  */
-import { DatabaseSync } from 'node:sqlite';
+import { openReadOnly } from './db-compat.mjs';
 import { readFileSync, writeFileSync } from 'node:fs';
 
 const argv = process.argv.slice(2);
@@ -19,7 +19,7 @@ const name = (m) => { for (const l of (m || '').split('\n')) if (l.trim()) retur
 const add = (m, k, v) => { if (!m.has(k)) m.set(k, new Set()); m.get(k).add(v); };
 
 function loadDb(path) {
-  const db = new DatabaseSync(path, { readOnly: true });
+  const db = openReadOnly(path);
   const ents = new Map(db.prepare('SELECT id, meta, path, parent_id, depth FROM entities').all().map((r) => [r.id, r]));
   const links = db.prepare("SELECT source_id, target_id FROM edges WHERE kind='link'").all();
   // own / roll 与产品 tags::counts 同口径(COUNT(DISTINCT source_id),源可为笔记或标签)

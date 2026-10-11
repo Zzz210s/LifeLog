@@ -159,7 +159,7 @@ try {
   const diff = ['notes', 'tags', 'tagLinks', 'fts', 'noteLinks'].filter((k) => after[k] !== base[k]);
   record(
     '收尾 夹具删净 + 库对账(逐项回到基线 + integrity + user_version)',
-    gone === true && diff.length === 0 && after.integrity === 'ok' && after.version === 27,
+    gone === true && diff.length === 0 && after.integrity === 'ok' && after.version === base.version,
     `残留夹具=${fmt(fixtureIds())} 不一致=${fmt(diff.map((k) => `${k} ${base[k]}->${after[k]}`))} 基线=${fmt(base)} 收尾=${fmt(after)}`
   );
 }

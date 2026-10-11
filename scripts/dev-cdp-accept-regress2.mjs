@@ -11,7 +11,8 @@ import { bindDom } from './cdp-dom.mjs';
 
 const { record, finish } = recorder();
 const sh = (cmd, args) =>
-  spawnSync(cmd, args, { encoding: 'utf8', env: { ...process.env, PYTHONIOENCODING: 'utf-8' } });
+  // maxBuffer 按**字节**计;全库导出 dump(中文) 超过默认 1MB 会静默截断 -> JSON.parse 报 Unterminated
+  spawnSync(cmd, args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, env: { ...process.env, PYTHONIOENCODING: 'utf-8' } });
 const py = (code) => sh('python', ['-c', code]).stdout.trim();
 const pid = Number(sh('powershell', ['-NoProfile', '-Command', "(Get-Process | Where-Object { $_.ProcessName -match '^lifelog$' } | Select-Object -First 1).Id"]).stdout.trim());
 const wins = () => JSON.parse(sh('python', ['scripts/win-probe.py', 'list', String(pid)]).stdout || '[]');

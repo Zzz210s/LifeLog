@@ -55,10 +55,11 @@ export async function runReadings5to8(cdp, ui, { call, record, nA, structAt8, E1
   await sleep(350);
   const card = await bubbleFactsOf(cdp);
   const hasFact = (rs, label, value) => (rs ?? []).some((x) => x.label === label && x.value === value);
-  const chipsPure = (chips ?? []).every((c) => !c.includes('→') && !c.includes(FIX.REMARK));
+  const chipsPure = (chips ?? []).every((c) => !c.includes('→'));
   records.push({
-    name: '读数6 行内只显示值(无箭头/属性名);悬停值给属性名;悬停标签名出档案卡片(标题一行末段名 + 每条关系一行两列);开关生效',
-    ok: (chips ?? []).length === 3 && chips[2] === '+1' && chipsPure && chips.includes(`${NS}乙`)
+    name: '读数6 行内 chip = 名字 + 值(无箭头);悬停值给属性名;悬停标签名出档案卡片(标题一行末段名 + 每条关系一行两列);开关生效',
+    ok: (chips ?? []).length === 3 && chips[2] === '+1'
+      && chips[0] === `${FIX.REMARK} ${NS}乙` && chips[1] === `${NS}丁` && chipsPure
       && chipTip === FIX.REMARK && (valueTip?.text ?? '').trim() === FIX.REMARK && (valueTip?.labels ?? []).length === 0
       && title.length === 1 && title[0] === FIX.A && !title.join('').includes('→') && !title.join('').includes('本级')
       && (facts ?? []).length === 3 && hasFact(facts, FIX.REMARK, `${NS}乙`)
@@ -88,12 +89,12 @@ export async function runReadings5to8(cdp, ui, { call, record, nA, structAt8, E1
   const pane = await cdp.eval(`(() => { const t = document.querySelector('[data-tag-menu]'); if (!t) return null;
     return { remarkInput: t.querySelector('input[aria-label="引用属性名"]') !== null,
       picker: t.querySelector('input[aria-label="添加引用目标"]') !== null,
-      rows: Array.from(t.querySelectorAll('[data-relation-remark]')).map((x) => x.value) }; })()`);
+      rows: Array.from(t.querySelectorAll('[data-relation-name]')).map((x) => x.value) }; })()`);
   await pressEsc(cdp);
   records.push({
-    name: '读数6c 关系面板:属性名输入框 + 目标标签选择器 + 每条边的属性名就地回显(来自边上 remark)',
+    name: '读数6c 关系面板:属性名输入框 + 目标标签选择器 + 每条线的名字就地回显(来自名字点 nameText)',
     ok: paneOpen === true && pane != null && pane.remarkInput && pane.picker && (pane.rows ?? []).includes(FIX.REMARK),
-    detail: `面板开=${paneOpen} 属性名输入框=${pane?.remarkInput} 选择器=${pane?.picker} 行上属性名=${fmt(pane?.rows)}`,
+    detail: `面板开=${paneOpen} 属性名输入框=${pane?.remarkInput} 选择器=${pane?.picker} 行上名字=${fmt(pane?.rows)}`,
   });
 
   // --- 7 关系图 ---

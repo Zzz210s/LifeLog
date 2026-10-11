@@ -1,24 +1,29 @@
 // 关系端到端读数的**数据层**(设计 §11 的 1-4):只发 IPC / 读库,判定也在此。
 // 从 dev-relations-accept.mjs 抽出(守 200 行红线),调用方只负责把 records 打出来。
 import {
-  NS, FIX, fmt, get, condIds, queryCount, sleep, noteIdOf, tagIdOf, counts,
+  NS, FIX, EMPTY, fmt, get, condIds, queryCount, sleep, noteIdOf, tagIdOf,
   relCond, excludeRelCond, legacyRelCond, hasIsTypeColumn, typeEdgeRows, targetStates,
   relationRows, relationRowsFrom, relationRowsTo, danglingTagRows, mergeLogRows, tagStructRows,
 } from './relations-accept-lib.mjs';
+
+/** 边集合比较:与顺序无关(按 `tag_id:target_id` 排序后逐值比) */
+const edgeKey = (r) => `${r.tag_id}:${r.target_id}`;
+const sameEdgeSet = (a, b) =>
+  a.length === b.length && a.map(edgeKey).sort().join('|') === b.map(edgeKey).sort().join('|');
 
 /** @returns {{records: {name:string,ok:boolean,detail:string}[], structAt8: string}} */
 export async function runReadings1to4(call, cdp, { base, baseRelations, fixIds, nA }) {
   const records = [];
   const tA = tagIdOf(FIX.A), tB = tagIdOf(FIX.B_RAW), tD = tagIdOf(FIX.D);
 
-  // 1 迁移 022+023
+  // 1 迁移 022+023(版本链断言:只要求 >= 023 引入的 27,不写死当前 schema 版本)
   const states = targetStates().map((x) => `${x.target_type}:${x.n}`).join(',');
   const onlyNoteTag = targetStates().every((x) => x.target_type === 'note' || x.target_type === 'tag');
   records.push({
-    name: '读数1 迁移 022+023:版本 27 / is_type 列消失 / 目标只有 note+tag / 24 条原边原样 / integrity ok',
-    ok: base.version === 27 && !hasIsTypeColumn() && typeEdgeRows() === 0 && onlyNoteTag
-      && JSON.stringify(relationRows()) === JSON.stringify(baseRelations) && base.integrity === 'ok',
-    detail: `version=${base.version} is_type列=${hasIsTypeColumn()} type边=${typeEdgeRows()} 目标=${states} 关系边=${relationRows().length} integrity=${base.integrity}`,
+    name: `读数1 迁移 022+023:版本 ${base.version}(>= 27)/ is_type 列消失 / 目标只有 note+tag / 原边原样(现场重算,顺序无关)/ integrity ok`,
+    ok: base.version >= 27 && !hasIsTypeColumn() && typeEdgeRows() === 0 && onlyNoteTag
+      && sameEdgeSet(relationRows(), baseRelations) && base.integrity === 'ok',
+    detail: `version=${base.version} is_type列=${hasIsTypeColumn()} type边=${typeEdgeRows()} 目标=${states} 关系边=${relationRows().length} 原边一致=${sameEdgeSet(relationRows(), baseRelations)} integrity=${base.integrity}`,
   });
 
   // 2 增删幂等 + 属性名 upsert 到边上(迁移 023) + 环拒绝 + 无悬空
@@ -54,11 +59,11 @@ export async function runReadings1to4(call, cdp, { base, baseRelations, fixIds, 
     detail: `A出边=${idem}->${outA};属性名 upsert=${remarkUpsert}->${edgeRemark(tA, tB)};自指向=「${selfMsg}」;2环=「${cy2}」;3环=「${cy3}」;删丙后 悬空=${afterDel.dangling} 丙入边=${afterDel.toC} A出边=${afterDel.fromA}`,
   });
 
-  // 3 筛选
+  // 3 筛选(排除谓词只作用于笔记:分母 = 笔记域,不是含标签的全点数)
   const hitIds = await condIds(cdp, relCond(FIX.B_RAW));
   const exclB = await queryCount(cdp, excludeRelCond(FIX.B_RAW));
   const legacy = await queryCount(cdp, legacyRelCond(FIX.B_RAW));
-  const total = counts().notes;
+  const total = await queryCount(cdp, { ...EMPTY, tagPresence: 'any' }) + await queryCount(cdp, { ...EMPTY, tagPresence: 'none' });
   const wantIds = [nA, noteIdOf(`${NS}甲子笔记`)].sort((a, b) => a - b);
   records.push({
     name: '读数3 关系条件命中 = 指向该标签的标签(甲)子树下的笔记;排除互补;旧字段 types 回读一致',
