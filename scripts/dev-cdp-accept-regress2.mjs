@@ -158,11 +158,16 @@ try {
     same = cur === prev ? same + 1 : 0; // 连续 4 次不增长才判为「已到底」,单次 400ms 会把慢加载误判成结束
     prev = cur;
   }
-  const loadedAll = cur === filtered0.length + SEED ? true : null;
+  // 信息流是统一实体(K 含标签点):自建夹具会新增 55 篇笔记 + 它引入的标签点(夹具标签本身也进流),
+  // 故按相对基线对账 —— 笔记域期望 = 基线命中 + 自建笔记数 + 本次新引入的标签点数,
+  // 不硬编码「+SEED」把新标签点算成回归。
+  const newTags = (await inventory()).paths.filter((p) => !inv0.paths.includes(p));
+  const expectedRows = filtered0.length + SEED + newTags.length;
+  const loadedAll = cur === expectedRows ? true : null;
   record(
-    'S1 无限滚动:首屏 50 条 + 滚到底逐页加载到全部(验收前笔记数 + 自建 55 条)',
+    'S1 无限滚动:首屏 50 条 + 滚到底逐页加载到全部(基线命中 + 自建 55 条 + 新增标签点)',
     first === true && loadedAll === true && !scrolled.error,
-    `首屏=${first} 滚到底=${loadedAll} 滚动=${JSON.stringify(scrolled)} 实际条数=${await liCount()} 期望=${filtered0.length + SEED}`
+    `首屏=${first} 滚到底=${loadedAll} 滚动=${JSON.stringify(scrolled)} 实际条数=${await liCount()} 期望=${expectedRows}(基线 ${filtered0.length} + 笔记 ${SEED} + 新标签 ${newTags.length})`
   );
 } finally {
   for (const id of seeded) await call('delete_note', { id });

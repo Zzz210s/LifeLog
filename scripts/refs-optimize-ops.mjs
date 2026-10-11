@@ -14,6 +14,8 @@
  * 写前:VACUUM INTO 一份 `*-backup-<stamp>.db`;全量写在单事务里;写完重建 FTS + is_cited 并自检。
  * 真库闸门:--db 命中真库时默认退出码 3;要写真库必须 `--apply --allow-live --snapshot <快照>`,
  *   且快照必须落在快照目录、存在,同时 tasklist 查无 LifeLog.exe;三重不满足即拒绝。
+ * v31 闸门(2026-10-11 定论):v31 起模型是 points/lines、关系名落在 `name_id`,而本脚本的写路径
+ *   面向 v30 的 entities/edges,故 `user_version >= 31` 时 `--apply` 一律拒绝(退出码 3);dry-run 读数保留。
  * 用法: node scripts/refs-optimize-ops.mjs --db <副本路径> [--apply] [--json <路径>]
  */
 import { openCompat } from './db-compat.mjs';

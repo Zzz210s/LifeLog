@@ -265,6 +265,7 @@ the FTS index in sync on insert, update and delete.
 
 - Database: `%APPDATA%\com.lifelog.app\lifelog.db` (SQLite, WAL). Delete this file to start over.
 - Search index: an FTS5 virtual table inside the same file, kept in sync by triggers.
+- Unified entities: notes and tags share one `points` table, and a relation is a `lines` row (its name is a separate "name point"). An existing v30 database is migrated to v31 automatically on first launch (single transaction); the migration is irreversible, so back up `%APPDATA%\com.lifelog.app\lifelog.db` before upgrading.
 - Excel export: written wherever you point the save dialog; nothing is uploaded.
 - Legacy tag names that the current syntax cannot parse (for example names with spaces) are kept as-is; they are re-parsed with the new syntax the next time you edit and save that note.
 
@@ -280,8 +281,8 @@ pnpm test               # vitest
 cd src-tauri && cargo test
 ```
 
-Verification status at the time of writing: 214 frontend tests, 216 Rust tests, typecheck and build
-clean.
+Verification status at the time of writing: 2081 frontend tests (288 files), 801 Rust tests,
+typecheck, build and clippy clean.
 
 Debugging the webviews over CDP: set
 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9222` before `pnpm tauri dev`, then

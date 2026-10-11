@@ -196,6 +196,8 @@ pnpm tauri build
 
 - 数据库:`%APPDATA%\com.lifelog.app\lifelog.db`(SQLite,WAL)。删除该文件即完全重置。
 - 搜索索引:同一文件内的 FTS5 虚拟表,由触发器保持同步。
+- 统一实体:笔记与标签共用一张 `points` 表,一段关系就是 `lines` 表里的一条线(关系名是独立的「名字点」)。
+  旧 v30 库首次启动自动迁移到 v31(单事务);迁移不可逆,升级前请备份 `%APPDATA%\com.lifelog.app\lifelog.db`。
 - Excel 导出:写到保存对话框指定的位置,不上传任何数据。
 - 旧版中无法按当前语法解析的标签名(如含空格)会原样保留;下次编辑并保存该笔记时会按新语法重新解析。
 
@@ -211,7 +213,7 @@ pnpm test               # vitest
 cd src-tauri && cargo test
 ```
 
-当前验证状态:前端 214 条测试、Rust 216 条测试,typecheck 与 build 通过。
+当前验证状态:前端 2081 条测试(288 个文件)、Rust 801 条测试,typecheck、build 与 clippy 通过。
 
 通过 CDP 调试 webview:`pnpm tauri dev` 前设置
 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9222`,再访问
