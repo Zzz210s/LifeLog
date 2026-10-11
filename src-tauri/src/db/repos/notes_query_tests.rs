@@ -173,7 +173,7 @@ fn query_pages_by_id_desc() {
     assert_eq!(p1[0].content, "n51", "最新在前:按 id 降序");
     assert_eq!(p1[1].content, "n50");
     assert!(
-        p1.iter().all(|n| n.tags.iter().any(|t| t.starts_with("时间排序/"))),
+        p1.iter().all(|n| n.tags.iter().any(|t| t.starts_with("时间/"))),
         "每条都带自动时间标签(且仍随结果返回)"
     );
     let p2 = query(&c, &f(None, &[]), 50).unwrap();

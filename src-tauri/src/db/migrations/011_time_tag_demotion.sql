@@ -5,7 +5,11 @@
 --    「时间标签即普通标签」的一致性代价。
 -- ② saved_views.conditions 里的 from/to 键删除(日期范围筛选已整体取消,D2);
 --    只更新真正含这两个键的行,空表无操作。
--- ③ 登记设置键 auto_time_tag(默认 true)与 time_tag_template(默认 时间排序/{y}/{m}/{d})。
+-- ③ 登记设置键 auto_time_tag(默认 true)与 time_tag_template(默认 时间/{y}/{m}/{d})。
+--    默认模板字面量**就地改**(2026-10-12 时间轴收敛 P1):本步骤是 `INSERT OR IGNORE`,
+--    已跑过 011 的库不受影响(版本闸门不再跑),只影响全新库与停在 v10 的老库 ——
+--    这样全新库的 seed 与 `timetag::DEFAULT_TEMPLATE` / 前端默认值同形,新设备不会再长出 `时间排序` 根。
+--    不新增迁移 032 的理由:那会把 `user_version` 推到 32,波及全部断言 31 的脚本与用例。
 -- 无表结构变更(不新增列、不删表)。
 -- 幂等:①DELETE 起手整体重建(与 004/009 同款)②键删掉后条件即不成立 ③INSERT OR IGNORE。
 -- 聚合加 `ORDER BY t.path`:同一笔记的索引串确定,与 tags_tree::refresh_fts 口径一致。
@@ -60,4 +64,4 @@ UPDATE saved_views
 
 -- ③ 设置键登记(已存在则保留用户当前值:改成别的模板的不许被迁移覆盖)
 INSERT OR IGNORE INTO settings(key, value) VALUES('auto_time_tag', 'true');
-INSERT OR IGNORE INTO settings(key, value) VALUES('time_tag_template', '时间排序/{y}/{m}/{d}');
+INSERT OR IGNORE INTO settings(key, value) VALUES('time_tag_template', '时间/{y}/{m}/{d}');

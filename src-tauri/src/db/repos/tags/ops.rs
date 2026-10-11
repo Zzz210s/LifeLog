@@ -94,19 +94,36 @@ pub fn move_to_ordered(
     anchor: Option<Anchor>,
 ) -> Result<(), String> {
     let tx = conn.transaction().map_err(|e| e.to_string())?;
-    let node = load(&tx, tag_id)?;
+    move_to_ordered_core(&tx, tag_id, new_parent, anchor)?;
+    tx.commit()
+        .map_err(|e| super::path::unique_conflict(e, "该层级下已有同名标签"))
+}
+
+/// [`move_to_ordered`] 的本体:在**调用方事务**内移动(不自行 BEGIN/COMMIT)。
+/// 拆出来的理由:时间轴收敛引擎要把多个年容器搬移 + 同名整棵合并收进同一个事务,
+/// 而 `Connection::transaction()` 不允许嵌套 `BEGIN`;拆出本体后事务边界仍由调用方掌握,
+/// 搬移/重名合并/收尾的 SQL 一行未变(测试覆盖也不变)。
+/// 无变化时直接返回:外层事务由调用方回滚或提交(与旧行为同为“空操作”)。
+pub(crate) fn move_to_ordered_core(
+    conn: &Connection,
+    tag_id: i64,
+    new_parent: Option<i64>,
+    anchor: Option<Anchor>,
+) -> Result<(), String> {
+    let node = load(conn, tag_id)?;
     if node.parent_id == new_parent && anchor.is_none() {
-        // 无变化:回滚空事务。带锚点时即使父级不变也要继续 —— 同级重排就是这种输入。
+        // 无变化:直接返回(旧实现回滚空事务,效果相同)。带锚点时即使父级不变也要继续 ——
+        // 同级重排就是这种输入。
         return Ok(());
     }
-    let ids = subtree_ids(&tx, tag_id).map_err(|e| e.to_string())?;
+    let ids = subtree_ids(conn, tag_id).map_err(|e| e.to_string())?;
     let new_depth = match new_parent {
         None => 1,
         Some(p) => {
             if ids.contains(&p) {
                 return Err("不能移动到自身或其子孙下".into());
             }
-            let parent_depth: i64 = tx
+            let parent_depth: i64 = conn
                 .query_row(
                     "SELECT depth FROM points WHERE id = ?1 AND path IS NOT NULL",
                     params![p],
@@ -120,26 +137,25 @@ pub fn move_to_ordered(
     };
     let delta = new_depth - node.depth;
     // 目标父下已有 raw 同名的兄弟 -> 不移动,直接整棵并到该兄弟(设计 2026-10-06 §6 拖入同名)
-    if let Some(existing) = crate::db::repos::tags::merge::sibling_by_name(&tx, new_parent, &node.name, tag_id)? {
-        crate::db::repos::tags::auto_merge::merge_pair(&tx, tag_id, existing)?;
-        tx.commit().map_err(|e| e.to_string())?;
+    if let Some(existing) = crate::db::repos::tags::merge::sibling_by_name(conn, new_parent, &node.name, tag_id)? {
+        crate::db::repos::tags::auto_merge::merge_pair(conn, tag_id, existing)?;
         return Ok(());
     }
-    ensure_sibling_free(&tx, new_parent, &node.name, tag_id)?;
-    let new_path = super::path::child_path(&tx, new_parent, &node.name).map_err(|e| e.to_string())?;
-    tx.execute(
+    ensure_sibling_free(conn, new_parent, &node.name, tag_id)?;
+    let new_path = super::path::child_path(conn, new_parent, &node.name).map_err(|e| e.to_string())?;
+    conn.execute(
         "UPDATE points SET parent_id = ?1, path = ?2, depth = ?3 WHERE id = ?4 AND path IS NOT NULL",
         params![new_parent, new_path, new_depth, tag_id],
     )
     .map_err(|e| super::path::unique_conflict(e, "该层级下已有同名标签"))?;
-    repoint_child(&tx, tag_id, new_parent).map_err(|e| e.to_string())?;
-    rewrite_subtree_paths(&tx, &node.path, &new_path)
+    repoint_child(conn, tag_id, new_parent).map_err(|e| e.to_string())?;
+    rewrite_subtree_paths(conn, &node.path, &new_path)
         .map_err(|e| super::path::unique_conflict(e, "该层级下已有同名标签"))?;
-    shift_subtree_depths(&tx, tag_id, delta).map_err(|e| e.to_string())?;
+    shift_subtree_depths(conn, tag_id, delta).map_err(|e| e.to_string())?;
     // 同层次序(S8):插到锚点位置后整层重写 sort_order;锚点 None = 追加到末尾
-    apply_sibling_order(&tx, new_parent, tag_id, anchor)?;
+    apply_sibling_order(conn, new_parent, tag_id, anchor)?;
     finish(
-        &tx,
+        conn,
         PostWrite {
             entities: &ids,
             path_change: Some((node.path.as_str(), new_path.as_str())),
@@ -147,7 +163,7 @@ pub fn move_to_ordered(
         },
     )
     .map_err(|e| e.to_string())?;
-    tx.commit().map_err(|e| super::path::unique_conflict(e, "该层级下已有同名标签"))
+    Ok(())
 }
 
 /// 同级插入(S8):把 tag_id 移到锚点所在的父级下,插到锚点之前(after=false)/之后(after=true)。

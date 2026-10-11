@@ -22,6 +22,12 @@ name = "gen-upgrade-baseline"
 path = "src/bin/gen-upgrade-baseline.rs"
 required-features = ["tools"]
 
+# 时间轴收敛工具(计划 2026-10-12 T2):默认 dry-run、`--apply` 才写库;同样不进默认构建与安装包。
+[[bin]]
+name = "time-axis-ops"
+path = "src/bin/time-axis-ops.rs"
+required-features = ["tools"]
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 

@@ -103,16 +103,16 @@ fn date_comparison_in_expression_is_rejected() {
     assert!(super::count_matching(&c, &cond).is_err());
     // 旧写法在组合条件下同样整条失败
     let mixed = FilterConditions {
-        tags: vec![tag("时间排序/2026/08", true)],
+        tags: vec![tag("时间/2026/08", true)],
         expr: Some("date<2026-09-01".into()),
         ..empty()
     };
     assert!(query(&c, &mixed, 0).is_err(), "组合条件里的非法表达式同样整条失败");
 
     // 替代路径:想看某段时间就点时间标签(含子级)
-    let by_tag = FilterConditions { tags: vec![tag("时间排序/2026/08", true)], ..empty() };
+    let by_tag = FilterConditions { tags: vec![tag("时间/2026/08", true)], ..empty() };
     assert_eq!(hits(&c, &by_tag), vec![aug.id]);
-    assert_eq!(expr_hits(&c, "#时间排序/2026/08"), vec![aug.id], "表达式里的时间标签照常可用");
+    assert_eq!(expr_hits(&c, "#时间/2026/08"), vec![aug.id], "表达式里的时间标签照常可用");
 }
 
 #[test]

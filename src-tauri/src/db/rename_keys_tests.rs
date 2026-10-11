@@ -63,7 +63,7 @@ fn migration_005_renames_old_keys_and_drops_them() {
             ("input_x".into(), "1077".into()),
             ("input_zoom".into(), "1.30".into()),
             ("quickfool".into(), "untouched".into()),
-            ("time_tag_template".into(), "时间排序/{y}/{m}/{d}".into()),
+            ("time_tag_template".into(), "时间/{y}/{m}/{d}".into()),
             ("tree_line_name_id".into(), "0".into()),
             ("unrelated".into(), "keep".into()),
             ("xquick_y".into(), "untouched".into()),
@@ -86,7 +86,7 @@ fn migration_005_prefers_existing_new_key_on_conflict() {
         vec![
             ("auto_time_tag".into(), "true".into()),
             ("input_x".into(), "2".into()),
-            ("time_tag_template".into(), "时间排序/{y}/{m}/{d}".into()),
+            ("time_tag_template".into(), "时间/{y}/{m}/{d}".into()),
             ("tree_line_name_id".into(), "0".into()),
         ]
     );
@@ -120,7 +120,7 @@ fn migration_005_without_old_keys_changes_nothing() {
         rows_without_preset_filter(&conn),
         vec![
             ("auto_time_tag".into(), "true".into()),
-            ("time_tag_template".into(), "时间排序/{y}/{m}/{d}".into()),
+            ("time_tag_template".into(), "时间/{y}/{m}/{d}".into()),
             ("tree_line_name_id".into(), "0".into()),
             ("unrelated".into(), "keep".into()),
         ]

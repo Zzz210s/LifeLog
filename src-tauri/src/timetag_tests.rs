@@ -15,10 +15,22 @@ fn iso_date_accepts_real_dates_and_rejects_others() {
 fn auto_time_path_renders_default_template() {
     assert_eq!(
         auto_time_path(DEFAULT_TEMPLATE, "2026-09-15").as_deref(),
-        Some("时间排序/2026/09/15")
+        Some("时间/2026/09/15")
     );
     assert_eq!(auto_time_path("{y}{m}{d}", "2026-01-02").as_deref(), Some("20260102"));
     assert_eq!(auto_time_path("日期/{y}/{m}/{d}/旧", "2025-12-31").as_deref(), Some("日期/2025/12/31/旧"));
+}
+
+/// 默认模板必须等于**真库在用形状**(`时间/{y}/{m}/{d}`):三处真源(Rust 常量 / 前端常量 /
+/// 迁移 011 的 seed)一致后,新设备不会在 `时间` 之外再长出第二个根。
+#[test]
+fn default_template_matches_live_shape() {
+    assert_eq!(DEFAULT_TEMPLATE, "时间/{y}/{m}/{d}");
+    assert_eq!(
+        auto_time_path(DEFAULT_TEMPLATE, "2026-09-15").as_deref(),
+        Some("时间/2026/09/15")
+    );
+    assert!(validate_template(DEFAULT_TEMPLATE).is_ok());
 }
 
 #[test]

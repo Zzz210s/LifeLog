@@ -12,8 +12,10 @@ use super::settings::{self, FILTER_CURRENT_KEY};
 use crate::expr::lexer::{lex_spans, Token};
 use rusqlite::Connection;
 
-/// 单条路径按前缀规则改写:精确等于 old 或以 `old + '/'` 开头 -> 前缀替换为 new;其余不动
-fn rewrite_path(path: &str, old: &str, new: &str) -> Option<String> {
+/// 单条路径按前缀规则改写:精确等于 old 或以 `old + '/'` 开头 -> 前缀替换为 new;其余不动。
+/// 除本模块的筛选条件级联外,时间轴收敛引擎改写 `ui.mru.tags` / `ui.pinned.tags`
+/// (同样存标签路径)时也复用同一份前缀语义(段边界由显式 `/` 保证,`工作X` 不被 `工作` 误伤)。
+pub(crate) fn rewrite_path(path: &str, old: &str, new: &str) -> Option<String> {
     if path == old {
         return Some(new.to_string());
     }

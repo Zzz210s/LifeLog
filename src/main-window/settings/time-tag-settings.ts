@@ -10,7 +10,7 @@ export const AUTO_TIME_TAG_KEY = 'auto_time_tag';
 /** 自动时间标签的路径模板(默认三段年/月/日) */
 export const TIME_TAG_TEMPLATE_KEY = 'time_tag_template';
 /** 默认模板,与 Rust `timetag::DEFAULT_TEMPLATE` 一致 */
-export const DEFAULT_TIME_TAG_TEMPLATE = '时间排序/{y}/{m}/{d}';
+export const DEFAULT_TIME_TAG_TEMPLATE = '时间/{y}/{m}/{d}';
 
 /** 'false' 之外的值(空、拼写、类型)一律回默认 true(默认开) */
 export function parseAutoTimeTag(raw: string | null): boolean {

@@ -48,7 +48,7 @@ fn today_path(template_root: &str) -> String {
 #[test]
 fn create_adds_today_auto_tag_with_default_template() {
     let mut c = db();
-    let path = today_path("时间排序");
+    let path = today_path("时间");
 
     let n = create(&mut c, "正文 #工作").unwrap();
 
@@ -65,7 +65,7 @@ fn create_adds_today_auto_tag_with_default_template() {
 #[test]
 fn create_writes_body_tags_and_auto_tag_in_one_batch() {
     let mut c = db();
-    let path = today_path("时间排序");
+    let path = today_path("时间");
 
     let n = create(&mut c, "买牛奶 #todo #生活/超市").unwrap();
 
@@ -86,7 +86,7 @@ fn auto_time_tag_disabled_adds_nothing() {
     let n = create(&mut c, "正文 #工作").unwrap();
 
     assert_eq!(paths(&c, n.id), vec!["工作".to_string()], "开关关闭:不加任何自动标签");
-    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND path LIKE '时间排序%'"), 0, "连根都不建");
+    assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND path LIKE '时间%'"), 0, "连根都不建");
 
     let n2 = create(&mut c, "无标签正文").unwrap();
     assert!(paths(&c, n2.id).is_empty());
@@ -106,7 +106,7 @@ fn invalid_template_degrades_to_no_auto_tag() {
     // 空串同样回退默认模板(而不是当成"不加")
     settings::set(&c, settings::TIME_TAG_TEMPLATE_KEY, "   ").unwrap();
     let n2 = create(&mut c, "空模板").unwrap();
-    assert_eq!(paths(&c, n2.id), vec![today_path("时间排序")]);
+    assert_eq!(paths(&c, n2.id), vec![today_path("时间")]);
 }
 
 #[test]
@@ -140,7 +140,7 @@ fn handwritten_time_tag_parses_normally() {
 #[test]
 fn update_uses_exactly_the_tags_written_in_the_body() {
     let mut c = db();
-    let auto = today_path("时间排序");
+    let auto = today_path("时间");
     let n = create(&mut c, "旧文 #甲标签").unwrap();
     assert!(paths(&c, n.id).contains(&auto));
 

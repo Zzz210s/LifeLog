@@ -1,12 +1,14 @@
 //! 时间标签模板(spec 2026-09-17 D3/D5):时间标签已**降级为普通标签**,
 //! 本模块不再有任何"时间子树"判定、SQL 片段或结构守卫 —— 只提供纯函数:
 //! 模板校验与"模板 + 日期 -> 标签路径"的生成。
-//! 默认模板 `时间排序/{y}/{m}/{d}`;生成结果的合法性以 `tags::parse_tag_path` 为唯一真源
+//! 默认模板 `时间/{y}/{m}/{d}`(与真库 `settings.time_tag_template` 在用形状一致:历史 v2
+//! `时间/日期/...` 已由时间轴收敛统一到本形状,代码默认值不再另起 `时间排序`);
+//! 生成结果的合法性以 `tags::parse_tag_path` 为唯一真源
 //! (字符集与正文抽标签同源),本模块不维护第二套标签语法。
 use rusqlite::Connection;
 
 /// 默认模板(设置键 `time_tag_template` 的初值与缺失回退值)
-pub const DEFAULT_TEMPLATE: &str = "时间排序/{y}/{m}/{d}";
+pub const DEFAULT_TEMPLATE: &str = "时间/{y}/{m}/{d}";
 
 /// 模板必须包含的三个占位符(缺任一即非法)
 const PLACEHOLDERS: [&str; 3] = ["{y}", "{m}", "{d}"];

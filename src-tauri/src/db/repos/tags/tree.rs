@@ -87,6 +87,9 @@ mod replace;
 mod similar;
 pub use ensure::ensure_path;
 pub use ops::{move_beside, move_to, rename};
+// 时间轴收敛引擎要在自己的事务里连续搬移多个容器(`Connection` 不允许嵌套 BEGIN),
+// 故上浮“事务内本体”;事务边界与收尾 SQL 一字未改。
+pub(crate) use ops::move_to_ordered_core;
 pub use ops_delete::delete_subtree;
 // 路径 -> id 的解析漏斗:解析顺序与别名优先级的唯一实现(见 link.rs)
 pub(crate) use link::resolve_paths;

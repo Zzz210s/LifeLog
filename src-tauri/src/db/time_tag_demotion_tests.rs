@@ -154,11 +154,11 @@ fn final_triggers_agree_with_refresh_entities_fts() {
     assert_eq!(count(&conn, "PRAGMA user_version"), latest_version());
     let id = crate::db::repos::notes::create(&mut conn, "新笔记 #乙").unwrap().id;
     let created = entity_fts(&conn, id);
-    assert!(created.contains('乙') && created.contains("时间排序"), "{created}");
+    assert!(created.contains('乙') && created.contains("时间"), "{created}");
     // 正文更新触发器(entities_au)
     conn.execute("UPDATE points SET meta='改过的正文' WHERE id=?1", [id]).unwrap();
     let updated = entity_fts(&conn, id);
-    assert!(updated.contains('乙') && updated.contains("时间排序"), "{updated}");
+    assert!(updated.contains('乙') && updated.contains("时间"), "{updated}");
     // 显式重写路径必须写出同一索引串
     conn.execute("DELETE FROM points_fts WHERE rowid=?1", [id]).unwrap();
     crate::db::repos::tags::tree::refresh_entities_fts(&conn, &[id]).unwrap();

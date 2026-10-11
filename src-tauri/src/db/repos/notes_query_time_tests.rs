@@ -68,7 +68,7 @@ fn query_exposes_created_at_and_plain_tags() {
     let got = query(&c, &empty(), 0).unwrap();
 
     assert_eq!(got[0].id, n.id);
-    assert_eq!(got[0].tags, vec!["工作".to_string(), "时间排序/2026/03/04".to_string()]);
+    assert_eq!(got[0].tags, vec!["工作".to_string(), "时间/2026/03/04".to_string()]);
     assert!(!got[0].created_at.is_empty(), "created_at 物理列仍回传(展示与导出用)");
     // 搜索索引同样收时间标签(D3)
     let hits = query(&c, &FilterConditions { keyword: Some("2026".into()), ..empty() }, 0).unwrap();
@@ -83,13 +83,13 @@ fn time_subtree_tag_filter_covers_whole_year() {
     create_on(&mut c, "今年九月", "2026-09-15").unwrap();
     create_on(&mut c, "去年", "2025-09-15").unwrap();
 
-    let year = f(&["时间排序/2026"]);
+    let year = f(&["时间/2026"]);
     let mut year_children = year.clone();
     year_children.tags[0].include_children = true;
 
     assert!(query(&c, &year, 0).unwrap().is_empty(), "仅本级:没有笔记直接挂在年节点上");
     assert_eq!(contents(&query(&c, &year_children, 0).unwrap()), vec!["今年九月", "今年一月"]);
-    let day = f(&["时间排序/2026/09/15"]);
+    let day = f(&["时间/2026/09/15"]);
     assert_eq!(contents(&query(&c, &day, 0).unwrap()), vec!["今年九月"]);
 }
 
@@ -102,7 +102,7 @@ fn note_with_two_time_tags_keeps_both() {
 
     assert_eq!(
         two.tags,
-        vec!["时间排序/2020/05/06".to_string(), format!("时间排序/{}", today.replace('-', "/"))],
+        vec![format!("时间/{}", today.replace('-', "/")), "时间排序/2020/05/06".to_string()],
         "手打与自动标签并存"
     );
     let all = query(&c, &empty(), 0).unwrap();

@@ -73,11 +73,11 @@ fn day_and_year_are_reached_through_time_tags() {
     at(&c, a.id, "2030-01-01 10:00:00");
     at(&c, b.id, "2030-01-01 10:00:00");
 
-    let day = FilterConditions { tags: vec![tag("时间排序/2026/09/13", false)], ..empty() };
+    let day = FilterConditions { tags: vec![tag("时间/2026/09/13", false)], ..empty() };
     assert_eq!(contents(&query(&c, &day, 0).unwrap()), vec!["九月"]);
-    let month = FilterConditions { tags: vec![tag("时间排序/2026/09", true)], ..empty() };
+    let month = FilterConditions { tags: vec![tag("时间/2026/09", true)], ..empty() };
     assert_eq!(contents(&query(&c, &month, 0).unwrap()), vec!["九月"]);
-    let year = FilterConditions { tags: vec![tag("时间排序/2026", true)], ..empty() };
+    let year = FilterConditions { tags: vec![tag("时间/2026", true)], ..empty() };
     assert_eq!(contents(&query(&c, &year, 0).unwrap()), vec!["九月", "八月"], "默认最新在前");
     // 无时间标签的笔记只能靠“无标签”类条件找到,不落入任何时间标签筛选
     let plain = create_plain(&mut c, "无时间标签").unwrap();

@@ -15,7 +15,7 @@ describe('设置键与默认值(与 Rust 侧一致)', () => {
   });
 
   it('默认模板与 Rust timetag::DEFAULT_TEMPLATE 一致', () => {
-    expect(DEFAULT_TIME_TAG_TEMPLATE).toBe('时间排序/{y}/{m}/{d}');
+    expect(DEFAULT_TIME_TAG_TEMPLATE).toBe('时间/{y}/{m}/{d}');
   });
 });
 

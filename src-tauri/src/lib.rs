@@ -44,6 +44,9 @@ mod tags;
 mod timetag;
 // 升级回归基线(spec §5.3 / 计划 T0.2):迁移前解析结果冻结在 fixtures/upgrade-regression.baseline.json,
 // 阶段 4 新实现对其逐字节比对;解析复用 tags/links,不新增第二套语法,基线与抽样都不存正文。
+// 时间轴收敛引擎(S1 树收敛 + 后续 S2 created_at 修复的载具,设计 2026-10-12 §6);
+// 公开面只有 `run`,CLI 薄壳是 `src/bin/time-axis-ops.rs`(`--features tools`)。
+pub mod time_axis;
 pub mod upgrade_regression;
 mod windowing;
 
