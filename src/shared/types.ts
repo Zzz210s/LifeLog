@@ -40,7 +40,7 @@ export interface NoteTitle {
   title: string;
 }
 
-/** 树内实体(标签树节点)计数:id 是**实体 id**(统一实体表,树内落在偏移区间 `>= 1000000000`),
+/** 树内实体(标签树节点)计数:id 是**实体 id**(统一实体表,点/线模型下不再有偏移区间),
  *  右键管理(rename/move/delete/tag_impact)、`graph_positions` 位置记忆全按它寻址;
  *  path 为完整路径,self_count 本级链接数,subtree_count 含全部子孙;sort_order 供同层次序(S8,兄弟按 (sort_order, path) 展示) */
 export interface TagCount {
@@ -83,15 +83,8 @@ export interface MergeReport {
   aliases: string[];
 }
 
-/** 一条标签关系边(IPC `list_tag_relations` / `list_tag_facts`):
- *  读作「本标签具有`remark`所表示的属性,值是 toTagId」;`toTagId` 是标签实体 id(偏移区间),
- *  `remark` 是**边上**的属性名(`A --(国籍)--> B` 的 `国籍`),空串 = 只声明有关系(显示时回退只给目标名) */
-export interface RelationRef {
-  toTagId: number;
-  path: string;
-  name: string;
-  remark: string;
-}
+/** 标签关系线 DTO(与标签事实共用一份投影);定义在 `tag-facts-types.ts` 里守 200 行上限 */
+export type { RelationRef } from './tag-facts-types';
 
 /** 表达式实时校验结果(IPC `validate_expr`);position 是 0 起字符下标,展示时 +1 */
 export interface ExprCheck {

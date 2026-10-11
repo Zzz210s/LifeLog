@@ -21,8 +21,7 @@ export const api = {
   /** 实时校验表达式:合法给中文预览,非法给中文原因与 0 起出错字符下标 */
   validateExpr: (text: string) => invoke<ExprCheck>('validate_expr', { text }),
   /** 标签树全量计数(完整路径);标签面板与树形选择器数据源。
-   *  本节起所有 `tagId` 参数/返回值均为**标签实体 id**(统一实体表,偏移区间 `>= 1000000000`),
-   *  不是老 `tags.id`;命令名与后端签名不变。 */
+   *  本节起所有 `tagId` 参数/返回值均为**点 id**(统一实体表),不是老 `tags.id`;命令名与后端签名不变。 */
   listTags: () => invoke<TagCount[]>('list_tags'),
   /** 改标签名(单段);级联重写子树路径与全文索引 */
   renameTag: (tagId: number, newName: string) =>
@@ -47,14 +46,19 @@ export const api = {
   carriedTagPaths: () => invoke<string[]>('carried_tag_paths'),
   /** 全量标签关系事实(批量只读,一次 IPC 取全):侧栏树行/悬浮卡片共用 */
   listTagFacts: () => invoke<TagFactsBundle>('list_tag_facts'),
-  /** 建立/改属性名 A -> B(幂等 upsert):属性名存在**边**上,可空(只声明有关系);
-   *  自指向 / 成环 / 标签不存在都会 reject 中文原因 */
+  /** 建立/改关系名 A -> B(幂等 upsert):第 3 参 `remark` 是**名字文本**(空 = 清除名字,
+   *  线回无名字线;非空 = 按名字建/复用名字点);自指向 / 成环 / 标签不存在都 reject 中文原因 */
   setTagRelation: (fromTag: number, toTag: number, remark: string) =>
     invoke<void>('set_tag_relation', { fromTag, toTag, remark }),
+  /** 改一个关系名点(改点 `meta`,引用它的每条线文本一起变);撞名 reject 中文原因 */
+  renameLineName: (nameId: number, newName: string) =>
+    invoke<void>('rename_line_name', { nameId, newName }),
+  /** 按线 id 删一条具体的线(幂等);删哪条线由调用方从 `RelationRef.lineId` 指明 */
+  removeLine: (lineId: number) => invoke<void>('remove_line', { lineId }),
   /** 移除标签关系 A -> B(幂等:不存在也算成功) */
   removeTagRelation: (fromTag: number, toTag: number) =>
     invoke<void>('remove_tag_relation', { fromTag, toTag }),
-  /** 某标签的全部出边(A -> ?):每项含目标 id / 路径 / 末段名 / 边上的属性名 */
+  /** 某标签的全部出线(A -> ?):每项含被引用点 id / 路径 / 末段名 / 名字点 id 与文本 */
   listTagRelations: (fromTag: number) =>
     invoke<RelationRef[]>('list_tag_relations', { fromTag }),
   /** 条件栏「命中 N 条」读数:每个标签/类型条件独立计数(不叠加其它条件) */

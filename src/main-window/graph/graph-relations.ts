@@ -25,7 +25,7 @@ export interface RelationEdge {
 export function relationEdges(facts: readonly TagFact[]): RelationEdge[] {
   const out: RelationEdge[] = [];
   for (const f of facts) {
-    for (const r of f.relations) out.push({ a: f.tagId, b: r.toTagId, remark: r.remark });
+    for (const r of f.relations) out.push({ a: f.tagId, b: r.toTagId, remark: r.nameText ?? r.remark ?? '' });
   }
   return out;
 }

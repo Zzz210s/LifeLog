@@ -1,17 +1,17 @@
 /**
- * 标签关系的纯格式化(标签关系统一 spec §7):树行小字、悬浮档案卡片共用一份口径。
+ * 标签关系的纯格式化(点/线模型 v31):树行小字、悬浮档案卡片共用一份口径。
  *
- * 一条边读作「本标签具有「属性名」所表示的属性」;属性名就是 `RelationRef.remark`,
- * **存在边上**(迁移 023) —— 不是目标标签名字里的 md 备注(`[国籍](国别)` 的 `国别`,
- * 那只驱动标签名的悬浮显示)。同一个目标标签可承担多个属性名(国籍 / 出生地)。
+ * 一条线读作「被引用点 `toTagId` 上有一条名为 `nameText` 的线」—— 名字存在**点**上
+ * (`lines.name_id` 指向名字点),不再存在线上;同一个被引用点可有多条不同名字的线
+ * (国籍 / 出生地)。迁移期读取回落 v30 的边上 `remark`(见 `lineName`),T4.2/T4.3 迁完夹具后删。
  *
- * 本文件只做文本格式化,不碰 id;`RelationRef` 的 id 字段(`toTagId`)是**标签实体 id**
- * (统一实体表,偏移区间),由调用方按同一命名空间去匹配可见节点。
+ * 本文件只做文本格式化,不碰 id;`RelationRef` 的 id 字段(`toTagId` / `nameId`)是**点 id**
+ * (`nameId` 是线上的名字点),由调用方按同一命名空间去匹配可见节点。
  *
  * 显示分三层(2026-10-06 用户口径:「国籍 → 中国大陆」变成「中国大陆」):
- * - 行内小字 `relationValue` = **只显示值**(如 `中国大陆`),不拼箭头与属性名
- * - 悬停这个值 `relationValueTip` = 属性名(空 = 调用方不挂 data-tip,回退成行级卡片)
- * - 悬停标签名 `tagLeafName`(卡片标题,末段名)+ `tagFactsRows`(档案:一条关系一行,左属性名右值)
+ * - 行内小字 `relationValue` = **只显示值**(如 `中国大陆`),不拼箭头与名字
+ * - 悬停这个值 `relationValueTip` = 名字(空 = 调用方不挂 data-tip,回退成行级卡片)
+ * - 悬停标签名 `tagLeafName`(卡片标题,末段名)+ `tagFactsRows`(档案:一条关系一行,左名字右值)
  */
 import { tagLabelPlain } from './tag-label';
 import type { RelationRef } from './types';
@@ -19,34 +19,42 @@ import type { RelationRef } from './types';
 /** 树行内最多显示几条关系,超出用 `+N` 概括 */
 export const MAX_RELATION_CHIPS = 2;
 
-/** 菜单等「一条关系写成一句」的场合仍在用:有属性名 `属性名 → 目标`,属性名为空回退目标名 */
-export function relationLabel(r: RelationRef): string {
-  const target = tagLabelPlain(r.name);
-  const remark = tagLabelPlain(r.remark);
-  return remark === '' ? target : `${remark} → ${target}`;
+/** 一条线的名字文本(显示口径):v31 认 `nameText`,迁移期回退 v30 边上的 `remark`;两者都没有 = 无名字线 */
+function lineName(r: RelationFactLike): string {
+  return tagLabelPlain(r.nameText ?? r.remark ?? '');
 }
 
-/** 行内小字 = 只显示值(目标标签名,剥掉行内 md) */
+/** 菜单等「一条关系写成一句」的场合仍在用:有名字 `名字 → 被引用点`,无名字回退被引用点名 */
+export function relationLabel(r: RelationRef): string {
+  const target = tagLabelPlain(r.name);
+  const name = lineName(r);
+  return name === '' ? target : `${name} → ${target}`;
+}
+
+/** 行内小字 = 只显示值(被引用点标签名,剥掉行内 md) */
 export function relationValue(r: RelationFactLike): string {
   return tagLabelPlain(r.name);
 }
 
-/** 值上的悬停提示 = 属性名;边上没有属性名给空串(调用方据此不挂 data-tip,R12 不留空提示) */
+/** 值上的悬停提示 = 名字;无名字线给空串(调用方据此不挂 data-tip,R12 不留空提示) */
 export function relationValueTip(r: RelationFactLike): string {
-  return tagLabelPlain(r.remark);
+  return lineName(r);
 }
 
 /**
- * 行内按**显示值**去重(同值多属性只留第一条):行内只显示值,重复值没有信息量。
- * 卡片不走这里 —— 档案里 国籍/出生地 都指向 中国大陆 时两条都要列。
+ * 行内按**名字 + 值**去重(v31 语义):行内要显示「名字 + 值」,同值不同名(国籍/出生地
+ * 都指 `中国大陆`)两条都要显示;只有名字与值都相同才算重复。卡片不走这里 —— 档案里两条都要列。
+ *
+ * 键里的名字**只认 v31 的 `nameText`**,不回落 v30 的 `remark`:迁移期 v30 形状没有名字,
+ * 退化为按值去重,与 v30 逐字相同(显示口径的回退见 `lineName`)。
  */
 export function uniqueRelationValues(relations: readonly RelationRef[]): RelationRef[] {
   const seen = new Set<string>();
   const out: RelationRef[] = [];
   for (const r of relations) {
-    const value = relationValue(r);
-    if (seen.has(value)) continue;
-    seen.add(value);
+    const key = `${tagLabelPlain(r.nameText ?? '')}\u0000${relationValue(r)}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
     out.push(r);
   }
   return out;
@@ -71,13 +79,17 @@ export function tagLeafName(path: string): string {
   return at < 0 ? plain : plain.slice(at + 1);
 }
 
-/** 关系行的最小投影面(标签事实与图上的关系边都满足):只要能给出目标名与边上的属性名 */
+/** 关系行的最小投影面(标签事实与图上的关系边都满足):目标名 + 线上的名字
+ *  (`nameText`;迁移期缺省时回退 `remark`) */
 export interface RelationFactLike {
   name: string;
-  remark: string;
+  /** v31 名字点文本(无名字线为空串) */
+  nameText?: string;
+  /** @deprecated v30 边上的属性名;迁移期回退用(T4.2/T4.3 后删除) */
+  remark?: string;
 }
 
-/** 档案卡片的关系行:**每条关系一行**(不去重);边上没属性名时左列回退显示目标名(R12) */
+/** 档案卡片的关系行:**每条关系一行**(不去重);线没有名字时左列回退显示目标名(R12) */
 export function tagFactsRows(relations: readonly RelationFactLike[]): FactRow[] {
   return relations.map((r) => {
     const value = relationValue(r);

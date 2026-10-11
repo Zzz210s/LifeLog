@@ -1,10 +1,27 @@
-// 标签关系的批量读 / 命中数读数类型(自 shared/types.ts 抽出,守 200 行上限)。
-// camelCase 与 Rust TagFact / TagFactsBundle / ConditionHits 一致。
-import type { RelationRef } from './types';
+// 标签关系线(RelationRef)与批量读 / 命中数读数类型(自 shared/types.ts 抽出,守 200 行上限)。
+// camelCase 与 Rust RelationRef / TagFact / TagFactsBundle / ConditionHits 一致。
+
+/** 一条标签关系线(IPC `list_tag_relations` / `list_tag_facts`):
+ *  读作「被引用点 `toTagId` 上有一条名为 `nameText` 的线」(`A --(国籍)--> B` 的 `国籍`)。
+ *  v31 起名字存在**点**上:`nameId` 是名字点 id(null = 无名字线),`nameText` 是名字点文本
+ *  (无名字线为空串,显示时回退只给被引用点名)。 */
+export interface RelationRef {
+  toTagId: number;
+  path: string;
+  name: string;
+  /** 名字点 id(`lines.name_id`;null / 缺省 = 无名字线) */
+  nameId?: number | null;
+  /** 名字点文本(无名字线为空串):显示口径的数据源 */
+  nameText?: string;
+  /** 线 id(`lines.id`):删某一条具体的线用。后端 DTO 尚未输出,先占位 */
+  lineId?: number;
+  /** @deprecated v30 的「边上的属性名」;v31 后端已不再输出,读取请用 `nameText`(T4.2/T4.3 后删除) */
+  remark?: string;
+}
 
 /** 单个标签的关系事实(IPC `list_tag_facts`):relations = 该标签的全部出边(A -> ?) */
 export interface TagFact {
-  /** 标签实体 id(统一实体表,落在偏移区间;与 `RelationRef.toTagId` 同一命名空间) */
+  /** 标签实体 id(统一实体表;与 `RelationRef.toTagId` 同一命名空间) */
   tagId: number;
   relations: RelationRef[];
 }

@@ -11,41 +11,55 @@ import {
 } from './tag-relation-facts';
 import type { RelationRef } from './types';
 
-const rel = (name: string, remark = ''): RelationRef => ({
+/** 造一条关系线:v31 名字在**点**上(`nameText`,无名字线为空串),`name` 是被引用点末段名 */
+const rel = (name: string, nameText = ''): RelationRef => ({
   toTagId: name.length,
   path: name,
   name,
-  remark,
+  nameId: nameText === '' ? null : 1,
+  nameText,
+  lineId: 1,
 });
 
-describe('relationLabel:备注 → 目标,缺备注回退目标名(R12)', () => {
-  it('有备注给箭头,无备注只给目标名', () => {
-    expect(relationLabel(rel('国籍', '国别'))).toBe('国别 → 国籍');
+describe('relationLabel:名字 → 被引用点,无名字只给值', () => {
+  it('relation_label_is_name_then_target:有名字给箭头「名字 → 被引用点」', () => {
+    expect(relationLabel(rel('中国大陆', '国籍'))).toBe('国籍 → 中国大陆');
+  });
+
+  it('relation_label_without_name_is_value_only:无名字线只给被引用点,不画箭头', () => {
     expect(relationLabel(rel('国籍'))).toBe('国籍');
+    expect(relationLabel(rel('国籍'))).not.toContain('→');
   });
 
-  it('备注与目标里的行内 md 都剥成纯文本', () => {
-    expect(relationLabel(rel('[国籍](国别)', '国别'))).toBe('国别 → 国籍');
+  it('名字与被引用点里的行内 md 都剥成纯文本', () => {
+    expect(relationLabel(rel('[日本](日出之国)', '国籍'))).toBe('国籍 → 日本');
+    expect(relationLabel(rel('[日本](日出之国)', '**出生地**'))).toBe('出生地 → 日本');
   });
 
-  // 2026-10-06 修订(迁移 023):属性名存在**边**上(remark 字段),不再是目标标签名字里的 md 备注。
-  // 判别力:目标名自带 md 备注 `(日出之国)`,边上的属性名是「国籍」 -> 只能出「国籍 → 日本」。
-  it('属性名只认边上的 remark,目标名里的 md 备注不参与显示', () => {
+  it('被引用点名字里的 md 备注不参与显示(名字只认线上的 nameText)', () => {
     expect(relationLabel(rel('[日本](日出之国)', '国籍'))).toBe('国籍 → 日本');
     expect(relationLabel(rel('[日本](日出之国)'))).toBe('日本');
   });
 
-  // 判别力:目标名**不**经 tagLabelPlain 时这三条都会露出方括号/星号/链接括号
-  it('目标名带链接且无备注:回退纯文本目标名(括号全剥)', () => {
+  it('目标名带链接且无名字:回退纯文本目标名(括号全剥)', () => {
     expect(relationLabel(rel('[国别](国籍)'))).toBe('国别');
   });
 
-  it('目标名含代理对(补充平面汉字)时逐字保留,不乱码不漏字', () => {
-    expect(relationLabel(rel('[𠀀国](日出之国)'))).toBe('𠀀国');
+  it('名字与被引用点含代理对(补充平面汉字)时逐字保留,不乱码不漏字', () => {
+    expect(relationLabel(rel('[𠀀国](日出之国)', '国籍'))).toBe('国籍 → 𠀀国');
   });
 
-  it('备注本体带行内 md 也剥成纯文本', () => {
-    expect(relationLabel(rel('国籍', '**国别**'))).toBe('国别 → 国籍');
+  // 迁移期兼容:v30 的形状(名字在边上的 `remark`)仍能读出名字;T4.2/T4.3 迁完夹具后此回退删除。
+  it('迁移期回退:v30 的 `remark` 也能当名字读出', () => {
+    const legacy: RelationRef = { toTagId: 9, path: '地点轴/中国大陆', name: '中国大陆', remark: '国籍' };
+    expect(relationLabel(legacy)).toBe('国籍 → 中国大陆');
+    expect(relationValueTip(legacy)).toBe('国籍');
+  });
+
+  it('迁移期去重:v30 形状没有 `nameText`,退回按值去重(与 v30 逐字相同)', () => {
+    const a: RelationRef = { toTagId: 9, path: '地点轴/中国大陆', name: '中国大陆', remark: '国籍' };
+    const b: RelationRef = { toTagId: 9, path: '地点轴/中国大陆', name: '中国大陆', remark: '出生地' };
+    expect(uniqueRelationValues([a, b])).toHaveLength(1);
   });
 });
 
@@ -67,9 +81,9 @@ describe('relationPlan:最多 2 个 + `+N`', () => {
   });
 });
 
-// 2026-10-06 改口径(用户原话:「国籍 → 中国大陆」变成「中国大陆」):行内只显示值
- describe('relationValue:行内只显示值', () => {
-  it('只给目标标签名,不含箭头也不含属性名', () => {
+// 2026-10-06 口径(行内只显示值)+ 2026-10-10 修订(据以改名字点)
+describe('relationValue:行内只显示值', () => {
+  it('只给被引用点标签名,不含箭头也不含名字', () => {
     expect(relationValue(rel('中国大陆', '国籍'))).toBe('中国大陆');
     expect(relationValue(rel('中国大陆', '国籍'))).not.toContain('→');
     expect(relationValue(rel('中国大陆', '国籍'))).not.toContain('国籍');
@@ -83,19 +97,30 @@ describe('relationPlan:最多 2 个 + `+N`', () => {
   });
 });
 
-describe('relationValueTip:悬停值给属性名', () => {
-  it('有属性名给属性名(剥 md),无属性名给空串(调用方据此不挂 data-tip)', () => {
+describe('relationValueTip:悬停值给名字', () => {
+  it('有名字给名字(剥 md),无名字给空串(调用方据此不挂 data-tip)', () => {
     expect(relationValueTip(rel('中国大陆', '国籍'))).toBe('国籍');
     expect(relationValueTip(rel('中国大陆', '**出生地**'))).toBe('出生地');
     expect(relationValueTip(rel('所在'))).toBe('');
   });
 });
 
-describe('uniqueRelationValues:同值多属性行内去重', () => {
-  it('同目标值的多条关系只留第一条(属性名跟着第一条走)', () => {
-    const rels = [rel('中国大陆', '国籍'), rel('中国大陆', '出生地'), rel('日本', '国籍')];
+describe('uniqueRelationValues:去重键 = 名字 + 值', () => {
+  // 判别力:同值不同名(国籍/出生地都指中国大陆)两条都要显示 —— 去掉名字这一维就只剩 1 条。
+  it('dedupe_is_by_name_and_value:同值不同名都显示,同名字 + 同值去重', () => {
+    const sameValue = [rel('中国大陆', '国籍'), rel('中国大陆', '出生地')];
+    expect(uniqueRelationValues(sameValue).map(relationLabel)).toEqual([
+      '国籍 → 中国大陆',
+      '出生地 → 中国大陆',
+    ]);
+
+    const sameName = [rel('中国大陆', '国籍'), rel('中国大陆', '国籍'), rel('日本', '国籍')];
+    expect(uniqueRelationValues(sameName).map(relationLabel)).toEqual(['国籍 → 中国大陆', '国籍 → 日本']);
+  });
+
+  it('无名字线按值去重(与 v30 逐字相同)', () => {
+    const rels = [rel('中国大陆'), rel('中国大陆'), rel('日本')];
     expect(uniqueRelationValues(rels).map(relationValue)).toEqual(['中国大陆', '日本']);
-    expect(uniqueRelationValues(rels)[0].remark).toBe('国籍');
   });
 
   it('同值经**显示名**判定(目标名带不带 md 算同一个值)', () => {
@@ -116,7 +141,7 @@ describe('档案卡片:标题一行 + 一条关系一行', () => {
     expect(tagLeafName('单段')).toBe('单段');
   });
 
-  it('每条关系一行:左列属性名、右列值;同值多属性**都列**(卡片不去重)', () => {
+  it('每条关系一行:左列名字、右列值;同值多名字**都列**(卡片不去重)', () => {
     expect(tagFactsRows([rel('中国大陆', '国籍'), rel('中国大陆', '出生地'), rel('日本', '国籍')])).toEqual([
       { label: '国籍', value: '中国大陆' },
       { label: '出生地', value: '中国大陆' },
@@ -124,7 +149,7 @@ describe('档案卡片:标题一行 + 一条关系一行', () => {
     ]);
   });
 
-  it('边上没有属性名:左列回退显示目标名(R12 不留空行),右列为空', () => {
+  it('无名字线:左列回退显示目标名(R12 不留空行),右列为空', () => {
     expect(tagFactsRows([rel('所在'), rel('中国大陆', '国籍')])).toEqual([
       { label: '所在', value: '' },
       { label: '国籍', value: '中国大陆' },
