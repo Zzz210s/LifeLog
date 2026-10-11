@@ -15,7 +15,7 @@ import type { RelationEdge } from './graph-relations';
 const { graphData, listTagFacts } = vi.hoisted(() => ({
   graphData: vi.fn(async (): Promise<GraphData> => ({ nodes: [], edges: [] })),
   listTagFacts: vi.fn(async () => ({
-    facts: [{ tagId: 2, relations: [{ toTagId: 4, path: '地点轴/国籍', name: '国籍', remark: '国别' }] }],
+    facts: [{ tagId: 2, relations: [{ toTagId: 4, path: '地点轴/国籍', name: '国籍', nameId: 1, nameText: '国别' }] }],
   })),
 }));
 vi.mock('../../shared/api', () => ({ api: { graphData, listTagFacts } }));
@@ -61,10 +61,10 @@ afterEach(() => {
 });
 
 describe('useGraphData:关系边', () => {
-  it('事实摊平成 A -> B 的边(备注带上)', async () => {
+  it('事实摊平成 A -> B 的线(名字带上)', async () => {
     await mount();
     expect(listTagFacts).toHaveBeenCalledTimes(1);
-    expect(out.current?.relations).toEqual([{ a: 2, b: 4, remark: '国别' }]);
+    expect(out.current?.relations).toEqual([{ a: 2, b: 4, nameText: '国别' }]);
   });
 
   it('取落失败退空,图数据照常(关系不该把视图拖红)', async () => {

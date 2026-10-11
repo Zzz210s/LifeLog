@@ -20,11 +20,12 @@ vi.mock('../../shared/api', () => ({ api: { listTagRelations } }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const rel = (toTagId: number, name: string, remark: string): RelationRef => ({
+const rel = (toTagId: number, name: string, nameText: string): RelationRef => ({
   toTagId,
   path: `地点轴/${name}`,
   name,
-  remark,
+  nameId: nameText === '' ? null : 1,
+  nameText,
 });
 
 const SELF = { id: 1, path: '关系测试甲', depth: 1, sort_order: 0, self_count: 0, subtree_count: 0 };

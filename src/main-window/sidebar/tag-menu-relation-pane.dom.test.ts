@@ -9,12 +9,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RelationRef, TagCount } from '../../shared/types';
 import { TagMenuRelationPane } from './TagMenuRelationPane';
 
-const { listTagRelations, setTagRelation, removeTagRelation } = vi.hoisted(() => ({
+const { listTagRelations, setTagRelation, renameLineName, removeTagRelation } = vi.hoisted(() => ({
   listTagRelations: vi.fn(),
   setTagRelation: vi.fn(),
+  renameLineName: vi.fn(),
   removeTagRelation: vi.fn(),
 }));
-vi.mock('../../shared/api', () => ({ api: { listTagRelations, setTagRelation, removeTagRelation } }));
+vi.mock('../../shared/api', () => ({
+  api: { listTagRelations, setTagRelation, renameLineName, removeTagRelation },
+}));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -29,7 +32,9 @@ const at = (id: number, path: string): TagCount => ({
 const SELF = at(1, '关系测试甲');
 const OTHER = at(3, '关系测试丙');
 const ROWS = [SELF, OTHER];
-const EDGES: RelationRef[] = [{ toTagId: 2, path: '关系测试乙', name: '关系测试乙', remark: '' }];
+const EDGES: RelationRef[] = [
+  { toTagId: 2, path: '关系测试乙', name: '关系测试乙', nameId: null, nameText: '' },
+];
 
 let root: Root;
 let host: HTMLDivElement;
@@ -37,9 +42,11 @@ let host: HTMLDivElement;
 beforeEach(() => {
   listTagRelations.mockReset();
   setTagRelation.mockReset();
+  renameLineName.mockReset();
   removeTagRelation.mockReset();
   listTagRelations.mockResolvedValue(EDGES);
   setTagRelation.mockResolvedValue(undefined);
+  renameLineName.mockResolvedValue(undefined);
   removeTagRelation.mockResolvedValue(undefined);
   host = document.createElement('div');
   document.body.appendChild(host);
@@ -86,9 +93,13 @@ function setInput(el: HTMLInputElement, v: string): void {
   });
 }
 
-/** 属性名输入框(边上的 remark;可空 = 只声明有关系,R12) */
+/** 新引用的名字输入框(可空 = 只声明有关系,R12) */
 const remarkInput = (): HTMLInputElement =>
   host.querySelector('input[aria-label="引用属性名"]') as HTMLInputElement;
+
+/** 已有引用行上的名字输入框 */
+const rowInput = (): HTMLInputElement =>
+  host.querySelector('input[data-relation-name]') as HTMLInputElement;
 
 describe('关系面板·加载与交互细节', () => {
   it('读取未回来时输入禁用,Enter 不会写库', async () => {
@@ -141,18 +152,30 @@ describe('关系面板·加载与交互细节', () => {
     expect(setTagRelation).toHaveBeenCalledWith(1, OTHER.id, '国籍');
   });
 
-  it('当前引用行可编辑属性名:失焦提交 upsert', async () => {
+  it('relation_rename_goes_through_name_point:有名字的行改名走名字点,不新开线', async () => {
     listTagRelations.mockResolvedValue([
-      { toTagId: 2, path: '地点/日本', name: '日本', remark: '国籍' },
+      { toTagId: 2, path: '地点/日本', name: '日本', nameId: 5, nameText: '国籍' },
     ]);
     renderPane();
     await flush();
-    const row = host.querySelector('input[data-relation-remark="2"]') as HTMLInputElement;
-    expect(row.value).toBe('国籍');
-    setInput(row, '出生地');
+    expect(rowInput().value).toBe('国籍');
+    setInput(rowInput(), '出生地');
     // React 17+ 的 onBlur 实际监听 focusout:派发 'blur' 不会触发 onBlur
-    act(() => row.dispatchEvent(new FocusEvent('focusout', { bubbles: true })));
+    act(() => rowInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true })));
     await flush();
-    expect(setTagRelation).toHaveBeenCalledWith(1, 2, '出生地');
+    expect(renameLineName).toHaveBeenCalledWith(5, '出生地');
+    expect(setTagRelation).not.toHaveBeenCalled();
+  });
+
+  it('nameless_line_shows_placeholder_and_names_via_tag_relation:无名字线显示「(无名字)」,输入名字后走 set_tag_relation 取名', async () => {
+    renderPane();
+    await flush();
+    expect(rowInput().value).toBe('');
+    expect(rowInput().placeholder).toBe('(无名字)');
+    setInput(rowInput(), '国籍');
+    act(() => rowInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true })));
+    await flush();
+    expect(setTagRelation).toHaveBeenCalledWith(1, 2, '国籍');
+    expect(renameLineName).not.toHaveBeenCalled();
   });
 });

@@ -37,13 +37,14 @@ beforeEach(() => {
   listTagRelations.mockReset();
   setTagRelation.mockReset();
   removeTagRelation.mockReset();
-  edges = [{ toTagId: 20, path: '关系测试乙', name: '关系测试乙', remark: '' }];
+  edges = [{ toTagId: 20, path: '关系测试乙', name: '关系测试乙', nameId: null, nameText: '' }];
   listTagRelations.mockImplementation(() => Promise.resolve(edges.map((e) => ({ ...e }))));
   setTagRelation.mockImplementation((_from: number, to: number, remark: string) => {
     const hit = edges.find((e) => e.toTagId === to);
+    const nameId = remark === '' ? null : 900 + to;
     edges = hit
-      ? edges.map((e) => (e.toTagId === to ? { ...e, remark } : e))
-      : [...edges, { toTagId: to, path: '关系测试丙', name: '关系测试丙', remark }];
+      ? edges.map((e) => (e.toTagId === to ? { ...e, nameId, nameText: remark } : e))
+      : [...edges, { toTagId: to, path: '关系测试丙', name: '关系测试丙', nameId, nameText: remark }];
     return Promise.resolve();
   });
   removeTagRelation.mockImplementation((_from: number, to: number) => {
@@ -134,11 +135,11 @@ describe('Task 4 关系面板', () => {
     expect(candidateTexts()).toContain('关系测试丙');
   });
 
-  it('属性名存在边上:行内输入框带出属性名,箭头后是目标名', async () => {
-    edges = [{ toTagId: 20, path: '地点轴/日本', name: '日本', remark: '国籍' }];
+  it('名字在名字点上:行内输入框带出名字文本,箭头后是目标名', async () => {
+    edges = [{ toTagId: 20, path: '地点轴/日本', name: '日本', nameId: 5, nameText: '国籍' }];
     render();
     await openRelation();
-    const box = host.querySelector('input[data-relation-remark="20"]') as HTMLInputElement;
+    const box = host.querySelector('input[data-relation-name="20"]') as HTMLInputElement;
     expect(box.value).toBe('国籍');
     expect(host.textContent).toContain('→ 日本');
   });
@@ -164,7 +165,7 @@ describe('Task 4 关系面板', () => {
     await openRelation();
     act(() => (host.querySelector('[data-relation-remove="20"]') as HTMLElement).click());
     await flush();
-    expect(removeTagRelation).toHaveBeenCalledWith(1, 20);
+    expect(removeTagRelation).toHaveBeenCalledWith(1, 20, null);
   });
 
   it('Esc 关闭面板', async () => {

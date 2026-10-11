@@ -2,7 +2,7 @@
 /**
  * 标签关系事实改成批量一次的组件级证据(标签关系统一 spec §7):
  *   一次 `list_tag_facts` 拿全量,不再逐标签调 `list_tag_relations`;
- *   只保留当前可见的标签;出边原样带边上的属性名 remark 供行内小字与悬浮卡片共用;读数失败回空值不抛。
+ *   只保留当前可见的标签;出线原样带名字点 id 与文本供行内小字与悬浮卡片共用;读数失败回空值不抛。
  */
 import { act, createElement } from 'react';
 import type { ReactNode } from 'react';
@@ -19,7 +19,7 @@ vi.mock('../../shared/api', () => ({ api: { listTagFacts, listTagRelations } }))
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const REL = { toTagId: 7, path: '地点轴/国籍', name: '国籍', remark: '国别' };
+const REL = { toTagId: 7, path: '地点轴/国籍', name: '国籍', nameId: 3, nameText: '国别' };
 const BUNDLE: TagFactsBundle = {
   facts: [
     { tagId: 1, relations: [REL] },
@@ -64,7 +64,7 @@ describe('useTagFacts(批量一次)', () => {
     expect(listTagRelations).not.toHaveBeenCalled();
   });
 
-  it('只保留可见标签;出边原样带 remark', async () => {
+  it('只保留可见标签;出线原样带名字点字段', async () => {
     await act(async () => root.render(createElement(Probe)));
     await settle();
     expect([...facts.keys()]).toEqual([1]);

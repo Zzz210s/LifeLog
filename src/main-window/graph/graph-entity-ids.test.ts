@@ -4,7 +4,7 @@
  * 数值恰好等于可见标签节点 id —— 哪天改成按数值区间分流,这些用例立刻变红。
  *
  * 两件不能退化的事:
- * ① 关系备注读**边上的** `remark`,不是被指向标签的名字(记忆 #1265/#1266);
+ * ① 关系名字读**点上的** `nameText`,不是被指向标签的名字(记忆 #1265/#1266);
  * ② `link` 边两端是笔记实体 id,不许混进标签边(拿它们过 `kept.has` 会污染力导向/计数)。
  */
 import { describe, expect, it } from 'vitest';
@@ -34,20 +34,20 @@ const nodes: GraphNode[] = [
   node(tagId(4), '地点轴/国籍', tagId(3), 2),
 ];
 
-/** `作者/鲁迅 --(国别)--> 地点轴/国籍`:备注(国别)与目标末段名(国籍)刻意不同 */
+/** `作者/鲁迅 --(国别)--> 地点轴/国籍`:名字(国别)与目标末段名(国籍)刻意不同 */
 const facts: TagFact[] = [
-  { tagId: tagId(2), relations: [{ toTagId: tagId(4), path: '地点轴/国籍', name: '国籍', remark: '国别' }] },
+  { tagId: tagId(2), relations: [{ toTagId: tagId(4), path: '地点轴/国籍', name: '国籍', nameId: 1, nameText: '国别' }] },
 ];
 
 describe('关系边两端是标签实体 id', () => {
-  it('relationEdges 原样带过标签实体 id(偏移区间)与边上的 remark', () => {
-    expect(relationEdges(facts)).toEqual([{ a: tagId(2), b: tagId(4), remark: '国别' }]);
+  it('relationEdges 原样带过标签实体 id(偏移区间)与点上的名字', () => {
+    expect(relationEdges(facts)).toEqual([{ a: tagId(2), b: tagId(4), nameText: '国别' }]);
   });
 
-  it('relationRows 按实体 id 找目标:值 = 目标末段名,备注 = 边上的 remark', () => {
+  it('relationRows 按实体 id 找目标:值 = 目标末段名,名字 = 点上的 nameText', () => {
     const rows = relationRows(relationEdges(facts), nodes, tagId(2));
-    // 判别力:`国籍` 是目标末段名,`国别` 只在边上 —— 备注若改读目标名,这里立刻不等
-    expect(rows).toEqual([{ name: '国籍', remark: '国别' }]);
+    // 判别力:`国籍` 是目标末段名,`国别` 只在名字点上 —— 名字若改读目标名,这里立刻不等
+    expect(rows).toEqual([{ name: '国籍', nameText: '国别' }]);
   });
 
   it('目标不在可见节点里:不产出行(下拉不到的边没有可读的值)', () => {

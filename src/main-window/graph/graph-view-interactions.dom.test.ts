@@ -32,7 +32,7 @@ const { graphData } = vi.hoisted(() => ({
 // getSetting 恒 null(模板取默认值,根名不在夹具里 -> 不折);listTagFacts:甲(1) -> 甲/一(2) 一条出边
 // (2 本就被父子边连到 1,不改变弱化),悬停卡片的关系行靠它
 vi.mock('../../shared/api', () => ({ api: { graphData, graphLinkDegrees: vi.fn(async () => ({ outbound: 0, backlinks: 0 })),
-  getSetting: vi.fn(async () => null), setSetting: vi.fn(async () => undefined), listTagFacts: vi.fn(async () => ({ facts: [{ tagId: 1, relations: [{ toTagId: 2, path: '甲/一', name: '一', remark: '国籍' }] }] })) } }));
+  getSetting: vi.fn(async () => null), setSetting: vi.fn(async () => undefined), listTagFacts: vi.fn(async () => ({ facts: [{ tagId: 1, relations: [{ toTagId: 2, path: '甲/一', name: '一', nameId: 1, nameText: '国籍' }] }] })) } }));
 
 import { GraphView } from './GraphView';
 

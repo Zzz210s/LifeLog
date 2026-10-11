@@ -23,7 +23,7 @@ import type { Point } from './radial';
 import type { RelationMark, Segment } from './graph-draw-plan-types';
 
 /**
- * 备注纯文本表:一行 md 标记(加粗/链接等)的剥除是**逐帧不变的活**(备注取自库里的属性名),
+ * 名字纯文本表:一行 md 标记(加粗/链接等)的剥除是**逐帧不变的活**(名字取自库里的名字点),
  * 而 `relations` 数组在相机移动期间引用不变 —— 按引用缓一次就够(WeakMap,数据一换自动失效)。
  */
 const plainCache = new WeakMap<readonly RelationEdge[], string[]>();
@@ -31,7 +31,7 @@ const plainCache = new WeakMap<readonly RelationEdge[], string[]>();
 function plainRemarks(relations: readonly RelationEdge[]): string[] {
   const hit = plainCache.get(relations);
   if (hit !== undefined) return hit;
-  const out = relations.map((r) => tagLabelPlain(r.remark));
+  const out = relations.map((r) => tagLabelPlain(r.nameText));
   plainCache.set(relations, out);
   return out;
 }
@@ -72,19 +72,19 @@ export function planRelations(input: {
       pullback: radiusOf(r.b) + ARROW_RETREAT_GAP,
     });
     // 备注只影响显示(设计 R6),行内 md 标记(加粗/链接等)不该画到画布上 —— 与侧栏
-    // `relationLabel` 同一口径取纯文本;剥完为空(如 `****`)则不画字。
-    // 2026-10-06:只在**该边端点就是焦点**(悬停/选中该标签)时出字 —— 平时只画箭头,
-    // 否则 24 条属性名会把骨架糊住。`emphasis.active` = 悬停优先于选中,复用既有机制。
-    const remark = plain === null ? '' : plain[i];
+    // `relationLabel` 同一口径取纯文本;剥完为空(无名字线)则不画字。
+    // 2026-10-06:只在**该线端点就是焦点**(悬停/选中该标签)时出字 —— 平时只画箭头,
+    // 否则 24 条名字会把骨架糊住。`emphasis.active` = 悬停优先于选中,复用既有机制。
+    const name = plain === null ? '' : plain[i];
     const hot = emphasis.active !== null && (r.a === emphasis.active || r.b === emphasis.active);
-    if (showMarks && hot && remark !== '') {
+    if (showMarks && hot && name !== '') {
       const dx = b.x - a.x;
       const dy = b.y - a.y;
       const len = Math.hypot(dx, dy) || 1;
       marks.push({
         x: (a.x + b.x) / 2 - (dy / len) * RELATION_REMARK_OFFSET,
         y: (a.y + b.y) / 2 + (dx / len) * RELATION_REMARK_OFFSET,
-        text: remark,
+        text: name,
         dim,
       });
     }

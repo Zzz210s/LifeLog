@@ -26,8 +26,8 @@ const node: GraphNode = {
   sortOrder: 2,
 };
 const relations = [
-  { name: '中国大陆', remark: '国籍' },
-  { name: '日本', remark: '出生地' },
+  { name: '中国大陆', nameText: '国籍' },
+  { name: '日本', nameText: '出生地' },
 ];
 
 let host: HTMLDivElement;
@@ -75,7 +75,7 @@ describe('GraphTip:悬停卡片', () => {
   });
 
   it('每条关系一行两列:左列属性名、右列值(行内 md 已剥)', async () => {
-    await render(createElement(GraphTip, { node, relations: [{ name: '[日本](日出之国)', remark: '**国籍**' }], x: 10, y: 20 }));
+    await render(createElement(GraphTip, { node, relations: [{ name: '[日本](日出之国)', nameText: '**国籍**' }], x: 10, y: 20 }));
     const labels = [...(tip()?.querySelectorAll('[data-tip-row-label]') ?? [])].map((el) => el.textContent);
     const values = [...(tip()?.querySelectorAll('[data-tip-row-value]') ?? [])].map((el) => el.textContent);
     expect(labels).toEqual(['国籍']);

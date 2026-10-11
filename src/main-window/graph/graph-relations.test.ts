@@ -1,6 +1,6 @@
 /**
  * 标签关系边的数据口径(设计 §8):
- * ① `list_tag_facts` 的批量事实摊平成 `A -> B` 的边,备注取**边上的** `remark`(不是被指向标签名);
+ * ① `list_tag_facts` 的批量事实摊平成 `A -> B` 的线,名字取**点上的** `nameText`(不是被指向标签名);
  * ② 出/入度按**子树**聚合(与信息条「含子孙」、既有出链/入链同一口径)——
  *    选根也要把子孙的边算上,只算本级会让骨架节点永远显示 0。
  */
@@ -10,8 +10,8 @@ import type { TagFact } from '../../shared/tag-facts-types';
 import { relationDegrees, relationEdges } from './graph-relations';
 
 const facts: TagFact[] = [
-  { tagId: 2, relations: [{ toTagId: 4, path: '地点轴/国籍', name: '国籍', remark: '国别' }] },
-  { tagId: 5, relations: [{ toTagId: 4, path: '地点轴/国籍', name: '国籍', remark: '' }] },
+  { tagId: 2, relations: [{ toTagId: 4, path: '地点轴/国籍', name: '国籍', nameId: 1, nameText: '国别' }] },
+  { tagId: 5, relations: [{ toTagId: 4, path: '地点轴/国籍', name: '国籍', nameId: null, nameText: '' }] },
 ];
 
 const nodes: GraphNode[] = [
@@ -22,10 +22,10 @@ const nodes: GraphNode[] = [
 ];
 
 describe('relationEdges:事实摊平', () => {
-  it('每条出边成一条 A -> B,备注原样带过来(缺失为空串)', () => {
+  it('每条出线成一条 A -> B,名字原样带过来(无名字为空串)', () => {
     expect(relationEdges(facts)).toEqual([
-      { a: 2, b: 4, remark: '国别' },
-      { a: 5, b: 4, remark: '' },
+      { a: 2, b: 4, nameText: '国别' },
+      { a: 5, b: 4, nameText: '' },
     ]);
   });
 
@@ -48,9 +48,9 @@ describe('relationDegrees:出/入度(含子孙聚合)', () => {
   });
 
   it('两端都在子树里时两数都涨(与既有出链/入链口径一致)', () => {
-    const inside = [{ a: 2, b: 4, remark: '' }];
+    const inside = [{ a: 2, b: 4, nameText: '' }];
     expect(relationDegrees(inside, nodes, 3)).toEqual({ outbound: 0, backlinks: 1 });
-    expect(relationDegrees([...inside, { a: 4, b: 4, remark: '' }], nodes, 3)).toEqual({
+    expect(relationDegrees([...inside, { a: 4, b: 4, nameText: '' }], nodes, 3)).toEqual({
       outbound: 1,
       backlinks: 2,
     });

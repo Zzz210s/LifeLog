@@ -47,7 +47,8 @@ const edge = (toTagId: number, name: string): RelationRef => ({
   toTagId,
   path: name,
   name,
-  remark: '',
+  nameId: null,
+  nameText: '',
 });
 
 let root: Root | null = null;
@@ -143,6 +144,14 @@ describe('关系建议面板', () => {
     expect(api.setTagRelation).not.toHaveBeenCalledWith(21, expect.anything());
     expect(api.setTagRelation).toHaveBeenCalledTimes(27);
     expect(host.textContent).toContain('已写入 27 条关系');
+  });
+
+  it('relation_suggestions_write_nameless_lines:建议只写无名字线(第 3 参恒为空串)', async () => {
+    await render();
+    await click('批量确认');
+    const calls = api.setTagRelation.mock.calls;
+    expect(calls.length).toBeGreaterThan(0);
+    expect(calls.every((c) => c[2] === '')).toBe(true);
   });
 
   it('已建立过的 (标签,目标) 不再出现', async () => {

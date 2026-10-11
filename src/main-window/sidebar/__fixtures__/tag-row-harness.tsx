@@ -13,11 +13,12 @@ import type { RelationRef } from '../../../shared/types';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-export const rel = (toTagId: number, name: string, remark = ''): RelationRef => ({
+export const rel = (toTagId: number, name: string, nameText = ''): RelationRef => ({
   toTagId,
   path: name,
   name,
-  remark,
+  nameId: nameText === '' ? null : 1,
+  nameText,
 });
 
 /** 叶子标签(直接给 TagNode:buildTree 会把缺的祖先补成结构节点,拿不到这一行) */

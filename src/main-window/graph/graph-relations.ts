@@ -3,29 +3,29 @@
  * 两端都是**标签实体 id**(统一实体表,偏移区间),与 `GraphNode.id` 同一命名空间。
  *
  * 关系数据不走 `graph_data`(那条命令只交标签骨架与笔记链接),改用前端已有的
- * `list_tag_facts` 批量事实就地摊平 —— 24 条边不值得多一条 IPC,也不给 Rust 侧添接口。
- * 备注取**边上的属性名**(`RelationRef.remark`,迁移 023):`A --(国籍)--> B` 的 `国籍`,
+ * `list_tag_facts` 批量事实就地摊平 —— 24 条线不值得多一条 IPC,也不给 Rust 侧添接口。
+ * 备注取**点上的名字**(`RelationRef.nameText`,送转 031):`A --(国籍)--> B` 的 `国籍`,
  * 不是被指向标签自己名字里的 md 备注。仅显示用(R6 不参与筛选/计数)。
  */
 import type { TagFact } from '../../shared/tag-facts-types';
 import { tagLeafName, type RelationFactLike } from '../../shared/tag-relation-facts';
 import type { GraphNode } from '../../shared/types';
 
-/** 一条标签关系边(方向固定 A -> B) */
+/** 一条标签关系线(方向固定 A -> B) */
 export interface RelationEdge {
   /** 起点标签实体 id(具有属性的一方) */
   a: number;
   /** 终点标签实体 id(被指向的属性) */
   b: number;
-  /** 箭头上的属性名(边上的 remark;缺失为空串,缺失时图上不画字) */
-  remark: string;
+  /** 箭头上的名字(名字点的文本;无名字线为空串,缺失时图上不画字) */
+  nameText: string;
 }
 
-/** 批量事实摊平成关系边:一条出边一行,顺序沿用事实顺序 */
+/** 批量事实摊平成关系线:一条出线一行,顺序沿用事实顺序 */
 export function relationEdges(facts: readonly TagFact[]): RelationEdge[] {
   const out: RelationEdge[] = [];
   for (const f of facts) {
-    for (const r of f.relations) out.push({ a: f.tagId, b: r.toTagId, remark: r.nameText ?? r.remark ?? '' });
+    for (const r of f.relations) out.push({ a: f.tagId, b: r.toTagId, nameText: r.nameText ?? '' });
   }
   return out;
 }
@@ -33,7 +33,7 @@ export function relationEdges(facts: readonly TagFact[]): RelationEdge[] {
 /**
  * 某标签的出边投影成卡片关系行(悬停卡片用,与侧栏 `tagFactsRows` 同一口径):
  * 目标名取**末段名**(`name` 字段在侧栏是末段名,图上只有完整 path,就地取末段),
- * 属性名原样带出(`remark`)。目标不在可见集里就跳过 —— 下拉不到的边没有可读的值。
+ * 名字原样带出(`nameText`)。目标不在可见集里就跳过 —— 下拉不到的线没有可读的值。
  */
 export function relationRows(
   relations: readonly RelationEdge[],
@@ -46,7 +46,7 @@ export function relationRows(
     if (r.a !== id) continue;
     const target = byId.get(r.b);
     if (target === undefined) continue;
-    out.push({ name: tagLeafName(target.path), remark: r.remark });
+    out.push({ name: tagLeafName(target.path), nameText: r.nameText });
   }
   return out;
 }

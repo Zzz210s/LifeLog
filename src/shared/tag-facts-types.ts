@@ -15,8 +15,6 @@ export interface RelationRef {
   nameText?: string;
   /** 线 id(`lines.id`):删某一条具体的线用。后端 DTO 尚未输出,先占位 */
   lineId?: number;
-  /** @deprecated v30 的「边上的属性名」;v31 后端已不再输出,读取请用 `nameText`(T4.2/T4.3 后删除) */
-  remark?: string;
 }
 
 /** 单个标签的关系事实(IPC `list_tag_facts`):relations = 该标签的全部出边(A -> ?) */

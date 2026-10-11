@@ -3,7 +3,7 @@
  *
  * 一条线读作「被引用点 `toTagId` 上有一条名为 `nameText` 的线」—— 名字存在**点**上
  * (`lines.name_id` 指向名字点),不再存在线上;同一个被引用点可有多条不同名字的线
- * (国籍 / 出生地)。迁移期读取回落 v30 的边上 `remark`(见 `lineName`),T4.2/T4.3 迁完夹具后删。
+ * (国籍 / 出生地)。
  *
  * 本文件只做文本格式化,不碰 id;`RelationRef` 的 id 字段(`toTagId` / `nameId`)是**点 id**
  * (`nameId` 是线上的名字点),由调用方按同一命名空间去匹配可见节点。
@@ -19,9 +19,9 @@ import type { RelationRef } from './types';
 /** 树行内最多显示几条关系,超出用 `+N` 概括 */
 export const MAX_RELATION_CHIPS = 2;
 
-/** 一条线的名字文本(显示口径):v31 认 `nameText`,迁移期回退 v30 边上的 `remark`;两者都没有 = 无名字线 */
+/** 一条线的名字文本(显示口径):v31 认名字点上的 `nameText`;空串 = 无名字线 */
 function lineName(r: RelationFactLike): string {
-  return tagLabelPlain(r.nameText ?? r.remark ?? '');
+  return tagLabelPlain(r.nameText ?? '');
 }
 
 /** 菜单等「一条关系写成一句」的场合仍在用:有名字 `名字 → 被引用点`,无名字回退被引用点名 */
@@ -44,9 +44,6 @@ export function relationValueTip(r: RelationFactLike): string {
 /**
  * 行内按**名字 + 值**去重(v31 语义):行内要显示「名字 + 值」,同值不同名(国籍/出生地
  * 都指 `中国大陆`)两条都要显示;只有名字与值都相同才算重复。卡片不走这里 —— 档案里两条都要列。
- *
- * 键里的名字**只认 v31 的 `nameText`**,不回落 v30 的 `remark`:迁移期 v30 形状没有名字,
- * 退化为按值去重,与 v30 逐字相同(显示口径的回退见 `lineName`)。
  */
 export function uniqueRelationValues(relations: readonly RelationRef[]): RelationRef[] {
   const seen = new Set<string>();
@@ -79,14 +76,11 @@ export function tagLeafName(path: string): string {
   return at < 0 ? plain : plain.slice(at + 1);
 }
 
-/** 关系行的最小投影面(标签事实与图上的关系边都满足):目标名 + 线上的名字
- *  (`nameText`;迁移期缺省时回退 `remark`) */
+/** 关系行的最小投影面(标签事实与图上的关系线都满足):目标名 + 线上的名字(名字点 `nameText`) */
 export interface RelationFactLike {
   name: string;
   /** v31 名字点文本(无名字线为空串) */
   nameText?: string;
-  /** @deprecated v30 边上的属性名;迁移期回退用(T4.2/T4.3 后删除) */
-  remark?: string;
 }
 
 /** 档案卡片的关系行:**每条关系一行**(不去重);线没有名字时左列回退显示目标名(R12) */

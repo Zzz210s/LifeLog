@@ -1,9 +1,10 @@
 /**
  * 引用面板上半「当前引用」列表(自 TagMenuRelationPane 拆出,守 200 行红线):
- * 只负责渲染已读到的出边(`属性名 → 目标`,属性名为空回退目标名)、逐行编辑属性名与「移除」;
+ * 只负责渲染已读到的出线(`名字 → 目标`,无名字回退目标名)、逐行改名字与「移除」;
  * 读数 / 写库 / 错误都在容器里,传 null 表示读数还没回来(显示加载中,而不是误报空)。
  *
- * 属性名存在**边**上(迁移 023),所以在行上就能改:失焦或 Enter 提交(值没变则不发 IPC)。
+ * 名字存在**点**上(送转 031):行上改名字是改「名字点」(`rename_line_name`),
+ * 无名字线上输入名字 = 给这条线取名(`set_tag_relation(from, to, 名字)`)。
  */
 import { useState } from 'react';
 import type { ReactNode } from 'react';
@@ -14,23 +15,33 @@ import type { RelationRef } from '../../shared/types';
 import { BTN_TEXT } from '../shell/button-classes';
 
 export interface TagMenuRelationListProps {
-  /** 当前全部出边;null = 加载中 */
+  /** 当前全部出线;null = 加载中 */
   relations: readonly RelationRef[] | null;
   busy: boolean;
-  onRemove: (toTagId: number) => void;
-  /** 就地改属性名(值没变时上层不写库) */
-  onEditRemark: (toTagId: number, remark: string) => void;
+  /** 移除一条线:名字点 id 为 null = 无名字线(后端按 nameId 区分删哪条) */
+  onRemove: (toTagId: number, nameId: number | null) => void;
+  /** 改名字:nameId 非 null = 改名字点;null = 给无名字线取名 */
+  onEditName: (toTagId: number, nameId: number | null, next: string) => void;
 }
 
-const REMARK_INPUT_CLASS =
+const NAME_INPUT_CLASS =
   'h-7 w-24 shrink-0 rounded-sm border border-border-strong bg-raised px-1.5 text-label text-text outline-none';
 
+/** 一行一名字:同一个目标可有多条不同名字的线,草稿按 (目标, 名字点) 分开存 */
+const rowKey = (r: RelationRef): string => `${r.toTagId}\u0000${r.nameId ?? ''}`;
+
 export function TagMenuRelationList(p: TagMenuRelationListProps): ReactNode {
-  /** 未提交的草稿:key = 目标 id;读回来的读数变了也不打断正在输入的内容 */
-  const [drafts, setDrafts] = useState<Record<number, string>>({});
+  /** 未提交的草稿:key = 行;读回来的读数变了也不打断正在输入的内容 */
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
 
   const commit = (r: RelationRef, next: string): void => {
-    if (next.trim() !== r.remark) p.onEditRemark(r.toTagId, next);
+    const nameId = r.nameId ?? null;
+    const prev = r.nameText ?? '';
+    if (nameId !== null) {
+      if (next.trim() !== prev) p.onEditName(r.toTagId, nameId, next);
+    } else if (next.trim() !== '') {
+      p.onEditName(r.toTagId, null, next);
+    }
   };
 
   return (
@@ -41,19 +52,20 @@ export function TagMenuRelationList(p: TagMenuRelationListProps): ReactNode {
         <p className="px-1 py-1 text-label text-muted">还没有建立任何引用</p>
       )}
       {p.relations?.map((r) => (
-        <div key={r.toTagId} className="flex items-center gap-1">
+        <div key={rowKey(r)} className="flex items-center gap-1">
           <input
-            data-relation-remark={r.toTagId}
-            value={drafts[r.toTagId] ?? r.remark}
-            onChange={(e) => setDrafts((d) => ({ ...d, [r.toTagId]: e.target.value }))}
+            data-relation-name={r.toTagId}
+            data-relation-name-id={r.nameId ?? ''}
+            value={drafts[rowKey(r)] ?? r.nameText ?? ''}
+            onChange={(e) => setDrafts((d) => ({ ...d, [rowKey(r)]: e.target.value }))}
             onBlur={(e) => commit(r, e.currentTarget.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') e.currentTarget.blur();
             }}
             disabled={p.busy}
-            placeholder="属性名"
-            aria-label={`引用属性名: ${tagLabelPlain(r.name)}`}
-            className={REMARK_INPUT_CLASS}
+            placeholder={r.nameText ? '属性名' : '(无名字)'}
+            aria-label={`引用名字: ${tagLabelPlain(r.name)}`}
+            className={NAME_INPUT_CLASS}
           />
           <span
             className="min-w-0 flex-1 truncate px-1 py-1 text-label text-muted"
@@ -64,9 +76,10 @@ export function TagMenuRelationList(p: TagMenuRelationListProps): ReactNode {
           <button
             type="button"
             data-relation-remove={r.toTagId}
+            data-relation-remove-name-id={r.nameId ?? ''}
             disabled={p.busy}
             title={'移除引用 ' + tagLabelPlain(r.name)}
-            onClick={() => p.onRemove(r.toTagId)}
+            onClick={() => p.onRemove(r.toTagId, r.nameId ?? null)}
             className={BTN_TEXT + ' text-muted hover:text-danger'}
           >
             移除

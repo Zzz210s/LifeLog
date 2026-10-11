@@ -2,11 +2,11 @@
  * 标签菜单「引用…」面板(入口处置表 spec §5.3 / 计划 Task 3.3;数据层设计 2026-10-06 §2 修订):
  * 上半列出本实体的**全部出 `link` 边**(`属性名 → 目标`,属性名就地可改、可逐条移除),下半是
  * **属性名输入框 + 目标实体选择器**(候选复用 `#` 补全那套共享打分/排序引擎 `shared/quickpick/model`)。
- * 与正文 `#X` / `[[X]]` 同一套「引用」概念:落库都是 `edges(kind='link')`,属性名存在 `link.remark`。
- * 写库走 `setTagRelation` / `removeTagRelation`(命令名保留,不动前端契约)。
+ * 与正文 `#X` / `[[X]]` 同一套「引用」概念:落库都是 `lines`(无名字线 = `name_id IS NULL`,名字点 = 保留点)。
+ * 写库走 `setTagRelation` / `renameLineName` / `removeTagRelation`(命令名保留,不动前端契约)。
  *
- * 属性名存在**边**上(迁移 023),不是目标标签名字里的 md 备注 —— 所以同一个目标(如 `地点轴/日本`)
- * 可以分别以「国籍」「出生地」两个属性名被指向。属性名可留空 = 只声明「有什么关系」(R12)。
+ * 名字存在**点**上(送转 031),不是目标标签名字里的 md 备注 —— 所以同一个目标(如 `地点轴/日本`)
+ * 可以分别以「国籍」「出生地」两个名字被指向。名字可留空 = 只声明「有什么关系」(R12)。
  *
  * 自包含容器:状态与 IPC 都在本文件,TagMenu 只需一行挂载。添加/移除/改属性名后**保持打开**、
  * 重新读一次出边(读回来的带真实属性名,比本地拼更准),不弹 Toast;失败显示后端中文错误。
@@ -41,7 +41,7 @@ export function TagMenuRelationPane(p: TagMenuRelationPaneProps): ReactNode {
   const [outgoing, setOutgoing] = useState<RelationRef[] | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  /** 下一条要建立的边的属性名(可空 = 只声明有关系) */
+  /** 下一条要建立的关系的名字(可空 = 只声明有关系) */
   const [remark, setRemark] = useState('');
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
@@ -101,23 +101,28 @@ export function TagMenuRelationPane(p: TagMenuRelationPaneProps): ReactNode {
       .finally(() => setBusy(false));
   };
 
-  /** 就地改属性名(upsert 同一条边):写成功后重读,面板不关 */
-  const editRemark = (toTagId: number, next: string): void => {
+  /** 改名字:有名字点就改名字点(`rename_line_name`);无名字线输入名字 = 给线取名(`set_tag_relation`)。
+   *  清空有名字线的名字走 `set_tag_relation(from, to, '')`(空串 = 清除名字),不是改名字点。 */
+  const editName = (toTagId: number, nameId: number | null, next: string): void => {
+    const text = next.trim();
     setError('');
     setBusy(true);
-    void api
-      .setTagRelation(p.tagId, toTagId, next.trim())
+    const write =
+      nameId !== null && text !== ''
+        ? api.renameLineName(nameId, text)
+        : api.setTagRelation(p.tagId, toTagId, text);
+    void write
       .then(reload)
       .then(setOutgoing)
       .catch((e) => setError(String(e)))
       .finally(() => setBusy(false));
   };
 
-  const remove = (toTagId: number): void => {
+  const remove = (toTagId: number, nameId: number | null): void => {
     setError('');
     setBusy(true);
     void api
-      .removeTagRelation(p.tagId, toTagId)
+      .removeTagRelation(p.tagId, toTagId, nameId)
       .then(reload)
       .then(setOutgoing)
       .catch((e) => setError(String(e)))
@@ -149,7 +154,7 @@ export function TagMenuRelationPane(p: TagMenuRelationPaneProps): ReactNode {
         relations={outgoing}
         busy={busy}
         onRemove={remove}
-        onEditRemark={editRemark}
+        onEditName={editName}
       />
       <p className="mt-1 px-1 text-label text-muted">添加引用</p>
       <input

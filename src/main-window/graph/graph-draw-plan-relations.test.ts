@@ -1,11 +1,11 @@
 /**
- * `drawPlan` 的关系边层(Task 5,设计 §8):`A --(B 的备注)--> B`。
+ * `drawPlan` 的关系线层(Task 5,设计 §8):`A --(B 的名字点)--> B`。
  * 钉住四件事:
- * ① 关系边单独一层(`plan.relations`),带 `arrow: true` 标记 —— 与同色同宽的笔记链接边分层可辨;
- * ② 文字备注只在缩放 `k >= 0.6`(即尚未进入聚合档)**且该边端点就是当前焦点**(悬停/选中该标签)时画在箭头附近;
+ * ① 关系线单独一层(`plan.relations`),带 `arrow: true` 标记 —— 与同色同宽的笔记链接线分层可辨;
+ * ② 文字名字只在缩放 `k >= 0.6`(即尚未进入聚合档)**且该线端点就是当前焦点**(悬停/选中该标签)时画在箭头附近;
  *    平时只画箭头不画字;进入聚合档(k < 0.6)即使悬停了也不画字;
- * ③ 备注缺失(空串)的目标不画字;
- * ④ 关系边参与悬停邻居强调:悬停一端,另一端进邻居集合,这条边 `emphasized`。
+ * ③ 无名字线(空串)的目标不画字;
+ * ④ 关系线参与悬停邻居强调:悬停一端,另一端进邻居集合,这条线 `emphasized`。
  */
 import { describe, expect, it } from 'vitest';
 import type { GraphNode } from '../../shared/types';
@@ -25,8 +25,8 @@ const points = new Map([
   [3, { x: 50, y: 250 }],
 ]);
 const relations: RelationEdge[] = [
-  { a: 1, b: 2, remark: '属性' },
-  { a: 1, b: 3, remark: '' }, // 目标没备注 -> 不画字
+  { a: 1, b: 2, nameText: '属性' },
+  { a: 1, b: 3, nameText: '' }, // 目标无名字 -> 不画字
 ];
 const base = {
   nodes,
@@ -41,11 +41,11 @@ const base = {
   relations,
 };
 
-/** 悬停 1(甲):它是两条关系边的端点 -> 那两条边的属性名可显示 */
+/** 悬停 1(甲):它是两条关系线的端点 -> 那两条线的名字可显示 */
 const hover1 = (): ReturnType<typeof emphasisOf> => emphasisOf({ selected: null, hovered: 1, edges: [], relations });
 
 describe('drawPlan:关系边层', () => {
-  it('关系边进 plan.relations 且带箭头标记;note links 层不含它们', () => {
+  it('关系线进 plan.relations 且带箭头标记;note links 层不含它们', () => {
     const p = drawPlan({ ...base, links: [{ a: 1, b: 2 }] });
     expect(p.relations).toEqual([
       { x1: 50, y1: 50, x2: 300, y2: 50, weight: 1, emphasized: false, dim: false, arrow: true, pullback: radiusOf(1) + ARROW_RETREAT_GAP },
@@ -63,15 +63,15 @@ describe('drawPlan:关系边层', () => {
       ...base,
       nodes: fat,
       points: new Map([[1, { x: 50, y: 50 }], [2, { x: 300, y: 50 }]]),
-      relations: [{ a: 1, b: 2, remark: '' }],
+      relations: [{ a: 1, b: 2, nameText: '' }],
     });
     // 乙 的半径到上限 9,回收量应当是 9 + 余量,而不是固定值
     expect(p.relations[0].pullback).toBe(9 + ARROW_RETREAT_GAP);
     expect(p.relations[0].pullback).toBeGreaterThan(radiusOf(1) + ARROW_RETREAT_GAP);
   });
 
-  it('平时(无焦点)只画箭头不画属性名;悬停端点且 k >= 0.6(未进聚合档)就出备注', () => {
-    // 平时:箭头仍在,属性名一个都不画
+  it('relation_remark_text_comes_from_name_text:平时(无焦点)只画箭头不画名字;悬停端点且 k >= 0.6(未进聚合档)就出名字', () => {
+    // 平时:箭头仍在,名字一个都不画
     const idle = drawPlan({ ...base, cam: { k: 1.2, tx: 0, ty: 0 } });
     expect(idle.relationMarks).toEqual([]);
     expect(idle.relations).toHaveLength(2);
@@ -89,7 +89,7 @@ describe('drawPlan:关系边层', () => {
     const hi = drawPlan({ ...base, cam: { k: 0.8, tx: 0, ty: 0 }, emphasis: hover1() });
     // 屏幕坐标 = 世界坐标 × 0.8:甲(50,50) 与 乙(300,50) 的中点是 (140,40),
     // 法线方向 (0,1),错开 9px -> (140,49);弱化态跟随这条边
-    expect(hi.relationMarks).toEqual([{ x: 140, y: 49, text: '属性', dim: false }]); // 丙 的备注是空串 -> 不出
+    expect(hi.relationMarks).toEqual([{ x: 140, y: 49, text: '属性', dim: false }]); // 丙 的名字是空串 -> 不出
     expect(hi.relations).toHaveLength(2);
   });
 
@@ -99,18 +99,18 @@ describe('drawPlan:关系边层', () => {
     expect(p.relationMarks.map((m) => m.text)).toEqual(['属性']);
   });
 
-  it('备注里的行内 md 标记剥成纯文本再画', () => {
+  it('名字里的行内 md 标记剥成纯文本再画', () => {
     const p = drawPlan({
       ...base,
       cam: { k: 1.2, tx: 0, ty: 0 },
       emphasis: hover1(),
-      relations: [{ a: 1, b: 2, remark: '**属性**' }],
+      relations: [{ a: 1, b: 2, nameText: '**属性**' }],
     });
     expect(p.relationMarks).toEqual([{ x: 210, y: 69, text: '属性', dim: false }]);
   });
 
-  it('悬停不相干的节点:一条备注都不出(属性名只在悬停/选中该标签时出现)', () => {
-    // 4 与任何节点都没有关系 -> 悬停它时不该冒出别人的属性名
+  it('悬停不相干的节点:一条名字都不出(名字只在悬停/选中该标签时出现)', () => {
+    // 4 与任何节点都没有关系 -> 悬停它时不该冒出别人的名字
     const withDing: GraphNode[] = [
       ...nodes,
       { id: 4, path: '丁', depth: 1, parent: null, notes: 1, selfCount: 1, sortOrder: 0 },
@@ -125,7 +125,7 @@ describe('drawPlan:关系边层', () => {
       emphasis: emphasisOf({ selected: null, hovered: 4, edges: [], relations }),
     });
     expect(p.relationMarks).toEqual([]);
-    // 悬停 1(端点):同一条边的备注回来,且不被弱化
+    // 悬停 1(端点):同一条线的名字回来,且不被弱化
     const linked = drawPlan({
       ...base,
       cam: { k: 1.2, tx: 0, ty: 0 },
@@ -134,7 +134,7 @@ describe('drawPlan:关系边层', () => {
     expect(linked.relationMarks.find((m) => m.text === '属性')!.dim).toBe(false);
   });
 
-  it('两端都在视口外的关系边丢弃,一端可见仍画(与其它边同口径)', () => {
+  it('两端都在视口外的关系线丢弃,一端可见仍画(与其它线同口径)', () => {
     const far = new Map(points);
     far.set(9, { x: 100000, y: 100000 });
     far.set(10, { x: 200000, y: 200000 });
@@ -147,15 +147,15 @@ describe('drawPlan:关系边层', () => {
       ],
       points: far,
       relations: [
-        { a: 9, b: 10, remark: '' }, // 两端都在画布外 -> 丢
-        { a: 1, b: 9, remark: '' }, // 一端可见 -> 画
+        { a: 9, b: 10, nameText: '' }, // 两端都在画布外 -> 丢
+        { a: 1, b: 9, nameText: '' }, // 一端可见 -> 画
       ],
     });
     expect(p.relations).toHaveLength(1);
     expect(p.relations[0].x1).toBe(50);
   });
 
-  it('关系边参与悬停邻居强调:悬停一端,另一端进邻居且这条边 emphasized', () => {
+  it('关系线参与悬停邻居强调:悬停一端,另一端进邻居且这条线 emphasized', () => {
     const em = emphasisOf({ selected: null, hovered: 1, edges: [], relations });
     expect([...em.neighbors].sort()).toEqual([2, 3]);
     const p = drawPlan({ ...base, emphasis: em });

@@ -48,19 +48,6 @@ describe('relationLabel:名字 → 被引用点,无名字只给值', () => {
   it('名字与被引用点含代理对(补充平面汉字)时逐字保留,不乱码不漏字', () => {
     expect(relationLabel(rel('[𠀀国](日出之国)', '国籍'))).toBe('国籍 → 𠀀国');
   });
-
-  // 迁移期兼容:v30 的形状(名字在边上的 `remark`)仍能读出名字;T4.2/T4.3 迁完夹具后此回退删除。
-  it('迁移期回退:v30 的 `remark` 也能当名字读出', () => {
-    const legacy: RelationRef = { toTagId: 9, path: '地点轴/中国大陆', name: '中国大陆', remark: '国籍' };
-    expect(relationLabel(legacy)).toBe('国籍 → 中国大陆');
-    expect(relationValueTip(legacy)).toBe('国籍');
-  });
-
-  it('迁移期去重:v30 形状没有 `nameText`,退回按值去重(与 v30 逐字相同)', () => {
-    const a: RelationRef = { toTagId: 9, path: '地点轴/中国大陆', name: '中国大陆', remark: '国籍' };
-    const b: RelationRef = { toTagId: 9, path: '地点轴/中国大陆', name: '中国大陆', remark: '出生地' };
-    expect(uniqueRelationValues([a, b])).toHaveLength(1);
-  });
 });
 
 describe('relationPlan:最多 2 个 + `+N`', () => {

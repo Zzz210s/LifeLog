@@ -58,7 +58,7 @@ beforeEach(() => {
   setTagRelation.mockReset();
   removeTagRelation.mockReset();
   listTagRelations.mockResolvedValue([
-    { toTagId: EDGE_TARGET.id, path: EDGE_TARGET.path, name: EDGE_TARGET.path, remark: '' },
+    { toTagId: EDGE_TARGET.id, path: EDGE_TARGET.path, name: EDGE_TARGET.path, nameId: null, nameText: '' },
   ]);
   setTagRelation.mockResolvedValue(undefined);
   host = document.createElement('div');

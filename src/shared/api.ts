@@ -55,9 +55,9 @@ export const api = {
     invoke<void>('rename_line_name', { nameId, newName }),
   /** 按线 id 删一条具体的线(幂等);删哪条线由调用方从 `RelationRef.lineId` 指明 */
   removeLine: (lineId: number) => invoke<void>('remove_line', { lineId }),
-  /** 移除标签关系 A -> B(幂等:不存在也算成功) */
-  removeTagRelation: (fromTag: number, toTag: number) =>
-    invoke<void>('remove_tag_relation', { fromTag, toTag }),
+  /** 移除标签关系 A -> B(幂等):`nameId` 给定时只删该名字线,`null` 删无名字线 */
+  removeTagRelation: (fromTag: number, toTag: number, nameId: number | null = null) =>
+    invoke<void>('remove_tag_relation', { fromTag, toTag, nameId }),
   /** 某标签的全部出线(A -> ?):每项含被引用点 id / 路径 / 末段名 / 名字点 id 与文本 */
   listTagRelations: (fromTag: number) =>
     invoke<RelationRef[]>('list_tag_relations', { fromTag }),
