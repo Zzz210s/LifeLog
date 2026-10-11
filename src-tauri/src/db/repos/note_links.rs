@@ -24,7 +24,7 @@ pub struct LinkCandidate {
 
 /// 全库候选表:一次全表扫(本机千余条 <10ms);写入与读取共用同一张。
 pub(crate) fn candidates(conn: &Connection) -> rusqlite::Result<Vec<LinkCandidate>> {
-    let mut stmt = conn.prepare("SELECT id, meta FROM entities ORDER BY id")?;
+    let mut stmt = conn.prepare("SELECT id, meta FROM points ORDER BY id")?;
     let mut rows = stmt.query([])?;
     let mut out = Vec::new();
     while let Some(row) = rows.next()? {
@@ -144,7 +144,7 @@ pub(crate) fn resolve_body(
 fn own_title(conn: &Connection, id: i64) -> rusqlite::Result<Option<String>> {
     use rusqlite::OptionalExtension;
     let meta: Option<String> =
-        conn.query_row("SELECT meta FROM entities WHERE id = ?1", params![id], |r| r.get(0))
+        conn.query_row("SELECT meta FROM points WHERE id = ?1", params![id], |r| r.get(0))
             .optional()?;
     Ok(meta.map(|c| title_of(&c)).filter(|t| !t.is_empty()))
 }
