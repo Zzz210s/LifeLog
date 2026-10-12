@@ -32,7 +32,7 @@ pub struct TagFactsBundle {
 pub fn tag_facts(conn: &Connection) -> rusqlite::Result<TagFactsBundle> {
     let mut by_tag: BTreeMap<i64, TagFact> = BTreeMap::new();
     let mut stmt = conn.prepare(
-        "SELECT l.from_id, t.id, t.path, l.name_id, COALESCE(n.meta, '') FROM lines l
+        "SELECT l.from_id, l.id, t.id, t.path, l.name_id, COALESCE(n.meta, '') FROM lines l
          JOIN points t ON t.id = l.to_id AND t.path IS NOT NULL
          JOIN points s ON s.id = l.from_id AND s.path IS NOT NULL
          LEFT JOIN points n ON n.id = l.name_id
@@ -43,18 +43,19 @@ pub fn tag_facts(conn: &Connection) -> rusqlite::Result<TagFactsBundle> {
         Ok((
             r.get::<_, i64>(0)?,
             r.get::<_, i64>(1)?,
-            r.get::<_, String>(2)?,
-            r.get::<_, Option<i64>>(3)?,
-            r.get::<_, String>(4)?,
+            r.get::<_, i64>(2)?,
+            r.get::<_, String>(3)?,
+            r.get::<_, Option<i64>>(4)?,
+            r.get::<_, String>(5)?,
         ))
     })?;
     for row in rows {
-        let (tag_id, to_tag_id, path, name_id, name_text) = row?;
+        let (tag_id, line_id, to_tag_id, path, name_id, name_text) = row?;
         by_tag
             .entry(tag_id)
             .or_insert_with(|| TagFact { tag_id, relations: Vec::new() })
             .relations
-            .push(relation_ref(to_tag_id, &path, name_id, name_text));
+            .push(relation_ref(line_id, to_tag_id, &path, name_id, name_text));
     }
     Ok(TagFactsBundle { facts: by_tag.into_values().collect() })
 }

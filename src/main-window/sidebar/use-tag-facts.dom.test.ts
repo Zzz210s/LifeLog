@@ -19,7 +19,7 @@ vi.mock('../../shared/api', () => ({ api: { listTagFacts, listTagRelations } }))
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const REL = { toTagId: 7, path: '地点轴/国籍', name: '国籍', nameId: 3, nameText: '国别' };
+const REL = { toTagId: 7, path: '地点轴/国籍', name: '国籍', nameId: 3, nameText: '国别', lineId: 70 };
 const BUNDLE: TagFactsBundle = {
   facts: [
     { tagId: 1, relations: [REL] },

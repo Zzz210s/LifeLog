@@ -13,8 +13,9 @@ export interface RelationRef {
   nameId?: number | null;
   /** 名字点文本(无名字线为空串):显示口径的数据源 */
   nameText?: string;
-  /** 线 id(`lines.id`):删某一条具体的线用。后端 DTO 尚未输出,先占位 */
-  lineId?: number;
+  /** 线 id(`lines.id`):**删线的唯一凭据**。派生键 `(toTagId, nameId)` 会被名字框的编辑
+   *  漂移(清空名字 = 该线 `nameId` 变 null),那时按旧名字点删会命中 0 行而静默成功。 */
+  lineId: number;
 }
 
 /** 单个标签的关系事实(IPC `list_tag_facts`):relations = 该标签的全部出边(A -> ?) */

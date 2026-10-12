@@ -169,3 +169,28 @@ fn count_relations_to_counts_direct_incoming() {
     assert_eq!(count_relations_to(&c, a).unwrap(), 0, "起点自己不算入边");
     assert_eq!(list_tag_relations(&c, target).unwrap().len(), 0, "丙没有出边");
 }
+
+/// ⑦ 线身份:`list_tag_relations` 给出每条线自己的 `line_id`,按它删只删那一条。
+/// 同对点可有多条线(有名字 + 无名字):派生键 `(to_id, name_id)` 只管得住读数那一刻的库,
+/// 按身份删才是稳的。
+#[test]
+fn line_id_is_the_delete_handle() {
+    let mut c = db();
+    let from = ensure(&c, "甲");
+    let to = ensure(&c, "乙");
+    set_tag_relation(&mut c, from, to, "国籍").unwrap();
+    let nameless = crate::db::repos::tags::create_line(&mut c, from, to, None).unwrap();
+
+    let out = list_tag_relations(&c, from).unwrap();
+    assert_eq!(out.len(), 2, "同对点可有两条线(一条有名字、一条无名字)");
+    let named = out.iter().find(|r| r.name_id.is_some()).expect("有名字线在读数里");
+    assert_ne!(named.line_id, nameless, "两条线各有自己的 id");
+    assert!(out.iter().any(|r| r.line_id == nameless && r.name_id.is_none()), "无名字线的 line_id 也在读数里");
+
+    crate::db::repos::tags::remove_line(&mut c, named.line_id).unwrap();
+    let left = list_tag_relations(&c, from).unwrap();
+    assert_eq!(left.len(), 1, "只删被指定的那一条");
+    assert_eq!(left[0].line_id, nameless, "同对的另一条线保留");
+    crate::db::repos::tags::remove_line(&mut c, named.line_id).unwrap();
+    assert_eq!(list_tag_relations(&c, from).unwrap().len(), 1, "重复删幂等,不误伤");
+}

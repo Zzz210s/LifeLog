@@ -18,8 +18,8 @@ export interface TagMenuRelationListProps {
   /** 当前全部出线;null = 加载中 */
   relations: readonly RelationRef[] | null;
   busy: boolean;
-  /** 移除一条线:名字点 id 为 null = 无名字线(后端按 nameId 区分删哪条) */
-  onRemove: (toTagId: number, nameId: number | null) => void;
+  /** 移除一条线:传线 id(`RelationRef.lineId`)—— 按身份删,与名字框的编辑无关 */
+  onRemove: (lineId: number) => void;
   /** 改名字:nameId 非 null = 改名字点;null = 给无名字线取名 */
   onEditName: (toTagId: number, nameId: number | null, next: string) => void;
 }
@@ -64,6 +64,7 @@ export function TagMenuRelationList(p: TagMenuRelationListProps): ReactNode {
             }}
             disabled={p.busy}
             placeholder={r.nameText ? '属性名' : '(无名字)'}
+            title={'清空只去掉属性名,引用还在;要删掉这条引用请点右侧「移除」'}
             aria-label={`引用名字: ${tagLabelPlain(r.name)}`}
             className={NAME_INPUT_CLASS}
           />
@@ -77,9 +78,9 @@ export function TagMenuRelationList(p: TagMenuRelationListProps): ReactNode {
             type="button"
             data-relation-remove={r.toTagId}
             data-relation-remove-name-id={r.nameId ?? ''}
-            disabled={p.busy}
+            data-relation-remove-line-id={r.lineId}
             title={'移除引用 ' + tagLabelPlain(r.name)}
-            onClick={() => p.onRemove(r.toTagId, r.nameId ?? null)}
+            onClick={() => p.onRemove(r.lineId)}
             className={BTN_TEXT + ' text-muted hover:text-danger'}
           >
             移除

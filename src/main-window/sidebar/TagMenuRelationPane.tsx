@@ -2,8 +2,7 @@
  * 标签菜单「引用…」面板(入口处置表 spec §5.3 / 计划 Task 3.3;数据层设计 2026-10-06 §2 修订):
  * 上半列出本实体的**全部出 `link` 边**(`属性名 → 目标`,属性名就地可改、可逐条移除),下半是
  * **属性名输入框 + 目标实体选择器**(候选复用 `#` 补全那套共享打分/排序引擎 `shared/quickpick/model`)。
- * 与正文 `#X` / `[[X]]` 同一套「引用」概念:落库都是 `lines`(无名字线 = `name_id IS NULL`,名字点 = 保留点)。
- * 写库走 `setTagRelation` / `renameLineName` / `removeTagRelation`(命令名保留,不动前端契约)。
+ * 与正文 `#X` / `[[X]]` 同一套「引用」概念:落库都是 `lines`;写库走 `setTagRelation` / `renameLineName` / `removeLine`(按**线 id** 删)。
  *
  * 名字存在**点**上(送转 031),不是目标标签名字里的 md 备注 —— 所以同一个目标(如 `地点轴/日本`)
  * 可以分别以「国籍」「出生地」两个名字被指向。名字可留空 = 只声明「有什么关系」(R12)。
@@ -118,11 +117,12 @@ export function TagMenuRelationPane(p: TagMenuRelationPaneProps): ReactNode {
       .finally(() => setBusy(false));
   };
 
-  const remove = (toTagId: number, nameId: number | null): void => {
+  /** 移除一条线:按**线 id** 删(派生键 (终点, 名字点) 会被名字框编辑漂移,见 TagMenuRelationList) */
+  const remove = (lineId: number): void => {
     setError('');
     setBusy(true);
     void api
-      .removeTagRelation(p.tagId, toTagId, nameId)
+      .removeLine(lineId)
       .then(reload)
       .then(setOutgoing)
       .catch((e) => setError(String(e)))

@@ -13,13 +13,13 @@ import { TagMenu } from './TagMenu';
 import { buildTree } from './tag-tree';
 import type { ManagedNode } from './tag-tree';
 
-const { listTagRelations, setTagRelation, removeTagRelation } = vi.hoisted(() => ({
+const { listTagRelations, setTagRelation, removeLine } = vi.hoisted(() => ({
   listTagRelations: vi.fn(),
   setTagRelation: vi.fn(),
-  removeTagRelation: vi.fn(),
+  removeLine: vi.fn(),
 }));
 
-vi.mock('../../shared/api', () => ({ api: { listTagRelations, setTagRelation, removeTagRelation } }));
+vi.mock('../../shared/api', () => ({ api: { listTagRelations, setTagRelation, removeLine } }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -36,19 +36,19 @@ let edges: RelationRef[];
 beforeEach(() => {
   listTagRelations.mockReset();
   setTagRelation.mockReset();
-  removeTagRelation.mockReset();
-  edges = [{ toTagId: 20, path: '关系测试乙', name: '关系测试乙', nameId: null, nameText: '' }];
+  removeLine.mockReset();
+  edges = [{ toTagId: 20, path: '关系测试乙', name: '关系测试乙', nameId: null, nameText: '', lineId: 700 }];
   listTagRelations.mockImplementation(() => Promise.resolve(edges.map((e) => ({ ...e }))));
   setTagRelation.mockImplementation((_from: number, to: number, remark: string) => {
     const hit = edges.find((e) => e.toTagId === to);
     const nameId = remark === '' ? null : 900 + to;
     edges = hit
       ? edges.map((e) => (e.toTagId === to ? { ...e, nameId, nameText: remark } : e))
-      : [...edges, { toTagId: to, path: '关系测试丙', name: '关系测试丙', nameId, nameText: remark }];
+      : [...edges, { toTagId: to, path: '关系测试丙', name: '关系测试丙', nameId, nameText: remark, lineId: 900 + to }];
     return Promise.resolve();
   });
-  removeTagRelation.mockImplementation((_from: number, to: number) => {
-    edges = edges.filter((e) => e.toTagId !== to);
+  removeLine.mockImplementation((lineId: number) => {
+    edges = edges.filter((e) => e.lineId !== lineId);
     return Promise.resolve();
   });
   host = document.createElement('div');
@@ -136,7 +136,7 @@ describe('Task 4 关系面板', () => {
   });
 
   it('名字在名字点上:行内输入框带出名字文本,箭头后是目标名', async () => {
-    edges = [{ toTagId: 20, path: '地点轴/日本', name: '日本', nameId: 5, nameText: '国籍' }];
+    edges = [{ toTagId: 20, path: '地点轴/日本', name: '日本', nameId: 5, nameText: '国籍', lineId: 701 }];
     render();
     await openRelation();
     const box = host.querySelector('input[data-relation-name="20"]') as HTMLInputElement;
@@ -160,12 +160,12 @@ describe('Task 4 关系面板', () => {
     expect(host.querySelector('[data-tag-menu]')).not.toBeNull();
   });
 
-  it('「移除」按钮调用 removeTagRelation', async () => {
+  it('removal_uses_line_identity:「移除」按钮传**线 id** 调 remove_line(不是派生键 (终点, 名字点))', async () => {
     render();
     await openRelation();
     act(() => (host.querySelector('[data-relation-remove="20"]') as HTMLElement).click());
     await flush();
-    expect(removeTagRelation).toHaveBeenCalledWith(1, 20, null);
+    expect(removeLine).toHaveBeenCalledWith(700);
   });
 
   it('Esc 关闭面板', async () => {

@@ -53,9 +53,11 @@ export const api = {
   /** 改一个关系名点(改点 `meta`,引用它的每条线文本一起变);撞名 reject 中文原因 */
   renameLineName: (nameId: number, newName: string) =>
     invoke<void>('rename_line_name', { nameId, newName }),
-  /** 按线 id 删一条具体的线(幂等);删哪条线由调用方从 `RelationRef.lineId` 指明 */
+  /** 按线 id 删一条具体的线(幂等):「引用…」面板的「移除」走这条 —— 按身份删,
+   *  不受名字框编辑(清空名字只改 `name_id`)漂移影响 */
   removeLine: (lineId: number) => invoke<void>('remove_line', { lineId }),
-  /** 移除标签关系 A -> B(幂等):`nameId` 给定时只删该名字线,`null` 删无名字线 */
+  /** 移除标签关系 A -> B(幂等):`nameId` 给定时只删该名字线,`null` 删无名字线。
+   *  按**派生键**删,调用方必须保证读数与库同步(UI 已改用 `removeLine`) */
   removeTagRelation: (fromTag: number, toTag: number, nameId: number | null = null) =>
     invoke<void>('remove_tag_relation', { fromTag, toTag, nameId }),
   /** 某标签的全部出线(A -> ?):每项含被引用点 id / 路径 / 末段名 / 名字点 id 与文本 */

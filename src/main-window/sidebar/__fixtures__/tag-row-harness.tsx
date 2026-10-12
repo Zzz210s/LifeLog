@@ -20,6 +20,7 @@ export const rel = (toTagId: number, name: string, nameText = ''): RelationRef =
   name,
   nameId: nameText === '' ? null : 1,
   nameText,
+  lineId: 1000 + toTagId,
 });
 
 /** 叶子标签(直接给 TagNode:buildTree 会把缺的祖先补成结构节点,拿不到这一行) */

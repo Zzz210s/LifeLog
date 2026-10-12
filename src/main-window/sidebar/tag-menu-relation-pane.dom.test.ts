@@ -9,14 +9,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RelationRef, TagCount } from '../../shared/types';
 import { TagMenuRelationPane } from './TagMenuRelationPane';
 
-const { listTagRelations, setTagRelation, renameLineName, removeTagRelation } = vi.hoisted(() => ({
+const { listTagRelations, setTagRelation, renameLineName, removeLine } = vi.hoisted(() => ({
   listTagRelations: vi.fn(),
   setTagRelation: vi.fn(),
   renameLineName: vi.fn(),
-  removeTagRelation: vi.fn(),
+  removeLine: vi.fn(),
 }));
 vi.mock('../../shared/api', () => ({
-  api: { listTagRelations, setTagRelation, renameLineName, removeTagRelation },
+  api: { listTagRelations, setTagRelation, renameLineName, removeLine },
 }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -33,7 +33,7 @@ const SELF = at(1, '关系测试甲');
 const OTHER = at(3, '关系测试丙');
 const ROWS = [SELF, OTHER];
 const EDGES: RelationRef[] = [
-  { toTagId: 2, path: '关系测试乙', name: '关系测试乙', nameId: null, nameText: '' },
+  { toTagId: 2, path: '关系测试乙', name: '关系测试乙', nameId: null, nameText: '', lineId: 702 },
 ];
 
 let root: Root;
@@ -43,11 +43,11 @@ beforeEach(() => {
   listTagRelations.mockReset();
   setTagRelation.mockReset();
   renameLineName.mockReset();
-  removeTagRelation.mockReset();
+  removeLine.mockReset();
   listTagRelations.mockResolvedValue(EDGES);
   setTagRelation.mockResolvedValue(undefined);
   renameLineName.mockResolvedValue(undefined);
-  removeTagRelation.mockResolvedValue(undefined);
+  removeLine.mockResolvedValue(undefined);
   host = document.createElement('div');
   document.body.appendChild(host);
   root = createRoot(host);

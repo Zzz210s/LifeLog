@@ -10,8 +10,8 @@ import type { TagFact } from '../../shared/tag-facts-types';
 import { relationDegrees, relationEdges } from './graph-relations';
 
 const facts: TagFact[] = [
-  { tagId: 2, relations: [{ toTagId: 4, path: '地点轴/国籍', name: '国籍', nameId: 1, nameText: '国别' }] },
-  { tagId: 5, relations: [{ toTagId: 4, path: '地点轴/国籍', name: '国籍', nameId: null, nameText: '' }] },
+  { tagId: 2, relations: [{ toTagId: 4, path: '地点轴/国籍', name: '国籍', nameId: 1, nameText: '国别', lineId: 1 }] },
+  { tagId: 5, relations: [{ toTagId: 4, path: '地点轴/国籍', name: '国籍', nameId: null, nameText: '', lineId: 2 }] },
 ];
 
 const nodes: GraphNode[] = [

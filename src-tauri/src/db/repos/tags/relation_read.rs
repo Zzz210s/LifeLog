@@ -14,20 +14,30 @@ pub struct RelationRef {
     pub name_id: Option<i64>,
     /// 线名文本(名字点的 `meta`;无名字线为空串)
     pub name_text: String,
+    /// 线 id(`lines.id`):按**身份**删线的唯一凭据。
+    /// 派生键 `(to_tag_id, name_id)` 会被名字框的编辑漂移(清空名字 = 该线 `name_id` 变 NULL),
+    /// 那时按旧名字点删会命中 0 行而 `remove_tag_relation` 视作幂等成功(T3.5)。
+    pub line_id: i64,
 }
 
 /// 本标签的全部出线(A → ?),按目标路径升序;每项带线的名字点 id 与文本(无名字线为 None/空串)
 pub fn list_tag_relations(conn: &Connection, from_tag_id: i64) -> rusqlite::Result<Vec<RelationRef>> {
     let mut stmt = conn.prepare(
-        "SELECT t.id, t.path, l.name_id, COALESCE(n.meta, '') FROM lines l
+        "SELECT l.id, t.id, t.path, l.name_id, COALESCE(n.meta, '') FROM lines l
          JOIN points t ON t.id = l.to_id AND t.path IS NOT NULL
          LEFT JOIN points n ON n.id = l.name_id
          WHERE l.from_id = ?1 AND (l.name_id IS NULL OR l.name_id <> 0) ORDER BY t.path",
     )?;
     let rows = stmt.query_map(params![from_tag_id], |r| {
-        Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get::<_, Option<i64>>(2)?, r.get::<_, String>(3)?))
+        Ok((
+            r.get::<_, i64>(0)?,
+            r.get::<_, i64>(1)?,
+            r.get::<_, String>(2)?,
+            r.get::<_, Option<i64>>(3)?,
+            r.get::<_, String>(4)?,
+        ))
     })?;
-    rows.map(|row| row.map(|(id, path, name_id, name_text)| relation_ref(id, &path, name_id, name_text)))
+    rows.map(|row| row.map(|(line_id, id, path, name_id, name_text)| relation_ref(line_id, id, &path, name_id, name_text)))
         .collect()
 }
 
@@ -43,15 +53,16 @@ pub fn count_relations_to(conn: &Connection, to_tag_id: i64) -> rusqlite::Result
     )
 }
 
-/// 由 (id, path, 线名点 id, 线名文本) 组装一条关系读数:name = 路径末段
+/// 由 (线 id, 目标 id, path, 线名点 id, 线名文本) 组装一条关系读数:name = 路径末段
 pub fn relation_ref(
+    line_id: i64,
     to_tag_id: i64,
     path: &str,
     name_id: Option<i64>,
     name_text: String,
 ) -> RelationRef {
     let name = leaf(path);
-    RelationRef { to_tag_id, path: path.to_string(), name, name_id, name_text }
+    RelationRef { to_tag_id, path: path.to_string(), name, name_id, name_text, line_id }
 }
 
 /// 路径末段(标签名);`/` 是路径分隔符，单段路径即整串

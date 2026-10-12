@@ -49,6 +49,7 @@ const edge = (toTagId: number, name: string): RelationRef => ({
   name,
   nameId: null,
   nameText: '',
+  lineId: 100 + toTagId,
 });
 
 let root: Root | null = null;

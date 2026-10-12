@@ -36,7 +36,7 @@ const nodes: GraphNode[] = [
 
 /** `作者/鲁迅 --(国别)--> 地点轴/国籍`:名字(国别)与目标末段名(国籍)刻意不同 */
 const facts: TagFact[] = [
-  { tagId: tagId(2), relations: [{ toTagId: tagId(4), path: '地点轴/国籍', name: '国籍', nameId: 1, nameText: '国别' }] },
+  { tagId: tagId(2), relations: [{ toTagId: tagId(4), path: '地点轴/国籍', name: '国籍', nameId: 1, nameText: '国别', lineId: 1 }] },
 ];
 
 describe('关系边两端是标签实体 id', () => {
