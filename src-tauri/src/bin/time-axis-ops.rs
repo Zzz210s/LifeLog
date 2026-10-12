@@ -3,13 +3,15 @@
 //!
 //!   cargo run --features tools --bin time-axis-ops -- --db <副本> --phase tree           # dry-run
 //!   cargo run --features tools --bin time-axis-ops -- --db <副本> --phase tree --apply   # 写副本
+//!   --phase 取值:tree(S1 树收敛) / created-at(S2 created_at 修复) / both(顺序串跑)。
 //!
 //! 默认 dry-run(零写入);`--apply` 只允许写 `_lifelog-snapshots` 下的副本(真库阶段要 `--allow-live`)。
 //! 退出码:0 成功 / 2 参数或前置不满足 / 3 自对账失败(已回滚)。
 use lifelog_lib::time_axis::{self, Opts, Phase};
 use std::path::PathBuf;
 
-const USAGE: &str = "用法: time-axis-ops --db <副本路径> --phase tree [--apply] [--allow-live]";
+const USAGE: &str =
+    "用法: time-axis-ops --db <副本路径> --phase tree|created-at|both [--apply] [--allow-live]";
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -48,7 +50,7 @@ fn parse(args: Vec<String>) -> Result<Opts, String> {
                     .next()
                     .ok_or_else(|| format!("--phase 缺取值\n{USAGE}"))?;
                 phase = Some(Phase::parse(&raw).ok_or_else(|| {
-                    format!("未知/未实现的 --phase {raw}(当前支持 tree)\n{USAGE}")
+                    format!("未知 --phase {raw}(支持 tree|created-at|both)\n{USAGE}")
                 })?);
             }
             "--apply" => apply = true,

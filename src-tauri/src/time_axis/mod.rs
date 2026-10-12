@@ -1,21 +1,24 @@
-//! 时间轴收敛引擎(设计 2026-10-12 §6 / 计划 T2;P0-8 安全阀):S1 树收敛的载具。
+//! 时间轴收敛引擎(设计 2026-10-12 §6 / 计划 T2 + T4;P0-8 安全阀)。
 //!
-//! 公开面只有 [`run`](CLI 与测试共用);S1 本体在 [`s1_tree`],三个 settings 键的路径改写在
-//! [`settings_paths`]。安全阀内建,不靠调用方记:
+//! 公开面只有 [`run`](CLI 与测试共用);S1 本体在 [`s1_tree`],S2 本体在 [`s2_created_at`],
+//! 三个 settings 键的路径改写在 [`settings_paths`],安全阀在 [`guard`]。安全阀内建,不靠调用方记:
 //!  ① 默认 dry-run,`--apply` 才写;
 //!  ② `--db` 路径不含 `_lifelog-snapshots` 时,须 `--apply --allow-live` 同时给;
 //!  ③ `user_version` 必须 31;
-//!  ④ `时间/日期` 子级必须全是 4 位年容器,否则拒绝;
-//!  ⑤ 单事务(搬移 / 合并 / 设置改写 / FTS 重建同生共死);
-//!  ⑥ 写完事务内自对账(十条对账 + 三条等价性),失败回滚;
+//!  ④ `时间/日期` 子级必须全是 4 位年容器,否则拒绝(S1);
+//!  ⑤ 单事务(每阶段各自一个事务;`--phase both` 顺序跑 S1 再 S2);
+//!  ⑥ 写完事务内自对账,失败回滚;
 //!  ⑦ `--apply` 前先 `VACUUM INTO` 一份写前快照。
 //! 退出码:0 成功 / 2 参数或前置不满足 / 3 自对账失败(已回滚)。
 use rusqlite::Connection;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
+pub mod guard;
 pub mod s1_self_check;
 pub mod s1_sql;
 pub mod s1_tree;
+pub mod s2_created_at;
+pub mod s2_sql;
 pub mod settings_paths;
 
 #[cfg(test)]
@@ -34,21 +37,34 @@ mod tests_settings;
 #[path = "tests_guard.rs"]
 mod tests_guard;
 
-/// 本次要跑的阶段。`created-at`(S2)归后续任务,这里先只收 `tree`。
+#[cfg(test)]
+#[path = "tests_s2.rs"]
+mod tests_s2;
+
+/// 本次要跑的阶段:`tree`(S1 树收敛)、`created-at`(S2 `created_at` 修复)、`both`(顺序串跑)。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Phase {
     Tree,
+    CreatedAt,
+    Both,
 }
 
 impl Phase {
     /// 解析 `--phase` 的取值;未知取值返回 None(由 CLI 报错)
     pub fn parse(text: &str) -> Option<Phase> {
-        matches!(text, "tree").then_some(Phase::Tree)
+        match text {
+            "tree" => Some(Phase::Tree),
+            "created-at" => Some(Phase::CreatedAt),
+            "both" => Some(Phase::Both),
+            _ => None,
+        }
     }
 
     pub fn as_str(self) -> &'static str {
         match self {
             Phase::Tree => "tree",
+            Phase::CreatedAt => "created-at",
+            Phase::Both => "both",
         }
     }
 }
@@ -87,70 +103,46 @@ impl Failure {
     }
 }
 
-/// 引擎入口:路径与版本闸门 -> 只读计划 -> dry-run 打印,或单事务执行 + 自对账。
-/// 返回逐行中文报告(调用方直接打印);失败给退出码与原因。
+/// 引擎入口:路径与版本闸门 -> 写前快照(仅 apply) -> 按 `--phase` 分派 -> 汇总逐行中文报告。
 pub fn run(opts: &Opts) -> Result<Vec<String>, Failure> {
-    guard_path(&opts.db, opts.apply, opts.allow_live)?;
+    guard::guard_path(&opts.db, opts.apply, opts.allow_live)?;
     let mut conn = Connection::open(&opts.db)
         .map_err(|e| Failure::usage(format!("打开库失败 {}: {e}", opts.db.display())))?;
     // 触发器会调 `tag_plain` / `entity_name` / `entity_key` 等连接级标量函数,必须先挂上
     crate::db::sql_functions::register(&conn).map_err(|e| Failure::check(e.to_string()))?;
-    guard_version(&conn)?;
-    let plan = s1_tree::plan(&conn)?;
-    if !opts.apply {
+    guard::guard_version(&conn)?;
+    let snapshot = if opts.apply {
+        Some(guard::snapshot_before_write(&conn, &opts.db)?)
+    } else {
+        None
+    };
+    let mut out = Vec::new();
+    if matches!(opts.phase, Phase::Tree | Phase::Both) {
+        out.extend(run_tree(&mut conn, opts.apply)?);
+    }
+    if matches!(opts.phase, Phase::CreatedAt | Phase::Both) {
+        out.extend(run_created_at(&mut conn, opts.apply)?);
+    }
+    if let Some(p) = snapshot {
+        out.push(format!("写前快照: {}", p.display()));
+    }
+    Ok(out)
+}
+
+/// S1:只读计划 -> dry-run 打印,或单事务执行 + 自对账
+fn run_tree(conn: &mut Connection, apply: bool) -> Result<Vec<String>, Failure> {
+    let plan = s1_tree::plan(conn)?;
+    if !apply {
         return Ok(plan.describe());
     }
-    let snapshot = snapshot_before_write(&conn, &opts.db)?;
-    let mut out = s1_tree::apply(&mut conn, &plan)?;
-    out.push(format!("写前快照: {}", snapshot.display()));
-    Ok(out)
+    s1_tree::apply(conn, &plan)
 }
 
-/// ②:只允许写 `_lifelog-snapshots` 下的副本(`--allow-live` 留给真库阶段)。
-fn guard_path(db: &Path, apply: bool, allow_live: bool) -> Result<(), Failure> {
-    if !apply || allow_live {
-        return Ok(());
+/// S2:只读计划 -> dry-run 打印,或单事务执行 + 自对账
+fn run_created_at(conn: &mut Connection, apply: bool) -> Result<Vec<String>, Failure> {
+    let plan = s2_created_at::plan(conn)?;
+    if !apply {
+        return Ok(plan.describe());
     }
-    let path = db.to_string_lossy();
-    if path.contains("_lifelog-snapshots") {
-        return Ok(());
-    }
-    Err(Failure::usage(format!(
-        "拒绝写非快照库 {path}:--apply 只允许写 `_lifelog-snapshots` 下的副本(真库阶段需 --allow-live)"
-    )))
-}
-
-/// ③:只处理 v31(表名 `points` / `lines` / `points_fts` 都由 031 建立)
-fn guard_version(conn: &Connection) -> Result<(), Failure> {
-    let uv: i64 = conn
-        .query_row("PRAGMA user_version", [], |r| r.get(0))
-        .map_err(|e| Failure::usage(format!("读 user_version 失败: {e}")))?;
-    if uv != 31 {
-        return Err(Failure::usage(format!(
-            "user_version = {uv},本引擎只处理 v31"
-        )));
-    }
-    Ok(())
-}
-
-/// ⑦:写前 `VACUUM INTO` 单文件快照(与 `scripts/entity-migration/snapshot.mjs` 同口径),
-/// 命名 `<库名>.bak-pretimeaxis-<UTC 时间戳>`;已存在则拒绝覆盖。
-fn snapshot_before_write(conn: &Connection, db: &Path) -> Result<PathBuf, Failure> {
-    let stamp: String = conn
-        .query_row("SELECT strftime('%Y%m%dT%H%M%SZ','now')", [], |r| r.get(0))
-        .map_err(|e| Failure::check(format!("取时间戳失败: {e}")))?;
-    let name = db
-        .file_name()
-        .map(|s| s.to_string_lossy().to_string())
-        .unwrap_or_else(|| "lifelog.db".to_string());
-    let out = db.with_file_name(format!("{name}.bak-pretimeaxis-{stamp}"));
-    if out.exists() {
-        return Err(Failure::usage(format!(
-            "写前快照已存在,先归档:{}",
-            out.display()
-        )));
-    }
-    conn.execute("VACUUM INTO ?1", rusqlite::params![out.to_string_lossy()])
-        .map_err(|e| Failure::check(format!("写前快照失败: {e}")))?;
-    Ok(out)
+    s2_created_at::apply(conn, &plan)
 }

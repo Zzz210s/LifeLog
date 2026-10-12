@@ -40,8 +40,9 @@ const classes = {
   tag_note: n1("edges e JOIN entities s ON s.id=e.source_id JOIN entities t ON t.id=e.target_id WHERE e.kind='link' AND s.path IS NOT NULL AND t.path IS NULL"),
 };
 // 任务点名 9 个 + 预演沿用的一批(逐条给命中数,便于前后对照)
+// 抽样里的时间标签用收敛后形状 `时间/2026/10`(S1 收敛后 `时间/日期` 已不存在;2026-10-12 时间轴收敛 T3)
 const KEYWORDS = ['待办', '待办/银行', '电影', '电影/真人', '旅游/餐厅', '地点轴/所在', '状态/已完成', '北京市', '作者/金观涛',
-  '银行', '真人', '时间/日期', '已完成', '知识', '科幻', '进度/12', '游戏/知识', '游戏/科幻', '杂志'];
+  '银行', '真人', '时间/2026/10', '已完成', '知识', '科幻', '进度/12', '游戏/知识', '游戏/科幻', '杂志'];
 const raw = one("SELECT value FROM settings WHERE key='filter_current'")?.value ?? '';
 let current = {};
 try { current = JSON.parse(raw) ?? {}; } catch { current = {}; }

@@ -140,3 +140,54 @@ integrity_check=ok  foreign_key_check=0 行
 - 已知遗留（不在 T1.5 范围）:Rust 读写层仍按 v30 表名，`cargo test --lib` 在 HEAD 为
   `407 passed / 365 failed / 9 ignored`，失败清一色 `no such table: entities|edges|entities_fts`；
   读路径切换属 T2.1–T2.4。阶段 1 到此为止**不声称应用能跑**；真库迁移在 T2.5。
+
+## 时间轴收敛（计划/设计 2026-10-12，T3 + T5）
+
+树收敛（S1）与 `created_at` 修复（S2）的实施期只读工具。引擎是 Rust bin
+`src-tauri/src/bin/time-axis-ops.rs`（`--features tools`，`--phase tree|created-at|both`，默认 dry-run），
+本目录的脚本只读副本、比对读数，不写库。
+
+| 文件 | 职责 |
+|---|---|
+| `time-axis-lib.mjs` | 只读快照（python sqlite3 `mode=ro`）+ S1 的 E1–E6 比对 + S2 的六项比对；不打印、不写库。 |
+| `time-axis-readout.mjs` | 只读读数打印（前后对照 + 日标签对齐 + 默认模板 `时间/{y}/{m}/{d}` 对库内值）。 |
+| `verify-time-axis.mjs` | 收口编排：快照 -> 副本 dry-run -> apply -> E1–E6 / S2 六项 -> `integrity_check` / `foreign_key_check` -> `reconcile`；`--self-check` 跑反例。 |
+| `time-axis-lib.test.mjs` | `node:test` 比对器用例（最小快照夹具 + 变异型反例）。 |
+
+命令序列（真库只读；写只落 `_lifelog-snapshots/` 下的副本）：
+
+```bash
+cd F:/0-code/20-active/LifeLog
+
+# 收敛前基线：真库只读对账 + 单文件快照
+node scripts/entity-migration/reconcile.mjs
+node scripts/entity-migration/snapshot.mjs --tag pretimeaxis --snapshot
+node scripts/entity-migration/time-axis-readout.mjs --db <快照副本>
+
+# S1 副本：dry-run -> apply -> 对账（等价性 + 十条 + integrity/fk）
+(cd src-tauri && cargo run --features tools --bin time-axis-ops -- --db <副本> --phase tree)         # dry-run
+(cd src-tauri && cargo run --features tools --bin time-axis-ops -- --db <副本> --phase tree --apply)
+node scripts/entity-migration/verify-time-axis.mjs --phase tree --before <副本> --after <副本>
+
+# S2 副本：同一脚本也可一键编排（复制快照 -> dry-run -> apply -> 比对）
+node scripts/entity-migration/verify-time-axis.mjs --phase both \
+  --base F:/0-code/_lifelog-snapshots/lifelog.db.bak-pre-time-s1-<stamp> --self-check
+
+# 只读比对（不跑 cargo）
+node scripts/entity-migration/verify-time-axis.mjs --phase created-at --before <S2前副本> --after <S2后副本>
+node --test scripts/entity-migration/time-axis-lib.test.mjs
+```
+
+判据：
+
+- S1：E1 笔记标签集合按 `时间/日期/` -> `时间/` 映射全等；E2 计数逐项可解释（`points`/`lines`/`points_fts`/闭包/时间簇
+  各 `-N`，`N` = 实际删除容器数，`entity_merge_log +N-1`）；E3 笔记 id 集合不变；E4 信息流默认筛选与首页 id 集合不变；
+  E5 时间簇节点/树边各 `-N`；E6 三个 settings 键（`filter_current`/`ui.mru.tags`/`ui.pinned.tags`）无 `时间/日期` 残留、
+  其余键逐字节不变。
+- S2：① 有日标签笔记 `created_at` 日期 == 日标签且时分秒 `00:00:00`；② 无日标签笔记 `(id, created_at)` 逐字节不变；
+  ③ 读数与行级签名（`points` 除 `created_at` / `lines` / `points_fts` / `settings`）前後逐字节相同；④ 一日多篇现场重算；
+  ⑤ `--phase both` 后十条对账 PASS 且 S1/S2 自对账均通过；⑥ 按日分布 top5 与同日并列组数。
+- 安全阀：默认 dry-run；`--apply` 只允许写路径含 `_lifelog-snapshots` 的副本（真库阶段需 `--allow-live`，归 T6）；
+  `user_version` 必须 31；写前 `VACUUM INTO` 快照；单事务 + 事务内自对账失败回滚（退出码 2/3）。
+
+`scripts/refs-optimize-readout.mjs` 的抽样标签里时间项已从 `时间/日期` 改为收敛后形状 `时间/2026/10`。
