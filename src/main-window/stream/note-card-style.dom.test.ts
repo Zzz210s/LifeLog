@@ -123,10 +123,10 @@ describe('V2 卡片形态:表面 + 边框 + 8px 圆角 + 内边距', () => {
     expect(css).toMatch(/\.md-body\s*\{[^}]*line-height:\s*var\(--text-body--line-height\)/);
   });
 
-  it('卡片内标签行间距 = gap-1(4px),主题排与属性排一致', async () => {
+  it('卡片内关系 chip 行间距 = gap-1(4px);2026-10-12 后只有一排', async () => {
     await render(noteItem());
     const rows = [...host.querySelectorAll('div.flex-wrap')] as HTMLElement[];
-    expect(rows.length).toBe(2);
+    expect(rows.length).toBe(1);
     for (const row of rows) expect(row.className).toContain('gap-1');
   });
 });

@@ -3,7 +3,7 @@
  * 视觉刷新 V3「chip 中性化」的组件证据(jsdom,只看类名,不引入计算样式):
  * 默认 chip = chrome 底 + 1px border + muted 文字 + radius-xs(4px),高 20-22(px-1.5 py-0.5 + text-label);
  * accent(accent-soft / accent-text)**只**出现在 hover 与选中态 —— 改前 128 个 chip 默认就是蓝字灰底;
- * 两排(主题/属性)口径完全一致,只有分行不同;点 chip 仍走 onTagClick(功能回归)。
+ * 2026-10-12「引用并入关系」后**只有一排** chip(不再分主题/属性);点 chip 仍走 onTagClick(功能回归)。
  */
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
@@ -82,14 +82,16 @@ describe('V3 chip 默认态中性', () => {
     expect(tokens(idle as Element)).toContain('bg-chrome');
   });
 
-  it('两排 chip 同口径(主题排与属性排的样式字符串一致)', async () => {
+  it('只有一排 chip(主题/属性两排已在 2026-10-12 合并)', async () => {
     await render([]);
     const rows = [...host.querySelectorAll('div.flex-wrap')] as HTMLElement[];
-    expect(rows.length).toBe(2);
+    expect(rows.length).toBe(1);
     for (const row of rows) expect(row.className).toContain('gap-1');
-    const [topicChip, attrChip] = chips();
-    // 唯一差别是标签文本,class 逐字相同
-    expect(topicChip.className).toBe(attrChip.className);
+    const [first, second] = chips();
+    // 同一排里的 chip 样式逐字相同(唯一差别是标签文本)
+    expect(first.className).toBe(second.className);
+    expect(rows[0].contains(first)).toBe(true);
+    expect(rows[0].contains(second)).toBe(true);
   });
 
   it('chip 仍是可点按钮:点击回调带完整标签路径', async () => {

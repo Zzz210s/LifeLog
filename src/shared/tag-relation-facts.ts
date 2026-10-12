@@ -1,8 +1,8 @@
 /**
  * 标签关系的纯格式化(点/线模型 v31):树行小字、悬浮档案卡片共用一份口径。
  *
- * 一条线读作「被引用点 `toTagId` 上有一条名为 `nameText` 的线」—— 名字存在**点**上
- * (`lines.name_id` 指向名字点),不再存在线上;同一个被引用点可有多条不同名字的线
+ * 一条线读作「目标点 `toTagId` 上有一条名为 `nameText` 的线」—— 名字存在**点**上
+ * (`lines.name_id` 指向名字点),不再存在线上;同一个目标点可有多条不同名字的线
  * (国籍 / 出生地)。
  *
  * 本文件只做文本格式化,不碰 id;`RelationRef` 的 id 字段(`toTagId` / `nameId`)是**点 id**
@@ -24,14 +24,14 @@ function lineName(r: RelationFactLike): string {
   return tagLabelPlain(r.nameText ?? '');
 }
 
-/** 菜单等「一条关系写成一句」的场合仍在用:有名字 `名字 → 被引用点`,无名字回退被引用点名 */
+/** 菜单等「一条关系写成一句」的场合仍在用:有名字 `名字 → 目标`,无名字回退目标名 */
 export function relationLabel(r: RelationRef): string {
   const target = tagLabelPlain(r.name);
   const name = lineName(r);
   return name === '' ? target : `${name} → ${target}`;
 }
 
-/** 行内小字 = 只显示值(被引用点标签名,剥掉行内 md) */
+/** 行内小字 = 只显示值(目标点标签名,剥掉行内 md) */
 export function relationValue(r: RelationFactLike): string {
   return tagLabelPlain(r.name);
 }

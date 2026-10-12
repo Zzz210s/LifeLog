@@ -20,8 +20,8 @@ export interface NoteLink {
   title: string | null;
 }
 
-/** 一条入链(与 Rust `Backlink` 逐字一致的 camelCase):sourceId 是引用来源的**实体 id**,
- *  title 是来源**当前**显示首行(L3 卡片面板/编辑面板列出反向引用用) */
+/** 一条入链关系(与 Rust `Backlink` 逐字一致的 camelCase;2026-10-12 引用并入关系后统一叫关系来源):
+ *  sourceId 是关系来源的**实体 id**,title 是来源**当前**显示首行(L3 卡片面板/编辑面板列出关系来源用) */
 export interface Backlink {
   sourceId: number;
   title: string;

@@ -13,8 +13,9 @@ export interface BacklinksPanelProps {
 }
 
 /**
- * 反向引用列表(卡片面板与编辑面板共用,L3):挂载时才拉 `note_links`,
- * 只列出**来源首行**(设计 §4:不显示相对时间);条目可点则跳那条来源笔记。
+ * 关系来源列表(卡片面板与编辑面板共用,L3;2026-10-12 引用并入关系后统一叫「关系来源」):
+ * 挂载时才拉 `note_links`,只列出**来源首行**(设计 §4:不显示相对时间);
+ * 条目可点则跳那条来源笔记。
  */
 export function BacklinksPanel({ noteId, onOpenNote, onError }: BacklinksPanelProps): ReactNode {
   const [items, setItems] = useState<Backlink[] | null>(null);
@@ -28,7 +29,7 @@ export function BacklinksPanel({ noteId, onOpenNote, onError }: BacklinksPanelPr
       (e) => {
         if (alive) {
           setItems([]);
-          onError?.('加载反向引用失败: ' + String(e));
+          onError?.('加载关系来源失败: ' + String(e));
         }
       }
     );

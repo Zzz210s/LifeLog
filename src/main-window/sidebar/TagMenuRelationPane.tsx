@@ -1,8 +1,8 @@
 /**
- * 标签菜单「引用…」面板(入口处置表 spec §5.3 / 计划 Task 3.3;数据层设计 2026-10-06 §2 修订):
+ * 标签菜单「关系…」面板(入口处置表 spec §5.3 / 计划 Task 3.3;数据层设计 2026-10-06 §2 修订):
  * 上半列出本实体的**全部出 `link` 边**(`属性名 → 目标`,属性名就地可改、可逐条移除),下半是
  * **属性名输入框 + 目标实体选择器**(候选复用 `#` 补全那套共享打分/排序引擎 `shared/quickpick/model`)。
- * 与正文 `#X` / `[[X]]` 同一套「引用」概念:落库都是 `lines`;写库走 `setTagRelation` / `renameLineName` / `removeLine`(按**线 id** 删)。
+ * 与正文 `#X` / `[[X]]` 是同一个「关系」概念(2026-10-12 合并显示):落库都是 `lines`;写库走 `setTagRelation` / `renameLineName` / `removeLine`(按**线 id** 删)。
  *
  * 名字存在**点**上(送转 031),不是目标标签名字里的 md 备注 —— 所以同一个目标(如 `地点轴/日本`)
  * 可以分别以「国籍」「出生地」两个名字被指向。名字可留空 = 只声明「有什么关系」(R12)。
@@ -147,7 +147,7 @@ export function TagMenuRelationPane(p: TagMenuRelationPaneProps): ReactNode {
   return (
     <div className="p-1">
       <p className="truncate px-1 py-0.5 text-label font-medium text-muted" onMouseEnter={hoverTitle(tagLabelPlain(p.path))}>
-        引用:{renderTagLabel(p.path)}
+        关系:{renderTagLabel(p.path)}
       </p>
       {/* 「当前关系」标题只在 TagMenuRelationList 里渲染一次(容器不再重复) */}
       <TagMenuRelationList
@@ -156,13 +156,13 @@ export function TagMenuRelationPane(p: TagMenuRelationPaneProps): ReactNode {
         onRemove={remove}
         onEditName={editName}
       />
-      <p className="mt-1 px-1 text-label text-muted">添加引用</p>
+      <p className="mt-1 px-1 text-label text-muted">添加关系</p>
       <input
         value={remark}
         onChange={(e) => setRemark(e.target.value)}
         disabled={loading || busy}
         placeholder="属性名(可留空)"
-        aria-label="引用属性名"
+        aria-label="关系属性名"
         className="mb-1 h-8 w-full rounded-sm border border-border-strong bg-raised px-2.5 text-ui text-text outline-none"
       />
       <input
@@ -174,7 +174,7 @@ export function TagMenuRelationPane(p: TagMenuRelationPaneProps): ReactNode {
         onKeyDown={onKeyDown}
         disabled={loading || busy}
         placeholder="输入实体名或路径…"
-        aria-label="添加引用目标"
+        aria-label="添加关系目标"
         className="h-8 w-full rounded-sm border border-border-strong bg-raised px-2.5 text-ui text-text outline-none"
       />
       {!loading && candidates.length === 0 && (

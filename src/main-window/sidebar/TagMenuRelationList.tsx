@@ -1,5 +1,5 @@
 /**
- * 引用面板上半「当前引用」列表(自 TagMenuRelationPane 拆出,守 200 行红线):
+ * 关系面板上半「当前关系」列表(自 TagMenuRelationPane 拆出,守 200 行红线):
  * 只负责渲染已读到的出线(`名字 → 目标`,无名字回退目标名)、逐行改名字与「移除」;
  * 读数 / 写库 / 错误都在容器里,传 null 表示读数还没回来(显示加载中,而不是误报空)。
  *
@@ -46,10 +46,10 @@ export function TagMenuRelationList(p: TagMenuRelationListProps): ReactNode {
 
   return (
     <>
-      <p className="px-1 text-label text-muted">当前引用</p>
+      <p className="px-1 text-label text-muted">当前关系</p>
       {p.relations === null && <p className="px-1 py-1 text-label text-muted">加载中…</p>}
       {p.relations !== null && p.relations.length === 0 && (
-        <p className="px-1 py-1 text-label text-muted">还没有建立任何引用</p>
+        <p className="px-1 py-1 text-label text-muted">还没有建立任何关系</p>
       )}
       {p.relations?.map((r) => (
         <div key={rowKey(r)} className="flex items-center gap-1">
@@ -64,8 +64,8 @@ export function TagMenuRelationList(p: TagMenuRelationListProps): ReactNode {
             }}
             disabled={p.busy}
             placeholder={r.nameText ? '属性名' : '(无名字)'}
-            title={'清空只去掉属性名,引用还在;要删掉这条引用请点右侧「移除」'}
-            aria-label={`引用名字: ${tagLabelPlain(r.name)}`}
+            title={'清空只去掉属性名,关系还在;要删掉这条关系请点右侧「移除」'}
+            aria-label={`关系名字: ${tagLabelPlain(r.name)}`}
             className={NAME_INPUT_CLASS}
           />
           <span
@@ -79,7 +79,7 @@ export function TagMenuRelationList(p: TagMenuRelationListProps): ReactNode {
             data-relation-remove={r.toTagId}
             data-relation-remove-name-id={r.nameId ?? ''}
             data-relation-remove-line-id={r.lineId}
-            title={'移除引用 ' + tagLabelPlain(r.name)}
+            title={'移除关系 ' + tagLabelPlain(r.name)}
             onClick={() => p.onRemove(r.lineId)}
             className={BTN_TEXT + ' text-muted hover:text-danger'}
           >

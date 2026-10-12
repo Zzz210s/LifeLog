@@ -105,8 +105,8 @@ export function NoteItem(p: NoteItemProps): ReactNode {
       {/* 编辑框与控制条是 fixed 覆盖层:挂在正文容器之外,点它们不会冒泡成"点正文" */}
       {te.overlay}
       <NoteChips tags={note.tags} activeTags={p.activeTags} onTagClick={p.onTagClick} />
-      {/* 卡片底部不再显示「被引用 N」(用户 2026-10-11):被引用不显示标签,仅正文 `[[ ]]`
-          与标签 chip 表达「引用」。编辑面板底部仍列出反向引用来源(见 EditPanel)。 */}
+      {/* 卡片底部不再显示「被它引用 N」(用户 2026-10-11):来源不显示标签,仅正文 `[[ ]]`
+          与关系 chip 表达「关系」。编辑面板底部仍列出关系来源(见 EditPanel)。 */}
     </li>
   );
 }

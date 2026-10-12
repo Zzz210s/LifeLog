@@ -78,7 +78,7 @@ const renderPane = (): void => {
 };
 
 const paneInput = (): HTMLInputElement =>
-  host.querySelector('input[aria-label="添加引用目标"]') as HTMLInputElement;
+  host.querySelector('input[aria-label="添加关系目标"]') as HTMLInputElement;
 const candidateTexts = (): string[] =>
   [...host.querySelectorAll('[data-relation-candidate]')].map((el) => el.textContent?.trim() ?? '');
 
@@ -93,11 +93,11 @@ function setInput(el: HTMLInputElement, v: string): void {
   });
 }
 
-/** 新引用的名字输入框(可空 = 只声明有关系,R12) */
+/** 新关系的名字输入框(可空 = 只声明有关系,R12) */
 const remarkInput = (): HTMLInputElement =>
-  host.querySelector('input[aria-label="引用属性名"]') as HTMLInputElement;
+  host.querySelector('input[aria-label="关系属性名"]') as HTMLInputElement;
 
-/** 已有引用行上的名字输入框 */
+/** 已有关系行上的名字输入框 */
 const rowInput = (): HTMLInputElement =>
   host.querySelector('input[data-relation-name]') as HTMLInputElement;
 
@@ -114,13 +114,13 @@ describe('关系面板·加载与交互细节', () => {
     expect(setTagRelation).not.toHaveBeenCalled();
   });
 
-  it('「当前引用」标题恰好渲染一次;空关系给空态文案', async () => {
+  it('「当前关系」标题恰好渲染一次;空关系给空态文案', async () => {
     listTagRelations.mockResolvedValue([]);
     renderPane();
     await flush();
-    const headings = [...host.querySelectorAll('p')].filter((el) => el.textContent === '当前引用');
+    const headings = [...host.querySelectorAll('p')].filter((el) => el.textContent === '当前关系');
     expect(headings).toHaveLength(1);
-    expect(host.textContent).toContain('还没有建立任何引用');
+    expect(host.textContent).toContain('还没有建立任何关系');
   });
 
   it('查询无命中时给空态文案', async () => {

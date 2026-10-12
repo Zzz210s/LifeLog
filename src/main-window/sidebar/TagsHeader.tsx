@@ -99,8 +99,8 @@ export function TagsHeader(p: TagsHeaderProps): ReactNode {
           </button>
           <button
             type="button"
-            title="实体树里显示引用"
-            aria-label="实体树里显示引用"
+            title="实体树里显示关系"
+            aria-label="实体树里显示关系"
             aria-pressed={p.showRelations}
             onClick={p.onToggleRelations}
             className={BTN_ICON + (p.showRelations ? ' bg-selected text-accent-text' : '')}
