@@ -6,6 +6,7 @@
 //! 目标裁决统一按 `entity_key(meta)` 等值、同键取 id 最小(spec §10-P5,不再有种类优先);
 //! 未解析链接**不落边**(D2 选项 A),出链列表读时从正文重解析。
 // 读取(出链/入链/边)拆到 note_links_read.rs 并在此**再导出**,调用方路径不变。
+// 有名线(关系)清单拆到 note_links_named.rs(写路径的目标集合替换要用)。
 use crate::links::{normalize_title, title_of};
 use rusqlite::{params, Connection};
 
@@ -15,6 +16,10 @@ pub use read::{
     all_resolved, list_note_links, outbound_of, outbound_page, NoteLinks,
     OutboundLink,
 };
+
+#[path = "note_links_named.rs"]
+mod named;
+use named::named_lines;
 
 /// 一条候选实体:`key` 是等值匹配键(归一化首行 = `links::title_of(meta)`)
 pub struct LinkCandidate {
@@ -93,20 +98,42 @@ pub(crate) fn resolve_titles(
     Ok(out)
 }
 
-/// 以 id 集合整体替换来源的全部**无名字线**(删多余、补缺失,唯一索引去重),收尾回收孤儿。
+/// 以 id 集合整体替换来源的全部**非子级线**(删多余、补缺失,唯一索引去重),收尾回收孤儿。
 /// 标签(`#X`)与链接(`[[X]]`)的目标由调用方求并集后从这里一次落库 ——
 /// 二者同一种线,分两次替换会互相抹掉。
+///
+/// **有名线(关系)也按目标集合替换**:`read_full` 把名线目标一并读成来源的标签,
+/// 编辑框里就会出现 `#目标路径` —— 删掉它就是「这条关系不要了」,名线必须跟着走
+/// (旧实现只删无名字线,于是名线被读回成标签、怎么删都还在;真库实例 `地点/印度`)。
+/// 名字本身不在这里改(由「关系」面板维护),目标仍在的名线原样保留。
 pub(crate) fn replace_ids(
     conn: &Connection,
     source_id: i64,
     ids: &[i64],
 ) -> rusqlite::Result<usize> {
+    let named = named_lines(conn, source_id)?;
+    for (to_id, name_id) in &named {
+        if ids.contains(to_id) {
+            continue;
+        }
+        conn.execute(
+            "DELETE FROM lines WHERE from_id = ?1 AND to_id = ?2
+               AND name_id IS NOT NULL AND name_id <> 0",
+            params![source_id, to_id],
+        )?;
+        crate::db::repos::tags::queue_name_point_gc(conn, *name_id)?;
+    }
     conn.execute(
         "DELETE FROM lines WHERE from_id = ?1 AND name_id IS NULL",
         params![source_id],
     )?;
     let mut written = 0usize;
     for t in ids {
+        // 名线的目标不再补第二条无名字线:卡片上会变成两个同名 chip,且永远删不干净。
+        // 编辑框里的 `#路径` 对这类目标就表示「这条关系还在」,一个目标一条线。
+        if named.iter().any(|(to, _)| to == t) {
+            continue;
+        }
         written += conn.execute(
             "INSERT OR IGNORE INTO lines(from_id, to_id, name_id, created_at)
              VALUES(?1, ?2, NULL, datetime('now','localtime'))",
