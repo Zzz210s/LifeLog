@@ -87,7 +87,7 @@ The window *is* the input box: no frame, no title bar, no buttons, transparent s
   box; it survives a restart. Ordering newest-first or oldest-first takes one command each (reachable
   from `>` or from the top bar's `⋯` menu); the stream pages 50 notes at a time and there is no
   date-range filter
-- Time tags are ordinary tags: `时间排序/YYYY/MM/DD` lives in the tag tree like any other tag, so
+- Time tags are ordinary tags: `时间/YYYY/MM/DD` lives in the tag tree like any other tag, so
   browsing a day means clicking that day's tag (rename, move or delete it freely)
 - The tag tree can be reorganised by dragging (tree and flat mode alike): dropping on the
   **middle** of a row nests the tag under it; dropping on the **boundary between two rows** makes
@@ -148,14 +148,14 @@ The window *is* the input box: no frame, no title bar, no buttons, transparent s
   body (`- [ ]` <-> `- [x]`) and writes every tag of the note back with it; there are no
   `done`/`doing` tags and no per-note inline checkbox
 - The note stream shows no time at all: the only time-like information is the ordinary
-  `时间排序/YYYY/MM/DD` tag tree
+  `时间/YYYY/MM/DD` tag tree
 - There are no saved views and no multiple filter snapshots: classification is done with tags alone,
   and the current filter is a single piece of state
 
 **Export**
 
-- "Export the whole library" writes the entire database to one `.xlsx` sheet with exactly two columns: body and
-  tags
+- "Export the whole library" writes the entire database to one `.xlsx` sheet with four columns: `id`, body,
+  creation time, and reference path; creation time is the note's diary day, not the moment it was imported
 
 ## Install
 
