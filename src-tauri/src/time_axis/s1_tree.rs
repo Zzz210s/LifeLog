@@ -3,31 +3,17 @@
 //! 对账见 `s1_self_check`)。搬移与合并复用产品写路径 [`move_to_ordered_core`](同名者内部走
 //! `merge_pair` 整棵合并并写 `entity_merge_log`),不写裸 SQL 重实现;`plan` 只读,`apply` 在
 //! **一个** `BEGIN IMMEDIATE` 内完成全部写入,自对账失败即整体回滚(退出码 3)。
-use super::s1_self_check::{self, note_tags};
+use super::s1_self_check;
 use super::s1_sql::{
-    check, children_of, leaf_name, path_id, sibling_by_key, usage, CLOSURE_SQL, DATE_LAYER_PATH,
-    FEED_DEFAULT_SQL, TIME_EDGES_SQL, TIME_NODES_SQL, TIME_ROOT_PATH,
+    check, children_of, leaf_name, note_tags, path_id, sibling_by_key, stale_position_keys, usage,
+    DATE_LAYER_PATH, TIME_ROOT_PATH,
 };
 use super::settings_paths;
 use super::Failure;
+// 读数搬去 `s1_sql`(那里离 SQL 常量更近);对外路径不变,测试与自对账仍写 `s1_tree::readings`。
+pub use super::s1_sql::{readings, Readings};
 use crate::db::repos::tags::move_to_ordered_core;
 use rusqlite::{params, Connection, TransactionBehavior};
-
-/// 收敛前读数(E2/E4/E5 的比对基准);现场重算,不硬编码
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Readings {
-    pub points: i64,
-    pub lines: i64,
-    pub fts: i64,
-    pub tree: i64,
-    pub closure: i64,
-    pub merge_log: i64,
-    /// 信息流默认筛选命中数(E4;S1 前后必须不变)
-    pub feed: i64,
-    /// 「时间」簇节点与树边(E5;各减被删容器数)
-    pub time_nodes: i64,
-    pub time_edges: i64,
-}
 
 /// 只读计划:待搬年容器、预判合并次数、前像(读数与笔记标签集合)
 #[derive(Debug)]
@@ -42,6 +28,10 @@ pub struct Plan {
     pub pre: Readings,
     /// 笔记 id -> 升序标签路径串(`\n` 相接;无标签为空串)。E1/E3 的前像。
     pub note_tags: Vec<(i64, String)>,
+    /// `graph_positions` 陈旧键数前像(P7:只报不清理,故不进 E2 的逐项比对)
+    pub stale_positions: i64,
+    /// 本轮会被删掉的容器 id(中间层 + 同名合并的源容器);P7 的对账豁免只认这批
+    pub deleted_ids: Vec<i64>,
 }
 
 impl Plan {
@@ -66,25 +56,11 @@ impl Plan {
     }
 }
 
-pub fn readings(conn: &Connection) -> rusqlite::Result<Readings> {
-    let one = |sql: &str| -> rusqlite::Result<i64> { conn.query_row(sql, [], |r| r.get(0)) };
-    Ok(Readings {
-        points: one("SELECT COUNT(*) FROM points")?,
-        lines: one("SELECT COUNT(*) FROM lines")?,
-        fts: one("SELECT COUNT(*) FROM points_fts")?,
-        tree: one("SELECT COUNT(*) FROM points WHERE path IS NOT NULL")?,
-        closure: one(CLOSURE_SQL)?,
-        merge_log: one("SELECT COUNT(*) FROM entity_merge_log")?,
-        feed: one(FEED_DEFAULT_SQL)?,
-        time_nodes: one(TIME_NODES_SQL)?,
-        time_edges: one(TIME_EDGES_SQL)?,
-    })
-}
-
 /// 只读计划:校验前置(③④)+ 预判合并次数 + 抓前像。**零写入**。
 pub fn plan(conn: &Connection) -> Result<Plan, Failure> {
     let pre = readings(conn).map_err(usage)?;
     let note_tags = note_tags(conn).map_err(usage)?;
+    let stale_positions = stale_position_keys(conn).map_err(usage)?;
     let Some(time_root) = path_id(conn, TIME_ROOT_PATH).map_err(usage)? else {
         return Err(Failure::usage(format!(
             "库内没有 `{TIME_ROOT_PATH}` 根,拒绝执行"
@@ -98,6 +74,8 @@ pub fn plan(conn: &Connection) -> Result<Plan, Failure> {
             merges: 0,
             pre,
             note_tags,
+            stale_positions,
+            deleted_ids: Vec::new(),
         });
     };
     let children = children_of(conn, layer).map_err(usage)?;
@@ -112,18 +90,21 @@ pub fn plan(conn: &Connection) -> Result<Plan, Failure> {
         years.push(*id);
     }
     let mut merges = 0usize;
+    let mut deleted_ids = vec![layer];
     for (id, path) in &children {
         let Some(target) = sibling_by_key(conn, time_root, leaf_name(path), *id).map_err(usage)?
         else {
             continue;
         };
         merges += 1; // 年容器整棵合并
+        deleted_ids.push(*id);
         for (mid, mpath) in children_of(conn, *id).map_err(usage)? {
             if sibling_by_key(conn, target, leaf_name(&mpath), mid)
                 .map_err(usage)?
                 .is_some()
             {
                 merges += 1; // 月容器随年合并时再撞名
+                deleted_ids.push(mid);
             }
         }
     }
@@ -134,6 +115,8 @@ pub fn plan(conn: &Connection) -> Result<Plan, Failure> {
         merges,
         pre,
         note_tags,
+        stale_positions,
+        deleted_ids,
     })
 }
 
@@ -157,6 +140,14 @@ pub fn apply(conn: &mut Connection, plan: &Plan) -> Result<Vec<String>, Failure>
     if !touched.is_empty() {
         out.push(format!("settings 路径改写: {}", touched.join(", ")));
     }
+    // P7:被删容器的 `graph_positions` 陈旧键只报不清理(陈旧键不会被读取)
+    let stale = stale_position_keys(&tx).map_err(check)?;
+    out.push(format!(
+        "graph_positions 陈旧键 {} -> {}(本轮删容器新增 {},只报不清理)",
+        plan.stale_positions,
+        stale,
+        stale - plan.stale_positions
+    ));
     tx.commit()
         .map_err(|e| Failure::check(format!("提交失败: {e}")))?;
     Ok(out)

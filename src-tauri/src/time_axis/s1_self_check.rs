@@ -1,18 +1,22 @@
 //! S1 事务内自对账(自 s1_tree.rs 拆出以守 200 行上限):十条对账 + E1–E6 等价性。
 //! 任一不满足 -> 退出码 3,调用方回滚整个事务(不会留下半收敛的库)。
-use super::s1_sql::{check, DATE_LAYER_PATH, NOTE_PREDICATE};
-use super::s1_tree::{readings, Plan, Readings};
+use super::s1_sql::{check, map_set, note_tags, readings, split_set, Readings, DATE_LAYER_PATH};
+use super::s1_tree::Plan;
 use super::settings_paths;
 use super::Failure;
 use crate::db::repos::entities::reconcile;
-use crate::db::repos::filter_rewrite::rewrite_path;
 use rusqlite::Connection;
 
 /// 事务内自对账:十条对账 + E1 笔记标签集合按前缀映射全等、E2 计数逐项可解释、
 /// E3 笔记 id 集合不变(由 E1 全等覆盖)、E4 信息流默认筛选不变、E5 时间簇读数、E6 设置三键。
 pub(crate) fn self_check(conn: &Connection, plan: &Plan) -> Result<Vec<String>, Failure> {
     let mut out = Vec::new();
-    ten_checks(conn)?;
+    let excused = ten_checks(conn, &plan.deleted_ids)?;
+    if excused > 0 {
+        out.push(format!(
+            "对账 10 的 {excused} 行陈旧 graph_positions 键来自本轮删除的容器(P7:不清理,只记读数)"
+        ));
+    }
     out.push("十条对账 PASS 10 / FAIL 0".to_string());
 
     let del = plan.deletes();
@@ -86,8 +90,10 @@ pub(crate) fn self_check(conn: &Connection, plan: &Plan) -> Result<Vec<String>, 
     Ok(out)
 }
 
-/// 十条对账(spec §8 的 `reconcile.sql` 现代块;任何一块命中行即失败)
-fn ten_checks(conn: &Connection) -> Result<(), Failure> {
+/// 十条对账(spec §8 的 `reconcile.sql` 现代块;任何一块命中行即失败)。
+/// 唯一例外 = 块 10 里**本轮删除容器**留下的陈旧 `graph_positions` 键(P7:只报不清理),
+/// 它们计入返回值由调用方报读数;其余行一律判失败(含块 10 的其它行)。
+fn ten_checks(conn: &Connection, deleted: &[i64]) -> Result<usize, Failure> {
     let blocks = reconcile::parse_checks(reconcile::RECONCILE_SQL, "modern");
     let ten: Vec<_> = blocks
         .iter()
@@ -96,19 +102,42 @@ fn ten_checks(conn: &Connection) -> Result<(), Failure> {
     if ten.len() != 10 {
         return Err(Failure::check(format!("对账块数异常:{}", ten.len())));
     }
+    let mut excused = 0usize;
     for b in &ten {
         let rows = reconcile::run_check(conn, &b.sql)
             .map_err(|e| Failure::check(format!("对账 {} 执行失败: {e}", b.label())))?;
-        if !rows.is_empty() {
+        if rows.is_empty() {
+            continue;
+        }
+        let fatal: Vec<&String> = rows
+            .iter()
+            .filter(|r| !(b.n == "10" && row_is_deleted_key(r, deleted)))
+            .collect();
+        if !fatal.is_empty() {
             return Err(Failure::check(format!(
                 "对账 {} 命中 {} 行:{:?}",
                 b.label(),
-                rows.len(),
-                &rows[..rows.len().min(3)]
+                fatal.len(),
+                &fatal[..fatal.len().min(3)]
             )));
         }
+        excused += rows.len();
     }
-    Ok(())
+    Ok(excused)
+}
+
+/// 对账行(如 `Text("12")`)是否就是本轮某个被删容器的 id
+fn row_is_deleted_key(row: &str, deleted: &[i64]) -> bool {
+    let cell = row.split(" | ").next().unwrap_or("").trim();
+    let id = cell
+        .strip_prefix("Text(\"")
+        .and_then(|r| r.strip_suffix("\")"))
+        .or_else(|| {
+            cell.strip_prefix("Integer(")
+                .and_then(|r| r.strip_suffix(")"))
+        })
+        .and_then(|t| t.parse::<i64>().ok());
+    matches!(id, Some(id) if deleted.contains(&id))
 }
 
 /// E6:三个 settings 键里 `时间/日期` 出现次数必须为 0(不含时间路径的条目本就不动)
@@ -130,45 +159,4 @@ fn check_settings_refs(conn: &Connection) -> Result<(), Failure> {
         }
     }
     Ok(())
-}
-
-/// 标签路径串 -> **集合**:去重 + 升序。合并语义是链接取并集(同一目标只留一条线),
-/// 且 `时间/日期/X` 改成 `时间/X` 后可能与其它标签**换位**(真库 91 篇:
-/// `时间/出版年份/2016` 原排在 `时间/日期/2026/03/28` 前,映射后 `时间/2026/...` 在前),
-/// 故 E1 只能按集合比,不能按顺序串比(spec §10.1 写的「逐字节相同」只对集合成立)。
-fn map_set(joined: &str, old: &str, new: &str) -> Vec<String> {
-    let mut v: Vec<String> = split_raw(joined)
-        .map(|p| rewrite_path(&p, old, new).unwrap_or(p))
-        .collect();
-    v.sort();
-    v.dedup();
-    v
-}
-
-/// 同上但不做前缀映射(收敛后的读数)
-fn split_set(joined: &str) -> Vec<String> {
-    let mut v: Vec<String> = split_raw(joined).collect();
-    v.sort();
-    v.dedup();
-    v
-}
-
-fn split_raw(joined: &str) -> impl Iterator<Item = String> + '_ {
-    joined
-        .split('\n')
-        .filter(|p| !p.is_empty())
-        .map(str::to_string)
-}
-
-/// 笔记 id -> 升序标签路径串(含无标签笔记,空串);标签只取非子级线的目标点
-pub(crate) fn note_tags(conn: &Connection) -> rusqlite::Result<Vec<(i64, String)>> {
-    let mut stmt = conn.prepare(&format!(
-        "SELECT p.id, COALESCE((SELECT group_concat(x.path, char(10)) FROM (
-             SELECT t.path AS path FROM lines e JOIN points t ON t.id = e.to_id
-              WHERE e.from_id = p.id AND (e.name_id IS NULL OR e.name_id <> 0)
-                AND t.path IS NOT NULL ORDER BY t.path) AS x), '')
-           FROM points p WHERE {NOTE_PREDICATE} ORDER BY p.id"
-    ))?;
-    let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?;
-    rows.collect()
 }
