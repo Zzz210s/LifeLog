@@ -43,19 +43,19 @@ export function TagMenuMainPane(p: TagMenuMainPaneProps): ReactNode {
           {extra > 0 && <div className="px-2.5 py-0.5 text-label text-muted">{`+${extra}`}</div>}
         </div>
       )}
-      <button type="button" role="menuitem" className={ITEM_CLASS} onClick={() => p.onPick('rename')}>
+      <button type="button" role="menuitem" data-menu-action="rename" className={ITEM_CLASS} onClick={() => p.onPick('rename')}>
         重命名
       </button>
-      <button type="button" role="menuitem" className={ITEM_CLASS} onClick={() => p.onPick('move')}>
+      <button type="button" role="menuitem" data-menu-action="move" className={ITEM_CLASS} onClick={() => p.onPick('move')}>
         移动
       </button>
-      <button type="button" role="menuitem" className={ITEM_CLASS} onClick={() => p.onPick('alias')}>
+      <button type="button" role="menuitem" data-menu-action="alias" className={ITEM_CLASS} onClick={() => p.onPick('alias')}>
         别名…
       </button>
-      <button type="button" role="menuitem" className={ITEM_CLASS} onClick={() => p.onPick('relation')}>
+      <button type="button" role="menuitem" data-menu-action="relation" className={ITEM_CLASS} onClick={() => p.onPick('relation')}>
         关系…
       </button>
-      <button type="button" role="menuitem" className={ITEM_CLASS} onClick={() => p.onPick('delete')}>
+      <button type="button" role="menuitem" data-menu-action="delete" className={ITEM_CLASS} onClick={() => p.onPick('delete')}>
         删除
       </button>
     </>

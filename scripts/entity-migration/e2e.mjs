@@ -3,7 +3,7 @@
  * T4.4/T2.5 端到端验收(统一实体 / 点线迁移后的核心面,覆盖 v30 与 v31)。
  * 读数:① 迁移链 + 对账无 FAIL;② 信息流条数 == 默认筛选库侧编译结果;
  *   ③ 树闭包 path 重算;③b 树节点数 == 已迁 v31 副本递归闭包;④ `#X`/`[[X]]` 目标域与 link 边;
- *   ④b 写一条笔记后树/筛选按预期变化;⑤ 反例:去掉默认筛选后条数 == 非纯名字点数;
+ *   ④b 写一条笔记后树添新标签、新笔记立即可按该标签筛到、当前筛选命中与现场编译一致(增量现场重算,不写死);⑤ 反例:去掉默认筛选后条数 == 非纯名字点数;
  *   ⑥ 导出跟随筛选;⑦ 关系图载荷与耗时;⑧ 夹具零残留。
  * 前/跑法:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS="--remote-debugging-port=9333" pnpm tauri dev;
  *   LIFELOG_CDP_PORT=9333 node scripts/entity-migration/e2e.mjs(真库只读走 db-compat TEMP 视图)。
@@ -16,7 +16,7 @@ import { openReadOnly, DB_PATH } from '../db-compat.mjs';
 import { ipc } from '../carry-accept-lib.mjs';
 import { readGraphData } from '../graph-accept-g1-reads.mjs';
 import { runReconcile } from './reconcile-lib.mjs';
-import { dbFilterHits, v31CopyReadings, NOT_PURE_V31 } from './e2e-lib.mjs';
+import { dbFilterHits, treeDeltaOf, v31CopyReadings, NOT_PURE_V31 } from './e2e-lib.mjs';
 
 const NS = 'E2E测试';
 const TAG = `${NS}根`;
@@ -140,15 +140,17 @@ try {
       `graph link 边=${JSON.stringify(linkPairs)}`,
   );
 
-  // ---------- ④b 输入 `#X`/`[[Y]]` 后树(+1 标签)/筛选(+2 笔记/标签点)按预期变化 ----------
-  const treeAfterRows = await ipc(cdp, 'list_tags');
-  const added = treeAfterRows.map((t) => t.path).filter((p) => !tagRows.some((t) => t.path === p));
+  // ---------- ④b `#X`/`[[Y]]` 后:树添新标签 / 新笔记进流 / 当前筛选命中 == 现场编译(增量不写死) ----------
+  const td = treeDeltaOf(tagRows, await ipc(cdp, 'list_tags'));
   const hitsFixture = (await pageAll(cond0)).length;
-  const treeDelta = treeAfterRows.length - tagRows.length;
+  // 「新笔记进没进流」用夹具自己的标签现场筛:cond0 是用户当前的真实筛选(可能是「印度」这类词条),
+  // 写死「+2 笔记 +2 标签点」是环境依赖的假红;基集排除纯名字点,新标签点本就不进流。
+  const fixtureHits = (await pageAll(conditions({ tags: [{ path: TAG, includeChildren: true }] }))).length;
+  const dbHits = dbFilterHits(n, cond0, v31 ? NOT_PURE_V31 : '1=1');
   record(
-    '④b 输入 `#X`/`[[Y]]` 后树/筛选按预期变化(新增夹具标签;笔记自动带时间标签)',
-    added.includes(TAG) && treeDelta >= 1 && hitsFixture - hits0.length === 2 + treeDelta,
-    `树 +${treeDelta} 新增=${JSON.stringify(added)} 筛选 +${hitsFixture - hits0.length}(= 2 新笔记 + ${treeDelta} 新标签点)`,
+    '④b 输入 `#X`/`[[Y]]` 后:树添新标签、新笔记立刻可按该标签筛到、当前筛选命中 == 现场编译',
+    td.added.includes(TAG) && td.delta >= 1 && fixtureHits === fixtureNotes.length && hitsFixture === dbHits,
+    `树 +${td.delta} 新增=${JSON.stringify(td.added)} 按新标签筛=${fixtureHits}(夹具 ${fixtureNotes.length} 笔) 当前筛选 ${hits0.length}->${hitsFixture}(现场编译 ${dbHits0}->${dbHits})`,
   );
 
   // ---------- ⑥ 导出跟随当前筛选 ----------

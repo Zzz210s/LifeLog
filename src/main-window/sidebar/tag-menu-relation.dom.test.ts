@@ -92,7 +92,7 @@ async function openRelation(): Promise<void> {
 const candidateTexts = (): string[] =>
   [...host.querySelectorAll('[data-relation-candidate]')].map((el) => el.textContent?.trim() ?? '');
 
-const input = (): HTMLInputElement => host.querySelector('input[aria-label="添加关系目标"]') as HTMLInputElement;
+const input = (): HTMLInputElement => host.querySelector('input[data-relation-target-picker]') as HTMLInputElement;
 
 function pressEnter(composing = false): void {
   const ev = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true });
@@ -101,9 +101,11 @@ function pressEnter(composing = false): void {
 }
 
 describe('Task 4 菜单恰 5 档', () => {
-  it('只有 重命名/移动/别名/关系/删除,且不含合并、携带、类型字样', () => {
+  it('只有 重命名/移动/别名/关系/删除,且不含合并、携带、类型字样;档位带 data-menu-action 锚点', () => {
     render();
     expect(menuItems()).toEqual(['重命名', '移动', '别名…', '关系…', '删除']);
+    expect([...host.querySelectorAll('[role="menuitem"]')].map((b) => b.getAttribute('data-menu-action')))
+      .toEqual(['rename', 'move', 'alias', 'relation', 'delete']);
     expect(host.textContent).not.toContain('合并');
     expect(host.textContent).not.toContain('携带');
     expect(host.textContent).not.toContain('类型');

@@ -30,16 +30,17 @@ export const menuItemsOf = (cdp) =>
   cdp.eval(`(() => { const m = document.querySelector('[data-tag-menu]');
     return m ? Array.from(m.querySelectorAll('button')).map((b) => b.textContent.trim()).filter(Boolean) : null; })()`);
 /**
- * 设置页「实体树里显示引用」开关的 aria-checked。
+ * 设置页「实体树里显示关系」开关的 aria-checked。
  * 2026-10-08:侧栏实体分区头部也挂了同名 `aria-label` 的图标按钮(用 `aria-pressed`),
  * 且它在 DOM 里更靠前 —— `querySelector('button[aria-label=…]')` 会先命中它,`aria-checked` 永远 null。
- * 设置页那颗是 `role="switch"`(`controls.tsx` 的 Toggle),按 role 定位。
+ * 2026-10-12(41e0a57a 把「引用」改称「关系」后本行又被改名打红):定位只认控件自己的
+ * `data-testid`(`controls.tsx` 的 Toggle 透传 `testId`),不再跟文案/aria-label 走。
  */
 export const relToggleState = (cdp) =>
-  cdp.eval(`document.querySelector('[role="switch"][aria-label="实体树里显示引用"]')?.getAttribute('aria-checked') ?? null`);
+  cdp.eval(`document.querySelector('[data-testid="tag-tree-relations-toggle"]')?.getAttribute('aria-checked') ?? null`);
 /** 点设置页那颗开关(同上,避开侧栏同名按钮) */
 export const clickRelationToggle = (cdp) =>
-  cdp.eval(`(() => { const b = document.querySelector('[role="switch"][aria-label="实体树里显示引用"]');
+  cdp.eval(`(() => { const b = document.querySelector('[data-testid="tag-tree-relations-toggle"]');
     if (!b) return false; b.click(); return true; })()`);
 export const clickByLabelIn = (cdp, label) =>
   cdp.eval(`(() => { const b = document.querySelector('button[aria-label=' + JSON.stringify(${JSON.stringify(label)}) + ']');
@@ -50,8 +51,9 @@ export const openSettings = async (cdp) => {
 };
 export const pickRelationSection = (cdp) =>
   cdp.eval(`(() => { const b = document.querySelector('[data-section-nav="relations"]'); if (!b) return false; b.click(); return true; })()`);
+/** 回信息流:顶栏导航组第一项(`返回信息流` 文字按钮 2026-10-07 已撤,旧选择器恒 false) */
 export const backToStream = (cdp) =>
-  cdp.eval(`(() => { const b = Array.from(document.querySelectorAll('button')).find((x) => x.textContent.trim() === '返回信息流');
+  cdp.eval(`(() => { const b = document.querySelector('[data-testid="view-nav"] button[aria-label="信息流"]');
     if (!b) return false; b.click(); return true; })()`);
 /** 关系图信息条的引用出/入度行 */
 export const relationDegreesText = (cdp) =>

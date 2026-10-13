@@ -78,7 +78,7 @@ const renderPane = (): void => {
 };
 
 const paneInput = (): HTMLInputElement =>
-  host.querySelector('input[aria-label="添加关系目标"]') as HTMLInputElement;
+  host.querySelector('input[data-relation-target-picker]') as HTMLInputElement;
 const candidateTexts = (): string[] =>
   [...host.querySelectorAll('[data-relation-candidate]')].map((el) => el.textContent?.trim() ?? '');
 
@@ -95,7 +95,7 @@ function setInput(el: HTMLInputElement, v: string): void {
 
 /** 新关系的名字输入框(可空 = 只声明有关系,R12) */
 const remarkInput = (): HTMLInputElement =>
-  host.querySelector('input[aria-label="关系属性名"]') as HTMLInputElement;
+  host.querySelector('input[data-relation-remark-input]') as HTMLInputElement;
 
 /** 已有关系行上的名字输入框 */
 const rowInput = (): HTMLInputElement =>

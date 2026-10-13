@@ -157,7 +157,7 @@ export function TagMenuRelationPane(p: TagMenuRelationPaneProps): ReactNode {
         onEditName={editName}
       />
       <p className="mt-1 px-1 text-label text-muted">添加关系</p>
-      <input
+      <input data-relation-remark-input
         value={remark}
         onChange={(e) => setRemark(e.target.value)}
         disabled={loading || busy}
@@ -165,7 +165,7 @@ export function TagMenuRelationPane(p: TagMenuRelationPaneProps): ReactNode {
         aria-label="关系属性名"
         className="mb-1 h-8 w-full rounded-sm border border-border-strong bg-raised px-2.5 text-ui text-text outline-none"
       />
-      <input
+      <input data-relation-target-picker
         value={query}
         onChange={(e) => {
           setQuery(e.target.value);

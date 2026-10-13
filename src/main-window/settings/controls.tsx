@@ -30,9 +30,11 @@ export interface ToggleProps {
   checked: boolean;
   label: string;
   onChange: (checked: boolean) => void;
+  /** 验收脚本的稳定锚点:文案(含 aria-label)会随口径改名,选择器只认这个 */
+  testId?: string;
 }
 
-export function Toggle({ checked, label, onChange }: ToggleProps): ReactNode {
+export function Toggle({ checked, label, onChange, testId }: ToggleProps): ReactNode {
   // 开关刻意保留 rounded-full:轨道 + 圆钮的形状语义(与 VS Code 的 toggle 同形),
   // 改成 6px 圆角会被读成「坏掉的复选框」。这是视觉令牌体系里唯一有意的例外,
   // 审计脚本只统计主窗可见元素,不会把它算作越档(2026-09-23 决定)。
@@ -40,6 +42,7 @@ export function Toggle({ checked, label, onChange }: ToggleProps): ReactNode {
     <button
       type="button"
       role="switch"
+      data-testid={testId}
       aria-checked={checked}
       aria-label={label}
       onClick={() => onChange(!checked)}

@@ -15,7 +15,7 @@ export function TagTreeRelationRow({ checked, onChange }: TagTreeRelationRowProp
       label="实体树里显示关系"
       hint="打开后,侧栏标签行末尾追加关系的值(悬停值看属性名);悬停标签名出档案卡片,一行一条关系"
     >
-      <Toggle checked={checked} label="实体树里显示关系" onChange={onChange} />
+      <Toggle testId="tag-tree-relations-toggle" checked={checked} label="实体树里显示关系" onChange={onChange} />
     </SettingsRow>
   );
 }

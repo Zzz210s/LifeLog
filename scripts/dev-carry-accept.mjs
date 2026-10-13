@@ -16,7 +16,7 @@ import { rmSync } from 'node:fs';
 import { ensureMain, recorder } from './cdp-lib.mjs';
 import {
   addCarryViaPanel, appNoteTags, carrierPathsOf, carryRowsFrom, carryRowsTo, cascadeDeleteProbe, clearChips, clickTagPath, condIds,
-  counts, danglingTagRows, EMPTY, excludeCond, fixtureNoteIds, fixtureTagIds, fmt, ipc, noteIdOf, orphanShellProbe,
+  counts, danglingTagRows, EMPTY, excludeCond, exportWithFilter, fixtureNoteIds, fixtureTagIds, fmt, ipc, noteIdOf, orphanShellProbe,
   pressEsc, purgeCarryFixtures, queryCount, relationOutPaths, requireApp, sidebarDiff, sleep, summaryCarryMarks, summaryText,
   tagCond, tagCountsViaApp, tagIdOf, timeWithAndWithoutCarry, waitFor, xlsxCellDiff,
 } from './carry-accept-lib.mjs';
@@ -25,6 +25,8 @@ const NS = '携带测试';
 const A = `${NS}甲`, B = `${NS}乙`, C = `${NS}丙`, D = `${NS}丁`, AS = `${A}/子`;
 const NA = `${NS}甲笔记`, NB = `${NS}乙笔记`, NC = `${NS}丙笔记`, ND = `${NS}丁笔记`, NAS = `${NS}甲子笔记`, NO = `${NS}其他笔记`;
 const [E1, E2] = ['before', 'after'].map((n) => join(tmpdir(), `carry-accept-${n}.xlsx`));
+/** 两次导出共用的钉死条件:空条件 = 全部点(导出跟随 settings.filter_current,不钉就随前端状态漂) */
+const PIN = JSON.stringify(EMPTY); // 基集必须可比,两次导出都钉它
 const r = recorder(), { record } = r;
 
 await requireApp();
@@ -50,7 +52,7 @@ try {
   const tA = tagIdOf(A), tAs = tagIdOf(AS), tB = tagIdOf(B), tC = tagIdOf(C);
   const tagBefore = await tagCountsViaApp(cdp);
   const tagsBefore = await appNoteTags(cdp, NS, idA), ftsBefore = counts().fts;
-  await call('export_notes', { path: E1 });
+  const pin1 = await exportWithFilter(call, PIN, E1); // 钉住条件再导:导出跟随 filter_current,空条件 = 全部点
   record('夹具就绪', [idA, idAs, idB, idC, idN, tA, tAs, tB, tC].every((x) => x != null),
     `笔记=${fmt({ idA, idAs, idB, idC, idN })} 标签=${fmt({ tA, tAs, tB, tC })} 基线=${fmt(base)}`);
 
@@ -131,20 +133,18 @@ try {
     d6.outside.length === 0 && fmt([...ch6.keys()].sort()) === fmt([B, C].sort()) && [B, C].every((p) => fmt(ch6.get(p).b) === fmt([1, 1]) && ch6.get(p).d === 2),
     `非夹具行差异=${fmt(d6.outside)};夹具行 前->后=${fmt([B, C].map((p) => [p, ch6.get(p)?.b, ch6.get(p)?.a]))}(各行 本级/含子级 各 +1)`);
 
-  // --- 8.7 回归:导出跟随 settings.filter_current,而读数 5 的点击改过它 -> 先还原到读基线时的条件再导 E2;
-  // 笔记 tags / FTS 不变,导出只许夹具携带边带出的「引用路径」单元格变化 ---
-  if (filterBefore != null) await call('set_setting', { key: 'filter_current', value: filterBefore });
-  await sleep(300);
-  await call('export_notes', { path: E2 });
+  // --- 8.7 回归:导出跟随 settings.filter_current;读数 5 的点击改过它、前端 `/` 筛选还有 300ms 防抖回写,故两次导出都由 exportWithFilter 钉成同一空条件并回读校验(笔记 tags / FTS 不变,导出只许携带边带出的「引用路径」变化) ---
+  const pin2 = await exportWithFilter(call, PIN, E2);
   const tagsAfter = await appNoteTags(cdp, NS, idA);
   const d7 = xlsxCellDiff(E1, E2);
   const ch7 = new Map(d7.map((c) => [c.id, c]));
   const gain7 = (id, ...ls) => ch7.has(id) && ls.every((l) => String(ch7.get(id).after).includes(l)) && String(ch7.get(id).after).includes(String(ch7.get(id).before ?? ''));
   record('读数7 笔记 tags 列 / FTS 计数不变;导出仅夹具携带边带出的「引用路径」变化(R1)',
-    fmt(tagsAfter) === fmt(tagsBefore) && counts().fts === ftsBefore && d7.every((c) => c.col === '引用路径') &&
+    pin1.pinned && pin2.pinned && fmt(tagsAfter) === fmt(tagsBefore) && counts().fts === ftsBefore && d7.every((c) => c.col === '引用路径') &&
       fmt([...ch7.keys()].sort((x, y) => x - y)) === fmt([idA, idAs, idB, tA, tB].sort((x, y) => x - y)) &&
       gain7(idA, B) && gain7(idAs, B) && gain7(idB, C) && gain7(tA, B, C) && gain7(tB, C),
-    `tags=${fmt(tagsAfter)}(前 ${fmt(tagsBefore)}) FTS=${counts().fts}(前 ${ftsBefore}) 导出差异=${fmt(d7.map((c) => [c.id, c.col, c.after]))}`);
+    `导出条件钉住=${pin1.pinned}(试 ${pin1.attempts})/${pin2.pinned}(试 ${pin2.attempts}) tags=${fmt(tagsAfter)}(前 ${fmt(tagsBefore)}) ` +
+      `FTS=${counts().fts}(前 ${ftsBefore}) 导出差异=${fmt(d7.map((c) => [c.id, c.col, c.after]))}`);
 
   // --- 8.9 性能 + 8.1d 移除:比值口径。携带只在筛选谓词里多一次物化集合成员判定,
   //     集合大小 = 携带行数(此处个位数),本机 40 次均值的噪声远低于 2 倍;

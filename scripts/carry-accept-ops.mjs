@@ -16,7 +16,7 @@ export async function purgeCarryFixtures(call) {
 export async function addCarryViaPanel(cdp, from, to, toId) {
   const menu = await openTagMenu(cdp, from);
   const menuItem = await waitFor(() => clickCarryMenuItem(cdp).catch(() => false), 8, 200);
-  const paneOpen = await waitFor(() => cdp.eval(`!!document.querySelector('[aria-label="添加引用目标"]')`), 10, 150);
+  const paneOpen = await waitFor(() => cdp.eval(`!!document.querySelector('[data-relation-target-picker]')`), 10, 150);
   await typeCarryQuery(cdp, to);
   await sleep(200);
   const picked = await waitFor(() => pickCarryCandidate(cdp, toId), 8, 200);
@@ -54,4 +54,22 @@ export async function cascadeDeleteProbe(call, x, y) {
   await call('delete_tag', { tagId: x });
   await sleep(400);
   return { before, after: counts().carryRows, rowsFromX: carryRowsFrom(x) };
+}
+
+/**
+ * 把 `filter_current` 钉到 `value`(已序列化的字符串)再导出 xlsx,导出后回读校验。
+ * 前端输入框 `/` 筛选模式有 300ms 防抖回写(`use-unified-filter-sync`),会盖掉脚本刚钉的值 ——
+ * 故导出前后各回读一次,任一次对不上一律重钉重导(最多 3 轮),读数只回「钉住没有 / 用了什么条件」。
+ * 导出跟随 settings.filter_current(`notes_export.rs`),不钉就随前端状态漂,两次导出的基集不可比。
+ */
+export async function exportWithFilter(call, value, path) {
+  for (let i = 0; i < 3; i++) {
+    await call('set_setting', { key: 'filter_current', value });
+    const pinned = (await call('get_setting', { key: 'filter_current' })) === value;
+    await call('export_notes', { path });
+    const held = (await call('get_setting', { key: 'filter_current' })) === value;
+    if (pinned && held) return { pinned: true, attempts: i + 1, filter: value };
+    await sleep(400); // 等前端那次防抖回写落地,再钉一遍
+  }
+  return { pinned: false, attempts: 3, filter: await call('get_setting', { key: 'filter_current' }) };
 }

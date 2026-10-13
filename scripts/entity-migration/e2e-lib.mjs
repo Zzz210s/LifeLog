@@ -68,6 +68,12 @@ export function dbFilterHits(count, f, base = '1=1') {
   return count(`${CLOSURE} SELECT COUNT(*) n FROM entities e WHERE (${base}) AND ${cond}`);
 }
 
+/** 树读数前后差:新增路径(按 path 比)与节点数增量。夹具回写的现场重算,判定留在主脚本。 */
+export const treeDeltaOf = (before, after) => ({
+  delta: after.length - before.length,
+  added: after.map((t) => t.path).filter((p) => !before.some((t) => t.path === p)),
+});
+
 /** v31 基集谓词(spec §5.2):`entities` 兼容视图别名 `e`,原生 `lines.name_id` 判纯名字点。 */
 export const NOT_PURE_V31 =
   'e.id <> 0 AND NOT (EXISTS(SELECT 1 FROM lines nl WHERE nl.name_id = e.id) ' +

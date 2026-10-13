@@ -35,9 +35,10 @@ const render = async (checked: boolean): Promise<void> => {
 const toggle = (): HTMLButtonElement => host.querySelector('button') as HTMLButtonElement;
 
 describe('设置页:实体树里显示关系', () => {
-  it('默认关:aria-checked=false;点击回传 true', async () => {
+  it('默认关:aria-checked=false;点击回传 true;控件带验收脚本用的 data-testid 锚点', async () => {
     await render(false);
     expect(host.textContent).toContain('实体树里显示关系');
+    expect(toggle().getAttribute('data-testid')).toBe('tag-tree-relations-toggle');
     expect(toggle().getAttribute('aria-checked')).toBe('false');
     await act(async () => toggle().click());
     expect(calls).toEqual([true]);

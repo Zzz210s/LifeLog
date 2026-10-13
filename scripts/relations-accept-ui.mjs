@@ -20,9 +20,9 @@ export async function runReadings5to8(cdp, ui, { call, record, nA, structAt8, E1
   await sleep(300);
   const items = await menuItemsOf(cdp);
   await pressEsc(cdp);
-  const want = ['重命名', '移动', '别名…', '引用…', '删除'];
+  const want = ['重命名', '移动', '别名…', '关系…', '删除'];
   records.push({
-    name: '读数5 菜单恰五档(重命名/移动/别名/引用…/删除),不含「合并」「携带」「类型」「设为类型」',
+    name: '读数5 菜单恰五档(重命名/移动/别名/关系…/删除),不含「合并」「携带」「类型」「设为类型」',
     ok: JSON.stringify(items) === JSON.stringify(want) && !/合并|携带|类型/.test((items ?? []).join('')),
     detail: `items=${fmt(items)}`,
   });
@@ -74,8 +74,15 @@ export async function runReadings5to8(cdp, ui, { call, record, nA, structAt8, E1
   await writeSetting('tag_tree_show_carry', 'true'); // 旧键故意留着:默认开不该被它影响
   await cdp.send('Page.reload');
   await waitFor(() => cdp.eval(`!!document.querySelector('[data-testid="unified-input"]')`).catch(() => false), 60, 500);
-  await sleep(1200);
-  const chipsDefault = await relationChipsOf(cdp, FIX.A);
+  // 重载后等侧栏那行回来(等固定 ms 会在冷启慢时读到半挂载的树,读数假 null);
+  // 行在但开关还没生效(chips 为空)时继续等,失败细节仍保留最后一次读到的值
+  let chipsDefault = null;
+  await waitFor(async () => {
+    const c = await relationChipsOf(cdp, FIX.A);
+    if (c === null) return null;
+    chipsDefault = c;
+    return c.length > 0;
+  }, 30, 300);
   records.push({
     name: '读数6b 关系开关新键删掉后默认开、行内仍是纯值(旧键不再回读)',
     ok: (chipsDefault ?? []).length === 3 && (chipsDefault ?? []).every((c) => !c.includes('→')),
@@ -84,11 +91,11 @@ export async function runReadings5to8(cdp, ui, { call, record, nA, structAt8, E1
 
   // --- 6c 关系面板:每条边的属性名就地回显 + 添加关系(属性名输入框 + 目标标签选择器) ---
   await openTagMenu(cdp, FIX.A);
-  const paneOpen = await waitFor(() => cdp.eval(`(() => { const b = Array.from(document.querySelectorAll('[data-tag-menu] button')).find((x) => x.textContent.trim() === '引用…'); if (!b) return false; b.click(); return true; })()`), 8, 200);
+  const paneOpen = await waitFor(() => cdp.eval(`(() => { const b = document.querySelector('[data-tag-menu] [data-menu-action="relation"]'); if (!b) return false; b.click(); return true; })()`), 8, 200);
   await sleep(700);
   const pane = await cdp.eval(`(() => { const t = document.querySelector('[data-tag-menu]'); if (!t) return null;
-    return { remarkInput: t.querySelector('input[aria-label="引用属性名"]') !== null,
-      picker: t.querySelector('input[aria-label="添加引用目标"]') !== null,
+    return { remarkInput: t.querySelector('input[data-relation-remark-input]') !== null,
+      picker: t.querySelector('input[data-relation-target-picker]') !== null,
       rows: Array.from(t.querySelectorAll('[data-relation-name]')).map((x) => x.value) }; })()`);
   await pressEsc(cdp);
   records.push({
