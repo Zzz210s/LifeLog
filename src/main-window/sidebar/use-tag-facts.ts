@@ -7,6 +7,7 @@
  */
 import { useEffect, useState } from 'react';
 import { api } from '../../shared/api';
+import { onTagsChanged } from '../data/tags-changed';
 import type { TagFactsBundle } from '../../shared/tag-facts-types';
 import type { RelationRef } from '../../shared/types';
 
@@ -40,7 +41,13 @@ async function loadFacts(ids: readonly number[]): Promise<Map<number, TagFacts>>
 
 export function useTagFacts(ids: readonly number[], nonce: number): ReadonlyMap<number, TagFacts> {
   const [facts, setFacts] = useState<ReadonlyMap<number, TagFacts>>(new Map());
+  /** 写库出口(编辑页保存 / 卸载兜底 / 输入栏)只声明「标签可能变了」,不区分改的是计数还是关系;
+   *  关系小字也得跟着重取 —— 否则编辑页删掉名字关系后,侧栏行还挂着旧小字(2026-10-12 实测:
+   *  库里线已没了,行内小字要重启应用才消失)。一次全量 `list_tag_facts` 很便宜,重复通知已由出口合并。 */
+  const [stamp, setStamp] = useState(0);
   const key = ids.join(',');
+
+  useEffect(() => onTagsChanged(() => setStamp((n) => n + 1)), []);
 
   useEffect(() => {
     if (ids.length === 0) {
@@ -56,7 +63,7 @@ export function useTagFacts(ids: readonly number[], nonce: number): ReadonlyMap<
     };
     // ids 的身份每次渲染都可能变,用 key(内容)当依赖
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, nonce]);
+  }, [key, nonce, stamp]);
 
   return facts;
 }

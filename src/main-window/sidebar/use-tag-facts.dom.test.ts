@@ -9,6 +9,7 @@ import type { ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TagFactsBundle } from '../../shared/tag-facts-types';
+import { notifyTagsChanged } from '../data/tags-changed';
 import { useTagFacts, type TagFacts } from './use-tag-facts';
 
 const { listTagFacts, listTagRelations } = vi.hoisted(() => ({
@@ -76,5 +77,18 @@ describe('useTagFacts(批量一次)', () => {
     await act(async () => root.render(createElement(Probe)));
     await settle();
     expect(facts.size).toBe(0);
+  });
+
+  it('写库出口 notifyTagsChanged 后重取一次(侧栏小字不落在库后面)', async () => {
+    await act(async () => root.render(createElement(Probe)));
+    await settle();
+    expect(listTagFacts).toHaveBeenCalledTimes(1);
+    // 出口用宏任务合并通知,故这里等一个宏任务
+    await act(async () => {
+      notifyTagsChanged();
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    await settle();
+    expect(listTagFacts).toHaveBeenCalledTimes(2);
   });
 });
