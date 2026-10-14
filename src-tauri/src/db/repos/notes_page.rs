@@ -1,6 +1,7 @@
 //! 分页 SQL 的公共件(自 `notes_query.rs` 拆出,守 200 行上限):
 //! 排序片段拼装、CTE 前缀、外层取数与标签行折叠 —— 平铺查询与分组查询共用同一份,
 //! 杜绝「分组模式另写一套筛选/排序」的语义漂移。
+use super::notes_filter::feed_sink_predicate;
 use super::notes_sort::SortCond;
 use super::tag_order;
 use super::{fold_tag_rows, map_note_row, Note};
@@ -25,7 +26,13 @@ pub struct OrderSql {
 /// - 标签轴先经 `axis{i}` CTE 取该轴(子树,恒含子级)下**树序最靠前**的匹配标签,page 携带 `k{i}`;
 /// - `enabled=false` 跳过;无启用条件时退化为默认最新在前;
 /// - **无该标签的笔记恒排最后**(`key IS NULL` 升序,与方向无关);
+/// - 每条**时间排序**前挂一个**沉尾键**([`feed_sink_predicate`]):「只用来被引用/建关系、
+///   自己没有正文」的树内点排在所有普通条目之后(见下),page 携带 `s{i}`,外层照同一键序排;
 /// - 末位按首键方向以 `n.id` 兜底(分页稳定、不抖动)。
+///
+/// 沉尾键**只**长在时间序上:按标签轴排序(纯 `Tag` 条件)不动 —— 那里的位置由轴的值决定。
+/// 同一键既在 page CTE 的 `ORDER BY` 里(决定翻页取哪些行)又在最终 `ORDER BY` 里
+/// (外层按 `p.s{i}` 复用页内算好的值),翻页不会重排。
 pub fn build_order(sorts: &[SortCond], args: &mut Vec<Value>) -> OrderSql {
     let active: Vec<&SortCond> = sorts.iter().filter(|s| s.enabled()).collect();
     let mut ctes: Vec<String> = Vec::new();
@@ -33,6 +40,7 @@ pub fn build_order(sorts: &[SortCond], args: &mut Vec<Value>) -> OrderSql {
     let mut cols: Vec<String> = Vec::new();
     let mut inner: Vec<String> = Vec::new();
     let mut outer: Vec<String> = Vec::new();
+    let mut sinks: usize = 0;
     for s in &active {
         let dir = if s.is_desc() { "DESC" } else { "ASC" };
         match s {
@@ -47,6 +55,12 @@ pub fn build_order(sorts: &[SortCond], args: &mut Vec<Value>) -> OrderSql {
                 ctes.push(axis.cte);
             }
             SortCond::Time { .. } => {
+                let sink = feed_sink_predicate("n");
+                let idx = sinks;
+                sinks += 1;
+                cols.push(format!("({sink}) AS s{idx}"));
+                inner.push(format!("({sink}) ASC"));
+                outer.push(format!("p.s{idx} ASC"));
                 inner.push(format!("n.id {dir}"));
                 outer.push(format!("n.id {dir}"));
             }

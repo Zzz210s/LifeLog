@@ -17,6 +17,24 @@ pub(crate) fn not_pure_name(alias: &str) -> String {
     NOT_PURE_NAME.replace("e.id", &format!("{alias}.id"))
 }
 
+/// 「沉尾」判据(信息流排序专用,不是筛选条件):只用来被引用 / 建立关系、自己没有正文的点。
+/// 三条合取 ——
+/// ① `path IS NOT NULL` 在树内(只有树内的容器 / 标签才可能有此形态;笔记 `path` 恒 NULL);
+/// ② `meta` 单行(`instr(meta, char(10)) = 0`)自己没有正文;
+/// ③ 不出无名线(`name_id IS NULL` = 打标签 / `[[ ]]` 引用),自己不引用别人;
+/// ⇒ 这类点(新建的自动标签、只作关系一端的框架标签)在按 id 的时间序里沉到普通条目之后，
+/// 而不是凭新建时拿到的最大 id 占据信息流最前。**不改**基集成员资格,只改时间序里的位置。
+/// 子级线(`name_id = 0`)是结构边,不算「引用别人」,故有子标签的容器仍沉尾。
+/// `alias` = `points` 行别名;子查询别名 `fs` 不与热路径的 `l`/`n`/`t`/`ax{i}` 撞名。
+pub(crate) fn feed_sink_predicate(alias: &str) -> String {
+    format!(
+        "{alias}.path IS NOT NULL \
+         AND instr({alias}.meta, char(10)) = 0 \
+         AND NOT EXISTS (SELECT 1 FROM lines fs \
+              WHERE fs.from_id = {alias}.id AND fs.name_id IS NULL)"
+    )
+}
+
 /// 标签路径谓词:`self_only` 为真只比本级(`t.path = ?`),否则「本级或 `path/` 前缀」
 /// (`substr(path, 1, length(?) + 1) = ? || '/'`)。前缀一律 substr,禁 LIKE 通配符
 /// (标签名可能含 `%`/`_`)。值只进参数向量,顺序与占位符一一对应。

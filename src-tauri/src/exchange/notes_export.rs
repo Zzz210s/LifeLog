@@ -44,13 +44,17 @@ fn current_filter(conn: &Connection) -> FilterConditions {
 }
 
 /// 导出 = 信息流**当前筛选结果**(全部点中的命中),按点 id 降序(最新在前);
+/// 与信息流同一键序:先沉尾键(`feed_sink_predicate`:只用来被引用/建关系、自己没有正文的
+/// 树内点)—— 导出的行序与界面上看到的顺序一致,不再把自动/框架标签排在表头;
 /// 引用列聚合该点的出非子级线闭包显示名(见 [`super::notes_export_refs`])。
 pub fn rows(conn: &Connection) -> Result<Vec<Row>, String> {
     let (frag, args) = where_clause(&current_filter(conn))?;
     let refs = refs_by_source(conn)?;
+    let sink = crate::db::repos::notes::notes_filter::feed_sink_predicate("n");
     let mut stmt = conn
         .prepare(&format!(
-            "SELECT n.id, n.meta, n.created_at FROM points n WHERE ({frag}) ORDER BY n.id DESC"
+            "SELECT n.id, n.meta, n.created_at FROM points n WHERE ({frag}) \
+             ORDER BY ({sink}) ASC, n.id DESC"
         ))
         .map_err(|e| e.to_string())?;
     let mapped = stmt

@@ -11,8 +11,8 @@ use serde::{Deserialize, Serialize};
 #[path = "filter_predicates.rs"]
 pub(crate) mod filter_predicates;
 pub(crate) use filter_predicates::{
-    carry_predicate, keyword_predicate, note_only, not_pure_name, single_line_predicate, tag_exists,
-    tag_predicate, tree_membership_predicate,
+    carry_predicate, feed_sink_predicate, keyword_predicate, note_only, not_pure_name,
+    single_line_predicate, tag_exists, tag_predicate, tree_membership_predicate,
 };
 /// 排序数据模型与生效排序的唯一入口(自本文件拆出守 200 行)
 pub use super::notes_sort::{validate_sorts, SortCond};

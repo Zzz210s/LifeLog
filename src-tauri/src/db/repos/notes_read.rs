@@ -53,17 +53,18 @@ pub(crate) fn fold_tag_rows(
 pub fn recent(conn: &Connection, limit: u32) -> rusqlite::Result<Vec<Note>> {
     let in_tree = crate::db::repos::entities::closure::in_tree_predicate("n");
     let np = super::notes_filter::not_pure_name("n");
+    let sink = super::notes_filter::feed_sink_predicate("n");
     let mut stmt = conn.prepare(&format!(
         "WITH feed AS (
            SELECT n.id FROM points n
            WHERE {np} AND NOT ({in_tree} AND instr(n.meta, char(10)) = 0)
-           ORDER BY n.id DESC LIMIT ?1
+           ORDER BY ({sink}) ASC, n.id DESC LIMIT ?1
          )
          SELECT {} FROM points n
          LEFT JOIN lines l ON (l.name_id IS NULL OR l.name_id <> 0) AND l.from_id = n.id
          LEFT JOIN points t ON t.id = l.to_id
          WHERE n.id IN (SELECT id FROM feed)
-         ORDER BY n.id DESC, t.path",
+         ORDER BY ({sink}) ASC, n.id DESC, t.path",
         columns()
     ))?;
     let rows = stmt.query_map(params![limit], map_note_row)?;

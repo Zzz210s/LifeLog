@@ -103,3 +103,8 @@ mod notes_query_tag_scope_tests;
 #[cfg(test)]
 #[path = "notes_query_pure_name_tests.rs"]
 mod notes_query_pure_name_tests;
+
+/// 沉尾:只用来被引用/建关系、自己没有正文的树内点在时间序里排最后
+#[cfg(test)]
+#[path = "notes_query_sink_tests.rs"]
+mod notes_query_sink_tests;
