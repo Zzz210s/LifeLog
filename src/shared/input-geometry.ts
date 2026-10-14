@@ -45,19 +45,31 @@ export const CARD_DRAG_INSET_CSS = 6;
 /**
  * 逻辑像素热区 -> CSS 像素:ratio = 逻辑像素 / CSS 像素(见 input-bar/logical-size.ts)。
  * 缩放 0.5 时热区 16 CSS px、缩放 2.0 时 4 CSS px;ratio 非法(0/NaN/负数)按 1 处理。
+ * **只作换算用,不直接当热区**:它以屏幕空间为准,够不着页面空间里的可见卡片边缘,
+ * 拖动热区一律走 cardEdgeBandCss。
  */
 export function edgeBandCss(ratio: number): number {
   return EDGE_BAND_LOGICAL / (Number.isFinite(ratio) && ratio > 0 ? ratio : 1);
 }
 
 /**
- * 移动窗口的拖动带 CSS 宽度 = 光晕内边距环 GLOW_PAD + 可见卡片内侧的一小段(见 CARD_DRAG_INSET_CSS)。
- * 只取光晕环会留下一个坑:可见卡片的边缘恰好落在 GLOW_PAD 上,用户去抓看得见的输入框边缘时
- * 会差 1 像素判不进热区(实测 110% 缩放下卡片边缘在 14 CSS px 处),手感就是"拖不动"。
- * 与「8 逻辑像素热区」取较大者:0.5-2.0 缩放下 20 CSS px = 10-40 逻辑像素,已覆盖该下限,
+ * **可见卡片边缘带**的 CSS 宽度 = 光晕内边距环 GLOW_PAD + 可见卡片内侧的一小段(见
+ * CARD_DRAG_INSET_CSS)。**上下带(移动窗口)与左右带(改宽度)共用同一个带** —— 两者的目标
+ * 都是「用户看得见的那圈卡片边缘」,而这圈边缘在页面空间里恒在 GLOW_PAD(14 CSS px)处。
+ *
+ * 为什么不能直接用「8 逻辑像素热区」(edgeBandCss):它是**屏幕空间**常量(物理宽度 = 8 x 系统
+ * 缩放,不随缩放变),而可见边缘是**页面空间**常量(物理宽度 = 14 x 系统缩放 x 缩放)。
+ * 两者只在缩放 ~0.57 时重合:缩放 >= 0.57 后热区整条都落在光晕环**内侧之外**,
+ * 用户去抓看得见的卡片边缘就判不进热区 —— 实测 2026-10-14 装机版 zoom 1.0 抓可见边缘
+ * 按下并拖动,窗口被**移动**了 100 物理像素而宽度一点没变(zoom 2.0 同样);
+ * 缩放 0.5 时热区(10 物理 px)也只比可见边缘(8.75 物理 px)多出 1.25 物理像素的余量,
+ * 往里偏 2 像素就落到「移动窗口」上,手感就是"宽度调不了"。
+ * 取 GLOW_PAD 起算并含内侧一小段,才能保证「抓看得见的边缘」在 0.5-2.0 缩放下都判得进;
+ * 与 8 逻辑像素热区取较大者:20 CSS px >= 10-40 逻辑像素,0.5-2.0 内恒为该下限所覆盖,
  * max 只作为缩放超出区间时的兜底(纯换算会在高缩放下把手感缩没)。
+ * 内侧那 6 CSS px 不会碰到文字:输入框自带内边距 px-3/px-2(12/8 CSS px),文字从 GLOW_PAD+12 处开始。
  */
-export function dragBandCss(ratio: number): number {
+export function cardEdgeBandCss(ratio: number): number {
   return Math.max(GLOW_PAD + CARD_DRAG_INSET_CSS, edgeBandCss(ratio));
 }
 
@@ -67,6 +79,26 @@ export function clampWidth(w: number): number {
   // NaN 取不到方向,回退下限;+/-Infinity 经 Math.round + Math.max/min 自然落到上/下限
   if (Number.isNaN(w)) return MIN_WIDTH;
   return Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, Math.round(w)));
+}
+
+/**
+ * 宽度拖动的钳制:基线落在硬区间外时,把区间向外抬到基线,保证拖动**连续**。
+ * 基线 = 按下那一刻的当前逻辑宽(拖动位移就在这个单位上累加),它可能是区间外的值:
+ * 缩放路径按工作区 80% 收口、**不套** 240-900(见 input_scale::apply_scale 的 intent_base=None),
+ * 于是放大后逻辑宽可以超过 MAX_WIDTH(2026-10-14 实测 zoom 2.0 装机版:input_w 1100 落到
+ * 1536 物理像素 = 1228 逻辑宽)、缩小后可以低于 MIN_WIDTH。
+ * 用硬区间钳结果就会让鼠标一动宽度跳到区间边界 —— 同一实测里,左边缘只需拖进 8 步共 20 物理
+ * 像素,宽度就从 1536 跳到 1125 物理像素(左边缘瞬移 411 物理像素),用户看到的就是"宽度又跳了"。
+ * 抬区间后:基线在区间外时只能朝区间内连续移动(往外拖不动),一旦进入 240-900,硬区间照常生效。
+ */
+export function clampWidthFrom(base: number, w: number): number {
+  const b = Number.isFinite(base) ? Math.round(base) : MIN_WIDTH;
+  if (b >= MIN_WIDTH && b <= MAX_WIDTH) return clampWidth(w);
+  if (Number.isNaN(w)) return b; // 位移取不到方向:停在基线,不跳
+  const lo = Math.min(MIN_WIDTH, b);
+  const hi = Math.max(MAX_WIDTH, b);
+  if (!Number.isFinite(w)) return w > 0 ? hi : lo;
+  return Math.min(hi, Math.max(lo, Math.round(w)));
 }
 
 export function clampLines(lines: number): number {
@@ -83,7 +115,7 @@ export type Side = 'left' | 'right';
 
 /**
  * 判断按下点落在哪条竖向边缘带内;内部返回 null。band 是 **CSS 像素**(调用方用
- * edgeBandCss(ratio) 换算),必须显式传入:不再提供默认值,避免与 EDGE_BAND_LOGICAL
+ * cardEdgeBandCss(ratio) 换算),必须显式传入:不再提供默认值,避免与 EDGE_BAND_LOGICAL
  * 的同值常量漂移。
  * 窄窗口(宽度不足 2 x band)时左右带重叠,退回左带,避免同一次按下被两套逻辑争抢。
  */

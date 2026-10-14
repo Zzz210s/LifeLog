@@ -1,5 +1,6 @@
 //! 输入栏尺寸与视图缩放:尺寸钳制、缩放换算、落到窗口并落库。
-//! 单位约定:宽度入参是**当前逻辑像素**(拖动意图区间 240-900);高度入参是**基础逻辑高度**
+//! 单位约定:宽度入参是**当前逻辑像素**(拖动意图区间 240-900;基线落在区间外时把区间向外抬到
+//! 基线,见 input_width::clamp_width_from);高度入参是**基础逻辑高度**
 //! (缩放无关,见 input_height);缩放路径(apply_scale)只受工作区 80% 上限。
 //! 设置里的 input_w/input_h 存**基础物理尺寸**(缩放系数为 1 时的物理尺寸),显示时按 input_zoom
 //! 乘开后落到窗口;缩放系数存 input_zoom(0.5-2.0)。基础尺寸只由**命令意图**写回;
@@ -10,11 +11,8 @@
 //! 它**绝不写 input_w**(该路径只知道“窗口现在多宽”,那不是用户意图)。
 
 use super::input_geom;
-use tauri::{AppHandle, Manager, PhysicalSize, WebviewWindow};
-
-
-pub const MIN_WIDTH: u32 = 240;
-pub const MAX_WIDTH: u32 = 900;
+use super::input_width::{display_width, work_area_of};
+use tauri::{AppHandle, Manager, PhysicalSize};
 
 /// 高度区间(基础逻辑像素 —— 与 input_height 的入参同一单位):
 /// 单行 CSS 高度 = 22.75(text-sm + leading-relaxed)+ 上下内边距与边框 18 + 光晕内边距 2 x 14
@@ -32,16 +30,10 @@ pub const MAX_HEIGHT: u32 = 360;
 pub const MIN_SCALE: f64 = 0.5;
 pub const MAX_SCALE: f64 = 2.0;
 
-/// 缩放后的窗口不得超出当前显示器工作区的这个比例(宽度与高度共用)
-pub(super) const WORK_AREA_RATIO: f64 = 0.8;
 /// 设置缺失时的基础尺寸(逻辑像素),与 tauri.conf.json 的 input 窗口默认值一致
 const DEFAULT_WIDTH: u32 = 420;
 const DEFAULT_HEIGHT: u32 = 300;
 
-/// 宽度钳制(逻辑像素):240-900。
-pub fn clamp_width(w: u32) -> u32 {
-    w.clamp(MIN_WIDTH, MAX_WIDTH)
-}
 
 /// 高度钳制(基础逻辑像素):35-360。高度由前端按真实换行测量后传入,此处只做兜底。
 pub fn clamp_height(h: u32) -> u32 {
@@ -91,33 +83,8 @@ pub fn migrate_size(w: f64, h: f64, scale: f64) -> (u32, u32) {
     base_size_from_actual(to_u32(w), to_u32(h), scale)
 }
 
-/// 逻辑宽 -> 落窗口的物理宽(唯一的宽度换算;高度一律走 input_height::height_phys):
-/// 「(可选)按拖动意图钳 240-900 -> 物理换算 -> 与当前显示器工作区 80% 取较小者」
-/// `clamp_intent` = 是否把宽度当「用户拖动意图」套 240-900:
-/// - true:宽度拖动命令路径(apply_size),手动拖宽/拖窄的 240-900 区间生效;
-/// - false:缩放路径(apply_scale),只受工作区 80% 上限 —— 基宽 >450 放大到 2.0 时若套 900
-///   硬上限,宽度会卡住而字号继续变大,"窗口与字号等比"不成立;下限同理不强制 240
-///   (等比缩放允许变小,缩放系数本身已 0.5-2.0)。
-///
-/// 取不到工作区(无显示器信息)时只做前面的步骤。
-pub fn display_width(logical_w: u32, sf: f64, work: Option<(u32, u32)>, clamp_intent: bool) -> u32 {
-    let sf = if sf.is_finite() && sf > 0.0 { sf } else { 1.0 };
-    let lw = if clamp_intent { clamp_width(logical_w) } else { logical_w.max(1) };
-    let phys = ((lw as f64) * sf).round().max(1.0) as u32;
-    match work {
-        Some((w, _)) => phys.min(((w as f64) * WORK_AREA_RATIO) as u32),
-        None => phys,
-    }
-}
-
-/// 输入栏当前所在显示器的工作区(物理像素);取不到时 None(不钳制)
-pub(super) fn work_area_of(win: &WebviewWindow) -> Option<(u32, u32)> {
-    let mon = win.current_monitor().ok()??;
-    let area = mon.work_area();
-    Some((area.size.width, area.size.height))
-}
-
-/// 宽度拖动路径(唯一会写 input_w 的路径):宽度按当前逻辑像素意图套 240-900 后收口,
+/// 宽度拖动路径(唯一会写 input_w 的路径):宽度按当前逻辑像素意图钳制后收口(拖动的 240-900
+/// 区间与「基线落在区间外时抬区间」都在 input_width::display_width 里做),
 /// 高度入参是**基础逻辑高度**(缩放无关,与 input_height 同源)。
 /// 写回设置一律用命令意图:宽度只在真的变化时才写(拖动中每帧都带宽度),
 /// 高度每次都按内容意图写回;收口结果绝不固化成基础尺寸。
@@ -129,14 +96,17 @@ pub fn apply_size(app: &AppHandle, width: u32, height_base: u32) -> Result<(), S
     let zoom = super::input_height::current_zoom(app);
     input_overlay::restore(&win); // 列表关掉时先还原"为列表让位"的临时位移
     let work = work_area_of(&win);
+    // 当前逻辑宽:既是拖动钳制的基线(可能已在 240-900 之外,见 clamp_width_from),
+    // 也是「宽度是不是真的变了」的比较对象。只读一次,避免两次读数落在不同时刻。
+    let current_logical = win
+        .inner_size()
+        .map(|s| s.to_logical::<f64>(sf).width)
+        .unwrap_or(width as f64);
     // 宽度:拖动意图(唯一会写 input_w 的路径)走唯一的宽度换算
-    let phys_w = display_width(width, sf, work, true);
+    let phys_w = display_width(width, sf, work, Some(current_logical));
     // 高度:基础逻辑高度 -> 物理高度(缩放只乘在这里,不进库)
     let phys_h = super::input_height::height_phys(height_base, sf, zoom, work.map(|a| a.1));
-    let width_changed = win
-        .inner_size()
-        .map(|s| width_intent_changed(s.to_logical::<f64>(sf).width, width))
-        .unwrap_or(false);
+    let width_changed = width_intent_changed(current_logical, width);
     win.set_size(PhysicalSize::new(phys_w, phys_h))
         .map_err(|e| e.to_string())?;
     if width_changed {
@@ -148,7 +118,7 @@ pub fn apply_size(app: &AppHandle, width: u32, height_base: u32) -> Result<(), S
 }
 
 /// 按缩放系数设置窗口尺寸与 webview zoom,并把系数写回 input_zoom。
-/// 尺寸 = 基础尺寸(input_w/input_h,物理)x 系数,收口走 display_width(clamp_intent=false:
+/// 尺寸 = 基础尺寸(input_w/input_h,物理)x 系数,收口走 display_width(intent_base=None:
 /// 宽度不套 240-900,只与当前显示器工作区 80% 取较小者);
 /// **高度与自动高度路径共用同一个换算** input_height::height_phys_from_base(基础物理高 ->
 /// 基础逻辑高 -> x sf x 缩放 -> 工作区收口),两条路径对同一内容给出同一窗口高。
@@ -164,7 +134,7 @@ pub fn apply_scale(app: &AppHandle, scale: f64) -> Result<(), String> {
     // 截断或四舍五入产生的误差:宽度先按「基础逻辑 x 缩放」算出显示逻辑宽,再交给唯一换算
     let logical_w = (base_w / sf).round().max(1.0) as u32;
     let work = work_area_of(&win);
-    let phys_w = display_width(scaled_size(logical_w, MIN_HEIGHT, s).0, sf, work, false);
+    let phys_w = display_width(scaled_size(logical_w, MIN_HEIGHT, s).0, sf, work, None);
     // 高度:库里的基础物理高 -> 落窗口物理高(缩放只乘在物理尺寸上,绝不落库)
     let base_h = base_h.round().max(1.0) as u32;
     let phys_h = super::input_height::height_phys_from_base(base_h, sf, s, work.map(|a| a.1));

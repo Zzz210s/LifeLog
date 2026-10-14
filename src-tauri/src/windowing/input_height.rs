@@ -13,7 +13,8 @@
 
 use super::input_geom;
 use super::input_overlay;
-use super::input_scale::{clamp_height, clamp_scale, work_area_of, WORK_AREA_RATIO};
+use super::input_scale::{clamp_height, clamp_scale};
+use super::input_width::{work_area_of, WORK_AREA_RATIO};
 use tauri::{AppHandle, Manager, PhysicalSize, WebviewWindow};
 
 /// 缩放系数兜底:非有限值/非正数按 1.0(与 input_scale::display_width 同一处理)

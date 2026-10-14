@@ -27,11 +27,12 @@ pub fn focus_input_bar(app: AppHandle) -> Result<(), String> {
     windowing::input_focus::focus_now(&app).map_err(|e| e.to_string())
 }
 
-/// 宽度拖动路径(唯一会写 input_w 的命令):width = 当前逻辑像素意图(套 240-900),
+/// 宽度拖动路径(唯一会写 input_w 的命令):width = 当前逻辑像素意图(拖动的 240-900 区间与
+/// 「基线落在区间外时抬区间」的连续钳制都在 apply_size 里做 —— 那里才拿得到当前窗口宽),
 /// height = **基础逻辑高度**(缩放无关,见 input_height)
 #[tauri::command]
 pub fn set_input_size(app: AppHandle, width: u32, height: u32) -> Result<(), String> {
-    input_scale::apply_size(&app, input_scale::clamp_width(width), height)
+    input_scale::apply_size(&app, width, height)
 }
 
 /// 自动高度(内容行数派生):只改高度(height = **基础逻辑像素**,缩放无关),
