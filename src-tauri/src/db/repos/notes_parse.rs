@@ -30,7 +30,9 @@ pub(crate) fn strip_tags_known(content: &str, known: &[String]) -> String {
     let content = content.replace("\r\n", "\n"); // 统一换行,防 Windows 端混入 \r
     let mut out = String::new();
     let mut cursor = 0usize;
-    for span in crate::tags::tag_spans_known(&content, known) {
+    // 区间含名字组(设计 §3.3):`#目标(名字)` 整组被剥净,名字绝不落进正文
+    let spans: Vec<crate::tags::TagSpan> = crate::tags::tag_spans_known(&content, known);
+    for span in spans {
         out.push_str(&content[cursor..span.start]);
         // 仅当标签起始于行首或紧跟空白之后,才吞掉其后的连续空格/制表符:
         // 行首标签剥离后不留残余空白被误当缩进;
@@ -49,21 +51,23 @@ pub(crate) fn strip_tags_known(content: &str, known: &[String]) -> String {
     out.split('\n').map(collapse_line).collect::<Vec<_>>().join("\n")
 }
 
-/// 保存路径(create / update)的**唯一解析入口**:正文 -> (标签路径, 剥净正文)。
+/// 保存路径(create / update)的**唯一解析入口**:正文 -> (标签线, 剥净正文)。
+/// 标签线是「目标路径 + 可选关系名」(`#目标(名字)`,设计 §6.1);正文丢掉名字组后不留 `(名字)`。
 /// 严格正文语法优先;只有严格失败的位置按**库内已存在的标签路径**做最长匹配兜底 ——
 /// UI 编辑态回显的是原始路径(`#[郴](chēn)州市`),md 名字里的 `[` 不在正文名称字符集里,
 /// 没有这一步就会静默丢标签、并把 md 源码写进正文(复现见 notes_save_fallback_tests)。
 pub(crate) fn parse_saved(
     conn: &Connection,
     content: &str,
-) -> rusqlite::Result<(Vec<String>, String)> {
+) -> rusqlite::Result<(Vec<crate::tags::TagLine>, String)> {
     // 正文里一个 `#` 都没有 -> 严格扫描必无可剥离区间,兜底也无处施展:
     // 直接短路,省掉每次都去库上取一遍候选(全表 SELECT,实测 ≈0.4ms)。
     if !content.contains('#') {
         return Ok((Vec::new(), strip_tags(content)));
     }
     let known = known_tag_paths(conn)?;
-    Ok((crate::tags::extract_tags_known(content, &known), strip_tags_known(content, &known)))
+    let lines = crate::tags::extract_lines_known(content, &known);
+    Ok((lines, strip_tags_known(content, &known)))
 }
 
 /// 兜底候选:库内**结构自洽**的标签路径(与 `tags::link::existing_id` 一样排除

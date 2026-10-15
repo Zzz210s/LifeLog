@@ -49,7 +49,9 @@ pub(crate) fn create_with(
     content: &str,
     time_tag: Option<&str>,
 ) -> rusqlite::Result<Note> {
-    let (mut names, text) = parse_saved(conn, content)?;
+    // 落库仍只按目标路径(`TagLine.name` 的关系写线语义见设计 §6.2/§6.3,由保存写入任务接入)
+    let (lines, text) = parse_saved(conn, content)?;
+    let mut names: Vec<String> = lines.into_iter().map(|l| l.path).collect();
     if let Some(p) = time_tag.filter(|p| !names.iter().any(|n| n == *p)) {
         names.push(p.to_string());
     }

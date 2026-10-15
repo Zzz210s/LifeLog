@@ -8,8 +8,10 @@ use rusqlite::{params, Connection};
 /// 更新笔记正文(事务):剥离/提取标签后整条重存,链接为替换语义。
 /// id 不存在返回 None;成功返回含全量标签的最新笔记。
 pub fn update(conn: &mut Connection, id: i64, content: &str) -> rusqlite::Result<Option<super::Note>> {
-    // 解析入口与 create 同一处:严格语法优先,严格失败处按库内已有路径兜底
-    let (names, text) = super::parse_saved(conn, content)?;
+    // 解析入口与 create 同一处:严格语法优先,严格失败处按库内已有路径兜底;
+    // 写线仍只按目标路径(关系名的写线语义见设计 §6.2/§6.3,由保存写入任务接入)
+    let (lines, text) = super::parse_saved(conn, content)?;
+    let names: Vec<String> = lines.into_iter().map(|l| l.path).collect();
     let tx = conn.transaction()?;
     // 统一元数据(v31):正文只落 `points.meta`,不再有 kind。
     let rows = tx.execute("UPDATE points SET meta=?1 WHERE id=?2", params![text, id])?;

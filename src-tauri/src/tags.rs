@@ -1,9 +1,10 @@
-//! 标签语法解析(spec 3.3.1):严格名称字符集 + Markdown 感知 + 整串判定。
+//! 标签语法解析(spec 3.3.1 + 2026-10-15 关系语法 `#目标(名字)`):严格名称字符集 + Markdown 感知 + 整串判定。
 //! 终止规则:空白与标点一律正常终止标签(标签有效、后随字符留在正文);
 //! 只有结构非法(空段/首尾或连续斜杠/# 后无名称字符)才整串丢弃。
 //! 层级深度**不设上限**(2026-09-28 起取消 5 层上限):段数只按结构判定。
-use std::iter::Peekable;
-use std::str::CharIndices;
+//! 本文件只留**字符集与路径判定**这两份真源;`#` 词元扫描(围栏/行内代码/名字组)在 tag_scan.rs,
+//! 名字组四态扫描器在 tag_name_group.rs —— 两个子模块经 #[path] 挂在这里并再导出,
+//! 因此调用点仍走 `crate::tags::…`(lib.rs 不动)。
 
 /// 标签名允许的字符:中文、字母、数字、下划线、连字符;
 /// `/` 仅作层级分隔,其它标点、空白与 emoji 都不算名称字符
@@ -76,110 +77,18 @@ pub(crate) fn scan_tag_path(input: &[char], start: usize) -> Option<(String, usi
     parse_tag_path(&raw).map(|_| (raw, i))
 }
 
-/// 确认合法的标签命中区间:start/end 为原文里的字节范围(含起始 '#'),path 为完整路径
-pub(crate) struct TagSpan {
-    pub start: usize,
-    pub end: usize,
-    pub path: String,
-}
+// `#` 词元扫描与名字组扫描器:两个子模块挂在本文件下(沿用 tags_tests.rs 的 #[path] 手法),
+// 再导出后调用点仍是 `crate::tags::{tag_spans_known, extract_lines_known, TagLine, …}`。
+#[path = "tag_scan.rs"]
+mod tag_scan;
+#[path = "tag_name_group.rs"]
+mod tag_name_group;
 
-/// 严格提取(不带库内兜底):只有测试与共享向量断言用它;生产路径一律走 `parse_saved`。
+pub(crate) use tag_name_group::{consume_name_group, invalid_group_skip, NameGroup};
+pub(crate) use tag_scan::{extract_lines_known, extract_tags_known, tag_spans_known, TagLine, TagSpan};
+// 「严格提取」是测试与共享向量专用的路径投影入口(生产一律走 `parse_saved`)
 #[cfg(test)]
-pub fn extract_tags(content: &str) -> Vec<String> {
-    extract_tags_known(content, &[])
-}
-
-/// 同 [`extract_tags`],但带上"库内已存在的标签路径"做兜底(create/update 的保存路径专用)
-pub(crate) fn extract_tags_known(content: &str, known: &[String]) -> Vec<String> {
-    let mut out: Vec<String> = Vec::new();
-    for span in tag_spans_known(content, known) {
-        if !out.contains(&span.path) {
-            out.push(span.path);
-        }
-    }
-    out
-}
-
-/// 扫描全文,返回所有确认合法的标签区间;剥离方(strip_tags)据此只删标签本身。
-/// `known`(库内已存在的标签路径)用于**严格扫描失败**的位置做兜底(见 crate::tag_fallback)
-pub(crate) fn tag_spans_known(content: &str, known: &[String]) -> Vec<TagSpan> {
-    let mut spans = Vec::new();
-    let mut fence: Option<&str> = None;
-    let mut offset = 0usize;
-    for raw_line in content.split_inclusive('\n') {
-        let line = raw_line.strip_suffix('\n').unwrap_or(raw_line);
-        let line = line.strip_suffix('\r').unwrap_or(line);
-        let trimmed = line.trim_start();
-        match fence {
-            // 围栏代码块内整段跳过,直到同种围栏闭合
-            Some(marker) => {
-                if trimmed.starts_with(marker) {
-                    fence = None;
-                }
-            }
-            None if trimmed.starts_with("```") => fence = Some("```"),
-            None if trimmed.starts_with("~~~") => fence = Some("~~~"),
-            None => scan_line(content, offset, line, known, &mut spans),
-        }
-        offset += raw_line.len();
-    }
-    spans
-}
-
-/// 单行扫描:维护行内代码状态与转义,遇到可能的 '#' 起点交给 try_tag
-fn scan_line(content: &str, base: usize, line: &str, known: &[String], out: &mut Vec<TagSpan>) {
-    let mut in_code = false;
-    let mut chars = line.char_indices().peekable();
-    while let Some((i, c)) = chars.next() {
-        match c {
-            '\\' => {
-                chars.next(); // 转义:反斜杠后的字符不作标签起点
-            }
-            '`' => in_code = !in_code,
-            '#' if !in_code => try_tag(content, base, i, &mut chars, known, out),
-            _ => {}
-        }
-    }
-}
-
-/// 在 '#' 处尝试解析:查前导字符 -> 排除 Markdown 标题 -> 收名称与 '/' -> 整串校验。
-/// 收名称时遇到空白/标点即停(正常终止,标签仍有效);只有整串结构非法才丢弃。
-fn try_tag(
-    content: &str,
-    base: usize,
-    hash: usize,
-    chars: &mut Peekable<CharIndices<'_>>,
-    known: &[String],
-    out: &mut Vec<TagSpan>,
-) {
-    // 前导字符规则:'#' 前若是 ASCII 字母数字或 '#'/'&',不视为标签(C#、URL 片段、HTML 实体)
-    if content[..base + hash]
-        .chars()
-        .next_back()
-        .is_some_and(|p| p.is_ascii_alphanumeric() || matches!(p, '#' | '&'))
-    {
-        return;
-    }
-    match chars.peek() {
-        None => return,                              // 裸 '#' 收尾
-        Some((_, n)) if n.is_whitespace() => return, // Markdown 标题标记,跳过该 '#'
-        _ => {}
-    }
-    let rest: Vec<char> = chars.clone().map(|(_, c)| c).collect();
-    // 严格语法优先;只有它在这里失败,才按"库内已存在的标签路径"兜底最长匹配
-    // (兜底只认已存在的路径,不放宽语法、不新建节点,见 crate::tag_fallback)
-    let hit = scan_tag_path(&rest, 0).or_else(|| crate::tag_fallback::longest_known(&rest, 0, known));
-    let Some((raw, consumed)) = hit else {
-        return; // 整串不合法且无可兜底的已存在路径:整串丢弃,不做部分提取,也不剥离字符
-    };
-    // 同步推进共享的字符迭代器,并按字节算出区间终点
-    let mut end = base + hash + 1;
-    for _ in 0..consumed {
-        let Some((j, n)) = chars.next() else { break };
-        end = base + j + n.len_utf8();
-    }
-    out.push(TagSpan { start: base + hash, end, path: raw });
-}
+pub(crate) use tag_scan::extract_tags;
 
 #[cfg(test)]
 #[path = "tags_tests.rs"]

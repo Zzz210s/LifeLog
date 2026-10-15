@@ -1,165 +1,7 @@
-//! 标签语法测试(spec 3.3.1 逐条):严格名称字符集、Markdown 写法区分、整串判定。
-//! 自 tags.rs 拆出以守 200 行上限。
+//! 标签路径的字符集与结构判定测试(spec 3.3.1)。
+//! 词元扫描(含关系名名字组)的用例在 tag_scan_tests.rs / tag_scan_truth_tests.rs —— 本文件只守
+//! `tags.rs` 里留下的那两份真源:`is_tag_char`/`is_inner_punct` 字符集与 `parse_tag_path` 结构判定。
 use super::*;
-
-// ---- spec 3.3.1 逐条用例 ----
-
-#[test]
-fn plain_tag() {
-    assert_eq!(extract_tags("今天#工作 很累"), vec!["工作"]);
-}
-
-#[test]
-fn nested_path() {
-    assert_eq!(extract_tags("#工作/项目A/会议"), vec!["工作/项目A/会议"]);
-}
-
-#[test]
-fn heading_is_not_tag() {
-    assert!(extract_tags("# 标题").is_empty());
-}
-
-#[test]
-fn heading_with_tag_later() {
-    assert_eq!(extract_tags("## 标题 #工作"), vec!["工作"]);
-}
-
-#[test]
-fn double_hash_is_not_tag() {
-    assert!(extract_tags("##标题").is_empty());
-}
-
-#[test]
-fn ascii_word_prefix_is_not_tag() {
-    assert!(extract_tags("abc#def").is_empty());
-}
-
-#[test]
-fn csharp_is_not_tag() {
-    assert!(extract_tags("我用 C# 写").is_empty());
-}
-
-#[test]
-fn url_fragment_is_not_tag() {
-    assert!(extract_tags("https://x.com/a#b 看这里").is_empty());
-}
-
-#[test]
-fn html_entity_is_not_tag() {
-    assert!(extract_tags("&#39; 引号").is_empty());
-}
-
-#[test]
-fn escaped_is_not_tag() {
-    assert!(extract_tags("\\#工作 不是标签").is_empty());
-}
-
-#[test]
-fn inline_code_is_not_tag() {
-    assert!(extract_tags("`#工作` 是代码").is_empty());
-}
-
-#[test]
-fn fenced_code_is_not_tag() {
-    assert!(extract_tags("```\n#工作\n```\n").is_empty());
-}
-
-#[test]
-fn punctuation_terminates() {
-    assert_eq!(extract_tags("#工作,然后"), vec!["工作"]);
-}
-
-#[test]
-fn empty_segment_invalid() {
-    assert!(extract_tags("#a//b").is_empty());
-}
-
-#[test]
-fn trailing_slash_invalid() {
-    assert!(extract_tags("#a/ 结束").is_empty());
-}
-
-#[test]
-fn deep_path_is_valid() {
-    // 2026-09-28 取消层级深度上限:6 层与 8 层都是合法标签
-    assert_eq!(extract_tags("#a/b/c/d/e/f"), vec!["a/b/c/d/e/f"]);
-    assert_eq!(extract_tags("#a/b/c/d/e/f/g/h"), vec!["a/b/c/d/e/f/g/h"]);
-}
-
-#[test]
-fn space_terminates_nested_path() {
-    // 修复轮 1:空白不再导致整串作废,只正常终止标签;其后文字留在正文
-    assert_eq!(extract_tags("#工作/项目 A"), vec!["工作/项目"]);
-    assert_eq!(
-        extract_tags("#工作/项目A/会议 记录"),
-        vec!["工作/项目A/会议"]
-    );
-}
-
-#[test]
-fn punctuation_terminates_nested_path() {
-    // 修复轮 1:标点同样只是正常终止(`#工作,然后` 与 `#a/b,然后` 同理)
-    assert_eq!(extract_tags("#a/b,然后"), vec!["a/b"]);
-    assert_eq!(extract_tags("#工作 项目"), vec!["工作"]);
-}
-
-#[test]
-fn structurally_invalid_paths_are_void() {
-    // 仅结构非法才整串丢弃:斜杠后无名称字符(段未闭合)、空段
-    assert!(extract_tags("#工作/").is_empty());
-    assert!(extract_tags("#工作/ 结束").is_empty());
-    assert!(extract_tags("#工作/项目/").is_empty());
-    assert!(extract_tags("#/工作").is_empty());
-    assert!(extract_tags("#a//b").is_empty());
-}
-
-#[test]
-fn full_width_hash_is_not_tag() {
-    assert!(extract_tags("＃工作").is_empty());
-}
-
-#[test]
-fn full_path_returned_for_dedup() {
-    assert_eq!(extract_tags("#a/b #a/b"), vec!["a/b"]);
-}
-
-// ---- 语法边界补充用例 ----
-
-#[test]
-fn inner_dot_and_middle_dot_kept_before_name_char() {
-    // 小账 A:`.`/`·` 夹在名称字符之间是名称的一部分(不再把 `#v1.0` 打碎成 `#v1`)
-    assert_eq!(extract_tags("#v1.0"), vec!["v1.0"]);
-    assert_eq!(extract_tags("#观影.记录 不错"), vec!["观影.记录"]);
-    assert_eq!(extract_tags("#a·b"), vec!["a·b"]);
-    assert_eq!(extract_tags("#v1.0.1 发布"), vec!["v1.0.1"]);
-    // 句末/词尾的点仍是终止符,标签只留点之前的合法名
-    assert_eq!(extract_tags("#工作. 然后"), vec!["工作"]);
-    assert_eq!(extract_tags("#v1."), vec!["v1"]);
-    assert_eq!(extract_tags("#v1..0"), vec!["v1"]);
-    assert_eq!(extract_tags("#a-b_c/d"), vec!["a-b_c/d"]);
-}
-
-#[test]
-fn dedups_in_order() {
-    assert_eq!(extract_tags("#a 先 #b 后 #a"), vec!["a", "b"]);
-}
-
-#[test]
-fn stops_at_punct_and_space() {
-    assert_eq!(extract_tags("#tag,rest #tag2。结束"), vec!["tag", "tag2"]);
-}
-
-#[test]
-fn bare_hash_ignored() {
-    assert!(extract_tags("# #! ##").is_empty());
-}
-
-#[test]
-fn nested_path_may_be_followed_by_another_tag_or_line_end() {
-    // 含 '/' 的 token 之后的空白后面若是另一个 '#' 或行尾,则是干净边界
-    assert_eq!(extract_tags("#a/b #c/d"), vec!["a/b", "c/d"]);
-    assert_eq!(extract_tags("#工作/项目A\n下一行"), vec!["工作/项目A"]);
-}
 
 #[test]
 fn parse_tag_path_validates_segments_only() {
@@ -196,4 +38,16 @@ fn is_tag_char_covers_spec_charset() {
     assert!(is_inner_punct('.'));
     assert!(is_inner_punct('·'));
     assert!(!is_inner_punct('，'));
+}
+
+#[test]
+fn scan_tag_path_rejects_invalid_and_reports_stop_index() {
+    // 扫描器只走到第一个不符合的字符:合法返回 (路径, 尾后字符下标),结构非法返回 None
+    let chars: Vec<char> = "工作/项目A 后续".chars().collect();
+    assert_eq!(scan_tag_path(&chars, 0), Some(("工作/项目A".to_string(), 6)));
+    let bad: Vec<char> = "a//b".chars().collect();
+    assert_eq!(scan_tag_path(&bad, 0), None);
+    // 名字组不是路径的一部分(路径扫描在 `(` 处停):`(` 之后的判定属 tag_name_group
+    let paren: Vec<char> = "目标(国籍)".chars().collect();
+    assert_eq!(scan_tag_path(&paren, 0), Some(("目标".to_string(), 2)));
 }

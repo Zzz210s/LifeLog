@@ -18,8 +18,11 @@ pub struct ParseResult {
 
 /// 源码 -> 保存后的正文 + 标签集合(带库连接的可测内核)。
 /// 直接调 `notes::parse_saved` —— create/update 用的就是它,命令不另起一份口径。
+/// 这里投影成路径集合(`ParseResult.tags`)与前端当前契约一致;关系名出 IPC 的形状改造
+/// (设计 §5.2 `NoteTag`)由后续任务统一做。
 pub fn parse_source(conn: &Connection, source: &str) -> rusqlite::Result<ParseResult> {
-    let (tags, content) = crate::db::repos::notes::parse_saved(conn, source)?;
+    let (lines, content) = crate::db::repos::notes::parse_saved(conn, source)?;
+    let tags = lines.into_iter().map(|l| l.path).collect();
     Ok(ParseResult { content, tags })
 }
 
