@@ -2,7 +2,7 @@ use rusqlite::{params, Connection};
 use serde::Serialize;
 
 /// 一条标签线出 IPC 的形状(设计 §5.2):目标**完整路径**(标签名只在文本里,路径是树语义真源)
-/// + 关系名(`lines.name_id` 指向的纯名字点的 `meta`;无名字线为 None)。
+/// 外加**关系名**(`lines.name_id` 指向的纯名字点的 `meta`;无名字线为 None)。
 /// 与解析层的 [`crate::tags::TagLine`] 同义,但纯语法模块不背 serde,故这里是 DTO 真源。
 /// **结构体替换而非新增字段**:所有消费方在 `cargo`/`tsc` 编译期强制过一遍,没有第二套并行数组。
 #[derive(Serialize, Debug, Clone, PartialEq, Eq)]
@@ -183,6 +183,11 @@ mod notes_strip_tests;
 #[cfg(test)]
 #[path = "notes_tag_name_tests.rs"]
 mod notes_tag_name_tests;
+
+/// T6 收口:真库只读 + 副本上的 A1/A2/A5-A10 现场读数(设计 §8)
+#[cfg(test)]
+#[path = "notes_relation_syntax_accept_tests.rs"]
+mod notes_relation_syntax_accept_tests;
 
 #[cfg(test)]
 #[path = "notes_save_fallback_tests.rs"]
