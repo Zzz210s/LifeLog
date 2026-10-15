@@ -120,3 +120,7 @@ pub fn validate_relation_name(name: &str) -> Result<(), String> {
 #[cfg(test)]
 #[path = "tag_label_tests.rs"]
 mod tag_label_tests;
+
+#[cfg(test)]
+#[path = "tag_label_valid_tests.rs"]
+mod tag_label_valid_tests;
