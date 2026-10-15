@@ -2,6 +2,9 @@
 //! 编辑框回显的就是 read_full 读到的全部非子级线目标路径,名线也在内 —— 所以把某个 `#路径`
 //! 删掉就等于「这条关系不要了」,不许留一条读得回来、却删不掉的名线。
 //! 真库实例:`地点/印度`(点 1941)卡片上有两个同名 chip,编辑框里删多少次都删不掉。
+//! T3 起编辑框回显的名线带名字组(`#状态/未完成(状态)`,前端 composeSource 的形态),保存按
+//! 名字组落地 —— **裸 `#目标` 的语义是「清名字」**(设计 §6.2 第 6 行),故「名字不该被误删」
+//! 的用例必须按回显形态写全名字组。
 use crate::db::migrate;
 use crate::db::repos::notes::{update, NoteTag};
 use rusqlite::{params, Connection};
@@ -44,8 +47,8 @@ fn seed(c: &Connection) -> (i64, i64, i64) {
 fn removing_tag_text_removes_the_matching_named_line() {
     let mut c = db();
     let (src, to, _name) = seed(&c);
-    // 编辑框回显 = 正文 + 非子级线目标路径;这条名线在框里就是一个 `#状态/未完成`
-    let kept = update(&mut c, src, "印度\n#状态/未完成").unwrap().unwrap();
+    // 编辑框回显 = 正文 + 非子级线目标路径(名线带名字组,composeSource 的形态)
+    let kept = update(&mut c, src, "印度\n#状态/未完成(状态)").unwrap().unwrap();
     assert_eq!(
         kept.tags,
         vec![NoteTag { path: "状态/未完成".into(), relation_name: Some("状态".into()) }],
@@ -75,7 +78,7 @@ fn other_relations_of_the_same_source_survive() {
 fn named_line_keeps_its_name_when_the_target_stays() {
     let mut c = db();
     let (src, to, name) = seed(&c);
-    update(&mut c, src, "印度\n#状态/未完成").unwrap();
+    update(&mut c, src, "印度\n#状态/未完成(状态)").unwrap();
     let nid: Option<i64> = c
         .query_row(
             "SELECT name_id FROM lines WHERE from_id=?1 AND to_id=?2",
@@ -92,8 +95,8 @@ fn named_line_keeps_its_name_when_the_target_stays() {
 fn no_duplicate_nameless_line_for_a_named_target() {
     let mut c = db();
     let (src, to, _name) = seed(&c);
-    update(&mut c, src, "印度\n#状态/未完成").unwrap();
-    update(&mut c, src, "印度\n#状态/未完成").unwrap();
+    update(&mut c, src, "印度\n#状态/未完成(状态)").unwrap();
+    update(&mut c, src, "印度\n#状态/未完成(状态)").unwrap();
     assert_eq!(
         count(&c, "SELECT COUNT(*) FROM lines WHERE from_id=?1 AND to_id=2", src),
         1,

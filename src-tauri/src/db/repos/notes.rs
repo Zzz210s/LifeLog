@@ -68,11 +68,10 @@ pub(crate) fn create_with(
     content: &str,
     time_tag: Option<&str>,
 ) -> rusqlite::Result<Note> {
-    // 落库仍只按目标路径(`TagLine.name` 的关系写线语义见设计 §6.2/§6.3,由保存写入任务接入)
-    let (lines, text) = parse_saved(conn, content)?;
-    let mut names: Vec<String> = lines.into_iter().map(|l| l.path).collect();
-    if let Some(p) = time_tag.filter(|p| !names.iter().any(|n| n == *p)) {
-        names.push(p.to_string());
+    // 落库吃的是「目标 + 名字组」(`TagLine`):名字点的解析与落线语义见设计 §6.2/§6.3
+    let (mut lines, text) = parse_saved(conn, content)?;
+    if let Some(p) = time_tag.filter(|p| !lines.iter().any(|l| l.path == *p)) {
+        lines.push(crate::tags::TagLine { path: p.to_string(), name: None });
     }
     let tx = conn.transaction()?;
     // 统一元数据(v28):笔记行只落 `points(meta)`,不再有 kind;id 取全表 `MAX(id)+1`
@@ -88,28 +87,25 @@ pub(crate) fn create_with(
         params![id, text],
     )?;
     // 标签与链接同一种边:`#X` 与 `[[X]]` 的目标求并集后一次落库(见 write_saved_links)。
-    write_saved_links(&tx, id, &names, &text)?;
+    write_saved_links(&tx, id, &lines, &text)?;
     let note = read_full(&tx, id)?.ok_or(rusqlite::Error::QueryReturnedNoRows)?;
     tx.commit()?;
     Ok(note)
 }
 
-/// 保存路径的引用写入:`#标签` 与 `[[链接]]` 目标求**并集**后一次落 `lines(name_id = NULL)`
-/// (spec §5.2:二者同一种线;分两次替换会互相抹掉)。在调用方事务内执行,失败整批回滚。
+/// 保存路径的引用写入(设计 §6.1 漏斗的末端):标签线(目标 + 关系名)与 `[[ ]]` 目标求**并集**后
+/// 一次整体替换 —— 同一种线,分两次替换会互相抹掉。期望线表的构造(含名字点解析,与关系面板
+/// 写入同口径)与落库都在 [`note_links::write`]。返回期望线表,供调用方做审计对读。
+/// 在调用方事务内执行,失败整批回滚。
 fn write_saved_links(
     tx: &rusqlite::Transaction<'_>,
     id: i64,
-    tag_paths: &[String],
+    lines: &[crate::tags::TagLine],
     body: &str,
-) -> rusqlite::Result<()> {
-    let mut desired = crate::db::repos::tags::resolve_paths(tx, tag_paths)?;
-    for target in crate::db::repos::note_links::resolve_body(tx, id, body)? {
-        if !desired.contains(&target) {
-            desired.push(target);
-        }
-    }
-    crate::db::repos::note_links::replace_ids(tx, id, &desired)?;
-    Ok(())
+) -> rusqlite::Result<Vec<(i64, Option<i64>)>> {
+    let desired = crate::db::repos::note_links::write::desired_lines(tx, id, lines, body)?;
+    crate::db::repos::note_links::replace_lines(tx, id, &desired)?;
+    Ok(desired)
 }
 
 /// 笔记读取与行映射(自 notes.rs 拆出以守 200 行上限):read_full/recent/delete

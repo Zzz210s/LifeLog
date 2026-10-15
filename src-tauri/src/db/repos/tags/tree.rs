@@ -51,7 +51,7 @@ pub(crate) fn refresh_entities_fts(conn: &Connection, entity_ids: &[i64]) -> rus
 }
 
 /// 链接笔记到标签(幂等)。方向 = 引用方 -> 被引用方(spec §2.3),同向同类线由唯一索引去重。
-/// 生产保存路径改走 `note_links::replace_ids`,此处仅剩 `tags::replace::replace_links`(测试专用)在用。
+/// 生产保存路径改走 `note_links::replace_lines`,此处仅剩 `tags::replace::replace_links`(测试专用)在用。
 #[cfg(test)]
 pub fn link_note(conn: &Connection, note_id: i64, tag_id: i64) -> rusqlite::Result<()> {
     conn.execute(

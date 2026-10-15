@@ -5,7 +5,7 @@
 /// 按 id 集合替换笔记的引用(增量:只删多余的、只补缺失的),收尾精确回收孤儿。
 /// FTS 重写由 `lines_ai`/`lines_ad` 触发器负责(本函数只动 `lines`)。
 /// 统一元数据(v28)后目标线都是**无名字线**(`name_id IS NULL`),本函数只用于标签路径解析后的
-/// 落库(标签们);笔记保存路径的「标签 + 链接并集」由 `note_links::replace_ids` 一次完成。
+/// 落库(标签们);笔记保存路径的「标签 + 链接并集」由 `note_links::replace_lines` 一次完成。
 /// 唯一调用方是 §测试专用§ 的 `link_paths`,故随之一并入 `cfg(test)`。
 #[cfg(test)]
 pub(crate) fn replace_links(

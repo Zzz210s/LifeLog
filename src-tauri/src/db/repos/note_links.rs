@@ -6,7 +6,7 @@
 //! 目标裁决统一按 `entity_key(meta)` 等值、同键取 id 最小(spec §10-P5,不再有种类优先);
 //! 未解析链接**不落边**(D2 选项 A),出链列表读时从正文重解析。
 // 读取(出链/入链/边)拆到 note_links_read.rs 并在此**再导出**,调用方路径不变。
-// 有名线(关系)清单拆到 note_links_named.rs(写路径的目标集合替换要用)。
+// 写线语义(期望线表 -> 删/换/补)拆到 note_links_write.rs;来源的当前线表读在 note_links_named.rs。
 use crate::links::{normalize_title, title_of};
 use rusqlite::{params, Connection};
 
@@ -19,7 +19,13 @@ pub use read::{
 
 #[path = "note_links_named.rs"]
 mod named;
-use named::named_lines;
+#[cfg(test)]
+pub(crate) use named::current_lines;
+
+/// 保存写线语义(设计 §6.2/§6.3):期望线表的构造与落库
+#[path = "note_links_write.rs"]
+pub(crate) mod write;
+pub(crate) use write::replace_lines;
 
 /// 一条候选实体:`key` 是等值匹配键(归一化首行 = `links::title_of(meta)`)
 pub struct LinkCandidate {
@@ -69,7 +75,7 @@ pub fn resolve_key(cands: &[LinkCandidate], key: &str, exclude: Option<i64>) -> 
 }
 
 /// 解析一批 `[[ ]]` 标题为**目标 id 序列**(只解析、不写库):自指跳过、同键去重、
-/// 未解析不产出。供保存路径与标签目标合并成一次整体替换。
+/// 未解析不产出。供保存路径把链接目标与标签目标合并成一次整体替换。
 pub(crate) fn resolve_titles(
     conn: &Connection,
     source_id: i64,
@@ -98,60 +104,15 @@ pub(crate) fn resolve_titles(
     Ok(out)
 }
 
-/// 以 id 集合整体替换来源的全部**非子级线**(删多余、补缺失,唯一索引去重),收尾回收孤儿。
-/// 标签(`#X`)与链接(`[[X]]`)的目标由调用方求并集后从这里一次落库 ——
-/// 二者同一种线,分两次替换会互相抹掉。
-///
-/// **有名线(关系)也按目标集合替换**:`read_full` 把名线目标一并读成来源的标签,
-/// 编辑框里就会出现 `#目标路径` —— 删掉它就是「这条关系不要了」,名线必须跟着走
-/// (旧实现只删无名字线,于是名线被读回成标签、怎么删都还在;真库实例 `地点/印度`)。
-/// 名字本身不在这里改(由「关系」面板维护),目标仍在的名线原样保留。
-pub(crate) fn replace_ids(
-    conn: &Connection,
-    source_id: i64,
-    ids: &[i64],
-) -> rusqlite::Result<usize> {
-    let named = named_lines(conn, source_id)?;
-    for (to_id, name_id) in &named {
-        if ids.contains(to_id) {
-            continue;
-        }
-        conn.execute(
-            "DELETE FROM lines WHERE from_id = ?1 AND to_id = ?2
-               AND name_id IS NOT NULL AND name_id <> 0",
-            params![source_id, to_id],
-        )?;
-        crate::db::repos::tags::queue_name_point_gc(conn, *name_id)?;
-    }
-    conn.execute(
-        "DELETE FROM lines WHERE from_id = ?1 AND name_id IS NULL",
-        params![source_id],
-    )?;
-    let mut written = 0usize;
-    for t in ids {
-        // 名线的目标不再补第二条无名字线:卡片上会变成两个同名 chip,且永远删不干净。
-        // 编辑框里的 `#路径` 对这类目标就表示「这条关系还在」,一个目标一条线。
-        if named.iter().any(|(to, _)| to == t) {
-            continue;
-        }
-        written += conn.execute(
-            "INSERT OR IGNORE INTO lines(from_id, to_id, name_id, created_at)
-             VALUES(?1, ?2, NULL, datetime('now','localtime'))",
-            params![source_id, t],
-        )?;
-    }
-    crate::db::repos::tags::gc_orphans(conn)?;
-    Ok(written)
-}
-
 /// 替换一条来源的全部链接(替换语义,只按正文里的 `[[ ]]` 标题解析)。
-/// 生产保存路径已改走 [`replace_ids`](并入标签目标),此入口只剩 note_links 单测在用。
+/// 生产保存路径已改走 [`replace_lines`](并入标签目标与关系名),此入口只剩 note_links 单测在用。
 ///
 /// 返回**解析成功**(`lines` 落线)的条数。
 #[cfg(test)]
 pub fn replace(conn: &Connection, source_id: i64, titles: &[String]) -> rusqlite::Result<usize> {
     let ids = resolve_titles(conn, source_id, titles)?;
-    replace_ids(conn, source_id, &ids)
+    let desired: Vec<(i64, Option<i64>)> = ids.into_iter().map(|to| (to, None)).collect();
+    replace_lines(conn, source_id, &desired)
 }
 
 /// 从**已剥净标签、且已落库的那份正文**抽 `[[ ]]` 标题并解析为目标 id(只解析、不写库)。
@@ -192,3 +153,13 @@ mod note_links_fix_tests;
 #[cfg(test)]
 #[path = "note_links_l3_tests.rs"]
 mod note_links_l3_tests;
+
+/// 设计 §6.2 写入映射表 19 行逐行用例(T3)
+#[cfg(test)]
+#[path = "note_links_relation_syntax_tests.rs"]
+mod note_links_relation_syntax_tests;
+
+/// 真库副本上的名线往返无损(`#[ignore]`,T3 验收)
+#[cfg(test)]
+#[path = "note_links_roundtrip_tests.rs"]
+mod note_links_roundtrip_tests;

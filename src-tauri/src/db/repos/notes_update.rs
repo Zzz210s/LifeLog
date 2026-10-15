@@ -9,9 +9,9 @@ use rusqlite::{params, Connection};
 /// id 不存在返回 None;成功返回含全量标签的最新笔记。
 pub fn update(conn: &mut Connection, id: i64, content: &str) -> rusqlite::Result<Option<super::Note>> {
     // 解析入口与 create 同一处:严格语法优先,严格失败处按库内已有路径兜底;
-    // 写线仍只按目标路径(关系名的写线语义见设计 §6.2/§6.3,由保存写入任务接入)
+    // 落库吃的是「目标 + 名字组」(设计 §6.2/§6.3)
     let (lines, text) = super::parse_saved(conn, content)?;
-    let names: Vec<String> = lines.into_iter().map(|l| l.path).collect();
+    let paths: Vec<String> = lines.iter().map(|l| l.path.clone()).collect();
     let tx = conn.transaction()?;
     // 统一元数据(v31):正文只落 `points.meta`,不再有 kind。
     let rows = tx.execute("UPDATE points SET meta=?1 WHERE id=?2", params![text, id])?;
@@ -22,19 +22,67 @@ pub fn update(conn: &mut Connection, id: i64, content: &str) -> rusqlite::Result
     // 但脚本/裸命令按正文重建内容时会静默抹掉标签(本库曾因此丢过 10 条笔记的标签,靠快照才发现)。
     // 这里只记一条日志,不改语义。
     let before = tag_paths(&tx, id)?;
-    if names.len() < before.len() {
+    if paths.len() < before.len() {
         eprintln!(
             "更新笔记 {id}: 标签 {} 条 -> {} 条,被移除的标签:{}",
             before.len(),
-            names.len(),
-            before.iter().filter(|p| !names.contains(p)).cloned().collect::<Vec<_>>().join(" ")
+            paths.len(),
+            before.iter().filter(|p| !paths.contains(p)).cloned().collect::<Vec<_>>().join(" ")
         );
     }
+    // 名字面的对读快照必须在写库前取:被换掉 / 清掉的旧名字点在收尾 GC 里就没了
+    let names_before = name_snapshot(&tx, id)?;
     // 标签(`#X`)与链接(`[[X]]`)目标求并集后一次整体替换(spec §5.2:同一种边)。
-    super::write_saved_links(&tx, id, &names, &text)?;
+    super::write_saved_links(&tx, id, &lines, &text)?;
+    log_name_changes(id, &names_before, &name_snapshot(&tx, id)?);
     let note = read_full(&tx, id)?;
     tx.commit()?;
     Ok(note)
+}
+
+/// 名字面的对读快照(顺序 = 线 id):`(目标 id, 目标路径, 可选名字文本)`。
+/// 目标可以是树外点(`path IS NULL`),故路径是 Option,日志里再折成可读文本。
+type NameRow = (i64, Option<String>, Option<String>);
+
+fn name_snapshot(conn: &Connection, id: i64) -> rusqlite::Result<Vec<NameRow>> {
+    let mut stmt = conn.prepare(
+        "SELECT l.to_id, t.path, nm.meta FROM lines l
+           JOIN points t ON t.id = l.to_id
+           LEFT JOIN points nm ON nm.id = l.name_id
+          WHERE l.from_id = ?1 AND (l.name_id IS NULL OR l.name_id <> 0)
+          ORDER BY l.id",
+    )?;
+    let rows = stmt.query_map(params![id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
+    rows.collect()
+}
+
+/// 名字面的审计(设计 §6.3):只记日志,不改语义 —— 清名字 / 换名字 / 同一目标多条名线收敛
+/// 在 UI 上都没痕迹,数据出问题时靠这几行回溯(与上面「标签被移除」同一做法)。
+fn log_name_changes(id: i64, before: &[NameRow], after: &[NameRow]) {
+    let text = |n: &Option<String>| n.as_deref().unwrap_or("无名字").to_string();
+    let mut seen: Vec<i64> = Vec::new();
+    for (to, path, old) in before {
+        if seen.contains(to) {
+            continue;
+        }
+        seen.push(*to);
+        let Some(new) = after.iter().find(|(t, _, _)| t == to) else {
+            continue; // 整条线没了:上面那条「标签被移除」日志已覆盖
+        };
+        let label = path.as_deref().map(str::to_string).unwrap_or_else(|| format!("树外目标 {to}"));
+        let olds: Vec<String> =
+            before.iter().filter(|(t, _, _)| t == to).map(|(_, _, n)| text(n)).collect();
+        if olds.len() > 1 {
+            eprintln!(
+                "更新笔记 {id}: 目标 {label} 原有 {} 条名线({}),收敛为一条 {}",
+                olds.len(),
+                olds.join(" / "),
+                text(&new.2)
+            );
+        } else if new.2 != *old {
+            eprintln!("更新笔记 {id}: 目标 {label} 关系名 {} -> {}", text(old), text(&new.2));
+        }
+    }
 }
 
 /// 读取笔记当前标签的完整路径(树语义真源,供 update 的「标签被移除」审计日志对读)。
