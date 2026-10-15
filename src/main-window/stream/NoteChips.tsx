@@ -11,11 +11,12 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { renderTagLabel, tagLabelPlain } from '../../shared/tag-label';
 import { hoverTitle } from '../../shared/truncate-title';
+import type { NoteTag } from '../../shared/types';
 import { tagDisplayName } from '../editor/tag-display';
 import { CHIP_MAX, collapseAncestors, collapseChips } from './note-chips';
 
 export interface NoteChipsProps {
-  tags: readonly string[];
+  tags: readonly NoteTag[];
   activeTags: string[];
   onTagClick: (name: string) => void;
 }
@@ -80,7 +81,8 @@ function ChipRow(p: ChipRowProps): ReactNode {
 export function NoteChips(p: NoteChipsProps): ReactNode {
   if (p.tags.length === 0) return null;
   // 子蕴含父:祖先 chip 若其后代也在本卡片上就不再单独显示(只影响显示,不动数据)
-  const tags = collapseAncestors(p.tags);
+  // chip 文字与折叠只用**路径**(关系名是悬停文案的事,设计 §5.3)
+  const tags = collapseAncestors(p.tags.map((t) => t.path));
   // key 随标签集合变化:笔记保存后标签变了,展开态跟着重置(不会停在旧集合上)
   return <ChipRow key={tags.join('\u0000')} tags={tags} activeTags={p.activeTags} onTagClick={p.onTagClick} />;
 }

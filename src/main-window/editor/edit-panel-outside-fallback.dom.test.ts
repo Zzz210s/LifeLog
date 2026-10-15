@@ -5,6 +5,7 @@
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { noteTag } from '../../shared/__fixtures__/note-tag';
 import type { Note } from '../../shared/types';
 import { EditPanel } from './EditPanel';
 
@@ -20,7 +21,7 @@ const note = (content: string): Note => ({
   id: 42,
   content,
   created_at: '2026-09-21 08:00:00', links: [],
-  tags: ['水果'],
+  tags: [noteTag('水果')],
 });
 
 let root: Root | null = null;

@@ -7,6 +7,8 @@
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { noteTag } from '../../shared/__fixtures__/note-tag';
+import type { NoteTag } from '../../shared/types';
 import { NoteChips } from './NoteChips';
 
 /** 让元素看起来"被 CSS 截断"(jsdom 里 scrollWidth/clientWidth 恒 0):随后触发 React 的 onMouseEnter */
@@ -36,7 +38,7 @@ afterEach(() => {
   host.remove();
 });
 
-async function render(tags: string[]): Promise<HTMLElement[]> {
+async function render(tags: NoteTag[]): Promise<HTMLElement[]> {
   await act(async () => {
     root.render(
       createElement(NoteChips, { tags, activeTags: [], onTagClick: (t: string) => clicked.push(t) })
@@ -47,7 +49,7 @@ async function render(tags: string[]): Promise<HTMLElement[]> {
 
 describe('T1 笔记 chip:完整路径的预览态 + 悬浮备注', () => {
   it('chip 显示 #地点/郴州市,悬浮 title 是纯文本,「郴」上挂 data-tip=chēn', async () => {
-    const [chip] = await render([RAW]);
+    const [chip] = await render([noteTag(RAW)]);
     expect(chip.textContent).toBe(`#${PLAIN}`);
     // 未截断时不挂 title(冗余提示已移除);截断时才给完整纯文本
     expect(chip.getAttribute('title')).toBeNull();
@@ -59,13 +61,13 @@ describe('T1 笔记 chip:完整路径的预览态 + 悬浮备注', () => {
   });
 
   it('点击 chip 回传原始路径(语法不参与寻址)', async () => {
-    const [chip] = await render([RAW]);
+    const [chip] = await render([noteTag(RAW)]);
     await act(async () => chip.click());
     expect(clicked).toEqual([RAW]);
   });
 
   it('普通路径 chip 逐字不变', async () => {
-    const [chip] = await render(['工作/会议']);
+    const [chip] = await render([noteTag('工作/会议')]);
     expect(chip.textContent).toBe('#工作/会议');
     expect(chip.querySelector('span')).toBeNull();
   });

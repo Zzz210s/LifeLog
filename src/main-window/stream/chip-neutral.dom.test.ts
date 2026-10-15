@@ -8,11 +8,12 @@
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { noteTag } from '../../shared/__fixtures__/note-tag';
 import { NoteChips } from './NoteChips';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const TAGS = ['水果/苹果', '状态/想做'];
+const TAGS = [noteTag('水果/苹果'), noteTag('状态/想做')];
 
 let root: Root;
 let host: HTMLDivElement;

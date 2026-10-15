@@ -3,6 +3,7 @@
  * 失败不通知(没写库就没有新标签,白刷一次全树 list_tags 没意义)。
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { noteTag } from '../../shared/__fixtures__/note-tag';
 import type { Note } from '../../shared/types';
 import { deleteNote as removeNote, updateNote as writeNote } from './note-writes';
 
@@ -15,7 +16,7 @@ vi.mock('../../shared/api', () => ({ api: { updateNote, deleteNote } }));
 const { notifyTagsChanged } = vi.hoisted(() => ({ notifyTagsChanged: vi.fn() }));
 vi.mock('./tags-changed', () => ({ notifyTagsChanged }));
 
-const note: Note = { id: 7, content: '买牛奶', created_at: '2026-09-22 10:00:00', links: [], tags: ['生活'] };
+const note: Note = { id: 7, content: '买牛奶', created_at: '2026-09-22 10:00:00', links: [], tags: [noteTag('生活')] };
 
 beforeEach(() => {
   vi.clearAllMocks();

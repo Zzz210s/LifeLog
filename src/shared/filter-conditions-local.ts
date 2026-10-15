@@ -4,6 +4,7 @@
  */
 import { normalizeGroups } from './filter-conditions';
 import type { FilterConditions } from './filter-conditions';
+import type { NoteTag } from './types';
 
 /** 就地变更后能否本地重判:组间 AND、每组组内 AND、且项全是"仅本级"引入标签。
  *  表达式 / 关系 / 有无标签 / 排除项都是后端语义(前端不做第二套解析/继承),有一律重查。 */
@@ -15,9 +16,10 @@ export function canEvaluateLocally(c: FilterConditions): boolean {
   );
 }
 
-/** 本地重判:笔记是否仍满足全部"仅本级"引入标签(AND) */
-export function matchesTagsByPath(note: { tags: string[] }, c: FilterConditions): boolean {
+/** 本地重判:笔记是否仍满足全部"仅本级"引入标签(AND)。
+ *  命中只看**路径**(设计 §5.2):关系名不参与 —— 名字是显示/回写用的,不是筛选语义。 */
+export function matchesTagsByPath(note: { tags: NoteTag[] }, c: FilterConditions): boolean {
   return normalizeGroups(c).groups.every((g) =>
-    g.items.every((it) => it.kind === 'tag' && note.tags.includes(it.path))
+    g.items.every((it) => it.kind === 'tag' && note.tags.some((t) => t.path === it.path))
   );
 }

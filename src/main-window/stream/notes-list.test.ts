@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { noteTag } from '../../shared/__fixtures__/note-tag';
 import type { Note } from '../../shared/types';
 import { EMPTY_FILTER } from '../../shared/filter-conditions';
 import { matchesTagsByPath } from '../../shared/filter-conditions-local';
@@ -52,8 +53,8 @@ describe('needsRefetchAfterChange', () => {
   });
 
   it('判定与变更后是否命中标签筛选无关(无关键词时不因失配而重查)', () => {
-    const hit = { ...note(1, '苹果 好吃'), tags: ['水果'] };
-    const missTag = { ...note(1, '苹果 好吃'), tags: ['其他'] };
+    const hit = { ...note(1, '苹果 好吃'), tags: [noteTag('水果')] };
+    const missTag = { ...note(1, '苹果 好吃'), tags: [noteTag('其他')] };
     const condOf = (...tags: string[]) => ({
       ...EMPTY_FILTER,
       tags: tags.map((path) => ({ path, includeChildren: false })),

@@ -5,6 +5,7 @@
  */
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { noteTag } from '../../../shared/__fixtures__/note-tag';
 import type { GraphNode, Note } from '../../../shared/types';
 import type { Camera } from '../graph-camera';
 import type { Point } from '../radial';
@@ -39,7 +40,7 @@ export const page = (n: number): Note[] =>
     content: `笔记${i + 1}`,
     created_at: '2026-09-29 10:00:00',
     links: [],
-    tags: ['工作/项目A'],
+    tags: [noteTag('工作/项目A')],
   }));
 
 export interface MountedExpanded {

@@ -7,7 +7,8 @@
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Note } from '../../shared/types';
+import { noteTag } from '../../shared/__fixtures__/note-tag';
+import type { Note, NoteTag } from '../../shared/types';
 import { shouldEnterEdit } from './body-click';
 import { NoteItem } from './NoteItem';
 
@@ -17,7 +18,7 @@ vi.mock('@tauri-apps/plugin-opener', () => ({ openUrl }));
 // react-dom 的 act 需要这个全局标记(Vitest 无内置 RTL 配置)
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const note = (content: string, tags: string[] = []): Note => ({
+const note = (content: string, tags: NoteTag[] = []): Note => ({
   id: 1,
   content,
   created_at: '2026-09-21 08:00:00', links: [],
@@ -150,7 +151,7 @@ describe('NoteItem 点正文进编辑', () => {
   });
 
   it('守卫四:点标签 chip 不进编辑,仍走 onTagClick(且 chip 不在正文容器内)', async () => {
-    await mount(note('正文', ['水果']));
+    await mount(note('正文', [noteTag('水果')]));
     const chip = buttonWithText('#水果');
     expect(pick('.md-body').contains(chip)).toBe(false);
     await click(chip);

@@ -9,6 +9,7 @@ import { readFileSync } from 'node:fs';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { noteTag } from '../../shared/__fixtures__/note-tag';
 import type { Note } from '../../shared/types';
 import { NoteItem } from './NoteItem';
 import { NoteStream } from './NoteStream';
@@ -23,7 +24,7 @@ const NOTE: Note = {
   content: '第一条正文',
   created_at: '2026-09-22 08:00:00', links: [],
   // 一条主题标签 + 一条属性标签:两排 chip 都会渲染,用来核对两排行间距一致
-  tags: ['水果/苹果', '状态/想做'],
+  tags: [noteTag('水果/苹果'), noteTag('状态/想做')],
 };
 
 let root: Root;

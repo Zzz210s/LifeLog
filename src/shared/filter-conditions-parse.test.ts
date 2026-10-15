@@ -98,7 +98,7 @@ describe('本地重判(就地更新用)', () => {
   });
 
   it('同路径集合重判(AND)', () => {
-    const note = { tags: ['a', 'b/c'] };
+    const note = { tags: [{ path: 'a', relationName: null }, { path: 'b/c', relationName: null }] };
     expect(matchesTagsByPath(note, EMPTY_FILTER)).toBe(true);
     expect(matchesTagsByPath(note, cond({ tags: [tag('a'), tag('b/c')] }))).toBe(true);
     expect(matchesTagsByPath(note, cond({ tags: [tag('a'), tag('缺')] }))).toBe(false);

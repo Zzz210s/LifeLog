@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { toggleTaskAt } from './md-task';
+import { noteTag } from './__fixtures__/note-tag';
 import { composeSource } from './note-source';
 
 describe('toggleTaskAt 基本切换', () => {
@@ -107,10 +108,13 @@ describe('toggleTaskAt 边界与排除', () => {
 
 describe('勾选写回的标签契约', () => {
   it('composeSource(新正文, 全部标签) 不丢任何标签', () => {
-    const note = { content: '- [ ] 买牛奶', tags: ['待办', '时间排序/2026/09/17'] };
+    const note = {
+      content: '- [ ] 买牛奶',
+      tags: [noteTag('待办'), noteTag('时间排序/2026/09/17')],
+    };
     const next = toggleTaskAt(note.content, 0);
     const source = composeSource(next!, note.tags);
     expect(source).toBe('- [x] 买牛奶\n#待办 #时间排序/2026/09/17');
-    for (const t of note.tags) expect(source).toContain('#' + t);
+    for (const t of note.tags) expect(source, t.path).toContain('#' + t.path);
   });
 });

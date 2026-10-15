@@ -10,7 +10,8 @@
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Note } from '../../shared/types';
+import { noteTag } from '../../shared/__fixtures__/note-tag';
+import type { Note, NoteTag } from '../../shared/types';
 import { EditPanel } from './EditPanel';
 
 const { updateNote, parseNoteSource, completeNotes, listTags } = vi.hoisted(() => ({
@@ -23,7 +24,7 @@ vi.mock('../../shared/api', () => ({ api: { updateNote, parseNoteSource, complet
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const note = (content: string, tags: string[] = ['水果'], id = 7): Note => ({
+const note = (content: string, tags: NoteTag[] = [noteTag('水果')], id = 7): Note => ({
   id,
   content,
   created_at: '2026-09-21 08:00:00',
@@ -163,7 +164,7 @@ describe('卡片编辑源码框:`[[` 笔记补全', () => {
       { id: 7, title: '本条自己' },
       { id: 1, title: '买牛奶' },
     ]);
-    await mount(note('正文', ['水果'], 7));
+    await mount(note('正文', [noteTag('水果')], 7));
     await type('[[');
     expect(labels()).toEqual(['买牛奶']);
   });

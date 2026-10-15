@@ -4,7 +4,8 @@
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Note } from '../../shared/types';
+import { noteTag } from '../../shared/__fixtures__/note-tag';
+import type { Note, NoteTag } from '../../shared/types';
 import { EditPanel } from './EditPanel';
 
 const { updateNote, parseNoteSource } = vi.hoisted(() => ({
@@ -15,7 +16,7 @@ vi.mock('../../shared/api', () => ({ api: { updateNote, parseNoteSource , noteLi
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const note = (content: string, tags: string[] = ['水果']): Note => ({
+const note = (content: string, tags: NoteTag[] = [noteTag('水果')]): Note => ({
   id: 7,
   content,
   created_at: '2026-09-21 08:00:00', links: [],
@@ -166,8 +167,8 @@ describe('R4 进编辑不改动滚动位置', () => {
 
 describe('EditPanel 标签数实时提示', () => {
   it('提示仍在:初始回退已保存标签数,防抖后显示解析结果', async () => {
-    parseNoteSource.mockResolvedValue({ content: '', tags: ['a', 'b'] });
-    await mount(note('正文', ['水果']));
+    parseNoteSource.mockResolvedValue({ content: '', tags: [noteTag('a'), noteTag('b')] });
+    await mount(note('正文', [noteTag('水果')]));
     const hint = host.querySelector('[data-testid="edit-tag-count"]');
     expect(hint?.textContent).toContain('标签 1 个');
     await act(async () => {

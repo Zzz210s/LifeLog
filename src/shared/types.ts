@@ -1,3 +1,8 @@
+/** 一条标签线出 IPC 的形状(Rust `NoteTag` 逐字一致):目标**完整路径** + 关系名(null = 无名字的线) */
+export interface NoteTag {
+  path: string;
+  relationName: string | null;
+}
 
 /** 信息流读回的一条**实体**(IPC `query_notes`):统一实体后只有一种读 DTO,不再按「笔记 / 标签」分形状;
  *  `id` 是实体 id(与树内实体同属 `entities`),`content` 就是 `entities.meta` 原文(标签词元已剥离)。 */
@@ -6,8 +11,8 @@ export interface Note {
   content: string;
   /** 创建时间(物理列,库内 localtime 口径);流里只显示它,不改期、不参与排序与筛选 */
   created_at: string;
-  /** 该实体连到的标签**完整路径**集合(树语义真源;根级标签即其名称) */
-  tags: string[];
+  /** 该实体连到的标签线集合(树语义真源;根级标签即其名称;`relationName` 是关系名) */
+  tags: NoteTag[];
   /** 正文与 `#` 词元的出链(L2):已解析一条也带 targetId/title,null 表示未解析 */
   links: NoteLink[];
 }
@@ -111,8 +116,8 @@ export interface DbInfo {
 export interface ParseResult {
   /** 保存后的正文:标签词元已剥离、行内空白已归一 */
   content: string;
-  /** 按首现顺序去重的标签**完整路径** */
-  tags: string[];
+  /** 按首现顺序去重的标签线(完整路径 + 关系名);编辑面板靠它回显/计数 */
+  tags: NoteTag[];
 }
 
 /**

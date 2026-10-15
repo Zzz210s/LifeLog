@@ -4,6 +4,7 @@
  * notice 渲染顶部提示条。装配与其他 StreamView 用例共用 __fixtures__/stream-view-harness.ts。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { noteTag } from '../../shared/__fixtures__/note-tag';
 import type { Note } from '../../shared/types';
 import type { GroupedView } from '../data/use-stream-feed';
 import { installGeometryStubs, mountStreamView } from '../shell/__fixtures__/stream-view-harness';
@@ -16,7 +17,7 @@ const { getSetting, setSetting, saveInputNote, carriedTagPaths } = vi.hoisted(()
 }));
 vi.mock('../../shared/api', () => ({ api: { getSetting, setSetting, saveInputNote, carriedTagPaths } }));
 
-const GNOTE: Note = { id: 8, content: '分组里的一条', created_at: '2026-10-06 10:00:00', tags: ['地点/美国'], links: [] };
+const GNOTE: Note = { id: 8, content: '分组里的一条', created_at: '2026-10-06 10:00:00', tags: [noteTag('地点/美国')], links: [] };
 const view = (onToggle = vi.fn(), onLoadMore = vi.fn()): GroupedView => ({
   groups: [
     { key: '地点/美国', sessionKey: '地点/美国', label: '美国', count: 169, notes: [GNOTE], hasMore: true },
