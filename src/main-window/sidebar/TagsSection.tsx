@@ -56,7 +56,7 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
   const facts = useTagFacts(tagIds, factsNonce);
 
   const tree = useMemo(() => buildTree(p.tagRows), [p.tagRows]);
-  const shown = useMemo(() => filterTree(tree, search.query), [tree, search.query]);
+  const shown = useMemo(() => filterTree(tree, search.committed), [tree, search.committed]);
   const activePaths = useMemo(() => new Set(itemPaths(p.conditions, 'tag')), [p.conditions]);
   const excludedPaths = useMemo(
     () => new Set(itemPaths(p.conditions, 'excludeTag')),
@@ -144,7 +144,7 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
         onToggleRelations={() => p.onShowRelationsChange?.(!(p.showRelations === true))}
         searchOpen={search.searchOpen}
         query={search.query}
-        onQueryChange={search.setQuery}
+        ime={search.ime}
         onToggleSearch={search.toggleSearch}
         onCloseSearch={search.closeSearch}
       />

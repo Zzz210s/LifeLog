@@ -71,7 +71,9 @@ export function useTagComplete(opts: TagCompleteOptions): TagCompleteState {
   useEffect(() => {
     const el = opts.textareaRef.current;
     if (!el) return;
-    const recompute = () => {
+    const recompute = (ev?: Event) => {
+      // 组合中的原始拼音不进候选:标签候选按拼音收窄 + 多打一次 completeTags IPC 都是 bug
+      if (ev !== undefined && 'isComposing' in ev && ev.isComposing === true) return;
       const caret = el.selectionStart ?? 0;
       const token = tokenAt(el.value.slice(0, caret));
       if (token === null) {
@@ -109,10 +111,12 @@ export function useTagComplete(opts: TagCompleteOptions): TagCompleteState {
     el.addEventListener('input', recompute);
     el.addEventListener('keyup', onKeyUp);
     el.addEventListener('click', recompute); // 点击换位
+    el.addEventListener('compositionend', recompute); // 上屏:补一次候选(有些提交路径不再补非组合 input)
     return () => {
       el.removeEventListener('input', recompute);
       el.removeEventListener('keyup', onKeyUp);
       el.removeEventListener('click', recompute);
+      el.removeEventListener('compositionend', recompute);
     };
   }, [opts.textareaRef, clear, setList]);
 

@@ -3,6 +3,7 @@ import { listen } from '@tauri-apps/api/event';
 import { api } from '../shared/api';
 import { prepareForSave } from '../shared/note-source';
 import { savedStamp } from '../shared/input-feedback';
+import { useImeInput } from '../shared/use-ime-composition';
 import { canClose, canEdit } from '../shared/input-lock';
 import { useThemeMode } from '../shared/use-theme-mode';
 import { useInputCompletions } from './use-input-completions';
@@ -15,7 +16,9 @@ import { useInputWheel } from './use-input-wheel';
 import { usePaletteSettings } from '../main-window/palette/use-palette-settings';
 
 export function InputBar() {
-  const [content, setContent] = useState('');
+  // 组合守卫:显示值 content 组合中照常跟随(非受控框的文字本来就在 DOM 里),补全候选只读
+  // committed —— 否则拼音未上屏时 `#`/`[[` 候选已经按原始拼音收窄、还多打一次 IPC
+  const { value: content, committed, setValue, handlers } = useImeInput();
   // 光标镜像(`[[` 补全的触发判断读它;`]]` 类语法要按光标切片,不能只看整串)
   const [caret, setCaret] = useState(0);
   // 笔记候选池的作废键:输入栏保存后自增,下一次 `[[` 会重取(否则新笔记不在池里)
@@ -36,9 +39,9 @@ export function InputBar() {
       el.value = next;
       el.setSelectionRange(next.length, next.length); // `el.value =` 后的落点跨浏览器不一致,显式落到末尾
     }
-    setContent(next);
+    setValue(next);
     setCaret(next.length);
-  }, []);
+  }, [setValue]);
   const { settings, lock, error, setError, unlock } = useInputSettings();
   // 首次使用引导的开窗由 Rust 启动路径做(前端建窗会卡主线程,见 windowing/startup.rs)
   // 主题:输入栏不写库,只跟随主窗广播(见 shared/use-theme-mode);窗口保持透明
@@ -50,7 +53,7 @@ export function InputBar() {
   const palette = usePaletteSettings();
   const complete = useInputCompletions({
     textareaRef: inputRef,
-    value: content,
+    value: committed, // 组合中的原始拼音不进候选
     caret,
     onReplace: applyValue,
     palette,
@@ -171,8 +174,12 @@ export function InputBar() {
         name="content"
         readOnly={!editing}
         onChange={(e) => {
-          setContent(e.target.value);
+          handlers.onChange(e.target.value, e.nativeEvent);
           setCaret(e.target.selectionStart ?? 0);
+        }}
+        onCompositionEnd={(e) => {
+          handlers.onCompositionEnd(e.currentTarget.value); // 上屏文本立即提交,补全据此搜一次
+          setCaret(e.currentTarget.selectionStart ?? 0);
         }}
         onSelect={(e) => setCaret(e.currentTarget.selectionStart ?? 0)}
         onKeyDown={onKeyDown}

@@ -120,4 +120,22 @@ describe('侧栏标签树收窄搜索', () => {
     type('会议');
     expect(paths()).toEqual(['工作', '工作/项目A', '工作/项目A/会议']);
   });
+
+  it('组合中的原始拼音不收窄树:上屏后才按最终词收窄一次', async () => {
+    await render();
+    await act(async () => searchButton().click());
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+    const fire = (v: string, ev: Event): void => {
+      const el = input();
+      act(() => {
+        setter.call(el, v);
+        el.dispatchEvent(ev);
+      });
+    };
+    fire('hui', new InputEvent('input', { bubbles: true, isComposing: true, data: 'hui' }));
+    expect(input().value).toBe('hui'); // 拼音照样显示在框里
+    expect(paths()).toHaveLength(4); // ① 未上屏:树不收窄
+    fire('会议', new CompositionEvent('compositionend', { bubbles: true, data: '会议' }));
+    expect(paths()).toEqual(['工作', '工作/项目A', '工作/项目A/会议']); // ② 上屏后才按最终词收窄
+  });
 });

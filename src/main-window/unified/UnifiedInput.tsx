@@ -14,13 +14,14 @@ import type { ReactNode } from 'react';
 import { api } from '../../shared/api';
 import { prepareForSave } from '../../shared/note-source';
 import type { InputMode } from '../../shared/input-prefix';
+import { useComposing } from '../../shared/use-ime-composition';
 import { BTN_PRIMARY } from '../shell/button-classes';
 import { PrefixHint } from './PrefixHint';
 import { UNIFIED_LISTBOX_ID } from './UnifiedDropdown';
 import { UnifiedTextarea } from './UnifiedTextarea';
 import { useCloseOnFocusOut } from './use-close-on-focus-out';
 import type { UnifiedCandidateWiring } from './use-unified-candidates';
-import { useUnifiedInput, type UnifiedController } from './use-unified-input';
+import { useUnifiedGate, useUnifiedInput, type UnifiedController } from './use-unified-input';
 import { useUnifiedPanel, type UnifiedPanelOptions } from './use-unified-panel';
 
 export interface UnifiedInputProps {
@@ -51,12 +52,14 @@ const MAX_HEIGHT = 280;
 
 export function UnifiedInput(p: UnifiedInputProps): ReactNode {
   const c = useUnifiedInput();
+  const ime = useComposing();
   const ref = useRef<HTMLTextAreaElement>(null);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   // 光标位置与「采纳后要落的光标」:链接触发判断要前者,写回正文后要后者
   const [caret, setCaret] = useState(0);
   const pendingCaret = useRef<number | null>(null);
+  const gate = useUnifiedGate(c.state, caret, ime.composing); // 下游只认它:组合中的拼音进不了候选/查询/筛选回写
 
   // controller 对象每次渲染都是新的(方法本身是 useCallback 稳定身份):直接上报会让把它存进 state
   // 的父组件死循环,故状态用 getter 读最新一份、外壳只建一次。
@@ -85,11 +88,11 @@ export function UnifiedInput(p: UnifiedInputProps): ReactNode {
     ref.current?.focus({ preventScroll: true });
   }, [c.focusSignal]);
 
-  // 模式/query 上报:统一发状态机的**派生值**(不在 onChange 里现算 raw)——
-  // 除了输入,esc/clear 也会换模式,父组件据此取消挂起的筛选防抖
+  // 模式/query 上报:统一发状态机的**派生值**(不在 onChange 里现算 raw)——除了输入,
+  // esc/clear 也会换模式,父组件据此取消挂起的筛选防抖;组合中的拼音不进这里(gate 冻在组合前)
   useEffect(() => {
-    p.onStateChange?.({ mode: c.state.mode, query: c.state.query, prefix: c.state.prefix });
-  }, [p.onStateChange, c.state.mode, c.state.query, c.state.prefix]);
+    p.onStateChange?.({ mode: gate.view.mode, query: gate.view.query, prefix: gate.view.prefix });
+  }, [p.onStateChange, gate.view.mode, gate.view.query, gate.view.prefix]);
 
   // 采纳链接写回后落光标:受控值要先提交到 DOM 再设选区,否则会被这轮渲染重置
   useEffect(() => {
@@ -126,13 +129,13 @@ export function UnifiedInput(p: UnifiedInputProps): ReactNode {
     }
   };
 
-  // 候选面板:前缀候选 + `[[` 链接候选,选择/键盘/下拉都在 hook 里
+  // 候选面板:前缀候选 + `[[` 链接候选,选择/键盘/下拉都在 hook 里;raw/caret/mode/query 走 gate
   const panel = useUnifiedPanel({
-    raw: c.state.raw,
-    caret,
-    mode: c.state.mode,
-    query: c.state.query,
-    prefixOpen: c.state.dropdownOpen,
+    raw: gate.raw,
+    caret: gate.caret,
+    mode: gate.view.mode,
+    query: gate.view.query,
+    prefixOpen: c.state.dropdownOpen, // 下拉开合是状态机的语义(Esc/采纳会关它),derive 的恒等式给不了
     palette: p.candidates?.palette ?? null,
     decorations: p.candidates?.decorations,
     dataVersion: p.dataVersion ?? 0,
@@ -165,9 +168,10 @@ export function UnifiedInput(p: UnifiedInputProps): ReactNode {
           activeOptionId={panel.activeOptionId}
           onKeyDown={panel.onKeyDown}
           onSelect={() => setCaret(ref.current?.selectionStart ?? 0)}
-          onChange={(raw, next) => {
+          onChange={(raw, next, nativeEvent) => {
             c.setRaw(raw);
             setCaret(next);
+            ime.sync(nativeEvent); // 组合标志:值照样进输入框,只门控下游
             setError(''); // 一有输入就收起保存失败提示,否则它会长期占着提示行
             resize();
           }}

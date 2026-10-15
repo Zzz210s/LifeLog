@@ -11,19 +11,21 @@ import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { tagLabelPlain } from '../../shared/tag-label';
 import type { GraphNode } from '../../shared/types';
+import { useImeInput } from '../../shared/use-ime-composition';
 import { searchNodes } from './graph-search';
 
 export function GraphSearch(p: {
   nodes: readonly GraphNode[];
   onPick: (node: GraphNode) => void;
 }): ReactNode {
-  const [query, setQuery] = useState('');
+  // 组合守卫:显示值照常跟随;命中/空提示/Enter 取第一条都只认 committed(拼音上屏前不搜)
+  const ime = useImeInput();
   const [open, setOpen] = useState(false);
-  const hits = useMemo(() => searchNodes(p.nodes, query), [p.nodes, query]);
-  const typed = query.trim() !== '';
+  const hits = useMemo(() => searchNodes(p.nodes, ime.committed), [p.nodes, ime.committed]);
+  const typed = ime.committed.trim() !== '';
 
   const close = (): void => {
-    setQuery('');
+    ime.setValue('');
     setOpen(false);
   };
 
@@ -40,14 +42,15 @@ export function GraphSearch(p: {
     >
       <input
         data-testid="graph-search-input"
-        value={query}
+        value={ime.value}
         placeholder="搜索标签"
         aria-label="搜索标签"
         className="h-8 w-full rounded-sm border border-border-strong bg-raised px-2 text-ui text-text outline-none placeholder:text-muted focus-visible:ring-1 focus-visible:ring-accent"
         onChange={(e) => {
-          setQuery(e.target.value);
+          ime.handlers.onChange(e.currentTarget.value, e.nativeEvent);
           setOpen(true);
         }}
+        onCompositionEnd={(e) => ime.handlers.onCompositionEnd(e.currentTarget.value)}
         onFocus={() => setOpen(true)}
         onKeyDown={(e) => {
           if (e.key === 'Enter') {

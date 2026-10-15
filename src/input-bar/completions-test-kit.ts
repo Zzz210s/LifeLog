@@ -10,6 +10,7 @@ import { act, createElement, useRef, useState } from 'react';
 import type { ChangeEvent, KeyboardEvent as ReactKeyboardEvent, ReactNode, SyntheticEvent } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import type { PaletteSettingsApi } from '../main-window/palette/use-palette-settings';
+import { useImeInput } from '../shared/use-ime-composition';
 import { useInputCompletions } from './use-input-completions';
 
 const SET_VALUE = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!;
@@ -17,7 +18,7 @@ const SET_VALUE = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,
 /** 宿主接线的最小复刻:非受控 textarea + 值/光标镜像 + 采纳写回(与 InputBar.applyValue 同形) */
 function Harness({ palette }: { palette?: PaletteSettingsApi | null }): ReactNode {
   const ref = useRef<HTMLTextAreaElement>(null);
-  const [value, setValue] = useState('');
+  const { committed, setValue, handlers } = useImeInput();
   const [caret, setCaret] = useState(0);
   const apply = (next: string) => {
     const el = ref.current;
@@ -28,7 +29,8 @@ function Harness({ palette }: { palette?: PaletteSettingsApi | null }): ReactNod
     setValue(next);
     setCaret(next.length);
   };
-  const c = useInputCompletions({ textareaRef: ref, value, caret, onReplace: apply, palette });
+  // 与 InputBar 同口径:候选读 committed(组合中的原始拼音不算数)
+  const c = useInputCompletions({ textareaRef: ref, value: committed, caret, onReplace: apply, palette });
   return createElement(
     'div',
     null,
@@ -37,8 +39,12 @@ function Harness({ palette }: { palette?: PaletteSettingsApi | null }): ReactNod
       defaultValue: '',
       'aria-label': '输入栏内容',
       onChange: (e: ChangeEvent<HTMLTextAreaElement>) => {
-        setValue(e.target.value);
+        handlers.onChange(e.target.value, e.nativeEvent);
         setCaret(e.target.selectionStart ?? 0);
+      },
+      onCompositionEnd: (e: SyntheticEvent<HTMLTextAreaElement>) => {
+        handlers.onCompositionEnd(e.currentTarget.value);
+        setCaret(e.currentTarget.selectionStart ?? 0);
       },
       onSelect: (e: SyntheticEvent<HTMLTextAreaElement>) => setCaret(e.currentTarget.selectionStart ?? 0),
       onKeyDown: (e: ReactKeyboardEvent<HTMLTextAreaElement>) => {
@@ -54,6 +60,10 @@ export interface CompletionsDom {
   box(): HTMLTextAreaElement;
   /** 模拟键入:改值 + 光标落末尾 + 派发 input */
   type(text: string): Promise<void>;
+  /** 模拟组合中的一步:原始拼音已进 DOM,但还没上屏(input 带 isComposing) */
+  compose(text: string): Promise<void>;
+  /** 模拟上屏:值换成最终文本 + 派发 compositionend */
+  commit(text: string): Promise<void>;
   /** 派发 keydown(可带 isComposing) */
   key(k: string, init?: KeyboardEventInit): Promise<void>;
   /** 派发只给 keyCode 229 的输入法 keydown(组合态的另一形态) */
@@ -95,6 +105,24 @@ export async function mountCompletions(
         SET_VALUE.call(el, text);
         el.setSelectionRange(text.length, text.length);
         el.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      await settle();
+    },
+    async compose(text: string) {
+      const el = box();
+      await act(async () => {
+        SET_VALUE.call(el, text);
+        el.setSelectionRange(text.length, text.length);
+        el.dispatchEvent(new InputEvent('input', { bubbles: true, isComposing: true, data: text }));
+      });
+      await settle();
+    },
+    async commit(text: string) {
+      const el = box();
+      await act(async () => {
+        SET_VALUE.call(el, text);
+        el.setSelectionRange(text.length, text.length);
+        el.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true, data: text }));
       });
       await settle();
     },

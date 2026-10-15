@@ -143,7 +143,7 @@ describe('V4 标签分区头部:图标按钮 28 档', () => {
       onToggleRelations: () => {},
       searchOpen: false,
       query: '',
-      onQueryChange: () => {},
+      ime: { onChange: () => {}, onCompositionEnd: () => {} },
       onToggleSearch: () => {},
       onCloseSearch: () => {},
       ...over,

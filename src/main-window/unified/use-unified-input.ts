@@ -7,8 +7,9 @@
  *     (快捷键 Ctrl+P / Ctrl+Shift+P 的语义 = 聚焦这一个框并预填前缀,
  *      见计划 Task 7;不在这里直接 focus,是因为 ref 归组件所有)。
  */
-import { useCallback, useReducer, useState } from 'react';
-import { initialUnified, reduceUnified, type UnifiedState } from './unified-input-model';
+import { useCallback, useMemo, useReducer, useState } from 'react';
+import { useImeCommitted } from '../../shared/use-ime-composition';
+import { derive, initialUnified, reduceUnified, type UnifiedState } from './unified-input-model';
 
 export interface UnifiedController {
   state: UnifiedState;
@@ -52,4 +53,25 @@ export function useUnifiedInput(initialRaw = ''): UnifiedController {
     clear,
     closeDropdown,
   };
+}
+
+export interface UnifiedGate {
+  /** 下游用的原始文本(组合中冻结在组合前那一版) */
+  raw: string;
+  /** 与 raw 配套的光标 */
+  caret: number;
+  /** raw 的派生状态:mode/query/prefix/dropdownOpen 一次给全 */
+  view: UnifiedState;
+}
+
+/**
+ * 组合守卫后的下游视图。输入框本身照 `controller.state.raw` 渲染(拼音可见、光标不丢),
+ * 但候选/查询/`/` 筛选的防抖回写只认这里的 `raw/caret/view` —— 组合中它们冻在组合前那一版,
+ * `compositionend` 后为上屏文本。
+ */
+export function useUnifiedGate(state: UnifiedState, caret: number, composing: boolean): UnifiedGate {
+  const raw = useImeCommitted(state.raw, composing);
+  const gatedCaret = useImeCommitted(caret, composing);
+  const view = useMemo(() => derive(raw), [raw]);
+  return { raw, caret: gatedCaret, view };
 }

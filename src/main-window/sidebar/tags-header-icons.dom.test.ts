@@ -60,7 +60,7 @@ const render = async (
         },
         searchOpen,
         query: '',
-        onQueryChange: () => {},
+        ime: { onChange: () => {}, onCompositionEnd: () => {} },
         onToggleSearch: () => {
           searchCalls += 1;
         },

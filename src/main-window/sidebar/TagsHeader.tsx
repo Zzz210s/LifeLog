@@ -15,6 +15,7 @@
  * 放大镜的输入框是另一回事:它只收窄看得见的树,不改筛选条件(不预填 `#`)。
  */
 import type { ReactNode } from 'react';
+import type { ImeInputHandlers } from '../../shared/use-ime-composition';
 import type { TagViewMode } from './use-sidebar-state';
 import { BTN_ICON } from '../shell/button-classes';
 
@@ -35,9 +36,10 @@ export interface TagsHeaderProps {
   onToggleRelations: () => void;
   /** 搜索框是否展开(默认收起,点击放大镜切换) */
   searchOpen: boolean;
-  /** 收窄关键词(空串 = 全树) */
+  /** 收窄关键词(显示值;空串 = 全树) */
   query: string;
-  onQueryChange: (v: string) => void;
+  /** 输入框的组合守卫接线(值/组合标志一起维护) */
+  ime: ImeInputHandlers;
   /** 放大镜:开/关搜索框 */
   onToggleSearch: () => void;
   /** Esc:清空关键词并收起 */
@@ -122,9 +124,11 @@ export function TagsHeader(p: TagsHeaderProps): ReactNode {
         <input
           autoFocus
           value={p.query}
-          onChange={(e) => p.onQueryChange(e.target.value)}
+          onChange={(e) => p.ime.onChange(e.currentTarget.value, e.nativeEvent)}
+          onCompositionEnd={(e) => p.ime.onCompositionEnd(e.currentTarget.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Escape') p.onCloseSearch();
+            // 组合中不抢 Esc(那一下是取消候选),否则会把收窄搜索连关键词一起关掉
+            if (e.key === 'Escape' && !e.nativeEvent.isComposing) p.onCloseSearch();
           }}
           placeholder="按名称收窄标签树"
           aria-label="按名称收窄标签树"

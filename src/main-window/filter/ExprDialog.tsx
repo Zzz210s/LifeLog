@@ -9,6 +9,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { api } from '../../shared/api';
+import { useImeInput } from '../../shared/use-ime-composition';
 import { BTN_ICON, BTN_PRIMARY, BTN_SECONDARY } from '../shell/button-classes';
 import { ExprSyntaxHint } from './ExprSyntaxHint';
 import { caretOf, errorLabelOf, localExprError } from './expr-check';
@@ -30,7 +31,10 @@ type Check = { forText: string; ok: boolean; message: string; position: number |
 
 /** 表达式编辑对话框 */
 export function ExprDialog(p: ExprDialogProps): ReactNode {
-  const [text, setText] = useState(p.value ?? '');
+  // 组合守卫:显示值 text 照常跟随,校验(250ms 防抖 + validate_expr IPC)只认 committed
+  const ime = useImeInput(p.value ?? '');
+  const text = ime.value;
+  const committed = ime.committed;
   const [check, setCheck] = useState<Check>({
     forText: p.value ?? '',
     ok: true,
@@ -52,43 +56,43 @@ export function ExprDialog(p: ExprDialogProps): ReactNode {
   }, [p]);
 
   useEffect(() => {
-    const local = localExprError(text);
+    const local = localExprError(committed);
     if (local !== null) {
-      setCheck({ forText: text, ok: false, message: local, position: null });
+      setCheck({ forText: committed, ok: false, message: local, position: null });
       return;
     }
     // 全空白视为「没有表达式」:合法、无预览,保存时归一为 null
-    if (text.trim() === '') {
-      setCheck({ forText: text, ok: true, message: '', position: null });
+    if (committed.trim() === '') {
+      setCheck({ forText: committed, ok: true, message: '', position: null });
       return;
     }
     let stale = false;
     const timer = window.setTimeout(() => {
       void api
-        .validateExpr(text)
+        .validateExpr(committed)
         .then((c) => {
           if (stale) return;
           if (c.ok) {
-            setCheck({ forText: text, ok: true, message: c.preview, position: null });
+            setCheck({ forText: committed, ok: true, message: c.preview, position: null });
             return;
           }
-          const at = caretOf(c, text);
-          setCheck({ forText: text, ok: false, message: errorLabelOf(c, text), position: at });
+          const at = caretOf(c, committed);
+          setCheck({ forText: committed, ok: false, message: errorLabelOf(c, committed), position: at });
           const el = box.current;
           // 只在自己就是焦点时挪光标,避免抢走其它输入的焦点
           if (el !== null && document.activeElement === el) el.setSelectionRange(at, at);
         })
         .catch((e) => {
-          if (!stale) setCheck({ forText: text, ok: false, message: '校验失败: ' + String(e), position: null });
+          if (!stale) setCheck({ forText: committed, ok: false, message: '校验失败: ' + String(e), position: null });
         });
     }, DEBOUNCE_MS);
     return () => {
       stale = true;
       window.clearTimeout(timer);
     };
-  }, [text]);
+  }, [committed]);
 
-  const pending = check.forText !== text;
+  const pending = check.forText !== committed;
   const blocked = pending || !check.ok;
 
   return (
@@ -123,7 +127,8 @@ export function ExprDialog(p: ExprDialogProps): ReactNode {
           aria-label="表达式"
           rows={4}
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => ime.handlers.onChange(e.currentTarget.value, e.nativeEvent)}
+          onCompositionEnd={(e) => ime.handlers.onCompositionEnd(e.currentTarget.value)}
           placeholder='如:#工作 AND NOT #临时,或 "买牛奶" OR #生活'
           className={
             'w-full resize-y rounded-sm border px-2.5 py-2 font-mono text-ui outline-none ' +
@@ -141,7 +146,7 @@ export function ExprDialog(p: ExprDialogProps): ReactNode {
             <span className="text-danger">{check.message}</span>
           )}
         </p>
-        <ExprSyntaxHint onPick={setText} />
+        <ExprSyntaxHint onPick={ime.setValue} />
         <div className="mt-3 flex items-center justify-end gap-2">
           <button
             type="button"
@@ -161,7 +166,7 @@ export function ExprDialog(p: ExprDialogProps): ReactNode {
             type="button"
             disabled={blocked}
             onClick={() => {
-              p.onSave(text);
+              p.onSave(committed);
               p.onClose();
             }}
             className={BTN_PRIMARY}
