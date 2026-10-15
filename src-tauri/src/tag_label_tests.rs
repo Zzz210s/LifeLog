@@ -1,8 +1,11 @@
 //! T2:`label_plain` 与前端的同源证明 —— 逐条读共享向量 `fixtures/tag-label.json`
 //! (前端 `src/shared/tag-label.test.ts` 读同一份文件),外加界面改名校验的边界。
 //! 两侧任何一方改了 md 语法,这个测试与前端那条会同时红。
-use super::{label_plain, validate_label, validate_tag_path, MAX_LABEL_CHARS};
-use crate::tag_label_plain::{parse_label, LabelToken};
+use super::{
+    label_plain, parse_label, validate_label, validate_relation_name, validate_tag_path,
+    MAX_LABEL_CHARS,
+};
+use crate::tag_label_plain::LabelToken;
 use serde::Deserialize;
 
 const TAG_LABEL: &str = include_str!(concat!(
@@ -68,6 +71,13 @@ fn fixture_tag_path_valid_is_well_formed() {
         "向量里得有 md 名字合法的条目,否则放宽点没被验证"
     );
     assert!(cases.iter().any(|c| !c.valid), "也必须有非法条目");
+    // T5 裸括号禁令的共享证据:新向量必须在表里且判非法;既有 md 向量必须继续判合法
+    for p in ["工作(重要)", "(重点)", "a(b)c", "[郴](chēn)州市(别名)"] {
+        assert!(cases.iter().any(|c| c.path == p && !c.valid), "裸括号向量缺失或判错:{p}");
+    }
+    for p in ["a[b](c)d/工作", "[郴](chēn)州市"] {
+        assert!(cases.iter().any(|c| c.path == p && c.valid), "md 向量必须继续合法:{p}");
+    }
 }
 
 /// T3 逐条:validate_tag_path(界面口径:筛选条件 + 改名门)与向量一致
@@ -157,6 +167,33 @@ fn validate_label_allows_md_and_rejects_unusable_names() {
     let max = "长".repeat(MAX_LABEL_CHARS);
     assert!(validate_label(&max).is_ok(), "恰好到上限应通过");
     let err = validate_label(&"长".repeat(MAX_LABEL_CHARS + 1)).unwrap_err();
+    assert!(err.contains(&MAX_LABEL_CHARS.to_string()), "{err}");
+}
+
+/// T5 裸括号禁令(与前端 `tag-label-paren.test.ts` 同表):单段与整条路径都拒
+#[test]
+fn validate_label_and_path_reject_bare_parens() {
+    for bad in ["工作(重要)", "(重点)", "a(b)c", "工作)", "工作(重点", "[郴](chēn)州市(别名)"] {
+        let err = validate_label(bad).unwrap_err();
+        assert!(err.contains("裸括号"), "{bad} => {err}");
+        assert!(validate_tag_path(bad).is_err(), "整条路径也应拒:{bad}");
+    }
+    for ok in ["[郴](chēn)州市", "a[b](c)d", "**重点**", "`代码`", "工作"] {
+        assert!(validate_label(ok).is_ok(), "应通过:{ok}");
+    }
+}
+
+/// T5 关系名校验(P6):与正文语法**同源** —— 写得回 `#目标(名字)` 的才收
+#[test]
+fn validate_relation_name_follows_body_syntax() {
+    for ok in ["国籍", "国籍/长期", "状态-测试", "v1.0", "工作·重点"] {
+        assert!(validate_relation_name(ok).is_ok(), "应通过:{ok}");
+        assert!(crate::tags::parse_tag_path(ok).is_some(), "正文也得认:{ok}");
+    }
+    for bad in ["国籍 地区", "国籍(旧)", "国#籍", "", "/a", "a/b/"] {
+        assert!(validate_relation_name(bad).is_err(), "应拒:{bad}");
+    }
+    let err = validate_relation_name(&"长".repeat(MAX_LABEL_CHARS + 1)).unwrap_err();
     assert!(err.contains(&MAX_LABEL_CHARS.to_string()), "{err}");
 }
 

@@ -5,6 +5,7 @@
  * 「新 JSON → 校验」同一口径。
  */
 import { normalizeGroups } from './filter-groups';
+import { hasBareParen } from './tag-label-paren';
 import type { FilterConditions } from './filter-conditions';
 
 /** 引入/排除标签条数上限(与后端 validate 一致) */
@@ -23,14 +24,16 @@ const NAME_FORBIDDEN = /[\p{White_Space}\p{Cc}]/u;
 
 /**
  * 单段标签名是否合法(T3 界面口径,与 Rust `tag_label::validate_label` 同规则):
- * 非空、无 `/`(单段)、无空白/控制字符、无 `#`、不超长 ——
- * 段内的行内 md 符号([ ] ( ) * 等)**全部放行**(T1/T2 允许标签名含行内 md)。
+ * 非空、无 `/`(单段)、无空白/控制字符、无 `#`、无**裸括号**、不超长 ——
+ * 段内的行内 md 符号([ ] ( ) * 等)放行,但括号必须由 md 链接记号消费(设计 §3.4:
+ * 裸括号会让 `#工作(重要)` 与名字组分不清)。
  */
 function isValidTagLabel(name: string): boolean {
   return (
     name !== '' &&
     !NAME_FORBIDDEN.test(name) &&
     !name.includes('#') &&
+    !hasBareParen(name) &&
     [...name].length <= MAX_TAG_LABEL_CHARS
   );
 }

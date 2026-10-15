@@ -1,4 +1,5 @@
-//! 标签名行内 markdown 的**解析口径**(tokenizer + `label_plain`)。
+//! 标签名行内 markdown **解析口径**的 tokenizer 本体(对外的 token / 跨度 /
+//! 纯文本接口都在 `tag_label.rs`,那里还要放界面校验)。
 //!
 //! 与前端 `src/shared/tag-label-plain.ts` 的 `parseTagLabel` / `tagLabelPlain` **逐条一致**,
 //! 由共享向量 `fixtures/tag-label.json` 两侧共读钉住;任一方改了语法,两条测试同时红。
@@ -9,8 +10,9 @@
 //! **不做实体解码**:`&amp;` 保持字面 —— 这里无依赖做实体表,而它又是 FTS / 别名 / 导出的
 //! 真源,与正文(markdown-it 会解码)有意不同。
 //!
-//! 从 `tag_label.rs` 拆出只为守 200 行红线:名字仍由那边的 `pub use` 提供,调用方
-//! (`tags::label_plain`、`db::sql_functions`、`exchange::notes_export`)一处不用改。
+//! 拆法只为守 200 行红线:tokenizer 与 `LabelToken` 留在这里,公开接口(
+//! `tag_label::{parse_label, parse_label_spans, label_plain}`)在那边按区间重投影 ——
+//! `tags::label_plain`、`db::sql_functions`、`exchange::notes_export` 的调用路径一处没变。
 
 /// 行内 token(与前端 `TagLabelToken` 同构;`text` 即可见文本)
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -130,9 +132,11 @@ fn match_at(raw: &str, at: usize) -> Option<(LabelToken, usize)> {
     }
 }
 
-/// 行内 token 序列(唯一解析入口,与前端 `parseTagLabel` 同构)
-pub fn parse_label(raw: &str) -> Vec<LabelToken> {
-    let mut out: Vec<LabelToken> = Vec::new();
+/// tokenizer 本体:每步只记 **token 的终点**(起点 = 上一条的终点,首条为 0),
+/// 这样逐条 push 的代码不用各自维护起点;token 序列连续铺满整串。
+/// 公开的 token / 跨度接口(`parse_label` / `parse_label_spans`)在 `tag_label.rs`。
+pub(crate) fn tokenize(raw: &str) -> Vec<(usize, LabelToken)> {
+    let mut out: Vec<(usize, LabelToken)> = Vec::new();
     let mut buf = String::new();
     let mut i = 0usize;
     while i < raw.len() {
@@ -153,9 +157,9 @@ pub fn parse_label(raw: &str) -> Vec<LabelToken> {
         let step = match match_at(raw, i) {
             Some((token, len)) => {
                 if !buf.is_empty() {
-                    out.push(LabelToken::Text(std::mem::take(&mut buf)));
+                    out.push((i, LabelToken::Text(std::mem::take(&mut buf))));
                 }
-                out.push(token);
+                out.push((i + len, token));
                 len
             }
             // 失败的强调/代码/删除线:整串同一字符当字面量吞掉(前端 runOf 同口径),绝不半解析
@@ -173,24 +177,8 @@ pub fn parse_label(raw: &str) -> Vec<LabelToken> {
         i += step;
     }
     if !buf.is_empty() {
-        out.push(LabelToken::Text(buf));
+        out.push((raw.len(), LabelToken::Text(buf)));
     }
     out
 }
 
-/// 去掉 md 语法后的可见文本(空串原样返回空串)
-pub fn label_plain(raw: &str) -> String {
-    parse_label(raw).iter().map(token_text).collect()
-}
-
-/// 单条 token 的可见文本(链接取 `[ ]` 内文本,不取悬浮内容)
-fn token_text(t: &LabelToken) -> &str {
-    match t {
-        LabelToken::Text(s)
-        | LabelToken::Strong(s)
-        | LabelToken::Em(s)
-        | LabelToken::Del(s)
-        | LabelToken::Code(s) => s,
-        LabelToken::Link { text, .. } => text,
-    }
-}

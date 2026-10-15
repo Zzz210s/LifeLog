@@ -128,5 +128,35 @@
     "why": "段长 101 字符,超上限 1 个",
     "path": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     "valid": false
+  },
+  {
+    "why": "裸括号:括号没有被行内 md 链接消费,`#工作(重要)` 分不清是「目标 工作 + 名字 重要」还是名字就叫 `工作(重要)`",
+    "path": "工作(重要)",
+    "valid": false
+  },
+  {
+    "why": "裸括号:段以左括号起头",
+    "path": "(重点)",
+    "valid": false
+  },
+  {
+    "why": "裸括号:段中间夹一对,左右都不是 md 链接记号",
+    "path": "a(b)c",
+    "valid": false
+  },
+  {
+    "why": "裸括号:md 链接之后又跟一个括号组 —— 只有链接记号算消费,第二个组是裸的",
+    "path": "[郴](chēn)州市(别名)",
+    "valid": false
+  },
+  {
+    "why": "裸括号:多级路径里裸括号落在其中一段",
+    "path": "地点/工作(重要)",
+    "valid": false
+  },
+  {
+    "why": "裸括号:孤立右括号同样非法(md 链接记号是成对的 `](…)`)",
+    "path": "工作)",
+    "valid": false
   }
 ]

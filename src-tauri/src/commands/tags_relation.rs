@@ -18,6 +18,11 @@ pub fn set_tag_relation(
     to_tag: i64,
     remark: String,
 ) -> Result<(), String> {
+    // P6:名字必须能写回 `#目标(名字)`,否则面板造出的名字在源码里表达不出来(往返丢名字)。
+    // 空串 = 清除名字,不是名字,故不过校验(与 `tags::set_tag_relation` 的口径一致)。
+    if !remark.is_empty() {
+        crate::tag_label::validate_relation_name(&remark)?;
+    }
     with_conn(&app, |c| tags::set_tag_relation(c, from_tag, to_tag, &remark))
 }
 
@@ -34,8 +39,10 @@ pub fn remove_tag_relation(
 }
 
 /// 改名一个关系名点:改点 `meta`,引用它的每条线的名字文本一起变;撞名给中文错。
+/// 入口先过 `validate_relation_name`(P6):名字与正文 `#目标(名字)` 同源。
 #[tauri::command]
 pub fn rename_line_name(app: AppHandle, name_id: i64, new_name: String) -> Result<(), String> {
+    crate::tag_label::validate_relation_name(&new_name)?;
     with_conn(&app, |c| tags::rename_line_name(c, name_id, &new_name))
 }
 
