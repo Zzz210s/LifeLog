@@ -3,6 +3,7 @@
 //! 关系线不进 FTS / 不进导出 / 不改笔记 tags 列;线名只来自名字点(仅显示)。
 use super::*;
 use crate::db::repos::notes;
+use crate::db::repos::notes::NoteTag;
 use crate::db::repos::tags::delete_subtree;
 use crate::db::repos::tags::tag_facts;
 use crate::db::repos::tags::tree::gc_orphans;
@@ -128,7 +129,7 @@ fn relation_edges_do_not_change_note_tags_fts_or_export() {
     let fts_after: String = c
         .query_row("SELECT paths FROM points_fts WHERE rowid=?1", params![note.id], |r| r.get(0))
         .unwrap();
-    assert_eq!(tags_after, vec!["甲".to_string()], "关系线不得混进笔记的 tags 列");
+    assert_eq!(tags_after, vec![NoteTag::plain("甲")], "关系线不得混进笔记的 tags 列");
     assert_eq!(tags_before, tags_after, "插入关系线不得改变笔记的 tags 列");
     assert_eq!(fts_before, fts_after, "插入关系线不得改写 FTS 标签列");
     assert_eq!(note_row(&c), export_before, "关系线不得改写笔记自己的导出行");

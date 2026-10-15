@@ -4,7 +4,7 @@
 use super::notes_filter::feed_sink_predicate;
 use super::notes_sort::SortCond;
 use super::tag_order;
-use super::{fold_tag_rows, map_note_row, Note};
+use super::{columns, fold_tag_rows, map_note_row, Note, TAG_JOINS};
 use rusqlite::{params_from_iter, types::Value, Connection};
 
 /// 每页条数(与前端分页常量 `PAGE` 一致);分页只由 offset 驱动
@@ -117,12 +117,11 @@ pub fn run_page(
     let mut all: Vec<String> = ctes.to_vec();
     all.push(page_body.to_string());
     let tail = format!(
-        "SELECT n.id, n.meta, n.created_at, t.path
-         FROM page p
+        "SELECT {} FROM page p
          JOIN points n ON n.id = p.id
-         LEFT JOIN lines l ON (l.name_id IS NULL OR l.name_id <> 0) AND l.from_id = n.id
-         LEFT JOIN points t ON t.id = l.to_id
-         ORDER BY {outer_order}, t.path"
+         {TAG_JOINS}
+         ORDER BY {outer_order}, t.path",
+        columns()
     );
     let sql = with_ctes(&all, &tail);
     let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;

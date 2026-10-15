@@ -1,6 +1,25 @@
 use rusqlite::{params, Connection};
 use serde::Serialize;
 
+/// 一条标签线出 IPC 的形状(设计 §5.2):目标**完整路径**(标签名只在文本里,路径是树语义真源)
+/// + 关系名(`lines.name_id` 指向的纯名字点的 `meta`;无名字线为 None)。
+/// 与解析层的 [`crate::tags::TagLine`] 同义,但纯语法模块不背 serde,故这里是 DTO 真源。
+/// **结构体替换而非新增字段**:所有消费方在 `cargo`/`tsc` 编译期强制过一遍,没有第二套并行数组。
+#[derive(Serialize, Debug, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct NoteTag {
+    pub path: String,
+    pub relation_name: Option<String>,
+}
+
+#[cfg(test)]
+impl NoteTag {
+    /// 仅测试用:**无名字**的线(断言无名线时用它;名字字段没被丢掉 —— 名线用例写全字段)
+    pub(crate) fn plain(path: &str) -> Self {
+        NoteTag { path: path.to_string(), relation_name: None }
+    }
+}
+
 /// 笔记(流查询与单条读回的统一结构)。
 /// `created_at` 是物理列:排序(D1 改按 id,与它同序)与筛选都不再用它,只作展示与导出。
 /// `links` 是正文里的出链(L2 渲染 chip 用):单条读取与分页查询都会带上,
@@ -10,7 +29,7 @@ pub struct Note {
     pub id: i64,
     pub content: String,
     pub created_at: String,
-    pub tags: Vec<String>,
+    pub tags: Vec<NoteTag>,
     pub links: Vec<super::note_links::OutboundLink>,
 }
 
@@ -98,7 +117,7 @@ fn write_saved_links(
 pub mod notes_read;
 #[cfg(test)]
 pub(crate) use notes_read::recent;
-pub(crate) use notes_read::{fold_tag_rows, map_note_row, read_full};
+pub(crate) use notes_read::{columns, fold_tag_rows, map_note_row, read_full, TAG_JOINS};
 pub use notes_read::delete;
 pub use notes_read::{all_titles, pick_titles, NoteTitle};
 
@@ -163,6 +182,11 @@ mod notes_time_tests;
 #[cfg(test)]
 #[path = "notes_strip_tests.rs"]
 mod notes_strip_tests;
+
+/// 读取面的名字上浮(设计 §5.2):read_full / 平铺尾查询 / 分组尾查询三条路径
+#[cfg(test)]
+#[path = "notes_tag_name_tests.rs"]
+mod notes_tag_name_tests;
 
 #[cfg(test)]
 #[path = "notes_save_fallback_tests.rs"]

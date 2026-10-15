@@ -35,7 +35,7 @@ fn seed_md_note(c: &mut Connection, body: &str) -> i64 {
     let mid = id_at(c, PLAIN_MID);
     rename(c, mid, "[郴](chēn)州市").unwrap();
     let tags = read_full(c, n.id).unwrap().unwrap().tags;
-    assert_eq!(tags, vec![MD_LEAF.to_string()], "前置:笔记链的叶子路径已是 md 形态");
+    assert_eq!(tags, vec![NoteTag::plain(MD_LEAF)], "前置:笔记链的叶子路径已是 md 形态");
     n.id
 }
 
@@ -48,7 +48,7 @@ fn editing_a_note_keeps_md_tag_and_leaves_no_source_text() {
     let mut c = db();
     let id = seed_md_note(&mut c, "莽山栈道");
     let first = update(&mut c, id, &format!("莽山栈道\n#{MD_LEAF}")).unwrap().unwrap();
-    assert_eq!(first.tags, vec![MD_LEAF.to_string()], "标签必须还在");
+    assert_eq!(first.tags, vec![NoteTag::plain(MD_LEAF)], "标签必须还在");
     assert_eq!(first.content, "莽山栈道\n", "正文不得残留 md 源码");
     assert_fts_matches_edges(&c);
     assert_no_orphan_tags(&c);
@@ -65,7 +65,7 @@ fn toggling_a_todo_keeps_md_tag() {
     let id = seed_md_note(&mut c, "- [ ] 买牛奶");
     let upd = update(&mut c, id, &format!("- [x] 买牛奶\n#{MD_LEAF}")).unwrap().unwrap();
     assert_eq!(upd.content, "- [x] 买牛奶\n");
-    assert_eq!(upd.tags, vec![MD_LEAF.to_string()]);
+    assert_eq!(upd.tags, vec![NoteTag::plain(MD_LEAF)]);
 }
 
 /// 严格命中的普通标签与兜底命中的 md 标签在同一次保存里并存(严格侧行为一个字不变)
@@ -75,8 +75,8 @@ fn strict_and_fallback_tags_coexist() {
     let id = seed_md_note(&mut c, "莽山栈道");
     let upd = update(&mut c, id, &format!("莽山栈道 #普通\n#{MD_LEAF}")).unwrap().unwrap();
     assert_eq!(upd.content, "莽山栈道\n");
-    assert!(upd.tags.contains(&"普通".to_string()));
-    assert!(upd.tags.contains(&MD_LEAF.to_string()));
+    assert!(upd.tags.iter().any(|t| t.path == "普通"));
+    assert!(upd.tags.iter().any(|t| t.path == MD_LEAF));
     assert_fts_matches_edges(&c);
 }
 

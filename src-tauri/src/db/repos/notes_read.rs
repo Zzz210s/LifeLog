@@ -1,22 +1,30 @@
 //! 笔记读取层(自 notes.rs 拆出以守 200 行上限):行映射与折叠、单条读回、最近 N 条、删除、
 //! 以及 `[[` 补全候选池(全部笔记的显示首行)。
-//! 每条笔记除了标签路径(LEFT JOIN 展开成多行),没有其它派生列 —— 时间标签已是普通标签,与其它标签同列。
-use super::Note;
+//! 每条笔记除了标签路径与它的关系名(LEFT JOIN 展开成多行),没有其它派生列 —— 时间标签已是普通标签,与其它标签同列。
+use super::{Note, NoteTag};
 use crate::links::display_title;
 use rusqlite::{params, Connection};
 use serde::Serialize;
 
-/// 行映射:note 基础列 + 可空标签路径
-type NoteRow = (i64, String, String, Option<String>);
+/// 行映射:note 基础列 + 可空标签路径 + 该线的可空关系名(名字点的 `meta`)
+type NoteRow = (i64, String, String, Option<String>, Option<String>);
 
-/// 四个 SELECT 列(所有读取路径共用同一形状):id/正文(meta)/created_at/标签路径。
-fn columns() -> &'static str {
-    "n.id, n.meta, n.created_at, t.path"
+/// 五个 SELECT 列(所有读取路径共用同一形状):id/正文(meta)/created_at/标签路径/关系名。
+/// 名字取 `lines.name_id` 指向的纯名字点的 `meta`(无名字线为 NULL);
+/// 名字点唯一索引保证不会放大行数 —— 一条线最多换一个名字点。
+pub(crate) fn columns() -> &'static str {
+    "n.id, n.meta, n.created_at, t.path, nm.meta"
 }
+
+/// 标签行的 `LEFT JOIN`:目标点 + 名字点(两处拼接共用,免得两处各写一份别名口径)
+pub(crate) const TAG_JOINS: &str =
+    "LEFT JOIN lines l ON (l.name_id IS NULL OR l.name_id <> 0) AND l.from_id = n.id
+     LEFT JOIN points t ON t.id = l.to_id
+     LEFT JOIN points nm ON nm.id = l.name_id";
 
 /// 行映射(列顺序见 [`columns`])
 pub(crate) fn map_note_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<NoteRow> {
-    Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))
+    Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
 }
 
 /// 相邻同 id 行折叠为一个 Note(tags 收集为列表),recent 与 query 共用。
@@ -25,7 +33,8 @@ pub(crate) fn fold_tag_rows(
 ) -> rusqlite::Result<Vec<Note>> {
     let mut out: Vec<Note> = Vec::new();
     for row in rows {
-        let (id, content, created_at, tag) = row?;
+        let (id, content, created_at, path, name) = row?;
+        let tag = path.map(|p| NoteTag { path: p, relation_name: name });
         match out.last_mut() {
             Some(n) if n.id == id => {
                 if let Some(t) = tag {
@@ -61,8 +70,7 @@ pub fn recent(conn: &Connection, limit: u32) -> rusqlite::Result<Vec<Note>> {
            ORDER BY ({sink}) ASC, n.id DESC LIMIT ?1
          )
          SELECT {} FROM points n
-         LEFT JOIN lines l ON (l.name_id IS NULL OR l.name_id <> 0) AND l.from_id = n.id
-         LEFT JOIN points t ON t.id = l.to_id
+         {TAG_JOINS}
          WHERE n.id IN (SELECT id FROM feed)
          ORDER BY ({sink}) ASC, n.id DESC, t.path",
         columns()
@@ -83,13 +91,12 @@ pub fn delete(conn: &mut Connection, id: i64) -> rusqlite::Result<()> {
     tx.commit()
 }
 
-/// 读取单条完整笔记(含 tagging 边全量标签的**完整路径**,按 path 升序);无该 id 返回 None。
+/// 读取单条完整笔记(含 tagging 边全量标签的**完整路径**与关系名,按 path 升序);无该 id 返回 None。
 /// 路径是树语义真源(同名末级可能出现在多个父级下),update/create 事务内共用。
 pub(crate) fn read_full(conn: &Connection, id: i64) -> rusqlite::Result<Option<Note>> {
     let mut stmt = conn.prepare(&format!(
         "SELECT {} FROM points n
-         LEFT JOIN lines l ON (l.name_id IS NULL OR l.name_id <> 0) AND l.from_id = n.id
-         LEFT JOIN points t ON t.id = l.to_id
+         {TAG_JOINS}
          WHERE n.id = ?1 ORDER BY t.path",
         columns()
     ))?;

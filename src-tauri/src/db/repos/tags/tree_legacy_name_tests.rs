@@ -1,6 +1,7 @@
 //! 标签树仓库层的 C-2 兼容测试(自 tags_tree_tests.rs 拆出:原文件 211 行超出 200 行上限)。
 //! 覆盖"存量名含 / 的平铺标签(name == path)与新路径空间撞车时必须显式和解"的直调与端到端两条路径。
 use super::*;
+use crate::db::repos::notes::NoteTag;
 
 /// C-2(直调):库里已有 待定/TBD 根标签时,ensure_path 必须就地和解成两级树
 #[test]
@@ -32,7 +33,7 @@ fn create_with_legacy_flat_name_builds_two_level_tree() {
     let mut c = db();
     ensure_path(&c, &segs(&["待定/TBD"])).unwrap();
     let n = notes::create_plain(&mut c, "记一笔 #待定/TBD").unwrap();
-    assert_eq!(n.tags, vec!["待定/TBD"]);
+    assert_eq!(n.tags, vec![NoteTag::plain("待定/TBD")]);
     assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL"), 2);
     let leaf = id_at(&c, "待定/TBD");
     assert_eq!(count(&c, &format!("SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND parent_id={leaf}")), 0);

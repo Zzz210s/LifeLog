@@ -4,25 +4,28 @@
 //! 复用保存路径同时意味着**库内已存在的 md 形态路径**(`#[郴](chēn)州市` 这类,
 //! 严格正文语法吃不下的)在这里同样被认出 —— 否则面板会对同一段源码显示「标签 0 个」,
 //! 与保存结果自相矛盾。
+use crate::db::repos::notes::NoteTag;
 use crate::db::Db;
 use rusqlite::Connection;
 use serde::Serialize;
 use tauri::State;
 
-/// 解析结果:保存后的正文(`content`)与按首现去重的标签完整路径(`tags`)
+/// 解析结果:保存后的正文(`content`)与按首现去重的标签线(`tags` = 完整路径 + 关系名)。
+/// 与 `Note.tags` 同一个 DTO(设计 §5.2):编辑面板靠它拿到名字,不用第二套形状。
 #[derive(Serialize, Debug, PartialEq)]
 pub struct ParseResult {
     pub content: String,
-    pub tags: Vec<String>,
+    pub tags: Vec<NoteTag>,
 }
 
-/// 源码 -> 保存后的正文 + 标签集合(带库连接的可测内核)。
+/// 源码 -> 保存后的正文 + 标签线集合(带库连接的可测内核)。
 /// 直接调 `notes::parse_saved` —— create/update 用的就是它,命令不另起一份口径。
-/// 这里投影成路径集合(`ParseResult.tags`)与前端当前契约一致;关系名出 IPC 的形状改造
-/// (设计 §5.2 `NoteTag`)由后续任务统一做。
 pub fn parse_source(conn: &Connection, source: &str) -> rusqlite::Result<ParseResult> {
     let (lines, content) = crate::db::repos::notes::parse_saved(conn, source)?;
-    let tags = lines.into_iter().map(|l| l.path).collect();
+    let tags = lines
+        .into_iter()
+        .map(|l| NoteTag { path: l.path, relation_name: l.name })
+        .collect();
     Ok(ParseResult { content, tags })
 }
 

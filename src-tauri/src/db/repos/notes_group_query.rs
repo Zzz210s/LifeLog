@@ -6,7 +6,7 @@ use super::notes_group_key::group_key_cte;
 use super::notes_page::{self, PAGE_SIZE};
 use super::notes_sort::effective_sorts;
 use super::tag_order;
-use super::Note;
+use super::{columns, Note, TAG_JOINS};
 use rusqlite::{params_from_iter, types::Value, Connection};
 
 /// 分组查询的 CTE 列表:`ord` + 排序轴 CTE + `grp`(**文本顺序即参数顺序**:
@@ -47,13 +47,12 @@ pub fn query_grouped(
     let mut all = ctes.clone();
     all.push(page_body);
     let tail = format!(
-        "SELECT p.gk, n.id, n.meta, n.created_at, t.path
-         FROM page p
+        "SELECT p.gk, {} FROM page p
          JOIN points n ON n.id = p.id
-         LEFT JOIN lines l ON (l.name_id IS NULL OR l.name_id <> 0) AND l.from_id = n.id
-         LEFT JOIN points t ON t.id = l.to_id
+         {TAG_JOINS}
          WHERE p.rn <= {PER_GROUP}
-         ORDER BY (p.gk IS NULL), p.gg, p.gk, p.rn, t.path"
+         ORDER BY (p.gk IS NULL), p.gg, p.gk, p.rn, t.path",
+        columns()
     );
     let sql = notes_page::with_ctes(&all, &tail);
     let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
@@ -65,6 +64,7 @@ pub fn query_grouped(
                 r.get::<_, String>(2)?,
                 r.get::<_, String>(3)?,
                 r.get::<_, Option<String>>(4)?,
+                r.get::<_, Option<String>>(5)?,
             ) as GroupRow)
         })
         .map_err(|e| e.to_string())?;

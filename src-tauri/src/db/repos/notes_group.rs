@@ -11,6 +11,7 @@ use super::notes_group_key::group_key_cte;
 use super::notes_page;
 use super::tag_order;
 use super::Note;
+use super::NoteTag;
 use rusqlite::{params_from_iter, types::Value, Connection};
 use serde::Serialize;
 
@@ -135,7 +136,8 @@ pub(crate) fn fold_grouped_rows(
 ) -> rusqlite::Result<Vec<(Option<String>, Note)>> {
     let mut out: Vec<(Option<String>, Note)> = Vec::new();
     for row in rows {
-        let (key, id, content, created_at, tag) = row?;
+        let (key, id, content, created_at, path, name) = row?;
+        let tag = path.map(|p| NoteTag { path: p, relation_name: name });
         match out.last_mut() {
             Some((k, n)) if n.id == id && *k == key => {
                 if let Some(t) = tag {
@@ -157,8 +159,8 @@ pub(crate) fn fold_grouped_rows(
     Ok(out)
 }
 
-/// 分组查询的一行:组键 + note 基础列 + 可空标签路径
-pub(crate) type GroupRow = (Option<String>, i64, String, String, Option<String>);
+/// 分组查询的一行:组键 + note 基础列 + 可空标签路径 + 该线的可空关系名(名字点的 `meta`)
+pub(crate) type GroupRow = (Option<String>, i64, String, String, Option<String>, Option<String>);
 
 /// 一次 `IN (...)` 批量挂出链(与平铺分页同款;分组首屏可能有数百条笔记)
 pub(crate) fn attach_all(

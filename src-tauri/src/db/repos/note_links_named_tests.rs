@@ -3,7 +3,7 @@
 //! 删掉就等于「这条关系不要了」,不许留一条读得回来、却删不掉的名线。
 //! 真库实例:`地点/印度`(点 1941)卡片上有两个同名 chip,编辑框里删多少次都删不掉。
 use crate::db::migrate;
-use crate::db::repos::notes::update;
+use crate::db::repos::notes::{update, NoteTag};
 use rusqlite::{params, Connection};
 
 fn db() -> Connection {
@@ -46,7 +46,11 @@ fn removing_tag_text_removes_the_matching_named_line() {
     let (src, to, _name) = seed(&c);
     // 编辑框回显 = 正文 + 非子级线目标路径;这条名线在框里就是一个 `#状态/未完成`
     let kept = update(&mut c, src, "印度\n#状态/未完成").unwrap().unwrap();
-    assert_eq!(kept.tags, vec!["状态/未完成"], "名线目标在编辑框里读成一个标签,且不重复");
+    assert_eq!(
+        kept.tags,
+        vec![NoteTag { path: "状态/未完成".into(), relation_name: Some("状态".into()) }],
+        "名线目标在编辑框里读成一个标签,且不重复;名字一起读回"
+    );
     assert_eq!(count(&c, "SELECT COUNT(*) FROM lines WHERE from_id=?1", src), 1, "幂等保存不增线");
     // 用户把那一行删掉 -> 保存
     let after = update(&mut c, src, "印度\n").unwrap().unwrap();
@@ -62,7 +66,7 @@ fn other_relations_of_the_same_source_survive() {
     let (src, _to, _name) = seed(&c);
     crate::db::repos::tags::create_line(&mut c, src, 4, None).unwrap();
     let after = update(&mut c, src, "印度\n#甲/乙").unwrap().unwrap();
-    assert_eq!(after.tags, vec!["甲/乙"], "名线走、别的线留");
+    assert_eq!(after.tags, vec![NoteTag::plain("甲/乙")], "名线走、别的线留");
     assert_eq!(count(&c, "SELECT COUNT(*) FROM lines WHERE from_id=?1 AND to_id=4", src), 1);
 }
 

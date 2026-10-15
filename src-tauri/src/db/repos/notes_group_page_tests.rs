@@ -122,8 +122,8 @@ fn group_page_offset_is_scoped_inside_group_and_does_not_disturb_other_groups() 
     let a2 = query_group_page(&c, &ndc(&cond), &gb("轴"), Some("轴/A"), 50).unwrap();
     assert_eq!(a1.len(), 50);
     assert_eq!(a2.len(), 5);
-    assert!(a1.iter().all(|n| n.tags.iter().any(|t| t == "轴/A")));
-    assert!(a2.iter().all(|n| n.tags.iter().any(|t| t == "轴/A")));
+    assert!(a1.iter().all(|n| n.tags.iter().any(|t| t.path == "轴/A")));
+    assert!(a2.iter().all(|n| n.tags.iter().any(|t| t.path == "轴/A")));
     let mut all: Vec<i64> = ids(&a1);
     all.extend(ids(&a2));
     all.sort_unstable();

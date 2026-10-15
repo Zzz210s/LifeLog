@@ -72,7 +72,7 @@ fn create_after_rename_follows_the_template() {
 
     assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND path='时间'"), 1, "模板指向的根被重新建出");
     assert!(
-        n.tags.iter().any(|t| t.starts_with("时间/")),
+        n.tags.iter().any(|t| t.path.starts_with("时间/")),
         "模板决定自动标签路径:{:?}",
         n.tags
     );

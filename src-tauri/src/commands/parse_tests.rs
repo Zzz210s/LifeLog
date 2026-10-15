@@ -9,6 +9,7 @@
 use super::*;
 use crate::db::migrate;
 use crate::db::repos::notes::create_plain;
+use crate::db::repos::notes::NoteTag;
 use crate::db::repos::tags::rename;
 use rusqlite::Connection;
 use serde::Deserialize;
@@ -23,6 +24,33 @@ struct TagCase {
     source: String,
     content: String,
     tags: Vec<String>,
+    /// 关系面(路径 + 名字):与 `tags_fixtures_tests` 同一份向量声明;缺省 = 该向量不声明名字
+    #[serde(default)]
+    lines: Option<Vec<FixtureLine>>,
+}
+
+#[derive(Deserialize)]
+struct FixtureLine {
+    path: String,
+    name: Option<String>,
+}
+
+impl TagCase {
+    /// 期望的标签线:`lines` 在就用它(带名字),否则由 `tags` 补成无名字线
+    fn want(&self) -> Vec<NoteTag> {
+        match &self.lines {
+            Some(ls) => ls
+                .iter()
+                .map(|l| NoteTag { path: l.path.clone(), relation_name: l.name.clone() })
+                .collect(),
+            None => self.tags.iter().map(|t| NoteTag::plain(t)).collect(),
+        }
+    }
+}
+
+/// 断言用:标签线只取路径(与 fixture 的 `tags` 字段同形)
+fn paths_of(tags: &[NoteTag]) -> Vec<&str> {
+    tags.iter().map(|t| t.path.as_str()).collect()
 }
 
 fn memory_db() -> Connection {
@@ -42,9 +70,15 @@ fn command_output_equals_actually_saved_note() {
         // 真存一条:库里的返回值就是保存路径(create/update 同一对函数)的读数
         let saved = create_plain(&mut conn, &case.source).unwrap();
         assert_eq!(parsed.content, saved.content, "第 {i} 条正文与保存路径不一致:{:?}", case.source);
-        assert_eq!(parsed.tags, saved.tags, "第 {i} 条标签与保存路径不一致:{:?}", case.source);
         assert_eq!(saved.content, case.content, "第 {i} 条正文与 fixture 不一致:{:?}", case.source);
-        assert_eq!(saved.tags, case.tags, "第 {i} 条标签与 fixture 不一致:{:?}", case.source);
+        assert_eq!(parsed.tags, case.want(), "第 {i} 条标签(含名字)与 fixture 不一致:{:?}", case.source);
+        // 名字**落库**(`lines.name_id`)属保存写入语义(T3):本任务只钉「解析层不丢名字」与路径一致
+        assert_eq!(
+            paths_of(&saved.tags),
+            case.tags,
+            "第 {i} 条保存的标签路径与 fixture 不一致:{:?}",
+            case.source
+        );
     }
 }
 
@@ -67,10 +101,31 @@ fn command_matches_save_with_md_path_in_library() {
     let src = format!("莽山栈道\n#{leaf}");
     let parsed = parse_source(&conn, &src).unwrap();
     let saved = create_plain(&mut conn, &src).unwrap();
-    assert_eq!(parsed.tags, vec![leaf.to_string()], "命令必须认出库内已有的 md 路径");
+    assert_eq!(parsed.tags, vec![NoteTag::plain(leaf)], "命令必须认出库内已有的 md 路径");
     assert_eq!(parsed.content, "莽山栈道\n", "正文不得残留 md 源码");
     assert_eq!(parsed.tags, saved.tags, "命令与保存路径必须同读数(标签)");
     assert_eq!(parsed.content, saved.content, "命令与保存路径必须同读数(正文)");
+}
+
+#[test]
+fn parse_result_carries_names() {
+    let conn = memory_db();
+    // 名字组经解析层落到 `NoteTag.relation_name`(设计 §5.2):前端编辑面板与 composeSource 都要它
+    let r = parse_source(&conn, "#地点/中国大陆(国籍)").unwrap();
+    assert_eq!(
+        r.tags,
+        vec![NoteTag { path: "地点/中国大陆".into(), relation_name: Some("国籍".into()) }]
+    );
+    assert_eq!(r.content, "", "名字组必须被剥净");
+    // 无名与空组同读:`relationName` 都是 None(空组 = 清名字)
+    let bare = parse_source(&conn, "#目标 #目标2()").unwrap();
+    assert_eq!(
+        bare.tags,
+        vec![
+            NoteTag { path: "目标".into(), relation_name: None },
+            NoteTag { path: "目标2".into(), relation_name: None },
+        ]
+    );
 }
 
 #[test]
@@ -80,6 +135,6 @@ fn command_is_pure_and_preserves_source_untouched() {
     let before = src.clone();
     let r = parse_source(&conn, &src).unwrap();
     assert_eq!(src, before, "命令不得改写调用方传入的源码");
-    assert_eq!(r.tags, vec!["工作/项目A".to_string(), "生活".to_string()]);
+    assert_eq!(r.tags, vec![NoteTag::plain("工作/项目A"), NoteTag::plain("生活")]);
     assert_eq!(r.content, "记录 与");
 }

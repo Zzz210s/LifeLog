@@ -147,11 +147,11 @@ fn update_uses_exactly_the_tags_written_in_the_body() {
     // 编辑界面回显:正文 + 全部标签(含自动标签)→ 保存后集合不变
     let roundtrip = format!("新文 #甲标签 #{auto}");
     let kept = update(&mut c, n.id, &roundtrip).unwrap().unwrap();
-    assert_eq!(kept.tags, vec![auto.clone(), "甲标签".to_string()], "回显保存不丢标签");
+    assert_eq!(kept.tags, vec![NoteTag::plain(&auto), NoteTag::plain("甲标签")], "回显保存不丢标签");
 
     // 用户把时间改成别的日期:旧自动标签被替换(冲突收敛为一个,无需改期命令)
     let moved = update(&mut c, n.id, "新文 #甲标签 #时间排序/2020/05/06").unwrap().unwrap();
-    assert_eq!(moved.tags, vec!["时间排序/2020/05/06".to_string(), "甲标签".to_string()]);
+    assert_eq!(moved.tags, vec![NoteTag::plain("时间排序/2020/05/06"), NoteTag::plain("甲标签")]);
     assert_eq!(count(&c, "SELECT COUNT(*) FROM points WHERE path IS NOT NULL AND path='时间排序/2020/05/06'"), 1);
 
     // 正文里没有标签:集合就是空(自动标签不会复活)

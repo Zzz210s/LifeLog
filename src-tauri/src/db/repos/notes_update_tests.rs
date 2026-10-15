@@ -1,7 +1,7 @@
 //! update 测试(测试先行 TDD)
 use super::*;
 use crate::db::migrate;
-use crate::db::repos::notes::{create_plain, notes_filter::*, query as query_all};
+use crate::db::repos::notes::{create_plain, notes_filter::*, query as query_all, NoteTag};
 use crate::db::repos::tags::invariants_tests::{assert_fts_matches_edges, assert_no_orphan_tags};
 use rusqlite::Connection;
 
@@ -29,7 +29,7 @@ fn update_replaces_links_and_cleans_orphans() {
     // 返回全量 tags 与剥离后正文
     assert_eq!(upd.id, n.id);
     assert_eq!(upd.content, "新文");
-    assert_eq!(upd.tags, vec!["乙标签"]);
+    assert_eq!(upd.tags, vec![NoteTag::plain("乙标签")]);
     // 替换语义:旧链清空、新链生效(该笔记仅剩一条链)
     let links = count(
         &c,
@@ -86,7 +86,7 @@ fn update_writes_content_without_updating_time_columns() {
         .unwrap();
     let upd = update(&mut c, n.id, "新正文 #乙").unwrap().unwrap();
     assert_eq!(upd.content, "新正文");
-    assert_eq!(upd.tags, vec!["乙"]);
+    assert_eq!(upd.tags, vec![NoteTag::plain("乙")]);
     // S3:updated_at 列已删除;created_at 是创建时间、不是“最后修改”的替身,必须原样
     let after: String = c
         .query_row("SELECT created_at FROM points WHERE path IS NULL AND id=?1", [n.id], |r| r.get(0))

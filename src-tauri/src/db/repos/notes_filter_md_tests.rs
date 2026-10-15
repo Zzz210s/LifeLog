@@ -4,7 +4,7 @@
 //! 这条用例是三处校验换口径的"功能真的能用"证据:把 validate 改回 parse_tag_path 立刻红。
 use super::*;
 use crate::db::migrate;
-use crate::db::repos::notes::{create_plain, query as query_all};
+use crate::db::repos::notes::{create_plain, query as query_all, NoteTag};
 use crate::db::repos::tags::rename;
 use rusqlite::Connection;
 
@@ -46,7 +46,7 @@ fn md_tag_path_passes_validation_and_queries_notes() {
         let notes = query(&c, &conditions, 0).expect("query_notes 不得报错");
         assert_eq!(notes.len(), 1, "含子级={include_children} 应命中改名前的同一篇笔记");
         assert_eq!(notes[0].content, "甲");
-        assert_eq!(notes[0].tags, vec![MD_PATH.to_string()], "读回的标签路径就是 md 形态");
+        assert_eq!(notes[0].tags, vec![NoteTag::plain(MD_PATH)], "读回的标签路径就是 md 形态");
     }
 
     // 排除侧同一口径

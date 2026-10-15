@@ -1,7 +1,7 @@
 //! notes 流查询层测试(query),测试先行(TDD)
 use crate::db::migrate;
 use crate::db::repos::notes::{notes_filter::*, notes_query::PAGE_SIZE, query as query_all};
-use crate::db::repos::notes::{create_on, create_plain};
+use crate::db::repos::notes::{create_on, create_plain, NoteTag};
 use rusqlite::Connection;
 
 fn db() -> Connection {
@@ -62,7 +62,7 @@ fn query_tags_filter_and_semantics() {
     // AND 语义:两标签都有才命中
     let both = query(&c, &f(None, &["电影", "神作"]), 0).unwrap();
     assert_eq!(both.len(), 1);
-    assert_eq!(both[0].tags, vec!["电影", "神作"]);
+    assert_eq!(both[0].tags, vec![NoteTag::plain("电影"), NoteTag::plain("神作")]);
     assert!(query(&c, &f(None, &["不存在"]), 0).unwrap().is_empty());
 }
 
@@ -102,7 +102,7 @@ fn query_keyword_hits_tags_column() {
     // 4 字关键词走 FTS,命中聚合进 tags 列的标签路径
     let via_fts = query(&c, &f(Some("流浪地球"), &[]), 0).unwrap();
     assert_eq!(via_fts.len(), 1);
-    assert_eq!(via_fts[0].tags, vec!["流浪地球"]);
+    assert_eq!(via_fts[0].tags, vec![NoteTag::plain("流浪地球")]);
     // 2 字关键词退化 LIKE 时同样覆盖标签名
     create_plain(&mut c, "#电影 神作").unwrap();
     let via_like = query(&c, &f(Some("电影"), &[]), 0).unwrap();
@@ -114,10 +114,10 @@ fn query_keyword_hits_tags_column() {
 fn tags_expose_full_path_not_leaf_name() {
     let mut c = db();
     let n = create_plain(&mut c, "纪要 #工作/项目A").unwrap();
-    assert_eq!(n.tags, vec!["工作/项目A"]);
+    assert_eq!(n.tags, vec![NoteTag::plain("工作/项目A")]);
     // 读回也必须是路径:query 的 tags 列不得退化成末级名
     let got = query(&c, &f(None, &[]), 0).unwrap();
-    assert_eq!(got[0].tags, vec!["工作/项目A"]);
+    assert_eq!(got[0].tags, vec![NoteTag::plain("工作/项目A")]);
 }
 
 #[test]
@@ -173,7 +173,7 @@ fn query_pages_by_id_desc() {
     assert_eq!(p1[0].content, "n51", "最新在前:按 id 降序");
     assert_eq!(p1[1].content, "n50");
     assert!(
-        p1.iter().all(|n| n.tags.iter().any(|t| t.starts_with("时间/"))),
+        p1.iter().all(|n| n.tags.iter().any(|t| t.path.starts_with("时间/"))),
         "每条都带自动时间标签(且仍随结果返回)"
     );
     let p2 = query(&c, &f(None, &[]), 50).unwrap();
