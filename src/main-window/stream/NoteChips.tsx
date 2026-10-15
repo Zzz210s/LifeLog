@@ -3,9 +3,11 @@
  * 数据层只有「关系」一个概念(点线设计:`lines` 上 `name_id` 空 = 无名字关系、非空 = 有名字的关系),
  * 卡片上就只该有一种 chip;有名字的关系在别处(实体树行、关系面板)显示为「名字 + 目标」。
  * 顺序 = 数据给的稳定序(`read_full` 按目标路径升序;不做特殊排序,见 note-chips.ts)。
- * 超出阈值显示 `+N`,点击只展开整排(只折叠不隐藏)。悬浮 title 是完整路径,点击仍走 onTagClick
+ * 超出阈值显示 `+N`,点击只展开整排(只折叠不隐藏)。点击仍走 onTagClick
  * (与筛选同一入口)。时间标签已降级为普通标签(D3),这里不做任何特殊过滤。
- * chip 文案的行内 md(T1):显示走 renderTagLabel 的预览态,title 用 tagLabelPlain;点击仍回传原始路径。
+ * chip 文案的行内 md(T1):显示走 renderTagLabel 的预览态;点击仍回传原始路径。
+ * 悬停文案(T4):有关系名给名字,无名回落纯文本路径 —— 名字只影响悬停,
+ * 不进 chip 文字 / 折叠 / 祖先去重 / 寻址(设计 §5.3)。
  */
 import { useState } from 'react';
 import type { ReactNode } from 'react';
@@ -22,7 +24,7 @@ export interface NoteChipsProps {
 }
 
 interface ChipRowProps {
-  tags: readonly string[];
+  tags: readonly NoteTag[];
   activeTags: string[];
   onTagClick: (name: string) => void;
 }
@@ -45,25 +47,29 @@ function chipClass(active: boolean): string {
 function ChipRow(p: ChipRowProps): ReactNode {
   const [expanded, setExpanded] = useState(false);
   // 展开后不再折叠:整排显示完(标签本身由笔记数据决定,不会因此变多)
+  // 折叠与去重只看**路径**;关系名只喂悬停文案(设计 §5.3)
+  const paths = p.tags.map((t) => t.path);
   const { shown, hidden } = expanded
-    ? { shown: [...p.tags], hidden: 0 }
-    : collapseChips(p.tags, CHIP_MAX);
+    ? { shown: paths, hidden: 0 }
+    : collapseChips(paths, CHIP_MAX);
   return (
     <div className="mt-2 flex flex-wrap gap-1">
-      {shown.map((t) => {
-        const active = p.activeTags.includes(t);
-        return (
-          <button
-            key={t}
-            onClick={() => p.onTagClick(t)}
-            aria-pressed={active}
-            onMouseEnter={hoverTitle(tagLabelPlain(t))}
-            className={chipClass(active)}
-          >
-            #{renderTagLabel(tagDisplayName(t))}
-          </button>
-        );
-      })}
+      {p.tags
+        .filter((t) => shown.includes(t.path))
+        .map((t) => {
+          const active = p.activeTags.includes(t.path);
+          return (
+            <button
+              key={t.path}
+              onClick={() => p.onTagClick(t.path)}
+              aria-pressed={active}
+              onMouseEnter={hoverTitle(t.relationName ?? tagLabelPlain(t.path))}
+              className={chipClass(active)}
+            >
+              #{renderTagLabel(tagDisplayName(t.path))}
+            </button>
+          );
+        })}
       {hidden > 0 && (
         <button
           type="button"
@@ -81,8 +87,16 @@ function ChipRow(p: ChipRowProps): ReactNode {
 export function NoteChips(p: NoteChipsProps): ReactNode {
   if (p.tags.length === 0) return null;
   // 子蕴含父:祖先 chip 若其后代也在本卡片上就不再单独显示(只影响显示,不动数据)
-  // chip 文字与折叠只用**路径**(关系名是悬停文案的事,设计 §5.3)
-  const tags = collapseAncestors(p.tags.map((t) => t.path));
+  // 祖先去重只看**路径**,名字不进折叠(设计 §5.3);过滤保持数据给的稳定序
+  const kept = collapseAncestors(p.tags.map((t) => t.path));
+  const tags = p.tags.filter((t) => kept.includes(t.path));
   // key 随标签集合变化:笔记保存后标签变了,展开态跟着重置(不会停在旧集合上)
-  return <ChipRow key={tags.join('\u0000')} tags={tags} activeTags={p.activeTags} onTagClick={p.onTagClick} />;
+  return (
+    <ChipRow
+      key={tags.map((t) => t.path).join('\u0000')}
+      tags={tags}
+      activeTags={p.activeTags}
+      onTagClick={p.onTagClick}
+    />
+  );
 }

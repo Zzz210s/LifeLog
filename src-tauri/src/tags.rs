@@ -98,3 +98,8 @@ mod tags_tests;
 #[cfg(test)]
 #[path = "tags_fixtures_tests.rs"]
 mod tags_fixtures_tests;
+
+// 名线存在与否不改变 `tag_plain` 与 FTS 聚合的守卫(设计 §7.2;文件在 tags/ 子目录)
+#[cfg(test)]
+#[path = "tags/tag_plain_unchanged_tests.rs"]
+mod tag_plain_unchanged_tests;

@@ -106,3 +106,8 @@ pub fn export_notes(conn: &Connection) -> Result<Vec<u8>, String> {
 #[cfg(test)]
 #[path = "notes_export_tests.rs"]
 mod notes_export_tests;
+
+/// `fit_cell` 单元格截断的单元测试(自行为测试再拆,守 200 行上限)
+#[cfg(test)]
+#[path = "notes_export_fit_tests.rs"]
+mod notes_export_fit_tests;

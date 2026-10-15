@@ -101,6 +101,25 @@ fn tagless_note_has_empty_refs_cell() {
 }
 
 #[test]
+fn refs_cell_omits_relation_name() {
+    // 引用列 = 目标点的显示名;关系名(名字点文本)不得附进单元格(设计 §7.2 / T4)。
+    let mut c = db();
+    let note = create_plain(&mut c, "记录 #地点/日本").unwrap();
+    c.execute(
+        "INSERT INTO points(meta, is_cited, created_at) VALUES('国籍', 0, datetime('now','localtime'))",
+        [],
+    )
+    .unwrap();
+    let name_id = c.last_insert_rowid();
+    c.execute("UPDATE lines SET name_id=?1 WHERE from_id=?2", rusqlite::params![name_id, note.id])
+        .unwrap();
+
+    let r = rows(&c).unwrap();
+    let row = r.iter().find(|x| x.id == note.id).expect("笔记应在当前筛选内");
+    assert_eq!(row.refs, "地点/日本", "引用列是目标路径,不附关系名");
+}
+
+#[test]
 fn long_meta_is_truncated_with_mark() {
     let mut c = db();
     create_plain(&mut c, &"a".repeat(MAX_CELL_CHARS + 100)).unwrap();
@@ -122,27 +141,6 @@ fn overlong_refs_are_truncated_too() {
     assert_eq!(r[0].refs.chars().count(), MAX_CELL_CHARS);
     assert!(r[0].refs.ends_with(TRUNCATE_MARK));
     assert!(export_notes(&c).is_ok());
-}
-
-#[test]
-fn fit_cell_keeps_short_content_untouched() {
-    assert_eq!(fit_cell("短正文\n    缩进"), "短正文\n    缩进");
-}
-
-#[test]
-fn fit_cell_keeps_exactly_max_untouched() {
-    // 边界闭合:恰好 MAX_CELL_CHARS 原样放行,与 crate 的 "> 上限才拒绝" 门禁对齐
-    let exact = "x".repeat(MAX_CELL_CHARS);
-    assert_eq!(fit_cell(&exact), exact);
-}
-
-#[test]
-fn fit_cell_truncates_one_over_max_to_exact_max() {
-    let over = "x".repeat(MAX_CELL_CHARS + 1);
-    let out = fit_cell(&over);
-    assert_ne!(out, over);
-    assert_eq!(out.chars().count(), MAX_CELL_CHARS); // 截断后总长恰为上限(含标注)
-    assert!(out.ends_with(TRUNCATE_MARK));
 }
 
 #[test]
