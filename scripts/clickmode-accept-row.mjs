@@ -74,6 +74,7 @@ export async function runRowCells(ctx) {
     `光标条 ${c1.bar} / data-cursor 行 ${c1.rows} / aria-current 行 ${c1.current}`);
   await L.openSettings(cdp);
   await sleep(700);
+  await L.openSettingsSection(cdp, '实体关系'); // 那一行只在「实体关系」分区里
   const c2 = await cdp.eval(`(() => { const g = document.querySelector('[role="group"][aria-label="单击实体行的行为"]'); if (!g) return null;
     return { items: Array.from(g.querySelectorAll('button')).map((b) => b.textContent.trim()), selected: g.querySelectorAll('[aria-pressed="true"]').length }; })()`);
   await L.backToStream(cdp);

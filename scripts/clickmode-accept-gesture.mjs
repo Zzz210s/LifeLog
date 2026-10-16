@@ -74,6 +74,10 @@ export async function runGestureCells(ctx) {
   // ---------- G 双击 = 展开(无 250ms 延迟) ----------
   await useMode('filter');
   await setFilter(F());
+  // 扁平模式下列表恒平铺,折叠对 DOM 没有影响 -> 本格先拨到树形,测完拨回原视角
+  const view0 = await L.sidebarView(cdp);
+  const viewNow = await L.ensureSidebarView(cdp, 'tree');
+  await sleep(500);
   const flip = await cdp.eval(`(async () => { const sel = (p) => document.querySelector('aside [data-tag-path=' + JSON.stringify(p) + ']');
     const target = sel(${JSON.stringify(expando)}); const childOf = () => !!sel(${JSON.stringify(expandoChild)});
     const before = childOf(); const t0 = performance.now();
@@ -83,8 +87,10 @@ export async function runGestureCells(ctx) {
     for (let i = 0; i < 120; i++) { if (childOf() !== before) { ms = +(performance.now() - t0).toFixed(1); break; } await new Promise((r) => setTimeout(r, 5)); }
     return { before, after: childOf(), ms, filter: await window.__TAURI_INTERNALS__.invoke('get_setting', { key: 'filter_current' }) }; })()`);
   const lat = await L.clickDomLatency(cdp, A);
-  rec('G1 双击 = 展开 / 收起(有子级的行:子行在 DOM 里出现/消失)', flip.before === true && flip.after === false && flip.ms !== null && flip.ms < 300,
-    `子行 ${flip.before} -> ${flip.after} 用时 ${flip.ms}ms(无 250ms 等待窗)`);
+  await L.ensureSidebarView(cdp, view0); // 还原视角(写回原值,不留副作用)
+  rec(`G1 双击 = 展开 / 收起(树形视角:子行在 DOM 里出现/消失;静置前视角=${view0})`,
+    viewNow === 'tree' && flip.before !== flip.after && flip.ms !== null && flip.ms < 300,
+    `视角 ${view0} -> ${viewNow} / 子行 ${flip.before} -> ${flip.after} 用时 ${flip.ms}ms(无 250ms 等待窗)`);
   rec('G2 单击即时生效(无双击延迟):派发 click -> 行态翻转的延迟', lat.ms !== null && lat.ms < 150,
     `行态翻转 ${lat.ms}ms(${lat.before}->${lat.after});DB 落库 ${lat.dbMs}ms(use-filter-state 的 500ms 节流,不计入延迟判据)`);
   const shotG = await L.shot(cdp, 'G1-dblclick-collapsed');

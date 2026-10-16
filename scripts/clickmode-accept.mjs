@@ -23,7 +23,8 @@ const { cdp, close } = await ensureMain();
 const { call, inventory } = bindMain(cdp);
 const base0 = L.dbBase();
 const inv0 = await inventory();
-const baseline = { filter: await call('get_setting', { key: 'filter_current' }), mode: (await L.modeOfSetting(call)) ?? null };
+const baseline = { filter: await call('get_setting', { key: 'filter_current' }), mode: (await L.modeOfSetting(call)) ?? null,
+  view: (await call('get_setting', { key: 'tag_view_mode' })) ?? null };
 const readFilter = async () => JSON.parse((await call('get_setting', { key: 'filter_current' })) ?? 'null');
 /** 写条件 -> 重载 -> 等界面挂载(走应用真实的 parseFilterState 回读路径)。
  *  先静置 600ms(`use-filter-state` 的写回节流是 500ms):让挂起的写回先落地,
@@ -106,9 +107,9 @@ const inv1 = await inventory();
 rec('R1 库基线前后一致(points/lines/user_version/integrity + 夹具点数为 0)', eq(base0, base1) && base1.fixturePoints === 0,
   `前 ${JSON.stringify(base0)} / 后 ${JSON.stringify(base1)} 残留标签 ${JSON.stringify(left)}`);
 rec('R2 应用读数基线一致(实体数 / 标签路径集合)', eq(inv0, inv1), `实体 ${inv1.notes}/${inv0.notes} 标签 ${inv1.paths.length}/${inv0.paths.length}`);
-rec('R3 filter_current / sidebar_click_mode 还原为初始值(原文逐字节相同)',
-  rawEnd === baseline.filter && (await L.modeOfSetting(call)) === baseline.mode,
-  `filter ${rawEnd} / 初始 ${baseline.filter} | mode ${await L.modeOfSetting(call)}(初始 ${baseline.mode})`);
+rec('R3 filter_current / sidebar_click_mode / tag_view_mode 还原为初始值(原文逐字节相同)',
+  rawEnd === baseline.filter && (await L.modeOfSetting(call)) === baseline.mode && (await call('get_setting', { key: 'tag_view_mode' })) === baseline.view,
+  `filter ${rawEnd} / 初始 ${baseline.filter} | mode ${await L.modeOfSetting(call)}(初始 ${baseline.mode}) | view ${await call('get_setting', { key: 'tag_view_mode' })}(初始 ${baseline.view})`);
 console.log(`\n截图(${shots.length}):${shots.join(' | ')}`);
 close();
 R.finish();
