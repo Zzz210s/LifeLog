@@ -37,7 +37,7 @@ export const LEAF: TagNode = {
   children: [],
 };
 
-/** 单击真值表(设计 §4.1 主表 12 格):[模式, 单击修饰键, 期望意图] */
+/** 单击真值表(设计 §4.1 主表 8 格):[模式, 单击修饰键, 期望意图] */
 export const CLICK_TABLE: Array<[SidebarClickMode, MouseEventInit, RowIntent]> = [
   ['filter', {}, 'toggle'],
   ['filter', { ctrlKey: true }, 'andAdd'],
@@ -47,10 +47,6 @@ export const CLICK_TABLE: Array<[SidebarClickMode, MouseEventInit, RowIntent]> =
   ['open', { ctrlKey: true }, 'andAdd'],
   ['open', { altKey: true }, 'exclude'],
   ['open', { shiftKey: true }, 'only'],
-  ['select', {}, 'select'],
-  ['select', { ctrlKey: true }, 'andAdd'],
-  ['select', { altKey: true }, 'exclude'],
-  ['select', { shiftKey: true }, 'only'],
 ];
 
 /** 修饰键标签(用例标题):无 / Ctrl / Alt / Shift */
@@ -88,9 +84,8 @@ export interface RowOver {
   showRelations?: boolean;
   /** 行(缺省 = LEAF);容器 / 带子级的行由用例自行传入 */
   node?: TagNode;
-  /** 单击模式与两种状态(T3 行内行为:光标 / 预览) */
+  /** 单击模式与预览状态(T3 行内行为) */
   mode?: SidebarClickMode;
-  cursor?: boolean;
   previewing?: boolean;
   /** 行意图出口(T4 起行只派发意图,业务在 use-tag-click);不传 = 吞掉(只读视觉的用例) */
   onIntent?: (intent: RowIntent, node: TagNode) => void;
@@ -130,7 +125,6 @@ export function mountTagRow(): RowHarness {
             excluded: false,
             expanded: false,
             clickMode: over.mode,
-            cursor: over.cursor ?? false,
             previewing: over.previewing ?? false,
             onIntent: over.onIntent ?? (() => {}),
             onToggleExpand: over.onToggleExpand ?? (() => {}),

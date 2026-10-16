@@ -53,18 +53,22 @@ export async function runGestureCells(ctx) {
   await sleep(700);
   const fEnd = await readFilter();
   const rawEnd = await raw();
-  await useMode('select');
+  await useMode('open');
   await setFilter(F());
   await L.dragStart(cdp, A);
   await sleep(400);
   await L.clickRow(cdp, A);
   await sleep(600);
-  const selMid = await L.cursorBar(cdp);
+  const openMid = await L.previewCard(cdp);
   await L.dragEnd(cdp, A);
-  await sleep(500);
-  rec('F1 拖动起手后的 click 被早退:filter 条件不动 / select 不出光标;收手后单击恢复正常',
-    dragState && rawMid === raw0 && selMid === null && rawEnd !== raw0,
-    `拖动中 ${dragState} / 拖中原文 ${rawMid} == 起手前 ${raw0} / 拖中光标条 ${JSON.stringify(selMid)} / 收手后原文 ${rawEnd}`);
+  await sleep(600);
+  await useMode('filter');
+  await L.clickRow(cdp, A);
+  await sleep(700);
+  const rawAfter = await raw();
+  rec('F1 拖动起手后的 click 被早退:filter 条件不动 / open 不出卡片;收手后单击恢复正常',
+    dragState && rawMid === raw0 && openMid === null && rawEnd !== raw0 && rawAfter !== raw0,
+    `拖动中 ${dragState} / 拖中原文 ${rawMid} == 起手前 ${raw0} / 拖中卡片 ${JSON.stringify(openMid)} / 收手后原文 ${rawEnd}`);
   const shotF = await L.shot(cdp, 'F1-drag-active');
 
   // ---------- G 双击 = 展开(无 250ms 延迟) ----------
@@ -115,29 +119,28 @@ export async function runGestureCells(ctx) {
   await sleep(300);
   rec('H4 Esc 关菜单', (await L.menuState(cdp)) === null, `菜单 ${JSON.stringify(await L.menuState(cdp))}`);
 
-  // ---------- I 切模式清光标 / 卡片 + 中文回执 ----------
-  await useMode('select');
-  await setFilter(F());
-  await L.clickRow(cdp, A);
-  await sleep(600);
-  const i1 = { bar: await L.cursorBar(cdp) };
-  await L.clickModeButton(cdp);
-  await sleep(600);
-  const i1after = { bar: await L.cursorBar(cdp), flash: await L.flashText(cdp), row: await L.rowState(cdp, A) };
-  rec('I1 切模式(select -> filter):光标被清 + 一句中文回执', !!i1.bar && i1after.bar === null && i1after.row.cursor === null && /^已切到「筛选」：单击加入 \/ 移出筛选/.test(i1after.flash ?? ''),
-    `切换前光标条 ${JSON.stringify(i1.bar)} / 切换后 ${JSON.stringify(i1after.bar)} 行 ${JSON.stringify(i1after.row)} 回执「${i1after.flash}」`);
-  const shotI1 = await L.shot(cdp, 'I1-mode-switch-clears');
+  // ---------- I 切模式清卡片 + 中文回执(两档) ----------
   await useMode('open');
   await setFilter(F());
   await L.clickRow(cdp, A);
   await sleep(700);
-  const i2 = { card: await L.previewCard(cdp) };
+  const i1 = { card: await L.previewCard(cdp) };
   await L.clickModeButton(cdp);
   await sleep(600);
-  const i2after = { card: await L.previewCard(cdp), flash: await L.flashText(cdp), onSettings: await L.onSettings(cdp) };
-  rec('I2 切模式(open -> select):卡片被关 + 一句中文回执',
-    !!i2.card && i2after.card === null && /^已切到「选中」：单击选中实体/.test(i2after.flash ?? ''),
-    `切换前卡片 ${!!i2.card} / 切换后 ${JSON.stringify(i2after.card)} 回执「${i2after.flash}」`);
+  const i1after = { card: await L.previewCard(cdp), flash: await L.flashText(cdp), row: await L.rowState(cdp, A), mode: (await L.modeState(cdp)).mode };
+  rec('I1 切模式(open -> filter):卡片被关 + 一句中文回执;行上不留 preview / cursor 痕迹',
+    !!i1.card && i1after.mode === 'filter' && i1after.card === null && i1after.row.preview === null && i1after.row.cursor === null
+      && /^已切到「筛选」：单击加入 \/ 移出筛选/.test(i1after.flash ?? ''),
+    `切换前卡片 ${!!i1.card} / 切换后 ${JSON.stringify(i1after.card)} 行 ${JSON.stringify(i1after.row)} 回执「${i1after.flash}」`);
+  const shotI1 = await L.shot(cdp, 'I1-mode-switch-clears');
+  await setFilter(F());
+  await L.clickModeButton(cdp);
+  await sleep(600);
+  const i2 = { card: await L.previewCard(cdp), flash: await L.flashText(cdp), mode: (await L.modeState(cdp)).mode };
+  rec('I2 切模式(filter -> open):只给一句中文回执,不凭空弹卡片',
+    i2.mode === 'open' && i2.card === null && /^已切到「打开」：单击打开实体/.test(i2.flash ?? ''),
+    `模式 ${i2.mode} / 卡片 ${JSON.stringify(i2.card)} 回执「${i2.flash}」`);
+  await useMode('filter');
   shots.push(shotF, shotG, shotH, shotI1);
   return { shots, expando, relPath, zero: zero.length };
 }

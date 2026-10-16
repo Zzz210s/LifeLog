@@ -10,7 +10,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from '../../shared/api';
 import { parseClickMode, type SidebarClickMode } from './click-mode';
 
-// 三模式的类型 / 顺序 / 文案 / 解析住 click-mode.ts(纯定义,便于单测);这里再出口,
+// 两模式的类型 / 顺序 / 文案 / 解析住 click-mode.ts(纯定义,便于单测);这里再出口,
 // 故既有的导入路径 ./use-sidebar-state 照旧够用(组件不必知道那个纯模块)
 export * from './click-mode';
 

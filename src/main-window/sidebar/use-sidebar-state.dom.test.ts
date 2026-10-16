@@ -3,7 +3,7 @@
  * 侧栏设置键的读写:
  * ① 开关「实体树里显示关系」(`tag_tree_show_relations`,**默认开**;不回读旧键 `tag_tree_show_carry` ——
  *    旧键是「携带」时代的开关,与现在的关系不是一回事,写库写新键);
- * ② 单击实体行的行为模式(`sidebar_click_mode`,默认 `filter`,非法值回落 `filter`)。
+ * ② 单击实体行的行为模式(`sidebar_click_mode`,默认 `filter`,非法值**与旧值 select** 回落 `filter`)。
  */
 import { act, createElement } from 'react';
 import type { ReactNode } from 'react';
@@ -124,8 +124,15 @@ describe('单击行为模式键 sidebar_click_mode', () => {
     }
   });
 
-  it('读取合法三值(filter / open / select)', async () => {
-    for (const v of ['filter', 'open', 'select']) {
+  it('旧值 select(两档化之前存下的第三档)回落到 filter,不被采纳', async () => {
+    await remount({ sidebar_click_mode: 'select' });
+    expect(state?.clickMode).toBe('filter');
+    // 回落只读不写:库里那条旧值原样留着,用户下次手动切档才覆盖它
+    expect(setSetting).not.toHaveBeenCalledWith('sidebar_click_mode', expect.anything());
+  });
+
+  it('读取合法两值(filter / open)', async () => {
+    for (const v of ['filter', 'open']) {
       await remount({ sidebar_click_mode: v });
       expect(state?.clickMode).toBe(v);
     }
@@ -133,23 +140,22 @@ describe('单击行为模式键 sidebar_click_mode', () => {
 
   it('setClickMode 立刻改会话内值并写库(静默失败不影响会话内值)', async () => {
     await remount({ sidebar_click_mode: 'filter' });
-    await act(async () => state?.setClickMode('select'));
-    expect(state?.clickMode).toBe('select');
-    expect(setSetting).toHaveBeenCalledWith('sidebar_click_mode', 'select');
-    setSetting.mockRejectedValueOnce(new Error('库不可写'));
     await act(async () => state?.setClickMode('open'));
-    await settle();
     expect(state?.clickMode).toBe('open');
+    expect(setSetting).toHaveBeenCalledWith('sidebar_click_mode', 'open');
+    setSetting.mockRejectedValueOnce(new Error('库不可写'));
+    await act(async () => state?.setClickMode('filter'));
+    await settle();
+    expect(state?.clickMode).toBe('filter');
   });
 
-  it('nextClickMode 轮转顺序 filter -> open -> select -> filter', () => {
+  it('nextClickMode 轮转顺序 filter -> open -> filter', () => {
     expect(nextClickMode('filter')).toBe('open');
-    expect(nextClickMode('open')).toBe('select');
-    expect(nextClickMode('select')).toBe('filter');
+    expect(nextClickMode('open')).toBe('filter');
   });
 
-  it('CLICK_MODE_ORDER / CLICK_MODE_LABELS 与三模式一一对应', () => {
-    expect([...CLICK_MODE_ORDER]).toEqual(['filter', 'open', 'select']);
-    expect(CLICK_MODE_LABELS).toEqual({ filter: '筛选', open: '打开', select: '选中' });
+  it('CLICK_MODE_ORDER / CLICK_MODE_LABELS 与两模式一一对应', () => {
+    expect([...CLICK_MODE_ORDER]).toEqual(['filter', 'open']);
+    expect(CLICK_MODE_LABELS).toEqual({ filter: '筛选', open: '打开' });
   });
 });

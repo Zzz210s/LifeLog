@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * T3 行内行为层:**单击真值表**(设计 §4.1 主表 12 格)× 容器行(§4.2 的 13 格)。
+ * T3 行内行为层:**单击真值表**(设计 §4.1 主表 8 格)× 容器行(§4.2 的 9 格)。
  * 行只读「当前模式 + 修饰键 + 该行是否可选」派发 `RowIntent`:条件补丁在 T1 的纯函数、
  * 执行在 T4 的 `use-tag-click`,所以本层的读数只有一件事 —— 这一次点击派发了哪个意图。
  */
@@ -35,7 +35,7 @@ const PARENT: TagNode = rowFixtureTree([
   { id: 2, path: '书籍/SQL', depth: 2, self_count: 1, subtree_count: 1 },
 ]);
 
-describe('可选行(§4.1:3 模式 × 4 修饰键状态 = 12 格)', () => {
+describe('可选行(§4.1:2 模式 × 4 修饰键状态 = 8 格)', () => {
   for (const [mode, mods, want] of CLICK_TABLE) {
     it(`${mode} × ${modLabel(mods)} 单击 = ${want}`, () => {
       const onIntent = vi.fn();
@@ -51,13 +51,13 @@ describe('可选行(§4.1:3 模式 × 4 修饰键状态 = 12 格)', () => {
     expect(onIntent).toHaveBeenCalledWith('andAdd', LEAF);
   });
 
-  it('修饰键压过模式:select 模式无修饰键 = select,按住 Ctrl 仍是 andAdd(不选光标)', () => {
+  it('修饰键压过模式:open 模式无修饰键 = open,按住 Ctrl 仍是 andAdd(不开卡片)', () => {
     const plain = vi.fn();
-    clickRow(h.render({ mode: 'select', onIntent: plain }));
-    expect(plain).toHaveBeenCalledWith('select', LEAF);
+    clickRow(h.render({ mode: 'open', onIntent: plain }));
+    expect(plain).toHaveBeenCalledWith('open', LEAF);
 
     const withCtrl = vi.fn();
-    clickRow(h.render({ mode: 'select', onIntent: withCtrl }), { ctrlKey: true });
+    clickRow(h.render({ mode: 'open', onIntent: withCtrl }), { ctrlKey: true });
     expect(withCtrl.mock.calls[0][0]).toBe('andAdd');
   });
 
@@ -73,9 +73,9 @@ describe('可选行(§4.1:3 模式 × 4 修饰键状态 = 12 格)', () => {
   });
 });
 
-describe('容器行(§4.2:3 模式 × 4 修饰键状态 结果全同)', () => {
+describe('容器行(§4.2:2 模式 × 4 修饰键状态 结果全同)', () => {
   for (const [mode, mods, want] of CLICK_TABLE) {
-    it(`${mode} × ${modLabel(mods)}:有子级的容器恒 expand(不写条件/不开卡片/不设光标)`, () => {
+    it(`${mode} × ${modLabel(mods)}:有子级的容器恒 expand(不写条件/不开卡片)`, () => {
       const onIntent = vi.fn();
       clickRow(h.render({ node: HOLDER, mode, onIntent }), mods);
       expect(onIntent).toHaveBeenCalledTimes(1);
@@ -92,7 +92,7 @@ describe('容器行(§4.2:3 模式 × 4 修饰键状态 结果全同)', () => {
 
   it('可展开行也是 expand 的主体:它自己的单击仍按模式走(容器口径只认 subtreeCount)', () => {
     const onIntent = vi.fn();
-    clickRow(h.render({ node: PARENT, mode: 'select', onIntent }));
-    expect(onIntent).toHaveBeenCalledWith('select', PARENT);
+    clickRow(h.render({ node: PARENT, mode: 'open', onIntent }));
+    expect(onIntent).toHaveBeenCalledWith('open', PARENT);
   });
 });

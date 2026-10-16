@@ -70,6 +70,7 @@ export const clickDomLatency = (cdp, p) =>
       if (v !== raw0) { dbMs = +(performance.now() - t1).toFixed(1); break; } await new Promise((res) => setTimeout(res, 10)); }
     return { ms, dbMs, before, after: r.getAttribute('aria-pressed') }; })()`);
 
+/** 底部光标条(select 档的组件,2026-10-16 已删):只作**反向读数**——恒应为 null */
 export const cursorBar = (cdp) =>
   cdp.eval(`(() => { const b = document.querySelector('[data-testid="tag-cursor-bar"]'); if (!b) return null;
     return { text: b.textContent.replace(/\\s+/g, ' ').trim(), buttons: Array.from(b.querySelectorAll('button')).map((x) => x.getAttribute('aria-label')) }; })()`);
@@ -84,10 +85,6 @@ export const clickCardButton = (cdp, label) =>
   cdp.eval(`(() => { const c = document.querySelector('#tag-preview-card'); if (!c) return false;
     const b = Array.from(c.querySelectorAll('button')).find((x) => x.getAttribute('aria-label') === ${J(label)});
     if (!b) return false; b.click(); return true; })()`);
-
-export const clickBlank = (cdp) =>
-  cdp.eval(`(() => { const l = document.querySelector('[data-testid="tag-list"]');
-    l.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })); return true; })()`);
 
 export const esc = (cdp) => cdp.eval(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`);
 

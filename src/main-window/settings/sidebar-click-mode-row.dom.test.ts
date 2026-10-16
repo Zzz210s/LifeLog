@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 /**
- * 设置页「单击实体行的行为」一行(设计 2026-10-16 §6):Segmented 三档 筛选/打开/选中,
+ * 设置页「单击实体行的行为」一行(设计 2026-10-16 §6):Segmented 两档 筛选/打开,
  * 值与写入走与侧栏头部同一份状态(组件本身只透传)。`EntityTreeRows` 把它与「显示关系」并排。
+ * 2026-10-16 按用户要求由三档减为两档。
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { act, createElement } from 'react';
@@ -44,36 +45,37 @@ const renderRow = async (value: SidebarClickMode = 'filter'): Promise<void> => {
 const buttons = (): HTMLButtonElement[] => [...host.querySelectorAll('button')] as HTMLButtonElement[];
 
 describe('设置页:单击实体行的行为', () => {
-  it('Segmented 三档文案为 筛选/打开/选中,label 为「单击实体行的行为」', async () => {
+  it('Segmented 两档文案为 筛选/打开,label 为「单击实体行的行为」', async () => {
     await renderRow();
     expect(host.textContent).toContain('单击实体行的行为');
     const group = host.querySelector('[role="group"]');
     expect(group).not.toBeNull();
     expect(group!.getAttribute('aria-label')).toBe('单击实体行的行为');
-    expect(buttons().map((b) => b.textContent)).toEqual(['筛选', '打开', '选中']);
+    expect(buttons().map((b) => b.textContent)).toEqual(['筛选', '打开']);
   });
 
   it('选中项带 aria-pressed=true,其余为 false', async () => {
     await renderRow('open');
-    expect(buttons().map((b) => b.getAttribute('aria-pressed'))).toEqual(['false', 'true', 'false']);
+    expect(buttons().map((b) => b.getAttribute('aria-pressed'))).toEqual(['false', 'true']);
   });
 
   it('点击一档回调一次;左右方向键切换并回调', async () => {
     await renderRow('filter');
-    await act(async () => buttons()[2].click());
-    expect(modeCalls).toEqual(['select']);
+    await act(async () => buttons()[1].click());
+    expect(modeCalls).toEqual(['open']);
     await act(async () =>
       host
         .querySelector('[role="group"]')!
         .dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }))
     );
-    expect(modeCalls).toEqual(['select', 'open']);
+    expect(modeCalls).toEqual(['open', 'open']); // filter + 右 = open
+    await renderRow('open');
     await act(async () =>
       host
         .querySelector('[role="group"]')!
         .dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }))
     );
-    expect(modeCalls).toEqual(['select', 'open', 'select']);
+    expect(modeCalls).toEqual(['open', 'open', 'filter']); // open + 左 = filter
   });
 
   it('组合行:EntityTreeRows 同时渲染「显示关系」与「单击行为」两行', async () => {
@@ -82,15 +84,15 @@ describe('设置页:单击实体行的行为', () => {
         createElement(EntityTreeRows, {
           showRelations: true,
           onShowRelationsChange: (v: boolean) => relationCalls.push(v),
-          clickMode: 'select',
+          clickMode: 'open',
           onChangeClickMode: (m: SidebarClickMode) => modeCalls.push(m),
         })
       )
     );
     expect(host.querySelector('[data-testid="tag-tree-relations-toggle"]')).not.toBeNull();
     expect(host.querySelector('[role="group"]')!.getAttribute('aria-label')).toBe('单击实体行的行为');
-    expect(buttons().map((b) => b.textContent)).toEqual(['', '筛选', '打开', '选中']);
-    await act(async () => buttons()[3].click());
-    expect(modeCalls).toEqual(['select']);
+    expect(buttons().map((b) => b.textContent)).toEqual(['', '筛选', '打开']);
+    await act(async () => buttons()[1].click());
+    expect(modeCalls).toEqual(['filter']);
   });
 });

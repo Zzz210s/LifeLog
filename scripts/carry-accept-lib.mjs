@@ -147,12 +147,12 @@ export const pressEsc = (cdp) => cdp.eval(`(() => { document.dispatchEvent(new K
 /** 侧栏头部「点击行为」按钮的取值/点击表达式(旧构建没有这颗按钮:读到 null、点到 false) */
 const MODE_BTN = `document.querySelector('[data-testid="click-mode-button"]')`;
 const POKE_MODE = `(() => { const b = ${MODE_BTN}; if (!b) return false; b.click(); return true; })()`;
-/** 当前侧栏单击模式:filter / open / select(旧构建 -> null);pokeClickMode = 点一下按钮轮转一档,旧构建 -> false */
+/** 当前侧栏单击模式:filter / open(旧构建 -> null);pokeClickMode = 点一下按钮轮转一档,旧构建 -> false */
 export const clickModeOf = (cdp) => cdp.eval(`${MODE_BTN}?.getAttribute('data-click-mode') ?? null`);
 export const pokeClickMode = (cdp) => cdp.eval(POKE_MODE);
-/** 单击模式切到 want(读 -> 点,最多 3 轮);拿不到那颗按钮 = 旧构建 -> 'legacy'(显式,不许静默跳过) */
+/** 单击模式切到 want(读 -> 点,最多 2 轮:两档化后一次点击就换档);拿不到那颗按钮 = 旧构建 -> 'legacy' */
 export const ensureClickMode = async (cdp, want) => {
-  for (let i = 0; i <= 3; i++) {
+  for (let i = 0; i <= 2; i++) {
     const cur = await clickModeOf(cdp);
     if (cur === want || cur === null) return cur ?? 'legacy';
     await pokeClickMode(cdp); await sleep(250);

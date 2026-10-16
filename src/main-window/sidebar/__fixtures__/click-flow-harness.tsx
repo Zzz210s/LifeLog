@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 /**
  * T4 接线层的端到端夹具(仅测试):按 App / ViewHost 的形状把三处消费口接在一起 ——
- * `useTagClick`(状态 + 执行)、`TagsSection`(行 / 光标条 / 头部模式按钮)、信息流首部的
+ * `useTagClick`(状态 + 执行)、`TagsSection`(行 / 头部模式按钮)、信息流首部的
  * `TagPreviewCard`,外加设置页那一行(钉住"两个入口读写同一份模式状态")。
  * 条件侧走**真实**的 `applyFilterPatch`,每次变化后的原文(`filterKey`)记进 `writes` ——
- * 于是"select 不写条件"读到的是写库条数不变,而不是"回调没被调过"。
+ * 于是"open 不改条件"读到的是写库条数不变,而不是"回调没被调过"。
+ * 2026-10-16 两档化:`cursorBar` 只留作反向断言(select 删除后它必须恒为 null)。
  */
 import { act, useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
@@ -53,6 +54,7 @@ export interface ClickFlow {
   clickSettings: (label: string) => void;
   press: (label: string) => void;
   mode: () => string | null;
+  /** 反向断言用:select 删除后底部光标条不该存在(恒 null) */
   cursorBar: () => HTMLElement | null;
   card: () => HTMLElement | null;
   cards: () => HTMLElement[];

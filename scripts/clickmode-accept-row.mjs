@@ -1,4 +1,4 @@
-// T6 逐格验收的行内格(B filter / C select / D open):从 clickmode-accept.mjs 抽出守 200 行红线。
+// T6 逐格验收的行内格(B filter / C「select 无痕」/ D open):从 clickmode-accept.mjs 抽出守 200 行红线。
 // 每格都读三样:条件对象(filter_current)、行态(DOM)、命中数(应用自己的 query_notes 逐页)。
 import { sleep } from './cdp-lib.mjs';
 
@@ -65,40 +65,27 @@ export async function runRowCells(ctx) {
     eq(tagPaths(b6.f, 'tag'), [B]) && tagPaths(b6.f, 'excludeTag').length === 0 && b6.flash === `已只看 #${B}` && b6.hits === (await hits(F({ groups: [{ op: 'and', items: [{ kind: 'tag', path: B, includeChildren: true }] }] }))),
     `条件 ${JSON.stringify(shape(b6.f))} 回执「${b6.flash}」 命中 ${b6.hits}`);
 
-  // ---------- C select 模式 ----------
-  await useMode('select');
+  // ---------- C 已删除的 select:DOM / 设置页都取不到痕迹 ----------
+  await useMode('filter');
   await setFilter(F());
-  const rawBefore = await raw();
-  const c0 = { flash: await L.flashText(cdp), mode: (await L.modeState(cdp)).mode };
-  rec('C0 select 模式回执 + 落库', c0.mode === 'select', `模式 ${c0.mode}(上次回执「${c0.flash}」)`);
+  const c1 = await cdp.eval(`(() => ({ bar: document.querySelector('[data-testid="tag-cursor-bar"]') !== null,
+    rows: document.querySelectorAll('aside [data-cursor]').length, current: document.querySelectorAll('aside [aria-current]').length }))()`);
+  rec('C1 select 的 DOM 痕迹为 0(无底部光标条、无 data-cursor、无 aria-current)', !c1.bar && c1.rows === 0 && c1.current === 0,
+    `光标条 ${c1.bar} / data-cursor 行 ${c1.rows} / aria-current 行 ${c1.current}`);
+  await L.openSettings(cdp);
+  await sleep(700);
+  const c2 = await cdp.eval(`(() => { const g = document.querySelector('[role="group"][aria-label="单击实体行的行为"]'); if (!g) return null;
+    return { items: Array.from(g.querySelectorAll('button')).map((b) => b.textContent.trim()), selected: g.querySelectorAll('[aria-pressed="true"]').length }; })()`);
+  await L.backToStream(cdp);
+  await sleep(600);
+  rec('C2 设置页那一行只有两档(筛选 / 打开),没有「选中」', eq(c2?.items, ['筛选', '打开']) && c2.selected === 1,
+    `档位 ${JSON.stringify(c2?.items)} 选中 ${c2?.selected}`);
   await L.clickRow(cdp, A);
   await sleep(600);
-  const c1 = { bar: await L.cursorBar(cdp), row: await L.rowState(cdp, A) };
-  const c1raw = await raw();
-  rec('C1 select 无键:只出光标条,筛选条件一字未变(filter_current 原文逐字节相同)',
-    c1raw === rawBefore && emptyNow(c1raw) && !!c1.bar && c1.row.cursor === 'true' && c1.row.bar === true && c1.row.pressed !== 'true' && c1.row.selected === false,
-    `原文 ${c1raw}(点行前 ${rawBefore}) 光标条 ${JSON.stringify(c1.bar)} 行 ${JSON.stringify(c1.row)}`);
-  shots.push(await L.shot(cdp, 'C1-select-cursor'));
-  await L.clickRow(cdp, B, { ctrl: true });
-  await sleep(600);
-  const c2 = { f: await readFilter(), bar: await L.cursorBar(cdp), row: await L.rowState(cdp, B), flash: await L.flashText(cdp) };
-  rec('C2 select Ctrl:仍然是 AND 追加(修饰键优先于模式)+ 光标移到该行 + 一句回执',
-    tagPaths(c2.f, 'tag').includes(B) && c2.row.cursor === 'true' && c2.flash === `已追加为同时满足：#${B}`,
-    `条件 ${JSON.stringify(shape(c2.f))} 回执「${c2.flash}」 光标条 ${JSON.stringify(c2.bar)}`);
-  await L.clickRow(cdp, B, { alt: true });
-  await sleep(600);
-  const c3 = { f: await readFilter(), row: await L.rowState(cdp, B), flash: await L.flashText(cdp) };
-  rec('C3 select Alt:切换排除 + 回执', tagPaths(c3.f, 'excludeTag').includes(B) && c3.row.danger === true && c3.flash === `已排除 #${B}`,
-    `条件 ${JSON.stringify(shape(c3.f))} 回执「${c3.flash}」`);
-  await L.clickRow(cdp, B, { shift: true });
-  await sleep(600);
-  const c4 = { f: await readFilter(), flash: await L.flashText(cdp) };
-  rec('C4 select Shift:只看这条(清掉其它标签条件)', eq(tagPaths(c4.f, 'tag'), [B]) && tagPaths(c4.f, 'excludeTag').length === 0 && c4.flash === `已只看 #${B}`,
-    `条件 ${JSON.stringify(shape(c4.f))} 回执「${c4.flash}」`);
-  await L.clickBlank(cdp);
-  await sleep(500);
-  rec('C5 select 点列表空白:清光标(光标条与行竖条一起消失)', (await L.cursorBar(cdp)) === null && (await L.rowState(cdp, B)).cursor === null,
-    `光标条 ${JSON.stringify(await L.cursorBar(cdp))}`);
+  const c3 = { bar: await L.cursorBar(cdp), row: await L.rowState(cdp, A) };
+  rec('C3 点行后也没有光标:光标条仍是 null、行上 cursor/current 都是 null(filter 模式下只改条件)',
+    c3.bar === null && c3.row.cursor === null && c3.row.current === null && c3.row.pressed === 'true',
+    `光标条 ${JSON.stringify(c3.bar)} 行 ${JSON.stringify(c3.row)}`);
 
   // ---------- D open 模式 ----------
   await useMode('open');
@@ -154,7 +141,7 @@ export async function runRowCells(ctx) {
   const beforeEsc = { card: await L.previewCard(cdp), cursor: await L.cursorBar(cdp) };
   await L.esc(cdp);
   await sleep(500);
-  rec('D6 Esc 退出预览(卡片与光标一起清)', !!beforeEsc.card && (await L.previewCard(cdp)) === null && (await L.cursorBar(cdp)) === null,
+  rec('D6 Esc 退出预览(卡片被清;已删的光标条也不在)', !!beforeEsc.card && beforeEsc.cursor === null && (await L.previewCard(cdp)) === null && (await L.cursorBar(cdp)) === null,
     `Esc 前 卡片 ${!!beforeEsc.card} / Esc 后 ${JSON.stringify(await L.previewCard(cdp))}`);
   return { shots, A, B };
 }

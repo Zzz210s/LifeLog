@@ -1,7 +1,7 @@
 /**
  * 侧栏「标签」分区(spec 6.1):树/扁平双模式 + 计数导轨 + 选中态 + 关系小字。
  * 单击行为自 2026-10-16 起可配置(设计 §2):本组件只做两件事 —— 把行派发的意图交给
- * `useTagClick` 执行,以及渲染它给的光标条;条件补丁与光标/预览状态都不在这里(分区守 200 行红线)。
+ * `useTagClick` 执行,以及渲染它给的预览卡片;条件补丁与预览状态都不在这里(分区守 200 行红线)。
  * 展开是纯侧栏视觉(折叠集合在本组件),所以 `expand` 意图不出这个文件。
  * 右键菜单的状态与位置钳制在 `use-tag-menu`,本体与五个子面板在 `TagMenu`。
  */
@@ -11,7 +11,6 @@ import type { FilterConditions } from '../../shared/filter-conditions';
 import { itemPaths } from '../../shared/filter-conditions';
 import type { TagMruSource } from '../../shared/tag-mru';
 import type { TagCount } from '../../shared/types';
-import { TagCursorBar } from './TagCursorBar';
 import { TagMenu } from './TagMenu';
 import { TagRowList } from './TagRowList';
 import { TagsHeader } from './TagsHeader';
@@ -136,7 +135,6 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
         ref={listRef}
         className="scroll-gutter min-h-0 flex-1 overflow-y-auto px-1 pb-2"
         data-testid="tag-list"
-        onClick={click.onListBlankClick}
         onDragOver={drag.rootEvents.onDragOverRoot}
         onDrop={drag.rootEvents.onDropRoot}
         onDragLeave={drag.listEvents.onDragLeaveList}
@@ -151,7 +149,6 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
             excluded={excludedPaths}
             expanded={isExpanded}
             clickMode={click.clickMode}
-            cursorPath={click.cursorPath}
             previewPath={click.previewPath}
             onIntent={onIntent}
             onToggleExpand={toggleExpand}
@@ -165,8 +162,6 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
           <p className="px-2 py-2 text-label text-muted">没有匹配的实体</p>
         )}
       </div>
-      {/* select 模式的光标条(§5.3):列表之下、根级指示条之前;拖拽期间让位(§4.3 第 23 行) */}
-      {click.cursor !== null && !drag.dragging && <TagCursorBar {...click.cursor} />}
       {/* 「移到根级」指示条:拖拽期间渲染;源已在根级时不出现(T8,避免假成功) */}
       {drag.dragging && drag.rootAllowed && (
         <TagRootDropBar

@@ -2,8 +2,9 @@
 /**
  * 头部第 5 个图标按钮:单击行为的模式按钮(设计 2026-10-16 §5.2)。
  * 契约:data-testid="click-mode-button" / data-click-mode=当前模式 / aria-label 前缀「点击行为：」/
- * title 说清「现在是什么 + 点一下变成什么」;三态不是开关,故不设 aria-pressed。
- * 组件不持状态:回调参数恒为 `nextClickMode(当前模式)`,轮转顺序 filter -> open -> select -> filter。
+ * title 说清「现在是什么 + 点一下变成什么」;两态不是开关,故不设 aria-pressed。
+ * 组件不持状态:回调参数恒为 `nextClickMode(当前模式)`,轮转顺序 filter -> open -> filter。
+ * 2026-10-16 按用户要求由三档减为两档(原 `select` 的图标与文案已删)。
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { act, createElement } from 'react';
@@ -62,7 +63,7 @@ const modeBtn = (): HTMLButtonElement =>
 const buttons = (): HTMLButtonElement[] => [...host.querySelectorAll('button')] as HTMLButtonElement[];
 
 describe('侧栏头部:单击行为模式按钮', () => {
-  it('三模式各自:data-click-mode / aria-label / title / 图标齐全,且不设 aria-pressed', async () => {
+  it('两模式各自:data-click-mode / aria-label / title / 图标齐全,且不设 aria-pressed', async () => {
     for (const m of CLICK_MODE_ORDER) {
       await render(m);
       const b = modeBtn();
@@ -73,7 +74,7 @@ describe('侧栏头部:单击行为模式按钮', () => {
       const title = b.getAttribute('title') ?? '';
       expect(title.startsWith('点击行为：' + CLICK_MODE_LABELS[m])).toBe(true);
       expect(title).toContain('点一下切到「' + CLICK_MODE_LABELS[next] + '」');
-      // 三态不是开关:aria-pressed 绝不出现(行的 aria-pressed 仍只表示「筛选包含侧」)
+      // 两态不是开关:aria-pressed 绝不出现(行的 aria-pressed 仍只表示「筛选包含侧」)
       expect(b.hasAttribute('aria-pressed')).toBe(false);
       expect(String(b.className)).toContain('h-7');
       expect(b.querySelector('svg path')).not.toBeNull();
@@ -95,23 +96,23 @@ describe('侧栏头部:单击行为模式按钮', () => {
     expect(clickCalls).toEqual(['open', 'open']);
   });
 
-  it('轮转:filter -> open -> select -> filter(按回执重渲染后的三次点击序列)', async () => {
+  it('轮转:filter -> open -> filter(按回执重渲染后的两次点击序列)', async () => {
     let m: SidebarClickMode = 'filter';
-    for (let i = 0; i < 3; i += 1) {
+    for (let i = 0; i < 2; i += 1) {
       await render(m);
       await act(async () => modeBtn().click());
       m = nextClickMode(m);
     }
-    expect(clickCalls).toEqual(['open', 'select', 'filter']);
+    expect(clickCalls).toEqual(['open', 'filter']);
   });
 
-  it('三模式的图标 path 互不相同', async () => {
+  it('两模式的图标 path 互不相同', async () => {
     const paths: string[] = [];
     for (const m of CLICK_MODE_ORDER) {
       await render(m);
       paths.push(modeBtn().querySelector('svg path')!.getAttribute('d') ?? '');
     }
-    expect(new Set(paths).size).toBe(3);
+    expect(new Set(paths).size).toBe(2);
   });
 
   it('未接线(未传 clickMode / onChangeClickMode)也能渲染:缺省 filter,点击不抛', async () => {

@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
 /**
- * T4 接线层的端到端证据(设计 §4 真值表 / §5.3-5.4 的两个组件 / §8 的 Esc 链 / §4.4 状态失效):
- * 从"点头部模式按钮 / 设置页那一行"到「条件对象 / 光标条 / 预览卡片 / 回执」四处读数,
- * 全部走真实 DOM 与真实的 `applyFilterPatch` 写路径(夹具与四个行的形状见 __fixtures__)。
+ * T4 接线层的端到端证据(设计 §4 真值表 / §5.4 预览卡片 / §8 的 Esc 链 / §4.4 状态失效):
+ * 从"点头部模式按钮 / 设置页那一行"到「条件对象 / 预览卡片 / 回执」三处读数,
+ * 全部走真实 DOM 与真实的 `applyFilterPatch` 写路径(夹具与行的形状见 __fixtures__)。
+ * 2026-10-16 两档化后,原 `select` 的格整段删除;`data-cursor` / `tag-cursor-bar` 反向断言仍留着,
+ * 用来钉住"select 的任何痕迹都不该再出现"。
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { itemPaths } from '../../shared/filter-conditions';
@@ -10,7 +12,7 @@ import type { MainView } from '../settings/settings-model';
 import { mountClickFlow, type ClickFlow } from './__fixtures__/click-flow-harness';
 import type { SidebarClickMode } from './click-mode';
 
-const MODES: SidebarClickMode[] = ['filter', 'open', 'select'];
+const MODES: SidebarClickMode[] = ['filter', 'open'];
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -22,8 +24,6 @@ const mount = (mode: SidebarClickMode, view: MainView = 'stream'): ClickFlow => 
   return flow;
 };
 
-/** 当前夹具(用例里已 mount 过,断言期不会是 null) */
-
 beforeEach(() => {
   flow = null;
 });
@@ -31,28 +31,14 @@ beforeEach(() => {
 afterEach(() => {
   flow?.unmount();
 });
-describe('三模式的无修饰键单击(§4.1 第 1 / 5 / 9 行)', () => {
-  it('filter:单击写条件(含子级),不出光标条、不出卡片、无回执', () => {
+describe('两模式的无修饰键单击(§4.1 第 1 / 5 行)', () => {
+  it('filter:单击写条件(含子级),不出卡片、无回执', () => {
     const h = mount('filter');
     h.clickRow('书籍');
     expect(itemPaths(h.probe.conditions, 'tag')).toEqual(['书籍']);
     expect(h.probe.conditions.groups[0].items[0]).toMatchObject({ includeChildren: true });
-    expect(h.cursorBar()).toBeNull();
     expect(h.card()).toBeNull();
     expect(h.flash()).toBeNull();
-  });
-
-  it('select:单击只移光标(竖条 + aria-current + 光标条),条件原文一字不变', () => {
-    const h = mount('select');
-    const before = [...h.probe.writes];
-    h.clickRow('书籍/SQL');
-    expect(h.cursorBar()?.textContent).toContain('书籍/SQL');
-    expect(h.cursorBar()?.textContent).toContain('本级 1 / 含子级 2');
-    expect(h.row('书籍/SQL')?.getAttribute('data-cursor')).toBe('true');
-    expect(h.row('书籍/SQL')?.getAttribute('aria-current')).toBe('true');
-    expect(h.probe.writes).toEqual(before);
-    expect(h.row('书籍/SQL')?.getAttribute('aria-pressed')).toBe('false'); // 光标不写它(§5.8)
-    expect(h.card()).toBeNull();
   });
 
   it('open:单击出卡片并切回信息流(卡片在流里,不切看不见),条件原文不变', () => {
@@ -65,15 +51,9 @@ describe('三模式的无修饰键单击(§4.1 第 1 / 5 / 9 行)', () => {
     expect(h.row('书籍')?.getAttribute('aria-expanded')).toBe('true');
     expect(h.row('书籍')?.getAttribute('aria-controls')).toBe('tag-preview-card');
     expect(h.probe.writes).toEqual(before);
-    expect(h.cursorBar()).toBeNull();
   });
 
-  it('再点同一行 = 切换:select 清光标、open 关卡片', () => {
-    const cursor = mount('select');
-    cursor.clickRow('书籍');
-    cursor.clickRow('书籍');
-    expect(cursor.cursorBar()).toBeNull();
-    expect(cursor.row('书籍')?.getAttribute('data-cursor')).toBeNull();
+  it('再点同一行 = 关卡片', () => {
     const card = mount('open');
     card.clickRow('书籍');
     card.clickRow('书籍');
@@ -90,7 +70,32 @@ describe('三模式的无修饰键单击(§4.1 第 1 / 5 / 9 行)', () => {
   });
 });
 
-describe('修饰键四格(§4.1 主表 12 格)', () => {
+describe('已删除的 select:任何入口都不该留下痕迹', () => {
+  it('两模式都没有光标条 / 行光标属性 / aria-current', () => {
+    for (const mode of MODES) {
+      const h = mount(mode);
+      h.clickRow('书籍/SQL');
+      h.clickRow('书籍', { ctrlKey: true });
+      h.clickRow('书籍', { shiftKey: true });
+      expect(h.cursorBar()).toBeNull();
+      expect(h.row('书籍')?.getAttribute('data-cursor')).toBeNull();
+      expect(h.row('书籍')?.getAttribute('aria-current')).toBeNull();
+      expect(h.row('书籍/SQL')?.getAttribute('data-cursor')).toBeNull();
+      expect(h.row('书籍/SQL')?.getAttribute('aria-current')).toBeNull();
+    }
+  });
+
+  it('点列表空白两模式都不做事(条件与卡片都不动)', () => {
+    const h = mount('open');
+    h.clickRow('书籍');
+    const writes = h.probe.writes.length;
+    h.blankClick();
+    expect(h.card()).not.toBeNull();
+    expect(h.probe.writes.length).toBe(writes);
+  });
+});
+
+describe('修饰键四格(§4.1 主表 8 格)', () => {
   it('filter:无 = 切换、Ctrl = 追加(幂等只回执)、Alt = 排除(可撤)、Shift = 只看这条', () => {
     const h = mount('filter');
     h.clickRow('书籍');
@@ -113,19 +118,6 @@ describe('修饰键四格(§4.1 主表 12 格)', () => {
     expect(h.flash()).toContain('已只看 #书籍/SQL');
   });
 
-  it('select:修饰键仍写条件,并把光标移到该行(一律有回执)', () => {
-    const h = mount('select');
-    h.clickRow('书籍', { ctrlKey: true });
-    expect(itemPaths(h.probe.conditions, 'tag')).toEqual(['书籍']);
-    expect(h.row('书籍')?.getAttribute('data-cursor')).toBe('true');
-    expect(h.flash()).toContain('已追加为同时满足');
-    h.clickRow('书籍/SQL', { altKey: true });
-    expect(h.flash()).toContain('已排除 #书籍/SQL');
-    h.clickRow('书籍/SQL', { shiftKey: true });
-    expect(h.flash()).toContain('已只看 #书籍/SQL');
-    expect(h.row('书籍/SQL')?.getAttribute('data-cursor')).toBe('true');
-  });
-
   it('open:修饰键只写条件,不开卡片也不切视图(一次点击只做一件事)', () => {
     const h = mount('open', 'settings');
     h.clickRow('书籍', { ctrlKey: true });
@@ -133,6 +125,17 @@ describe('修饰键四格(§4.1 主表 12 格)', () => {
     expect(h.card()).toBeNull();
     expect(h.probe.view).toBe('settings');
     expect(h.flash()).toContain('已追加为同时满足');
+  });
+
+  it('open:Alt / Shift 也有一句回执(用户预期"点一下不改条件",必须交代)', () => {
+    const h = mount('open');
+    h.clickRow('书籍', { altKey: true });
+    expect(h.flash()).toContain('已排除 #书籍');
+    h.clickRow('书籍', { shiftKey: true });
+    expect(itemPaths(h.probe.conditions, 'excludeTag')).toEqual([]);
+    expect(itemPaths(h.probe.conditions, 'tag')).toEqual(['书籍']);
+    expect(h.flash()).toContain('已只看 #书籍');
+    expect(h.card()).toBeNull();
   });
 
   it('多修饰键同时按下只出一个动作:Ctrl+Alt = 追加(优先级 Ctrl > Alt > Shift)', () => {
@@ -143,8 +146,8 @@ describe('修饰键四格(§4.1 主表 12 格)', () => {
   });
 });
 
-describe('容器行恒展开(§4.2 的 13 个格子同一结果)', () => {
-  it('有子级的容器:三模式单击都只收起子树,不写条件、不出光标、不开卡片', () => {
+describe('容器行恒展开(§4.2 的 9 个格子同一结果)', () => {
+  it('有子级的容器:两模式单击都只收起子树,不写条件、不开卡片', () => {
     for (const mode of MODES) {
       const h = mount(mode);
       const writes = h.probe.writes.length;
@@ -152,19 +155,17 @@ describe('容器行恒展开(§4.2 的 13 个格子同一结果)', () => {
       h.clickRow('容器');
       expect(h.row('容器/空')).toBeNull(); // 收起
       expect(h.probe.writes.length).toBe(writes);
-      expect(h.cursorBar()).toBeNull();
       expect(h.card()).toBeNull();
     }
   });
 
-  it('计数 0 的空实体:三模式单击都不做事,只给一句「该实体还没有内容」', () => {
+  it('计数 0 的空实体:两模式单击都不做事,只给一句「该实体还没有内容」', () => {
     for (const mode of MODES) {
       const h = mount(mode);
       const writes = h.probe.writes.length;
       h.clickRow('空实体');
       expect(h.probe.writes.length).toBe(writes);
       expect(h.flash()).toBe('该实体还没有内容');
-      expect(h.cursorBar()).toBeNull();
       expect(h.card()).toBeNull();
     }
   });

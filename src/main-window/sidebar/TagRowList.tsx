@@ -31,8 +31,6 @@ export interface TagRowListProps {
   expanded: (path: string) => boolean;
   /** 当前单击模式(T4 接线;缺省 = filter) */
   clickMode?: SidebarClickMode;
-  /** select 模式的光标路径(不落库的会话内状态) */
-  cursorPath?: string | null;
   /** open 模式已打开的预览路径 */
   previewPath?: string | null;
   /** 行意图的唯一出口(T4 接线):单击 / 双击 / Enter / Space 都走它 */
@@ -93,7 +91,6 @@ export function TagRowList(p: TagRowListProps): ReactNode {
             excluded={p.excluded.has(node.path)}
             expanded={!p.flat && p.expanded(node.path)}
             clickMode={p.clickMode}
-            cursor={p.cursorPath === node.path}
             previewing={p.previewPath === node.path}
             onIntent={p.onIntent}
             onToggleExpand={p.onToggleExpand}

@@ -4,7 +4,7 @@
  *
  * 单击行为(设计 2026-10-16 §4):onClick / onDoubleClick / onKeyDown 只做一件事 ——
  * 把「模式 + 修饰键 + 该行是否可选」交给 `rowIntent`,把结果派发回上层(`onIntent`);
- * 条件补丁、光标、预览卡片一概不在这里。容器行(计数 0)恒 `expand`(§4.2),
+ * 条件补丁、预览卡片一概不在这里。容器行(计数 0)恒 `expand`(§4.2),
  * 拖动起手的单击不派发(§4.3 第 16 行双保险),箭头自己 `stopPropagation` 只展开(第 13 行)。
  *
  * 标签名的行内 md(T1):显示位走 renderTagLabel(预览态),title / 其它字符串位走 tagLabelPlain;
@@ -36,8 +36,7 @@ export interface TagRowProps {
   expanded: boolean;
   /** 当前单击模式(T4 接线;缺省 = filter,即旧的"单击 = 切换筛选"口径) */
   clickMode?: SidebarClickMode;
-  /** select 的光标行 / open 的已打开行(§5.1):共用左缘竖条,各自出 data-cursor / data-preview */
-  cursor?: boolean;
+  /** open 的已打开行(§5.1):左缘竖条 + data-preview */
   previewing?: boolean;
   /** 行意图的唯一出口(单击 / 双击 / Enter / Space);条件与状态的一切执行都在上层 */
   onIntent: (intent: RowIntent, node: TagNode) => void;
@@ -82,7 +81,6 @@ export function TagRow(p: TagRowProps): ReactNode {
     (p.dropZone === 'child' ? ' bg-accent-soft' : '');
 
   const tips = rowRelationTips(p.node.path, p.relations ?? []);
-  const bar = p.cursor === true || p.previewing === true;
 
   /** 行意图的唯一出口(T4 接完线后必传):单击 / 双击 / Enter / Space 都派发到这里 */
   const emit = (intent: RowIntent): void => p.onIntent(intent, p.node);
@@ -113,8 +111,6 @@ export function TagRow(p: TagRowProps): ReactNode {
       data-drop-target={p.dropZone ?? undefined}
       draggable={p.node.id !== null}
       aria-pressed={selectable ? p.selected : undefined}
-      aria-current={p.cursor === true ? 'true' : undefined}
-      data-cursor={p.cursor === true ? 'true' : undefined}
       aria-expanded={p.previewing === true ? 'true' : undefined}
       aria-controls={p.previewing === true ? 'tag-preview-card' : undefined}
       data-preview={p.previewing === true ? 'true' : undefined}
@@ -140,7 +136,7 @@ export function TagRow(p: TagRowProps): ReactNode {
       onDragLeave={p.onDragLeave}
       onDrop={p.onDrop}
     >
-      {bar && <span aria-hidden="true" data-row-bar className={BAR_CLASS} />}
+      {p.previewing === true && <span aria-hidden="true" data-row-bar className={BAR_CLASS} />}
       {/* 同级插入线:落点冒泡到整行时兜底画(几何与边界带同源),所以永远只有一条 */}
       {(p.dropZone === 'before' || p.dropZone === 'after') && (
         <RowDropLine zone={p.dropZone} left={lineIndent(p.node, p.flat)} />
