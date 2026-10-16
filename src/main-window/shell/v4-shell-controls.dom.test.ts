@@ -141,6 +141,8 @@ describe('V4 标签分区头部:图标按钮 28 档', () => {
       onFilterTags: () => {},
       showRelations: true,
       onToggleRelations: () => {},
+      clickMode: 'filter',
+      onChangeClickMode: () => {},
       searchOpen: false,
       query: '',
       ime: { onChange: () => {}, onCompositionEnd: () => {} },
@@ -149,13 +151,14 @@ describe('V4 标签分区头部:图标按钮 28 档', () => {
       ...over,
     });
 
-  it('搜索/树-扁平/显示关系/筛选四个图标档按钮(28×28 / rounded-sm),按钮里无文字', async () => {
+  it('搜索/树-扁平/显示关系/点击行为/筛选五个图标档按钮(28×28 / rounded-sm),按钮里无文字', async () => {
     await render(header());
     const buttons = [...host.querySelectorAll('button')] as HTMLElement[];
     expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual([
       '搜索标签',
       '切换为扁平列表',
       '实体树里显示关系',
+      '点击行为：筛选',
       '筛选标签',
     ]);
     for (const btn of buttons) {

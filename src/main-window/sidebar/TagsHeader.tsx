@@ -4,9 +4,12 @@
  * 分区标题「实体」(spec §5.3 / 计划 Task 3.3):分区里装的是**树内实体**(可含笔记),与设置页
  * 「条目」同一口径;命令名 `list_tags` 与 DTO 保持不动(前端契约稳定)。
  *
- * 四个图标按钮都是纯图标:既有两个的 `aria-label` / `title` 是它们的语义与定位锚点
+ * 五个图标按钮都是纯图标:既有四个的 `aria-label` / `title` 是它们的语义与定位锚点
  * (验收脚本按 `aria-label` 找),一字不改;图标画的是当前模式(与旧文案「树」/「扁平」同义),
  * 动作仍由 aria-label 说明。放大镜按钮开关搜索框,默认收起。
+ * 第 5 个是单击行为的模式按钮(2026-10-16 设计 §5.2):循环点击 filter → open → select,
+ * 下一档由纯函数 `nextClickMode` 算(组件不持状态),锚点 `data-testid="click-mode-button"` +
+ * `data-click-mode`;三态不是开关,故不设 `aria-pressed`。
  * 「实体树里显示引用」开关(2026-10-07 从设置页就近搬到本区头部)与设置页写同一个键,双向同步;
  * 「筛选标签」图标同期从漏斗换成筛选/条件语义的递减线条,与放大镜(收窄树)一眼区分。
  *
@@ -17,6 +20,7 @@
 import type { ReactNode } from 'react';
 import type { ImeInputHandlers } from '../../shared/use-ime-composition';
 import type { TagViewMode } from './use-sidebar-state';
+import { CLICK_MODE_LABELS, nextClickMode, type SidebarClickMode } from './click-mode';
 import { BTN_ICON } from '../shell/button-classes';
 
 /** 操作回执:成功(绿)或失败(红,拖拽预校验/后端拒绝) */
@@ -34,6 +38,10 @@ export interface TagsHeaderProps {
   /** 实体树里显示引用(与设置页同一个持久化键,双向同步) */
   showRelations: boolean;
   onToggleRelations: () => void;
+  /** 单击实体行的行为模式(与设置页「单击实体行的行为」同一份状态) */
+  clickMode: SidebarClickMode;
+  /** 点模式按钮:回调参数恒为 `nextClickMode(clickMode)`(下一档由本组件算,状态在上层) */
+  onChangeClickMode: (m: SidebarClickMode) => void;
   /** 搜索框是否展开(默认收起,点击放大镜切换) */
   searchOpen: boolean;
   /** 收窄关键词(显示值;空串 = 全树) */
@@ -56,6 +64,21 @@ const SEARCH_PATH = 'M13 13 9.7 9.7M2.5 7a4.5 4.5 0 1 0 9 0 4.5 4.5 0 1 0-9 0';
 /** 关系:一个节点连出两个节点(与「显示关系」同义) */
 const RELATION_PATH =
   'M8 4.2a1.8 1.8 0 1 1 0 3.6 1.8 1.8 0 0 1 0-3.6M4.7 12.2a1.8 1.8 0 1 1 0 3.6 1.8 1.8 0 0 1 0-3.6M11.3 12.2a1.8 1.8 0 1 1 0 3.6 1.8 1.8 0 0 1 0-3.6M7.2 7.4 5.4 10.6M8.8 7.4l1.8 3.2M6.5 14h3';
+
+/** 单击行为模式按钮的三个图标(设计 2026-10-16 §5.2):漏斗(筛选)/ 方框+外跳(打开)/ 指针三角(选中)。
+ *  漏斗与「筛选标签」的递减线条不再撞车(那只已换成线条)。 */
+const CLICK_MODE_ICON: Record<SidebarClickMode, string> = {
+  filter: 'M2.5 4h11l-4.2 4.8V13L7 11.4V8.8z',
+  open: 'M6.5 3.5H4A1.5 1.5 0 0 0 2.5 5v7A1.5 1.5 0 0 0 4 13.5h7A1.5 1.5 0 0 0 12.5 12V9.5M9.5 3.5h3.5V7M13 3.5 7.5 9',
+  select: 'M4.5 2.5v10.8l2.6-2.6h3.6z',
+};
+
+/** 各模式的「单击 = ...」一句(title 里说清"现在是什么 + 点一下变成什么") */
+const CLICK_MODE_ACTION: Record<SidebarClickMode, string> = {
+  filter: '单击 = 加入/移出筛选',
+  open: '单击 = 打开预览卡片',
+  select: '单击 = 选中实体',
+};
 
 /** 图标:(16 格 / 1.5 描边 / 14px 框)与仓内既有侧栏图标同一风格 */
 function Icon({ d }: { d: string }): ReactNode {
@@ -108,6 +131,20 @@ export function TagsHeader(p: TagsHeaderProps): ReactNode {
             className={BTN_ICON + (p.showRelations ? ' bg-selected text-accent-text' : '')}
           >
             <Icon d={RELATION_PATH} />
+          </button>
+          <button
+            type="button"
+            data-testid="click-mode-button"
+            data-click-mode={p.clickMode}
+            aria-label={'点击行为：' + CLICK_MODE_LABELS[p.clickMode]}
+            title={
+              `点击行为：${CLICK_MODE_LABELS[p.clickMode]}（${CLICK_MODE_ACTION[p.clickMode]}）。` +
+              `点一下切到「${CLICK_MODE_LABELS[nextClickMode(p.clickMode)]}」`
+            }
+            onClick={() => p.onChangeClickMode(nextClickMode(p.clickMode))}
+            className={BTN_ICON}
+          >
+            <Icon d={CLICK_MODE_ICON[p.clickMode]} />
           </button>
           <button
             type="button"

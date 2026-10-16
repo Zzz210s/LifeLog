@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * 侧栏标签分区头部:四个图标按钮(2026-10-07 从三个加了一个「实体树里显示关系」)。
+ * 侧栏标签分区头部:五个图标按钮(2026-10-16 又加了单击行为的模式按钮;此前 2026-10-07 从三个加了「实体树里显示关系」)。
  * `aria-label` 与 `title` 是无障碍与验收脚本(CDP 按 aria-label 定位)的定位锚点;
  * 图标只换形态、不改语义。图标风格照仓内既有:viewBox 0 0 16 16 / stroke=currentColor /
  * h-3.5 w-3.5 / aria-hidden。放大镜默认收起(不渲染 input),展开后 Esc 清空并收起。
@@ -58,6 +58,8 @@ const render = async (
         onToggleRelations: () => {
           relationCalls += 1;
         },
+        clickMode: 'filter',
+        onChangeClickMode: () => {},
         searchOpen,
         query: '',
         ime: { onChange: () => {}, onCompositionEnd: () => {} },
@@ -80,16 +82,17 @@ describe('侧栏标签分区头部:按钮图标化', () => {
     expect(host.querySelector('h2')?.textContent).toBe('实体');
   });
 
-  it('树模式:四个按钮都是纯图标,aria-label/title 仍是原值', async () => {
+  it('树模式:五个按钮都是纯图标,既有四个的 aria-label/title 仍是原值', async () => {
     await render('tree');
-    const [search, mode, relations, filter] = buttons();
-    expect(buttons()).toHaveLength(4);
+    const [search, mode, relations, clickMode, filter] = buttons();
+    expect(buttons()).toHaveLength(5);
     expect([
       search.getAttribute('aria-label'),
       mode.getAttribute('aria-label'),
       relations.getAttribute('aria-label'),
+      clickMode.getAttribute('aria-label'),
       filter.getAttribute('aria-label'),
-    ]).toEqual(['搜索标签', '切换为扁平列表', '实体树里显示关系', '筛选标签']);
+    ]).toEqual(['搜索标签', '切换为扁平列表', '实体树里显示关系', '点击行为：筛选', '筛选标签']);
     expect([
       search.getAttribute('title'),
       mode.getAttribute('title'),
@@ -128,9 +131,9 @@ describe('侧栏标签分区头部:按钮图标化', () => {
     expect(String(off.className)).not.toContain('bg-selected');
   });
 
-  it('回归:四个入口仍各自回调', async () => {
+  it('回归:五个入口仍各自回调', async () => {
     await render('tree');
-    const [search, mode, relations, filter] = buttons();
+    const [search, mode, relations, , filter] = buttons();
     await act(async () => search.click());
     await act(async () => mode.click());
     await act(async () => relations.click());
