@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { confirm } from '@tauri-apps/plugin-dialog';
 import type { ThemeMode } from '../../shared/theme-mode';
+import type { SidebarClickMode } from '../sidebar/click-mode';
 import { BTN_SECONDARY } from '../shell/button-classes';
 import { AboutSection } from './AboutSection';
 import { AppHotkeySection } from './AppHotkeySection';
@@ -30,9 +31,11 @@ export interface SettingsViewProps {
   /** 「标签关系」分区里的「实体树里显示引用」当前值(与侧栏同一份状态,透传) */
   showRelations?: boolean;
   onShowRelationsChange?: (v: boolean) => void;
+  /** 「单击实体行的行为」那一行(与侧栏头部按钮同一份状态,透传;缺省 = 筛选) */
+  sidebarClick?: { clickMode: SidebarClickMode; onChangeClickMode: (m: SidebarClickMode) => void };
 }
 
-export function SettingsView({ themeMode, onThemeChange, onReplayTutorial, onBack, showRelations, onShowRelationsChange }: SettingsViewProps): ReactNode {
+export function SettingsView({ themeMode, onThemeChange, onReplayTutorial, onBack, showRelations, onShowRelationsChange, sidebarClick }: SettingsViewProps): ReactNode {
   const [active, setActive] = useState<SectionId>(() => normalizeSection('appearance'));
   const editing = useAppearanceEditing();
 
@@ -75,7 +78,13 @@ export function SettingsView({ themeMode, onThemeChange, onReplayTutorial, onBac
       case 'notes':
         return <NotesSection />;
       case 'relations':
-        return <RelationSuggestionsSection showRelations={showRelations} onShowRelationsChange={onShowRelationsChange} />;
+        return (
+          <RelationSuggestionsSection
+            showRelations={showRelations}
+            onShowRelationsChange={onShowRelationsChange}
+            sidebarClick={sidebarClick}
+          />
+        );
       case 'hotkey':
         return <AppHotkeySection />;
       case 'startup':

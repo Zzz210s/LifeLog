@@ -25,6 +25,8 @@ import type { GroupedView } from '../data/use-stream-feed';
 import { ConditionBar } from '../filter/ConditionBar';
 import { sortHintLabel } from '../filter/sort-conditions';
 import { ErrorBars } from './ErrorBars';
+import { TagPreviewCard } from './TagPreviewCard';
+import type { TagPreviewCardProps } from './TagPreviewCard';
 import type { ErrorKind } from './ErrorBar';
 import type { ErrorMap } from './errors';
 
@@ -40,6 +42,8 @@ export interface StreamViewProps {
   grouping: GroupedView | null;
   /** 顶部提示(degraded / slow 文案) */
   notice: string | null;
+  /** open 模式的预览卡片数据(设计 §5.4;null = 没打开任何实体,不渲染) */
+  preview: TagPreviewCardProps | null;
   filterEmpty: boolean;
   errors: ErrorMap;
   onPatch: (value: Partial<FilterConditions>) => void;
@@ -160,6 +164,8 @@ export function StreamView(p: StreamViewProps): ReactNode {
         onAddConditionOpenChange={p.onAddConditionOpenChange}
       />
       <ErrorBars errors={p.errors} onRetry={p.onRetry} onDismiss={p.onDismissError} />
+      {/* 预览卡片(§5.4):条件栏之后、笔记流之前;不进 notes 数组,不参与分页 / 分组 / 空态 */}
+      {p.preview !== null && <TagPreviewCard {...p.preview} />}
       <NoteStream
         notes={p.notes}
         queryFailed={p.queryFailed}

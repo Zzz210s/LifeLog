@@ -36,9 +36,7 @@ export interface TagRowListProps {
   /** open 模式已打开的预览路径 */
   previewPath?: string | null;
   /** 行意图的唯一出口(T4 接线):单击 / 双击 / Enter / Space 都走它 */
-  onIntent?: (intent: RowIntent, node: TagNode) => void;
-  /** 接线前的旧出口:onIntent 缺席时行内兜底"单击 = 加入 / 移出筛选"(T4 接完线由上层撤掉) */
-  onToggle?: (node: TagNode) => void;
+  onIntent: (intent: RowIntent, node: TagNode) => void;
   onToggleExpand: (path: string) => void;
   onContextMenu: (e: React.MouseEvent, node: TagNode) => void;
   /** 拖拽状态与行事件(源行标记、悬停目标高亮与指示线) */
@@ -98,7 +96,6 @@ export function TagRowList(p: TagRowListProps): ReactNode {
             cursor={p.cursorPath === node.path}
             previewing={p.previewPath === node.path}
             onIntent={p.onIntent}
-            onToggle={p.onToggle}
             onToggleExpand={p.onToggleExpand}
             onContextMenu={p.onContextMenu}
             dragSource={sourcePath === node.path}

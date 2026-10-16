@@ -92,10 +92,8 @@ export interface RowOver {
   mode?: SidebarClickMode;
   cursor?: boolean;
   previewing?: boolean;
-  /** 行意图出口(T3 起行只派发意图,业务在 use-tag-click);不传则走行内的旧出口兜底 */
+  /** 行意图出口(T4 起行只派发意图,业务在 use-tag-click);不传 = 吞掉(只读视觉的用例) */
   onIntent?: (intent: RowIntent, node: TagNode) => void;
-  /** 接线前的旧出口:onIntent 缺席时行内兜底 filter 模式的两个旧动作 */
-  onToggle?: (node: TagNode) => void;
   onToggleExpand?: (path: string) => void;
   dragActive?: boolean;
   flat?: boolean;
@@ -134,8 +132,7 @@ export function mountTagRow(): RowHarness {
             clickMode: over.mode,
             cursor: over.cursor ?? false,
             previewing: over.previewing ?? false,
-            onIntent: over.onIntent,
-            onToggle: over.onToggle,
+            onIntent: over.onIntent ?? (() => {}),
             onToggleExpand: over.onToggleExpand ?? (() => {}),
             onContextMenu: () => {},
             dragSource: false,

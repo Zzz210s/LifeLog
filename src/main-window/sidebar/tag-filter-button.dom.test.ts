@@ -12,6 +12,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { EMPTY_FILTER } from '../../shared/filter-conditions';
 import type { TagCount } from '../../shared/types';
 import { Sidebar } from './Sidebar';
+import { stubTagClick } from './__fixtures__/tag-click-stub';
 import type { SidebarStateApi } from './use-sidebar-state';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -57,6 +58,7 @@ async function render(onPrefill: (prefix: string) => void, rows: TagCount[] = ta
         tagMru: null,
         onTagsMutated: () => {},
         onPrefill,
+        click: stubTagClick(),
       }),
     ),
   );

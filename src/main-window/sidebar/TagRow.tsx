@@ -40,9 +40,7 @@ export interface TagRowProps {
   cursor?: boolean;
   previewing?: boolean;
   /** 行意图的唯一出口(单击 / 双击 / Enter / Space);条件与状态的一切执行都在上层 */
-  onIntent?: (intent: RowIntent, node: TagNode) => void;
-  /** 接线前的旧出口:onIntent 缺席时兜底"单击 = 加入 / 移出筛选"(T4 接完线由上层撤掉) */
-  onToggle?: (node: TagNode) => void;
+  onIntent: (intent: RowIntent, node: TagNode) => void;
   /** 展开 / 收起:箭头与 ArrowLeft/Right 用它,不占行意图 */
   onToggleExpand: (path: string) => void;
   onContextMenu: (e: React.MouseEvent, node: TagNode) => void;
@@ -86,12 +84,8 @@ export function TagRow(p: TagRowProps): ReactNode {
   const tips = rowRelationTips(p.node.path, p.relations ?? []);
   const bar = p.cursor === true || p.previewing === true;
 
-  /** 行意图的唯一出口:接完线走 onIntent;接线前退回旧口径 —— 单击 = 开关(与修饰键、模式无关),容器行只展开 */
-  const emit = (intent: RowIntent): void => {
-    if (p.onIntent !== undefined) p.onIntent(intent, p.node);
-    else if (intent !== 'expand') p.onToggle?.(p.node);
-    else if (hasChildren) p.onToggleExpand(p.node.path);
-  };
+  /** 行意图的唯一出口(T4 接完线后必传):单击 / 双击 / Enter / Space 都派发到这里 */
+  const emit = (intent: RowIntent): void => p.onIntent(intent, p.node);
   /** 行的"激活"= 模式 + 修饰键(修饰键优先,见 tag-row-action);拖过的不算单击(§4.3 第 16 行) */
   const activate = (m: ClickMods): void => {
     if (p.dragActive) return;

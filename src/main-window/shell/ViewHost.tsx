@@ -16,6 +16,7 @@ import type { ThemeModeController } from '../../shared/use-theme-mode';
 import { GraphView } from '../graph/GraphView';
 import type { MainView } from '../settings/settings-model';
 import { SettingsView } from '../settings/SettingsView';
+import type { SidebarClickMode } from '../sidebar/click-mode';
 import { StreamView, type StreamViewProps } from './StreamView';
 import { TopBar } from './TopBar';
 import { contentColumnClass } from './content-column';
@@ -44,6 +45,8 @@ export interface ViewHostProps {
   tagMru?: TagMruSource | null;
   /** 「标签关系」分区里的「实体树里显示引用」(值来自侧栏状态,与其共用一份 showRelations) */
   tagTreeRelations?: { showRelations: boolean; onShowRelationsChange: (v: boolean) => void };
+  /** 设置页「单击实体行的行为」那一行:与侧栏头部按钮同一份状态(App 的 sidebar.clickMode) */
+  sidebarClick: { clickMode: SidebarClickMode; onChangeClickMode: (m: SidebarClickMode) => void };
   onReplayTutorial: () => void;
 }
 
@@ -74,6 +77,7 @@ export function ViewHost(p: ViewHostProps): ReactNode {
           onBack={p.onBack}
           showRelations={p.tagTreeRelations?.showRelations}
           onShowRelationsChange={p.tagTreeRelations?.onShowRelationsChange}
+          sidebarClick={p.sidebarClick}
         />
       )}
       {p.view === 'graph' && (

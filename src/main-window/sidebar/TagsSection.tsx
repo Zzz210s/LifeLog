@@ -1,9 +1,9 @@
 /**
- * 侧栏「标签」分区(spec 6.1):树/扁平双模式 + 计数导轨 + 选中态。
- * 时间标签已降级为普通标签(D3):本分区就是全部标签(含 `时间` 根,老库仍是 `时间排序` 或 `时间/日期`),
- * 可展开、可右键管理;关键词过滤已改为走统一输入框(计划 Task 4),本分区不再有过滤态。
- * 选中态与筛选栏 tags[] 是同一份条件对象(上层传入 conditions 派生);
- * 点击 = applyTagPick(含子级 true),再点 = 移除;右键打开 TagMenu 管理标签。
+ * 侧栏「标签」分区(spec 6.1):树/扁平双模式 + 计数导轨 + 选中态 + 关系小字。
+ * 单击行为自 2026-10-16 起可配置(设计 §2):本组件只做两件事 —— 把行派发的意图交给
+ * `useTagClick` 执行,以及渲染它给的光标条;条件补丁与光标/预览状态都不在这里(分区守 200 行红线)。
+ * 展开是纯侧栏视觉(折叠集合在本组件),所以 `expand` 意图不出这个文件。
+ * 右键菜单的状态与位置钳制在 `use-tag-menu`,本体与五个子面板在 `TagMenu`。
  */
 import { useCallback, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
@@ -11,16 +11,20 @@ import type { FilterConditions } from '../../shared/filter-conditions';
 import { itemPaths } from '../../shared/filter-conditions';
 import type { TagMruSource } from '../../shared/tag-mru';
 import type { TagCount } from '../../shared/types';
+import { TagCursorBar } from './TagCursorBar';
 import { TagMenu } from './TagMenu';
 import { TagRowList } from './TagRowList';
 import { TagsHeader } from './TagsHeader';
 import { TagRootDropBar } from './TagRootDropBar';
-import { buildTree, filterTree, flattenTree, isManageable, toggleTagPick } from './tag-tree';
-import type { ManagedNode, TagNode } from './tag-tree';
+import { setTagScope, toggleExcludeTag } from './tag-click-patch';
+import type { RowIntent } from './tag-row-action';
+import { buildTree, filterTree, flattenTree } from './tag-tree';
+import type { TagNode } from './tag-tree';
 import { useTagDrag } from './use-tag-drag';
 import { useTagFacts } from './use-tag-facts';
-import { useTagFlash } from './use-tag-flash';
+import { useTagMenu } from './use-tag-menu';
 import { useTagSearch } from './use-tag-search';
+import type { TagClickApi } from './use-tag-click';
 import type { TagViewMode } from './use-sidebar-state';
 
 export interface TagsSectionProps {
@@ -39,15 +43,22 @@ export interface TagsSectionProps {
   /** 设置开关「实体树里显示引用」(默认开,侧栏头部与设置页同一份状态);打开后行尾追加关系的**值**小字 */
   showRelations?: boolean;
   onShowRelationsChange?: (v: boolean) => void;
+  /** 单击接线(设计 2026-10-16,计划 T4):模式 + 光标/预览状态 + 意图执行都在 `useTagClick`(App 持有) */
+  click: TagClickApi;
 }
 
 export function TagsSection(p: TagsSectionProps): ReactNode {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  const [menu, setMenu] = useState<{ node: ManagedNode; x: number; y: number } | null>(null);
   const [factsNonce, setFactsNonce] = useState(0);
   const listRef = useRef<HTMLDivElement | null>(null);
-  const { flash, showFlash } = useTagFlash();
+  const click = p.click;
+  const { flash, showFlash } = click;
   const search = useTagSearch();
+  const menu = useTagMenu({
+    showFlash,
+    onMutated: p.onTagsMutated,
+    onFactsStale: () => setFactsNonce((n) => n + 1),
+  });
 
   // 全量标签行(含时间标签)就是本分区的数据源(D3)
   const visibleRows = p.tagRows;
@@ -58,10 +69,7 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
   const tree = useMemo(() => buildTree(p.tagRows), [p.tagRows]);
   const shown = useMemo(() => filterTree(tree, search.committed), [tree, search.committed]);
   const activePaths = useMemo(() => new Set(itemPaths(p.conditions, 'tag')), [p.conditions]);
-  const excludedPaths = useMemo(
-    () => new Set(itemPaths(p.conditions, 'excludeTag')),
-    [p.conditions]
-  );
+  const excludedPaths = useMemo(() => new Set(itemPaths(p.conditions, 'excludeTag')), [p.conditions]);
 
   const toggleExpand = useCallback((path: string) => {
     setCollapsed((prev) => {
@@ -72,38 +80,15 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
     });
   }, []);
 
-  /** 行点击:排除侧 -> 撤掉该排除;引入侧 -> 移除;都不在 -> 加入(含子级) */
-  const onToggle = useCallback(
-    (node: TagNode) => p.onPatch(toggleTagPick(p.conditions, node.path)),
-    [p]
-  );
-
-  const onContextMenu = useCallback((e: React.MouseEvent, node: TagNode) => {
-    e.preventDefault();
-    if (!isManageable(node)) return; // 补出的结构节点(无 DB id)不可管理:不出菜单
-    // 菜单宽 224px(w-56)、高最多 320px,钳制不超出视口
-    setMenu({
-      node,
-      x: Math.max(8, Math.min(e.clientX, window.innerWidth - 232)),
-      y: Math.max(8, Math.min(e.clientY, window.innerHeight - 328)),
-    });
-  }, []);
-
-  const onMenuDone = useCallback(
-    (message: string, pathChange?: { from: string; to: string }) => {
-      setMenu(null);
-      showFlash(message);
-      setFactsNonce((n) => n + 1); // 关系可能被改动,重取事实
-      p.onTagsMutated(pathChange);
+  /** 行意图:展开是纯侧栏视觉(折叠集合在本组件),其余交给 `useTagClick` 执行(§4.1) */
+  const onIntent = useCallback(
+    (intent: RowIntent, node: TagNode) => {
+      if (intent !== 'expand') return click.apply(intent, node);
+      if (node.children.length > 0) toggleExpand(node.path);
+      else showFlash('该实体还没有内容'); // 计数 0 的空实体:三模式都不做事,只给一句话(§4.2)
     },
-    [p]
+    [click, showFlash, toggleExpand]
   );
-
-  /** 关闭菜单(Esc/点外/面板取消):关系面板是即时写库的,关时重取一次事实 */
-  const onMenuClose = useCallback(() => {
-    setMenu(null);
-    setFactsNonce((n) => n + 1);
-  }, []);
 
   const isExpanded = (path: string): boolean => search.filtering || !collapsed.has(path);
 
@@ -123,10 +108,7 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
     expanded: isExpanded,
     onAutoExpand: expandPath,
     listRef,
-    onMoved: (pathChange) => {
-      showFlash('已移动标签');
-      p.onTagsMutated(pathChange);
-    },
+    onMoved: (pathChange) => { showFlash('已移动标签'); p.onTagsMutated(pathChange); },
     onError: (message) => showFlash(message, 'error'),
   });
 
@@ -142,6 +124,8 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
         onFilterTags={p.onFilterTags}
         showRelations={p.showRelations === true}
         onToggleRelations={() => p.onShowRelationsChange?.(!(p.showRelations === true))}
+        clickMode={click.clickMode}
+        onChangeClickMode={click.changeClickMode}
         searchOpen={search.searchOpen}
         query={search.query}
         ime={search.ime}
@@ -152,6 +136,7 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
         ref={listRef}
         className="scroll-gutter min-h-0 flex-1 overflow-y-auto px-1 pb-2"
         data-testid="tag-list"
+        onClick={click.onListBlankClick}
         onDragOver={drag.rootEvents.onDragOverRoot}
         onDrop={drag.rootEvents.onDropRoot}
         onDragLeave={drag.listEvents.onDragLeaveList}
@@ -165,9 +150,12 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
             selected={activePaths}
             excluded={excludedPaths}
             expanded={isExpanded}
-            onToggle={onToggle}
+            clickMode={click.clickMode}
+            cursorPath={click.cursorPath}
+            previewPath={click.previewPath}
+            onIntent={onIntent}
             onToggleExpand={toggleExpand}
-            onContextMenu={onContextMenu}
+            onContextMenu={menu.onContextMenu}
             drag={drag}
             facts={facts}
             showRelations={p.showRelations === true}
@@ -177,6 +165,8 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
           <p className="px-2 py-2 text-label text-muted">没有匹配的实体</p>
         )}
       </div>
+      {/* select 模式的光标条(§5.3):列表之下、根级指示条之前;拖拽期间让位(§4.3 第 23 行) */}
+      {click.cursor !== null && !drag.dragging && <TagCursorBar {...click.cursor} />}
       {/* 「移到根级」指示条:拖拽期间渲染;源已在根级时不出现(T8,避免假成功) */}
       {drag.dragging && drag.rootAllowed && (
         <TagRootDropBar
@@ -185,14 +175,17 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
           onDrop={drag.rootEvents.onDropRoot}
         />
       )}
-      {menu && (
+      {menu.menu && (
         <TagMenu
-          node={menu.node}
-          x={menu.x} y={menu.y}
+          node={menu.menu.node}
+          x={menu.menu.x} y={menu.menu.y}
           tagRows={p.tagRows}
           tagMru={p.tagMru}
-          onClose={onMenuClose}
-          onDone={onMenuDone}
+          conditions={p.conditions}
+          onScope={(path, ic) => p.onPatch(setTagScope(p.conditions, path, ic))}
+          onToggleExclude={(path) => p.onPatch(toggleExcludeTag(p.conditions, path))}
+          onClose={menu.onClose}
+          onDone={menu.onDone}
         />
       )}
     </section>

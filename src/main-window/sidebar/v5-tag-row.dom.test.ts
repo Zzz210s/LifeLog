@@ -54,6 +54,7 @@ function render(over: RowOver = {}): HTMLElement {
         selected: over.selected ?? false,
         excluded: over.excluded ?? false,
         expanded: false,
+        onIntent: () => {},
         onToggleExpand: () => {},
         onContextMenu: () => {},
         dragSource: false,

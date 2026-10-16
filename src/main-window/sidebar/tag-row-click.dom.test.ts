@@ -96,30 +96,3 @@ describe('容器行(§4.2:3 模式 × 4 修饰键状态 结果全同)', () => {
     expect(onIntent).toHaveBeenCalledWith('select', PARENT);
   });
 });
-
-describe('接线前的兜底(T4 之前上层还只传 onToggle:单击不能让旧行为失效)', () => {
-  it('onIntent 缺席:filter 模式无修饰键单击走旧 onToggle,结构节点走 onToggleExpand', () => {
-    const onToggle = vi.fn();
-    const onToggleExpand = vi.fn();
-    clickRow(h.render({ mode: 'filter', onToggle, onToggleExpand }));
-    expect(onToggle).toHaveBeenCalledWith(LEAF);
-
-    clickRow(h.render({ node: HOLDER, onToggle, onToggleExpand }));
-    expect(onToggleExpand).toHaveBeenCalledWith('a');
-    expect(onToggle).toHaveBeenCalledTimes(1);
-  });
-
-  it('onIntent 缺席时不读修饰键:Alt+单击仍是旧开关语义(修饰键的接线在 T4)', () => {
-    const onToggle = vi.fn();
-    clickRow(h.render({ onToggle }), { altKey: true });
-    expect(onToggle).toHaveBeenCalledWith(LEAF);
-  });
-
-  it('onIntent 缺席时无子级的行两个旧出口都不响(与旧口径逐字一致)', () => {
-    const onToggle = vi.fn();
-    const onToggleExpand = vi.fn();
-    clickRow(h.render({ node: BLANK, onToggle, onToggleExpand }));
-    expect(onToggle).not.toHaveBeenCalled();
-    expect(onToggleExpand).not.toHaveBeenCalled();
-  });
-});

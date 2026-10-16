@@ -13,6 +13,7 @@ import { EMPTY_FILTER } from '../../shared/filter-conditions';
 import type { TagCount } from '../../shared/types';
 import { TagMenu } from './TagMenu';
 import { TagsSection } from './TagsSection';
+import { stubTagClick } from './__fixtures__/tag-click-stub';
 import { buildTree } from './tag-tree';
 import type { ManagedNode } from './tag-tree';
 
@@ -101,6 +102,7 @@ async function openRelationFromSidebar(tag: TagCount, mru: typeof tagMru | null)
         onModeChange: () => {},
         onFilterTags: () => {},
         onTagsMutated: () => {},
+        click: stubTagClick(),
       })
     );
   });

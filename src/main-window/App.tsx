@@ -6,6 +6,7 @@ import { CommandStatusPill } from './shell/CommandStatusPill';
 import type { MainView } from './settings/settings-model';
 import { Sidebar } from './sidebar/Sidebar';
 import { useSidebarState } from './sidebar/use-sidebar-state';
+import { useTagClick } from './sidebar/use-tag-click';
 import { ViewHost } from './shell/ViewHost';
 import { useFilterState } from './filter/use-filter-state';
 import { useAppErrors } from './shell/use-app-errors';
@@ -43,9 +44,7 @@ export function App(): ReactNode {
     useStreamFeed(conditions, setError, clearError);
 
   // 条件变化:退出编辑态(列表重查由 useNotesFeed 负责)
-  useEffect(() => {
-    setEditingId(null);
-  }, [conditions]);
+  useEffect(() => setEditingId(null), [conditions]);
 
   useBackupWarning(setError);
 
@@ -76,6 +75,11 @@ export function App(): ReactNode {
     },
     [toggleTag, backToStream],
   );
+
+  // 侧栏单击接线(设计 2026-10-16,计划 T4):光标 / 预览不落库;侧栏、设置页与信息流共用这一份
+  const click = useTagClick(sidebar, {
+    conditions, onPatch: patch, rows: tagRows, inStream: view === 'stream', openStream: backToStream,
+  });
 
   // 引导开着时切到非信息流视图(设置页 / 关系图;托盘与命令都拦不住键盘闸门)会把锚点全藏起来 ——
   // 覆盖层会变成"全屏压暗 + 气泡悬空"。这时按"不可用"处理:**只关层、不写标记**,下次启动再弹。
@@ -127,6 +131,7 @@ export function App(): ReactNode {
         tagMru={tagMru}
         onTagsMutated={handleTagsMutated}
         onPrefill={prefill}
+        click={click}
       />
       {/* 内容区外壳与顶栏在 ViewHost(列宽与顶栏的三个入口都是视图动作);这里只传侧栏状态与各组接线 */}
       <ViewHost
@@ -144,7 +149,7 @@ export function App(): ReactNode {
           hasMore,
           loading,
           queryFailed,
-          grouping, notice,
+          grouping, notice, preview: click.preview,
           filterEmpty: isFilterEmpty(conditions),
           errors,
           onPatch: patch,
@@ -172,6 +177,7 @@ export function App(): ReactNode {
         theme={theme}
         onReplayTutorial={tutorial.onReplay}
         tagTreeRelations={{ showRelations: sidebar.showRelations, onShowRelationsChange: sidebar.setShowRelations }}
+        sidebarClick={{ clickMode: sidebar.clickMode, onChangeClickMode: click.changeClickMode }}
         onFilterToStream={filterToStream}
         dataVersion={tagsVersion}
         tagMru={tagMru}

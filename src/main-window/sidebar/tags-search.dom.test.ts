@@ -10,6 +10,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { EMPTY_FILTER } from '../../shared/filter-conditions';
 import type { TagCount } from '../../shared/types';
 import { TagsSection } from './TagsSection';
+import { stubTagClick } from './__fixtures__/tag-click-stub';
 import type { TagViewMode } from './use-sidebar-state';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -36,6 +37,7 @@ const render = async (mode: TagViewMode = 'tree'): Promise<void> => {
         onModeChange: () => {},
         onFilterTags: () => {},
         onTagsMutated: () => {},
+        click: stubTagClick(),
       })
     )
   );

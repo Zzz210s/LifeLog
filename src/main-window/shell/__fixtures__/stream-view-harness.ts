@@ -15,6 +15,7 @@ import type { Note } from '../../../shared/types';
 import type { ListRow } from '../../../shared/quickpick/model';
 import type { PaletteController } from '../../palette/use-palette';
 import type { GroupedView } from '../../data/use-stream-feed';
+import type { TagPreviewCardProps } from '../TagPreviewCard';
 import { StreamView } from '../StreamView';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -60,6 +61,8 @@ export interface MountOptions {
   grouping?: GroupedView | null;
   /** 顶部提示文案 */
   notice?: string | null;
+  /** open 模式的预览卡片(设计 §5.4 的挂点位置:条件栏之后、笔记流之前) */
+  preview?: TagPreviewCardProps | null;
 }
 
 export interface Mounted {
@@ -83,7 +86,7 @@ export async function mountStreamView(o: MountOptions = {}): Promise<Mounted> {
   const props: Parameters<typeof StreamView>[0] = {
     visible: true, conditions: initial, notes: o.notes ?? [],
     editingId: null, hasMore: false, loading: false, queryFailed: false, filterEmpty: true,
-    grouping: o.grouping ?? null, notice: o.notice ?? null,
+    grouping: o.grouping ?? null, notice: o.notice ?? null, preview: o.preview ?? null,
     errors: {}, onPatch: o.onPatch ?? (() => {}),
     onToggleTag: () => {}, onRetry: () => {}, onDismissError: () => {},
     onClearFilters: o.onClearFilters ?? (() => {}), onShowInput: () => {}, onLoadMore: () => {}, onEdit: () => {},

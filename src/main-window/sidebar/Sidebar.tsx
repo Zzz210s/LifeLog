@@ -12,6 +12,7 @@ import { PREFIXES } from '../../shared/input-prefix';
 import type { TagMruSource } from '../../shared/tag-mru';
 import type { TagCount } from '../../shared/types';
 import { TagsSection } from './TagsSection';
+import type { TagClickApi } from './use-tag-click';
 import { clampSidebarWidth } from './use-sidebar-state';
 import type { SidebarStateApi } from './use-sidebar-state';
 
@@ -30,6 +31,8 @@ export interface SidebarProps {
    * 「筛选标签」按钮的语义就是 `onPrefill('#')` —— 用户接着打字即标签筛选。
    */
   onPrefill: (prefix: string) => void;
+  /** 单击接线(设计 2026-10-16):侧栏里的行 / 光标条 / 头部模式按钮都从这里取(App 持有) */
+  click: TagClickApi;
 }
 
 /** 「筛选标签」按钮预填的前缀:取自前缀表(唯一真源),不在别处再写一份字面量 */
@@ -80,6 +83,7 @@ export function Sidebar(p: SidebarProps): ReactNode {
         onShowRelationsChange={p.sidebar.setShowRelations}
         onTagsMutated={p.onTagsMutated}
         onFilterTags={() => p.onPrefill(TAG_PREFIX)}
+        click={p.click}
       />
       {/* 右缘拖宽热区:悬停高亮,拖动中抑制选中文本 */}
       <div

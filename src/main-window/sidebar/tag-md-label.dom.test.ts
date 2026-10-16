@@ -55,7 +55,7 @@ function mount(el: ReturnType<typeof createElement>): void {
   act(() => root.render(el));
 }
 
-function renderRow(flat: boolean, onToggle = (): void => undefined): HTMLElement {
+function renderRow(flat: boolean, onIntent = (): void => undefined): HTMLElement {
   mount(
     createElement(TagRow, {
       node: NODE,
@@ -63,7 +63,7 @@ function renderRow(flat: boolean, onToggle = (): void => undefined): HTMLElement
       selected: false,
       excluded: false,
       expanded: false,
-      onToggle,
+      onIntent,
       onToggleExpand: () => {},
       onContextMenu: () => {},
       dragSource: false,
@@ -81,8 +81,8 @@ function renderRow(flat: boolean, onToggle = (): void => undefined): HTMLElement
 
 describe('T1 侧栏树行:预览态 + 原始路径寻址', () => {
   it('树模式显示末级预览文本,data-tag-path 与点击回传仍是原始路径', () => {
-    const onToggle = vi.fn();
-    const row = renderRow(false, onToggle);
+    const onIntent = vi.fn();
+    const row = renderRow(false, onIntent);
     const label = row.querySelector('span.truncate') as HTMLElement;
     expect(label.textContent).toBe('郴州市');
     expect(row.getAttribute('data-tag-path')).toBe(RAW);
@@ -90,7 +90,7 @@ describe('T1 侧栏树行:预览态 + 原始路径寻址', () => {
     expect(row.querySelector('span[data-tip="chēn"]')?.textContent).toBe('郴');
     expect(row.querySelector('a')).toBeNull();
     act(() => row.click());
-    expect(onToggle).toHaveBeenCalledWith(expect.objectContaining({ path: RAW }));
+    expect(onIntent).toHaveBeenCalledWith('toggle', expect.objectContaining({ path: RAW }));
   });
 
   it('扁平模式显示完整路径的预览文本', () => {
