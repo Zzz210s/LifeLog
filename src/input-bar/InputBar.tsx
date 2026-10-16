@@ -1,14 +1,15 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { listen } from '@tauri-apps/api/event';
+import { useCallback, useRef, useState } from 'react';
 import { api } from '../shared/api';
 import { prepareForSave } from '../shared/note-source';
 import { savedStamp } from '../shared/input-feedback';
 import { useImeInput } from '../shared/use-ime-composition';
-import { canClose, canEdit } from '../shared/input-lock';
+import { canEdit } from '../shared/input-lock';
 import { useThemeMode } from '../shared/use-theme-mode';
 import { useInputCompletions } from './use-input-completions';
 import { InputBarOverlays } from './InputBarOverlays';
 import { useAutoHeight } from './use-auto-height';
+import { useHideShortcuts } from './use-hide-shortcuts';
+import { useMinHeight } from './use-min-height';
 import { useRootMouse } from './use-root-mouse';
 import { useInputSettings } from './use-input-settings';
 import { useStickerAppearance } from './use-sticker-appearance';
@@ -43,6 +44,8 @@ export function InputBar() {
     setCaret(next.length);
   }, [setValue]);
   const { settings, lock, error, setError, unlock } = useInputSettings();
+  // 最小高度下限(拖底边设置,基础逻辑像素;0 = 纯自动):有效高度 = max(自动, 下限)
+  const { minHeight, applyMin, commitMin } = useMinHeight();
   // 首次使用引导的开窗由 Rust 启动路径做(前端建窗会卡主线程,见 windowing/startup.rs)
   // 主题:输入栏不写库,只跟随主窗广播(见 shared/use-theme-mode);窗口保持透明
   useThemeMode({ follow: true, onError: setError });
@@ -62,50 +65,17 @@ export function InputBar() {
   // 建议列表(# 标签 / [[ 笔记二选一):像浏览器搜索框下方那样长在输入框正下方,窗口随之变高(高度不落库)
   const listHeight = complete.listHeight;
   // 内容变化后按真实换行行数(1-5 行)自动长高;滚轮缩放后手动再同步一次
-  const syncHeight = useAutoHeight({ textareaRef: inputRef, value: content, extraCss: listHeight });
+  const syncHeight = useAutoHeight({
+    textareaRef: inputRef,
+    value: content,
+    extraCss: listHeight,
+    minHeight,
+  });
   const { opacity, onMiddleDown, flushView } = useInputWheel({
     settings,
     onResized: syncHeight,
     onError: setError,
   });
-
-  // 页面自己发起的隐藏(Esc/双击)先 flush 视图状态再隐藏:窗口隐藏后页面计时器可能被冻结,
-  // 节流中的透明度就永远落不了库;Rust 侧隐藏(热键/托盘/失焦)由下面的 input-hiding 事件兜底。
-  const hideNow = useCallback(() => {
-    flushView();
-    void api.hideInputBar();
-  }, [flushView]);
-
-  // Rust 侧隐藏(热键/托盘/失焦自动隐藏)在 w.hide() 前会发出 input-hiding:
-  // hide() 不触发 onFocusChanged(实测),隐藏后页面计时器还可能被冻结,页面自己发起的
-  // 隐藏(Esc/双击)已由 hideNow 先 flush,热键/托盘路径靠这个事件补上最后一次 flush。
-  // 残留风险:事件送达与页面处理都是异步的,页面若已被挂起仍可能漏掉(非 100% 可靠)。
-  useEffect(() => {
-    let dispose: (() => void) | undefined;
-    let cancelled = false;
-    void listen('input-hiding', () => flushView())
-      .then((un) => {
-        if (cancelled) un();
-        else dispose = un;
-      })
-      .catch(() => {}); // 订阅失败不阻断隐藏流程
-    return () => {
-      cancelled = true;
-      dispose?.();
-    };
-  }, [flushView]);
-
-  // 窗口级 Esc(焦点在 BODY 时 textarea 收不到):锁定判据不变,只负责隐藏
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape' || e.isComposing) return; // 输入法组合中不抢 Esc
-      e.preventDefault();
-      if (!canClose(lock)) return; // 阻止关闭:Esc 无效(托盘菜单仍可隐藏)
-      hideNow();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [lock, hideNow]);
 
   // 右下角浮层:保存/解锁的短暂提示共用同一计时器
   const flash = useCallback((text: string) => {
@@ -142,13 +112,18 @@ export function InputBar() {
     }
   }, [unlock, flash, setError]);
 
-  const onDoubleClick = useCallback(() => {
-    if (settings.doubleClickAction !== 'hide' || !canClose(lock)) return;
-    hideNow();
-  }, [settings.doubleClickAction, lock, hideNow]);
+  // 隐藏接线(Esc / 双击 / 输入栏隐藏事件)搬进 use-hide-shortcuts(本文件守 200 行上限)
+  const { onDoubleClick } = useHideShortcuts({ lock, flushView, doubleClickAction: settings.doubleClickAction });
 
-  // 根元素鼠标路由(中键/左右带/上下带)与「点一下才允许取焦点」都在这个 hook 里
-  const onRootMouseDown = useRootMouse({ lock, textareaRef: inputRef, onDoubleClick, onMiddleDown });
+  // 根元素鼠标路由(中键/左右带/底边带/上下带)与「点一下才允许取焦点」都在这个 hook 里
+  const onRootMouseDown = useRootMouse({
+    lock,
+    textareaRef: inputRef,
+    onDoubleClick,
+    onMiddleDown,
+    applyMin,
+    commitMin,
+  });
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     // 补全先拿键(返回 true 表示已消费);Esc 由窗口级监听兜底,此处只处理 Ctrl+Enter

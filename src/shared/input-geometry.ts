@@ -1,4 +1,4 @@
-// 输入栏几何的纯函数:宽度钳制、行数钳制、按行高算高度、左右边缘判定。
+// 输入栏几何的纯函数:宽度钳制、行数钳制、按行高算高度、左右/底边判定、最小高度下限。
 // 单位表(换算靠 input-bar/logical-size.ts 的 ratio = 逻辑像素 / CSS 像素,勿混用):
 // - 逻辑像素:MIN_WIDTH / MAX_WIDTH(宽度区间)、EDGE_BAND_LOGICAL(边缘热区),
 //   与 Rust set_input_size 的宽度入参同一单位;
@@ -123,4 +123,64 @@ export function edgeSide(x: number, width: number, band: number): Side | null {
   if (x < band) return 'left';
   if (x >= width - band) return 'right';
   return null;
+}
+
+/**
+ * 底边带(改「最小高度」下限)的判定,band 与左右带同一个 CSS 宽度(见 cardEdgeBandCss)。
+ * 上下带本来是「移动窗口」,底边这条窄带改判给高度拖动(2026-10-16):移动仍有顶边带与
+ * 「可见卡片内侧那条带」两条路,左右带(改宽)在路由里排在更前面,角上按宽度处理。
+ * 窗口矮到上下两条带重叠时(缩放 0.5 + 单行 = 34.5 CSS px),从**中线**起算,上半留给顶边带
+ * ——否则底边带会吃掉整条窗口,顶边带的移动与双击复位缩放全没了。
+ */
+export function inBottomBand(y: number, height: number, band: number): boolean {
+  return y >= Math.max(height - band, height / 2);
+}
+
+/** 「最小高度」下限的行数区间:至少 1 行(内容再短也留一行),最多 12 行(再与工作区收口) */
+export const MIN_H_LINES = 1;
+export const MAX_H_LINES = 12;
+
+/** 工作区收口比例(宽度与高度共用,与 Rust input_width::WORK_AREA_RATIO 同源) */
+export const WORK_AREA_RATIO = 0.8;
+
+/** 下限的下界:1 行对应的窗口基础逻辑高度(含内边距/边框/光晕环,与 windowHeightFor 同算式) */
+export function minHeightLo(lineHeight: number, chrome: number): number {
+  return Math.ceil(heightForLines(MIN_H_LINES, lineHeight) + chrome);
+}
+
+/** 下限的上界:12 行对应的窗口基础逻辑高度,再与工作区上限取较小者(取不到工作区时传 Infinity) */
+export function minHeightHi(lineHeight: number, chrome: number, workCap: number): number {
+  const byLines = Math.ceil(heightForLines(MAX_H_LINES, lineHeight) + chrome);
+  return Number.isFinite(workCap) ? Math.min(byLines, Math.floor(workCap)) : byLines;
+}
+
+/**
+ * 下限钳制(基础逻辑像素),规则与 clampWidthFrom 同源:基线(按下那一刻的窗口高)落在
+ * [lo, hi] 之外时,把区间向外抬到基线,保证拖动**连续** —— 建议列表展开时窗口可以高到
+ * 360(Rust 的 MAX_HEIGHT),大于 12 行的 319,用硬区间钳制就会让鼠标一动下限跳到 319。
+ * NaN 取不到方向时停在基线,不跳。
+ */
+export function clampMinHeightFrom(base: number, h: number, lo: number, hi: number): number {
+  const b = Number.isFinite(base) ? Math.round(base) : lo;
+  if (Number.isNaN(h)) return b;
+  const low = Math.min(lo, b);
+  const high = Math.max(hi, lo, b);
+  if (!Number.isFinite(h)) return h > 0 ? high : low;
+  return Math.min(high, Math.max(low, Math.round(h)));
+}
+
+/**
+ * 有效窗口高度 = max(自动高度, 下限):内容更短时也保持下限高度,内容更长仍继续自动变高。
+ * 两个入参同一单位(**基础逻辑像素**,与 setInputHeight 的入参同源)。
+ */
+export function effectiveHeight(auto: number, min: number): number {
+  const a = Number.isFinite(auto) && auto > 0 ? auto : 0;
+  const m = Number.isFinite(min) && min > 0 ? min : 0;
+  return Math.max(a, m);
+}
+
+/** 读取设置里的 input_min_h:缺失/非数字/非正数一律按 0(纯自动 = 现状) */
+export function parseMinHeight(raw: string | null): number {
+  const v = Number(raw);
+  return Number.isFinite(v) && v > 0 ? Math.round(v) : 0;
 }
