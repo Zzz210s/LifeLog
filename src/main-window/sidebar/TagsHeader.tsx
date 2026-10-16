@@ -38,10 +38,10 @@ export interface TagsHeaderProps {
   /** 实体树里显示引用(与设置页同一个持久化键,双向同步) */
   showRelations: boolean;
   onToggleRelations: () => void;
-  /** 单击实体行的行为模式(与设置页「单击实体行的行为」同一份状态) */
-  clickMode: SidebarClickMode;
+  /** 单击实体行的行为模式(与设置页「单击实体行的行为」同一份状态);缺省 'filter' = 旧行为 */
+  clickMode?: SidebarClickMode;
   /** 点模式按钮:回调参数恒为 `nextClickMode(clickMode)`(下一档由本组件算,状态在上层) */
-  onChangeClickMode: (m: SidebarClickMode) => void;
+  onChangeClickMode?: (m: SidebarClickMode) => void;
   /** 搜索框是否展开(默认收起,点击放大镜切换) */
   searchOpen: boolean;
   /** 收窄关键词(显示值;空串 = 全树) */
@@ -86,6 +86,8 @@ function Icon({ d }: { d: string }): ReactNode {
 }
 
 export function TagsHeader(p: TagsHeaderProps): ReactNode {
+  // 缺省 'filter' = 旧行为:接线(T4)前 TagsSection 还没传模式,本组件也要能独立渲染
+  const mode = p.clickMode ?? 'filter';
   return (
     <>
       <div className="group flex h-8 shrink-0 items-center gap-1 px-2">
@@ -131,16 +133,16 @@ export function TagsHeader(p: TagsHeaderProps): ReactNode {
           <button
             type="button"
             data-testid="click-mode-button"
-            data-click-mode={p.clickMode}
-            aria-label={'点击行为：' + CLICK_MODE_LABELS[p.clickMode]}
+            data-click-mode={mode}
+            aria-label={'点击行为：' + CLICK_MODE_LABELS[mode]}
             title={
-              `点击行为：${CLICK_MODE_LABELS[p.clickMode]}（${CLICK_MODE_BUTTON[p.clickMode].action}）。` +
-              `点一下切到「${CLICK_MODE_LABELS[nextClickMode(p.clickMode)]}」`
+              `点击行为：${CLICK_MODE_LABELS[mode]}（${CLICK_MODE_BUTTON[mode].action}）。` +
+              `点一下切到「${CLICK_MODE_LABELS[nextClickMode(mode)]}」`
             }
-            onClick={() => p.onChangeClickMode(nextClickMode(p.clickMode))}
+            onClick={() => p.onChangeClickMode?.(nextClickMode(mode))}
             className={BTN_ICON}
           >
-            <Icon d={CLICK_MODE_BUTTON[p.clickMode].d} />
+            <Icon d={CLICK_MODE_BUTTON[mode].d} />
           </button>
           <button
             type="button"

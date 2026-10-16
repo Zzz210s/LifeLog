@@ -114,6 +114,30 @@ describe('侧栏头部:单击行为模式按钮', () => {
     expect(new Set(paths).size).toBe(3);
   });
 
+  it('未接线(未传 clickMode / onChangeClickMode)也能渲染:缺省 filter,点击不抛', async () => {
+    await act(async () =>
+      root.render(
+        createElement(TagsHeader, {
+          flash: null,
+          mode: 'tree',
+          onModeChange: () => {},
+          onFilterTags: () => {},
+          showRelations: true,
+          onToggleRelations: () => {},
+          searchOpen: false,
+          query: '',
+          ime: { onChange: () => {}, onCompositionEnd: () => {} },
+          onToggleSearch: () => {},
+          onCloseSearch: () => {},
+        })
+      )
+    );
+    expect(modeBtn().getAttribute('data-click-mode')).toBe('filter');
+    expect(modeBtn().getAttribute('aria-label')).toBe('点击行为：筛选');
+    await act(async () => modeBtn().click());
+    expect(clickCalls).toEqual([]);
+  });
+
   it('模式按钮排在「显示关系」之后、「筛选标签」之前(第五个)', async () => {
     await render('filter');
     const all = buttons();
