@@ -37,6 +37,22 @@ if (!PATH) {
 const tag = tags.find((t) => t.path === PATH);
 console.log('时间标签根名', root, '目标日级标签', PATH, '库内根节点', JSON.stringify(rootNode ?? null));
 
+// 侧栏单击模式:本脚本假定「点行 = 改条件」,这只在 filter 模式下成立 —— 开始前切到 filter(那颗按钮取不到
+// 就是旧构建/侧栏未显示,由 D-1 显式报红而不是静默假通过),收尾时拨回原值。读数里带 data-click-mode。
+const modeOf = () => main.eval(`document.querySelector('[data-testid="click-mode-button"]')?.getAttribute('data-click-mode') ?? null`);
+const setMode = async (want) => {
+  for (let i = 0; i <= 3; i++) {
+    const cur = await modeOf();
+    if (cur === want || cur === null) return cur ?? 'legacy';
+    await main.eval(`(() => { const b = document.querySelector('[data-testid="click-mode-button"]'); if (!b) return false; b.click(); return true; })()`);
+    await sleep(250);
+  }
+  return 'unreachable';
+};
+const modeBefore = await modeOf();
+r.record('D-1 单击模式切到 filter(点行 = 改条件的前提)', (await setMode('filter')) === 'filter',
+  `原模式=${JSON.stringify(modeBefore)} 切后=${JSON.stringify(await modeOf())}(null = 旧构建无 click-mode-button 或侧栏未显示)`);
+
 // 先逐个清掉上一次运行留下的选中态(每次点一个并重查,避免点到被重渲替换掉的旧节点)
 let left = await selCount();
 for (let i = 0; left > 0 && i < 8; i++) {
@@ -62,13 +78,14 @@ const chipShown = await main.eval(`(() => {
   const box = document.querySelector('[aria-label="已生效的筛选条件"]');
   return box ? box.textContent.includes(${JSON.stringify(root)}) : false;
 })()`);
-// 只查真正的笔记 li(流末尾还有一个无正文的哨兵 li)
+// 只查真正的笔记 li(流末尾还有一个无正文的哨兵 li);「每条笔记都带该标签」按 chip **文本**判:
+// NoteChips 自 3834dd17 起不再给 title(只在文本被截断时给悬浮提示),故不能再按 title 查路径
 const chipsOk = await main.eval(`[...document.querySelectorAll('li')].filter((li) => li.querySelector('.md-body')).every((li) =>
-  [...li.querySelectorAll('button')].some((b) => (b.getAttribute('title') || '') === ${JSON.stringify(PATH)}))`);
+  [...li.querySelectorAll('button')].some((b) => (b.textContent || '').replace(/^#/, '').split('(')[0] === ${JSON.stringify(PATH)}))`);
 r.record(
   `D1 点 ${PATH} 后笔记流按该标签筛出`,
   dom !== null && expected.length === tag.self_count && expected.length <= PAGE && chipShown === true && chipsOk === true,
-  `DOM 前 ${back.length} 条正文首行=${JSON.stringify(dom)} 后端同条件=${JSON.stringify(back)}(共 ${expected.length} 条 = self_count ${tag.self_count},一页上限 ${PAGE}) 条件区出现该根名=${chipShown} 每条笔记都带该标签=${chipsOk}`
+  `DOM 前 ${back.length} 条正文首行=${JSON.stringify(dom)} 后端同条件=${JSON.stringify(back)}(共 ${expected.length} 条 = self_count ${tag.self_count},一页上限 ${PAGE}) 条件区出现该根名=${chipShown} 每条笔记都带该标签=${chipsOk} 点行时的单击模式=${await modeOf()}`
 );
 
 // 收尾还原:点掉本次点选产生的条件 chip,并等 filter_current 节流写回后与验收前原文对照
@@ -79,7 +96,9 @@ for (let i = 0; i < 8; i++) {
 }
 await sleep(1200);
 const filterAfter = await call('get_setting', { key: 'filter_current' });
-r.record('D2 收尾:清掉本次筛选条件,filter_current 回到验收前原文(不留下筛选残留)',
-  filterAfter === filterBefore, `before=${filterBefore} after=${filterAfter}`);
+const modeRestored = modeBefore === 'filter' || modeBefore === null || (await setMode(modeBefore)) === modeBefore;
+r.record('D2 收尾:清掉本次筛选条件,filter_current 回到验收前原文(不留下筛选残留;单击模式拨回原值)',
+  filterAfter === filterBefore && modeRestored,
+  `before=${filterBefore} after=${filterAfter};单击模式 ${JSON.stringify(modeBefore)} -> ${JSON.stringify(await modeOf())}`);
 r.finish();
 close();

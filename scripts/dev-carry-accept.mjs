@@ -1,23 +1,20 @@
 #!/usr/bin/env node
-/**
- * 标签携带标签(spec docs/superpowers/specs/2026-10-05-tag-carry-design.md §8)的端到端读数 1–10 + S1/S2:
+/** 标签携带标签(spec docs/superpowers/specs/2026-10-05-tag-carry-design.md §8)的端到端读数 0–10 + S1/S2(0 = 侧栏「点击行为」按钮轮转三态并落库——点行等于改条件只在 filter 模式下成立):
  *   1 数据:添加/移除后 'tag' 行数正确、重复添加不增行、删携带者随 CASCADE 消失;2 拒绝:自携带/2 环/3 环 -> 中文提示且不写库
  *   3 筛选:命中 = 直接挂的 + 经由携带的(两路分别量,先量无携带基线);4 排除:与包含侧互补(无黑洞)
  *   5 摘要:条件栏出现 `+携带` 小字(先用库/命令侧确认该标签确有携带者);6 计数:侧栏计数相对基线,夹具行只按携带边各 +1
  *   7 回归:笔记 tags 列 / FTS 不变,导出只差夹具携带边带出的「引用路径」单元格(R1);8 孤儿:只被携带的空壳标签不被回收(R2)
- *   9 性能:筛一个标签 带携带 vs 无携带 的**比值**(抓数量级劣化);10 悬空:删掉被携带的标签后不留悬空行(R5)
- *   S1 继承:携带沿子树向下继承 —— 挂 甲/子 的笔记也因「甲携带乙」命中 乙;S2 不传递:筛 丙 不得命中只挂 甲 的笔记
- * 夹具一律 `携带测试` 前缀,自建自删并打印前后计数;不碰物理鼠标(合成键鼠 + IPC)。
- * 用法:先以 CDP 端口启动应用,再 `node scripts/dev-carry-accept.mjs`;库路径见 carry-accept-lib.mjs。
+ *   9 性能:筛一个标签 带携带 vs 无携带 的**比值**(抓数量级劣化);10 悬空:删掉被携带的标签后不留悬空行(R5);S1 继承:携带沿子树向下继承 —— 挂 甲/子 的笔记也因「甲携带乙」命中 乙;S2 不传递:筛 丙 不得命中只挂 甲 的笔记
+ * 夹具一律 `携带测试` 前缀,自建自删并打印前后计数;不碰物理鼠标(合成键鼠 + IPC)。用法:先以 CDP 端口启动应用,再 `node scripts/dev-carry-accept.mjs`;库路径见 carry-accept-lib.mjs。
  */
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { rmSync } from 'node:fs';
 import { ensureMain, recorder } from './cdp-lib.mjs';
 import {
-  addCarryViaPanel, appNoteTags, carrierPathsOf, carryRowsFrom, carryRowsTo, cascadeDeleteProbe, clearChips, clickTagPath, condIds,
-  counts, danglingTagRows, EMPTY, excludeCond, exportWithFilter, fixtureNoteIds, fixtureTagIds, fmt, ipc, noteIdOf, orphanShellProbe,
-  pressEsc, purgeCarryFixtures, queryCount, relationOutPaths, requireApp, sidebarDiff, sleep, summaryCarryMarks, summaryText,
+  addCarryViaPanel, appNoteTags, carrierPathsOf, carryRowsFrom, carryRowsTo, cascadeDeleteProbe, clearChips, clickModeOf, clickTagPath, condIds,
+  counts, danglingTagRows, EMPTY, ensureClickMode, excludeCond, exportWithFilter, fixtureNoteIds, fixtureTagIds, fmt, ipc, noteIdOf, orphanShellProbe,
+  pokeClickMode, pressEsc, purgeCarryFixtures, queryCount, relationOutPaths, requireApp, sidebarDiff, sleep, summaryCarryMarks, summaryText,
   tagCond, tagCountsViaApp, tagIdOf, timeWithAndWithoutCarry, waitFor, xlsxCellDiff,
 } from './carry-accept-lib.mjs';
 
@@ -25,8 +22,7 @@ const NS = '携带测试';
 const A = `${NS}甲`, B = `${NS}乙`, C = `${NS}丙`, D = `${NS}丁`, AS = `${A}/子`;
 const NA = `${NS}甲笔记`, NB = `${NS}乙笔记`, NC = `${NS}丙笔记`, ND = `${NS}丁笔记`, NAS = `${NS}甲子笔记`, NO = `${NS}其他笔记`;
 const [E1, E2] = ['before', 'after'].map((n) => join(tmpdir(), `carry-accept-${n}.xlsx`));
-/** 两次导出共用的钉死条件:空条件 = 全部点(导出跟随 settings.filter_current,不钉就随前端状态漂) */
-const PIN = JSON.stringify(EMPTY); // 基集必须可比,两次导出都钉它
+const PIN = JSON.stringify(EMPTY); // 两次导出共用的钉死条件:空条件 = 全部点(导出跟随 settings.filter_current,不钉就随前端状态漂;基集必须可比)
 const r = recorder(), { record } = r;
 
 await requireApp();
@@ -48,6 +44,13 @@ try {
   await cdp.send('Page.reload'); // 夹具落库后重载,侧栏标签树才拿得到这几行
   await waitFor(() => cdp.eval(`!!document.querySelector('[data-testid="unified-input"]')`).catch(() => false), 60, 500);
   await sleep(1100);
+  // 读数 0:侧栏单击模式 —— 按钮轮转三态并落库,读数后拨回 filter(其后「点行 = 改条件」才成立;旧构建没这颗按钮 -> 本条红)
+  const seq = [await ensureClickMode(cdp, 'filter')];
+  for (let i = 0; i < 3; i++) { await pokeClickMode(cdp); await sleep(350); seq.push(await clickModeOf(cdp)); }
+  const mStored = await call('get_setting', { key: 'sidebar_click_mode' });
+  record('读数0 侧栏单击模式:模式按钮轮转 filter->open->select->filter 并落库,读数后停在 filter',
+    fmt(seq) === fmt(['filter', 'open', 'select', 'filter']) && mStored === 'filter',
+    `按钮序列=${fmt(seq)} 库中 sidebar_click_mode=${JSON.stringify(mStored)}`);
   const idA = noteIdOf(NA), idAs = noteIdOf(NAS), idB = noteIdOf(NB), idC = noteIdOf(NC), idN = noteIdOf(NO);
   const tA = tagIdOf(A), tAs = tagIdOf(AS), tB = tagIdOf(B), tC = tagIdOf(C);
   const tagBefore = await tagCountsViaApp(cdp);
@@ -124,8 +127,8 @@ try {
   const marksA = await summaryCarryMarks(cdp);
   await clearChips(cdp);
   record('读数5 条件栏 `+携带`:库/命令侧确认 乙 有携带者(甲)、甲 无携带者,再与 DOM 标记比对',
-    carryRowsTo(tB) === 1 && fmt(carriersOfB) === fmt([A]) && marks === 1 && String(stext).includes('+携带') && marksA === 0,
-    `库:指向乙的携带行=${carryRowsTo(tB)}、命令 carriersOf=${fmt(carriersOfB)} | DOM:筛乙 片段=${marks} 摘要=「${stext}」;筛甲 片段=${marksA}(应 0)`);
+    carryRowsTo(tB) === 1 && fmt(carriersOfB) === fmt([A]) && marks === 1 && String(stext).includes('+携带') && marksA === 0 && (await clickModeOf(cdp)) === 'filter',
+    `库:指向乙的携带行=${carryRowsTo(tB)}、命令 carriersOf=${fmt(carriersOfB)} | DOM:筛乙 片段=${marks} 摘要=「${stext}」;筛甲 片段=${marksA}(应 0);点行时的单击模式=${await clickModeOf(cdp)}`);
 
   const d6 = sidebarDiff(tagBefore, await tagCountsViaApp(cdp), NS);
   const ch6 = new Map(d6.changed.map(([p, b, a]) => [p, { b, a, d: a[0] - b[0] + a[1] - b[1] }]));
@@ -146,9 +149,7 @@ try {
     `导出条件钉住=${pin1.pinned}(试 ${pin1.attempts})/${pin2.pinned}(试 ${pin2.attempts}) tags=${fmt(tagsAfter)}(前 ${fmt(tagsBefore)}) ` +
       `FTS=${counts().fts}(前 ${ftsBefore}) 导出差异=${fmt(d7.map((c) => [c.id, c.col, c.after]))}`);
 
-  // --- 8.9 性能 + 8.1d 移除:比值口径。携带只在筛选谓词里多一次物化集合成员判定,
-  //     集合大小 = 携带行数(此处个位数),本机 40 次均值的噪声远低于 2 倍;
-  //     故 3x 既能抓「数量级劣化」,又不会因调度抖动误报(绝对阈值 50ms 会放过 3–5x 劣化) ---
+  // --- 8.9 性能 + 8.1d 移除:比值口径。携带只在筛选谓词里多一次物化集合成员判定,集合大小 = 携带行数(此处个位数),本机 40 次均值的噪声远低于 2 倍;故 3x 既能抓「数量级劣化」,又不会因调度抖动误报(绝对阈值 50ms 会放过 3–5x 劣化) ---
   const perf = await timeWithAndWithoutCarry(call, cdp, { carrierId: tA, carriedId: tB }, tagCond(B));
   const ratio = perf.msWith / perf.msWithout;
   record('读数1d+9 移除后甲行归零;筛 乙 耗时 带携带/无携带 比值 ≤3x(抓数量级劣化,不惩罚噪声)',
@@ -173,9 +174,7 @@ try {
   record('读数1e 删除携带者 丙:它的携带行随 CASCADE 消失',
     casc.rowsFromX === 0 && casc.after === casc.before - 1,
     `删前 carryRows=${casc.before} 删后=${casc.after} 丙 出行=${casc.rowsFromX}`);
-} catch (e) {
-  failure = e;
-}
+} catch (e) { failure = e; }
 
 // --- 收尾:条件栏还原 + 夹具删净 + 库对账 ---
 try {

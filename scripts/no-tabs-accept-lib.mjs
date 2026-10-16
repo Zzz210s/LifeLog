@@ -1,6 +1,5 @@
 import { openReadOnly } from './db-compat.mjs';
-// 「删标签页」批次端到端读数(scripts/dev-no-tabs-accept.mjs)的共用件:
-// 只做「只读库读数 + DOM/受控输入动作 + 探针」,不做断言(判定留在主脚本)。
+// 「删标签页」批次端到端读数(scripts/dev-no-tabs-accept.mjs)的共用件:只做「只读库读数 + DOM/受控输入动作 + 探针」,不做断言(判定留在主脚本)。
 // 不碰物理鼠标:键鼠全走 DOM click / React 受控输入 / CDP Input 合成按键。
 import { DatabaseSync } from 'node:sqlite';
 import { sleep, waitFor } from './cdp-lib.mjs';
@@ -38,7 +37,6 @@ export function bindUi(cdp) {
   const ev = (expr) => cdp.eval(expr);
   const call = (cmd, args = {}) =>
     ev(`(async () => await window.__TAURI_INTERNALS__.invoke(${JSON.stringify(cmd)}, ${JSON.stringify(args)}))()`);
-
   /** React 受控 textarea 的标准改值手法:原型 setter + input 事件 */
   const setBox = (value) =>
     ev(`(() => {
@@ -48,19 +46,30 @@ export function bindUi(cdp) {
       box.dispatchEvent(new Event('input', { bubbles: true }));
       return true;
     })()`);
-
   const key = async (vk, name, code, modifiers = 0) => {
     const base = { key: name, code, windowsVirtualKeyCode: vk, nativeVirtualKeyCode: vk, modifiers };
     await cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', ...base });
     await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', ...base });
     await sleep(200);
   };
-
   const clickByLabel = (label) =>
     ev(`(() => { const b = document.querySelector('button[aria-label="${label}"]'); if (!b) return false; b.click(); return true; })()`);
-  /** 点侧栏某标签行(等价用户点标签做筛选) */
-  const clickTag = (path) =>
-    ev(`(() => { const b = document.querySelector('aside [data-tag-path="${path}"]'); if (!b) return false; b.click(); return true; })()`);
+  /** 当前侧栏单击模式:filter / open / select(旧构建没这颗按钮、或侧栏未显示 -> null);ensureClickMode 把模式切到 want,拿不到按钮 = 旧构建 -> 'legacy'(与 carry-accept-lib 同一行为) */
+  const clickMode = () => ev(`document.querySelector('[data-testid="click-mode-button"]')?.getAttribute('data-click-mode') ?? null`);
+  const ensureClickMode = async (want) => {
+    for (let i = 0; i <= 3; i++) {
+      const cur = await clickMode();
+      if (cur === want || cur === null) return cur ?? 'legacy';
+      await ev(`(() => { const b = document.querySelector('[data-testid="click-mode-button"]'); if (!b) return false; b.click(); return true; })()`); await sleep(250);
+    }
+    return 'unreachable';
+  };
+  /** 点侧栏某标签行(等价用户点标签做筛选);点击前先把单击模式切到 filter,切不过去(含旧构建)显式抛错,不静默假通过 */
+  const clickTag = async (path) => {
+    const mode = await ensureClickMode('filter');
+    if (mode !== 'filter') throw new Error(`点侧栏行前切不到 filter 单击模式(当前=${mode};legacy = 旧构建无 click-mode-button 或侧栏未显示)`);
+    return ev(`(() => { const b = document.querySelector('aside [data-tag-path="${path}"]'); if (!b) return false; b.click(); return true; })()`);
+  };
   const chips = () =>
     ev(`Array.from(document.querySelectorAll('[aria-label="已生效的筛选条件"] [aria-label^="移除条件"]'))
       .map((b) => b.getAttribute('aria-label').replace('移除条件 ', ''))`);
@@ -79,6 +88,7 @@ export function bindUi(cdp) {
     ctrlEnter: () => key(13, 'Enter', 'Enter', 2),
     clickByLabel,
     clickTag,
+    clickMode,
     chips,
     clearChips,
     box: () => ev(`(() => { const b = document.querySelector('[data-testid="unified-input"]'); return b === null ? null : { placeholder: b.getAttribute('placeholder'), aria: b.getAttribute('aria-label'), value: b.value }; })()`),

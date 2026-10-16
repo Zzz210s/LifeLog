@@ -1,6 +1,5 @@
 import { openReadOnly } from './db-compat.mjs';
-// 标签携带端到端验收(scripts/dev-carry-accept.mjs)的共用件:只做「只读库对账 / 发 IPC /
-// 发 DOM 事件 / 读值」,判定全部留在主脚本(与 link-accept-lib.mjs / graph-accept-g3-lib.mjs 同风格)。
+// 标签携带端到端验收(scripts/dev-carry-accept.mjs)的共用件:只做「只读库对账 / 发 IPC / 发 DOM 事件 / 读值」,判定全部留在主脚本(与 link-accept-lib.mjs / graph-accept-g3-lib.mjs 同风格)。
 // 库路径可用 LIFELOG_DB 覆盖 —— 跑独立 identifier 的副本库时用得上;默认是本机真实库。
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -145,10 +144,28 @@ export const carryPane = (cdp) =>
     return { open: !!document.querySelector('[data-relation-target-picker]'), carried, info: null, error: err ?? null }; })()`);
 /** 关掉浮层(菜单/面板):Esc 在捕获阶段被 useDismiss 收到 */
 export const pressEsc = (cdp) => cdp.eval(`(() => { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); return true; })()`);
-/** 点侧栏标签行 = 加入/移出筛选 */
-export const clickTagPath = (cdp, path) =>
-  cdp.eval(`(() => { const r = document.querySelector('aside [data-tag-path=' + JSON.stringify(${JSON.stringify(path)}) + ']');
+/** 侧栏头部「点击行为」按钮的取值/点击表达式(旧构建没有这颗按钮:读到 null、点到 false) */
+const MODE_BTN = `document.querySelector('[data-testid="click-mode-button"]')`;
+const POKE_MODE = `(() => { const b = ${MODE_BTN}; if (!b) return false; b.click(); return true; })()`;
+/** 当前侧栏单击模式:filter / open / select(旧构建 -> null);pokeClickMode = 点一下按钮轮转一档,旧构建 -> false */
+export const clickModeOf = (cdp) => cdp.eval(`${MODE_BTN}?.getAttribute('data-click-mode') ?? null`);
+export const pokeClickMode = (cdp) => cdp.eval(POKE_MODE);
+/** 单击模式切到 want(读 -> 点,最多 3 轮);拿不到那颗按钮 = 旧构建 -> 'legacy'(显式,不许静默跳过) */
+export const ensureClickMode = async (cdp, want) => {
+  for (let i = 0; i <= 3; i++) {
+    const cur = await clickModeOf(cdp);
+    if (cur === want || cur === null) return cur ?? 'legacy';
+    await pokeClickMode(cdp); await sleep(250);
+  }
+  return 'unreachable';
+};
+/** 点侧栏标签行 = 加入/移出筛选;点击前先把单击模式切到 filter,切不过去(含旧构建)显式抛错,不静默假通过 */
+export const clickTagPath = async (cdp, path) => {
+  const mode = await ensureClickMode(cdp, 'filter');
+  if (mode !== 'filter') throw new Error(`点侧栏行前切不到 filter 单击模式(当前=${mode};legacy = 旧构建无 click-mode-button)`);
+  return cdp.eval(`(() => { const r = document.querySelector('aside [data-tag-path=' + JSON.stringify(${JSON.stringify(path)}) + ']');
     if (!r) return false; r.click(); return true; })()`);
+};
 /** 条件栏摘要里 `+携带` 小字的个数(-1 表示条件栏摘要不存在) */
 export const summaryCarryMarks = (cdp) =>
   cdp.eval(`(() => { const s = document.querySelector('[data-testid="condition-bar-summary"]'); if (!s) return -1;
@@ -180,4 +197,3 @@ export const timeQuery = (cdp, cond, n = 40) =>
   cdp.eval(`(async () => { const T = window.__TAURI_INTERNALS__.invoke; const c = ${JSON.stringify(cond)};
     const t0 = performance.now(); for (let i = 0; i < ${n}; i++) await T('query_notes', { conditions: c, offset: 0 });
     return (performance.now() - t0) / ${n}; })()`);
-

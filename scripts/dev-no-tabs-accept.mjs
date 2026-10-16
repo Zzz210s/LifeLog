@@ -119,12 +119,13 @@ const onStream = await waitFor(async () => {
   const n = await ui.streamCount();
   return n === picked.n ? n : null;
 }, 16, 250);
-record('2 点侧栏标签 -> 条件栏出现该 chip 且条数与 query_notes 一致',
-  onChips !== null && onStream === picked.n,
-  `标签 ${picked.path} chip=${JSON.stringify(onChips)} 界面 ${onStream}/${picked.n}`);
+record('2 点侧栏标签 -> 条件栏出现该 chip 且条数与 query_notes 一致(单击模式须为 filter)',
+  onChips !== null && onStream === picked.n && (await ui.clickMode()) === 'filter',
+  `标签 ${picked.path} chip=${JSON.stringify(onChips)} 界面 ${onStream}/${picked.n} 点行时的单击模式=${await ui.clickMode()}`);
 await ui.clickTag(picked.path);
 const off = await waitFor(async () => ((await ui.chips()).length === 0 ? true : null), 16, 250);
-record('2b 再点一次取消筛选(chip 清空)', off === true, `chips=${JSON.stringify(await ui.chips())}`);
+record('2b 再点一次取消筛选(chip 清空)', off === true && (await ui.clickMode()) === 'filter',
+  `chips=${JSON.stringify(await ui.chips())} 单击模式=${await ui.clickMode()}`);
 
 // ---------- 读数 6:改标签名 -> 当前筛选里的旧路径被改写;改回原名 ----------
 await ui.clickTag(TAG_FIXTURE);
@@ -138,9 +139,9 @@ await renameTagViaMenu(ui, TAG_FIXTURE_RENAMED, TAG_FIXTURE);
 const backChip = await chipIs(ui, TAG_FIXTURE);
 const paths2 = hasPath(await bm.call('get_setting', { key: 'filter_current' }), TAG_FIXTURE) ? [TAG_FIXTURE] : [];
 record('6 改标签名 -> 当前筛选里的旧路径被改写(chip 文本跟着变),改回原名',
-  beforeChip !== null && renamedChip !== null && paths1.includes(TAG_FIXTURE_RENAMED) &&
+  beforeChip !== null && renamedChip !== null && paths1.includes(TAG_FIXTURE_RENAMED) && (await ui.clickMode()) === 'filter' &&
     !paths1.includes(TAG_FIXTURE) && backChip !== null && paths2.includes(TAG_FIXTURE) && !paths2.includes(TAG_FIXTURE_RENAMED),
-  `chip ${JSON.stringify(beforeChip)} -> ${JSON.stringify(renamedChip)} -> ${JSON.stringify(backChip)};tags ${JSON.stringify(paths1)} -> ${JSON.stringify(paths2)}`);
+  `chip ${JSON.stringify(beforeChip)} -> ${JSON.stringify(renamedChip)} -> ${JSON.stringify(backChip)};tags ${JSON.stringify(paths1)} -> ${JSON.stringify(paths2)};单击模式=${await ui.clickMode()}`);
 await ui.clearChips();
 await sleep(700);
 
