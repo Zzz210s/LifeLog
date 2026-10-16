@@ -6,8 +6,8 @@
  * 真实库只读;夹具 DND测试* 自建自删,收尾给库存前后逐项对照(含只读 sqlite 计数)。
  * 用法:node scripts/dev-dnd-probe.mjs   产物:.superpowers/sdd/2026-09-21-dnd/readings/dnd-before.json
  */
-import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
+import { openReadOnly } from './db-compat.mjs';
 import { ensureMain, sleep, waitFor, bindMain } from './cdp-lib.mjs';
 
 const OUT = '.superpowers/sdd/2026-09-21-dnd/readings/dnd-before.json';
@@ -17,14 +17,15 @@ const TGT = `${ROOT}/目标`;
 const CHILD = `${TGT}/子`;
 const NOTE = `#${SRC} #${CHILD} DND夹具`;
 const DB = 'C:/Users/23652/AppData/Roaming/com.lifelog.app/lifelog.db';
-const SQL = `import json,sqlite3
-c=sqlite3.connect('file:${DB}?mode=ro',uri=True)
-print(json.dumps({'notes':c.execute('select count(*) from notes').fetchone()[0],
-'tags':c.execute('select count(*) from tags').fetchone()[0],
-'links':c.execute('select count(*) from tag_links').fetchone()[0],
-'roots':c.execute('select path,sort_order from tags where parent_id is null order by path').fetchall(),
-'sidecar':c.execute("select path from tags where path like 'DND测试%'").fetchall()}))`;
-const db = () => JSON.parse(execFileSync('python', ['-c', SQL], { env: { ...process.env, PYTHONIOENCODING: 'utf-8' } }).toString());
+/** 库存读数:走 db-compat 的老表名兼容视图(v31 真库已无 notes/tags/tag_links,不再内嵌 python 直查) */
+const db = () => {
+  const c = openReadOnly(DB);
+  const n = (sql) => c.prepare(sql).get().n;
+  const out = { notes: n('select count(*) n from notes'), tags: n('select count(*) n from tags'), links: n('select count(*) n from tag_links'),
+    roots: c.prepare('select path,sort_order from tags where parent_id is null order by path').all().map(Object.values),
+    sidecar: c.prepare("select path from tags where path like 'DND测试%'").all().map(Object.values) };
+  c.close(); return out;
+};
 
 /** 页面内探针命名空间:__DND__(合成 DragEvent + DOM 读数) */
 const PAGE = `window.__DND__ = (() => {

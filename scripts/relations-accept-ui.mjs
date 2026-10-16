@@ -15,14 +15,14 @@ import { armGraph, closeGraph } from './graph-accept-lib.mjs';
 export async function runReadings5to8(cdp, ui, { call, record, nA, structAt8, E1, E2 }) {
   const records = [];
 
-  // --- 5 菜单五档 ---
+  // --- 5 菜单八档(2026-10-16 T3:条件动作三档 + 现状五档管理动作) ---
   await openTagMenu(cdp, FIX.A);
   await sleep(300);
   const items = await menuItemsOf(cdp);
   await pressEsc(cdp);
-  const want = ['重命名', '移动', '别名…', '关系…', '删除'];
+  const want = ['仅看本级', '含子级', '加入排除', '重命名', '移动', '别名…', '关系…', '删除'];
   records.push({
-    name: '读数5 菜单恰五档(重命名/移动/别名/关系…/删除),不含「合并」「携带」「类型」「设为类型」',
+    name: '读数5 菜单恰八档(仅看本级/含子级/加入排除 + 重命名/移动/别名…/关系…/删除),不含「合并」「携带」「类型」「设为类型」',
     ok: JSON.stringify(items) === JSON.stringify(want) && !/合并|携带|类型/.test((items ?? []).join('')),
     detail: `items=${fmt(items)}`,
   });

@@ -1,14 +1,17 @@
 /**
  * 标签右键菜单的挂载状态(自 `TagsSection` 抽出,守 200 行红线):右键落在哪一行、出现在哪、
  * 以及"做完一件事"与"关闭"两条收尾。菜单本体与五个子面板在 `TagMenu.tsx`。
- * 钳制口径与关系图 `graph-tag-menu` 一致:菜单宽 224(`w-56`)+ 8 边距、最高 320(`max-h-80`)+ 8。
+ * 钳制口径与关系图 `graph-tag-menu` 一致:菜单宽 224(`w-56`)+ 8 边距、最高 384(`max-h-96`)+ 8。
+ * 384 的来源(2026-10-16 T6 实测):主面板 8 档 = 8×30 = 240,加标题 24 与内边距 8 = 272;
+ * 关系块满档(4 行 + `+N`,`MENU_RELATION_MAX`)再加 102 —— 满档内容 374px,原 `max-h-80`(320)
+ * 会内部滚动 56px 把末档「删除」压掉,故按实测抬到 384。
  */
 import { useCallback, useState } from 'react';
 import { isManageable } from './tag-tree';
 import type { ManagedNode, TagNode } from './tag-tree';
 
 const MENU_W = 232;
-const MENU_H = 328;
+const MENU_H = 392;
 
 export interface TagMenuState {
   node: ManagedNode;

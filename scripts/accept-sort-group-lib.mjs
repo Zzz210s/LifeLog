@@ -25,10 +25,14 @@ export const underAxis = (path, axis) => path === axis || path.startsWith(axis +
 export const level1 = (path, axis) =>
   path === axis ? axis : axis + '/' + path.slice(axis.length + 1).split('/')[0];
 
+/** 命中判据只看路径;`Note.tags` 是 `{path, relationName}[]`(关系名批次 13cb7f35 后),旧夹具仍可能是 string[] */
+const tagPath = (t) => (typeof t === 'string' ? t : t.path);
+
 /** 笔记在轴下树序第一的匹配标签(后端 `MIN(o.key)` / `ROW_NUMBER ... rn=1` 同口径) */
 export function axisPick(ord, note, axis) {
   let best = null;
-  for (const p of note.tags) {
+  for (const t of note.tags) {
+    const p = tagPath(t);
     if (!underAxis(p, axis)) continue;
     const k = ord(p);
     if (best === null || k < best.key) best = { key: k, path: p };

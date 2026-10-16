@@ -7,7 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { itemPaths } from '../../shared/filter-conditions';
 import type { MainView } from '../settings/settings-model';
-import { mountClickFlow, ROWS, type ClickFlow } from './__fixtures__/click-flow-harness';
+import { mountClickFlow, type ClickFlow } from './__fixtures__/click-flow-harness';
 import type { SidebarClickMode } from './click-mode';
 
 const MODES: SidebarClickMode[] = ['filter', 'open', 'select'];

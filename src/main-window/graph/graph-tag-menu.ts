@@ -35,8 +35,8 @@ export function toTagCount(n: GraphNode): TagCount {
 }
 
 /**
- * 菜单落点钳到视口内:菜单宽 224(`w-56`)+ 8 边距、最高 320(`max-h-80`)+ 8。
- * 与侧栏 `TagsSection` 同一口径 —— 不钳的话贴着右/下边右键会让菜单溢出屏幕。
+ * 菜单落点钳到视口内:菜单宽 224(`w-56`)+ 8 边距、最高 384(`max-h-96`)+ 8。
+ * 与侧栏 `use-tag-menu` 同一口径 —— 不钳的话贴着右/下边右键会让菜单溢出屏幕。
  * `vw` / `vh` 由调用方给(`window.innerWidth` / `innerHeight`),便于纯函数测试。
  */
 export function clampMenuPos(
@@ -45,5 +45,5 @@ export function clampMenuPos(
   vw: number,
   vh: number,
 ): { x: number; y: number } {
-  return { x: Math.max(8, Math.min(x, vw - 232)), y: Math.max(8, Math.min(y, vh - 328)) };
+  return { x: Math.max(8, Math.min(x, vw - 232)), y: Math.max(8, Math.min(y, vh - 392)) };
 }
