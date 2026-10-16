@@ -65,19 +65,15 @@ const SEARCH_PATH = 'M13 13 9.7 9.7M2.5 7a4.5 4.5 0 1 0 9 0 4.5 4.5 0 1 0-9 0';
 const RELATION_PATH =
   'M8 4.2a1.8 1.8 0 1 1 0 3.6 1.8 1.8 0 0 1 0-3.6M4.7 12.2a1.8 1.8 0 1 1 0 3.6 1.8 1.8 0 0 1 0-3.6M11.3 12.2a1.8 1.8 0 1 1 0 3.6 1.8 1.8 0 0 1 0-3.6M7.2 7.4 5.4 10.6M8.8 7.4l1.8 3.2M6.5 14h3';
 
-/** 单击行为模式按钮的三个图标(设计 2026-10-16 §5.2):漏斗(筛选)/ 方框+外跳(打开)/ 指针三角(选中)。
- *  漏斗与「筛选标签」的递减线条不再撞车(那只已换成线条)。 */
-const CLICK_MODE_ICON: Record<SidebarClickMode, string> = {
-  filter: 'M2.5 4h11l-4.2 4.8V13L7 11.4V8.8z',
-  open: 'M6.5 3.5H4A1.5 1.5 0 0 0 2.5 5v7A1.5 1.5 0 0 0 4 13.5h7A1.5 1.5 0 0 0 12.5 12V9.5M9.5 3.5h3.5V7M13 3.5 7.5 9',
-  select: 'M4.5 2.5v10.8l2.6-2.6h3.6z',
-};
-
-/** 各模式的「单击 = ...」一句(title 里说清"现在是什么 + 点一下变成什么") */
-const CLICK_MODE_ACTION: Record<SidebarClickMode, string> = {
-  filter: '单击 = 加入/移出筛选',
-  open: '单击 = 打开预览卡片',
-  select: '单击 = 选中实体',
+/** 单击行为模式按钮(设计 2026-10-16 §5.2):三套图标 —— 漏斗(筛选)/ 方框+外跳(打开)/ 指针三角(选中),
+ *  外加 title 里那句「单击 = ...」。漏斗与「筛选标签」的递减线条不再撞车(那只已换成线条)。 */
+const CLICK_MODE_BUTTON: Record<SidebarClickMode, { d: string; action: string }> = {
+  filter: { d: 'M2.5 4h11l-4.2 4.8V13L7 11.4V8.8z', action: '单击 = 加入/移出筛选' },
+  open: {
+    d: 'M6.5 3.5H4A1.5 1.5 0 0 0 2.5 5v7A1.5 1.5 0 0 0 4 13.5h7A1.5 1.5 0 0 0 12.5 12V9.5M9.5 3.5h3.5V7M13 3.5 7.5 9',
+    action: '单击 = 打开预览卡片',
+  },
+  select: { d: 'M4.5 2.5v10.8l2.6-2.6h3.6z', action: '单击 = 选中实体' },
 };
 
 /** 图标:(16 格 / 1.5 描边 / 14px 框)与仓内既有侧栏图标同一风格 */
@@ -138,13 +134,13 @@ export function TagsHeader(p: TagsHeaderProps): ReactNode {
             data-click-mode={p.clickMode}
             aria-label={'点击行为：' + CLICK_MODE_LABELS[p.clickMode]}
             title={
-              `点击行为：${CLICK_MODE_LABELS[p.clickMode]}（${CLICK_MODE_ACTION[p.clickMode]}）。` +
+              `点击行为：${CLICK_MODE_LABELS[p.clickMode]}（${CLICK_MODE_BUTTON[p.clickMode].action}）。` +
               `点一下切到「${CLICK_MODE_LABELS[nextClickMode(p.clickMode)]}」`
             }
             onClick={() => p.onChangeClickMode(nextClickMode(p.clickMode))}
             className={BTN_ICON}
           >
-            <Icon d={CLICK_MODE_ICON[p.clickMode]} />
+            <Icon d={CLICK_MODE_BUTTON[p.clickMode].d} />
           </button>
           <button
             type="button"
