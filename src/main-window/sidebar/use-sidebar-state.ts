@@ -1,13 +1,18 @@
 /**
  * 侧栏状态与持久化(spec 6.1):整栏显隐、宽度(180-420 钳制)、标签树/扁平模式、
- * 标签树里是否显示关系(标签关系统一 spec §7,**默认开**)。
- * 四个设置键 sidebar_visible / sidebar_width / tag_view_mode / tag_tree_show_relations;
- * 读取失败或非法值一律回默认。
+ * 标签树里是否显示关系(标签关系统一 spec §7,**默认开**)、单击实体行的行为模式。
+ * 五个设置键 sidebar_visible / sidebar_width / tag_view_mode / tag_tree_show_relations /
+ * sidebar_click_mode(单击行为,设计 2026-10-16 §6);读取失败或非法值一律回默认。
  * **不回读旧键** tag_tree_show_carry:那是「携带」时代的开关,与现在的「关系」不是一回事 ——
  * 2026-10-06 真库里旧键恰好显式存着 `false`,回读会让默认值永远显示不出来;旧键行留在库里不动。
  */
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../../shared/api';
+import { parseClickMode, type SidebarClickMode } from './click-mode';
+
+// 三模式的类型 / 顺序 / 文案 / 解析住 click-mode.ts(纯定义,便于单测);这里再出口,
+// 故既有的导入路径 ./use-sidebar-state 照旧够用(组件不必知道那个纯模块)
+export * from './click-mode';
 
 export type TagViewMode = 'tree' | 'flat';
 
@@ -20,6 +25,7 @@ const KEY_VISIBLE = 'sidebar_visible';
 const KEY_WIDTH = 'sidebar_width';
 const KEY_MODE = 'tag_view_mode';
 const KEY_SHOW_RELATIONS = 'tag_tree_show_relations';
+const KEY_CLICK_MODE = 'sidebar_click_mode';
 
 export function clampSidebarWidth(w: number): number {
   return Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, Math.round(w)));
@@ -55,6 +61,10 @@ export interface SidebarStateApi {
   /** 实体树里显示引用(默认开);打开后树行末尾追加关系的**值**小字(悬停该值看属性名) */
   showRelations: boolean;
   setShowRelations: (v: boolean) => void;
+  /** 单击实体行的行为模式(默认 `filter`);头部按钮与设置页共用这一份状态 */
+  clickMode: SidebarClickMode;
+  /** 立即改会话内值 + 静默写库(与其余四个键同一口径) */
+  setClickMode: (m: SidebarClickMode) => void;
 }
 
 export function useSidebarState(): SidebarStateApi {
@@ -62,21 +72,24 @@ export function useSidebarState(): SidebarStateApi {
   const [width, setWidthState] = useState(DEFAULT_WIDTH);
   const [mode, setModeState] = useState<TagViewMode>('tree');
   const [showRelations, setShowRelationsState] = useState(true);
+  const [clickMode, setClickModeState] = useState<SidebarClickMode>('filter');
 
   // 启动读回(非法值已在解析层回退默认);恢复完成前的默认渲染由主窗 visible:false 掩护
   useEffect(() => {
     void (async () => {
       try {
-        const [v, w, m, rel] = await Promise.all([
+        const [v, w, m, rel, click] = await Promise.all([
           api.getSetting(KEY_VISIBLE),
           api.getSetting(KEY_WIDTH),
           api.getSetting(KEY_MODE),
           api.getSetting(KEY_SHOW_RELATIONS),
+          api.getSetting(KEY_CLICK_MODE),
         ]);
         setVisibleState(parseVisible(v));
         setWidthState(parseWidth(w));
         setModeState(parseMode(m));
         setShowRelationsState(parseShowRelations(rel));
+        setClickModeState(parseClickMode(click));
       } catch {
         /* 读失败保持默认,不阻断主界面 */
       }
@@ -104,5 +117,13 @@ export function useSidebarState(): SidebarStateApi {
     persist(KEY_SHOW_RELATIONS, String(v));
   }, []);
 
-  return { visible, setVisible, width, setWidth, mode, setMode, showRelations, setShowRelations };
+  const setClickMode = useCallback((m: SidebarClickMode) => {
+    setClickModeState(m);
+    persist(KEY_CLICK_MODE, m);
+  }, []);
+
+  return {
+    visible, setVisible, width, setWidth, mode, setMode,
+    showRelations, setShowRelations, clickMode, setClickMode,
+  };
 }

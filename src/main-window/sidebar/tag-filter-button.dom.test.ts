@@ -36,6 +36,8 @@ const stateStub = (): SidebarStateApi => ({
   setMode: () => {},
   showRelations: false,
   setShowRelations: () => {},
+  clickMode: 'filter',
+  setClickMode: () => {},
 });
 
 let host: HTMLDivElement;
