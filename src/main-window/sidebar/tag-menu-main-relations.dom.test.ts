@@ -60,9 +60,21 @@ const labels = (): string[] =>
 const values = (): string[] =>
   [...host.querySelectorAll('[data-menu-relation-value]')].map((el) => el.textContent ?? '');
 
+/** 条件态与三个条件档动作在本文件不参与读数(见 tag-menu-condition-items),给"未设"的默认值即可 */
 const renderPane = (relations?: RelationRef[]): void => {
   act(() => {
-    root.render(createElement(TagMenuMainPane, { path: '地点轴/日本', onPick: () => {}, relations }));
+    root.render(
+      createElement(TagMenuMainPane, {
+        path: '地点轴/日本',
+        onPick: () => {},
+        relations,
+        inIncluded: false,
+        includeChildren: false,
+        excluded: false,
+        onScope: () => {},
+        onToggleExclude: () => {},
+      })
+    );
   });
 };
 

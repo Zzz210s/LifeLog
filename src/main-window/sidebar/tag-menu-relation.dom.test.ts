@@ -82,7 +82,7 @@ const item = (text: string): HTMLElement =>
   ) as HTMLElement;
 
 const menuItems = (): string[] =>
-  [...host.querySelectorAll('[role="menuitem"]')].map((b) => b.textContent?.trim() ?? '');
+  [...host.querySelectorAll('[role^="menuitem"]')].map((b) => b.textContent?.trim() ?? '');
 
 async function openRelation(): Promise<void> {
   act(() => item('关系…').click());
@@ -100,12 +100,12 @@ function pressEnter(composing = false): void {
   act(() => input().dispatchEvent(ev));
 }
 
-describe('Task 4 菜单恰 5 档', () => {
-  it('只有 重命名/移动/别名/关系/删除,且不含合并、携带、类型字样;档位带 data-menu-action 锚点', () => {
+describe('T3 菜单恰 8 档(条件档在前,管理档在后)', () => {
+  it('前 3 档是条件动作,后 5 档是管理动作;且不含合并、携带、类型字样;档位都带 data-menu-action 锚点', () => {
     render();
-    expect(menuItems()).toEqual(['重命名', '移动', '别名…', '关系…', '删除']);
-    expect([...host.querySelectorAll('[role="menuitem"]')].map((b) => b.getAttribute('data-menu-action')))
-      .toEqual(['rename', 'move', 'alias', 'relation', 'delete']);
+    expect(menuItems()).toEqual(['仅看本级', '含子级', '加入排除', '重命名', '移动', '别名…', '关系…', '删除']);
+    expect([...host.querySelectorAll('[data-menu-action]')].map((b) => b.getAttribute('data-menu-action')))
+      .toEqual(['scope-self', 'scope-subtree', 'exclude', 'rename', 'move', 'alias', 'relation', 'delete']);
     expect(host.textContent).not.toContain('合并');
     expect(host.textContent).not.toContain('携带');
     expect(host.textContent).not.toContain('类型');

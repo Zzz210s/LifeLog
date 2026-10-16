@@ -8,7 +8,9 @@ import { act, createElement, Fragment } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { HoverTip } from '../../shell/HoverTip';
 import { TagRow } from '../TagRow';
-import type { TagNode } from '../tag-tree';
+import { buildTree, type TagNode } from '../tag-tree';
+import type { RowIntent } from '../tag-row-action';
+import type { SidebarClickMode } from '../click-mode';
 import type { RelationRef } from '../../../shared/types';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -35,9 +37,68 @@ export const LEAF: TagNode = {
   children: [],
 };
 
+/** 单击真值表(设计 §4.1 主表 12 格):[模式, 单击修饰键, 期望意图] */
+export const CLICK_TABLE: Array<[SidebarClickMode, MouseEventInit, RowIntent]> = [
+  ['filter', {}, 'toggle'],
+  ['filter', { ctrlKey: true }, 'andAdd'],
+  ['filter', { altKey: true }, 'exclude'],
+  ['filter', { shiftKey: true }, 'only'],
+  ['open', {}, 'open'],
+  ['open', { ctrlKey: true }, 'andAdd'],
+  ['open', { altKey: true }, 'exclude'],
+  ['open', { shiftKey: true }, 'only'],
+  ['select', {}, 'select'],
+  ['select', { ctrlKey: true }, 'andAdd'],
+  ['select', { altKey: true }, 'exclude'],
+  ['select', { shiftKey: true }, 'only'],
+];
+
+/** 修饰键标签(用例标题):无 / Ctrl / Alt / Shift */
+export const modLabel = (m: MouseEventInit): string =>
+  m.ctrlKey === true ? 'Ctrl' : m.altKey === true ? 'Alt' : m.shiftKey === true ? 'Shift' : '无';
+
+/** 合成单击(修饰键由事件属性给:实现读的就是 e.ctrlKey/altKey/shiftKey) */
+export const clickRow = (el: Element, mods: MouseEventInit = {}): void => {
+  act(() => {
+    el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ...mods }));
+  });
+};
+
+/** 合成键盘(返回事件本体,便于读 defaultPrevented) */
+export const keyRow = (el: Element, key: string, mods: KeyboardEventInit = {}): KeyboardEvent => {
+  const e = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...mods });
+  act(() => {
+    el.dispatchEvent(e);
+  });
+  return e;
+};
+
+/** 合成双击(不补发两次 click:双击的净效果由设计 §3.5 的交代表给出) */
+export const dblclickRow = (el: Element): void => {
+  act(() => {
+    el.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true }));
+  });
+};
+
+/** 行 fixture = `buildTree` 的首个根(用例给 list_tags 形状的行;缺的祖先会被补成结构节点) */
+export const rowFixtureTree = (rows: unknown[]): TagNode => buildTree(rows as never)[0];
+
 export interface RowOver {
   relations?: readonly RelationRef[];
   showRelations?: boolean;
+  /** 行(缺省 = LEAF);容器 / 带子级的行由用例自行传入 */
+  node?: TagNode;
+  /** 单击模式与两种状态(T3 行内行为:光标 / 预览) */
+  mode?: SidebarClickMode;
+  cursor?: boolean;
+  previewing?: boolean;
+  /** 行意图出口(T3 起行只派发意图,业务在 use-tag-click);不传则走行内的旧出口兜底 */
+  onIntent?: (intent: RowIntent, node: TagNode) => void;
+  /** 接线前的旧出口:onIntent 缺席时行内兜底 filter 模式的两个旧动作 */
+  onToggle?: (node: TagNode) => void;
+  onToggleExpand?: (path: string) => void;
+  dragActive?: boolean;
+  flat?: boolean;
 }
 
 export interface RowHarness {
@@ -65,17 +126,21 @@ export function mountTagRow(): RowHarness {
           Fragment,
           null,
           createElement(TagRow, {
-            node: LEAF,
-            flat: false,
+            node: over.node ?? LEAF,
+            flat: over.flat ?? false,
             selected: false,
             excluded: false,
             expanded: false,
-            onToggle: () => {},
-            onToggleExpand: () => {},
+            clickMode: over.mode,
+            cursor: over.cursor ?? false,
+            previewing: over.previewing ?? false,
+            onIntent: over.onIntent,
+            onToggle: over.onToggle,
+            onToggleExpand: over.onToggleExpand ?? (() => {}),
             onContextMenu: () => {},
             dragSource: false,
             dropZone: null,
-            dragActive: false,
+            dragActive: over.dragActive ?? false,
             onDragStart: () => {},
             onDragEnd: () => {},
             onDragOver: () => {},

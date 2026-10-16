@@ -6,8 +6,9 @@
  */
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { TagRow, guideWidth, lineIndent } from './TagRow';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { TagRow } from './TagRow';
+import { guideWidth, lineIndent } from './tag-row-geometry';
 import { buildTree } from './tag-tree';
 import type { TagNode } from './tag-tree';
 
@@ -35,14 +36,13 @@ const TREE: TagNode[] = buildTree([
 
 const tokens = (el: Element): string[] => el.className.split(/\s+/).filter(Boolean);
 
+/** 本文件只读视觉与几何;点击 / 键盘 / 光标语义在 tag-row-click 与 tag-row-gestures */
 interface RowOver {
   selected?: boolean;
   excluded?: boolean;
   dragActive?: boolean;
   flat?: boolean;
   node?: TagNode;
-  onToggle?: (n: TagNode) => void;
-  onToggleExpand?: (p: string) => void;
 }
 
 function render(over: RowOver = {}): HTMLElement {
@@ -54,8 +54,7 @@ function render(over: RowOver = {}): HTMLElement {
         selected: over.selected ?? false,
         excluded: over.excluded ?? false,
         expanded: false,
-        onToggle: over.onToggle ?? (() => {}),
-        onToggleExpand: over.onToggleExpand ?? (() => {}),
+        onToggleExpand: () => {},
         onContextMenu: () => {},
         dragSource: false,
         dropZone: null,
@@ -104,6 +103,8 @@ describe('V5 侧栏行:高 26(13/18 + py-1)与三态', () => {
     expect(selected).toContain('bg-selected');
     expect(selected).toContain('text-accent-text');
     expect(selected).not.toContain('hover:bg-hover');
+    // aria-pressed 仍只表示"筛选包含侧"(光标 / 预览不写它,§5.8)
+    expect(render({ selected: true }).getAttribute('aria-pressed')).toBe('true');
 
     const excluded = tokens(render({ excluded: true }));
     expect(excluded).toContain('bg-danger-soft');
@@ -160,26 +161,5 @@ describe('V5 缩进导轨:每层 1px 竖线(无额外 DOM 节点)', () => {
     const flat = render({ flat: true });
     expect(flat.getAttribute('style')).toContain('--tag-guide: 0px');
     expect(flat.style.paddingLeft).toBe('6px');
-  });
-});
-
-describe('V5 侧栏行回归:点击/展开/选中语义不变', () => {
-  it('可选中行点击回调带节点;aria-pressed 跟随选中态', () => {
-    const onToggle = vi.fn();
-    const row = render({ onToggle });
-    expect(row.getAttribute('aria-pressed')).toBe('false');
-    act(() => row.click());
-    expect(onToggle).toHaveBeenCalledWith(TREE[0]);
-  });
-
-  it('结构节点(子树计数 0 的补出行)点击只展开,不改选中', () => {
-    const onToggle = vi.fn();
-    const onToggleExpand = vi.fn();
-    const structural = buildTree([{ path: 'a/b', depth: 2, self_count: 0, subtree_count: 0 }] as never)[0];
-    const row = render({ node: structural, onToggle, onToggleExpand });
-    expect(row.getAttribute('aria-pressed')).toBeNull();
-    act(() => row.click());
-    expect(onToggle).not.toHaveBeenCalled();
-    expect(onToggleExpand).toHaveBeenCalledWith('a');
   });
 });

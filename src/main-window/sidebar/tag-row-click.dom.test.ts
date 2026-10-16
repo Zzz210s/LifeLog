@@ -1,0 +1,125 @@
+// @vitest-environment jsdom
+/**
+ * T3 行内行为层:**单击真值表**(设计 §4.1 主表 12 格)× 容器行(§4.2 的 13 格)。
+ * 行只读「当前模式 + 修饰键 + 该行是否可选」派发 `RowIntent`:条件补丁在 T1 的纯函数、
+ * 执行在 T4 的 `use-tag-click`,所以本层的读数只有一件事 —— 这一次点击派发了哪个意图。
+ */
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  CLICK_TABLE,
+  LEAF,
+  mountTagRow,
+  modLabel,
+  clickRow,
+  rowFixtureTree,
+  type RowHarness,
+} from './__fixtures__/tag-row-harness';
+import type { TagNode } from './tag-tree';
+
+let h: RowHarness;
+
+beforeEach(() => {
+  h = mountTagRow();
+});
+
+afterEach(() => {
+  h.unmount();
+});
+
+/** 有子级但计数 0 的补位容器(结构节点):不可选,只能展开 */
+const HOLDER: TagNode = rowFixtureTree([{ path: 'a/b', depth: 2, self_count: 0, subtree_count: 0 }]);
+/** 无子级的空实体:不可选也没有子树 */
+const BLANK: TagNode = rowFixtureTree([{ path: '空实体', depth: 1, self_count: 0, subtree_count: 0 }]);
+const PARENT: TagNode = rowFixtureTree([
+  { id: 1, path: '书籍', depth: 1, self_count: 1, subtree_count: 2 },
+  { id: 2, path: '书籍/SQL', depth: 2, self_count: 1, subtree_count: 1 },
+]);
+
+describe('可选行(§4.1:3 模式 × 4 修饰键状态 = 12 格)', () => {
+  for (const [mode, mods, want] of CLICK_TABLE) {
+    it(`${mode} × ${modLabel(mods)} 单击 = ${want}`, () => {
+      const onIntent = vi.fn();
+      clickRow(h.render({ mode, onIntent }), mods);
+      expect(onIntent).toHaveBeenCalledTimes(1);
+      expect(onIntent).toHaveBeenCalledWith(want, LEAF);
+    });
+  }
+
+  it('⌘ 与 Ctrl 归一:metaKey + 单击 = andAdd', () => {
+    const onIntent = vi.fn();
+    clickRow(h.render({ mode: 'open', onIntent }), { metaKey: true });
+    expect(onIntent).toHaveBeenCalledWith('andAdd', LEAF);
+  });
+
+  it('修饰键压过模式:select 模式无修饰键 = select,按住 Ctrl 仍是 andAdd(不选光标)', () => {
+    const plain = vi.fn();
+    clickRow(h.render({ mode: 'select', onIntent: plain }));
+    expect(plain).toHaveBeenCalledWith('select', LEAF);
+
+    const withCtrl = vi.fn();
+    clickRow(h.render({ mode: 'select', onIntent: withCtrl }), { ctrlKey: true });
+    expect(withCtrl.mock.calls[0][0]).toBe('andAdd');
+  });
+
+  it('多修饰键同时按下只出一个动作:Ctrl+Alt = andAdd,Ctrl+Alt+Shift 也只有一次', () => {
+    const both = vi.fn();
+    clickRow(h.render({ onIntent: both }), { ctrlKey: true, altKey: true });
+    expect(both.mock.calls[0][0]).toBe('andAdd');
+
+    const all = vi.fn();
+    clickRow(h.render({ onIntent: all }), { ctrlKey: true, altKey: true, shiftKey: true });
+    expect(all).toHaveBeenCalledTimes(1);
+    expect(all.mock.calls[0][0]).toBe('andAdd');
+  });
+});
+
+describe('容器行(§4.2:3 模式 × 4 修饰键状态 结果全同)', () => {
+  for (const [mode, mods, want] of CLICK_TABLE) {
+    it(`${mode} × ${modLabel(mods)}:有子级的容器恒 expand(不写条件/不开卡片/不设光标)`, () => {
+      const onIntent = vi.fn();
+      clickRow(h.render({ node: HOLDER, mode, onIntent }), mods);
+      expect(onIntent).toHaveBeenCalledTimes(1);
+      expect(onIntent).toHaveBeenCalledWith('expand', HOLDER);
+      expect(onIntent).not.toHaveBeenCalledWith(want, HOLDER);
+    });
+  }
+
+  it('无子级的空实体:单击同样派发 expand(「还没有内容」的提示由上层给)', () => {
+    const onIntent = vi.fn();
+    clickRow(h.render({ node: BLANK, onIntent }));
+    expect(onIntent).toHaveBeenCalledWith('expand', BLANK);
+  });
+
+  it('可展开行也是 expand 的主体:它自己的单击仍按模式走(容器口径只认 subtreeCount)', () => {
+    const onIntent = vi.fn();
+    clickRow(h.render({ node: PARENT, mode: 'select', onIntent }));
+    expect(onIntent).toHaveBeenCalledWith('select', PARENT);
+  });
+});
+
+describe('接线前的兜底(T4 之前上层还只传 onToggle:单击不能让旧行为失效)', () => {
+  it('onIntent 缺席:filter 模式无修饰键单击走旧 onToggle,结构节点走 onToggleExpand', () => {
+    const onToggle = vi.fn();
+    const onToggleExpand = vi.fn();
+    clickRow(h.render({ mode: 'filter', onToggle, onToggleExpand }));
+    expect(onToggle).toHaveBeenCalledWith(LEAF);
+
+    clickRow(h.render({ node: HOLDER, onToggle, onToggleExpand }));
+    expect(onToggleExpand).toHaveBeenCalledWith('a');
+    expect(onToggle).toHaveBeenCalledTimes(1);
+  });
+
+  it('onIntent 缺席时不读修饰键:Alt+单击仍是旧开关语义(修饰键的接线在 T4)', () => {
+    const onToggle = vi.fn();
+    clickRow(h.render({ onToggle }), { altKey: true });
+    expect(onToggle).toHaveBeenCalledWith(LEAF);
+  });
+
+  it('onIntent 缺席时无子级的行两个旧出口都不响(与旧口径逐字一致)', () => {
+    const onToggle = vi.fn();
+    const onToggleExpand = vi.fn();
+    clickRow(h.render({ node: BLANK, onToggle, onToggleExpand }));
+    expect(onToggle).not.toHaveBeenCalled();
+    expect(onToggleExpand).not.toHaveBeenCalled();
+  });
+});

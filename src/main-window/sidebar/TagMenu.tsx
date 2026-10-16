@@ -8,6 +8,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { api } from '../../shared/api';
+import type { FilterConditions } from '../../shared/filter-conditions';
+import { allItems } from '../../shared/filter-groups';
 import type { TagMruSource } from '../../shared/tag-mru';
 import type { TagCount, TagImpact } from '../../shared/types';
 import { TagMenuAliasPane } from './TagMenuAliasPane';
@@ -37,6 +39,30 @@ export interface TagMenuProps {
   onClose: () => void;
   /** 操作成功:提示文案 + 改名/移动时的路径变化(删除断链、别名变更不产生) */
   onDone: (message: string, pathChange?: { from: string; to: string }) => void;
+  /** 当前筛选条件:菜单三个条件档的勾选与「移出排除」文案由它派生(T4 接线;缺省 = 该行不在任何条件里) */
+  conditions?: FilterConditions;
+  /** 条件档「仅看本级 / 含子级」:落 `setTagScope` */
+  onScope?: (path: string, includeChildren: boolean) => void;
+  /** 条件档「加入 / 移出排除」:落 `toggleExcludeTag` */
+  onToggleExclude?: (path: string) => void;
+}
+
+/** 三个条件档的状态(设计 §5.6):包含侧口径与排除侧去留;条件缺省时三档全为"未设" */
+function conditionState(
+  c: FilterConditions | undefined,
+  path: string
+): { inIncluded: boolean; includeChildren: boolean; excluded: boolean } {
+  let inIncluded = false;
+  let includeChildren = false;
+  let excluded = false;
+  for (const it of c === undefined ? [] : allItems(c)) {
+    if (it.kind === 'tag' && it.path === path) {
+      inIncluded = true;
+      includeChildren = it.includeChildren;
+    }
+    if (it.kind === 'excludeTag' && it.path === path) excluded = true;
+  }
+  return { inIncluded, includeChildren, excluded };
 }
 
 /** 右键菜单本体:主面板 + 重命名/移动/别名/关系/删除五个子面板,定位由上层传入 */
@@ -92,7 +118,16 @@ export function TagMenu(p: TagMenuProps): ReactNode {
       className="fixed z-50 max-h-80 w-56 overflow-y-auto rounded-lg border border-border bg-raised p-1 shadow-lg"
       style={{ left: p.x, top: p.y }}
     >
-      {pane === 'main' && <TagMenuMainPane path={p.node.path} onPick={pickPane} relations={mainRelations ?? undefined} />}
+      {pane === 'main' && (
+        <TagMenuMainPane
+          path={p.node.path}
+          onPick={pickPane}
+          relations={mainRelations ?? undefined}
+          {...conditionState(p.conditions, p.node.path)}
+          onScope={(ic) => p.onScope?.(p.node.path, ic)}
+          onToggleExclude={() => p.onToggleExclude?.(p.node.path)}
+        />
+      )}
       {pane === 'rename' && (
         <TagMenuRenamePane
           newName={newName}

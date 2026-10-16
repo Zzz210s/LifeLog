@@ -15,11 +15,21 @@ export interface TagMenuMainPaneProps {
   onPick: (pane: Pane) => void;
   /** 本标签的出边(属性名 + 值);undefined = 读数还没回来,一行都不列 */
   relations?: readonly RelationFactLike[];
+  /** 该行在筛选的包含侧(两个 scope 档的 aria-checked 依据) */
+  inIncluded: boolean;
+  /** 在包含侧时的口径:仅本级(false)/ 含子级(true) */
+  includeChildren: boolean;
+  /** 已在排除侧:排除档文案变「移出排除」 */
+  excluded: boolean;
+  /** 仅看本级(false)/ 含子级(true),落 `setTagScope` */
+  onScope: (includeChildren: boolean) => void;
+  /** 加入 / 移出排除(切换),落 `toggleExcludeTag` */
+  onToggleExclude: () => void;
 }
 
-/** 主面板:重命名 / 移动 / 别名 / 关系 / 删除五档;标题的标签名走行内 md 预览态(T1)。
- *  标题下方**直接列出本实体的引用**(2026-10-06 用户口径):每条一行,左列属性名(muted)、
- *  右列值,复用 `tagFactsRows` 同一投影;属性名缺失时左列回退目标名(R12)。
+/** 主面板 **8 档**:仅看本级 / 含子级 / 加入-移出排除(条件动作,设计 2026-10-16 §5.6)+ 现状 5 档管理动作。
+ *  条件档不做禁用态(不在包含侧时点了就以该口径加入);标题的标签名走行内 md 预览态(T1),
+ *  标题下方**直接列出本实体的引用**(2026-10-06 用户口径),复用 `tagFactsRows` 同一投影。
  *  「引用…」= spec §5.3 入口处置:与正文 `#X` / `[[X]]` 归到同一套「引用」概念(都落 `link` 边)。 */
 export function TagMenuMainPane(p: TagMenuMainPaneProps): ReactNode {
   const { shown, extra } = relationPlan(tagFactsRows(p.relations ?? []), MENU_RELATION_MAX);
@@ -43,6 +53,29 @@ export function TagMenuMainPane(p: TagMenuMainPaneProps): ReactNode {
           {extra > 0 && <div className="px-2.5 py-0.5 text-label text-muted">{`+${extra}`}</div>}
         </div>
       )}
+      <button
+        type="button"
+        role="menuitemcheckbox"
+        aria-checked={p.inIncluded && !p.includeChildren}
+        data-menu-action="scope-self"
+        className={ITEM_CLASS}
+        onClick={() => p.onScope(false)}
+      >
+        仅看本级
+      </button>
+      <button
+        type="button"
+        role="menuitemcheckbox"
+        aria-checked={p.inIncluded && p.includeChildren}
+        data-menu-action="scope-subtree"
+        className={ITEM_CLASS}
+        onClick={() => p.onScope(true)}
+      >
+        含子级
+      </button>
+      <button type="button" role="menuitem" data-menu-action="exclude" className={ITEM_CLASS} onClick={p.onToggleExclude}>
+        {p.excluded ? '移出排除' : '加入排除'}
+      </button>
       <button type="button" role="menuitem" data-menu-action="rename" className={ITEM_CLASS} onClick={() => p.onPick('rename')}>
         重命名
       </button>

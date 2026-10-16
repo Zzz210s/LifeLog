@@ -63,3 +63,22 @@ export function TagDropBand(p: TagDropBandProps): ReactNode {
     </div>
   );
 }
+
+export interface RowDropLineProps {
+  /** 行的哪一侧:before = 落在本行之上,after = 本行之下 */
+  zone: 'before' | 'after';
+  /** 左端(按该行层级缩进,与本行 paddingLeft 同源) */
+  left: number;
+}
+
+/** 行自己兜底画的同级插入线(落点冒泡到整行时):同 `TagDropBand` 的几何,故两处永远只有一条线 */
+export function RowDropLine({ zone, left }: RowDropLineProps): ReactNode {
+  return (
+    <span
+      aria-hidden="true"
+      data-drop-line={zone}
+      className={'pointer-events-none absolute right-0 h-px bg-accent ' + (zone === 'before' ? 'top-0' : 'bottom-0')}
+      style={{ left }}
+    />
+  );
+}
