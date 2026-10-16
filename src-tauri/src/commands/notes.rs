@@ -1,5 +1,6 @@
 use crate::db::repos;
 use crate::db::Db;
+use crate::windowing::input_window::INPUT_LABEL;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 #[cfg(test)]
@@ -8,12 +9,12 @@ mod notes_complete_tests;
 
 /// 笔记表变化事件名(与前端 `use-note-titles.ts` 的 NOTE_CREATED_EVENT / `use-note-created.ts` 同值)
 const NOTE_CREATED_EVENT: &str = "note-created";
-/// 输入栏窗口标签(`[[` 补全标题池的跨窗失效通知只发给它)
-const INPUT_LABEL: &str = "input";
 
 /// 笔记改名/删除后通知输入栏重取标题池(见 `src/input-bar/use-link-complete.ts` 的候选池)。
-/// **只发给输入栏**:同名事件被主窗的 `useNoteCreatedRefresh` 订阅着,广播会在每次改名/删除时
+/// **只发给输入栏**(标签取自唯一入口 windowing::input_window::INPUT_LABEL):
+/// 同名事件被主窗的 `useNoteCreatedRefresh` 订阅着,广播会在每次改名/删除时
 /// 把单页信息流拉回第一页(那套语义是「另一窗新建了笔记」)。
+/// 输入栏尚未建窗时 emit_to 找不到目标、返回 Err —— 没有页面需要刷新,吞掉即可。
 fn notify_input_titles_changed(app: &AppHandle, id: i64) {
     let _ = app.emit_to(INPUT_LABEL, NOTE_CREATED_EVENT, id);
 }

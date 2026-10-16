@@ -12,7 +12,8 @@
 
 use super::input_geom;
 use super::input_width::{display_width, work_area_of};
-use tauri::{AppHandle, Manager, PhysicalSize};
+use super::input_window;
+use tauri::{AppHandle, PhysicalSize};
 
 /// 高度区间(基础逻辑像素 —— 与 input_height 的入参同一单位):
 /// 单行 CSS 高度 = 22.75(text-sm + leading-relaxed)+ 上下内边距与边框 18 + 光晕内边距 2 x 14
@@ -89,7 +90,7 @@ pub fn migrate_size(w: f64, h: f64, scale: f64) -> (u32, u32) {
 /// 写回设置一律用命令意图:宽度只在真的变化时才写(拖动中每帧都带宽度),
 /// 高度每次都按内容意图写回;收口结果绝不固化成基础尺寸。
 pub fn apply_size(app: &AppHandle, width: u32, height_base: u32) -> Result<(), String> {
-    let Some(win) = app.get_webview_window("input") else {
+    let Some(win) = input_window::get(app) else {
         return Ok(());
     };
     let sf = win.scale_factor().unwrap_or(1.0);
@@ -124,7 +125,7 @@ pub fn apply_size(app: &AppHandle, width: u32, height_base: u32) -> Result<(), S
 /// 基础逻辑高 -> x sf x 缩放 -> 工作区收口),两条路径对同一内容给出同一窗口高。
 pub fn apply_scale(app: &AppHandle, scale: f64) -> Result<(), String> {
     let s = clamp_scale(scale);
-    let Some(win) = app.get_webview_window("input") else {
+    let Some(win) = input_window::get(app) else {
         input_geom::set(app, "input_zoom", &format!("{s:.2}"));
         return Ok(());
     };

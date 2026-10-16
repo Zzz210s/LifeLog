@@ -10,6 +10,7 @@
 
 use crate::db::repos;
 use crate::db::Db;
+use crate::windowing::input_window;
 use tauri::{AppHandle, Manager, WebviewWindow};
 
 /// 唤起输入栏时是否夺取焦点(设置缺失/非 "true" 一律按不夺)
@@ -29,8 +30,9 @@ pub fn apply_focusable(w: &WebviewWindow, steal: bool) {
 }
 
 /// 用户点了输入栏:这时才允许它取焦点。幂等 —— 已经可聚焦且有焦点时再调一次无害。
+/// 点得到说明窗口必然存在;万一不存在(get 返回 None)就空转,不建窗(建窗只经 input_window::ensure)。
 pub fn focus_now(app: &AppHandle) -> tauri::Result<()> {
-    if let Some(w) = app.get_webview_window("input") {
+    if let Some(w) = input_window::get(app) {
         let _ = w.set_focusable(true);
         w.set_focus()?;
     }

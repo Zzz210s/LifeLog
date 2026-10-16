@@ -11,22 +11,7 @@
     "frontendDist": "../dist"
   },
   "app": {
-    "windows": [
-      {
-        "label": "input",
-        "title": "输入栏",
-        "url": "input.html",
-        "width": 420,
-        "height": 300,
-        "visible": false,
-        "decorations": false,
-        "skipTaskbar": true,
-        "alwaysOnTop": true,
-        "resizable": false,
-        "transparent": true,
-        "shadow": false
-      }
-    ],
+    "windows": [],
     "security": { "csp": null }
   },
   "bundle": {

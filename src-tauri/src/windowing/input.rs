@@ -3,6 +3,7 @@ use crate::db::Db;
 use crate::windowing::input_focus;
 use crate::windowing::input_overlay;
 use crate::windowing::input_scale;
+use crate::windowing::input_window;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, WebviewWindow};
@@ -56,11 +57,11 @@ pub fn end_drag_session() {
     }
 }
 
-/// 窗口位置变化即落库(events.rs 在 Moved 上调):拖动由系统模态移动循环处理,
+/// 窗口位置变化即落库(input_window::attach_events 在 Moved 上调):拖动由系统模态移动循环处理,
 /// 松手事件到不了页面、焦点也不一定变化,位置只能在移动过程中写;最后一个 Moved 就是最终位置。
 /// 只有窗口确实可见时才写,避免把创建期默认位置(96,96)覆盖成用户记忆。
 pub fn commit_position(app: &AppHandle) {
-    if let Some(w) = win(app) {
+    if let Some(w) = input_window::get(app) {
         // 让位位移进行中时的 Moved 事件写的是临时坐标:跳过一次,别把输入栏永久挪走
         let visible = w.is_visible().unwrap_or(false);
         if input_overlay::should_commit_position(visible, input_overlay::shift_in_progress()) {
@@ -91,72 +92,65 @@ fn set_setting(app: &AppHandle, key: &str, value: &str) {
     }
 }
 
-fn win(app: &AppHandle) -> Option<WebviewWindow> {
-    app.get_webview_window("input")
-}
-
+/// 热键/二次启动的切换语义:可见就隐藏,否则显示。
+/// **未建窗也算「不可见」** —— 这一支正是首次唤起,show() 会按需建窗(不再像迁移前那样空转)。
 pub fn toggle(app: &AppHandle) -> tauri::Result<()> {
-    if let Some(w) = win(app) {
-        if w.is_visible().unwrap_or(false) {
-            hide(app)
-        } else {
-            show(app)
-        }
-    } else {
-        Ok(())
+    match input_window::get(app) {
+        Some(w) if w.is_visible().unwrap_or(false) => hide(app),
+        _ => show(app),
     }
 }
 
-/// 输入栏当前是否真的可见(系统口径,不看任何缓存)
+/// 输入栏当前是否真的可见(系统口径,不看任何缓存;窗口尚未创建即不可见)
 pub fn is_visible(app: &AppHandle) -> bool {
-    win(app).and_then(|w| w.is_visible().ok()).unwrap_or(false)
+    input_window::get(app).and_then(|w| w.is_visible().ok()).unwrap_or(false)
 }
 
+/// 显示输入栏(唤起):窗口未建则先按需建窗(windowing::input_window::ensure),再恢复记忆几何/缩放/置顶。
 pub fn show(app: &AppHandle) -> tauri::Result<()> {
-    if let Some(w) = win(app) {
-        // 恢复记忆的几何
-        if let (Some(x), Some(y)) = (get_setting(app, "input_x"), get_setting(app, "input_y")) {
-            if let (Ok(x), Ok(y)) = (x.parse::<i32>(), y.parse::<i32>()) {
-                let _ = w.set_position(PhysicalPosition::new(x, y));
-            }
+    let w = input_window::ensure(app)?;
+    // 恢复记忆的几何
+    if let (Some(x), Some(y)) = (get_setting(app, "input_x"), get_setting(app, "input_y")) {
+        if let (Ok(x), Ok(y)) = (x.parse::<i32>(), y.parse::<i32>()) {
+            let _ = w.set_position(PhysicalPosition::new(x, y));
         }
-        // 尺寸 = 基础尺寸(input_w/input_h)x 缩放系数,再由工作区收口;缩放同时落到 webview zoom。
-        // 读回值可能被手改成 NaN/越界,clamp_scale 收敛到 0.5-2.0(非有限值回退 1.0)。
-        let zoom = get_setting(app, "input_zoom")
-            .and_then(|s| s.parse::<f64>().ok())
-            .map(input_scale::clamp_scale)
-            .unwrap_or(1.0);
-        let _ = input_scale::apply_scale(app, zoom);
-        // 恢复记忆的置顶状态(默认 true);隐藏窗口上设置亦安全,须在 show 前
-        let pin = get_setting(app, "input_always_on_top")
-            .map(|v| v != "false")
-            .unwrap_or(true);
-        let _ = w.set_always_on_top(pin);
-        // 窗口实际已隐藏而 tao 缓存认为仍可见时(例如被外部 ShowWindow(SW_HIDE) 隐藏过),
-        // show() 的 flags diff 为空会静默早退、窗口唤不出来。系统未可见时先 hide() 对齐缓存,
-        // 再 show();两边一致时这步是空操作。
-        if !w.is_visible().unwrap_or(true) {
-            let _ = w.hide(); // 尽力而为:对齐失败也要继续走主操作 show()
-        }
-        // 唤起时的焦点行为(用户 2026-10-03):默认**不夺焦点** —— 免得把全屏游戏踢出去。
-        // 细则与开关见 windowing/input_focus.rs。
-        let steal = input_focus::steal_on_show(app);
-        input_focus::apply_focusable(&w, steal);
-        w.show()?;
-        if steal {
-            w.set_focus()?;
-        }
-        // 显示后通知页面重新同步高度:本次尺寸是 apply_scale 从**库里的基础高**算出的,
-        // 不含候选列表占的高度;而页面的 120ms 重同步只在内容/宽度变化时跑,
-        // 「带着展开的候选列表隐藏再显示」就不会重算,过矮会把输入框压瘪、列表裁掉
-        // (2026-09-21 复审 Important 1)。页面只在列表开着时才真的下发一次高度。
-        let _ = w.emit("input-shown", ());
     }
+    // 尺寸 = 基础尺寸(input_w/input_h)x 缩放系数,再由工作区收口;缩放同时落到 webview zoom。
+    // 读回值可能被手改成 NaN/越界,clamp_scale 收敛到 0.5-2.0(非有限值回退 1.0)。
+    let zoom = get_setting(app, "input_zoom")
+        .and_then(|s| s.parse::<f64>().ok())
+        .map(input_scale::clamp_scale)
+        .unwrap_or(1.0);
+    let _ = input_scale::apply_scale(app, zoom);
+    // 恢复记忆的置顶状态(默认 true);隐藏窗口上设置亦安全,须在 show 前
+    let pin = get_setting(app, "input_always_on_top")
+        .map(|v| v != "false")
+        .unwrap_or(true);
+    let _ = w.set_always_on_top(pin);
+    // 窗口实际已隐藏而 tao 缓存认为仍可见时(例如被外部 ShowWindow(SW_HIDE) 隐藏过),
+    // show() 的 flags diff 为空会静默早退、窗口唤不出来。系统未可见时先 hide() 对齐缓存,
+    // 再 show();两边一致时这步是空操作。
+    if !w.is_visible().unwrap_or(true) {
+        let _ = w.hide(); // 尽力而为:对齐失败也要继续走主操作 show()
+    }
+    // 唤起时的焦点行为(用户 2026-10-03):默认**不夺焦点** —— 免得把全屏游戏踢出去。
+    // 细则与开关见 windowing/input_focus.rs。
+    let steal = input_focus::steal_on_show(app);
+    input_focus::apply_focusable(&w, steal);
+    w.show()?;
+    if steal {
+        w.set_focus()?;
+    }
+    // 显示后通知页面重新同步高度:本次尺寸是 apply_scale 从**库里的基础高**算出的,
+    // 不含候选列表占的高度;而页面的 120ms 重同步只在内容/宽度变化时跑,
+    // 「带着展开的候选列表隐藏再显示」就不会重算,过矮会把输入框压瘪、列表裁掉
+    // (2026-09-21 复审 Important 1)。页面只在列表开着时才真的下发一次高度。
+    let _ = w.emit("input-shown", ());
     Ok(())
 }
 
 pub fn hide(app: &AppHandle) -> tauri::Result<()> {
-    if let Some(w) = win(app) {
+    if let Some(w) = input_window::get(app) {
         // 「隐藏前确实在屏幕上」是本函数一切副作用的开关:
         // 启动阶段 tao 对**尚未显示过**的隐藏窗口也会发一次 Focused(false),若此时开了
         // 「失焦自动隐藏」,windowing/events 会立刻调到这里;这时读到的 outer_position 只是

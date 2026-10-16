@@ -112,7 +112,6 @@ pub fn run() {
             // 旧几何键语义(含缩放的尺寸)一次性迁移到新语义(基础物理尺寸),单事务幂等
             windowing::input_geom::migrate_geometry(app.handle());
             windowing::tray::create(app)?;
-            windowing::events::register(app)?;
             app.handle().plugin(
                 tauri_plugin_global_shortcut::Builder::new()
                     .with_handler(|app, _shortcut, event| {

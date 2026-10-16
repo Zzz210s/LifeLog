@@ -15,7 +15,8 @@ use super::input_geom;
 use super::input_overlay;
 use super::input_scale::{clamp_height, clamp_scale};
 use super::input_width::{work_area_of, WORK_AREA_RATIO};
-use tauri::{AppHandle, Manager, PhysicalSize, WebviewWindow};
+use super::input_window;
+use tauri::{AppHandle, PhysicalSize, WebviewWindow};
 
 /// 缩放系数兜底:非有限值/非正数按 1.0(与 input_scale::display_width 同一处理)
 fn sane_sf(sf: f64) -> f64 {
@@ -79,7 +80,7 @@ fn resize_height(
 /// **绝不写 input_w** —— 这条路径并不掌握宽度意图,它只知道"窗口现在多宽";
 /// 把窗口几何当意图写回就会在缩放交错时改写用户的基础宽度(实测 343 -> 311)。
 pub fn apply_height(app: &AppHandle, base_logical_h: u32) -> Result<(), String> {
-    let Some(win) = app.get_webview_window("input") else {
+    let Some(win) = input_window::get(app) else {
         return Ok(());
     };
     let sf = win.scale_factor().unwrap_or(1.0);
@@ -92,7 +93,7 @@ pub fn apply_height(app: &AppHandle, base_logical_h: u32) -> Result<(), String> 
 /// 同上但**不写库**:专给「# 补全建议列表展开」的临时高度(带着展开的列表退出应用时,
 /// 展开高度会被当成基础尺寸写进 input_h,下次启动就是一条悬空的空高条),并做让位位移。
 pub fn apply_height_overlay(app: &AppHandle, base_logical_h: u32) -> Result<(), String> {
-    let Some(win) = app.get_webview_window("input") else {
+    let Some(win) = input_window::get(app) else {
         return Ok(());
     };
     let sf = win.scale_factor().unwrap_or(1.0);

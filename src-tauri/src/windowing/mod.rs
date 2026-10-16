@@ -6,6 +6,7 @@ pub mod input_height;
 pub mod input_overlay;
 pub mod input_scale;
 pub mod input_width;
+pub mod input_window;
 pub mod main_window;
 pub mod startup;
 pub mod tray;

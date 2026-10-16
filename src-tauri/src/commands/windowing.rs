@@ -15,9 +15,15 @@ pub fn input_bar_visible(app: AppHandle) -> bool {
     windowing::input::is_visible(&app)
 }
 
-/// 显示(不切换)输入栏:主窗空库引导用,语义与二次启动一致(show,不把眼前的窗口隐藏)
+/// 显示(不切换)输入栏:主窗空库引导用,语义与二次启动一致(show,不把眼前的窗口隐藏)。
+///
+/// **为什么必须是 async**(输入栏改按需创建后新增的约束):这条命令可能在窗口尚未创建时被调用,
+/// 而**在 IPC 命令里建窗会把主线程卡死** —— 同步命令跑在 webview 的宿主线程回调里,建窗又要等
+/// 同一个线程的事件循环,等于自己等自己(2026-10-16 实测:窗口停在 about:blank、后续 IPC 永不返回;
+/// 与 windowing/startup.rs 里「不在 IPC 里建主窗」是同一个坑)。async 命令在异步运行时线程上执行,
+/// 建窗走「投给主线程 + 等回执」的正常路径,且命令仍在窗口显示完成后才返回给页面。
 #[tauri::command]
-pub fn show_input_bar(app: AppHandle) -> Result<(), String> {
+pub async fn show_input_bar(app: AppHandle) -> Result<(), String> {
     windowing::input::show(&app).map_err(|e| e.to_string())
 }
 
