@@ -86,7 +86,9 @@ pub fn delete_points(app: AppHandle, ids: Vec<i64>) -> Result<DeletePointsReport
     with_conn(&app, |c| {
         delete_many(c, &ids, &dir).map(|r| DeletePointsReport {
             deleted: r.deleted,
-            snapshot: r.snapshot.to_string_lossy().to_string(),
+            // 回报路径统一成 `/` 分隔(库里/回执里混 `\` 会让用户复制走不通;
+            // Windows 两种写法都能开,只是显示一致性)
+            snapshot: r.snapshot.to_string_lossy().replace('\\', "/"),
         })
     })
 }

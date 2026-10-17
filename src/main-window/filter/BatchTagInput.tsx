@@ -87,7 +87,7 @@ export function BatchTagInput(p: BatchTagInputProps): ReactNode {
           onKeyDown={(e) => {
             if (e.key === 'Enter') act('add');
           }}
-          className="h-8 w-40 rounded-sm border border-border-strong bg-app px-2 text-ui text-text outline-none placeholder:text-faint disabled:opacity-50"
+          className="h-8 w-32 rounded-sm border border-border-strong bg-app px-2 text-ui text-text outline-none placeholder:text-faint disabled:opacity-50"
         />
         {open && items.length > 0 && (
           <ul
