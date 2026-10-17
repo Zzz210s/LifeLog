@@ -15,8 +15,8 @@ fn db() -> Connection {
            (3,'生活','2026-01-01','生活',1),
            (4,'项目A','2026-01-01','工作/项目A',2),
            (5,'工作','2026-01-01','工作',1);
-         INSERT INTO lines(from_id,to_id,name_id,created_at) VALUES
-           (1,3,NULL,'2026-01-01'),(2,4,NULL,'2026-01-01'),(5,4,0,'2026-01-01');
+         INSERT INTO lines(from_id,to_id,name_id) VALUES
+           (1,3,NULL),(2,4,NULL),(5,4,0);
          INSERT INTO entity_aliases(alias,entity_id) VALUES('日常',3);",
     )
     .unwrap();

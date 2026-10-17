@@ -117,3 +117,23 @@ fn prepare_edges_source(conn: &Connection) -> rusqlite::Result<()> {
         )
     }
 }
+
+/// 032 的版本号(与 `MIGRATIONS` 追加 032 后的下标 +1 成对,见 `migrate.rs`)。
+pub(crate) const POINT_INDEX_VERSION: i64 = 32;
+
+/// 032 的事务内前置钩子:下架 `lines.created_at`(体检 2026-10-17 §4 —— 生产代码 0 处 SELECT,
+/// 6,390 行只有 32 个不同值,占 155,648 B / 全库 2.1%)。
+/// SQLite 的 `ALTER TABLE ... DROP COLUMN` 没有 `IF EXISTS`,而新库的 031 已经不再建这一列,
+/// 故按 `pragma_table_info` 的列存在性判定:新库 / 重放都是空操作,只有真库(v31)真的删。
+/// 与 027 的 `drop_legacy_id_column` 同一套写法(那里在事务外,本钩子在事务内、与版本号同生共死)。
+pub(crate) fn drop_lines_created_at(conn: &Connection) -> rusqlite::Result<()> {
+    let n: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info('lines') WHERE name = 'created_at'",
+        [],
+        |r| r.get(0),
+    )?;
+    if n > 0 {
+        conn.execute_batch("ALTER TABLE lines DROP COLUMN created_at")?;
+    }
+    Ok(())
+}

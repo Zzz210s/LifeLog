@@ -13,8 +13,8 @@ fn db_with_pure_name() -> Connection {
            (1, '苹果\n第二行', datetime('now','localtime'), 1),
            (2, '香蕉\n第二行', datetime('now','localtime'), 1),
            (3, '名字',        datetime('now','localtime'), 0);
-         INSERT INTO lines(id, from_id, to_id, name_id, created_at)
-           VALUES (1, 1, 2, 3, datetime('now','localtime'));",
+         INSERT INTO lines(id, from_id, to_id, name_id)
+           VALUES (1, 1, 2, 3);",
     )
     .unwrap();
     c

@@ -167,6 +167,7 @@ const PRE_HOOKS: &[(i64, PreHook)] = &[
     (FTS_CLOSURE_VERSION, create_entities_fts_src_view),
     (POINT_LINE_VERSION, prepare_point_line),
     (POINT_LINE_VERSION, create_points_fts_src_view),
+    (POINT_INDEX_VERSION, drop_lines_created_at),
 ];
 
 /// 跑某版本登记的事务内前置钩子(无登记 = 空操作);由 `migrate::apply` 在事务内调用。

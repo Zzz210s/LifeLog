@@ -25,9 +25,9 @@ fn db() -> Connection {
            (10,'单行笔记',0,'2026-01-02',NULL,NULL,NULL),
            (11,'多行' || char(10) || '第二行',0,'2026-01-03',NULL,NULL,NULL),
            (12,'引用叶',0,'2026-01-04',NULL,NULL,NULL);
-         INSERT INTO lines(from_id,to_id,name_id,created_at) VALUES
-           (1,2,0,'2026-01-01'),(2,3,0,'2026-01-01'),
-           (12,3,NULL,'2026-01-04');",
+         INSERT INTO lines(from_id,to_id,name_id) VALUES
+           (1,2,0),(2,3,0),
+           (12,3,NULL);",
     )
     .unwrap();
     c

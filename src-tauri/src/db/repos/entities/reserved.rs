@@ -113,8 +113,8 @@ pub fn recover_tree_lines(conn: &Connection) -> rusqlite::Result<RepairReport> {
 
     // 再补插:级联删除会连 719 条子级线一起删掉,这一句按 parent_id 缓存重建。
     let inserted = conn.execute(
-        "INSERT INTO lines(from_id, to_id, name_id, created_at)
-         SELECT p.parent_id, p.id, ?1, datetime('now', 'localtime')
+        "INSERT INTO lines(from_id, to_id, name_id)
+         SELECT p.parent_id, p.id, ?1
            FROM points p
           WHERE p.parent_id IS NOT NULL
             AND NOT EXISTS(SELECT 1 FROM lines l

@@ -33,10 +33,10 @@ fn seed(c: &Connection) -> (i64, i64, i64) {
            (4, '乙', '2026-01-01', '甲/乙', 2),
            (5, '1917', '2026-01-01', NULL, NULL),
            (6, '别的笔记', '2026-01-01', NULL, NULL);
-         INSERT INTO lines(id, from_id, to_id, name_id, created_at) VALUES
-           (10, 1, 2, 3, '2026-01-01'),
-           (11, 5, 1, NULL, '2026-01-01'),
-           (12, 6, 2, NULL, '2026-01-01');",
+         INSERT INTO lines(id, from_id, to_id, name_id) VALUES
+           (10, 1, 2, 3),
+           (11, 5, 1, NULL),
+           (12, 6, 2, NULL);",
     )
     .unwrap();
     (1, 2, 3)

@@ -27,11 +27,11 @@ fn db() -> Connection {
 第二行', '2026-01-05', '长标签', 1, 1),
            (6, '来源',         '2026-01-06', '来源', 1,    1),
            (7, '关系名',       '2026-01-07', NULL,   NULL, 0);
-         INSERT INTO lines(id, from_id, to_id, name_id, created_at) VALUES
-           (1, 2, 3, NULL, '2026-01-01'),   -- 笔记打标签(出无名线)
-           (2, 4, 3, 0,    '2026-01-01'),   -- 结构边:轴 -> 轴/A
-           (3, 6, 2, NULL, '2026-01-01'),   -- 关系源标签引用笔记
-           (4, 5, 2, 7,    '2026-01-01');", // 关系名点 7 只在 name_id 位
+         INSERT INTO lines(id, from_id, to_id, name_id) VALUES
+           (1, 2, 3, NULL),   -- 笔记打标签(出无名线)
+           (2, 4, 3, 0),      -- 结构边:轴 -> 轴/A
+           (3, 6, 2, NULL),   -- 关系源标签引用笔记
+           (4, 5, 2, 7);",    // 关系名点 7 只在 name_id 位
     )
     .unwrap();
     c
@@ -108,8 +108,8 @@ fn paged_db() -> Connection {
         )
         .unwrap();
         c.execute(
-            "INSERT INTO lines(id, from_id, to_id, name_id, created_at)
-             VALUES(?1, 1, ?2, NULL, '2026-01-01')",
+            "INSERT INTO lines(id, from_id, to_id, name_id)
+             VALUES(?1, 1, ?2, NULL)",
             rusqlite::params![id, id],
         )
         .unwrap();

@@ -60,8 +60,8 @@ fn insert(conn: &Connection, from: i64, to: i64, name_id: Option<i64>) -> Result
         return Ok(0);
     }
     conn.execute(
-        "INSERT OR IGNORE INTO lines(from_id, to_id, name_id, created_at) \
-         VALUES(?1, ?2, ?3, datetime('now', 'localtime'))",
+        "INSERT OR IGNORE INTO lines(from_id, to_id, name_id) \
+         VALUES(?1, ?2, ?3)",
         params![from, to, name_id],
     )
     .map_err(|e| e.to_string())?;

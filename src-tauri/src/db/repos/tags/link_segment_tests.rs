@@ -21,8 +21,8 @@ fn insert(c: &Connection, id: i64, name: &str, parent: Option<i64>, path: &str, 
     .unwrap();
     if let Some(p) = parent {
         c.execute(
-            "INSERT INTO lines(from_id, to_id, name_id, created_at)
-             VALUES(?1, ?2, 0, datetime('now','localtime'))",
+            "INSERT INTO lines(from_id, to_id, name_id)
+             VALUES(?1, ?2, 0)",
             params![p, id],
         )
         .unwrap();

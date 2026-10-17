@@ -24,8 +24,8 @@ fn ent(c: &Connection, id: i64, meta: &str, cited: i64, path: Option<&str>) {
 /// 画线:`name_id = 0` = 子级线(结构),`None` = 无名字线(v30 的 `link` 引用)。
 fn line(c: &Connection, from: i64, to: i64, name_id: Option<i64>) {
     c.execute(
-        "INSERT INTO lines(from_id, to_id, name_id, created_at)
-         VALUES(?1, ?2, ?3, '2026-01-01T00:00:00.000')",
+        "INSERT INTO lines(from_id, to_id, name_id)
+         VALUES(?1, ?2, ?3)",
         params![from, to, name_id],
     )
     .unwrap();

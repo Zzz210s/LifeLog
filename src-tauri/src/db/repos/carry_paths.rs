@@ -42,7 +42,7 @@ mod tests {
     /// 无名字线(v30 的 `kind='link'`)
     fn link(c: &Connection, source: i64, target: i64) {
         c.execute(
-            "INSERT INTO lines(from_id, to_id, name_id, created_at) VALUES(?1, ?2, NULL, '2026-01-01')",
+            "INSERT INTO lines(from_id, to_id, name_id) VALUES(?1, ?2, NULL)",
             rusqlite::params![source, target],
         )
         .unwrap();

@@ -119,8 +119,8 @@ pub fn create_line(
         return Err("会形成循环：新线会让目标绕回起点".into());
     }
     let inserted = tx.execute(
-        "INSERT INTO lines(from_id, to_id, name_id, created_at)
-         VALUES(?1, ?2, ?3, datetime('now', 'localtime'))",
+        "INSERT INTO lines(from_id, to_id, name_id)
+         VALUES(?1, ?2, ?3)",
         params![from_id, to_id, name_id],
     );
     let id = match inserted {

@@ -1,5 +1,7 @@
 //! 031 点 / 线迁移(Task 1.2):表重建、保留名字点、线映射、表达式唯一索引与幂等。
-//! 夹具是最小 v30(entities/edges + 相关表),`run()` 从 user_version = 30 只跑 031。
+//! 夹具是最小 v30(entities/edges + 相关表),`run()` 从 user_version = 30 一路跑到最新版(031 + 032),
+//! 本文件守 031 那一步的语义(表重建 / 保留名字点 / 线映射 / 表达式唯一索引 / 幂等);
+//! 032(加 `idx_points_parent` + 删 `lines.created_at`)只叠在终态上,不改本文件的读数。
 use super::*;
 
 fn count(c: &Connection, sql: &str) -> i64 {
@@ -62,7 +64,7 @@ fn name_of(c: &Connection, line: i64) -> String {
 fn migration_031_maps_edges_and_creates_name_points() {
     let c = v30_fixture("");
     run(&c).unwrap();
-    assert_eq!(count(&c, "PRAGMA user_version"), 31);
+    assert_eq!(count(&c, "PRAGMA user_version"), latest_version());
     assert_eq!(count(&c, "SELECT COUNT(*) FROM points"), 7);
     assert_eq!(count(&c, "SELECT COUNT(*) FROM lines"), 5);
     assert_eq!(count(&c, "SELECT COUNT(*) FROM lines WHERE name_id = 0"), 1);
@@ -98,7 +100,7 @@ fn migration_031_creates_expression_unique_index() {
     let c = v30_fixture("");
     run(&c).unwrap();
     assert_eq!(count(&c, "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='idx_lines_uniq'"), 1);
-    let err = c.execute("INSERT INTO lines(id, from_id, to_id, name_id, created_at) VALUES(99,3,2,NULL,'x')", []);
+    let err = c.execute("INSERT INTO lines(id, from_id, to_id, name_id) VALUES(99,3,2,NULL)", []);
     assert!(err.is_err(), "idx_lines_uniq 必须拦住重复的无名字线");
 }
 
@@ -141,7 +143,7 @@ fn migrate_snapshot_copy_from_env() {
     let path = std::env::var("LIFELOG_COPY_DB").expect("需设 LIFELOG_COPY_DB");
     let c = Connection::open(&path).unwrap();
     run(&c).unwrap();
-    assert_eq!(count(&c, "PRAGMA user_version"), 31);
+    assert_eq!(count(&c, "PRAGMA user_version"), latest_version());
     assert_eq!(count(&c, "SELECT COUNT(*) FROM pragma_foreign_key_check"), 0);
     assert_eq!(
         c.query_row("PRAGMA integrity_check", [], |r| r.get::<_, String>(0)).unwrap(),

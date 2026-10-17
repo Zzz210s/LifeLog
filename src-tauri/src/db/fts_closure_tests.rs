@@ -23,12 +23,12 @@ fn db() -> Connection {
            (12,'aaa/sub/deep','2026-01-01','aaa/sub/deep',3,11,0),
            (13,'bbb','2026-01-01','bbb',1,NULL,0),
            (100,'关系','2026-01-01',NULL,NULL,NULL,0);
-         INSERT INTO lines(from_id,to_id,name_id,created_at) VALUES
-           (10,13,100,'2026-01-01'),
-           (10,11,0,'2026-01-01'),
-           (11,12,0,'2026-01-01'),
-           (1,11,NULL,'2026-01-01'),
-           (2,10,NULL,'2026-01-01');",
+         INSERT INTO lines(from_id,to_id,name_id) VALUES
+           (10,13,100),
+           (10,11,0),
+           (11,12,0),
+           (1,11,NULL),
+           (2,10,NULL);",
     )
     .unwrap();
     c
@@ -69,7 +69,7 @@ fn search_hits_through_ancestor_relation_and_descendants() {
 fn search_still_hits_after_direct_edge_is_deleted() {
     let c = db();
     c.execute(
-        "INSERT INTO lines(from_id,to_id,name_id,created_at) VALUES(1,13,NULL,'2026-01-01')",
+        "INSERT INTO lines(from_id,to_id,name_id) VALUES(1,13,NULL)",
         [],
     )
     .unwrap();
@@ -107,7 +107,7 @@ fn later_relation_edge_refreshes_ancestor_link_sources() {
     )
     .unwrap();
     c.execute(
-        "INSERT OR IGNORE INTO lines(from_id,to_id,name_id,created_at) VALUES(10,14,NULL,'2026-01-01')",
+        "INSERT OR IGNORE INTO lines(from_id,to_id,name_id) VALUES(10,14,NULL)",
         [],
     )
     .unwrap();

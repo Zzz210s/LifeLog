@@ -96,8 +96,8 @@ pub fn set_tag_relation(
             .map_err(|e| e.to_string())?;
         if updated == 0 {
             tx.execute(
-                "INSERT INTO lines(from_id, to_id, name_id, created_at)
-                 VALUES(?1, ?2, ?3, datetime('now', 'localtime'))
+                "INSERT INTO lines(from_id, to_id, name_id)
+                 VALUES(?1, ?2, ?3)
                  ON CONFLICT(from_id, to_id, COALESCE(name_id, -1))
                  DO UPDATE SET name_id = excluded.name_id",
                 params![from_tag_id, to_tag_id, name_id],

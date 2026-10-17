@@ -80,7 +80,7 @@ fn unique_index_blocks_null_duplicates() {
     .unwrap();
     let line = |to: i64, name: Option<i64>| {
         c.execute(
-            "INSERT INTO lines(from_id,to_id,name_id,created_at) VALUES(1,?1,?2,'2026-01-01')",
+            "INSERT INTO lines(from_id,to_id,name_id) VALUES(1,?1,?2)",
             params![to, name],
         )
     };

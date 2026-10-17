@@ -23,8 +23,8 @@ fn ent(c: &Connection, id: i64, meta: &str, cited: i64, path: Option<&str>) {
 fn edge(c: &Connection, source: i64, target: i64, kind: &str) {
     let name_id: Option<i64> = if kind == "child" { Some(0) } else { None };
     c.execute(
-        "INSERT INTO lines(from_id, to_id, name_id, created_at)
-         VALUES(?1, ?2, ?3, '2026-01-01T00:00:00.000')",
+        "INSERT INTO lines(from_id, to_id, name_id)
+         VALUES(?1, ?2, ?3)",
         params![source, target, name_id],
     )
     .unwrap();
@@ -117,8 +117,8 @@ fn gc_collects_orphan_name_point_after_last_line_removed() {
     ent(&c, 2, "乙", 0, Some("乙"));
     ent(&c, 3, "国籍", 0, None);
     c.execute(
-        "INSERT INTO lines(from_id, to_id, name_id, created_at)
-         VALUES(1, 2, 3, '2026-01-01T00:00:00.000')",
+        "INSERT INTO lines(from_id, to_id, name_id)
+         VALUES(1, 2, 3)",
         [],
     )
     .unwrap();

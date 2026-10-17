@@ -48,8 +48,8 @@ fn gc_orphans_keeps_carried_tag() {
     let junk = ensure_path(&c, &segs(&["空壳"])).unwrap();
     // 直接建携带行:本用例只关心 gc 判据,不经过 set_tag_relation 的校验与事务
     c.execute(
-        "INSERT INTO lines(from_id, to_id, name_id, created_at)
-         VALUES(?1, ?2, NULL, datetime('now', 'localtime'))",
+        "INSERT INTO lines(from_id, to_id, name_id)
+         VALUES(?1, ?2, NULL)",
         params![carrier, carried],
     )
     .unwrap();

@@ -55,8 +55,8 @@ pub(crate) fn refresh_entities_fts(conn: &Connection, entity_ids: &[i64]) -> rus
 #[cfg(test)]
 pub fn link_note(conn: &Connection, note_id: i64, tag_id: i64) -> rusqlite::Result<()> {
     conn.execute(
-        "INSERT OR IGNORE INTO lines(from_id, to_id, name_id, created_at)
-         VALUES(?1, ?2, NULL, datetime('now', 'localtime'))",
+        "INSERT OR IGNORE INTO lines(from_id, to_id, name_id)
+         VALUES(?1, ?2, NULL)",
         params![note_id, tag_id],
     )?;
     crate::db::repos::entities::closure::sync_is_cited(conn, tag_id)

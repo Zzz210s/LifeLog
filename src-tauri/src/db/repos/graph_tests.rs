@@ -16,10 +16,10 @@ fn db() -> Connection {
            (90,'线名',0,'2026-01-01',NULL,NULL,NULL);
          INSERT INTO points(id,meta,created_at) VALUES
            (1,'a','2026-01-01'),(2,'b','2026-01-02');
-         INSERT INTO lines(id,from_id,to_id,name_id,created_at) VALUES
-           (1,10,11,0,'2026-01-01'),(2,10,12,0,'2026-01-01'),
-           (3,1,11,90,'2026-01-01'),(4,1,20,NULL,'2026-01-01'),
-           (5,2,12,NULL,'2026-01-01'),(6,2,20,NULL,'2026-01-01');",
+         INSERT INTO lines(id,from_id,to_id,name_id) VALUES
+           (1,10,11,0),(2,10,12,0),
+           (3,1,11,90),(4,1,20,NULL),
+           (5,2,12,NULL),(6,2,20,NULL);",
     )
     .unwrap();
     c
@@ -124,22 +124,22 @@ fn co_edges_hub_boundary_is_strictly_greater() {
     );
     for i in 100..(100 + t) {
         batch.push_str(&format!(
-            "INSERT INTO lines(from_id,to_id,name_id,created_at) VALUES ({i},30,NULL,'2026-01-01');"
+            "INSERT INTO lines(from_id,to_id,name_id) VALUES ({i},30,NULL);"
         ));
     }
     for i in 100..=(100 + t) {
         batch.push_str(&format!(
-            "INSERT INTO lines(from_id,to_id,name_id,created_at) VALUES ({i},31,NULL,'2026-01-01');"
+            "INSERT INTO lines(from_id,to_id,name_id) VALUES ({i},31,NULL);"
         ));
     }
     for i in 100..105 {
         batch.push_str(&format!(
-            "INSERT INTO lines(from_id,to_id,name_id,created_at) VALUES ({i},40,NULL,'2026-01-01');"
+            "INSERT INTO lines(from_id,to_id,name_id) VALUES ({i},40,NULL);"
         ));
     }
     for i in 100..111 {
         batch.push_str(&format!(
-            "INSERT INTO lines(from_id,to_id,name_id,created_at) VALUES ({i},41,NULL,'2026-01-01');"
+            "INSERT INTO lines(from_id,to_id,name_id) VALUES ({i},41,NULL);"
         ));
     }
     c.execute_batch(&batch).unwrap();
@@ -168,9 +168,9 @@ fn co_edges_are_undirected_once_with_note_count_weight() {
         "INSERT INTO points(id,meta,created_at) VALUES (3,'c','2026-01-03'),(4,'d','2026-01-04');
          INSERT INTO points(id,meta,created_at,path,depth) VALUES
            (30,'丙','2026-01-03','丙',1),(31,'丁','2026-01-03','丁',1);
-         INSERT INTO lines(from_id,to_id,name_id,created_at) VALUES
-           (3,30,NULL,'2026-01-03'),(3,31,NULL,'2026-01-03'),
-           (4,30,NULL,'2026-01-03'),(4,31,NULL,'2026-01-03');",
+         INSERT INTO lines(from_id,to_id,name_id) VALUES
+           (3,30,NULL),(3,31,NULL),
+           (4,30,NULL),(4,31,NULL);",
     )
     .unwrap();
     let es = co_edges(&c, 99).unwrap();

@@ -26,22 +26,22 @@ FROM _line_names n;
 
 -- ============ 2. 线表(spec §3.2)+ 搬线(§4.2 四种旧组合) ============
 -- 不做自指过滤:真库自指 0 条,若夹具造出自指边,让 `CHECK (from_id <> to_id)` 使整批回滚。
+-- `created_at` 不建(体检 2026-10-17 §4:生产代码 0 处 SELECT、只有 32 个不同值、占 155,648 B);
+-- 已迁到 v31 的库由迁移 032 的前置钩子 `drop_lines_created_at` 下架,两条路径终点同一 schema。
 CREATE TABLE IF NOT EXISTS lines (
   id         INTEGER PRIMARY KEY,
   from_id    INTEGER NOT NULL REFERENCES points(id) ON DELETE CASCADE,
   to_id      INTEGER NOT NULL REFERENCES points(id) ON DELETE CASCADE,
   name_id    INTEGER REFERENCES points(id) ON DELETE CASCADE,
-  created_at TEXT NOT NULL,
   CHECK (from_id <> to_id)
 );
-INSERT INTO lines(id, from_id, to_id, name_id, created_at)
+INSERT INTO lines(id, from_id, to_id, name_id)
 SELECT e.id, e.source_id, e.target_id,
        CASE
          WHEN e.kind = 'child' THEN 0
          WHEN e.kind = 'link' AND e.remark = '' THEN NULL
          ELSE (SELECT n.id FROM _line_names n WHERE n.remark = e.remark)
-       END,
-       e.created_at
+       END
 FROM _point_line_edges e;
 
 -- ============ 3. 索引(spec §3.1 / §3.2) ============

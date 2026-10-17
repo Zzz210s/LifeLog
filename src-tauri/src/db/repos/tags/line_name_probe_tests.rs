@@ -72,8 +72,8 @@ fn t32_copy_readings() {
     assert_eq!(named, 24, "「国籍」引用 24 条线");
     assert_eq!(texts, vec!["国别".to_string()], "24 条线的 nameText 一起变");
 
-    let upsert = "INSERT INTO lines(from_id, to_id, name_id, created_at)
-         VALUES(1, 2, NULL, datetime('now', 'localtime'))
+    let upsert = "INSERT INTO lines(from_id, to_id, name_id)
+         VALUES(1, 2, NULL)
          ON CONFLICT(from_id, to_id, COALESCE(name_id, -1)) DO UPDATE SET name_id = excluded.name_id";
     let opened = upsert_bytecode_p4(&c, upsert);
     let update_plan = plan(

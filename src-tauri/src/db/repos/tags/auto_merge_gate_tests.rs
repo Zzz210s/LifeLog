@@ -81,8 +81,8 @@ fn auto_merge_skips_pure_name_points() {
     ent(&c, 3, "国籍", 1, None, None);
     // 3 被一条线当名字用 -> 纯名字点(位置判据);is_cited 已被外力置 1,绕开三重闸门第一道
     c.execute(
-        "INSERT INTO lines(from_id, to_id, name_id, created_at)
-         VALUES(1, 4, 3, '2026-01-01T00:00:00.000')",
+        "INSERT INTO lines(from_id, to_id, name_id)
+         VALUES(1, 4, 3)",
         [],
     )
     .unwrap();

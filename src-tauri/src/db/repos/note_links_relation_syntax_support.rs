@@ -33,8 +33,8 @@ fn seed(c: &Connection) {
            (90, '正文', '2026-01-01', NULL, NULL, NULL),
            (91, '旁证', '2026-01-01', NULL, NULL, NULL),
            (92, '链接目标', '2026-01-01', NULL, NULL, NULL);
-         INSERT INTO lines(from_id, to_id, name_id, created_at) VALUES
-           (91, 12, NULL, '2026-01-01'), (91, 13, NULL, '2026-01-01'), (91, 14, NULL, '2026-01-01');",
+         INSERT INTO lines(from_id, to_id, name_id) VALUES
+           (91, 12, NULL), (91, 13, NULL), (91, 14, NULL);",
     )
     .unwrap();
 }
@@ -52,7 +52,7 @@ pub(super) fn name_point(c: &Connection, meta: &str) -> i64 {
 /// 给来源 90 造一条前置线,返回线 id
 pub(super) fn line(c: &Connection, to: i64, name: Option<i64>) -> i64 {
     c.query_row(
-        "INSERT INTO lines(from_id, to_id, name_id, created_at) VALUES(?1, ?2, ?3, '2026-01-01')
+        "INSERT INTO lines(from_id, to_id, name_id) VALUES(?1, ?2, ?3)
          RETURNING id",
         params![SRC, to, name],
         |r| r.get(0),

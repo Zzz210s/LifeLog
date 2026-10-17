@@ -18,14 +18,15 @@ pub(crate) fn guard_path(db: &Path, apply: bool, allow_live: bool) -> Result<(),
     )))
 }
 
-/// ③:只处理 v31(表名 `points` / `lines` / `points_fts` 都由 031 建立)
+/// ③:只处理 v31 / v32(表名 `points` / `lines` / `points_fts` 都由 031 建立;
+/// 032 只加 `idx_points_parent` 与删 `lines.created_at`,本引擎两样都不碰)
 pub(crate) fn guard_version(conn: &Connection) -> Result<(), Failure> {
     let uv: i64 = conn
         .query_row("PRAGMA user_version", [], |r| r.get(0))
         .map_err(|e| Failure::usage(format!("读 user_version 失败: {e}")))?;
-    if uv != 31 {
+    if uv != 31 && uv != 32 {
         return Err(Failure::usage(format!(
-            "user_version = {uv},本引擎只处理 v31"
+            "user_version = {uv},本引擎只处理 v31 / v32"
         )));
     }
     Ok(())

@@ -4,7 +4,7 @@
 //! 三个 settings 键的路径改写在 [`settings_paths`],安全阀在 [`guard`]。安全阀内建,不靠调用方记:
 //!  ① 默认 dry-run,`--apply` 才写;
 //!  ② `--db` 路径不含 `_lifelog-snapshots` 时,须 `--apply --allow-live` 同时给;
-//!  ③ `user_version` 必须 31;
+//!  ③ `user_version` 必须 31 或 32(032 只加索引与删 `lines.created_at`,与本引擎无关);
 //!  ④ `时间/日期` 子级必须全是 4 位年容器,否则拒绝(S1);
 //!  ⑤ 单事务(每阶段各自一个事务;`--phase both` 顺序跑 S1 再 S2);
 //!  ⑥ 写完事务内自对账,失败回滚;

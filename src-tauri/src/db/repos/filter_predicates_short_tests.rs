@@ -13,8 +13,8 @@ fn db() -> Connection {
         "INSERT INTO points(id,meta,created_at,path,depth) VALUES
            (1,'莽山栈道','2026-01-01',NULL,NULL),
            (2,'湖南','2026-01-01','区划',1);
-         INSERT INTO lines(id,from_id,to_id,name_id,created_at)
-           VALUES (1,1,2,NULL,'2026-01-01');",
+         INSERT INTO lines(id,from_id,to_id,name_id)
+           VALUES (1,1,2,NULL);",
     )
     .unwrap();
     c

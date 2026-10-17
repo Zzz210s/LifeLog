@@ -33,7 +33,7 @@ fn point(c: &Connection, id: i64, meta: &str, path: Option<&str>, parent: Option
 
 fn line(c: &Connection, id: i64, from: i64, to: i64, name: Option<i64>) {
     c.execute(
-        "INSERT INTO lines(id, from_id, to_id, name_id, created_at) VALUES(?1, ?2, ?3, ?4, '2026-01-01')",
+        "INSERT INTO lines(id, from_id, to_id, name_id) VALUES(?1, ?2, ?3, ?4)",
         params![id, from, to, name],
     )
     .unwrap();

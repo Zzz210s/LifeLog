@@ -102,8 +102,8 @@ pub(crate) fn replace_lines(
                 // 补缺失
                 None => {
                     written += conn.execute(
-                        "INSERT INTO lines(from_id, to_id, name_id, created_at)
-                         VALUES(?1, ?2, ?3, datetime('now', 'localtime'))",
+                        "INSERT INTO lines(from_id, to_id, name_id)
+                         VALUES(?1, ?2, ?3)",
                         params![source_id, to, want],
                     )?;
                     None

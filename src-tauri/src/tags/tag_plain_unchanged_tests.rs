@@ -23,8 +23,8 @@ fn db(named: bool) -> Connection {
            (2, '郴州市',   0, datetime('now','localtime'), NULL, NULL, '地点/[郴](chēn)州市', 2, 0),
            (3, '苹果',     1, datetime('now','localtime'), NULL, NULL, NULL, NULL, 0);
          {name_point}
-         INSERT INTO lines(id, from_id, to_id, name_id, created_at)
-           VALUES(1, 3, 1, {name_id}, datetime('now','localtime'));"
+         INSERT INTO lines(id, from_id, to_id, name_id)
+           VALUES(1, 3, 1, {name_id});"
     ))
     .unwrap();
     c

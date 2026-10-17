@@ -13,10 +13,10 @@ fn db() -> Connection {
            (12,'二','2026-01-01','甲/二',2,10),(20,'乙','2026-01-01','乙',1,NULL);
          INSERT INTO points(id,meta,created_at) VALUES
            (1,'甲','2026-01-01'),(2,'乙','2026-01-02');
-         INSERT INTO lines(id,from_id,to_id,name_id,created_at) VALUES
-           (1,10,11,0,'2026-01-01'),(2,10,12,0,'2026-01-01'),
-           (3,1,11,NULL,'2026-01-01'),(4,1,20,NULL,'2026-01-01'),
-           (5,2,12,NULL,'2026-01-01'),(6,2,20,NULL,'2026-01-01');",
+         INSERT INTO lines(id,from_id,to_id,name_id) VALUES
+           (1,10,11,0),(2,10,12,0),
+           (3,1,11,NULL),(4,1,20,NULL),
+           (5,2,12,NULL),(6,2,20,NULL);",
     )
     .unwrap();
     c
@@ -27,8 +27,8 @@ fn db() -> Connection {
 fn with_links() -> Connection {
     let c = db();
     c.execute_batch(
-        "INSERT INTO lines(from_id,to_id,name_id,created_at) VALUES
-           (1,2,NULL,'2026-01-01'),(2,1,NULL,'2026-01-01');",
+        "INSERT INTO lines(from_id,to_id,name_id) VALUES
+           (1,2,NULL),(2,1,NULL);",
     )
     .unwrap();
     c
@@ -77,7 +77,7 @@ fn link_degrees_dedupe_note_tagged_in_both_ancestor_and_descendant() {
     let c = with_links();
     // 笔记 1 同时挂 甲 与 甲/一:子树聚合按 DISTINCT 链接 id 去重,不能按挂载次数算两遍
     c.execute(
-        "INSERT INTO lines(from_id,to_id,name_id,created_at) VALUES (1,10,NULL,'2026-01-01')",
+        "INSERT INTO lines(from_id,to_id,name_id) VALUES (1,10,NULL)",
         [],
     )
     .unwrap();

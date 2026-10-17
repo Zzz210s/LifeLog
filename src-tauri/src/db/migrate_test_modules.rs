@@ -143,3 +143,7 @@ mod point_line_migration_tests;
 #[cfg(test)]
 #[path = "point_line_fts_tests.rs"]
 mod point_line_fts_tests;
+
+#[cfg(test)]
+#[path = "db32_migration_tests.rs"]
+mod db32_migration_tests;

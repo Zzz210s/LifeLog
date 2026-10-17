@@ -142,7 +142,7 @@ fn reserved_real_db_copy() {
     let c = Connection::open(&path).unwrap();
     crate::db::sql_functions::register(&c).unwrap();
     c.pragma_update(None, "foreign_keys", "ON").unwrap();
-    assert_eq!(scalar(&c, "PRAGMA user_version"), 31);
+    assert_eq!(scalar(&c, "PRAGMA user_version"), crate::db::migrate::latest_version());
 
     let before = (scalar(&c, "SELECT COUNT(*) FROM lines"), tree_lines(&c));
     println!("删除前 lines/tree = {before:?}");

@@ -95,9 +95,9 @@ fn update_keeps_legacy_tag_used_by_other_note() {
     )
     .unwrap();
     c.execute(
-        "INSERT INTO lines(from_id, to_id, name_id, created_at) \
-         VALUES(?1, ?3, NULL, datetime('now','localtime')), \
-                (?2, ?3, NULL, datetime('now','localtime'))",
+        "INSERT INTO lines(from_id, to_id, name_id) \
+         VALUES(?1, ?3, NULL), \
+                (?2, ?3, NULL)",
         rusqlite::params![a.id, b.id, legacy],
     )
     .unwrap();

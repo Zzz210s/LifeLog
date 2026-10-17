@@ -55,9 +55,9 @@ pub(crate) fn drop_into_tree(
     entity_id: i64,
 ) -> rusqlite::Result<()> {
     conn.execute(
-        "INSERT OR IGNORE INTO lines(from_id, to_id, name_id, created_at)
-         VALUES(?1, ?2, 0, datetime('now', 'localtime')),
-               (?1, ?2, NULL, datetime('now', 'localtime'))",
+        "INSERT OR IGNORE INTO lines(from_id, to_id, name_id)
+         VALUES(?1, ?2, 0),
+               (?1, ?2, NULL)",
         params![parent_id, entity_id],
     )?;
     sync_is_cited(conn, entity_id)

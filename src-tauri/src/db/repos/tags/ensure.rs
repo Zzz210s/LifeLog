@@ -58,8 +58,8 @@ pub fn ensure_path(conn: &Connection, segments: &[String]) -> rusqlite::Result<i
 /// 建一条父 -> 子级的子级线(`name_id = 0` 保留点「子级」;唯一索引天然去重)
 pub(crate) fn link_child(conn: &Connection, parent_id: i64, child_id: i64) -> rusqlite::Result<()> {
     conn.execute(
-        "INSERT OR IGNORE INTO lines(from_id, to_id, name_id, created_at)
-         VALUES(?1, ?2, 0, datetime('now', 'localtime'))",
+        "INSERT OR IGNORE INTO lines(from_id, to_id, name_id)
+         VALUES(?1, ?2, 0)",
         params![parent_id, child_id],
     )?;
     Ok(())

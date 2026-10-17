@@ -1,0 +1,12 @@
+-- 032: 2026-10-17 数据库体检报告「最值得做的 3 项」里的两项落地。
+--
+-- ① 补 `points(parent_id)`(报告 §2):树递归(`subtree_ids`、侧栏 `COUNTS_SQL`、关系图
+--    `NODES_SQL`)此前每次查询都要临时建 `AUTOMATIC PARTIAL COVERING INDEX (parent_id=?)`;
+--    743 个非空 parent_id 的库上这个索引只值 6 页(24 KB),换子树查询 0.40 → 0.02 ms、
+--    图与计数各约 -10%。`CREATE INDEX` 幂等,重放安全;16 个触发器一个字都不用改。
+--
+-- ② 下架 `lines.created_at`(报告 §4):生产代码 0 处 SELECT、6,390 行只有 32 个不同值、
+--    占 155,648 B(全库 2.1%)。SQLite 没有 `DROP COLUMN IF EXISTS`,而新库的 031 已不再建
+--    这一列,故本次版本 32 的**事务内前置钩子** `migration_hooks::drop_lines_created_at`
+--    按列存在性执行(登记见 migration_hooks.rs 的 PRE_HOOKS);本文件只负责索引。
+CREATE INDEX IF NOT EXISTS idx_points_parent ON points(parent_id);
