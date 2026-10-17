@@ -1,3 +1,6 @@
+pub mod batch_delete;
+pub mod batch_ids;
+pub mod batch_tag;
 pub mod carry_paths;
 // 阶段 1–3 的脚手架:统一实体(`entities`/`edges`)的仓库层只被测试与后续任务调用,
 // 生产读写路径要到阶段 4 才切过来。此间未使用项(对账常量/函数、计数结构)不算问题,

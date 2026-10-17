@@ -78,7 +78,11 @@ pub fn rows(conn: &Connection) -> Result<Vec<Row>, String> {
 
 /// 当前筛选结果导出为 xlsx 字节:单 sheet"条目",表头加粗,正文列放宽便于阅读。
 pub fn export_notes(conn: &Connection) -> Result<Vec<u8>, String> {
-    let rows = rows(conn)?;
+    write_workbook(&rows(conn)?)
+}
+
+/// 行集 -> xlsx 字节(整库导出与「导出选中」共用同一套列结构 / 列宽 / 表头)。
+pub(crate) fn write_workbook(rows: &[Row]) -> Result<Vec<u8>, String> {
     let mut workbook = rust_xlsxwriter::Workbook::new();
     let sheet = workbook.add_worksheet();
     sheet.set_name("条目").map_err(|e| e.to_string())?;

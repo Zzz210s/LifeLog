@@ -171,6 +171,24 @@ export interface GraphData {
 export type { FilterConditions, GroupByCond, TagCond } from './filter-conditions';
 export { EMPTY_FILTER } from './filter-conditions';
 
+/** 批量加标签回执(IPC `tag_points`):added = 本次新建无名字线数,existed = 已有 / 跳过数 */
+export interface TagPointsReport {
+  added: number;
+  existed: number;
+}
+
+/** 批量去标签回执(IPC `untag_points`):keptNamed = 同目标上原样保留的名线(关系)数 */
+export interface UntagPointsReport {
+  removed: number;
+  keptNamed: number;
+}
+
+/** 批量删除回执(IPC `delete_points`):snapshot = 写前快照的绝对路径 */
+export interface DeletePointsReport {
+  deleted: number;
+  snapshot: string;
+}
+
 /**
  * 分组骨架的一项(IPC `group_skeleton`;字段与 Rust `GroupSkeleton` 逐字一致)。
  * `key` = 一级子标签路径,null = 「无该轴标签」哨兵组(恒最后);`label` = 末段名;

@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { CompleteItem, DbInfo, ExprCheck, GraphData, GraphLinkDegrees, GroupPage, GroupSkeletonResult, MergeReport, Note, NoteLinks, NoteTitle, ParseResult, RelationRef, TagCount, TagImpact } from './types';
+import type { CompleteItem, DbInfo, DeletePointsReport, ExprCheck, GraphData, GraphLinkDegrees, GroupPage, GroupSkeletonResult, MergeReport, Note, NoteLinks, NoteTitle, ParseResult, RelationRef, TagCount, TagImpact, TagPointsReport, UntagPointsReport } from './types';
 import type { ConditionHits, TagFactsBundle } from './tag-facts-types';
 import type { FilterConditions } from './filter-conditions';
 import type { AppHotkeyKind } from './hotkey-match';
@@ -84,6 +84,20 @@ export const api = {
    *  编辑面板用它实时显示标签数,前端不复制标签语法 */
   parseNoteSource: (source: string) => invoke<ParseResult>('parse_note_source', { source }),
   exportNotes: (path: string) => invoke<void>('export_notes', { path }),
+  /** 导出**选中**的条目(spec 2026-10-17 §4.4):显式 id 集,列结构与整库导出一致 */
+  exportPointsOf: (path: string, ids: number[]) =>
+    invoke<void>('export_points_of', { path, ids }),
+  /** 批量加标签(spec §4.1):每条选中条目追加一条**无名字线**,幂等;目标必须是已存在的标签 */
+  tagPoints: (points: number[], target: number) =>
+    invoke<TagPointsReport>('tag_points', { points, target }),
+  /** 批量去标签(spec §4.2):只删无名字线,指向同目标的名线(关系)一律不动 */
+  untagPoints: (points: number[], target: number) =>
+    invoke<UntagPointsReport>('untag_points', { points, target }),
+  /** 批量删除(spec §4.3):**写前自动快照**,单事务删 + 收尾 gc;回执给快照绝对路径 */
+  deletePoints: (ids: number[]) => invoke<DeletePointsReport>('delete_points', { ids }),
+  /** 「全选筛选结果」:当前条件下全部命中 id(与信息流同谓词,一次拿全) */
+  filterPointIds: (conditions: FilterConditions) =>
+    invoke<number[]>('filter_point_ids', { conditions }),
   hideInputBar: () => invoke<void>('hide_input_bar'),
   /** 隐藏主窗(与标题栏 X、托盘同一语义;页面发起的 window.close() 走这条 —— 待办 #36) */
   hideMainWindow: () => invoke<void>('hide_main_window'),

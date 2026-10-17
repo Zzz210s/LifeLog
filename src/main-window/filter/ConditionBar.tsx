@@ -5,6 +5,7 @@ import { filterKey, itemPaths } from '../../shared/filter-conditions';
 import type { FilterConditions } from '../../shared/filter-conditions';
 import type { ConditionHits } from '../../shared/tag-facts-types';
 import { AddConditionMenu } from './AddConditionMenu';
+import { BatchToggle } from './BatchToggle';
 import { ExprDialog } from './ExprDialog';
 import { FilterChips } from './FilterChips';
 import { FilterGroupBar } from './FilterGroupBar';
@@ -22,6 +23,8 @@ export interface ConditionBarProps {
   /** 命令/顶栏菜单要打开"添加条件"时由上层置真 */
   addConditionOpen: boolean;
   onAddConditionOpenChange: (open: boolean) => void;
+  /** 「批量」开关(spec 2026-10-17 §2.1):不传则不渲染(既有调用方与用例零改) */
+  batch?: { on: boolean; toggle: () => void };
 }
 
 /**
@@ -125,6 +128,7 @@ export function ConditionBar(p: ConditionBarProps): ReactNode {
           </span>
         )}
         <SortMenuButton conditions={p.conditions} onPatch={p.onPatch} />
+        {p.batch !== undefined && <BatchToggle on={p.batch.on} toggle={p.batch.toggle} />}
         <AddConditionMenu
           open={p.addConditionOpen}
           onOpenChange={p.onAddConditionOpenChange}

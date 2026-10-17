@@ -1,6 +1,7 @@
 pub mod app_hotkey;
 pub mod app_info;
 pub mod backup_notice;
+pub mod batch;
 pub mod exchange;
 pub mod expr;
 pub mod graph;

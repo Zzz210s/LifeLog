@@ -31,6 +31,9 @@ export interface NoteItemProps {
   onToggleTask: (index: number) => void;
   /** 单元格编辑写库成功:就地替换这个条目(与编辑面板保存同一条刷新路径) */
   onCellSaved?: (note: Note) => void;
+  /** 批量态(spec 2026-10-17 §3.2):开时左缘出 checkbox,卡片悬停「删除」隐藏;
+   *  不传 = 旧行为(既有调用方与用例零改) */
+  batch?: { on: boolean; selected: boolean; onToggle: () => void };
 }
 
 /** 单个条目:markdown 正文 + 标签 chips + 悬停删除(不再显示时间,S2;
@@ -74,6 +77,19 @@ export function NoteItem(p: NoteItemProps): ReactNode {
       }
     >
       <div className="flex items-center gap-2">
+        {/* 批量勾选:选择入口只在 checkbox;点它不冒泡成「点正文进编辑」(spec §7.1) */}
+        {p.batch?.on === true && (
+          <input
+            type="checkbox"
+            data-testid="batch-check"
+            aria-label="选中这条条目"
+            checked={p.batch.selected}
+            onChange={p.batch.onToggle}
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            className="h-4 w-4 shrink-0 accent-accent"
+          />
+        )}
         {/* 键盘通道:可见的「编辑」按钮已删,键盘用户 Tab 到它即显形;鼠标用户看不到 */}
         <button
           onClick={() => p.onEdit(null)}
@@ -82,12 +98,15 @@ export function NoteItem(p: NoteItemProps): ReactNode {
         >
           编辑
         </button>
-        <div className="ml-auto flex gap-2 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-          {/* 卡片内联动作按 28px 档统一(BTN_TEXT):高度与图标按钮同档,悬停给底色 */}
-          <button onClick={p.onDelete} className={BTN_TEXT + ' text-muted hover:text-danger'}>
-            删除
-          </button>
-        </div>
+        {/* 批量态隐藏单条删除:与浮条的批量删除并列会误导(spec §7.3) */}
+        {p.batch?.on !== true && (
+          <div className="ml-auto flex gap-2 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+            {/* 卡片内联动作按 28px 档统一(BTN_TEXT):高度与图标按钮同档,悬停给底色 */}
+            <button onClick={p.onDelete} className={BTN_TEXT + ' text-muted hover:text-danger'}>
+              删除
+            </button>
+          </div>
+        )}
       </div>
       {/* 不挂常驻 title:光标形状已表达可点编辑,悬浮提示会盖住正文自己的提示。
            data-note-body 供编辑面板判定"点区块外落到哪个条目"(先存后进) */}

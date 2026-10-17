@@ -29,6 +29,8 @@ const FILES = [
   'stream/GroupLog.tsx',
   'shell/TopBar.tsx', 'shell/ExportNotice.tsx',
   'shell/ViewNav.tsx', 'filter/SortMenuButton.tsx',
+  // 批量编辑(spec 2026-10-17):浮条与标签输入同样受字号/圆角/按钮门禁管
+  'filter/BatchToggle.tsx', 'filter/BatchBar.tsx', 'filter/BatchTagInput.tsx',
   'sidebar/TagRow.tsx',
   'sidebar/TagsHeader.tsx',
   'sidebar/TagsSection.tsx',

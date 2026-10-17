@@ -8,6 +8,7 @@ import { EditPanel, type EditPanelProps } from '../editor/EditPanel';
 import { NoteItem } from './NoteItem';
 import { GroupLog } from './GroupLog';
 import type { GroupedView } from '../data/use-stream-feed';
+import type { BatchApi } from '../filter/use-batch-selection';
 import { useEditHandoff } from './use-edit-handoff';
 
 export interface NoteStreamProps {
@@ -48,6 +49,8 @@ export interface NoteStreamProps {
   grouping?: GroupedView | null;
   /** 顶部提示(degraded/slow 文案);null 不渲染 */
   notice?: string | null;
+  /** 批量态(spec 2026-10-17 §3.2):开时每条左侧出 checkbox;不传 = 旧行为 */
+  batch?: BatchApi;
 }
 
 /** 时间流:滚动到底自动加载;被编辑条目原位展开为就地源码编辑框 */
@@ -88,6 +91,13 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
       : null;
   const onEmptyAction =
     empty === 'failed' ? p.onRetry : empty === 'no-match' ? p.onClearFilters : p.onShowInput;
+
+  /** 批量态传给单条(不传时不渲染 checkbox,既有用例零改) */
+  const batchFor = (n: Note): { on: boolean; selected: boolean; onToggle: () => void } | undefined => {
+    const b = p.batch;
+    if (b === undefined) return undefined;
+    return { on: b.on, selected: b.selected.has(n.id), onToggle: () => b.toggle(n.id) };
+  };
 
   /** 单条渲染(平铺与分组共用):编辑中 -> 就地编辑面板,否则卡片。key 在元素内部给 */
   const renderNote = (n: Note): ReactNode =>
@@ -134,6 +144,7 @@ export function NoteStream(p: NoteStreamProps): ReactNode {
         onOpenNote={p.onOpenNote}
         onUnresolvedNote={p.onUnresolvedNote}
         onCellSaved={p.onEditSaved}
+        batch={batchFor(n)}
       />
     );
 

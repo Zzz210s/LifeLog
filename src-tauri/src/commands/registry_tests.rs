@@ -13,6 +13,12 @@ use std::collections::BTreeSet;
 
 /// 注册表源码(在册清单的真源)
 const REGISTRY_SRC: &str = include_str!("registry.rs");
+/// 批量命令层源码(参数形状的真源)
+const BATCH_SRC: &str = include_str!("batch.rs");
+
+/// 导出命令层源码(export_points_of 的参数形状真源)
+const EXCHANGE_SRC: &str = include_str!("exchange.rs");
+
 /// 关系写命令层源码(参数形状的真源)
 const TAGS_RELATION_SRC: &str = include_str!("tags_relation.rs");
 
@@ -35,6 +41,15 @@ const V30_COMMANDS: &[&str] = &[
 /// v31 新增(spec §8.3:其余命令名不变,差集恰为这三个)
 const V31_NEW: &[&str] = &["rename_line_name", "create_line", "remove_line"];
 
+/// v32 新增(批量编辑 spec 2026-10-17 §10.1:五个批量命令,其余名字不变)
+const V32_NEW: &[&str] = &[
+    "tag_points",
+    "untag_points",
+    "delete_points",
+    "filter_point_ids",
+    "export_points_of",
+];
+
 /// 从注册表源码抽出全部命令名(`crate::commands::<mod>::<name>,` 的末段)
 fn registry_command_names() -> BTreeSet<String> {
     REGISTRY_SRC
@@ -55,9 +70,10 @@ fn registry_keeps_v30_names_and_adds_exactly_three() {
     }
     let v30: BTreeSet<&str> = V30_COMMANDS.iter().copied().collect();
     let added: BTreeSet<String> = names.iter().filter(|n| !v30.contains(n.as_str())).cloned().collect();
-    let want: BTreeSet<String> = V31_NEW.iter().map(|s| s.to_string()).collect();
-    assert_eq!(added, want, "新增命令名必须恰为 {V31_NEW:?}");
-    assert_eq!(names.len(), 60, "注册表命令总数 = 57 + 3");
+    let want: BTreeSet<String> =
+        V31_NEW.iter().chain(V32_NEW.iter()).map(|s| s.to_string()).collect();
+    assert_eq!(added, want, "新增命令名必须恰为 v31 + v32 两批");
+    assert_eq!(names.len(), 65, "注册表命令总数 = 57 + 3 + 5");
 }
 
 /// 用例 ③:参数形状冻结(命令名不改的前提下,参数名/可选性也不得变)
@@ -80,4 +96,16 @@ fn command_argument_shapes_are_frozen() {
     // 名字点必填参数不得退化成 Option(newName/lineId)
     assert!(!TAGS_RELATION_SRC.contains("new_name: Option"), "rename_line_name 的 newName 必须必填");
     assert!(!TAGS_RELATION_SRC.contains("line_id: Option"), "remove_line 的 lineId 必须必填");
+    // v32 批量命令参数形状(spec §10.1):points / target / ids / conditions 都必填
+    for needle in [
+        "points: Vec<i64>,",
+        "target: i64,",
+        "ids: Vec<i64>",
+        "conditions: FilterConditions,",
+    ] {
+        assert!(BATCH_SRC.contains(needle), "批量命令参数形状缺失:{needle}");
+    }
+    assert!(EXCHANGE_SRC.contains("ids: Vec<i64>)"), "export_points_of 必须收显式 ids");
+    assert!(!BATCH_SRC.contains("points: Option"), "tag_points/untag_points 的 points 必须必填");
+    assert!(!BATCH_SRC.contains("ids: Option"), "delete_points 的 ids 必须必填");
 }
