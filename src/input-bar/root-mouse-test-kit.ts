@@ -6,7 +6,7 @@
  */
 import { act, createElement, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { createRoot } from 'react-dom/client';
 import type { Mock } from 'vitest';
 import { useRootMouse } from './use-root-mouse';
 
@@ -57,8 +57,7 @@ export interface RootMouseDom {
   unmount(): void;
 }
 
-export function mountRootMouse(args: { state: RootMouseState; calls: RootMouseCalls }): RootMouseDom {
-  const { state, calls } = args;
+export function mountRootMouse(_args: { state: RootMouseState; calls: RootMouseCalls }): RootMouseDom {
   const host = document.createElement('div');
   document.body.appendChild(host);
   const root = createRoot(host);
