@@ -3,6 +3,7 @@ import { openReadOnly } from './db-compat.mjs';
 // 不碰物理鼠标:键鼠全走 DOM click / React 受控输入 / CDP Input 合成按键。
 import { DatabaseSync } from 'node:sqlite';
 import { sleep, waitFor } from './cdp-lib.mjs';
+import { clickModeOf, ensureClickMode } from './click-mode-lib.mjs';
 
 /** 真实库(工程约定路径);只以 readOnly 打开 */
 export const DB_PATH = 'C:/Users/23652/AppData/Roaming/com.lifelog.app/lifelog.db';
@@ -54,20 +55,13 @@ export function bindUi(cdp) {
   };
   const clickByLabel = (label) =>
     ev(`(() => { const b = document.querySelector('button[aria-label="${label}"]'); if (!b) return false; b.click(); return true; })()`);
-  /** 当前侧栏单击模式:filter / open / select(旧构建没这颗按钮、或侧栏未显示 -> null);ensureClickMode 把模式切到 want,拿不到按钮 = 旧构建 -> 'legacy'(与 carry-accept-lib 同一行为) */
-  const clickMode = () => ev(`document.querySelector('[data-testid="click-mode-button"]')?.getAttribute('data-click-mode') ?? null`);
-  const ensureClickMode = async (want) => {
-    for (let i = 0; i <= 3; i++) {
-      const cur = await clickMode();
-      if (cur === want || cur === null) return cur ?? 'legacy';
-      await ev(`(() => { const b = document.querySelector('[data-testid="click-mode-button"]'); if (!b) return false; b.click(); return true; })()`); await sleep(250);
-    }
-    return 'unreachable';
-  };
+  /** 当前侧栏单击模式(filter / open;legacy = IPC 不可用);ensureClickMode 把模式切到 want(2026-10-17 头部按钮已删,读写走 click-mode-lib) */
+  const clickMode = () => clickModeOf(cdp);
+  const ensure = (want) => ensureClickMode(cdp, want);
   /** 点侧栏某标签行(等价用户点标签做筛选);点击前先把单击模式切到 filter,切不过去(含旧构建)显式抛错,不静默假通过 */
   const clickTag = async (path) => {
-    const mode = await ensureClickMode('filter');
-    if (mode !== 'filter') throw new Error(`点侧栏行前切不到 filter 单击模式(当前=${mode};legacy = 旧构建无 click-mode-button 或侧栏未显示)`);
+    const mode = await ensure('filter');
+    if (mode !== 'filter') throw new Error(`点侧栏行前切不到 filter 单击模式(当前=${mode};legacy = IPC 不可用)`);
     return ev(`(() => { const b = document.querySelector('aside [data-tag-path="${path}"]'); if (!b) return false; b.click(); return true; })()`);
   };
   const chips = () =>
@@ -195,4 +189,12 @@ export async function walkTutorial(ui) {
   const clicked = await ui.clickTutorialNext();
   await sleep(900);
   return { first, last, clicked: clicked === true };
+}
+
+/** 把 filter_current 拨回原文并重载让界面读回;先静置 600ms 让挂起的写回落地(use-filter-state 500ms 节流) */
+export async function restoreFilterCurrent(bm, cdp, raw) {
+  await sleep(600);
+  await bm.call('set_setting', { key: 'filter_current', value: raw ?? 'null' });
+  await cdp.send('Page.reload'); await sleep(1800);
+  return (await bm.call('get_setting', { key: 'filter_current' })) === raw;
 }

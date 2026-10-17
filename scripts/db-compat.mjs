@@ -34,6 +34,8 @@
 //              —— 无名字线(NULL)=> 空串(老模型 `remark` 是 `NOT NULL DEFAULT ''`,不能漏出 NULL);
 //                 有名线 => 名字点的 `meta`(真库 国籍/状态/所在);子级线(name_id = 0)=> 空串
 //                 (老 `child` 边的 `remark` 恒为空串,名字点 `子级` 不是「关系名」)。
+// 2026-10-17(commit 99047fcf):`lines.created_at` 已下架,老读数要的那一列改发空串 ——
+//   验收脚本里没有任何一处真读边的时间戳,旧表形状保留只为不改老 SQL。
 import { DatabaseSync } from 'node:sqlite';
 
 /** 024 给标签 id 加的整体偏移;遗留合并日志行按它回译(与迁移 027 的 entity_ids.rs 同一字面量)。 */
@@ -58,7 +60,7 @@ const ALIASES = [
             -- 子级线不是「关系」:老模型 child 边的 remark 恒为空串,故 name_id = 0 不回译保留点文本
             CASE WHEN e.name_id = 0 THEN ''
                  ELSE COALESCE((SELECT n.meta FROM points n WHERE n.id = e.name_id), '') END AS remark,
-            e.created_at
+            '' AS created_at -- lines.created_at 已下架(99047fcf);老列形状保留,发空串
        FROM lines e`],
   ['points_fts', `CREATE TEMP VIEW temp.entities_fts AS SELECT rowid, meta, paths FROM points_fts`],
   ['points_fts_src', `CREATE TEMP VIEW temp.entities_fts_src AS SELECT * FROM points_fts_src`],

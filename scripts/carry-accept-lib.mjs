@@ -5,6 +5,11 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { CDP_PORT, sleep, waitFor } from './cdp-lib.mjs';
+// 侧栏单击模式:2026-10-17 头部那颗按钮已删,读写统一走 click-mode-lib(库为真源,写入后重载)。
+// 旧名 `pokeClickMode` 保留 = 轮转一档;`legacy` = IPC 不可用(旧构建),不抛。
+import { clickModeOf, ensureClickMode, rotateClickMode, setClickMode } from './click-mode-lib.mjs';
+export { clickModeOf, ensureClickMode, setClickMode };
+export { rotateClickMode as pokeClickMode };
 
 // 主脚本用的机械动作(搬数据 / 发事件)在 scripts/carry-accept-ops.mjs,这里再出口。
 export * from './carry-accept-ops.mjs';
@@ -144,25 +149,10 @@ export const carryPane = (cdp) =>
     return { open: !!document.querySelector('[data-relation-target-picker]'), carried, info: null, error: err ?? null }; })()`);
 /** 关掉浮层(菜单/面板):Esc 在捕获阶段被 useDismiss 收到 */
 export const pressEsc = (cdp) => cdp.eval(`(() => { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); return true; })()`);
-/** 侧栏头部「点击行为」按钮的取值/点击表达式(旧构建没有这颗按钮:读到 null、点到 false) */
-const MODE_BTN = `document.querySelector('[data-testid="click-mode-button"]')`;
-const POKE_MODE = `(() => { const b = ${MODE_BTN}; if (!b) return false; b.click(); return true; })()`;
-/** 当前侧栏单击模式:filter / open(旧构建 -> null);pokeClickMode = 点一下按钮轮转一档,旧构建 -> false */
-export const clickModeOf = (cdp) => cdp.eval(`${MODE_BTN}?.getAttribute('data-click-mode') ?? null`);
-export const pokeClickMode = (cdp) => cdp.eval(POKE_MODE);
-/** 单击模式切到 want(读 -> 点,最多 2 轮:两档化后一次点击就换档);拿不到那颗按钮 = 旧构建 -> 'legacy' */
-export const ensureClickMode = async (cdp, want) => {
-  for (let i = 0; i <= 2; i++) {
-    const cur = await clickModeOf(cdp);
-    if (cur === want || cur === null) return cur ?? 'legacy';
-    await pokeClickMode(cdp); await sleep(250);
-  }
-  return 'unreachable';
-};
 /** 点侧栏标签行 = 加入/移出筛选;点击前先把单击模式切到 filter,切不过去(含旧构建)显式抛错,不静默假通过 */
 export const clickTagPath = async (cdp, path) => {
   const mode = await ensureClickMode(cdp, 'filter');
-  if (mode !== 'filter') throw new Error(`点侧栏行前切不到 filter 单击模式(当前=${mode};legacy = 旧构建无 click-mode-button)`);
+  if (mode !== 'filter') throw new Error(`点侧栏行前切不到 filter 单击模式(当前=${mode};legacy = IPC 不可用)`);
   return cdp.eval(`(() => { const r = document.querySelector('aside [data-tag-path=' + JSON.stringify(${JSON.stringify(path)}) + ']');
     if (!r) return false; r.click(); return true; })()`);
 };

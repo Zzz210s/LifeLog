@@ -44,11 +44,11 @@ try {
   await cdp.send('Page.reload'); // 夹具落库后重载,侧栏标签树才拿得到这几行
   await waitFor(() => cdp.eval(`!!document.querySelector('[data-testid="unified-input"]')`).catch(() => false), 60, 500);
   await sleep(1100);
-  // 读数 0:侧栏单击模式 —— 按钮轮转两档并落库,读数后拨回 filter(其后「点行 = 改条件」才成立;旧构建没这颗按钮 -> 本条红)
+  // 读数 0:侧栏单击模式 —— 经 IPC 轮转两档并落库,读数后拨回 filter(其后「点行 = 改条件」才成立;IPC 不可用 -> legacy -> 本条红)
   const seq = [await ensureClickMode(cdp, 'filter')];
-  for (let i = 0; i < 2; i++) { await pokeClickMode(cdp); await sleep(350); seq.push(await clickModeOf(cdp)); }
+  for (let i = 0; i < 2; i++) { await pokeClickMode(cdp); seq.push(await clickModeOf(cdp)); }
   const mStored = await call('get_setting', { key: 'sidebar_click_mode' });
-  record('读数0 侧栏单击模式:模式按钮轮转 filter->open->filter 并落库,读数后停在 filter',
+  record('读数0 侧栏单击模式:IPC 轮转 filter->open->filter 并落库,读数后停在 filter',
     fmt(seq) === fmt(['filter', 'open', 'filter']) && mStored === 'filter',
     `按钮序列=${fmt(seq)} 库中 sidebar_click_mode=${JSON.stringify(mStored)}`);
   const idA = noteIdOf(NA), idAs = noteIdOf(NAS), idB = noteIdOf(NB), idC = noteIdOf(NC), idN = noteIdOf(NO);

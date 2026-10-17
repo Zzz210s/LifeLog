@@ -4,6 +4,7 @@
 // 根名不写死:从设置 time_tag_template 推导(见 cdp-lib 的 timeTagRoot);未给参数时
 // 从库内真实标签里挑一个日级(根/年/月/日)节点,优先挑命中数 <= 一页 的,保证整页 = 全部命中。
 import { ensureMain, sleep, waitFor, recorder, bindMain, timeTagRoot } from './cdp-lib.mjs';
+import { clickModeOf, ensureClickMode, setClickMode } from './click-mode-lib.mjs';
 
 const PAGE = 50; // 笔记流一页条数(与后端一致)
 const r = recorder();
@@ -37,21 +38,13 @@ if (!PATH) {
 const tag = tags.find((t) => t.path === PATH);
 console.log('时间标签根名', root, '目标日级标签', PATH, '库内根节点', JSON.stringify(rootNode ?? null));
 
-// 侧栏单击模式:本脚本假定「点行 = 改条件」,这只在 filter 模式下成立 —— 开始前切到 filter(那颗按钮取不到
-// 就是旧构建/侧栏未显示,由 D-1 显式报红而不是静默假通过),收尾时拨回原值。读数里带 data-click-mode。
-const modeOf = () => main.eval(`document.querySelector('[data-testid="click-mode-button"]')?.getAttribute('data-click-mode') ?? null`);
-const setMode = async (want) => {
-  for (let i = 0; i <= 3; i++) {
-    const cur = await modeOf();
-    if (cur === want || cur === null) return cur ?? 'legacy';
-    await main.eval(`(() => { const b = document.querySelector('[data-testid="click-mode-button"]'); if (!b) return false; b.click(); return true; })()`);
-    await sleep(250);
-  }
-  return 'unreachable';
-};
-const modeBefore = await modeOf();
-r.record('D-1 单击模式切到 filter(点行 = 改条件的前提)', (await setMode('filter')) === 'filter',
-  `原模式=${JSON.stringify(modeBefore)} 切后=${JSON.stringify(await modeOf())}(null = 旧构建无 click-mode-button 或侧栏未显示)`);
+// 侧栏单击模式:本脚本假定「点行 = 改条件」,这只在 filter 档成立 —— 开始前切到 filter。
+// 2026-10-17 头部那颗按钮已删,模式读写走 click-mode-lib(库为真源,写入后重载);IPC 不可用 -> legacy,
+// 由 D-1 显式记红而不是静默假通过。收尾拨回原值。
+const modeBefore = await clickModeOf(main);
+const modeAfter = modeBefore === 'legacy' ? 'legacy' : await ensureClickMode(main, 'filter');
+r.record('D-1 单击模式切到 filter(点行 = 改条件的前提)', modeAfter === 'filter',
+  `原模式=${JSON.stringify(modeBefore)} 切后=${JSON.stringify(modeAfter)}(legacy = IPC 读不到 sidebar_click_mode)`);
 
 // 先逐个清掉上一次运行留下的选中态(每次点一个并重查,避免点到被重渲替换掉的旧节点)
 let left = await selCount();
@@ -85,7 +78,7 @@ const chipsOk = await main.eval(`[...document.querySelectorAll('li')].filter((li
 r.record(
   `D1 点 ${PATH} 后笔记流按该标签筛出`,
   dom !== null && expected.length === tag.self_count && expected.length <= PAGE && chipShown === true && chipsOk === true,
-  `DOM 前 ${back.length} 条正文首行=${JSON.stringify(dom)} 后端同条件=${JSON.stringify(back)}(共 ${expected.length} 条 = self_count ${tag.self_count},一页上限 ${PAGE}) 条件区出现该根名=${chipShown} 每条笔记都带该标签=${chipsOk} 点行时的单击模式=${await modeOf()}`
+  `DOM 前 ${back.length} 条正文首行=${JSON.stringify(dom)} 后端同条件=${JSON.stringify(back)}(共 ${expected.length} 条 = self_count ${tag.self_count},一页上限 ${PAGE}) 条件区出现该根名=${chipShown} 每条笔记都带该标签=${chipsOk} 点行时的单击模式=${await clickModeOf(main)}`
 );
 
 // 收尾还原:点掉本次点选产生的条件 chip,并等 filter_current 节流写回后与验收前原文对照
@@ -96,9 +89,9 @@ for (let i = 0; i < 8; i++) {
 }
 await sleep(1200);
 const filterAfter = await call('get_setting', { key: 'filter_current' });
-const modeRestored = modeBefore === 'filter' || modeBefore === null || (await setMode(modeBefore)) === modeBefore;
+const modeRestored = modeBefore === 'filter' || modeBefore === 'legacy' || (await setClickMode(main, modeBefore)) === modeBefore;
 r.record('D2 收尾:清掉本次筛选条件,filter_current 回到验收前原文(不留下筛选残留;单击模式拨回原值)',
   filterAfter === filterBefore && modeRestored,
-  `before=${filterBefore} after=${filterAfter};单击模式 ${JSON.stringify(modeBefore)} -> ${JSON.stringify(await modeOf())}`);
+  `before=${filterBefore} after=${filterAfter};单击模式 ${JSON.stringify(modeBefore)} -> ${JSON.stringify(await clickModeOf(main))}`);
 r.finish();
 close();

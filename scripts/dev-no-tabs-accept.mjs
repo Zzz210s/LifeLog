@@ -22,11 +22,10 @@ import { bindMain, ensureMain, recorder, sleep, waitFor } from './cdp-lib.mjs';
 import { restart } from './tutorial-accept-lib.mjs';
 import {
   EMPTY_CONDITIONS, KEYWORD_FIXTURE, TAG_FIXTURE, TAG_FIXTURE_RENAMED, bindUi, chipHas, chipIs, cleanupFixtures, dbCounts,
-  pickSmallTag, renameTagViaMenu, walkTutorial,
+  pickSmallTag, renameTagViaMenu, restoreFilterCurrent, walkTutorial,
 } from './no-tabs-accept-lib.mjs';
 
 const EXE = process.argv[2] ?? 'E:/1-LifeLog/LifeLog.exe';
-const EMPTY = EMPTY_CONDITIONS;
 const rec = recorder();
 const { record, finish } = rec;
 
@@ -37,6 +36,7 @@ let bm = bindMain(conn.cdp);
 const settingsBefore = {
   sidebar: await bm.call('get_setting', { key: 'sidebar_visible' }),
   tutorial: await bm.call('get_setting', { key: 'ui.tutorial_seen' }),
+  filter: await bm.call('get_setting', { key: 'filter_current' }),
 };
 
 // 起点归零:整页重载(dev 下 HMR 可能滞后),之后侧栏显示出来(读数 2/6/7 都要点标签行)
@@ -93,19 +93,22 @@ await ui.setBox(`${KEYWORD_FIXTURE} ${stamp} #${TAG_FIXTURE}`);
 await sleep(300);
 await ui.ctrlEnter();
 const fixtureNote = await waitFor(async () => {
-  const hit = await bm.call('query_notes', { conditions: { ...EMPTY, keyword: KEYWORD_FIXTURE }, offset: 0 });
+  const hit = await bm.call('query_notes', { conditions: { ...EMPTY_CONDITIONS, keyword: KEYWORD_FIXTURE }, offset: 0 });
   return hit.length === 1 ? hit[0] : null;
 }, 16, 250);
 if (!fixtureNote) throw new Error('夹具笔记未落库,后续读数无法进行');
 
 // ---------- 读数 3:`/` 关键词筛选的提示行命中数与后端一致 ----------
-const kwBackend = (await bm.call('query_notes', { conditions: { ...EMPTY, keyword: KEYWORD_FIXTURE }, offset: 0 })).length;
+// 期望值按「空条件 + 关键词」算(整库只命中夹具那一条),所以先清掉库里带进来的既有筛选条件。
+await ui.clearChips(); await sleep(700);
+const kwBackend = (await bm.call('query_notes', { conditions: { ...EMPTY_CONDITIONS, keyword: KEYWORD_FIXTURE }, offset: 0 })).length;
 await ui.setBox('/' + KEYWORD_FIXTURE);
 const kwSettled = await waitFor(async () => ((await ui.streamCount()) === kwBackend ? true : null), 16, 250);
-const stat = await ui.stat();
-const statN = Number(/命中 (\d+) 条/.exec(stat ?? '')?.[1]);
-record('3 `/` 关键词筛选:提示行命中数与 query_notes 一致',
-  kwSettled === true && statN === kwBackend && kwBackend === 1, `提示行="${stat}" 后端=${kwBackend}`);
+// 提示行是另一路异步(流先到、它后到),单独等一次收敛,不拿瞬时中间态判红。
+const kwStat = await waitFor(async () => { const s = await ui.stat(); return Number(/命中 (\d+) 条/.exec(s ?? '')?.[1]) === kwBackend ? s : null; }, 12, 200);
+const stat = kwStat ?? (await ui.stat());
+record('3 `/` 关键词筛选:提示行命中数与 query_notes 一致', kwSettled === true && Number(/命中 (\d+) 条/.exec(stat ?? '')?.[1]) === kwBackend && kwBackend === 1,
+  `提示行="${stat}" 后端=${kwBackend}`);
 await ui.setBox('');
 await ui.clearChips();
 await sleep(700);
@@ -174,9 +177,11 @@ record('9 走完写标记 ui.tutorial_seen=1 且覆盖层消失',
   walked.clicked && seen === '1' && closed.open === false, `标记=${JSON.stringify(seen)} 覆盖层=${closed.open}`);
 
 // ---------- 收尾:清夹具 + 还原设置 ----------
-await ui.clearChips();
-await sleep(800);
+await ui.clearChips(); await sleep(800);
 await cleanupFixtures(bm, { noteId: fixtureNote.id, settingsBefore });
+// filter_current 拨回原文(本脚本改过筛选条件,不清回去就把用户的筛选状态留成空)
+const filterRestored = await restoreFilterCurrent(bm, conn.cdp, settingsBefore.filter);
+record('11 收尾:filter_current 还原为开工前原文(不在真库上留筛选残留)', filterRestored, `收尾后 ${await bm.call('get_setting', { key: 'filter_current' })}`);
 
 // ---------- 读数 10:数据与开工前一致、integrity ok、无夹具残留 ----------
 const postDb = dbCounts();

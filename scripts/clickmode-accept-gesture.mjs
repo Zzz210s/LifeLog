@@ -126,25 +126,29 @@ export async function runGestureCells(ctx) {
   await sleep(300);
   rec('H4 Esc 关菜单', (await L.menuState(cdp)) === null, `菜单 ${JSON.stringify(await L.menuState(cdp))}`);
 
-  // ---------- I 切模式清卡片 + 中文回执(两档) ----------
+  // ---------- I 切模式清卡片 + 中文回执(两档;手动入口 = 设置页 > 实体关系那一行) ----------
   await useMode('open');
   await setFilter(F());
   await L.dblClickRow(cdp, A); // 卡片入口是双击(2026-10-17:单击 = 只看这一条)
   await sleep(700);
   const i1 = { card: await L.previewCard(cdp) };
-  await L.clickModeButton(cdp);
-  await sleep(600);
-  const i1after = { card: await L.previewCard(cdp), flash: await L.flashText(cdp), row: await L.rowState(cdp, A), mode: (await L.modeState(cdp)).mode };
-  rec('I1 切模式(open -> filter):卡片被关 + 一句中文回执;行上不留 preview / cursor 痕迹',
+  await L.openClickModeRow(cdp);
+  const i1pick = await L.pickClickModeRow(cdp, 'filter'); // 用户在设置页点那一行(不重载)
+  const i1after = { card: await L.previewCard(cdp), flash: await L.flashText(cdp), row: await L.rowState(cdp, A), mode: i1pick.mode };
+  await L.backToStream(cdp);
+  await sleep(400);
+  rec('I1 设置页那一行切 open -> filter:立即落库 + 卡片被关 + 一句中文回执;行上不留 preview / cursor 痕迹',
     !!i1.card && i1after.mode === 'filter' && i1after.card === null && i1after.row.preview === null && i1after.row.cursor === null
       && /^已切到「筛选」：单击加入 \/ 移出筛选/.test(i1after.flash ?? ''),
     `切换前卡片 ${!!i1.card} / 切换后 ${JSON.stringify(i1after.card)} 行 ${JSON.stringify(i1after.row)} 回执「${i1after.flash}」`);
   const shotI1 = await L.shot(cdp, 'I1-mode-switch-clears');
   await setFilter(F());
-  await L.clickModeButton(cdp);
-  await sleep(600);
-  const i2 = { card: await L.previewCard(cdp), flash: await L.flashText(cdp), mode: (await L.modeState(cdp)).mode };
-  rec('I2 切模式(filter -> open):只给一句中文回执,不凭空弹卡片',
+  await L.openClickModeRow(cdp);
+  const i2pick = await L.pickClickModeRow(cdp, 'open');
+  const i2 = { card: await L.previewCard(cdp), flash: await L.flashText(cdp), mode: i2pick.mode };
+  await L.backToStream(cdp);
+  await sleep(400);
+  rec('I2 设置页那一行切 filter -> open:立即落库、只给一句中文回执,不凭空弹卡片',
     i2.mode === 'open' && i2.card === null && /^已切到「打开」：单击只看这一条、双击预览卡片/.test(i2.flash ?? ''),
     `模式 ${i2.mode} / 卡片 ${JSON.stringify(i2.card)} 回执「${i2.flash}」`);
   await useMode('filter');

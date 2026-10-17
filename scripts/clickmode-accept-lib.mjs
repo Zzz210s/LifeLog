@@ -5,22 +5,14 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { sleep } from './cdp-lib.mjs';
 import { openReadOnly } from './db-compat.mjs';
+// 侧栏单击模式(2026-10-17 头部按钮已删):读写与设置页那一行都在 click-mode-lib,这里只留转出与旧调用形状。
+import { clickModeOf, clickModeRowState, ensureClickMode, openClickModeRow, pickClickModeRow, setClickMode, storedClickMode } from './click-mode-lib.mjs';
+export { clickModeOf, clickModeRowState, ensureClickMode, openClickModeRow, pickClickModeRow, setClickMode, storedClickMode };
 
 export const DB = 'C:/Users/23652/AppData/Roaming/com.lifelog.app/lifelog.db';
 export const SHOTS = '.superpowers/shots';
-const MODE_BTN = '[data-testid="click-mode-button"]';
 const J = JSON.stringify;
 const rowSel = (p) => `document.querySelector('aside [data-tag-path=' + ${J(J(p))} + ']')`;
-
-/** 头部模式按钮四件套(DOM 契约:T2) */
-export const modeState = (cdp) =>
-  cdp.eval(`(() => { const b = document.querySelector('${MODE_BTN}'); if (!b) return null;
-    return { mode: b.getAttribute('data-click-mode'), label: b.getAttribute('aria-label'), title: b.getAttribute('title'),
-      icon: b.querySelector('path')?.getAttribute('d') ?? null, pressed: b.getAttribute('aria-pressed') }; })()`);
-
-/** 点模式按钮一次,返回点击后的模式 */
-export const clickModeButton = (cdp) =>
-  cdp.eval(`(() => { const b = document.querySelector('${MODE_BTN}'); b.click(); return b.getAttribute('data-click-mode'); })()`);
 
 export const flashText = (cdp) => cdp.eval(`document.querySelector('[data-testid="tag-flash"]')?.textContent ?? null`);
 
