@@ -20,7 +20,7 @@ import { notifyTagsChanged } from './data/tags-changed';
 import { useTagRows } from './data/use-tag-rows';
 import { useOpenSettings } from './shell/use-open-settings';
 import { useStreamFeed } from './data/use-stream-feed';
-import { useBatchSelection } from './filter/use-batch-selection';
+import { useBatchModes } from './filter/use-batch-modes';
 import { useNotesExport } from './data/use-export';
 import { useStreamActions } from './shell/use-stream-actions';
 import { HoverTip } from './shell/HoverTip';
@@ -57,8 +57,9 @@ export function App(): ReactNode {
     setError,
   });
 
-  // 批量编辑(spec 2026-10-17):会话内状态,不落库;切筛选/Esc 退出并清选中
-  const batch = useBatchSelection({ conditions, notes, refresh });
+  // 批量编辑(spec 2026-10-17):会话内状态,不落库;切筛选/Esc 退出并清选中。
+  // 条目批量与条件批量互斥(后开的一方关掉另一方),接线集中在 use-batch-modes
+  const batchModes = useBatchModes({ conditions, notes, refresh, onPatch: patch });
 
   // 输入栏保存后主窗自动出现(W1);已翻页或正在编辑时由 shouldAutoRefresh 拦下
   useNoteCreatedRefresh(notes.length, editingId, refresh, (m) => setError('action', m));
@@ -171,7 +172,7 @@ export function App(): ReactNode {
           onLinkError: (m) => setError('action', m),
           palette: controller,
           decorations,
-          batch,
+          batchModes,
           onSaved: refresh,
           onRunCommand: commands.execute,
           addConditionOpen: addCondition.open,

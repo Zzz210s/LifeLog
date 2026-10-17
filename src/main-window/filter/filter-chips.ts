@@ -8,6 +8,7 @@ import { normalizeGroups, removeGroupItem, uiGroups } from '../../shared/filter-
 import type { FilterConditions, GroupItem } from '../../shared/filter-conditions';
 import type { ConditionHits } from '../../shared/tag-facts-types';
 import { tagLabelPlain } from '../../shared/tag-label';
+import { condKey } from './cond-batch';
 import { truncateExpr } from './expr-tag-spans';
 import { groupChipLabel } from './group-by';
 import { sortChipLabel } from './sort-conditions';
@@ -40,6 +41,8 @@ export type Chip = {
   hits?: number;
   /** chip 所属条件组下标(排序 chip 无);组头渲染与按 (组, 项) 移除用 */
   groupIndex?: number;
+  /** 条件项的位置键 `组:项`(条件批量选择用;排序 / 分组 chip 无 —— 它们不是条件项) */
+  batchKey?: string;
   remove: FilterConditions;
 };
 
@@ -77,7 +80,7 @@ export function chipsOf(c: FilterConditions, hits: ConditionHits | null = null):
     g.items.forEach((it, ii) => {
       const remove = removeGroupItem(c, gi, ii);
       const hit = perItem !== null ? perItem[ii] : undefined;
-      const base = { groupIndex: gi, remove };
+      const base = { groupIndex: gi, batchKey: condKey(gi, ii), remove };
       if (it.kind === 'keyword') {
         chips.push({ ...base, kind: 'keyword', label: `关键词:${it.value.trim()}` });
       } else if (it.kind === 'tag') {

@@ -6,6 +6,7 @@ import type { FilterConditions } from '../../shared/filter-conditions';
 import type { ConditionHits } from '../../shared/tag-facts-types';
 import { AddConditionMenu } from './AddConditionMenu';
 import { BatchToggle } from './BatchToggle';
+import { CondBatchToggle } from './CondBatchToggle';
 import { ExprDialog } from './ExprDialog';
 import { FilterChips } from './FilterChips';
 import { FilterGroupBar } from './FilterGroupBar';
@@ -14,6 +15,7 @@ import { SortMenuButton } from './SortMenuButton';
 import { TagPickDialog } from './TagPickDialog';
 import { applyRelationPick, applyTagPick, chipsOf, summarySegmentsOf, summaryTitleOf } from './filter-chips';
 import type { CarryPaths } from './filter-chips';
+import type { CondBatchApi } from './use-cond-batch';
 
 export interface ConditionBarProps {
   /** 顶层筛选条件(chips 与中文摘要都从这里派生) */
@@ -25,6 +27,8 @@ export interface ConditionBarProps {
   onAddConditionOpenChange: (open: boolean) => void;
   /** 「批量」开关(spec 2026-10-17 §2.1):不传则不渲染(既有调用方与用例零改) */
   batch?: { on: boolean; toggle: () => void };
+  /** 「编辑条件」批量态(spec 2026-10-17 §A1):不传则不渲染开关、chip 上也不出勾选框 */
+  condBatch?: CondBatchApi;
 }
 
 /**
@@ -109,6 +113,11 @@ export function ConditionBar(p: ConditionBarProps): ReactNode {
           chips={chipsOf(p.conditions, hits)}
           onRemove={(next) => p.onPatch(next)}
           onEditExpr={() => setExprOpen(true)}
+          condBatch={
+            p.condBatch?.on === true
+              ? { selected: p.condBatch.selected, toggle: p.condBatch.toggle }
+              : undefined
+          }
         />
         {summarySegments.length > 0 && (
           <span
@@ -129,6 +138,9 @@ export function ConditionBar(p: ConditionBarProps): ReactNode {
         )}
         <SortMenuButton conditions={p.conditions} onPatch={p.onPatch} />
         {p.batch !== undefined && <BatchToggle on={p.batch.on} toggle={p.batch.toggle} />}
+        {p.condBatch !== undefined && (
+          <CondBatchToggle on={p.condBatch.on} toggle={p.condBatch.toggleOn} />
+        )}
         <AddConditionMenu
           open={p.addConditionOpen}
           onOpenChange={p.onAddConditionOpenChange}

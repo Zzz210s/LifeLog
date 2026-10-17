@@ -11,8 +11,8 @@ export interface BatchToggleProps {
   toggle: () => void;
 }
 
-/** 24 格 / 2 描边:清单 + 勾选 = 多选批量 */
-const CHECKLIST_PATH = 'M8 6h13M8 12h13M8 18h13M3 6l1.5 1.5L7 5M3 12l1.5 1.5L7 11M3 18l1.5 1.5L7 17';
+/** 24 格 / 2 描边:清单 + 勾选 = 多选批量(条目批量与条件批量共用同一颗图标,口径一致) */
+export const CHECKLIST_PATH = 'M8 6h13M8 12h13M8 18h13M3 6l1.5 1.5L7 5M3 12l1.5 1.5L7 11M3 18l1.5 1.5L7 17';
 
 export function BatchToggle(p: BatchToggleProps): ReactNode {
   return (

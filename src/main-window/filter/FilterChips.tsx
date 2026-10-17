@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import type { FilterConditions } from '../../shared/filter-conditions';
+import type { CondKey } from './cond-batch';
 import type { Chip } from './filter-chips';
 
 export interface FilterChipsProps {
@@ -9,6 +10,9 @@ export interface FilterChipsProps {
   onRemove: (next: FilterConditions) => void;
   /** 点击「表达式」chip 的标签再次编辑(未传时表达式 chip 不可点) */
   onEditExpr?: () => void;
+  /** 条件批量态(spec 2026-10-17 §A1):开启时给**条件项**一个勾选框;不传 = 既有渲染零改动。
+   *  条件项的单删 × 在这时隐藏(删除走浮条的「删除选中」),排序 / 分组 chip 不参与、× 照旧。 */
+  condBatch?: { selected: ReadonlySet<CondKey>; toggle: (key: CondKey) => void };
 }
 
 /** chip 底色按种类区分(设计 §4-2 中性化):默认 chrome 底 + border + muted 文字;
@@ -32,17 +36,28 @@ function chipClass(kind: Chip['kind']): string {
 /** 统一条件 chips(可单删):空数组时不渲染(空条件时芯片区隐藏,spec 6.2) */
 export function FilterChips(p: FilterChipsProps): ReactNode {
   if (p.chips.length === 0) return null;
+  const selectable = p.condBatch !== undefined;
   return (
     <div className="mt-1 flex flex-wrap items-center gap-1" aria-label="已生效的筛选条件">
       {p.chips.map((chip) => (
         <span
-          key={`${chip.kind}:${chip.label}`}
+          key={chip.batchKey ?? `${chip.kind}:${chip.label}`}
           title={chip.title}
           className={
             'inline-flex items-center gap-1 rounded-xs border px-2 py-0.5 text-label transition-colors ' +
             chipClass(chip.kind)
           }
         >
+          {selectable && chip.batchKey !== undefined && p.condBatch !== undefined && (
+            <input
+              type="checkbox"
+              data-testid={`cond-check-${chip.batchKey}`}
+              aria-label={`选中条件 ${chip.label}`}
+              checked={p.condBatch.selected.has(chip.batchKey)}
+              onChange={() => p.condBatch?.toggle(chip.batchKey as CondKey)}
+              className="h-3.5 w-3.5 shrink-0 accent-accent"
+            />
+          )}
           {p.onEditExpr !== undefined && chip.kind === 'expr' ? (
             <button
               type="button"
@@ -58,15 +73,17 @@ export function FilterChips(p: FilterChipsProps): ReactNode {
           {chip.hits !== undefined && (
             <span className="text-micro opacity-70">{`命中 ${chip.hits} 条`}</span>
           )}
-          <button
-            type="button"
-            onClick={() => p.onRemove(chip.remove)}
-            aria-label={`移除条件 ${chip.label}`}
-            title={`移除条件 ${chip.label}`}
-            className="rounded-xs px-0.5 leading-none opacity-60 hover:opacity-100"
-          >
-            ×
-          </button>
+          {!(selectable && chip.batchKey !== undefined) && (
+            <button
+              type="button"
+              onClick={() => p.onRemove(chip.remove)}
+              aria-label={`移除条件 ${chip.label}`}
+              title={`移除条件 ${chip.label}`}
+              className="rounded-xs px-0.5 leading-none opacity-60 hover:opacity-100"
+            >
+              ×
+            </button>
+          )}
         </span>
       ))}
     </div>
