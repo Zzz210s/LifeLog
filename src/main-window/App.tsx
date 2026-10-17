@@ -77,9 +77,8 @@ export function App(): ReactNode {
   );
 
   // 侧栏单击接线(设计 2026-10-16,计划 T4):光标 / 预览不落库;侧栏、设置页与信息流共用这一份
-  const click = useTagClick(sidebar, {
-    conditions, onPatch: patch, rows: tagRows, inStream: view === 'stream', openStream: backToStream,
-  });
+  const click = useTagClick(sidebar, { conditions, onPatch: patch, rows: tagRows,
+    inStream: view === 'stream', openStream: backToStream });
 
   // 引导开着时切到非信息流视图(设置页 / 关系图;托盘与命令都拦不住键盘闸门)会把锚点全藏起来 ——
   // 覆盖层会变成"全屏压暗 + 气泡悬空"。这时按"不可用"处理:**只关层、不写标记**,下次启动再弹。
@@ -178,6 +177,7 @@ export function App(): ReactNode {
         onReplayTutorial={tutorial.onReplay}
         tagTreeRelations={{ showRelations: sidebar.showRelations, onShowRelationsChange: sidebar.setShowRelations }}
         sidebarClick={{ clickMode: sidebar.clickMode, onChangeClickMode: click.changeClickMode }}
+        maintenance={{ exportAll: onExport, exporting, focus: { on: commands.focusOn, toggle: () => void commands.execute('focus.mode') } }}
         onFilterToStream={filterToStream}
         dataVersion={tagsVersion}
         tagMru={tagMru}

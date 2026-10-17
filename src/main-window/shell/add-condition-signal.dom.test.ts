@@ -44,6 +44,7 @@ function mount(): void {
           setView: vi.fn(),
           onPatch: vi.fn(),
           exportAll: vi.fn(async () => {}),
+          reindex: async () => ({ rows: 0, ms: 0 }),
           setError: vi.fn(),
         });
         const [, setN] = useState(0);

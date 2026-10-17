@@ -11,6 +11,8 @@ import { AppearanceSection } from './AppearanceSection';
 import { GeneralSection } from './GeneralSection';
 import { InputAppearancePanel } from './InputAppearancePanel';
 import { InputBehaviorPanel } from './InputBehaviorPanel';
+import { MaintenanceSection } from './MaintenanceSection';
+import type { MaintenanceProps } from './MaintenanceSection';
 import { NotesSection } from './NotesSection';
 import { RelationSuggestionsSection } from './RelationSuggestionsSection';
 import { SettingsNav } from './settings-nav';
@@ -31,11 +33,13 @@ export interface SettingsViewProps {
   /** 「标签关系」分区里的「实体树里显示引用」当前值(与侧栏同一份状态,透传) */
   showRelations?: boolean;
   onShowRelationsChange?: (v: boolean) => void;
-  /** 「单击实体行的行为」那一行(与侧栏头部按钮同一份状态,透传;缺省 = 筛选) */
+  /** 「单击实体行的行为」那一行(值来自侧栏状态,透传;缺省 = 筛选) */
   sidebarClick?: { clickMode: SidebarClickMode; onChangeClickMode: (m: SidebarClickMode) => void };
+  /** 「维护」小节的三件:重建索引 / 导出整库 / 专注模式(App 注入;缺省则各自不做事) */
+  maintenance?: MaintenanceProps;
 }
 
-export function SettingsView({ themeMode, onThemeChange, onReplayTutorial, onBack, showRelations, onShowRelationsChange, sidebarClick }: SettingsViewProps): ReactNode {
+export function SettingsView({ themeMode, onThemeChange, onReplayTutorial, onBack, showRelations, onShowRelationsChange, sidebarClick, maintenance }: SettingsViewProps): ReactNode {
   const [active, setActive] = useState<SectionId>(() => normalizeSection('appearance'));
   const editing = useAppearanceEditing();
 
@@ -91,6 +95,8 @@ export function SettingsView({ themeMode, onThemeChange, onReplayTutorial, onBac
         return <StartupSection />;
       case 'general':
         return <GeneralSection onReplayTutorial={onReplayTutorial} />;
+      case 'maintenance':
+        return <MaintenanceSection {...maintenance} />;
       case 'about':
         return <AboutSection />;
     }

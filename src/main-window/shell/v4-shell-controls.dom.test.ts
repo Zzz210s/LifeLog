@@ -139,10 +139,6 @@ describe('V4 标签分区头部:图标按钮 28 档', () => {
       mode: 'tree',
       onModeChange: () => {},
       onFilterTags: () => {},
-      showRelations: true,
-      onToggleRelations: () => {},
-      clickMode: 'filter',
-      onChangeClickMode: () => {},
       searchOpen: false,
       query: '',
       ime: { onChange: () => {}, onCompositionEnd: () => {} },
@@ -151,14 +147,12 @@ describe('V4 标签分区头部:图标按钮 28 档', () => {
       ...over,
     });
 
-  it('搜索/树-扁平/显示关系/点击行为/筛选五个图标档按钮(28×28 / rounded-sm),按钮里无文字', async () => {
+  it('搜索/树-扁平/筛选三个图标档按钮(28×28 / rounded-sm),按钮里无文字', async () => {
     await render(header());
     const buttons = [...host.querySelectorAll('button')] as HTMLElement[];
     expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual([
       '搜索标签',
       '切换为扁平列表',
-      '实体树里显示关系',
-      '点击行为：筛选',
       '筛选标签',
     ]);
     for (const btn of buttons) {
@@ -168,19 +162,18 @@ describe('V4 标签分区头部:图标按钮 28 档', () => {
     }
   });
 
-  it('回归:搜索开/关、模式切换、显示关系与筛选标签回调不变', async () => {
+  it('回归:搜索开/关、模式切换与筛选标签回调不变', async () => {
     const calls: string[] = [];
     await render(
       header({
         onToggleSearch: () => calls.push('search'),
         onModeChange: (m: string) => calls.push('mode:' + m),
-        onToggleRelations: () => calls.push('relations'),
         onFilterTags: () => calls.push('filter'),
       })
     );
-    for (const label of ['搜索标签', '切换为扁平列表', '实体树里显示关系', '筛选标签']) {
+    for (const label of ['搜索标签', '切换为扁平列表', '筛选标签']) {
       await act(async () => byLabel(label).click());
     }
-    expect(calls).toEqual(['search', 'mode:flat', 'relations', 'filter']);
+    expect(calls).toEqual(['search', 'mode:flat', 'filter']);
   });
 });

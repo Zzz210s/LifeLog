@@ -12,6 +12,7 @@ describe('分区注册表', () => {
       'hotkey',
       'startup',
       'general',
+      'maintenance',
       'about',
     ]);
     expect(SETTINGS_SECTIONS.map((s) => s.label)).toEqual([
@@ -23,6 +24,7 @@ describe('分区注册表', () => {
       '快捷键',
       '启动',
       '通用',
+      '维护',
       '关于',
     ]);
   });
@@ -31,6 +33,7 @@ describe('分区注册表', () => {
     expect(SETTINGS_SECTIONS.filter((s) => s.note).map((s) => s.id)).toEqual([
       'appearance',
       'inputBehavior',
+      'maintenance',
       'about',
     ]);
   });

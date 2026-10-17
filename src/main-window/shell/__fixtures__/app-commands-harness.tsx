@@ -8,6 +8,7 @@ import type { ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { vi } from 'vitest';
 import type { ThemeMode } from '../../../shared/theme-mode';
+import { reindexNow } from '../reindex';
 import { useAppCommands } from '../use-app-commands';
 import type { AppCommands, CommandStatus } from '../use-app-commands';
 
@@ -23,6 +24,7 @@ export interface AppCommandsHarness {
   setView: ReturnType<typeof vi.fn>;
   onPatch: ReturnType<typeof vi.fn>;
   exportAll: ReturnType<typeof vi.fn>;
+  reindex: ReturnType<typeof vi.fn>;
   setError: ReturnType<typeof vi.fn>;
   unmount: () => void;
 }
@@ -31,6 +33,8 @@ export interface AppCommandsHarness {
 export interface HarnessOverrides {
   sidebar?: { visible?: boolean };
   theme?: { mode?: ThemeMode };
+  /** 重建索引的替身:缺省走真实 `reindexNow`(它调被 mock 的 `api.rebuildSearchIndex`) */
+  reindex?: () => Promise<{ rows: number; ms: number }>;
 }
 
 export function mountAppCommands(over: HarnessOverrides = {}): AppCommandsHarness {
@@ -43,13 +47,14 @@ export function mountAppCommands(over: HarnessOverrides = {}): AppCommandsHarnes
   const setView = vi.fn();
   const onPatch = vi.fn();
   const exportAll = vi.fn(async () => {});
+  const reindex = vi.fn(over.reindex ?? reindexNow);
   const setError = vi.fn();
   const statusLog: string[] = [];
 
   act(() =>
     root.render(
       createElement(function Host(): ReactNode {
-        box.c = useAppCommands({ sidebar, theme, setView, onPatch, exportAll, setError });
+        box.c = useAppCommands({ sidebar, theme, setView, onPatch, exportAll, reindex, setError });
         const text = box.c.status?.text ?? '';
         if (text !== '' && statusLog[statusLog.length - 1] !== text) statusLog.push(text);
         return null;
@@ -66,6 +71,7 @@ export function mountAppCommands(over: HarnessOverrides = {}): AppCommandsHarnes
     setView,
     onPatch,
     exportAll,
+    reindex,
     setError,
     unmount: () => {
       act(() => root.unmount());

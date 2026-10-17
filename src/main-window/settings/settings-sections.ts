@@ -2,7 +2,7 @@
  * 设置页的分区注册表与导航判定(2026-10-04 重构)。
  *
  * 分区顺序与命名是**设计决定**(见 docs/superpowers/specs/2026-10-04-settings-redesign.md D9):
- * 外观 → 输入栏外观 → 输入栏行为 → 条目 → 快捷键 → 启动 → 通用 → 关于。
+ * 外观 → 输入栏外观 → 输入栏行为 → 条目 → 实体关系 → 快捷键 → 启动 → 通用 → 维护 → 关于。
  * 抽出为纯数据:导航、内容渲染、验收脚本共用一份,不再各写一遍字符串。
  */
 
@@ -15,6 +15,7 @@ export type SectionId =
   | 'hotkey'
   | 'startup'
   | 'general'
+  | 'maintenance'
   | 'about';
 
 export interface SectionMeta {
@@ -35,6 +36,8 @@ export const SETTINGS_SECTIONS: readonly SectionMeta[] = [
   { id: 'hotkey', label: '快捷键' },
   { id: 'startup', label: '启动' },
   { id: 'general', label: '通用' },
+  // 「维护」(2026-10-17):把三条原本只有命令面板能做的事补到界面(导出 / 重建索引 / 专注模式)
+  { id: 'maintenance', label: '维护', note: '重建索引与导出会写磁盘,执行前各确认一次' },
   { id: 'about', label: '关于', note: '版本与数据文件,均只读' },
 ] as const;
 

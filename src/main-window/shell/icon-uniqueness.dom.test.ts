@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
 /**
  * 图标去重守卫(2026-10-16):用户报「侧栏的关系图标跟主页的关系图图标重了」。
- * 同一个含义不共用同一个形状 —— 本用例把顶栏(侧栏开关 + 视图导航三项)与侧栏头部五颗图标
+ * 同一个含义不共用同一个形状 —— 本用例把顶栏(侧栏开关 + 视图导航三项)与侧栏头部三颗图标
  * 全部渲染出来,按 `aria-label` 收 `svg` 的形状签名(path / circle / line 全算),两两比较,
  * 任意两颗都不能同形。新增图标撞车时这里先红,不用等人肉看图。
  * 「同形」判据 = `svg.innerHTML` 逐字节相同(描边 / 圆角等属性也在内)。
+ * 2026-10-17:侧栏头部的「显示关系」「点击行为」两颗图标已删(改由设置页那两行承担),
+ * 头部只剩搜索 / 树-扁平 / 筛选三颗,原「关系图标撞关系图」的那条断言随之退场。
  */
 import { act, createElement } from 'react';
 import type { ReactElement } from 'react';
@@ -48,17 +50,13 @@ const topBar = (): Record<string, string> =>
     })
   );
 
-const sidebarHeader = (clickMode: 'filter' | 'open'): Record<string, string> =>
+const sidebarHeader = (): Record<string, string> =>
   iconsOf(
     createElement(TagsHeader, {
       flash: null,
       mode: 'tree',
       onModeChange: noop,
       onFilterTags: noop,
-      showRelations: true,
-      onToggleRelations: noop,
-      clickMode,
-      onChangeClickMode: noop,
       searchOpen: false,
       query: '',
       ime: { onChange: noop, onCompositionEnd: noop },
@@ -68,19 +66,10 @@ const sidebarHeader = (clickMode: 'filter' | 'open'): Record<string, string> =>
   );
 
 describe('图标去重:顶栏与侧栏头部不能同形', () => {
-  it('侧栏「实体树里显示关系」不再是「关系图」的三圆三角', () => {
-    const top = topBar();
-    const side = sidebarHeader('filter');
-    expect(top['关系图']).toBeDefined();
-    expect(side['实体树里显示关系']).toBeDefined();
-    expect(side['实体树里显示关系']).not.toBe(top['关系图']);
-  });
-
-  it('四个按钮两组(顶栏 4 颗 / 侧栏头部 5 颗,两档各渲染一遍)两两不同形', () => {
+  it('顶栏 4 颗与侧栏头部 3 颗两两不同形', () => {
     const groups: Array<[string, Record<string, string>]> = [
       ['顶栏', topBar()],
-      ['侧栏头部(筛选档)', sidebarHeader('filter')],
-      ['侧栏头部(打开档)', sidebarHeader('open')],
+      ['侧栏头部', sidebarHeader()],
     ];
     const all: Array<[string, string]> = [];
     for (const [group, icons] of groups) {

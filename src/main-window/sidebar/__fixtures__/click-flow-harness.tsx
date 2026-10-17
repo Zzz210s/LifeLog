@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 /**
  * T4 接线层的端到端夹具(仅测试):按 App / ViewHost 的形状把三处消费口接在一起 ——
- * `useTagClick`(状态 + 执行)、`TagsSection`(行 / 头部模式按钮)、信息流首部的
- * `TagPreviewCard`,外加设置页那一行(钉住"两个入口读写同一份模式状态")。
+ * `useTagClick`(状态 + 执行)、`TagsSection`(行)、信息流首部的
+ * `TagPreviewCard`,外加设置页那一行(2026-10-17 起它是单击行为**唯一**入口)。
  * 条件侧走**真实**的 `applyFilterPatch`,每次变化后的原文(`filterKey`)记进 `writes` ——
  * 于是"open 不改条件"读到的是写库条数不变,而不是"回调没被调过"。
  * 2026-10-17:预览卡片退到**双击** —— `dblclickRow` 只派发 `dblclick`;真浏览器还会先发两次
@@ -21,6 +21,7 @@ import { SidebarClickModeRow } from '../../settings/SidebarClickModeRow';
 import { TagPreviewCard } from '../../shell/TagPreviewCard';
 import { TagsSection } from '../TagsSection';
 import type { SidebarClickMode } from '../click-mode';
+import { CLICK_MODE_LABELS } from '../click-mode';
 import { useTagClick } from '../use-tag-click';
 import { ROWS, type ClickFlow, type ClickFlowProbe } from './click-flow-types';
 
@@ -140,7 +141,6 @@ export function mountClickFlow(over: { mode: SidebarClickMode; view?: MainView }
       Object.defineProperties(ev, { dataTransfer: { value: dt }, clientX: { value: 10 }, clientY: { value: 10 } });
       fire(need(handle.row(path), `标签行 ${path}`), ev);
     },
-    clickHeader: () => handle.press('点击行为'),
     clickSettings: (label) => {
       const group = host.querySelector('[role="group"][aria-label="单击实体行的行为"]');
       const btns = [...(group?.querySelectorAll('button') ?? [])];
@@ -149,7 +149,12 @@ export function mountClickFlow(over: { mode: SidebarClickMode; view?: MainView }
     press: (label) => {
       fire(need(el(`[aria-label^="${label}"]`), `aria-label 以「${label}」开头的按钮`), new MouseEvent('click', { bubbles: true }));
     },
-    mode: () => el('[data-testid="click-mode-button"]')?.getAttribute('data-click-mode') ?? null,
+    mode: () => {
+      // 模式读数走设置页那一行的分段控件(头部按钮已于 2026-10-17 删除)
+      const pressed = host.querySelector('[role="group"][aria-label="单击实体行的行为"] button[aria-pressed="true"]');
+      const label = pressed?.textContent?.trim();
+      return Object.entries(CLICK_MODE_LABELS).find(([, l]) => l === label)?.[0] ?? null;
+    },
     cursorBar: () => el('[data-testid="tag-cursor-bar"]'),
     card: () => el('[data-testid="tag-preview-card"]'),
     cards: () => [...host.querySelectorAll('[data-testid="tag-preview-card"]')] as HTMLElement[],

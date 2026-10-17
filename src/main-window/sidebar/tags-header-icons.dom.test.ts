@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 /**
- * 侧栏标签分区头部:五个图标按钮(2026-10-16 又加了单击行为的模式按钮;此前 2026-10-07 从三个加了「实体树里显示关系」)。
- * `aria-label` 与 `title` 是无障碍与验收脚本(CDP 按 aria-label 定位)的定位锚点;
+ * 侧栏标签分区头部:`aria-label` 与 `title` 是无障碍与验收脚本(CDP 按 aria-label 定位)的定位锚点;
  * 图标只换形态、不改语义。图标风格照仓内既有:viewBox 0 0 16 16 / stroke=currentColor /
  * h-3.5 w-3.5 / aria-hidden。放大镜默认收起(不渲染 input),展开后 Esc 清空并收起。
  * 「筛选标签」图标同期从漏斗换成筛选/条件语义的递减线条,与放大镜一眼区分。
+ * 2026-10-17 用户要求去掉双入口:本区头部只剩三颗图标(搜索 / 树-扁平 / 筛选);
+ * 「实体树里显示关系」与「点击行为」只留在设置页(反向守护见 settings/dual-entry-removal)。
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { act, createElement } from 'react';
@@ -22,14 +23,12 @@ let modeCalls: string[];
 let filterCalls: number;
 let searchCalls: number;
 let closeCalls: number;
-let relationCalls: number;
 
 beforeEach(() => {
   modeCalls = [];
   filterCalls = 0;
   searchCalls = 0;
   closeCalls = 0;
-  relationCalls = 0;
   host = document.createElement('div');
   document.body.appendChild(host);
   root = createRoot(host);
@@ -40,11 +39,7 @@ afterEach(() => {
   host.remove();
 });
 
-const render = async (
-  mode: 'tree' | 'flat',
-  searchOpen = false,
-  showRelations = true
-): Promise<void> => {
+const render = async (mode: 'tree' | 'flat', searchOpen = false): Promise<void> => {
   await act(async () =>
     root.render(
       createElement(TagsHeader, {
@@ -54,12 +49,6 @@ const render = async (
         onFilterTags: () => {
           filterCalls += 1;
         },
-        showRelations,
-        onToggleRelations: () => {
-          relationCalls += 1;
-        },
-        clickMode: 'filter',
-        onChangeClickMode: () => {},
         searchOpen,
         query: '',
         ime: { onChange: () => {}, onCompositionEnd: () => {} },
@@ -82,23 +71,20 @@ describe('侧栏标签分区头部:按钮图标化', () => {
     expect(host.querySelector('h2')?.textContent).toBe('实体');
   });
 
-  it('树模式:五个按钮都是纯图标,既有四个的 aria-label/title 仍是原值', async () => {
+  it('树模式:三个按钮都是纯图标,aria-label/title 都是原值', async () => {
     await render('tree');
-    const [search, mode, relations, clickMode, filter] = buttons();
-    expect(buttons()).toHaveLength(5);
+    const [search, mode, filter] = buttons();
+    expect(buttons()).toHaveLength(3);
     expect([
       search.getAttribute('aria-label'),
       mode.getAttribute('aria-label'),
-      relations.getAttribute('aria-label'),
-      clickMode.getAttribute('aria-label'),
       filter.getAttribute('aria-label'),
-    ]).toEqual(['搜索标签', '切换为扁平列表', '实体树里显示关系', '点击行为：筛选', '筛选标签']);
-    expect([
-      search.getAttribute('title'),
-      mode.getAttribute('title'),
-      relations.getAttribute('title'),
-      filter.getAttribute('title'),
-    ]).toEqual(['搜索标签', '切换为扁平列表', '实体树里显示关系', FILTER_TITLE]);
+    ]).toEqual(['搜索标签', '切换为扁平列表', '筛选标签']);
+    expect([search.getAttribute('title'), mode.getAttribute('title'), filter.getAttribute('title')]).toEqual([
+      '搜索标签',
+      '切换为扁平列表',
+      FILTER_TITLE,
+    ]);
     for (const b of buttons()) {
       expect(b.textContent).toBe('');
       const svg = b.querySelector('svg');
@@ -118,39 +104,32 @@ describe('侧栏标签分区头部:按钮图标化', () => {
     expect(mode.querySelector('svg')).not.toBeNull();
   });
 
-  it('「实体树里显示关系」按当前值 aria-pressed,点击回调一次', async () => {
-    await render('tree', false, true);
-    const on = buttons()[2];
-    expect(on.getAttribute('aria-pressed')).toBe('true');
-    expect(String(on.className)).toContain('bg-selected');
-    await act(async () => on.click());
-    expect(relationCalls).toBe(1);
-    await render('tree', false, false);
-    const off = buttons()[2];
-    expect(off.getAttribute('aria-pressed')).toBe('false');
-    expect(String(off.className)).not.toContain('bg-selected');
-  });
-
-  it('回归:五个入口仍各自回调', async () => {
+  it('回归:三个入口仍各自回调,共享容器间距均匀(gap-1)', async () => {
     await render('tree');
-    const [search, mode, relations, , filter] = buttons();
+    const [search, mode, filter] = buttons();
     await act(async () => search.click());
     await act(async () => mode.click());
-    await act(async () => relations.click());
     await act(async () => filter.click());
     expect(searchCalls).toBe(1);
     expect(modeCalls).toEqual(['flat']);
-    expect(relationCalls).toBe(1);
     expect(filterCalls).toBe(1);
+    const group = search.parentElement!;
+    expect(group.className).toContain('gap-1');
+    expect([search.parentElement, mode.parentElement, filter.parentElement]).toEqual([group, group, group]);
   });
 
-  it('放大镜默认收起:不渲染 input;展开后 Esc 走 onCloseSearch', async () => {
-    await render('tree');
-    expect(host.querySelector('input')).toBeNull();
+  it('搜索框展开后仍是同一套锚点:大镜按钮 aria-expanded,输入框带收窄说明', async () => {
     await render('tree', true);
-    const input = host.querySelector('input') as HTMLInputElement;
-    expect(input.getAttribute('aria-label')).toBe('按名称收窄标签树');
-    await act(async () => input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+    expect(buttons()[0].getAttribute('aria-expanded')).toBe('true');
+    const input = host.querySelector('input');
+    expect(input?.getAttribute('aria-label')).toBe('按名称收窄标签树');
+  });
+
+  it('Esc 收起搜索:回调一次(双动作守卫在 tags-header-esc.dom.test.ts)', async () => {
+    await render('tree', true);
+    await act(async () =>
+      host.querySelector('input')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    );
     expect(closeCalls).toBe(1);
   });
 });

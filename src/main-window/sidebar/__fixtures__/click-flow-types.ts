@@ -42,7 +42,6 @@ export interface ClickFlow {
   blankClick: () => void;
   /** 合成拖拽起手(手法与 __fixtures__/drag-harness 一致:普通 Event + 替身 dataTransfer) */
   dragRow: (path: string) => void;
-  clickHeader: () => void;
   clickSettings: (label: string) => void;
   press: (label: string) => void;
   mode: () => string | null;

@@ -48,19 +48,14 @@ describe('状态退出与清理(§4.3 第 20/22 行、§4.4、§8)', () => {
     expect(h.card()).not.toBeNull();
   });
 
-  it('切模式:关卡片 + 一句回执;头部按钮与设置页那一行是同一份状态', () => {
+  it('切模式:关卡片 + 一句回执;设置页那一行是唯一入口', () => {
     const h = mount('open');
     h.dblclickRow('书籍');
     expect(h.card()).not.toBeNull();
-    h.clickHeader(); // 打开 -> 筛选(两档互切)
+    h.clickSettings('筛选'); // 打开 -> 筛选
     expect(h.mode()).toBe('filter');
     expect(h.card()).toBeNull();
     expect(h.flash()).toContain('已切到「筛选」');
-    h.clickHeader();
-    expect(h.mode()).toBe('open'); // 再点一下回到原档
-
-    h.clickSettings('筛选'); // 设置页那一行:与头部按钮同一份状态
-    expect(h.mode()).toBe('filter');
     h.clickSettings('打开');
     expect(h.mode()).toBe('open');
     h.dblclickRow('书籍'); // 切完之后双击行为确实跟看模式变了(卡片入口)

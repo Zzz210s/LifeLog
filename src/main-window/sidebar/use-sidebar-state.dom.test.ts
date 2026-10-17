@@ -12,7 +12,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   CLICK_MODE_LABELS,
   CLICK_MODE_ORDER,
-  nextClickMode,
   useSidebarState,
   type SidebarStateApi,
 } from './use-sidebar-state';
@@ -149,10 +148,6 @@ describe('单击行为模式键 sidebar_click_mode', () => {
     expect(state?.clickMode).toBe('filter');
   });
 
-  it('nextClickMode 轮转顺序 filter -> open -> filter', () => {
-    expect(nextClickMode('filter')).toBe('open');
-    expect(nextClickMode('open')).toBe('filter');
-  });
 
   it('CLICK_MODE_ORDER / CLICK_MODE_LABELS 与两模式一一对应', () => {
     expect([...CLICK_MODE_ORDER]).toEqual(['filter', 'open']);

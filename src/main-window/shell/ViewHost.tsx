@@ -14,6 +14,7 @@ import type { ReactNode } from 'react';
 import type { TagMruSource } from '../../shared/tag-mru';
 import type { ThemeModeController } from '../../shared/use-theme-mode';
 import { GraphView } from '../graph/GraphView';
+import type { MaintenanceProps } from '../settings/MaintenanceSection';
 import type { MainView } from '../settings/settings-model';
 import { SettingsView } from '../settings/SettingsView';
 import type { SidebarClickMode } from '../sidebar/click-mode';
@@ -45,8 +46,10 @@ export interface ViewHostProps {
   tagMru?: TagMruSource | null;
   /** 「标签关系」分区里的「实体树里显示引用」(值来自侧栏状态,与其共用一份 showRelations) */
   tagTreeRelations?: { showRelations: boolean; onShowRelationsChange: (v: boolean) => void };
-  /** 设置页「单击实体行的行为」那一行:与侧栏头部按钮同一份状态(App 的 sidebar.clickMode) */
+  /** 设置页「单击实体行的行为」那一行:值来自侧栏状态(App 的 sidebar.clickMode) */
   sidebarClick: { clickMode: SidebarClickMode; onChangeClickMode: (m: SidebarClickMode) => void };
+  /** 设置页「维护」小节(App 注入):重建索引 / 导出整库 / 专注模式 */
+  maintenance: MaintenanceProps;
   onReplayTutorial: () => void;
 }
 
@@ -78,6 +81,7 @@ export function ViewHost(p: ViewHostProps): ReactNode {
           showRelations={p.tagTreeRelations?.showRelations}
           onShowRelationsChange={p.tagTreeRelations?.onShowRelationsChange}
           sidebarClick={p.sidebarClick}
+          maintenance={p.maintenance}
         />
       )}
       {p.view === 'graph' && (

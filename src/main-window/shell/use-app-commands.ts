@@ -14,6 +14,7 @@ import type { CommandRegistry, CommandRuns } from '../../shared/commands';
 import { sortsFromLegacy } from '../../shared/filter-conditions';
 import type { FilterConditions } from '../../shared/filter-conditions';
 import { api } from '../../shared/api';
+import { reindexNow } from './reindex';
 import type { ThemeMode } from '../../shared/theme-mode';
 import { flushEditing } from '../editor/edit-flush';
 import type { ErrorKind } from './ErrorBar';
@@ -39,6 +40,8 @@ export interface AppCommandsOptions {
   onPatch: (value: Partial<FilterConditions>) => void;
   /** 整库导出(既有 useNotesExport.onExport;失败已在它内部落错误条) */
   exportAll: () => Promise<void>;
+  /** 重建搜索索引(缺省 `shell/reindex.ts` 的同一条实现;设置页「维护」小节共用它) */
+  reindex?: () => Promise<{ rows: number; ms: number }>;
   setError: (kind: ErrorKind, message: string) => void;
 }
 
@@ -53,6 +56,8 @@ export interface AppCommands {
   consumeAddCondition: () => void;
   /** 执行一条命令:先 flush 编辑态,再 run;失败落错误条 */
   execute: (id: string) => Promise<void>;
+  /** 专注模式当前是否开着(设置页「维护」小节的开关读数;与 `focus.mode` 同一份状态) */
+  focusOn: boolean;
 }
 
 /** 主题三态循环:亮 -> 暗 -> 跟随系统 -> 亮(设计 §3.7) */
@@ -68,6 +73,8 @@ export function useAppCommands(options: AppCommandsOptions): AppCommands {
   const [status, setStatus] = useState<CommandStatus | null>(null);
   const [addConditionOpen, setAddConditionOpen] = useState(false);
   const focusSnapshot = useRef<boolean | null>(null);
+  // 专注模式的对外读数:run 里与 ref 一起翻;设置页开关要显示"当前开/关"
+  const [focusOn, setFocusOn] = useState(false);
 
   const runs = useMemo((): CommandRuns => {
     return {
@@ -88,10 +95,12 @@ export function useAppCommands(options: AppCommandsOptions): AppCommands {
         if (focusSnapshot.current === null) {
           focusSnapshot.current = sidebar.visible;
           sidebar.setVisible(false);
+          setFocusOn(true);
           return;
         }
         sidebar.setVisible(focusSnapshot.current);
         focusSnapshot.current = null;
+        setFocusOn(false);
       },
       // 一键复位:清空多排序条件,设为单条时间排序(T2;设计 §4.7)。UI 统一写 sorts,旧 sort 镜像由落态派生
       'sort.newest': () => latest.current.onPatch({ sorts: sortsFromLegacy('newest') }),
@@ -109,7 +118,7 @@ export function useAppCommands(options: AppCommandsOptions): AppCommands {
       'search.reindex': async () => {
         setStatus({ kind: 'running', text: '正在重建搜索索引…' });
         try {
-          const rows = await api.rebuildSearchIndex();
+          const { rows } = await (latest.current.reindex ?? reindexNow)();
           setStatus({ kind: 'done', text: `搜索索引已重建(${rows} 条)` });
         } catch (e) {
           setStatus(null);
@@ -161,5 +170,12 @@ export function useAppCommands(options: AppCommandsOptions): AppCommands {
     [registry],
   );
 
-  return { registry, status, addConditionOpen, consumeAddCondition: () => setAddConditionOpen(false), execute };
+  return {
+    registry,
+    status,
+    addConditionOpen,
+    consumeAddCondition: () => setAddConditionOpen(false),
+    execute,
+    focusOn,
+  };
 }

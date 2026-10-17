@@ -87,9 +87,9 @@ describe('V5 设置页:字号全部落在 7 档令牌内', () => {
     expect(h1.textContent).toBe('设置');
     expect(tokens(h1)).toContain('text-display');
 
-    // 导航项 = 8 个分区;当前分区(外观)渲染一个 h2
+    // 导航项 = 10 个分区;当前分区(外观)渲染一个 h2
     const tabs = [...host.querySelectorAll('[role="tab"]')].map((t) => t.textContent?.trim());
-    expect(tabs).toEqual(['外观', '输入栏外观', '输入栏行为', '条目', '实体关系', '快捷键', '启动', '通用', '关于']);
+    expect(tabs).toEqual(['外观', '输入栏外观', '输入栏行为', '条目', '实体关系', '快捷键', '启动', '通用', '维护', '关于']);
     const h2s = [...host.querySelectorAll('h2')] as HTMLElement[];
     expect(h2s.map((h) => h.textContent)).toEqual(['外观']);
     for (const h2 of h2s) {
@@ -103,8 +103,8 @@ describe('V5 设置页:字号全部落在 7 档令牌内', () => {
     render(createElement(SettingsView, { themeMode: 'system', onThemeChange: () => {} }));
     await flush();
     await flush();
-    // 一次只显示一个分区(设计 D1):导航 8 项 + 当前分区一个标题
-    expect(host.querySelectorAll('[role="tab"]').length).toBe(9);
+    // 一次只显示一个分区(设计 D1):导航 10 项
+    expect(host.querySelectorAll('[role="tab"]').length).toBe(10);
     for (const h2 of [...host.querySelectorAll('h2')] as HTMLElement[]) {
       const card = h2.parentElement?.parentElement as HTMLElement;
       expect(tokens(card)).toContain('rounded-md');

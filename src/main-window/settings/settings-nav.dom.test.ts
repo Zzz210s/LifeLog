@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
  * 设置页导航与分区(2026-10-04 重构 D1/D5/D8):
- *   左导航 8 项、点击切换分区、当前项 aria-current、分区底部「恢复本分区默认」、
+ *   左导航 10 项、点击切换分区、当前项 aria-current、分区底部「恢复本分区默认」、
  *   页顶「全部恢复默认」。从 v5-settings-style.dom.test.ts 拆出(那份顶到 200 行红线)。
  */
 import { act, createElement } from 'react';
@@ -46,11 +46,11 @@ const nav = (id: string): HTMLButtonElement => {
 };
 
 describe('设置页导航', () => {
-  it('导航 9 项;当前项 aria-current=true 且只有它可 Tab 进入', async () => {
+  it('导航 10 项;当前项 aria-current=true 且只有它可 Tab 进入', async () => {
     await act(async () => { root?.render(createElement(SettingsView, { themeMode: 'system', onThemeChange: () => {} })); });
     await flush();
     const tabs = [...host.querySelectorAll('[role="tab"]')] as HTMLButtonElement[];
-    expect(tabs.length).toBe(9);
+    expect(tabs.length).toBe(10);
     expect(tabs.filter((t) => t.getAttribute('aria-current') === 'true').map((t) => t.textContent?.trim())).toEqual(['外观']);
     expect(tabs.filter((t) => t.tabIndex === 0).length).toBe(1);
   });

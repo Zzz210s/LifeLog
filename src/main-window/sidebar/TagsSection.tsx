@@ -39,9 +39,8 @@ export interface TagsSectionProps {
   onFilterTags: () => void;
   /** 管理(改名/移动/删除)成功后通知上层刷新标签与筛选条件 */
   onTagsMutated: (pathChange?: { from: string; to: string }) => void;
-  /** 设置开关「实体树里显示引用」(默认开,侧栏头部与设置页同一份状态);打开后行尾追加关系的**值**小字 */
+  /** 设置开关「实体树里显示关系」(默认开,只由设置页改);打开后行尾追加关系的**值**小字 */
   showRelations?: boolean;
-  onShowRelationsChange?: (v: boolean) => void;
   /** 单击接线(设计 2026-10-16,计划 T4):模式 + 光标/预览状态 + 意图执行都在 `useTagClick`(App 持有) */
   click: TagClickApi;
 }
@@ -121,10 +120,6 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
         mode={p.mode}
         onModeChange={p.onModeChange}
         onFilterTags={p.onFilterTags}
-        showRelations={p.showRelations === true}
-        onToggleRelations={() => p.onShowRelationsChange?.(!(p.showRelations === true))}
-        clickMode={click.clickMode}
-        onChangeClickMode={click.changeClickMode}
         searchOpen={search.searchOpen}
         query={search.query}
         ime={search.ime}
