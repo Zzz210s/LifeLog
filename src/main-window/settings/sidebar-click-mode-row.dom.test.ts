@@ -3,6 +3,7 @@
  * 设置页「单击实体行的行为」一行(设计 2026-10-16 §6):Segmented 两档 筛选/打开,
  * 值与写入走与侧栏头部同一份状态(组件本身只透传)。`EntityTreeRows` 把它与「显示关系」并排。
  * 2026-10-16 按用户要求由三档减为两档。
+ * 2026-10-17 用户要求:打开档单击 = 只看这一条(不再是预览),hint 一并改口径并在此钉住。
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { act, createElement } from 'react';
@@ -57,6 +58,14 @@ describe('设置页:单击实体行的行为', () => {
   it('选中项带 aria-pressed=true,其余为 false', async () => {
     await renderRow('open');
     expect(buttons().map((b) => b.getAttribute('aria-pressed'))).toEqual(['false', 'true']);
+  });
+
+  it('hint 说清两档的单次点击语义:筛选 = 加入/移出、打开 = 只看这一条,预览卡片在双击', async () => {
+    await renderRow();
+    const hint = (host.textContent ?? '').replace(/\s+/g, '');
+    expect(hint).toContain('筛选档=加入/移出筛选');
+    expect(hint).toContain('打开档=只看这一条');
+    expect(hint).toContain('双击在打开档=预览卡片');
   });
 
   it('点击一档回调一次;左右方向键切换并回调', async () => {

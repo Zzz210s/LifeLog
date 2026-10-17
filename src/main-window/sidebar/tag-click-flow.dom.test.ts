@@ -5,6 +5,9 @@
  * 全部走真实 DOM 与真实的 `applyFilterPatch` 写路径(夹具与行的形状见 __fixtures__)。
  * 2026-10-16 两档化后,原 `select` 的格整段删除;`data-cursor` / `tag-cursor-bar` 反向断言仍留着,
  * 用来钉住"select 的任何痕迹都不该再出现"。
+ * 2026-10-17:open 档单击 = 只看这一条;卡片入口整段改成双击 —— 双击侧的四个格
+ * (开卡并切回流 / 真序列 / 再双击关闭 / 换一行只留一张)与容器行双击已拆到
+ * `tag-click-preview.dom.test.ts`,本文件只留单击侧。
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { itemPaths } from '../../shared/filter-conditions';
@@ -41,32 +44,24 @@ describe('两模式的无修饰键单击(§4.1 第 1 / 5 行)', () => {
     expect(h.flash()).toBeNull();
   });
 
-  it('open:单击出卡片并切回信息流(卡片在流里,不切看不见),条件原文不变', () => {
+  it('open:单击 = 只看这一条(条件只剩它、含子级),不出卡片、给一句回执', () => {
     const h = mount('open', 'settings');
-    const before = [...h.probe.writes];
     h.clickRow('书籍');
-    expect(h.probe.view).toBe('stream');
-    expect(h.card()?.getAttribute('aria-label')).toBe('实体预览：书籍');
-    expect(h.row('书籍')?.getAttribute('data-preview')).toBe('true');
-    expect(h.row('书籍')?.getAttribute('aria-expanded')).toBe('true');
-    expect(h.row('书籍')?.getAttribute('aria-controls')).toBe('tag-preview-card');
-    expect(h.probe.writes).toEqual(before);
-  });
-
-  it('再点同一行 = 关卡片', () => {
-    const card = mount('open');
-    card.clickRow('书籍');
-    card.clickRow('书籍');
-    expect(card.card()).toBeNull();
-  });
-
-  it('open 模式点另一行:卡片切到新实体,同时只有一张', () => {
-    const h = mount('open');
-    h.clickRow('书籍');
-    h.clickRow('书籍/SQL');
-    expect(h.cards()).toHaveLength(1);
-    expect(h.card()?.getAttribute('aria-label')).toBe('实体预览：书籍/SQL');
+    expect(itemPaths(h.probe.conditions, 'tag')).toEqual(['书籍']);
+    expect(h.probe.conditions.groups[0].items[0]).toMatchObject({ includeChildren: true });
+    expect(h.flash()).toContain('已只看 #书籍');
+    expect(h.card()).toBeNull();
     expect(h.row('书籍')?.getAttribute('data-preview')).toBeNull();
+  });
+
+  it('open:单击把原有的其它标签条件清掉(等价 Shift+单击,不是追加)', () => {
+    const h = mount('open');
+    h.clickRow('书籍', { ctrlKey: true });
+    h.clickRow('书籍/SQL', { ctrlKey: true });
+    expect(itemPaths(h.probe.conditions, 'tag')).toEqual(['书籍', '书籍/SQL']);
+    h.clickRow('书籍/SQL');
+    expect(itemPaths(h.probe.conditions, 'tag')).toEqual(['书籍/SQL']);
+    expect(h.card()).toBeNull();
   });
 });
 
@@ -87,7 +82,7 @@ describe('已删除的 select:任何入口都不该留下痕迹', () => {
 
   it('点列表空白两模式都不做事(条件与卡片都不动)', () => {
     const h = mount('open');
-    h.clickRow('书籍');
+    h.dblclickRow('书籍');
     const writes = h.probe.writes.length;
     h.blankClick();
     expect(h.card()).not.toBeNull();
@@ -127,6 +122,15 @@ describe('修饰键四格(§4.1 主表 8 格)', () => {
     expect(h.flash()).toContain('已追加为同时满足');
   });
 
+  it('open:无修饰键单击的回执说的是「已只看」;双击才出卡片', () => {
+    const h = mount('open');
+    h.clickRow('书籍/SQL');
+    expect(h.flash()).toContain('已只看 #书籍/SQL');
+    expect(h.card()).toBeNull();
+    h.dblclickRow('书籍/SQL');
+    expect(h.card()).not.toBeNull();
+  });
+
   it('open:Alt / Shift 也有一句回执(用户预期"点一下不改条件",必须交代)', () => {
     const h = mount('open');
     h.clickRow('书籍', { altKey: true });
@@ -147,7 +151,7 @@ describe('修饰键四格(§4.1 主表 8 格)', () => {
 });
 
 describe('容器行恒展开(§4.2 的 9 个格子同一结果)', () => {
-  it('有子级的容器:两模式单击都只收起子树,不写条件、不开卡片', () => {
+  it('容器行恒展开:两模式单击都只收起子树,不写条件、不开卡片', () => {
     for (const mode of MODES) {
       const h = mount(mode);
       const writes = h.probe.writes.length;

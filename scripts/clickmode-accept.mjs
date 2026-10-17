@@ -5,6 +5,7 @@
  * 写路径(`set_setting` / `save_input_note` …),夹具自建自删,收尾给库 / `filter_current` / 模式前后对照。
  * 用法:node scripts/clickmode-accept.mjs   产物:.superpowers/shots/clickmode-*.png(不入库)
  * 2026-10-16 两档化:原 `select` 档的格整段删除,改为「DOM 里取不到 select 的任何痕迹」+「旧值回落」。
+ * 2026-10-17 open 档单击 = 只看这一条:卡片入口改为双击(`L.dblClickRow`),D 段与回执文案同步。
  */
 import { ensureMain, sleep, waitFor, recorder, bindMain } from './cdp-lib.mjs';
 import * as L from './clickmode-accept-lib.mjs';
@@ -16,7 +17,8 @@ const EMPTY = { keyword: null, tags: [], excludeTags: [], relations: [], exclude
 const F = (over = {}) => ({ ...EMPTY, ...over });
 const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const LABEL = { filter: '筛选', open: '打开' };
-const ACTION = { filter: '单击加入 / 移出筛选', open: '单击打开实体' };
+// 与 `use-tag-click.ts` 的 MODE_ACTION 同源:open 档的单击 = 只看这一条(预览卡片退到双击)
+const ACTION = { filter: '单击加入 / 移出筛选', open: '单击只看这一条、双击预览卡片' };
 const R = recorder();
 const rec = (item, ok, detail) => R.record(item, ok, detail);
 const { cdp, close } = await ensureMain();

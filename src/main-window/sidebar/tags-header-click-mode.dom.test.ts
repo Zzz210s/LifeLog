@@ -87,6 +87,13 @@ describe('侧栏头部:单击行为模式按钮', () => {
     expect(modeBtn().getAttribute('title')).toBe('点击行为：筛选（单击 = 加入/移出筛选）。点一下切到「打开」');
   });
 
+  it('open 模式:title 说清「单击 = 只看这一条,双击 = 预览卡片」(2026-10-17 改口径)', async () => {
+    await render('open');
+    expect(modeBtn().getAttribute('title')).toBe(
+      '点击行为：打开（单击 = 只看这一条,双击 = 预览卡片）。点一下切到「筛选」'
+    );
+  });
+
   it('点击回调一次,回调参数 = nextClickMode(当前模式);组件不自持状态', async () => {
     await render('filter');
     await act(async () => modeBtn().click());

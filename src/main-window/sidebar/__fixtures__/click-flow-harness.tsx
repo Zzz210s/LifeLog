@@ -5,7 +5,9 @@
  * `TagPreviewCard`,外加设置页那一行(钉住"两个入口读写同一份模式状态")。
  * 条件侧走**真实**的 `applyFilterPatch`,每次变化后的原文(`filterKey`)记进 `writes` ——
  * 于是"open 不改条件"读到的是写库条数不变,而不是"回调没被调过"。
- * 2026-10-16 两档化:`cursorBar` 只留作反向断言(select 删除后它必须恒为 null)。
+ * 2026-10-17:预览卡片退到**双击** —— `dblclickRow` 只派发 `dblclick`;真浏览器还会先发两次
+ * `click`(`doubleClickRow` 就是这个序列)。形状与行数据住 `click-flow-types.ts`(守 200 行红线),
+ * 本文件只留挂载与事件合成;`ROWS` 与两个接口仍从这里再出口,调用侧不用改。
  */
 import { act, useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
@@ -20,50 +22,11 @@ import { TagPreviewCard } from '../../shell/TagPreviewCard';
 import { TagsSection } from '../TagsSection';
 import type { SidebarClickMode } from '../click-mode';
 import { useTagClick } from '../use-tag-click';
+import { ROWS, type ClickFlow, type ClickFlowProbe } from './click-flow-types';
 
-/** 侧栏行:可选叶子 / 有子级的容器(计数 0) / 无子级的空实体(计数 0)各一,覆盖三种行 */
-export const ROWS: TagCount[] = [
-  { id: 1, path: '书籍', depth: 1, sort_order: 0, self_count: 1, subtree_count: 3 },
-  { id: 2, path: '书籍/SQL', depth: 2, sort_order: 0, self_count: 1, subtree_count: 2 },
-  { id: 3, path: '书籍/SQL/索引', depth: 3, sort_order: 0, self_count: 1, subtree_count: 1 },
-  { id: 4, path: '容器', depth: 1, sort_order: 1, self_count: 0, subtree_count: 0 },
-  { id: 5, path: '容器/空', depth: 2, sort_order: 0, self_count: 0, subtree_count: 0 },
-  { id: 6, path: '空实体', depth: 1, sort_order: 2, self_count: 0, subtree_count: 0 },
-];
-
-export interface ClickFlowProbe {
-  /** 每次条件变化后的条件原文(filterKey):第 0 条 = 挂载时的空条件,长度即写库次数 */
-  writes: string[];
-  conditions: FilterConditions;
-  view: MainView;
-}
-
-export interface ClickFlow {
-  host: HTMLDivElement;
-  probe: ClickFlowProbe;
-  /** 换一份 tagRows(标签被删 / 改名后引用它的状态该失效) */
-  setRows: (rows: TagCount[]) => void;
-  /** 切视图(设置页 / 关系图):光标与卡片**不清**(设计 R5) */
-  setView: (view: MainView) => void;
-  row: (path: string) => HTMLElement | null;
-  clickRow: (path: string, mods?: MouseEventInit) => void;
-  blankClick: () => void;
-  /** 合成拖拽起手(手法与 __fixtures__/drag-harness 一致:普通 Event + 替身 dataTransfer) */
-  dragRow: (path: string) => void;
-  clickHeader: () => void;
-  clickSettings: (label: string) => void;
-  press: (label: string) => void;
-  mode: () => string | null;
-  /** 反向断言用:select 删除后底部光标条不该存在(恒 null) */
-  cursorBar: () => HTMLElement | null;
-  card: () => HTMLElement | null;
-  cards: () => HTMLElement[];
-  flash: () => string | null;
-  esc: () => void;
-  /** 浮层先吃 Esc(useDismiss 的手法:捕获阶段 stopPropagation) */
-  escWithOverlay: () => void;
-  unmount: () => void;
-}
+/** 消费侧仍从本文件取(`click-flow-types.ts` 的再出口) */
+export { ROWS } from './click-flow-types';
+export type { ClickFlow, ClickFlowProbe } from './click-flow-types';
 
 interface HarnessProps {
   probe: ClickFlowProbe;
@@ -158,6 +121,14 @@ export function mountClickFlow(over: { mode: SidebarClickMode; view?: MainView }
     row: (path) => el(`[data-tag-path="${path}"]`),
     clickRow: (path, mods = {}) => {
       fire(need(handle.row(path), `标签行 ${path}`), new MouseEvent('click', { bubbles: true, ...mods }));
+    },
+    dblclickRow: (path) => {
+      fire(need(handle.row(path), `标签行 ${path}`), new MouseEvent('dblclick', { bubbles: true }));
+    },
+    doubleClickRow: (path) => {
+      handle.clickRow(path);
+      handle.clickRow(path);
+      handle.dblclickRow(path);
     },
     blankClick: () => {
       fire(need(el('[data-testid="tag-list"]'), '列表容器'), new MouseEvent('click', { bubbles: true }));

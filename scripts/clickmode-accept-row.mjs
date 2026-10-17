@@ -1,5 +1,7 @@
 // T6 逐格验收的行内格(B filter / C「select 无痕」/ D open):从 clickmode-accept.mjs 抽出守 200 行红线。
 // 每格都读三样:条件对象(filter_current)、行态(DOM)、命中数(应用自己的 query_notes 逐页)。
+// 2026-10-17:D 段的卡片入口是**双击**(`L.dblClickRow` = click+click+dblclick 的真序列),
+// 单击在 open 档断言的是「只看这一条 + 不出卡片 + 行上无 preview 痕迹」。
 import { sleep } from './cdp-lib.mjs';
 
 export async function runRowCells(ctx) {
@@ -13,10 +15,6 @@ export async function runRowCells(ctx) {
   };
   /** filter_current 原文(设计口径:「条件一字未变」= 原文逐字节相同;写回是 500ms 节流的) */
   const raw = async () => (await call('get_setting', { key: 'filter_current' })) ?? 'null';
-  const emptyNow = (r) => {
-    const c = JSON.parse(r);
-    return tagPaths(c, 'tag').length === 0 && tagPaths(c, 'excludeTag').length === 0 && !c.keyword && !c.expr;
-  };
   const shape = (c) => ({ groupOp: c.groupOp, groups: (c.groups ?? []).map((g) => ({ op: g.op, items: g.items.map((i) => `${i.kind}:${i.path ?? i.value ?? ''}`) })), legacy: [(c.tags ?? []).length, (c.excludeTags ?? []).length] });
 
   // ---------- B filter 模式:无键 / Ctrl / Alt / Shift ----------
@@ -91,39 +89,49 @@ export async function runRowCells(ctx) {
   // ---------- D open 模式 ----------
   await useMode('open');
   await setFilter(F());
-  const rawD = await raw();
   await L.clickRow(cdp, A);
   await sleep(600);
-  const d1 = { f: await readFilter(), raw: await raw(), card: await L.previewCard(cdp), row: await L.rowState(cdp, A) };
-  rec('D1 open 无键:出预览卡片(只看这条 / 关闭)+ 条件一字未变 + 行上 aria-controls 指向卡片',
-    d1.raw === rawD && emptyNow(d1.raw) && !!d1.card && eq(d1.card.buttons, ['只看这条', '关闭']) && d1.row.preview === 'true' && d1.row.controls === 'tag-preview-card' && d1.card.focused === false,
-    `条件 ${JSON.stringify(d1.f)} 卡片 ${JSON.stringify(d1.card)}`);
-  shots.push(await L.shot(cdp, 'D1-open-preview'));
-  await L.esc(cdp); // 先关掉 D1 那张卡(同一点击是"再点同一行 = 关闭"的切换语义,不能带卡切视图)
+  const d1 = { f: await readFilter(), card: await L.previewCard(cdp), row: await L.rowState(cdp, A) };
+  rec('D1 open 无键单击:只看这一条(条件只剩 A、含子级)+ 不出卡片 + 行上无 preview/controls',
+    eq(tagPaths(d1.f, 'tag'), [A]) && tagPaths(d1.f, 'excludeTag').length === 0
+      && (d1.f.groups ?? []).some((g) => (g.items ?? []).some((i) => i.kind === 'tag' && i.path === A && i.includeChildren === true))
+      && d1.card === null && d1.row.preview === null && d1.row.controls === null,
+    `条件 ${JSON.stringify(shape(d1.f))} 卡片 ${JSON.stringify(d1.card)} 行 ${JSON.stringify(d1.row)}`);
+  shots.push(await L.shot(cdp, 'D1-open-single-only'));
+  await L.dblClickRow(cdp, A);
+  await sleep(700);
+  const d1b = { f: await readFilter(), card: await L.previewCard(cdp), row: await L.rowState(cdp, A) };
+  rec('D1b open 双击:出预览卡片(只看这条 / 关闭)+ 行上 aria-controls 指向卡片;两次 click 的净效果 = 条件仍是只看这条',
+    !!d1b.card && eq(d1b.card.buttons, ['只看这条', '关闭']) && d1b.row.preview === 'true' && d1b.row.controls === 'tag-preview-card'
+      && d1b.card.focused === false && eq(tagPaths(d1b.f, 'tag'), [A]),
+    `卡片 ${JSON.stringify(d1b.card)} 行 ${JSON.stringify(d1b.row)} 条件 ${JSON.stringify(shape(d1b.f))}`);
+  shots.push(await L.shot(cdp, 'D1b-open-dblclick-preview'));
+  await L.esc(cdp); // 先关掉 D1b 那张卡(双击同一行是"再双击 = 关闭"的切换语义,不能带卡切视图)
   await sleep(500);
+  await setFilter(F());
   await L.openSettings(cdp);
   await sleep(700);
   const onSet = await L.onSettings(cdp);
-  await L.clickRow(cdp, A);
+  await L.dblClickRow(cdp, A);
   await sleep(700);
-  rec('D2 open 单击同时切回信息流(卡片在流里)', onSet === true && (await L.onSettings(cdp)) === false && !!(await L.previewCard(cdp)),
-    `设置页 ${onSet} -> 点行后设置页 ${await L.onSettings(cdp)} 卡片 ${JSON.stringify(await L.previewCard(cdp))}`);
+  rec('D2 open 双击同时切回信息流(卡片在流里)', onSet === true && (await L.onSettings(cdp)) === false && !!(await L.previewCard(cdp)),
+    `设置页 ${onSet} -> 双击后设置页 ${await L.onSettings(cdp)} 卡片 ${JSON.stringify(await L.previewCard(cdp))}`);
   await L.clickCardButton(cdp, '只看这条');
   await sleep(700);
   const d3 = { f: await readFilter(), card: await L.previewCard(cdp) };
   rec('D3 卡片「只看这条」:筛到流并关卡片', tagPaths(d3.f, 'tag').includes(A) && d3.card === null,
     `条件 ${JSON.stringify(shape(d3.f))} 卡片 ${JSON.stringify(d3.card)}`);
-  const beforeD4 = JSON.stringify(await readFilter());
-  await L.clickRow(cdp, B);
-  await sleep(500);
+  const d4open = await L.dblClickRow(cdp, B);
+  await sleep(700);
   const d4 = { card: await L.previewCard(cdp), flash: await L.flashText(cdp) };
+  const beforeD4 = JSON.stringify(await readFilter());
   const closed = await L.clickCardButton(cdp, '关闭');
   await sleep(500);
-  rec('D4 卡片「关闭」:关卡片、不改条件', !!d4.card && closed === true && (await L.previewCard(cdp)) === null && JSON.stringify(await readFilter()) === beforeD4,
+  rec('D4 卡片「关闭」:关卡片、不改条件', d4open === true && !!d4.card && closed === true && (await L.previewCard(cdp)) === null && JSON.stringify(await readFilter()) === beforeD4,
     `卡片 ${JSON.stringify(d4.card)} 关闭后 ${JSON.stringify(await L.previewCard(cdp))}`);
   const d5 = { ctrl: null, alt: null, shift: null };
-  await setFilter(F()); // 清掉 D3 留下的「只看这条」:三格从空条件出发(否则 Ctrl 命中幂等分支)
-  await L.clickRow(cdp, A); // 先开一张卡:修饰键不该碰卡片(§4.1 第 10-12 行)
+  await setFilter(F()); // 三格从空条件出发(否则 Ctrl 命中幂等分支)
+  await L.dblClickRow(cdp, B); // 双击 B 开一张卡,随后拿 A 试修饰键:修饰键不该碰卡片(§4.1 第 10-12 行)
   await sleep(700);
   const cardOpen = await L.previewCard(cdp);
   await L.clickRow(cdp, A, { ctrl: true });

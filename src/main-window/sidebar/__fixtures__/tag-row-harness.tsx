@@ -37,13 +37,14 @@ export const LEAF: TagNode = {
   children: [],
 };
 
-/** 单击真值表(设计 §4.1 主表 8 格):[模式, 单击修饰键, 期望意图] */
+/** 单击真值表(设计 §4.1 主表 8 格):[模式, 单击修饰键, 期望意图]
+ *  2026-10-17:`open` 档无修饰键由 `open` 改为 `only`(预览卡片退到双击,见 `dblIntent`)。 */
 export const CLICK_TABLE: Array<[SidebarClickMode, MouseEventInit, RowIntent]> = [
   ['filter', {}, 'toggle'],
   ['filter', { ctrlKey: true }, 'andAdd'],
   ['filter', { altKey: true }, 'exclude'],
   ['filter', { shiftKey: true }, 'only'],
-  ['open', {}, 'open'],
+  ['open', {}, 'only'],
   ['open', { ctrlKey: true }, 'andAdd'],
   ['open', { altKey: true }, 'exclude'],
   ['open', { shiftKey: true }, 'only'],

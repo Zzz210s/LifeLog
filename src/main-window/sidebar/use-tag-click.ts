@@ -5,6 +5,7 @@
  * 两处容易漏:`open` 模式下修饰键动作**一律**给回执、而 `filter` 只在"什么都没发生"时给
  * (§4.1「提示」列);路径从 `tagRows` 消失即清状态(§4.4)。
  * 2026-10-16 用户要求减为两档:原 `select` 的移光标 / 点空白清光标 / 光标条整条链路已删除。
+ * 2026-10-17:预览卡片退到双击(`'open'` 根分支保留给 `dblIntent`),单击的 `'only'` 复用 `onlyThis`。
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { filterKey, itemPaths } from '../../shared/filter-conditions';
@@ -21,7 +22,7 @@ import type { SidebarStateApi } from './use-sidebar-state';
 /** 切模式后的那句回执(§5.2):说清"下一次单击做什么" */
 const MODE_ACTION: Record<SidebarClickMode, string> = {
   filter: '单击加入 / 移出筛选',
-  open: '单击打开实体',
+  open: '单击只看这一条、双击预览卡片',
 };
 
 export interface TagClickInput {
@@ -122,7 +123,8 @@ export function useTagClick(
       } else if (intent === 'only') {
         onlyThis(path);
       } else if (intent === 'open') {
-        if (previewPath === path) setPreview(null); // 再点同一行 = 关闭(§2.3)
+        // 2026-10-17:只有双击到得了这里(单击在 `open` 档已改走 `only`)
+        if (previewPath === path) setPreview(null); // 再双击同一行 = 关闭(§2.3)
         else openPreview(path);
       }
     },

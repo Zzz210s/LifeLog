@@ -1,5 +1,6 @@
 // T6 逐格验收的手势/菜单/状态格(E-I):容器行取证、拖动起手、双击、右键菜单高度、切模式清状态。
 // 从 clickmode-accept.mjs 抽出以守 200 行红线;调用方给 ctx(连接、读数原语、模式切换)。
+// 2026-10-17:open 档的预览卡片入口改为双击,本文件的 I 段同步(单击 = 只看这一条)。
 import { sleep } from './cdp-lib.mjs';
 
 export async function runGestureCells(ctx) {
@@ -32,7 +33,7 @@ export async function runGestureCells(ctx) {
   rec('E2 容器行构造不出:两条写路径都被空标签 GC 收走(删笔记 / 摘标签)',
     built.length === 3 && afterDel === 0 && afterDetag === 0,
     `建后 ${JSON.stringify(built)} -> 删笔记后 ${afterDel} 条 -> 摘标签后 ${afterDetag} 条(收尾已删净)`);
-  rec('E3 该格的实现由 dom 用例钉住(T6 真机不可达,见 E1/E2)', true, 'src/main-window/sidebar/tag-row-click.dom.test.ts 的「不可选行:任何模式任何修饰键都是 expand」一例;T6 报告里附该文件的运行结果');
+  rec('E3 该格的实现由 dom 用例钉住(T6 真机不可达,见 E1/E2)', true, 'src/main-window/sidebar/tag-row-click.dom.test.ts 的「容器行双击恒 expand」与「不可选行全格 expand」两例;T6 报告里附该文件的运行结果');
 
   // ---------- F 拖动起手不触发单击 ----------
   const raw = async () => (await call('get_setting', { key: 'filter_current' })) ?? 'null';
@@ -128,7 +129,7 @@ export async function runGestureCells(ctx) {
   // ---------- I 切模式清卡片 + 中文回执(两档) ----------
   await useMode('open');
   await setFilter(F());
-  await L.clickRow(cdp, A);
+  await L.dblClickRow(cdp, A); // 卡片入口是双击(2026-10-17:单击 = 只看这一条)
   await sleep(700);
   const i1 = { card: await L.previewCard(cdp) };
   await L.clickModeButton(cdp);
@@ -144,7 +145,7 @@ export async function runGestureCells(ctx) {
   await sleep(600);
   const i2 = { card: await L.previewCard(cdp), flash: await L.flashText(cdp), mode: (await L.modeState(cdp)).mode };
   rec('I2 切模式(filter -> open):只给一句中文回执,不凭空弹卡片',
-    i2.mode === 'open' && i2.card === null && /^已切到「打开」：单击打开实体/.test(i2.flash ?? ''),
+    i2.mode === 'open' && i2.card === null && /^已切到「打开」：单击只看这一条、双击预览卡片/.test(i2.flash ?? ''),
     `模式 ${i2.mode} / 卡片 ${JSON.stringify(i2.card)} 回执「${i2.flash}」`);
   await useMode('filter');
   shots.push(shotF, shotG, shotH, shotI1);

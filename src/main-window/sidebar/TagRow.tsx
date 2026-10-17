@@ -2,9 +2,10 @@
  * 标签树单行(spec 6.1):树模式按层级缩进 12px/级、带展开箭头与计数导轨;扁平模式不缩进、显示完整路径。
  * 选中态与条件对象同源(由上层派生传入);关系小字在 `TagRowRelationChips`。
  *
- * 单击行为(设计 2026-10-16 §4):onClick / onDoubleClick / onKeyDown 只做一件事 ——
- * 把「模式 + 修饰键 + 该行是否可选」交给 `rowIntent`,把结果派发回上层(`onIntent`);
- * 条件补丁、预览卡片一概不在这里。容器行(计数 0)恒 `expand`(§4.2),
+ * 单击行为(设计 2026-10-16 §4,2026-10-17 修订):onClick / onDoubleClick / onKeyDown 只做一件事 ——
+ * 把「模式 + 修饰键 + 该行是否可选」交给 `rowIntent`(单击)/ `dblIntent`(双击),把结果派发回上层
+ * (`onIntent`);条件补丁、预览卡片一概不在这里。单击与 Enter/Space 同义;预览卡片 = 双击
+ * (`open` 档 + 可选行),单击只看这一条(2026-10-17 用户要求)。容器行(计数 0)恒 `expand`(§4.2),
  * 拖动起手的单击不派发(§4.3 第 16 行双保险),箭头自己 `stopPropagation` 只展开(第 13 行)。
  *
  * 标签名的行内 md(T1):显示位走 renderTagLabel(预览态),title / 其它字符串位走 tagLabelPlain;
@@ -18,7 +19,7 @@ import { renderTagLabel, tagLabelPlain } from '../../shared/tag-label';
 import { hoverTitle } from '../../shared/truncate-title';
 import type { RelationRef } from '../../shared/types';
 import type { SidebarClickMode } from './click-mode';
-import { modsOf, rowIntent, type ClickMods, type RowIntent } from './tag-row-action';
+import { dblIntent, modsOf, rowIntent, type ClickMods, type RowIntent } from './tag-row-action';
 import { RowDropLine } from './TagDropBand';
 import { guideWidth, lineIndent } from './tag-row-geometry';
 import { TagRowRelationChips, rowRelationTips } from './TagRowRelationChips';
@@ -125,8 +126,9 @@ export function TagRow(p: TagRowProps): ReactNode {
       }
       onClick={(e) => activate(modsOf(e))}
       onDoubleClick={() => {
-        // 双击恒展开:不读模式与修饰键,也不等第二次点击(两次 click 的净效果见设计 §3.5)
-        if (!p.dragActive) emit('expand');
+        // 双击:open 档 + 可选行 = 开预览卡片,其余 = 展开/收起;不读修饰键,
+        // 也不等第二次点击(两次 click 的净效果见设计 §3.5)
+        if (!p.dragActive) emit(dblIntent(p.clickMode ?? 'filter', selectable));
       }}
       onKeyDown={onKeyDown}
       onContextMenu={(e) => p.onContextMenu(e, p.node)}

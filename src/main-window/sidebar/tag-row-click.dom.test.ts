@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   CLICK_TABLE,
   LEAF,
+  dblclickRow,
   mountTagRow,
   modLabel,
   clickRow,
@@ -51,10 +52,10 @@ describe('可选行(§4.1:2 模式 × 4 修饰键状态 = 8 格)', () => {
     expect(onIntent).toHaveBeenCalledWith('andAdd', LEAF);
   });
 
-  it('修饰键压过模式:open 模式无修饰键 = open,按住 Ctrl 仍是 andAdd(不开卡片)', () => {
+  it('修饰键压过模式:open 模式无修饰键 = only(只看这一条,不开卡片),按住 Ctrl 仍是 andAdd', () => {
     const plain = vi.fn();
     clickRow(h.render({ mode: 'open', onIntent: plain }));
-    expect(plain).toHaveBeenCalledWith('open', LEAF);
+    expect(plain).toHaveBeenCalledWith('only', LEAF);
 
     const withCtrl = vi.fn();
     clickRow(h.render({ mode: 'open', onIntent: withCtrl }), { ctrlKey: true });
@@ -93,6 +94,27 @@ describe('容器行(§4.2:2 模式 × 4 修饰键状态 结果全同)', () => {
   it('可展开行也是 expand 的主体:它自己的单击仍按模式走(容器口径只认 subtreeCount)', () => {
     const onIntent = vi.fn();
     clickRow(h.render({ node: PARENT, mode: 'open', onIntent }));
-    expect(onIntent).toHaveBeenCalledWith('open', PARENT);
+    expect(onIntent).toHaveBeenCalledWith('only', PARENT);
+  });
+});
+
+describe('双击(2026-10-17:预览卡片退到双击)', () => {
+  it('open 档双击可选行 = open(卡片入口只剩这一个)', () => {
+    const onIntent = vi.fn();
+    dblclickRow(h.render({ mode: 'open', onIntent }));
+    expect(onIntent).toHaveBeenCalledTimes(1);
+    expect(onIntent).toHaveBeenCalledWith('open', LEAF);
+  });
+
+  it('filter 档双击仍是 expand(两档下双击都不写条件)', () => {
+    const onIntent = vi.fn();
+    dblclickRow(h.render({ node: PARENT, mode: 'filter', onIntent }));
+    expect(onIntent).toHaveBeenCalledWith('expand', PARENT);
+  });
+
+  it('容器行双击恒 expand:不可选行没有卡片可看', () => {
+    const onIntent = vi.fn();
+    dblclickRow(h.render({ node: HOLDER, mode: 'open', onIntent }));
+    expect(onIntent).toHaveBeenCalledWith('expand', HOLDER);
   });
 });
