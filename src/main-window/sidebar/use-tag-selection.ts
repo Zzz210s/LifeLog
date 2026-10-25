@@ -3,8 +3,12 @@
  *
  * 为什么做成**显式模式**而不是直接占用修饰键:今天的 Ctrl / Alt / Shift 三格在侧栏分别是
  * 「AND 追加筛选 / 排除 / 只看这一条」,是日常整理的主力手势(设计 2026-10-16 §4)。
- * 直接改语义会把这些习惯一次性打翻,所以多选只在**打开模式后**接管:
- * 关闭时一切照旧;打开后单击 = 切换、Shift = 从锚点连选、Ctrl = 切换、Ctrl+A = 全选可见行。
+ * 直接改语义会把这些习惯一次性打翻,所以:
+ * - **无修饰键单击**:照旧(筛选/只看),并清空选择(与资源管理器一致);
+ * - **Shift+单击**:直接进多选并从锚点连选(2026-10-25 用户要求"Shift 点了要生效",不再要求先开模式);
+ * - **Ctrl+A**:直接进多选并全选可见行(焦点在输入控件里时不拦);
+ * - **Ctrl+单击**:保持"AND 追加筛选"(日常主力手势,不动);
+ * - 头部「多选」图标 = 不需要修饰键的纯勾选入口(配 Ctrl+A 与批量删除)。
  *
  * 选中集以**路径**为键(与筛选条件、MRU 一致);重命名后路径变,选中项自然失效(不追)。
  * 选中集不落库:这是会话内的操作态,和批量条目那边同一口径。
@@ -12,6 +16,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 export interface TagSelectionApi {
+  /** 不需要修饰键也能进多选(Shift+单击 / Ctrl+A 的入口) */
+  ensureActive: () => void;
   /** 多选模式是否打开(头部图标 aria-pressed) */
   active: boolean;
   selected: ReadonlySet<string>;
@@ -81,6 +87,11 @@ export function useTagSelection(visible: readonly string[]): TagSelectionApi {
     setSelected((prev) => (prev.size >= order.length && order.length > 0 ? new Set() : new Set(order)));
   }, []);
 
+  /** Shift+单击 / Ctrl+A 在未开模式时也要能生效:先开模式(或保持)再选 */
+  const ensureActive = useCallback(() => {
+    setActiveRaw(true);
+  }, []);
+
   const clear = useCallback(() => {
     setSelected(new Set());
     anchor.current = null;
@@ -90,9 +101,9 @@ export function useTagSelection(visible: readonly string[]): TagSelectionApi {
   const visibleRef = useRef(visible);
   visibleRef.current = visible;
   useEffect(() => {
-    if (!active) return;
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') {
+        if (!active) return; // 没开多选就不拦,交给预览卡片等原有处理
         // 多选态优先吃这一下:否则同一次 Esc 会把预览卡片一起关掉(两处语义打架)
         e.preventDefault();
         e.stopPropagation();
@@ -101,17 +112,19 @@ export function useTagSelection(visible: readonly string[]): TagSelectionApi {
       }
       const mod = e.ctrlKey || e.metaKey;
       if (mod && (e.key === 'a' || e.key === 'A') && !inEditable(e.target)) {
+        // 侧栏可见时 Ctrl+A = 全选可见行(不需要先点图标);再按一次清空
         e.preventDefault();
+        ensureActive();
         selectAll(visibleRef.current);
       }
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [active, selectAll, setActive]);
+  }, [active, selectAll, setActive, ensureActive]);
 
   const count = selected.size;
   return useMemo(
-    () => ({ active, selected, count, setActive, toggle, rangeTo, selectAll, clear }),
-    [active, selected, count, setActive, toggle, rangeTo, selectAll, clear]
+    () => ({ active, ensureActive, selected, count, setActive, toggle, rangeTo, selectAll, clear }),
+    [active, ensureActive, selected, count, setActive, toggle, rangeTo, selectAll, clear]
   );
 }

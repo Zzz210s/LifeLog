@@ -91,7 +91,7 @@ describe('已删除的 select:任何入口都不该留下痕迹', () => {
 });
 
 describe('修饰键四格(§4.1 主表 8 格)', () => {
-  it('filter:无 = 切换、Ctrl = 追加(幂等只回执)、Alt = 排除(可撤)、Shift = 只看这条', () => {
+  it('filter:无 = 切换、Ctrl = 追加(幂等只回执)、Alt = 排除(可撤)、Shift = 连选(不改条件)', () => {
     const h = mount('filter');
     h.clickRow('书籍');
     expect(itemPaths(h.probe.conditions, 'tag')).toEqual(['书籍']);
@@ -108,9 +108,10 @@ describe('修饰键四格(§4.1 主表 8 格)', () => {
     h.clickRow('书籍', { altKey: true });
     expect(itemPaths(h.probe.conditions, 'excludeTag')).toEqual([]);
 
+    // 2026-10-25 改口径:Shift+单击 = 进多选并连选,**不动筛选条件**(用户要求 Shift 直接生效)
+    const before = JSON.stringify(itemPaths(h.probe.conditions, 'tag'));
     h.clickRow('书籍/SQL', { shiftKey: true });
-    expect(itemPaths(h.probe.conditions, 'tag')).toEqual(['书籍/SQL']);
-    expect(h.flash()).toContain('已只看 #书籍/SQL');
+    expect(JSON.stringify(itemPaths(h.probe.conditions, 'tag'))).toBe(before);
   });
 
   it('open:修饰键只写条件,不开卡片也不切视图(一次点击只做一件事)', () => {
@@ -131,14 +132,16 @@ describe('修饰键四格(§4.1 主表 8 格)', () => {
     expect(h.card()).not.toBeNull();
   });
 
-  it('open:Alt / Shift 也有一句回执(用户预期"点一下不改条件",必须交代)', () => {
+  it('open:Alt 仍有回执;Shift 改走多选(2026-10-25:Shift 直接生效,不再"只看这条")', () => {
     const h = mount('open');
     h.clickRow('书籍', { altKey: true });
     expect(h.flash()).toContain('已排除 #书籍');
+    const tagPaths = JSON.stringify(itemPaths(h.probe.conditions, 'tag'));
+    const exclPaths = JSON.stringify(itemPaths(h.probe.conditions, 'excludeTag'));
     h.clickRow('书籍', { shiftKey: true });
-    expect(itemPaths(h.probe.conditions, 'excludeTag')).toEqual([]);
-    expect(itemPaths(h.probe.conditions, 'tag')).toEqual(['书籍']);
-    expect(h.flash()).toContain('已只看 #书籍');
+    // Shift 只做选行:两侧条件都不动,也不开预览卡片
+    expect(JSON.stringify(itemPaths(h.probe.conditions, 'tag'))).toBe(tagPaths);
+    expect(JSON.stringify(itemPaths(h.probe.conditions, 'excludeTag'))).toBe(exclPaths);
     expect(h.card()).toBeNull();
   });
 

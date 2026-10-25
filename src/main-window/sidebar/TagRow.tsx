@@ -93,8 +93,9 @@ export function TagRow(p: TagRowProps): ReactNode {
   /** 行的"激活"= 模式 + 修饰键(修饰键优先,见 tag-row-action);拖过的不算单击(§4.3 第 16 行) */
   const activate = (m: ClickMods): void => {
     if (p.dragActive) return;
-    // 多选态优先接管:这一行只做"选中/连选",绝不发筛选补丁
-    if (p.selection?.active) {
+    // 多选态,或**按了 Shift**:这一行只做"选中/连选",绝不发筛选补丁
+    //(2026-10-25 用户实测"Shift 没生效":原先要先进多选模式,现在 Shift 自己就能开)
+    if (p.selection?.active || (m.shift && p.selection)) {
       p.selection.onPick(p.node.path, m.shift);
       return;
     }

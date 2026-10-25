@@ -113,7 +113,7 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
   const flatNodes = useMemo(() => flattenTree(shown), [shown]);
   // 行高与多选:行高与主窗快捷搜索栏同一份设置;可见顺序的取法集中在 useSidebarSelection
   const searchRowHeight = useSearchRowHeight().height;
-  const { selection, visiblePaths, selectedPaths, idByPath } = useSidebarSelection(visibleRows, p.mode, shown, flatNodes);
+  const { selection, selectedPaths, idByPath, pick } = useSidebarSelection(visibleRows, p.mode, shown, flatNodes);
 
   return (
     <section className="flex min-h-0 flex-1 flex-col" aria-label="实体分区">
@@ -160,7 +160,7 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
             selection={{
               active: selection.active,
               selected: selection.selected,
-              onPick: (path, shift) => (shift ? selection.rangeTo(path, visiblePaths) : selection.toggle(path)),
+              onPick: pick,
             }}
             onToggleExpand={toggleExpand}
             onContextMenu={menu.onContextMenu}

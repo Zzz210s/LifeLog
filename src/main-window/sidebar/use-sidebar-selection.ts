@@ -6,12 +6,14 @@
  * Shift 连选、Ctrl+A 全选、浮条的"选中路径"都读同一份 `visiblePaths` —— 三处不一致
  * 就会出现"全选了却删不到"这类假成功。
  */
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import type { TagCount } from '../../shared/types';
 import { flattenTree, type TagNode } from './tag-tree';
 import { useTagSelection, type TagSelectionApi } from './use-tag-selection';
 
 export interface SidebarSelection {
+  /** 行的选中入口:Shift = 连选(自己就能进多选),普通 = 切换 */
+  pick: (path: string, shift: boolean) => void;
   selection: TagSelectionApi;
   visiblePaths: string[];
   /** 选中且仍可见的路径(浮条按它批量操作) */
@@ -35,5 +37,17 @@ export function useSidebarSelection(
     () => visiblePaths.filter((path) => selection.selected.has(path)),
     [visiblePaths, selection.selected]
   );
-  return { selection, visiblePaths, selectedPaths, idByPath };
+  const pick = useCallback(
+    (path: string, shift: boolean) => {
+      // Shift 不需要先点图标:用户实测"Shift 没生效"就是因为要先开模式
+      if (shift) {
+        if (!selection.active) selection.ensureActive();
+        selection.rangeTo(path, visiblePaths);
+        return;
+      }
+      selection.toggle(path);
+    },
+    [selection, visiblePaths]
+  );
+  return { selection, pick, visiblePaths, selectedPaths, idByPath };
 }
