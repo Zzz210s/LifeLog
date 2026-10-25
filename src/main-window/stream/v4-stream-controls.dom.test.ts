@@ -62,15 +62,27 @@ describe('V4 唯一输入框:区高收紧,输入框与保存按钮同档', () =>
     expect(tokens(box.parentElement as HTMLElement)).toContain('gap-2');
   });
 
-  it('输入框 h-8 / rounded-sm / border-border-strong / text-ui(不再 rounded-lg + text-sm)', async () => {
+  // 2026-10-17:行高改成可调(设置 `ui.search_row_height`,默认 36 = Edge 地址栏口径),
+  // 原来的写死 `h-8 + text-ui` 合同作废 —— 这里改断言「默认 36 的高度 + 24px 行高 + text-sm」。
+  it('输入框默认行高 36(Edge 地址栏口径)/ rounded-sm / border-border-strong / text-sm', async () => {
     await render(createElement(UnifiedInput, { onSaved: () => {}, editing: false }));
     const box = host.querySelector('textarea') as HTMLElement;
-    for (const token of ['h-8', 'rounded-sm', 'border-border-strong', 'text-ui', 'resize-none']) {
+    for (const token of ['rounded-sm', 'border-border-strong', 'text-sm', 'resize-none']) {
       expect(tokens(box)).toContain(token);
     }
-    for (const stale of ['rounded-lg', 'rounded', 'text-sm', 'focus:border-accent']) {
+    expect(box.style.height).toBe('36px');
+    expect(box.style.lineHeight).toBe('24px');
+    for (const stale of ['h-8', 'rounded-lg', 'rounded', 'text-ui', 'focus:border-accent']) {
       expect(tokens(box)).not.toContain(stale);
     }
+  });
+
+  it('行高跟随设置:44 → 32px 行高 + text-base', async () => {
+    await render(createElement(UnifiedInput, { onSaved: () => {}, editing: false, rowHeight: 44 }));
+    const box = host.querySelector('textarea') as HTMLElement;
+    expect(box.style.height).toBe('44px');
+    expect(box.style.lineHeight).toBe('32px');
+    expect(tokens(box)).toContain('text-base');
   });
 
   it('保存 = 主按钮档(accent 底 / 32 / rounded-sm / text-ui)', async () => {

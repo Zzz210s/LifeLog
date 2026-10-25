@@ -37,9 +37,11 @@ export interface SettingsViewProps {
   sidebarClick?: { clickMode: SidebarClickMode; onChangeClickMode: (m: SidebarClickMode) => void };
   /** 「维护」小节的三件:重建索引 / 导出整库 / 专注模式(App 注入;缺省则各自不做事) */
   maintenance?: MaintenanceProps;
+  /** 「外观」里的「快捷搜索栏行高」(App 持有;缺省 = 只读 36) */
+  searchRow?: { height: number; onChange: (n: number) => void; onReset: () => void };
 }
 
-export function SettingsView({ themeMode, onThemeChange, onReplayTutorial, onBack, showRelations, onShowRelationsChange, sidebarClick, maintenance }: SettingsViewProps): ReactNode {
+export function SettingsView({ themeMode, onThemeChange, onReplayTutorial, onBack, showRelations, onShowRelationsChange, sidebarClick, maintenance, searchRow }: SettingsViewProps): ReactNode {
   const [active, setActive] = useState<SectionId>(() => normalizeSection('appearance'));
   const editing = useAppearanceEditing();
 
@@ -74,7 +76,7 @@ export function SettingsView({ themeMode, onThemeChange, onReplayTutorial, onBac
   const body = (): ReactNode => {
     switch (active) {
       case 'appearance':
-        return <AppearanceSection mode={themeMode} onChange={onThemeChange} />;
+        return <AppearanceSection mode={themeMode} onChange={onThemeChange} searchRow={searchRow} />;
       case 'inputAppearance':
         return <InputAppearancePanel />;
       case 'inputBehavior':

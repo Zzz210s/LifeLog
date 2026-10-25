@@ -60,6 +60,8 @@ export interface StreamViewProps {
   unifiedRef: RefObject<UnifiedController | null>;
   /** 标签数据版本(`[[` 补全候选池的作废键) */
   dataVersion?: number;
+  /** 快捷搜索栏(统一输入框)的单行行高,来自设置 `ui.search_row_height`;不传 = 默认 36 */
+  searchRowHeight?: number;
   /** 批量编辑的两态(§10.3 / §A):条目批量 + 条件批量,两者互斥(接线在 `use-batch-modes`);
    *  不传 = 两态都关档(测试夹具与只读用法)。 */
   batchModes?: BatchModes;

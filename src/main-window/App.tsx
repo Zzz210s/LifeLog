@@ -5,6 +5,7 @@ import { useThemeMode } from '../shared/use-theme-mode';
 import { CommandStatusPill } from './shell/CommandStatusPill';
 import type { MainView } from './settings/settings-model';
 import { Sidebar } from './sidebar/Sidebar';
+import { useSearchRowHeight } from './data/use-search-row-height';
 import { useSidebarState } from './sidebar/use-sidebar-state';
 import { useTagClick } from './sidebar/use-tag-click';
 import { ViewHost } from './shell/ViewHost';
@@ -32,6 +33,7 @@ export function App(): ReactNode {
   // 筛选条件真源(单份,库键 filter_current):查询/条件栏/侧栏选中态都从它派生
   const { conditions, patch, toggleTag, reload: reloadFilter } = useFilterState();
   const sidebar = useSidebarState();
+  const searchRow = useSearchRowHeight();
   const { errors, setError, clearError } = useAppErrors();
   // 标签树数据与版本号(版本号是 `#` 候选池的作废键;重载只由 tags-changed 唯一出口驱动)
   const { tagRows, tagsVersion } = useTagRows(setError, clearError);
@@ -157,6 +159,7 @@ export function App(): ReactNode {
           palette: controller,
           decorations,
           batchModes,
+          searchRowHeight: searchRow.height,
           onSaved: refresh,
           onRunCommand: commands.execute,
           addConditionOpen: addCondition.open,
@@ -168,6 +171,7 @@ export function App(): ReactNode {
         tagTreeRelations={{ showRelations: sidebar.showRelations, onShowRelationsChange: sidebar.setShowRelations }}
         sidebarClick={{ clickMode: sidebar.clickMode, onChangeClickMode: click.changeClickMode }}
         maintenance={{ exportAll: onExport, exporting, focus: { on: commands.focusOn, toggle: () => void commands.execute('focus.mode') } }}
+        searchRow={{ height: searchRow.height, onChange: searchRow.setHeight, onReset: searchRow.reset }}
         onFilterToStream={filterToStream}
         dataVersion={tagsVersion}
         tagMru={tagMru}

@@ -10,11 +10,14 @@
  * 框里不放文案就不必跟提示行的文案两头维护。
  */
 import type { KeyboardEventHandler, ReactNode, RefObject } from 'react';
+import { searchFontClass, searchLineHeight } from '../../shared/search-row-height';
 
 export interface UnifiedTextareaProps {
   textareaRef: RefObject<HTMLTextAreaElement | null>;
   value: string;
   disabled: boolean;
+  /** 单行行高(CSS px),来自设置 `ui.search_row_height`(默认 36,见 shared/search-row-height) */
+  rowHeight: number;
   /** 自动增高上限(px),超过转框内滚动 */
   maxHeight: number;
   /** 下拉是否显示(combobox 的 aria-expanded) */
@@ -49,8 +52,14 @@ export function UnifiedTextarea(p: UnifiedTextareaProps): ReactNode {
       onCompositionEnd={(e) => p.onChange(e.currentTarget.value, e.currentTarget.selectionStart ?? 0, e.nativeEvent)}
       onSelect={p.onSelect}
       onKeyDown={p.onKeyDown}
-      style={{ maxHeight: p.maxHeight, overflowY: 'auto' }}
-      className="block h-8 min-w-0 flex-1 resize-none rounded-sm border border-border-strong bg-raised px-2.5 py-1.5 text-ui text-text outline-none"
+      style={{
+        // 空输入时的行高 = 设置值;有内容后由宿主的 resize() 按 scrollHeight 改写
+        height: p.rowHeight,
+        lineHeight: `${searchLineHeight(p.rowHeight)}px`,
+        maxHeight: p.maxHeight,
+        overflowY: 'auto',
+      }}
+      className={`block min-w-0 flex-1 resize-none rounded-sm border border-border-strong bg-raised px-2.5 py-1.5 text-text outline-none ${searchFontClass(p.rowHeight)}`}
     />
   );
 }

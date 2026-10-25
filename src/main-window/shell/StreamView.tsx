@@ -100,6 +100,7 @@ export function StreamView(p: StreamViewProps): ReactNode {
   return (
     <div className={p.visible ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}>
       <UnifiedInput
+        rowHeight={p.searchRowHeight}
         onSaved={p.onSaved}
         editing={p.editingId !== null}
         stat={stat}

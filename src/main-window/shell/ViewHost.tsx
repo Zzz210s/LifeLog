@@ -50,6 +50,8 @@ export interface ViewHostProps {
   sidebarClick: { clickMode: SidebarClickMode; onChangeClickMode: (m: SidebarClickMode) => void };
   /** 设置页「维护」小节(App 注入):重建索引 / 导出整库 / 专注模式 */
   maintenance: MaintenanceProps;
+  /** 设置页「外观」里的「快捷搜索栏行高」(App 持有的同一份状态) */
+  searchRow: { height: number; onChange: (n: number) => void; onReset: () => void };
   onReplayTutorial: () => void;
 }
 
@@ -76,6 +78,7 @@ export function ViewHost(p: ViewHostProps): ReactNode {
         <SettingsView
           themeMode={p.theme.mode}
           onThemeChange={p.theme.setMode}
+          searchRow={p.searchRow}
           onReplayTutorial={p.onReplayTutorial}
           onBack={p.onBack}
           showRelations={p.tagTreeRelations?.showRelations}
