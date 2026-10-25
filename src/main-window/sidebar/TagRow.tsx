@@ -75,7 +75,8 @@ export function TagRow(p: TagRowProps): ReactNode {
   const state = p.excluded
     ? 'bg-danger-soft text-danger hover:bg-danger/20'
     : p.selected
-      ? 'bg-selected text-accent-text'
+      // 已被筛选命中:淡蓝档(与下面"选中行"的灰档分开,两个状态可同时存在)
+      ? 'bg-accent-soft text-accent-text'
       : p.dragActive
         ? 'text-muted'
         : 'text-muted hover:bg-hover hover:text-text';
