@@ -32,8 +32,10 @@ export function useSearchRowHeight(): SearchRowHeightApi {
       void api
         .getSetting(SEARCH_ROW_HEIGHT_KEY)
         .then((raw) => {
-          if (!still() || raw === null || raw === '') return;
-          setLocal(normalizeSearchRowHeight(raw));
+          if (!still()) return;
+          // 空值 = 没存过 / 被清掉(「恢复默认」写的就是空串):回默认 36,
+          // 不能"保持上一值" —— 否则清键之后界面停在旧读数上
+          setLocal(raw === null || raw === '' ? SEARCH_ROW_HEIGHT_DEFAULT : normalizeSearchRowHeight(raw));
         })
         .catch(() => {
           // 读不到就用默认值:这是纯外观项,不值得弹错误条

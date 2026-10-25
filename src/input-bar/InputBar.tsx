@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../shared/api';
 import { prepareForSave } from '../shared/note-source';
 import { savedStamp } from '../shared/input-feedback';
@@ -84,6 +84,11 @@ export function InputBar() {
     extraCss: listHeight,
     minHeight,
   });
+  // 行高变化(设置页拖滑块)后窗口要跟着重新量一次:use-auto-height 只在内容变化时跑,
+  // 否则字变大而窗口不动 → 一行被裁掉半截
+  useEffect(() => {
+    syncHeight();
+  }, [rowHeight, syncHeight]);
   const { opacity, onMiddleDown, flushView } = useInputWheel({
     settings,
     onResized: syncHeight,
