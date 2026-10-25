@@ -4,7 +4,10 @@
  * 读失败退回默认值 36(见 shared/search-row-height 的口径)。
  */
 import { useCallback, useEffect, useState } from 'react';
+import { listen } from '@tauri-apps/api/event';
 import { api } from '../../shared/api';
+import { INPUT_SETTINGS_CHANGED_EVENT } from '../../shared/input-settings';
+import { notifyInputSettingsChanged } from '../settings/input-settings-events';
 import {
   SEARCH_ROW_HEIGHT_DEFAULT,
   SEARCH_ROW_HEIGHT_KEY,
@@ -23,13 +26,13 @@ export interface SearchRowHeightApi {
 export function useSearchRowHeight(): SearchRowHeightApi {
   const [height, setLocal] = useState(SEARCH_ROW_HEIGHT_DEFAULT);
 
-  useEffect(() => {
-    let alive = true;
+  // 读一次设置(挂载 + 收到「输入栏设置变了」通知时各跑一次)
+  const read = useCallback((still: () => boolean) => {
     try {
       void api
         .getSetting(SEARCH_ROW_HEIGHT_KEY)
         .then((raw) => {
-          if (!alive || raw === null || raw === '') return;
+          if (!still() || raw === null || raw === '') return;
           setLocal(normalizeSearchRowHeight(raw));
         })
         .catch(() => {
@@ -39,18 +42,30 @@ export function useSearchRowHeight(): SearchRowHeightApi {
       // 夹具里 api 可能只 mock 了部分方法(没有 getSetting):同步抛也要吞掉,
       // 否则一个纯外观设置会把整棵侧栏/输入栏带崩
     }
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    read(() => alive);
+    // 设置页改完会广播 INPUT_SETTINGS_CHANGED_EVENT:输入栏那个窗口收不到主窗的 React 状态,
+    // 只靠这件事通知它重读 —— 否则改了行高要等下一次唤起才生效(用户 2026-10-25 实测过)。
+    const un = listen(INPUT_SETTINGS_CHANGED_EVENT, () => read(() => alive));
     return () => {
       alive = false;
+      void un.then((fn) => fn()).catch(() => {});
     };
-  }, []);
+  }, [read]);
 
   const commit = useCallback((next: number) => {
     setLocal((prev) => {
       const n = normalizeSearchRowHeight(next);
       if (n === prev) return prev;
-      void api.setSetting(SEARCH_ROW_HEIGHT_KEY, String(n)).catch(() => {
-        setLocal(prev); // 写库失败:退回上一值,不给用户"调了但下次打开又回去"的错觉
-      });
+      void api
+        .setSetting(SEARCH_ROW_HEIGHT_KEY, String(n))
+        .then(() => notifyInputSettingsChanged()) // 输入栏那个窗口据此重读行高
+        .catch(() => {
+          setLocal(prev); // 写库失败:退回上一值,不给用户"调了但下次打开又回去"的错觉
+        });
       return n;
     });
   }, []);
