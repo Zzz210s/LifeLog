@@ -1,38 +1,36 @@
 /**
- * 侧栏多选(2026-10-25 用户要求:Ctrl+A 区域全选、Shift 点击连选、Ctrl 点击加选)。
+ * 侧栏多选(2026-10-25 第二版:按 VS Code 资源管理器的口径重写)。
  *
- * 为什么做成**显式模式**而不是直接占用修饰键:今天的 Ctrl / Alt / Shift 三格在侧栏分别是
- * 「AND 追加筛选 / 排除 / 只看这一条」,是日常整理的主力手势(设计 2026-10-16 §4)。
- * 直接改语义会把这些习惯一次性打翻,所以:
- * - **无修饰键单击**:照旧(筛选/只看),并清空选择(与资源管理器一致);
- * - **Shift+单击**:直接进多选并从锚点连选(2026-10-25 用户要求"Shift 点了要生效",不再要求先开模式);
- * - **Ctrl+A**:直接进多选并全选可见行(焦点在输入控件里时不拦);
- * - **Ctrl+单击**:保持"AND 追加筛选"(日常主力手势,不动);
- * - 头部「多选」图标 = 不需要修饰键的纯勾选入口(配 Ctrl+A 与批量删除)。
+ * 第一版做成了"先点图标进多选模式 + 每行一个勾选框",用户否掉了:**不要勾选框**,
+ * 要 VS Code 那种「行高亮 + 修饰键」的选择。所以这一版没有模式、没有勾选框:
  *
- * 选中集以**路径**为键(与筛选条件、MRU 一致);重命名后路径变,选中项自然失效(不追)。
- * 选中集不落库:这是会话内的操作态,和批量条目那边同一口径。
+ * - 单击 = 选择这一行(**单选**,替换整个选择集),同时照旧执行原有动作(筛选 / 只看);
+ * - Ctrl+单击 = 加选 / 减选(不动筛选条件);
+ * - Shift+单击 = 从锚点连选到这一行(按**可见顺序**,折叠的子树不在区间内);
+ * - Ctrl+A = 全选可见行(焦点在输入控件里时不拦);再按一次清空;
+ * - Esc = 清空选择;
+ * - 选中的行用 `bg-selected` 高亮(与"已被筛选命中"的 `bg-accent-soft` 不是同一档,
+ *   两个状态可以同时存在且分得清 —— 这正是 VS Code 里"当前行 vs 已选中"的做法)。
+ *
+ * 选择集以**路径**为键(与筛选条件、MRU 同源);选中不落库,是会话内操作态。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 export interface TagSelectionApi {
-  /** 不需要修饰键也能进多选(Shift+单击 / Ctrl+A 的入口) */
-  ensureActive: () => void;
-  /** 多选模式是否打开(头部图标 aria-pressed) */
-  active: boolean;
   selected: ReadonlySet<string>;
   count: number;
-  setActive: (on: boolean) => void;
-  /** 单击行:切换该行(同时把锚点移到它) */
+  /** 单击:替换为仅这一行(并把锚点移到它) */
+  selectOnly: (path: string) => void;
+  /** Ctrl+单击:加选 / 减选 */
   toggle: (path: string) => void;
-  /** Shift+单击:Ctrl+单击语义之外,从锚点到该行按**可见顺序**连选 */
-  rangeTo: (path: string, visible: readonly string[]) => void;
-  /** Ctrl+A:全选当前可见行;再按一次清空 */
-  selectAll: (visible: readonly string[]) => void;
+  /** Shift+单击:从锚点到该行的区间(锚点不动,连续 Shift 是伸缩) */
+  rangeTo: (path: string) => void;
+  /** Ctrl+A:全选可见行;已全选则清空 */
+  selectAll: () => void;
   clear: () => void;
 }
 
-/** 事件是否落在可编辑控件里(此时 Ctrl+A 归输入框自己) */
+/** 事件是否落在可编辑控件里(此时 Ctrl+A / 方向键归控件自己) */
 function inEditable(target: EventTarget | null): boolean {
   const el = target as HTMLElement | null;
   const tag = el?.tagName;
@@ -41,17 +39,15 @@ function inEditable(target: EventTarget | null): boolean {
 }
 
 export function useTagSelection(visible: readonly string[]): TagSelectionApi {
-  const [active, setActiveRaw] = useState(false);
   const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set());
-  // 锚点:上一次"无修饰键点击"的行,Shift 连选从这里起
+  // 锚点 = 上一次"单击 / Ctrl+单击"的行;Shift 连选从这里起
   const anchor = useRef<string | null>(null);
+  const visibleRef = useRef(visible);
+  visibleRef.current = visible;
 
-  const setActive = useCallback((on: boolean) => {
-    setActiveRaw(on);
-    if (!on) {
-      setSelected(new Set());
-      anchor.current = null;
-    }
+  const selectOnly = useCallback((path: string) => {
+    anchor.current = path;
+    setSelected(new Set([path]));
   }, []);
 
   const toggle = useCallback((path: string) => {
@@ -64,16 +60,14 @@ export function useTagSelection(visible: readonly string[]): TagSelectionApi {
     });
   }, []);
 
-  const rangeTo = useCallback((path: string, order: readonly string[]) => {
+  const rangeTo = useCallback((path: string) => {
+    const order = visibleRef.current;
     const from = anchor.current;
-    if (from === null) {
-      anchor.current = path;
-      setSelected(new Set([path]));
-      return;
-    }
-    const a = order.indexOf(from);
+    const a = from === null ? -1 : order.indexOf(from);
     const b = order.indexOf(path);
-    if (a < 0 || b < 0) {
+    if (b < 0) return;
+    if (a < 0) {
+      // 还没有锚点(刚打开应用就按 Shift):把这一行当锚点,只选它
       anchor.current = path;
       setSelected(new Set([path]));
       return;
@@ -83,13 +77,9 @@ export function useTagSelection(visible: readonly string[]): TagSelectionApi {
     // 锚点不动:连续 Shift 点击时区间始终从同一起点伸缩(与资源管理器一致)
   }, []);
 
-  const selectAll = useCallback((order: readonly string[]) => {
-    setSelected((prev) => (prev.size >= order.length && order.length > 0 ? new Set() : new Set(order)));
-  }, []);
-
-  /** Shift+单击 / Ctrl+A 在未开模式时也要能生效:先开模式(或保持)再选 */
-  const ensureActive = useCallback(() => {
-    setActiveRaw(true);
+  const selectAll = useCallback(() => {
+    const order = visibleRef.current;
+    setSelected((prev) => (order.length > 0 && prev.size >= order.length ? new Set() : new Set(order)));
   }, []);
 
   const clear = useCallback(() => {
@@ -97,34 +87,37 @@ export function useTagSelection(visible: readonly string[]): TagSelectionApi {
     anchor.current = null;
   }, []);
 
-  // 键盘:Esc = 退出并清空;Ctrl+A = 全选可见行(焦点在输入控件里时不拦)
-  const visibleRef = useRef(visible);
-  visibleRef.current = visible;
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') {
-        if (!active) return; // 没开多选就不拦,交给预览卡片等原有处理
-        // 多选态优先吃这一下:否则同一次 Esc 会把预览卡片一起关掉(两处语义打架)
-        e.preventDefault();
-        e.stopPropagation();
-        setActive(false);
-        return;
-      }
       const mod = e.ctrlKey || e.metaKey;
       if (mod && (e.key === 'a' || e.key === 'A') && !inEditable(e.target)) {
-        // 侧栏可见时 Ctrl+A = 全选可见行(不需要先点图标);再按一次清空
         e.preventDefault();
-        ensureActive();
-        selectAll(visibleRef.current);
+        selectAll();
+        return;
+      }
+      if (e.key === 'Escape' && selected.size > 0 && !inEditable(e.target)) {
+        e.preventDefault();
+        e.stopPropagation();
+        clear();
       }
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [active, selectAll, setActive, ensureActive]);
+  }, [selectAll, clear, selected.size]);
+
+  // 选中行被删 / 被改名后路径不在可见集里:从选择集里摘掉,不留悬空的"已选 1"
+  useEffect(() => {
+    setSelected((prev) => {
+      if (prev.size === 0) return prev;
+      const alive = new Set(visible);
+      const next = new Set([...prev].filter((p) => alive.has(p)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [visible]);
 
   const count = selected.size;
   return useMemo(
-    () => ({ active, ensureActive, selected, count, setActive, toggle, rangeTo, selectAll, clear }),
-    [active, ensureActive, selected, count, setActive, toggle, rangeTo, selectAll, clear]
+    () => ({ selected, count, selectOnly, toggle, rangeTo, selectAll, clear }),
+    [selected, count, selectOnly, toggle, rangeTo, selectAll, clear]
   );
 }

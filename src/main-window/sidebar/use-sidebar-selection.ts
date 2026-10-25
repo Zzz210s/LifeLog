@@ -1,10 +1,12 @@
 /**
- * 侧栏多选的接线层(自 `TagsSection` 抽出,守 200 行红线 + 让"选中态用哪份可见顺序"
- * 只有一处定义)。
+ * 侧栏选择的接线层(VS Code 口径,2026-10-25 第二版):把"哪份可见顺序 + 修饰键怎么翻成选择"
+ * 只定义一处,`TagsSection` 只负责把它摊到行与浮条上。
  *
- * 可见顺序的取法:树形 = 折叠后的 `shown` 深度优先序;扁平 = `flatNodes`(本身就是序列)。
- * Shift 连选、Ctrl+A 全选、浮条的"选中路径"都读同一份 `visiblePaths` —— 三处不一致
- * 就会出现"全选了却删不到"这类假成功。
+ * 修饰键 → 动作:
+ * - 无        → `selectOnly`(替换为这一行)+ 照旧执行原有行意图(筛选 / 只看)
+ * - Ctrl/Meta → `toggle`(加选/减选,不改条件)
+ * - Shift     → `rangeTo`(锚点连选,不改条件)
+ * Ctrl+A / Esc 由 hook 自己听键盘。
  */
 import { useCallback, useMemo } from 'react';
 import type { TagCount } from '../../shared/types';
@@ -12,13 +14,12 @@ import { flattenTree, type TagNode } from './tag-tree';
 import { useTagSelection, type TagSelectionApi } from './use-tag-selection';
 
 export interface SidebarSelection {
-  /** 行的选中入口:Shift = 连选(自己就能进多选),普通 = 切换 */
-  pick: (path: string, shift: boolean) => void;
   selection: TagSelectionApi;
-  visiblePaths: string[];
-  /** 选中且仍可见的路径(浮条按它批量操作) */
+  /** 选中且仍可见的路径(浮条按它批量操作,顺序 = 可见顺序) */
   selectedPaths: string[];
   idByPath: Map<string, number>;
+  /** 行的修饰键入口:返回 true 表示"这次点击已经归选择,不要再走筛选意图" */
+  pick: (path: string, mods: { shift: boolean; ctrl: boolean }) => boolean;
 }
 
 export function useSidebarSelection(
@@ -33,21 +34,28 @@ export function useSidebarSelection(
   );
   const selection = useTagSelection(visiblePaths);
   const idByPath = useMemo(() => new Map(rows.map((r) => [r.path, r.id] as const)), [rows]);
-  const selectedPaths = useMemo(
-    () => visiblePaths.filter((path) => selection.selected.has(path)),
-    [visiblePaths, selection.selected]
-  );
+
   const pick = useCallback(
-    (path: string, shift: boolean) => {
-      // Shift 不需要先点图标:用户实测"Shift 没生效"就是因为要先开模式
-      if (shift) {
-        if (!selection.active) selection.ensureActive();
-        selection.rangeTo(path, visiblePaths);
-        return;
+    (path: string, mods: { shift: boolean; ctrl: boolean }): boolean => {
+      if (mods.shift) {
+        selection.rangeTo(path);
+        return true;
       }
-      selection.toggle(path);
+      if (mods.ctrl) {
+        selection.toggle(path);
+        return true;
+      }
+      // 单击:替换选择集,但**不吞掉**原来的行意图(筛选 / 只看由上层继续执行)
+      selection.selectOnly(path);
+      return false;
     },
-    [selection, visiblePaths]
+    [selection]
   );
-  return { selection, pick, visiblePaths, selectedPaths, idByPath };
+
+  const selectedPaths = useMemo(() => {
+    const set = selection.selected;
+    return visiblePaths.filter((p) => set.has(p));
+  }, [visiblePaths, selection.selected]);
+
+  return { selection, selectedPaths, idByPath, pick };
 }

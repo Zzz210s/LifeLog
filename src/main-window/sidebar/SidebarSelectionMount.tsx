@@ -1,6 +1,6 @@
 /**
- * 多选浮条的挂点(自 `TagsSection` 抽出,守 200 行红线):未开启多选时什么都不渲染,
- * 开启后交给 `TagSelectionBar`。抽出的是**接线**,视觉与文案仍只在 TagSelectionBar 一处。
+ * 选择浮条的挂点(自 `TagsSection` 抽出,守 200 行红线)。
+ * VS Code 口径:单选只是行高亮,不弹浮条;有 **2 行以上**选中才给批量操作。
  */
 import type { ReactNode } from 'react';
 import { TagSelectionBar } from './TagSelectionBar';
@@ -15,7 +15,7 @@ export interface SidebarSelectionMountProps {
 }
 
 export function SidebarSelectionMount(p: SidebarSelectionMountProps): ReactNode {
-  if (!p.selection.active) return null;
+  if (p.selection.count < 2) return null;
   return (
     <TagSelectionBar
       count={p.selection.count}

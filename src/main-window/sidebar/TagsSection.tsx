@@ -118,7 +118,6 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
   return (
     <section className="flex min-h-0 flex-1 flex-col" aria-label="实体分区">
       <TagsHeader
-        selection={{ active: selection.active, count: selection.count, onToggle: () => selection.setActive(!selection.active) }}
         flash={flash}
         mode={p.mode}
         onModeChange={p.onModeChange}
@@ -157,11 +156,7 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
             clickMode={click.clickMode}
             previewPath={click.previewPath}
             onIntent={onIntent}
-            selection={{
-              active: selection.active,
-              selected: selection.selected,
-              onPick: pick,
-            }}
+            selection={{ selected: selection.selected, onPick: pick }}
             onToggleExpand={toggleExpand}
             onContextMenu={menu.onContextMenu}
             drag={drag}

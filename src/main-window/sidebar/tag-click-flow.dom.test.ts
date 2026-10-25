@@ -54,12 +54,13 @@ describe('两模式的无修饰键单击(§4.1 第 1 / 5 行)', () => {
     expect(h.row('书籍')?.getAttribute('data-preview')).toBeNull();
   });
 
-  it('open:单击把原有的其它标签条件清掉(等价 Shift+单击,不是追加)', () => {
+  it('open:单击只看这一条(把其它条件清掉);Ctrl 加选不动条件', () => {
     const h = mount('open');
-    h.clickRow('书籍', { ctrlKey: true });
-    h.clickRow('书籍/SQL', { ctrlKey: true });
-    expect(itemPaths(h.probe.conditions, 'tag')).toEqual(['书籍', '书籍/SQL']);
-    h.clickRow('书籍/SQL');
+    h.clickRow('书籍');
+    expect(itemPaths(h.probe.conditions, 'tag')).toEqual(['书籍']);
+    h.clickRow('书籍/SQL', { ctrlKey: true }); // 选择层吃掉:条件不变
+    expect(itemPaths(h.probe.conditions, 'tag')).toEqual(['书籍']);
+    h.clickRow('书籍/SQL'); // 单击 = 只看这一条(替换)
     expect(itemPaths(h.probe.conditions, 'tag')).toEqual(['书籍/SQL']);
     expect(h.card()).toBeNull();
   });
@@ -91,36 +92,25 @@ describe('已删除的 select:任何入口都不该留下痕迹', () => {
 });
 
 describe('修饰键四格(§4.1 主表 8 格)', () => {
-  it('filter:无 = 切换、Ctrl = 追加(幂等只回执)、Alt = 排除(可撤)、Shift = 连选(不改条件)', () => {
+  // 2026-10-25 第二版口径(VS Code):Ctrl = 加选、Shift = 连选,两者都**不再改筛选条件**;
+  // 只剩无修饰键(按档位)与 Alt(排除)会写条件。原来的"Ctrl = AND 追加"随这次改动退场。
+  it('filter:无 = 切换筛选、Alt = 排除(可撤)、Ctrl = 加选、Shift = 连选', () => {
     const h = mount('filter');
     h.clickRow('书籍');
     expect(itemPaths(h.probe.conditions, 'tag')).toEqual(['书籍']);
-    h.clickRow('书籍/SQL', { ctrlKey: true });
-    expect(itemPaths(h.probe.conditions, 'tag')).toEqual(['书籍', '书籍/SQL']);
-
-    const writes = h.probe.writes.length;
-    h.clickRow('书籍/SQL', { ctrlKey: true });
-    expect(h.probe.writes.length).toBe(writes); // 幂等:不再写库
-    expect(h.flash()).toContain('已在筛选中');
 
     h.clickRow('书籍', { altKey: true });
     expect(itemPaths(h.probe.conditions, 'excludeTag')).toEqual(['书籍']);
     h.clickRow('书籍', { altKey: true });
     expect(itemPaths(h.probe.conditions, 'excludeTag')).toEqual([]);
 
-    // 2026-10-25 改口径:Shift+单击 = 进多选并连选,**不动筛选条件**(用户要求 Shift 直接生效)
+    // Ctrl / Shift 只动选择集:条件原文一字不变
     const before = JSON.stringify(itemPaths(h.probe.conditions, 'tag'));
-    h.clickRow('书籍/SQL', { shiftKey: true });
+    const exclBefore = JSON.stringify(itemPaths(h.probe.conditions, 'excludeTag'));
+    h.clickRow('书籍/SQL', { ctrlKey: true });
+    h.clickRow('书籍', { shiftKey: true });
     expect(JSON.stringify(itemPaths(h.probe.conditions, 'tag'))).toBe(before);
-  });
-
-  it('open:修饰键只写条件,不开卡片也不切视图(一次点击只做一件事)', () => {
-    const h = mount('open', 'settings');
-    h.clickRow('书籍', { ctrlKey: true });
-    expect(itemPaths(h.probe.conditions, 'tag')).toEqual(['书籍']);
-    expect(h.card()).toBeNull();
-    expect(h.probe.view).toBe('settings');
-    expect(h.flash()).toContain('已追加为同时满足');
+    expect(JSON.stringify(itemPaths(h.probe.conditions, 'excludeTag'))).toBe(exclBefore);
   });
 
   it('open:无修饰键单击的回执说的是「已只看」;双击才出卡片', () => {
@@ -145,10 +135,10 @@ describe('修饰键四格(§4.1 主表 8 格)', () => {
     expect(h.card()).toBeNull();
   });
 
-  it('多修饰键同时按下只出一个动作:Ctrl+Alt = 追加(优先级 Ctrl > Alt > Shift)', () => {
+  it('多修饰键同时按下只出一个动作:Ctrl+Alt = 加选(选择层优先,不写条件)', () => {
     const h = mount('filter');
     h.clickRow('书籍', { ctrlKey: true, altKey: true });
-    expect(itemPaths(h.probe.conditions, 'tag')).toEqual(['书籍']);
+    expect(itemPaths(h.probe.conditions, 'tag')).toEqual([]);
     expect(itemPaths(h.probe.conditions, 'excludeTag')).toEqual([]);
   });
 });
