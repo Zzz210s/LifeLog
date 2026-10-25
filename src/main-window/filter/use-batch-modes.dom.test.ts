@@ -25,7 +25,6 @@ vi.mock('@tauri-apps/plugin-dialog', () => ({ confirm: vi.fn(async () => true) }
 let root: Root;
 let host: HTMLDivElement;
 let handle: BatchModes;
-let patch: ReturnType<typeof vi.fn>;
 
 function Harness(): ReactNode {
   // 条件走真补丁通道(applyFilterPatch):挪位的动作会真的换位置,选中集跟不跟得上在这里验
@@ -42,7 +41,6 @@ function Harness(): ReactNode {
 }
 
 beforeEach(() => {
-  patch = vi.fn();
   host = document.createElement('div');
   document.body.appendChild(host);
   root = createRoot(host);

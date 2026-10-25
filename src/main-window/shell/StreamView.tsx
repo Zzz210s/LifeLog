@@ -4,86 +4,30 @@
  *
  * Task 6:统一输入框的采纳副作用与 `/` 实时筛选在这里落地。决策与执行分开 —— 决策是纯函数
  * `effectFor`(可单测),执行(滚到笔记 / 打条件补丁 / 跑既有命令 + MRU 记账)都在本容器里。
- * 模式/query 镜像与筛选防抖已抽到 `use-unified-filter-sync`(Task 4,守行数红线)。
+ * 模式/query 镜像与筛选防抖已抽到 `use-unified-filter-sync`(Task 4,守行数红线);
+ * props 合同与顶部条件栏/两条浮条的挂点分别抽到 `./StreamViewProps` 与 `./StreamViewBars`。
  */
 import { useCallback, useMemo, useRef } from 'react';
-import type { ReactNode, RefObject } from 'react';
-import type { Note } from '../../shared/types';
-import type { FilterConditions } from '../../shared/filter-conditions';
+import type { ReactNode } from 'react';
 import { itemPaths } from '../../shared/filter-conditions';
-import type { RowDecoration } from '../palette/PaletteRow';
-import type { PaletteController } from '../palette/use-palette';
 import { noteMruOf } from '../palette/palette-mru';
 import { usePaletteSettings } from '../palette/use-palette-settings';
 import { UnifiedInput } from '../unified/UnifiedInput';
-import type { UnifiedController } from '../unified/use-unified-input';
 import { effectFor } from '../unified/unified-accept';
 import { useUnifiedFilterSync } from './use-unified-filter-sync';
 import { useQuickOpen } from '../palette/use-quick-open';
 import { NoteStream } from '../stream/NoteStream';
-import type { GroupedView } from '../data/use-stream-feed';
-import { ConditionBar } from '../filter/ConditionBar';
-import { BatchBar } from '../filter/BatchBar';
-import { CondBatchBar } from '../filter/CondBatchBar';
 import { OFF_BATCH } from '../filter/use-batch-selection';
-import type { BatchModes } from '../filter/use-batch-modes';
 import { OFF_COND_BATCH } from '../filter/use-cond-batch';
 import { sortHintLabel } from '../filter/sort-conditions';
 import { ErrorBars } from './ErrorBars';
 import { TagPreviewCard } from './TagPreviewCard';
-import type { TagPreviewCardProps } from './TagPreviewCard';
 import type { ErrorKind } from './ErrorBar';
-import type { ErrorMap } from './errors';
+import { StreamViewBars } from './StreamViewBars';
+import type { StreamViewProps } from './StreamViewProps';
 
-export interface StreamViewProps {
-  visible: boolean;
-  conditions: FilterConditions;
-  notes: Note[];
-  editingId: number | null;
-  hasMore: boolean;
-  loading: boolean;
-  queryFailed: boolean;
-  /** 分组渲染接线(非空 = 分组模式;degraded 时恒 null,平铺兜底) */
-  grouping: GroupedView | null;
-  /** 顶部提示(degraded / slow 文案) */
-  notice: string | null;
-  /** open 模式的预览卡片数据(设计 §5.4;null = 没打开任何实体,不渲染) */
-  preview: TagPreviewCardProps | null;
-  filterEmpty: boolean;
-  errors: ErrorMap;
-  onPatch: (value: Partial<FilterConditions>) => void;
-  onToggleTag: (path: string) => void;
-  onRetry: () => void;
-  onDismissError: (kind: ErrorKind) => void;
-  onClearFilters: () => void;
-  onShowInput: () => void;
-  onLoadMore: () => void;
-  onEdit: (note: Note) => void;
-  onSwitchEdit: (note: Note) => void;
-  onDelete: (note: Note) => void;
-  onEditSaved: (note: Note) => void;
-  onEditCancel: () => void;
-  onToggleTask: (note: Note, index: number) => void;
-  onLinkError: (message: string) => void;
-  /** 候选控制器:统一输入框的候选/高亮状态与它共用(采纳副作用见 acceptAt) */
-  palette: PaletteController;
-  /** 候选行装饰(命令快捷键/标签计数/笔记日期) */
-  decorations: Readonly<Record<string, RowDecoration>>;
-  /** 统一输入框保存成功后刷新(回第一页 + 重读标签) */
-  onSaved: () => void;
-  /** `>` 采纳后执行既有命令(use-app-commands 的 execute:先 flush 编辑态,失败落错误条) */
-  onRunCommand: (id: string) => void;
-  /** 「添加条件」命令/顶栏菜单上抛的开关(命令消费后由 App 复位) */
-  addConditionOpen: boolean;
-  onAddConditionOpenChange: (open: boolean) => void;
-  /** 统一输入框控制器上抛口(快捷键要 `prefill`):App 持有的 ref,这里只写不读 */
-  unifiedRef: RefObject<UnifiedController | null>;
-  /** 标签数据版本(`[[` 补全候选池的作废键) */
-  dataVersion?: number;
-  /** 批量编辑的两态(§10.3 / §A):条目批量 + 条件批量,两者互斥(接线在 `use-batch-modes`);
-   *  不传 = 两态都关档(测试夹具与只读用法)。 */
-  batchModes?: BatchModes;
-}
+/** props 合同搬到了 ./StreamViewProps(守 200 行红线),对外导出路径不变 */
+export type { StreamViewProps } from './StreamViewProps';
 
 export function StreamView(p: StreamViewProps): ReactNode {
   const batch = p.batchModes?.notes ?? OFF_BATCH;
@@ -167,18 +111,15 @@ export function StreamView(p: StreamViewProps): ReactNode {
         excludeNoteId={p.editingId ?? undefined}
         noteMru={noteMru}
       />
-      <ConditionBar
+      <StreamViewBars
         conditions={p.conditions}
         onPatch={p.onPatch}
         addConditionOpen={p.addConditionOpen}
         onAddConditionOpenChange={p.onAddConditionOpenChange}
-        batch={{ on: batch.on, toggle: batch.toggleOn }}
+        dataVersion={p.dataVersion ?? 0}
+        batch={batch}
         condBatch={condBatch}
       />
-      {/* 条件批量浮条(§A1):与条目批量浮条互斥,同一挂点(条件栏之后、错误条之前) */}
-      {condBatch.on && <CondBatchBar cond={condBatch} />}
-      {/* 批量浮条(§7.2 顺序):条件栏之后、错误条之前;不在批量态时不渲染 */}
-      {batch.on && <BatchBar batch={batch} dataVersion={p.dataVersion ?? 0} />}
       <ErrorBars errors={p.errors} onRetry={p.onRetry} onDismiss={p.onDismissError} />
       {/* 预览卡片(§5.4):条件栏之后、笔记流之前;不进 notes 数组,不参与分页 / 分组 / 空态 */}
       {p.preview !== null && <TagPreviewCard {...p.preview} />}

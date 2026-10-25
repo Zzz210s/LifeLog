@@ -25,7 +25,7 @@ import { useNotesExport } from './data/use-export';
 import { useStreamActions } from './shell/use-stream-actions';
 import { HoverTip } from './shell/HoverTip';
 import { TutorialLayer } from './tutorial/TutorialLayer';
-import { useTutorialEntry } from './tutorial/use-tutorial-entry';
+import { useAppTutorial } from './shell/use-app-tutorial';
 
 /** 主窗 v2 外壳:侧栏(标签)+ 内容区(顶栏 + 视图分派在 shell/ViewHost);候选下拉在输入框内 */
 export function App(): ReactNode {
@@ -68,28 +68,12 @@ export function App(): ReactNode {
   const openSettings = useCallback(() => setView('settings'), []);
   const reportSettingsError = useCallback((m: string) => setError('action', m), [setError]);
   useOpenSettings(openSettings, reportSettingsError);
-  // 首次使用引导:主窗自己读标记决定挂不挂层(开窗在 Rust 启动路径);用户动作写标记、「重新观看」先回信息流
-  // 回调身份要稳(重看入口把它透传到设置页;每渲染换新会让下游 props 每次变)
-  const backToStream = useCallback(() => setView('stream'), []);
-  const tutorial = useTutorialEntry(backToStream);
-  // 图上的「筛到信息流」:与侧栏点标签同一口径(含子级),采纳后回信息流(G2 Task 5 留的内联箭头收成具名回调)
-  const filterToStream = useCallback(
-    (path: string) => {
-      toggleTag(path);
-      backToStream();
-    },
-    [toggleTag, backToStream],
-  );
+  // 引导层 + 「回信息流 / 筛到信息流」两个视图动作(接线与锚点守卫都在 shell/use-app-tutorial)
+  const { backToStream, filterToStream, tutorial } = useAppTutorial({ view, setView, toggleTag });
 
   // 侧栏单击接线(设计 2026-10-16,计划 T4):光标 / 预览不落库;侧栏、设置页与信息流共用这一份
   const click = useTagClick(sidebar, { conditions, onPatch: patch, rows: tagRows,
     inStream: view === 'stream', openStream: backToStream });
-
-  // 引导开着时切到非信息流视图(设置页 / 关系图;托盘与命令都拦不住键盘闸门)会把锚点全藏起来 ——
-  // 覆盖层会变成"全屏压暗 + 气泡悬空"。这时按"不可用"处理:**只关层、不写标记**,下次启动再弹。
-  useEffect(() => {
-    if (view !== 'stream' && tutorial.open) tutorial.onUnavailable();
-  }, [view, tutorial]);
 
   const { remove, onEditSaved, toggleTask, requestEdit, switchEdit, handleTagsMutated } = useEditFlow({
     conditions,

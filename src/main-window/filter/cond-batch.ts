@@ -9,7 +9,7 @@
  * (`condGate().canRun` 为假),并由浮条给一句中文说明 —— 不静默跳过。
  * 四个补丁函数在 `cond-batch-actions.ts`(本件只放键 / 选中集 / 闸门 / 重认,守 200 行上限)。
  */
-import { migrateFlat, uiGroups } from '../../shared/filter-conditions';
+import { uiGroups } from '../../shared/filter-conditions';
 import type { FilterConditions, GroupItem } from '../../shared/filter-conditions';
 
 /** 条件项的选中键:`${组下标}:${组内下标}` */
