@@ -99,9 +99,12 @@ describe('V5 侧栏行:高 26(13/18 + py-1)与三态', () => {
     expect(t).not.toContain('hover:bg-accent-soft');
   });
 
-  it('选中态 = bg-selected + accent-text;排除态 = danger-soft + danger;拖拽中不画 hover', () => {
+  // 2026-10-25:侧栏选择改成 VS Code 口径后,多选高亮占用 `bg-selected`;
+  // "已被筛选命中"改用淡蓝档 `bg-accent-soft` —— 两档必须不同,否则两种状态分不清。
+  it('筛选命中 = bg-accent-soft + accent-text;多选 = bg-selected;排除态 = danger-soft + danger', () => {
     const selected = tokens(render({ selected: true }));
-    expect(selected).toContain('bg-selected');
+    expect(selected).toContain('bg-accent-soft');
+    expect(selected).not.toContain('bg-selected');
     expect(selected).toContain('text-accent-text');
     expect(selected).not.toContain('hover:bg-hover');
     // aria-pressed 仍只表示"筛选包含侧"(光标 / 预览不写它,§5.8)
