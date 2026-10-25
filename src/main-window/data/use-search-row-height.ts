@@ -25,15 +25,20 @@ export function useSearchRowHeight(): SearchRowHeightApi {
 
   useEffect(() => {
     let alive = true;
-    void api
-      .getSetting(SEARCH_ROW_HEIGHT_KEY)
-      .then((raw) => {
-        if (!alive || raw === null || raw === '') return;
-        setLocal(normalizeSearchRowHeight(raw));
-      })
-      .catch(() => {
-        // 读不到就用默认值:这是纯外观项,不值得弹错误条
-      });
+    try {
+      void api
+        .getSetting(SEARCH_ROW_HEIGHT_KEY)
+        .then((raw) => {
+          if (!alive || raw === null || raw === '') return;
+          setLocal(normalizeSearchRowHeight(raw));
+        })
+        .catch(() => {
+          // 读不到就用默认值:这是纯外观项,不值得弹错误条
+        });
+    } catch {
+      // 夹具里 api 可能只 mock 了部分方法(没有 getSetting):同步抛也要吞掉,
+      // 否则一个纯外观设置会把整棵侧栏/输入栏带崩
+    }
     return () => {
       alive = false;
     };

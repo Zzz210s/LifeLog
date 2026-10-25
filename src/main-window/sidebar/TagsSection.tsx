@@ -13,6 +13,7 @@ import type { TagMruSource } from '../../shared/tag-mru';
 import type { TagCount } from '../../shared/types';
 import { TagMenu } from './TagMenu';
 import { TagRowList } from './TagRowList';
+import { useSearchRowHeight } from '../data/use-search-row-height';
 import { TagsHeader } from './TagsHeader';
 import { TagRootDropBar } from './TagRootDropBar';
 import { setTagScope, toggleExcludeTag } from './tag-click-patch';
@@ -112,6 +113,8 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
 
   // 扁平模式:收窄后的树拉平为深度优先序列
   const flatNodes = useMemo(() => flattenTree(shown), [shown]);
+  // 侧栏收窄搜索框与主窗快捷搜索栏共用同一行高设置(设置页「外观」那一行)
+  const searchRowHeight = useSearchRowHeight().height;
 
   return (
     <section className="flex min-h-0 flex-1 flex-col" aria-label="实体分区">
@@ -125,6 +128,7 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
         ime={search.ime}
         onToggleSearch={search.toggleSearch}
         onCloseSearch={search.closeSearch}
+        searchRowHeight={searchRowHeight}
       />
       <div
         ref={listRef}

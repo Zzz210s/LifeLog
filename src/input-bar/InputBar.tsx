@@ -15,10 +15,21 @@ import { useInputSettings } from './use-input-settings';
 import { useStickerAppearance } from './use-sticker-appearance';
 import { useInputWheel } from './use-input-wheel';
 import { usePaletteSettings } from '../main-window/palette/use-palette-settings';
+import { useSearchRowHeight } from '../main-window/data/use-search-row-height';
+import { searchFontClass } from '../shared/search-row-height';
 
 export function InputBar() {
   // 组合守卫:显示值 content 组合中照常跟随(非受控框的文字本来就在 DOM 里),补全候选只读
   // committed —— 否则拼音未上屏时 `#`/`[[` 候选已经按原始拼音收窄、还多打一次 IPC
+  // 快捷输入栏的单行高度与主窗「快捷搜索栏」同一个设置(`ui.search_row_height`,默认 36):
+  // 用户在设置页调一次,两处一起变 —— 两处都是「一行就把话说完」的入口,行高不该各调一套。
+  const rowHeight = useSearchRowHeight().height;
+  // 输入栏的内边距是 py-2(8+8),单行视觉高度约等于 lineHeight + 16。设置值 36 对应的
+  // lineHeight 是 20 —— 比今天在用的 22.75 更紧,所以这里取**下限 22.75**:默认档外观与今天
+  // 完全一致,只有把设置往上调(44 / 52)才真正变高。窗口高度由 use-auto-height 读 computed
+  // lineHeight 自适应,无需另改。
+  const inputLineHeight = Math.max(22.75, rowHeight - 16);
+  const inputFontClass = searchFontClass(rowHeight);
   const { value: content, committed, setValue, handlers } = useImeInput();
   // 光标镜像(`[[` 补全的触发判断读它;`]]` 类语法要按光标切片,不能只看整串)
   const [caret, setCaret] = useState(0);
@@ -158,7 +169,8 @@ export function InputBar() {
         }}
         onSelect={(e) => setCaret(e.currentTarget.selectionStart ?? 0)}
         onKeyDown={onKeyDown}
-        className="sticker-input min-h-0 w-full flex-1 resize-none overflow-y-auto px-3 py-2 text-sm leading-relaxed read-only:text-faint"
+        style={{ lineHeight: `${inputLineHeight}px` }}
+        className={`sticker-input min-h-0 w-full flex-1 resize-none overflow-y-auto px-3 py-2 ${inputFontClass} read-only:text-faint`}
       />
       {complete.list}
       <InputBarOverlays

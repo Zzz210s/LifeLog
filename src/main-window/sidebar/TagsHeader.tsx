@@ -15,6 +15,7 @@
  * 放大镜的输入框是另一回事:它只收窄看得见的树,不改筛选条件(不预填 `#`)。
  */
 import type { ReactNode } from 'react';
+import { SEARCH_ROW_HEIGHT_DEFAULT, searchFontClass } from '../../shared/search-row-height';
 import type { ImeInputHandlers } from '../../shared/use-ime-composition';
 import type { TagViewMode } from './use-sidebar-state';
 import { BTN_ICON } from '../shell/button-classes';
@@ -41,6 +42,8 @@ export interface TagsHeaderProps {
   onToggleSearch: () => void;
   /** Esc:清空关键词并收起 */
   onCloseSearch: () => void;
+  /** 行高(设置 `ui.search_row_height`,与主窗快捷搜索栏同一份;不传 = 默认 36) */
+  searchRowHeight?: number;
 }
 
 /** 树形 = 三条逐级缩进的横线;扁平 = 三条等宽横线(同一视觉重量,一眼能对比) */
@@ -62,6 +65,7 @@ function Icon({ d }: { d: string }): ReactNode {
 }
 
 export function TagsHeader(p: TagsHeaderProps): ReactNode {
+  const searchRowHeight = p.searchRowHeight ?? SEARCH_ROW_HEIGHT_DEFAULT;
   return (
     <>
       <div className="group flex h-8 shrink-0 items-center gap-1 px-2">
@@ -122,7 +126,8 @@ export function TagsHeader(p: TagsHeaderProps): ReactNode {
           }}
           placeholder="按名称收窄标签树"
           aria-label="按名称收窄标签树"
-          className="mx-2 mb-1 h-8 shrink-0 rounded-sm border border-border-strong px-2.5 text-ui outline-none"
+          style={{ height: `${searchRowHeight}px` }}
+          className={`mx-2 mb-1 shrink-0 rounded-sm border border-border-strong px-2.5 outline-none ${searchFontClass(searchRowHeight)}`}
         />
       )}
     </>
