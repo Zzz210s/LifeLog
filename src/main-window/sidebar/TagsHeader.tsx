@@ -44,6 +44,8 @@ export interface TagsHeaderProps {
   onCloseSearch: () => void;
   /** 行高(设置 `ui.search_row_height`,与主窗快捷搜索栏同一份;不传 = 默认 36) */
   searchRowHeight?: number;
+  /** 多选态(2026-10-25):图标切换 + 已选条数;缺省则不显示这颗图标 */
+  selection?: { active: boolean; count: number; onToggle: () => void };
 }
 
 /** 树形 = 三条逐级缩进的横线;扁平 = 三条等宽横线(同一视觉重量,一眼能对比) */
@@ -51,6 +53,8 @@ const TREE_PATH = 'M2.5 4h11M5.5 8h8M9 12h4.5';
 const FLAT_PATH = 'M2.5 4h11M2.5 8h11M2.5 12h11';
 /** 筛选/条件语义(2026-10-07 换下漏斗):居中递减三条线,与左对齐缩进的「树形」一眼区分 */
 const FILTER_PATH = 'M3 4h10M5 8h6M7 12h2';
+/** 多选:方框 + 勾,与「勾选行」同义 */
+const MULTI_PATH = 'M2.5 3.5h4M2.5 8h4M2.5 12.5h4M10 9.5l2 2 2.5-3';
 /** 放大镜:圆 + 45° 手柄,与「收窄标签树」同义 */
 const SEARCH_PATH = 'M13 13 9.7 9.7M2.5 7a4.5 4.5 0 1 0 9 0 4.5 4.5 0 1 0-9 0';
 
@@ -107,8 +111,25 @@ export function TagsHeader(p: TagsHeaderProps): ReactNode {
           >
             <Icon d={FILTER_PATH} />
           </button>
+          {p.selection && (
+            <button
+              type="button"
+              title="多选(Ctrl+A 全选可见行,Shift 连选)"
+              aria-label="多选"
+              aria-pressed={p.selection.active}
+              onClick={p.selection.onToggle}
+              className={BTN_ICON + (p.selection.active ? ' bg-accent-soft text-accent' : '')}
+            >
+              <Icon d={MULTI_PATH} />
+            </button>
+          )}
         </span>
       </div>
+      {p.selection?.active && (
+        <span data-testid="tag-selection-count" className="ml-1 text-label text-accent">
+          已选 {p.selection.count}
+        </span>
+      )}
       {p.searchOpen && (
         <input
           autoFocus

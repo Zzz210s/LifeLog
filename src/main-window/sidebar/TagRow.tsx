@@ -41,6 +41,9 @@ export interface TagRowProps {
   previewing?: boolean;
   /** 行意图的唯一出口(单击 / 双击 / Enter / Space);条件与状态的一切执行都在上层 */
   onIntent: (intent: RowIntent, node: TagNode) => void;
+  /** 多选态(2026-10-25):开启时单击/Enter/Space 不再走行意图,改为切换本行选中;
+   *  Shift+单击交给上层做区间连选(锚点在上层) */
+  selection?: { active: boolean; checked: boolean; onPick: (path: string, shift: boolean) => void };
   /** 展开 / 收起:箭头与 ArrowLeft/Right 用它,不占行意图 */
   onToggleExpand: (path: string) => void;
   onContextMenu: (e: React.MouseEvent, node: TagNode) => void;
@@ -79,7 +82,9 @@ export function TagRow(p: TagRowProps): ReactNode {
   const rowClass =
     'tag-guides group relative flex w-full items-center gap-1 rounded-xs px-1.5 py-1 pr-2 text-left text-ui transition-colors ' +
     (selectable ? state : 'cursor-default text-muted' + (p.dragActive ? '' : ' hover:bg-hover')) +
-    (p.dropZone === 'child' ? ' bg-accent-soft' : '');
+    (p.dropZone === 'child' ? ' bg-accent-soft' : '') +
+    // 多选态:勾选的行用与"引入侧选中"同一档底色(不引入新令牌)
+    (p.selection?.active && p.selection.checked && !selectable ? ' bg-accent-soft' : '');
 
   const tips = rowRelationTips(p.node.path, p.relations ?? []);
 
@@ -88,6 +93,11 @@ export function TagRow(p: TagRowProps): ReactNode {
   /** 行的"激活"= 模式 + 修饰键(修饰键优先,见 tag-row-action);拖过的不算单击(§4.3 第 16 行) */
   const activate = (m: ClickMods): void => {
     if (p.dragActive) return;
+    // 多选态优先接管:这一行只做"选中/连选",绝不发筛选补丁
+    if (p.selection?.active) {
+      p.selection.onPick(p.node.path, m.shift);
+      return;
+    }
     emit(rowIntent(p.clickMode ?? 'filter', m, selectable));
   };
   /** Enter/Space 与单击同义(显式处理并吃掉原生 click);ArrowLeft/Right 只在树模式动子树 */
@@ -112,6 +122,7 @@ export function TagRow(p: TagRowProps): ReactNode {
       data-drop-target={p.dropZone ?? undefined}
       draggable={p.node.id !== null}
       aria-pressed={selectable ? p.selected : undefined}
+      aria-checked={p.selection?.active ? p.selection.checked : undefined}
       aria-expanded={p.previewing === true ? 'true' : undefined}
       aria-controls={p.previewing === true ? 'tag-preview-card' : undefined}
       data-preview={p.previewing === true ? 'true' : undefined}
@@ -138,6 +149,18 @@ export function TagRow(p: TagRowProps): ReactNode {
       onDragLeave={p.onDragLeave}
       onDrop={p.onDrop}
     >
+      {p.selection?.active && (
+        <span
+          aria-hidden="true"
+          data-testid="tag-row-check"
+          className={
+            'flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-xs border text-label leading-none ' +
+            (p.selection.checked ? 'border-accent bg-accent text-on-accent' : 'border-border-strong bg-raised')
+          }
+        >
+          {p.selection.checked ? '✓' : ''}
+        </span>
+      )}
       {p.previewing === true && <span aria-hidden="true" data-row-bar className={BAR_CLASS} />}
       {/* 同级插入线:落点冒泡到整行时兜底画(几何与边界带同源),所以永远只有一条 */}
       {(p.dropZone === 'before' || p.dropZone === 'after') && (

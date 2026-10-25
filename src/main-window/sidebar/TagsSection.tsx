@@ -13,7 +13,9 @@ import type { TagMruSource } from '../../shared/tag-mru';
 import type { TagCount } from '../../shared/types';
 import { TagMenu } from './TagMenu';
 import { TagRowList } from './TagRowList';
+import { SidebarSelectionMount } from './SidebarSelectionMount';
 import { useSearchRowHeight } from '../data/use-search-row-height';
+import { useSidebarSelection } from './use-sidebar-selection';
 import { TagsHeader } from './TagsHeader';
 import { TagRootDropBar } from './TagRootDropBar';
 import { setTagScope, toggleExcludeTag } from './tag-click-patch';
@@ -67,6 +69,7 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
 
   const tree = useMemo(() => buildTree(p.tagRows), [p.tagRows]);
   const shown = useMemo(() => filterTree(tree, search.committed), [tree, search.committed]);
+  // 引入侧 / 排除侧的路径集合(与条件对象同源)
   const activePaths = useMemo(() => new Set(itemPaths(p.conditions, 'tag')), [p.conditions]);
   const excludedPaths = useMemo(() => new Set(itemPaths(p.conditions, 'excludeTag')), [p.conditions]);
 
@@ -93,12 +96,7 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
 
   /** 悬停自动展开(T2):只展开不收起 —— 自动展开的计时期间用户可能已手动展开过 */
   const expandPath = useCallback((path: string) => {
-    setCollapsed((prev) => {
-      if (!prev.has(path)) return prev;
-      const next = new Set(prev);
-      next.delete(path);
-      return next;
-    });
+    setCollapsed((prev) => (prev.has(path) ? new Set([...prev].filter((k) => k !== path)) : prev));
   }, []);
 
   // 拖拽移动(spec 6):成功走与右键移动同一级联链,失败(预校验/后端)红色提示
@@ -113,12 +111,14 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
 
   // 扁平模式:收窄后的树拉平为深度优先序列
   const flatNodes = useMemo(() => flattenTree(shown), [shown]);
-  // 侧栏收窄搜索框与主窗快捷搜索栏共用同一行高设置(设置页「外观」那一行)
+  // 行高与多选:行高与主窗快捷搜索栏同一份设置;可见顺序的取法集中在 useSidebarSelection
   const searchRowHeight = useSearchRowHeight().height;
+  const { selection, visiblePaths, selectedPaths, idByPath } = useSidebarSelection(visibleRows, p.mode, shown, flatNodes);
 
   return (
     <section className="flex min-h-0 flex-1 flex-col" aria-label="实体分区">
       <TagsHeader
+        selection={{ active: selection.active, count: selection.count, onToggle: () => selection.setActive(!selection.active) }}
         flash={flash}
         mode={p.mode}
         onModeChange={p.onModeChange}
@@ -129,6 +129,13 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
         onToggleSearch={search.toggleSearch}
         onCloseSearch={search.closeSearch}
         searchRowHeight={searchRowHeight}
+      />
+      <SidebarSelectionMount
+        selection={selection}
+        selectedPaths={selectedPaths}
+        idByPath={idByPath}
+        onDeleted={() => p.onTagsMutated(undefined)}
+        onFlash={showFlash}
       />
       <div
         ref={listRef}
@@ -150,6 +157,11 @@ export function TagsSection(p: TagsSectionProps): ReactNode {
             clickMode={click.clickMode}
             previewPath={click.previewPath}
             onIntent={onIntent}
+            selection={{
+              active: selection.active,
+              selected: selection.selected,
+              onPick: (path, shift) => (shift ? selection.rangeTo(path, visiblePaths) : selection.toggle(path)),
+            }}
             onToggleExpand={toggleExpand}
             onContextMenu={menu.onContextMenu}
             drag={drag}

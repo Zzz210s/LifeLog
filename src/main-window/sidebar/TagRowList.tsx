@@ -35,6 +35,8 @@ export interface TagRowListProps {
   previewPath?: string | null;
   /** 行意图的唯一出口(T4 接线):单击 / 双击 / Enter / Space 都走它 */
   onIntent: (intent: RowIntent, node: TagNode) => void;
+  /** 多选态(2026-10-25):active 时行只做选中/连选;checked 决定勾选框;onPick 收 shift 标志 */
+  selection?: { active: boolean; selected: ReadonlySet<string>; onPick: (path: string, shift: boolean) => void };
   onToggleExpand: (path: string) => void;
   onContextMenu: (e: React.MouseEvent, node: TagNode) => void;
   /** 拖拽状态与行事件(源行标记、悬停目标高亮与指示线) */
@@ -93,6 +95,11 @@ export function TagRowList(p: TagRowListProps): ReactNode {
             clickMode={p.clickMode}
             previewing={p.previewPath === node.path}
             onIntent={p.onIntent}
+            selection={
+              p.selection
+                ? { active: p.selection.active, checked: p.selection.selected.has(node.path), onPick: p.selection.onPick }
+                : undefined
+            }
             onToggleExpand={p.onToggleExpand}
             onContextMenu={p.onContextMenu}
             dragSource={sourcePath === node.path}
