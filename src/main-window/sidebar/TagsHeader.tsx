@@ -15,7 +15,7 @@
  * 放大镜的输入框是另一回事:它只收窄看得见的树,不改筛选条件(不预填 `#`)。
  */
 import type { ReactNode } from 'react';
-import { SEARCH_ROW_HEIGHT_DEFAULT, searchFontClass } from '../../shared/search-row-height';
+import { SEARCH_ROW_HEIGHT_DEFAULT, inputBarFontSize } from '../../shared/search-row-height';
 import type { ImeInputHandlers } from '../../shared/use-ime-composition';
 import type { TagViewMode } from './use-sidebar-state';
 import { BTN_ICON } from '../shell/button-classes';
@@ -126,8 +126,8 @@ export function TagsHeader(p: TagsHeaderProps): ReactNode {
           }}
           placeholder="按名称收窄标签树"
           aria-label="按名称收窄标签树"
-          style={{ height: `${searchRowHeight}px` }}
-          className={`mx-2 mb-1 shrink-0 rounded-sm border border-border-strong px-2.5 outline-none ${searchFontClass(searchRowHeight)}`}
+          style={{ height: `${searchRowHeight}px`, fontSize: `${inputBarFontSize(searchRowHeight)}px` }}
+          className="mx-2 mb-1 shrink-0 rounded-sm border border-border-strong px-2.5 outline-none"
         />
       )}
     </>

@@ -10,7 +10,7 @@
  * 框里不放文案就不必跟提示行的文案两头维护。
  */
 import type { KeyboardEventHandler, ReactNode, RefObject } from 'react';
-import { searchFontClass, searchLineHeight } from '../../shared/search-row-height';
+import { inputBarFontSize, searchLineHeight } from '../../shared/search-row-height';
 
 export interface UnifiedTextareaProps {
   textareaRef: RefObject<HTMLTextAreaElement | null>;
@@ -56,10 +56,12 @@ export function UnifiedTextarea(p: UnifiedTextareaProps): ReactNode {
         // 空输入时的行高 = 设置值;有内容后由宿主的 resize() 按 scrollHeight 改写
         height: p.rowHeight,
         lineHeight: `${searchLineHeight(p.rowHeight)}px`,
+        // 字号与浮窗同一口径:行高/2(钳 15–28)。行高 36 → 18px(原来档位只给 14px)
+        fontSize: `${inputBarFontSize(p.rowHeight)}px`,
         maxHeight: p.maxHeight,
         overflowY: 'auto',
       }}
-      className={`block min-w-0 flex-1 resize-none rounded-sm border border-border-strong bg-raised px-2.5 py-1.5 text-text outline-none ${searchFontClass(p.rowHeight)}`}
+      className="block min-w-0 flex-1 resize-none rounded-sm border border-border-strong bg-raised px-2.5 py-1.5 text-text outline-none"
     />
   );
 }
