@@ -43,3 +43,17 @@ export function searchFontClass(rowHeight: number): string {
   if (h <= 48) return 'text-base';
   return 'text-lg';
 }
+
+/**
+ * 快捷输入栏(浮窗)的字号:**按行高等比算**,不是挑档位(2026-10-25 用户要求
+ * 「输入字体大小要跟着行高变化,而不是现在的小字」)。
+ *
+ * 取 `rowHeight / 2`(行高 36 → 18px,44 → 22px,52 → 26px,56 → 28px),
+ * 下限 15px(28 行高时不至于比正文还小)、上限 28px(再大就撑破 240px 宽的浮窗)。
+ * 与主窗那张档位表(`searchFontClass`)刻意不同:主窗是固定 36 的窄条,浮窗是
+ * 用户自己拨的输入区,字号要跟着一起长,否则调高行高只换来一圈空白。
+ */
+export function inputBarFontSize(rowHeight: number): number {
+  const h = normalizeSearchRowHeight(rowHeight);
+  return Math.min(28, Math.max(15, Math.round(h / 2)));
+}

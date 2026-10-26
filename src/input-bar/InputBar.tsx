@@ -16,7 +16,7 @@ import { useStickerAppearance } from './use-sticker-appearance';
 import { useInputWheel } from './use-input-wheel';
 import { usePaletteSettings } from '../main-window/palette/use-palette-settings';
 import { useSearchRowHeight } from '../main-window/data/use-search-row-height';
-import { searchFontClass } from '../shared/search-row-height';
+import { inputBarFontSize } from '../shared/search-row-height';
 
 export function InputBar() {
   // 组合守卫:显示值 content 组合中照常跟随(非受控框的文字本来就在 DOM 里),补全候选只读
@@ -29,9 +29,9 @@ export function InputBar() {
   // 默认 36 → 行高从原来的 22.75 提到 36、字 14 → 16,一行明显变松;
   // 窗口高度由 use-auto-height 读 computed lineHeight 自适应,不用另改几何。
   const inputLineHeight = rowHeight;
-  // 字号比主窗那张表**再上一档**(同一行高下,浮窗里更小的字更显局促):
-  // 36 → text-base(16px),44 → text-lg(18px),56 → 20px。
-  const inputFontClass = searchFontClass(rowHeight + 8);
+  // 字号**按行高等比算**(inputBarFontSize:行高/2,15–28px):36 → 18px、44 → 22px。
+  // 不再挑档位 —— 用户实测"调高行高字还是小",档位表的粒度对浮窗太粗。
+  const inputFontSize = inputBarFontSize(rowHeight);
   const { value: content, committed, setValue, handlers } = useImeInput();
   // 光标镜像(`[[` 补全的触发判断读它;`]]` 类语法要按光标切片,不能只看整串)
   const [caret, setCaret] = useState(0);
@@ -176,8 +176,8 @@ export function InputBar() {
         }}
         onSelect={(e) => setCaret(e.currentTarget.selectionStart ?? 0)}
         onKeyDown={onKeyDown}
-        style={{ lineHeight: `${inputLineHeight}px` }}
-        className={`sticker-input min-h-0 w-full flex-1 resize-none overflow-y-auto px-3 py-2 ${inputFontClass} read-only:text-faint`}
+        style={{ lineHeight: `${inputLineHeight}px`, fontSize: `${inputFontSize}px` }}
+        className="sticker-input min-h-0 w-full flex-1 resize-none overflow-y-auto px-3 py-2 read-only:text-faint"
       />
       {complete.list}
       <InputBarOverlays
