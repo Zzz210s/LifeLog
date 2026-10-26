@@ -164,6 +164,7 @@ export function UnifiedInput(p: UnifiedInputProps): ReactNode {
       </div>
       {/* 提示行:错误 > 编辑中 > 正常前缀提示,恒为一行 */}
       <PrefixHint
+        rowHeight={p.rowHeight ?? SEARCH_ROW_HEIGHT_DEFAULT}
         mode={c.state.mode}
         stat={p.stat}
         readonly={p.editing}

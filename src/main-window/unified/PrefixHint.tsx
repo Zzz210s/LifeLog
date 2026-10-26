@@ -21,6 +21,8 @@ export interface PrefixHintProps {
   error?: string;
   /** 点前缀段:把该前缀写进输入框(由上层 withPrefix 处理) */
   onPickPrefix: (prefix: string) => void;
+  /** 快捷搜索栏的行高设置:提示行字号跟着一起长(2026-10-25 用户要求),缺省 36 */
+  rowHeight?: number;
 }
 
 const ROW_CLASS = 'flex flex-wrap items-center gap-x-2 px-1 pt-1 text-label text-muted';
@@ -28,19 +30,26 @@ const ROW_CLASS = 'flex flex-wrap items-center gap-x-2 px-1 pt-1 text-label text
 const SEG_CLASS = 'h-7 px-0.5';
 
 export function PrefixHint(p: PrefixHintProps): ReactNode {
+  // 提示行比输入框小一档,但同样等比:36 → 14px、44 → 16px、52 → 18px(下限 13)
+  const size = Math.max(13, Math.round((p.rowHeight ?? 36) / 2) - 4);
+  const rowStyle = { fontSize: `${size}px` };
   if (p.error) {
     return (
-      <div data-testid="prefix-hint" role="alert" className={ROW_CLASS}>
+      <div data-testid="prefix-hint" role="alert" className={ROW_CLASS} style={rowStyle}>
         <span className="text-danger">{p.error}</span>
       </div>
     );
   }
   if (p.readonly) {
-    return <div data-testid="prefix-hint" className={ROW_CLASS}>编辑中 — 保存或取消后可继续记录</div>;
+    return (
+      <div data-testid="prefix-hint" className={ROW_CLASS} style={rowStyle}>
+        编辑中 — 保存或取消后可继续记录
+      </div>
+    );
   }
   const active = PREFIXES.find((s) => s.mode === p.mode);
   return (
-    <div data-testid="prefix-hint" className={ROW_CLASS}>
+    <div data-testid="prefix-hint" className={ROW_CLASS} style={rowStyle}>
       {p.mode === NOTE_PREFIX.mode ? <span>{NOTE_PREFIX.hint}</span> : null}
       {PREFIXES.map((spec) => {
         const isActive = spec.prefix === active?.prefix;
