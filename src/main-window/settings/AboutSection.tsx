@@ -56,7 +56,10 @@ export function AboutSection(): ReactNode {
       <SettingsRow label="版本号">
         <span className="text-ui text-muted">{appVersion()}</span>
       </SettingsRow>
-      <SettingsRow label="数据库文件" hint={hint}>
+      <SettingsRow label="当前库" hint={hint}>
+        <span className="text-ui text-muted">{info?.library || '—'}</span>
+      </SettingsRow>
+      <SettingsRow label="数据库文件">
         <button type="button" onClick={reveal} disabled={!info} className={BTN_SECONDARY}>
           打开所在文件夹
         </button>

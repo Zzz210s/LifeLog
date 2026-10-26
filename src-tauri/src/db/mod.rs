@@ -2,6 +2,8 @@ pub mod backup;
 pub mod backup_warning;
 pub mod data_dir_copy;
 pub mod data_dir_migration;
+pub mod library;
+pub mod library_migrate;
 pub mod migrate;
 mod migration_hooks;
 pub mod repos;
@@ -106,7 +108,22 @@ pub fn init(app: &tauri::AppHandle) -> Result<InitReport, OpenFailure> {
         .map_err(|e| OpenFailure::new(format!("定位应用数据目录失败: {e}")))?;
     std::fs::create_dir_all(&dir)
         .map_err(|e| OpenFailure::new(format!("创建应用数据目录失败: {e}")))?;
-    let report = open(&dir.join(data_dir_migration::DB_FILE))?;
+    // 多库(2026-10-26):首次运行把旧的单库迁进 `libraries/richang/` 并命名为「日常」;
+    // 之后每次启动按注册表的 current 打开对应库。
+    let ensured = library_migrate::ensure(&dir).map_err(OpenFailure::new)?;
+    let current = ensured
+        .registry
+        .find(&ensured.registry.current)
+        .cloned()
+        .ok_or_else(|| OpenFailure::new("库列表里的当前库不存在".to_string()))?;
+    if ensured.migrated {
+        eprintln!("[多库] 首次运行:旧单库已迁入多库布局,当前库 name={}", current.name);
+    }
+    if let Some(snap) = &ensured.snapshot {
+        // 首次迁进多库布局时留了旧库快照:写进日志,排查"数据看起来少了"时有据可依
+        eprintln!("[多库] 旧单库已迁入 libraries/{},迁移前快照: {}", current.id, snap.display());
+    }
+    let report = open(&library::db_path(&dir, &current))?;
     // 保留点 `子级` 启动自愈(spec §6.2):缺失 / 悬空即按 parent_id 缓存找回子级线。
     // 失败按「数据库初始化失败」处理 —— 由 setup 弹中文对话框并以退出码 1 退出,不静默继续。
     crate::commands::startup::heal_reserved_name_point(&report.conn).map_err(OpenFailure::new)?;

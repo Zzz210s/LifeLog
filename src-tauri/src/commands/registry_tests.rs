@@ -42,6 +42,14 @@ const V30_COMMANDS: &[&str] = &[
 const V31_NEW: &[&str] = &["rename_line_name", "create_line", "remove_line"];
 
 /// v32 新增(批量编辑 spec 2026-10-17 §10.1:五个批量命令,其余名字不变)
+/// v33 新增(多库,2026-10-26)
+const V33_NEW: &[&str] = &[
+    "list_libraries",
+    "create_library",
+    "rename_library",
+    "delete_library",
+    "switch_library",
+];
 const V32_NEW: &[&str] = &[
     "tag_points",
     "untag_points",
@@ -70,10 +78,14 @@ fn registry_keeps_v30_names_and_adds_exactly_three() {
     }
     let v30: BTreeSet<&str> = V30_COMMANDS.iter().copied().collect();
     let added: BTreeSet<String> = names.iter().filter(|n| !v30.contains(n.as_str())).cloned().collect();
-    let want: BTreeSet<String> =
-        V31_NEW.iter().chain(V32_NEW.iter()).map(|s| s.to_string()).collect();
-    assert_eq!(added, want, "新增命令名必须恰为 v31 + v32 两批");
-    assert_eq!(names.len(), 65, "注册表命令总数 = 57 + 3 + 5");
+    let want: BTreeSet<String> = V31_NEW
+        .iter()
+        .chain(V32_NEW.iter())
+        .chain(V33_NEW.iter())
+        .map(|s| s.to_string())
+        .collect();
+    assert_eq!(added, want, "新增命令名必须恰为 v31 + v32 + v33 三批");
+    assert_eq!(names.len(), 70, "注册表命令总数 = 57 + 3 + 5 + 5");
 }
 
 /// 用例 ③:参数形状冻结(命令名不改的前提下,参数名/可选性也不得变)

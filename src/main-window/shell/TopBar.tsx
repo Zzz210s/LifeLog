@@ -4,6 +4,7 @@
 import type { ReactNode } from 'react';
 import type { MainView } from '../settings/settings-model';
 import { BTN_ICON } from './button-classes';
+import { LibrarySwitch } from './LibrarySwitch';
 import { ExportNotice } from './ExportNotice';
 import { ViewNav } from './ViewNav';
 
@@ -20,6 +21,8 @@ export interface TopBarProps {
   onOpenGraph: () => void;
   /** 导航组「信息流」= 返回信息流;与关系图的 Esc 退出是同一条路 */
   onBack: () => void;
+  /** 多库切换(2026-10-26):顶栏应用名处的下拉;缺省时切库只重载当前窗口 */
+  onLibrarySwitched?: () => void;
 }
 
 export function TopBar({
@@ -31,6 +34,7 @@ export function TopBar({
   onOpenSettings,
   onOpenGraph,
   onBack,
+  onLibrarySwitched,
 }: TopBarProps): ReactNode {
   return (
     <header className="relative flex h-11 shrink-0 items-center justify-between border-b border-border px-4">
@@ -48,7 +52,7 @@ export function TopBar({
             <line x1="9" y1="4" x2="9" y2="20" />
           </svg>
         </button>
-        拾枝
+        <LibrarySwitch onSwitched={onLibrarySwitched ?? (() => window.location.reload())} />
       </span>
       <span className="flex items-center gap-2">
         <ExportNotice exporting={exporting} exported={exported} />

@@ -104,6 +104,8 @@ export interface ExprCheck {
 
 /** 设置页「通用」分区展示的数据库信息(只读) */
 export interface DbInfo {
+  /** 当前库显示名(多库) */
+  library?: string;
   path: string;  /** 条目数 = `COUNT(*) FROM entities`(笔记与标签同表同权,spec §6.6) */
   entities: number;
 }
@@ -169,4 +171,16 @@ export interface GroupSkeletonResult {
 export interface GroupPage {
   key: string | null;
   notes: Note[];
+}
+
+/** 多库(2026-10-26):注册表里的一条;`dir` 是相对应用数据目录的路径 */
+export interface LibraryMeta {
+  id: string;
+  name: string;
+  dir: string;
+  createdAt: string;
+}
+export interface LibraryList {
+  current: string;
+  libraries: LibraryMeta[];
 }

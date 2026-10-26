@@ -80,6 +80,8 @@ export function useInputSettings() {
       })
       .then(keep)
       .catch(() => {});
+    // 切库(2026-10-26):后端连接已换,本窗口的前端状态(候选池/未保存内容)全部作废 → 重载
+    void listen('library-switched', () => window.location.reload());
     void listen(INPUT_SETTINGS_CHANGED_EVENT, () => {
       void reload();
     })

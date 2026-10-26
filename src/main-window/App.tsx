@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { isFilterEmpty } from '../shared/filter-conditions';
 import { useThemeMode } from '../shared/use-theme-mode';
 import { CommandStatusPill } from './shell/CommandStatusPill';
+import { emit } from '@tauri-apps/api/event';
 import type { MainView } from './settings/settings-model';
 import { Sidebar } from './sidebar/Sidebar';
 import { useSearchRowHeight } from './data/use-search-row-height';
@@ -97,6 +98,13 @@ export function App(): ReactNode {
     exportAll: onExport,
     setError,
   });
+  // 切库后重载:主窗与输入栏两个窗口都要重载 —— 它们各自持有一份前端状态,
+  // 只重载主窗会留下"输入栏还写着上一个库的内容"(后端连接已经换了)
+  const reloadAfterLibrarySwitch = (): void => {
+    void emit('library-switched').catch(() => {});
+    window.location.reload();
+  };
+
   // 「添加条件」命令的一次性信号 -> 条件栏菜单开关(打开即复位)
   const addCondition = useAddConditionMenu(commands);
 
@@ -168,6 +176,7 @@ export function App(): ReactNode {
         }}
         theme={theme}
         onReplayTutorial={tutorial.onReplay}
+        onLibrarySwitched={reloadAfterLibrarySwitch}
         tagTreeRelations={{ showRelations: sidebar.showRelations, onShowRelationsChange: sidebar.setShowRelations }}
         sidebarClick={{ clickMode: sidebar.clickMode, onChangeClickMode: click.changeClickMode }}
         maintenance={{ exportAll: onExport, exporting, focus: { on: commands.focusOn, toggle: () => void commands.execute('focus.mode') } }}

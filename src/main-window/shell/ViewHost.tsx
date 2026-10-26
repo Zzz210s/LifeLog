@@ -53,6 +53,8 @@ export interface ViewHostProps {
   /** 设置页「外观」里的「快捷搜索栏行高」(App 持有的同一份状态) */
   searchRow: { height: number; onChange: (n: number) => void; onReset: () => void };
   onReplayTutorial: () => void;
+  /** 多库切换后的重载(App 注入:主窗与输入栏都要重载,否则两处读的是不同库) */
+  onLibrarySwitched: () => void;
 }
 
 export function ViewHost(p: ViewHostProps): ReactNode {
@@ -72,6 +74,7 @@ export function ViewHost(p: ViewHostProps): ReactNode {
         onOpenSettings={p.onOpenSettings}
         onOpenGraph={p.onOpenGraph}
         onBack={p.onBack}
+        onLibrarySwitched={p.onLibrarySwitched}
       />
       <StreamView {...p.stream} visible={p.view === 'stream'} dataVersion={p.dataVersion} />
       {p.view === 'settings' && (

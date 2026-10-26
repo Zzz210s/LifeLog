@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { CompleteItem, DbInfo, DeletePointsReport, ExprCheck, GraphData, GraphLinkDegrees, GroupPage, GroupSkeletonResult, MergeReport, Note, NoteLinks, NoteTitle, ParseResult, RelationRef, TagCount, TagImpact, TagPointsReport, UntagPointsReport } from './types';
+import type { CompleteItem, DbInfo, DeletePointsReport, ExprCheck, GraphData, GraphLinkDegrees, GroupPage, GroupSkeletonResult, MergeReport, Note, NoteLinks, NoteTitle, ParseResult, RelationRef, TagCount, TagImpact, TagPointsReport, UntagPointsReport, LibraryList, LibraryMeta } from './types';
 import type { ConditionHits, TagFactsBundle } from './tag-facts-types';
 import type { FilterConditions } from './filter-conditions';
 import type { AppHotkeyKind } from './hotkey-match';
@@ -140,6 +140,12 @@ export const api = {
     invoke<void>('validate_time_tag_template', { template }),
   /** 设置页「通用」分区:数据库文件路径与笔记条数(只读) */
   getDbInfo: () => invoke<DbInfo>('get_db_info'),
+  /** 多库(2026-10-26):列表 / 新建 / 重命名 / 删除 / 切换 */
+  listLibraries: () => invoke<LibraryList>('list_libraries'),
+  createLibrary: (name: string) => invoke<LibraryMeta>('create_library', { name }),
+  renameLibrary: (id: string, name: string) => invoke<LibraryList>('rename_library', { id, name }),
+  deleteLibrary: (id: string) => invoke<LibraryList>('delete_library', { id }),
+  switchLibrary: (id: string) => invoke<LibraryList>('switch_library', { id }),
   /** 设置页「启动」分区:注册表里的真实开机启动状态(只读;path_ok=false 表示路径已失效)。
    *  字段名与 Rust 结构体一致(snake_case 直传,见 shared/types.ts 的惯例) */
   getAutostartStatus: () => invoke<{ enabled: boolean; path_ok: boolean }>('get_autostart_status'),

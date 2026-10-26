@@ -10,6 +10,7 @@ pub mod maintenance;
 pub mod notes;
 pub mod parse;
 pub mod registry;
+pub mod library;
 pub mod settings;
 pub mod startup;
 pub mod startup_legacy;
