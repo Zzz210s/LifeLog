@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { openReadOnly } from './db-compat.mjs';
+import { openReadOnly, DB_PATH } from './db-compat.mjs';
 /**
  * 笔记间链接 L2 的真机读数(设计 2026-10-01-note-links-design.md §6 的读数 2/4)。
  *   2 正文里 `[[<目标首行>]]` 渲成已解析 chip(text-accent + data-note-link=目标 id);
@@ -17,7 +17,6 @@ import { CDP_PORT, ensureMain, recorder, sleep, waitFor } from './cdp-lib.mjs';
 import { BOX, driver } from './unified-accept-lib.mjs';
 
 const NS = 'LINK测试';
-const DB_PATH = 'C:/Users/23652/AppData/Roaming/com.lifelog.app/lifelog.db';
 const TARGET = `${NS} 目标`;
 const SOURCE = `${NS} 源 [[${TARGET}]]`;
 const UNRESOLVED_TITLE = `${NS} 不存在`;

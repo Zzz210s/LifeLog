@@ -17,10 +17,10 @@
  */
 import { mkdirSync, writeFileSync, existsSync } from 'node:fs';
 import { ensureMain, waitFor, recorder, bindMain, sleep } from './cdp-lib.mjs';
-import { openReadOnly } from './db-compat.mjs';
+import { openReadOnly, DB_PATH } from './db-compat.mjs';
 import { os } from './cdp-os.mjs';
 
-const DB = 'C:/Users/23652/AppData/Roaming/com.lifelog.app/lifelog.db';
+const DB = DB_PATH;
 const SHOTS = '.superpowers/shots';
 const TMP_XLSX = 'C:/tmp/batch-accept-选中.xlsx';
 const J = JSON.stringify;

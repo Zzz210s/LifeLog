@@ -1,4 +1,4 @@
-import { openReadOnly } from './db-compat.mjs';
+import { openReadOnly, DB_PATH } from './db-compat.mjs';
 // `[[` 补全三个 N 脚本(dev-links-accept-n2/n3/n4.mjs)的共用件:
 // CDP 连接前置、夹具建删、只读库对账、候选读取。只做「发合成事件 / 读值 / 读库」,
 // 每条读数的判定留在各主脚本(与 graph-accept-lib.mjs 同风格)。
@@ -7,7 +7,6 @@ import { DatabaseSync } from 'node:sqlite';
 import { CDP_PORT, sleep, waitFor } from './cdp-lib.mjs';
 
 export { sleep, waitFor };
-export const DB_PATH = 'C:/Users/23652/AppData/Roaming/com.lifelog.app/lifelog.db';
 export const fmt = (v) => JSON.stringify(v);
 
 /** 应用没在 CDP 端口上时打印启动提示并以码 2 退出(各脚本开头 await) */

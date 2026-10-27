@@ -7,7 +7,7 @@
  * 用法:node scripts/dev-dnd-probe.mjs   产物:.superpowers/sdd/2026-09-21-dnd/readings/dnd-before.json
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { openReadOnly } from './db-compat.mjs';
+import { openReadOnly, DB_PATH } from './db-compat.mjs';
 import { ensureMain, sleep, waitFor, bindMain } from './cdp-lib.mjs';
 
 const OUT = '.superpowers/sdd/2026-09-21-dnd/readings/dnd-before.json';
@@ -16,7 +16,7 @@ const SRC = `${ROOT}/源`;
 const TGT = `${ROOT}/目标`;
 const CHILD = `${TGT}/子`;
 const NOTE = `#${SRC} #${CHILD} DND夹具`;
-const DB = 'C:/Users/23652/AppData/Roaming/com.lifelog.app/lifelog.db';
+const DB = DB_PATH;
 /** 库存读数:走 db-compat 的老表名兼容视图(v31 真库已无 notes/tags/tag_links,不再内嵌 python 直查) */
 const db = () => {
   const c = openReadOnly(DB);

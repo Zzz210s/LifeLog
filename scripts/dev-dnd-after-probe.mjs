@@ -6,7 +6,7 @@
  * 产物:.superpowers/sdd/2026-09-21-dnd/readings/dnd-after.json
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { openReadOnly } from './db-compat.mjs';
+import { openReadOnly, DB_PATH } from './db-compat.mjs';
 import { ensureMain, sleep, waitFor, bindMain } from './cdp-lib.mjs';
 import { PAGE } from './dnd-after-page.mjs';
 
@@ -18,7 +18,7 @@ const SIB = `${TGT}/乙`;
 const CHILD = `${TGT}/子`;
 const GRAND = `${CHILD}/孙`;
 const NOTE = `#${SRC} #${SIB} #${GRAND} DND夹具`;
-const DB = 'C:/Users/23652/AppData/Roaming/com.lifelog.app/lifelog.db';
+const DB = DB_PATH;
 /** 库存读数:走 db-compat 的老表名兼容视图(v31 真库已无 notes/tags/tag_links,不再内嵌 python 直查) */
 const db = () => {
   const c = openReadOnly(DB);

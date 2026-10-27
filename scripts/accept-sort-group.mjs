@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { openReadOnly } from './db-compat.mjs';
+import { openReadOnly, DB_PATH } from './db-compat.mjs';
 /**
  * T6 端到端验收运行器(设计 2026-10-06 §8.5 判据 1-9 的现场复核)。
  *   LIFELOG_CDP_PORT=9333 node scripts/accept-sort-group.mjs
@@ -12,7 +12,7 @@ import { bindMain, recorder } from './cdp-report.mjs';
 import { C, allPages, axisKey, ids, isSorted, makeOrd, sameIds, tagItem, tagSort, timeSort } from './accept-sort-group-lib.mjs';
 import * as UI from './accept-sort-group-ui.mjs';
 
-const DB = 'C:/Users/23652/AppData/Roaming/com.lifelog.app/lifelog.db';
+const DB = DB_PATH;
 const SHOTS = '.superpowers/shots';
 const AXIS = '地点';
 const OR_A = '地点/中国大陆';

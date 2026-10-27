@@ -1,4 +1,4 @@
-import { openReadOnly } from './db-compat.mjs';
+import { openReadOnly, DB_PATH } from './db-compat.mjs';
 // 冷启动/启动路径验收(scripts/dev-cdp-accept-startup.mjs)的数据安全件:
 // 只读库存快照、基线洁净审计、运行清单、清收(删清单里的笔记 + 还原 filter_current/theme)。
 // 原则:只动脚本自建的数据;任何可疑情况(基线有 AI 残留 / 清单与基线撞车 / 原值失效)
@@ -16,7 +16,6 @@ export const OUT = '.superpowers/startup4';
 export const RUN_TAG = '启动验收';
 export const TEST_NOTE = RUN_TAG + '输入栏保存';
 /** 真实库(工程约定路径) */
-export const DB_PATH = 'C:/Users/23652/AppData/Roaming/com.lifelog.app/lifelog.db';
 /** 条件的归一化键(与前端 EMPTY_FILTER 同键序;日期键 from/to 已随 D2 删除) */
 const EMPTY_CONDITIONS = { keyword: null, tags: [], excludeTags: [], tagPresence: null, sort: 'newest', expr: null };
 /** 空条件对象(IPC query_notes 用) */

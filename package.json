@@ -10,6 +10,8 @@
     "test": "vitest run",
     "tauri": "tauri",
     "verify": "node scripts/verify.mjs",
+ "accept": "node scripts/accept/run.mjs",
+ "accept:list": "node scripts/accept/run.mjs --list",
     "verify:quick": "node scripts/verify.mjs --quick",
     "audit:visual": "node scripts/audit-visual-tokens.mjs",
     "audit:table": "node scripts/audit-table-style.mjs"

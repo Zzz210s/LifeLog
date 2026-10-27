@@ -1,7 +1,8 @@
 /** 真实库只读快照(库存计数 + 主库/WAL 的 mtime/size/md5 + SAVEPROBE 夹具行):用于「有没有写库」的取证。 */
 import { execFileSync } from 'node:child_process';
 
-const DB = 'C:/Users/23652/AppData/Roaming/com.lifelog.app/lifelog.db';
+import { DB_PATH } from './db-compat.mjs';
+const DB = DB_PATH;
 const SQL = `import hashlib,json,os,sqlite3
 DB = ${JSON.stringify(DB)}
 def stat(p):

@@ -1,4 +1,5 @@
-import { openReadOnly } from './db-compat.mjs';
+import { openReadOnly, DB_PATH } from './db-compat.mjs';
+export { DB_PATH };
 // 「删标签页」批次端到端读数(scripts/dev-no-tabs-accept.mjs)的共用件:只做「只读库读数 + DOM/受控输入动作 + 探针」,不做断言(判定留在主脚本)。
 // 不碰物理鼠标:键鼠全走 DOM click / React 受控输入 / CDP Input 合成按键。
 import { DatabaseSync } from 'node:sqlite';
@@ -6,7 +7,6 @@ import { sleep, waitFor } from './cdp-lib.mjs';
 import { clickModeOf, ensureClickMode } from './click-mode-lib.mjs';
 
 /** 真实库(工程约定路径);只以 readOnly 打开 */
-export const DB_PATH = 'C:/Users/23652/AppData/Roaming/com.lifelog.app/lifelog.db';
 /** 夹具命名空间:笔记关键词与标签名(自建自删;收尾断言库里没有 UI测试* 标签) */
 export const KEYWORD_FIXTURE = 'UI测试无标签夹具';
 export const TAG_FIXTURE = 'UI测试无标签';

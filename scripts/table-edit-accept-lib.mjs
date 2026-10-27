@@ -1,11 +1,10 @@
-import { openReadOnly } from './db-compat.mjs';
+import { openReadOnly, DB_PATH } from './db-compat.mjs';
 // 表格单元格编辑真机验收的共用件:CDP DOM 动作 + 只读库对账(判定留在主脚本)。
 // 夹具一律 `TABLE编辑测试` 前缀,自建自删;不碰物理鼠标,全用合成事件。
 import { DatabaseSync } from 'node:sqlite';
 import { CDP_PORT, sleep, waitFor } from './cdp-lib.mjs';
 
 export { sleep, waitFor };
-export const DB_PATH = 'C:/Users/23652/AppData/Roaming/com.lifelog.app/lifelog.db';
 export const NS = 'TABLE编辑测试';
 export const fmt = (v) => JSON.stringify(v);
 

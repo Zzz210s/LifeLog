@@ -36,6 +36,7 @@
 //                 (老 `child` 边的 `remark` 恒为空串,名字点 `子级` 不是「关系名」)。
 // 2026-10-17(commit 99047fcf):`lines.created_at` 已下架,老读数要的那一列改发空串 ——
 //   验收脚本里没有任何一处真读边的时间戳,旧表形状保留只为不改老 SQL。
+import { readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 
 /** 024 给标签 id 加的整体偏移;遗留合并日志行按它回译(与迁移 027 的 entity_ids.rs 同一字面量)。 */
@@ -43,8 +44,27 @@ const LEGACY_TAG_OFFSET = 1_000_000_000;
 /** 遗留 1e9 偏移 id -> 老表原始 id(仅用于没有统一实体 id 可映射的历史合并日志行) */
 const UNOFFSET = (col) => `CASE WHEN ${col} >= ${LEGACY_TAG_OFFSET} THEN ${col} - ${LEGACY_TAG_OFFSET} ELSE ${col} END`;
 
-/** 真实库路径(可用 LIFELOG_DB 覆盖,如跑独立 identifier 的副本库) */
-export const DB_PATH = process.env.LIFELOG_DB ?? 'C:/Users/23652/AppData/Roaming/com.lifelog.app/lifelog.db';
+/**
+ * 真实库路径。优先级:`LIFELOG_DB` 环境变量 → 多库注册表(`libraries.json` 的当前库)
+ * → 老的单文件位置(多库改造前的布局,兼容旧脚本与旧机器)。
+ * 迁移到 `libraries/<id>/lifelog.db` 之后,写死老路径的脚本会连到不存在的库并报
+ * `SQL logic error` —— 所以这里**一处解析**,脚本别自己拼路径。
+ */
+function resolveDbPath() {
+  if (process.env.LIFELOG_DB) return process.env.LIFELOG_DB;
+  const base = 'C:/Users/23652/AppData/Roaming/com.lifelog.app';
+  try {
+    const idx = JSON.parse(readFileSync(`${base}/libraries.json`, 'utf8'));
+    const id = idx.currentId ?? idx.current ?? null;
+    const lib = (idx.libraries ?? []).find((l) => l.id === id) ?? (idx.libraries ?? [])[0];
+    if (lib?.id) return `${base}/libraries/${lib.id}/lifelog.db`;
+  } catch {
+    // 没有注册表:退回老布局
+  }
+  return `${base}/lifelog.db`;
+}
+
+export const DB_PATH = resolveDbPath();
 
 /** 树外(老笔记)实体的判定;视图里反复用,故抽成常量 */
 const NOTE = `(SELECT e2.path FROM entities e2 WHERE e2.id = e.source_id) IS NULL`;

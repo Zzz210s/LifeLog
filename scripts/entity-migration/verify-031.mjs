@@ -82,7 +82,8 @@ function main() {
   } else {
     console.log(`> 复用 v31 副本（未跑迁移）: ${work}`);
   }
-  check('副本 user_version=31', readVersion(work) === 31, `user_version=${readVersion(work)}`);
+  // 031 之后新增迁移(032/033)会让版本继续往上走:只要求「至少 31」
+  check('副本 user_version>=31', readVersion(work) >= 31, `user_version=${readVersion(work)}`);
 
   const ro30 = openRO(opts.base);
   const ro31 = openRO(work);
@@ -141,7 +142,7 @@ function oldAndEmpty(opts) {
     console.log(`\n> 老库升级链: v${from} -> v31（${opts.old}）`);
     const m = migrate(oldWork);
     const rec = runReconcile({ dbPath: oldWork, sqlPath: SQL });
-    check(`老库升级 v${from} -> v31`, m.ok && readVersion(oldWork) === 31 && rec.summary.fail === 0,
+    check(`老库升级 v${from} -> v31`, m.ok && readVersion(oldWork) >= 31 && rec.summary.fail === 0,
       `v${from}->v31 对账 PASS ${rec.summary.pass}/FAIL ${rec.summary.fail} points=${rec.counts.points} lines=${rec.counts.lines} pure_name=${rec.counts.pure_name_points}`);
     if (!opts.keep) rm(oldWork);
   }
@@ -157,7 +158,7 @@ function oldAndEmpty(opts) {
   const reserved = count(db, "SELECT COUNT(*) n FROM points WHERE id = 0 AND meta = '子级'");
   db.close();
   const rec = runReconcile({ dbPath: empty, sqlPath: SQL });
-  check('空库重放与幂等', m1.ok && m2.ok && v1 === 31 && v2 === 31 && reserved === 1 && rec.summary.fail === 0,
+  check('空库重放与幂等', m1.ok && m2.ok && v1 >= 31 && v2 === v1 && reserved === 1 && rec.summary.fail === 0,
     `v1=${v1} v2=${v2} 保留点=${reserved} 对账 PASS ${rec.summary.pass}/FAIL ${rec.summary.fail} points=${rec.counts.points}`);
   if (!opts.keep) rm(empty);
 }

@@ -4,12 +4,12 @@
 // 序列(拖拽落点几何)才必须走 CDP `Input.dispatchMouseEvent`,本脚本不做那类读数。
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { sleep } from './cdp-lib.mjs';
-import { openReadOnly } from './db-compat.mjs';
+import { openReadOnly, DB_PATH } from './db-compat.mjs';
 // 侧栏单击模式(2026-10-17 头部按钮已删):读写与设置页那一行都在 click-mode-lib,这里只留转出与旧调用形状。
 import { clickModeOf, clickModeRowState, ensureClickMode, openClickModeRow, pickClickModeRow, setClickMode, storedClickMode } from './click-mode-lib.mjs';
 export { clickModeOf, clickModeRowState, ensureClickMode, openClickModeRow, pickClickModeRow, setClickMode, storedClickMode };
 
-export const DB = 'C:/Users/23652/AppData/Roaming/com.lifelog.app/lifelog.db';
+export const DB = DB_PATH;
 export const SHOTS = '.superpowers/shots';
 const J = JSON.stringify;
 const rowSel = (p) => `document.querySelector('aside [data-tag-path=' + ${J(J(p))} + ']')`;

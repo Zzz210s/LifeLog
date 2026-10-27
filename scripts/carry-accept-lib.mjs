@@ -1,4 +1,4 @@
-import { openReadOnly } from './db-compat.mjs';
+import { openReadOnly, DB_PATH } from './db-compat.mjs';
 // 标签携带端到端验收(scripts/dev-carry-accept.mjs)的共用件:只做「只读库对账 / 发 IPC / 发 DOM 事件 / 读值」,判定全部留在主脚本(与 link-accept-lib.mjs / graph-accept-g3-lib.mjs 同风格)。
 // 库路径可用 LIFELOG_DB 覆盖 —— 跑独立 identifier 的副本库时用得上;默认是本机真实库。
 import { createHash } from 'node:crypto';
@@ -14,7 +14,7 @@ export { rotateClickMode as pokeClickMode };
 // 主脚本用的机械动作(搬数据 / 发事件)在 scripts/carry-accept-ops.mjs,这里再出口。
 export * from './carry-accept-ops.mjs';
 export { sleep, waitFor };
-export const DB_PATH = process.env.LIFELOG_DB ?? 'C:/Users/23652/AppData/Roaming/com.lifelog.app/lifelog.db';
+export { DB_PATH } from './db-compat.mjs';
 /** 空条件(与前端 EMPTY_FILTER / Rust FilterConditions 同形) */
 export const EMPTY = { keyword: null, tags: [], excludeTags: [], tagPresence: null, sort: 'newest', expr: null };
 export const tagCond = (path) => ({ ...EMPTY, tags: [{ path, includeChildren: true }] });

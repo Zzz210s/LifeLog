@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { openReadOnly } from './db-compat.mjs';
+import { openReadOnly, DB_PATH } from './db-compat.mjs';
 /**
  * 笔记间链接 L1 的真机读数(计划 2026-10-01-note-links-l1.md 的 Task 4)。
  *   1 用统一输入框写一条含 `[[<目标首行>]]` 的笔记 -> note_links 恰 1 行、target_id 指向目标、raw_title 原样
@@ -19,7 +19,6 @@ import { CDP_PORT, ensureMain, recorder, sleep, waitFor } from './cdp-lib.mjs';
 import { BOX, driver } from './unified-accept-lib.mjs';
 
 const NS = 'LINK测试';
-const DB_PATH = 'C:/Users/23652/AppData/Roaming/com.lifelog.app/lifelog.db';
 const TARGET = `${NS} 目标`;
 const RENAMED = `${NS} 目标改`;
 const SOURCE = `${NS} 源 [[${TARGET}]]`;
