@@ -6,7 +6,7 @@
  */
 
 /** 保存时自动带时间标签(默认开) */
-export const AUTO_TIME_TAG_KEY = 'auto_time_tag';
+export const AUTO_TIME_TAG_KEY = 'auto_time_tag'; // schema 见 shared/settings-schema.ts
 /** 自动时间标签的路径模板(默认三段年/月/日) */
 export const TIME_TAG_TEMPLATE_KEY = 'time_tag_template';
 /** 默认模板,与 Rust `timetag::DEFAULT_TEMPLATE` 一致 */

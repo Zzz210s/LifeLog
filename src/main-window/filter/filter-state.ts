@@ -18,7 +18,7 @@ import { parseFilterJson } from '../../shared/filter-conditions-parse';
 import { applyTagPick } from './filter-chips';
 
 /** settings 键(真源在 Rust `db/repos/settings.rs` 的 FILTER_CURRENT_KEY) */
-export const FILTER_KEY = 'filter_current';
+export const FILTER_KEY = 'filter_current'; // schema 见 shared/settings-schema.ts
 
 /** 默认条件:空条件(键缺失/坏值时的退化目标) */
 export function defaultFilterState(): FilterConditions {

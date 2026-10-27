@@ -5,7 +5,7 @@
 import { canonicalMainKey } from './hotkey-keys';
 
 export const DEFAULT_HOTKEY = 'ctrl+shift+q';
-export const HOTKEY_KEY = 'input_hotkey';
+export const HOTKEY_KEY = 'input_hotkey'; // schema 见 shared/settings-schema.ts
 
 const MOD_ORDER = ['ctrl', 'alt', 'shift', 'super'] as const;
 /** 修饰键别名表:与 Rust `hotkey_spec::modifier_of` 逐条对齐(缺项会让两侧规范化结果漂移) */

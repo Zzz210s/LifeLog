@@ -7,7 +7,7 @@ import type { Camera } from './graph-camera';
 import type { Positions } from './graph-positions';
 import type { Point } from './radial';
 
-export const GRAPH_POSITIONS_KEY = 'graph_positions';
+export const GRAPH_POSITIONS_KEY = 'graph_positions'; // schema 见 shared/settings-schema.ts
 /** 每格滚轮的缩放倍率(相机用例与视图接线用例共读这一份,别在测试里抄第二份) */
 export const ZOOM_STEP = 1.15;
 
