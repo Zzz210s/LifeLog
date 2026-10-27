@@ -12,7 +12,7 @@ pub(super) fn rows(
 ) -> rusqlite::Result<Vec<(i64, i64, Option<i64>)>> {
     let mut stmt = conn.prepare(
         "SELECT id, to_id, name_id FROM lines
-          WHERE from_id = ?1 AND (name_id IS NULL OR name_id <> 0) ORDER BY id",
+          WHERE from_id = ?1 ORDER BY id",
     )?;
     let rows = stmt.query_map(params![source_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
     rows.collect()

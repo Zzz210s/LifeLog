@@ -10,7 +10,7 @@ use rusqlite::{params, Connection};
 pub const CLOSURE_CTE: &str = "WITH RECURSIVE up(id) AS (
      SELECT id FROM points WHERE is_cited = 1
      UNION
-     SELECT l.from_id FROM lines l JOIN up ON l.to_id = up.id WHERE l.name_id = 0
+     SELECT l.from_id FROM tree_lines l JOIN up ON l.to_id = up.id
    )";
 
 /// 树 / 图渲染集合,按 id 升序(`is_cited=1` ∪ 祖先)。

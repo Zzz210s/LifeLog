@@ -13,8 +13,7 @@ pub(crate) fn union_edges(
 ) -> Result<i64, String> {
     let mut added = 0i64;
     // 出线:源 → Y 迁成 目标 → Y。目标已能沿关系方向走到 Y 时,再加 目标→Y 会成环,剔除。
-    let out_sql = "SELECT to_id, name_id FROM lines \
-                   WHERE from_id=?1 AND (name_id IS NULL OR name_id <> 0)";
+    let out_sql = "SELECT to_id, name_id FROM non_tree_lines WHERE from_id=?1";
     for (y, name_id) in column(conn, out_sql, source_id)? {
         if y == target_id || reaches(conn, y, target_id).map_err(|e| e.to_string())? {
             continue;
@@ -22,8 +21,8 @@ pub(crate) fn union_edges(
         added += insert(conn, target_id, y, name_id)?;
     }
     // 入线:Y → 源 迁成 Y → 目标。目标本身能到达 Y 时,再加 Y→目标 会成环(Y≠目标已挡自环),剔除。
-    let in_sql = "SELECT from_id, name_id FROM lines \
-                  WHERE to_id=?1 AND (name_id IS NULL OR name_id <> 0) \
+    let in_sql = "SELECT from_id, name_id FROM non_tree_lines \
+                  WHERE to_id=?1 \
                   AND from_id IN (SELECT id FROM points WHERE path IS NOT NULL)";
     for (y, name_id) in column(conn, in_sql, source_id)? {
         if y == target_id || reaches(conn, target_id, y).map_err(|e| e.to_string())? {
@@ -59,11 +58,7 @@ fn insert(conn: &Connection, from: i64, to: i64, name_id: Option<i64>) -> Result
     if exists {
         return Ok(0);
     }
-    conn.execute(
-        "INSERT OR IGNORE INTO lines(from_id, to_id, name_id) \
-         VALUES(?1, ?2, ?3)",
-        params![from, to, name_id],
-    )
-    .map_err(|e| e.to_string())?;
-    Ok(conn.changes() as i64)
+    let inserted = crate::db::repos::lines_write::insert(conn, from, to, name_id)
+        .map_err(|e| e.to_string())?;
+    Ok(i64::from(inserted))
 }

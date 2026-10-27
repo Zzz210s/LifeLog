@@ -114,7 +114,7 @@ pub(crate) fn keyword_predicate(k: &str, args: &mut Vec<Value>) -> String {
         args.push(Value::Text(pat.clone()));
         args.push(Value::Text(pat));
         "(n.meta LIKE ? OR EXISTS (SELECT 1 FROM non_tree_lines l JOIN points t ON t.id = l.to_id \
-         WHERE (l.name_id IS NULL OR l.name_id <> 0) AND l.from_id = n.id \
+         WHERE l.from_id = n.id \
            AND (t.path LIKE ? OR t.meta LIKE ?)))"
             .to_string()
     }

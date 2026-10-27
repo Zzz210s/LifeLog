@@ -18,7 +18,7 @@ pub(crate) fn gc_orphans(conn: &Connection) -> rusqlite::Result<()> {
                AND NOT EXISTS (SELECT 1 FROM lines x WHERE x.from_id = points.id)
                AND NOT EXISTS (
                  SELECT 1 FROM lines y
-                 WHERE y.to_id = points.id AND (y.name_id IS NULL OR y.name_id <> 0))",
+                 WHERE y.id IN (SELECT id FROM non_tree_lines WHERE to_id = points.id))",
             [],
         )?;
         if n == 0 {

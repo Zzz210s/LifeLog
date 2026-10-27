@@ -46,8 +46,8 @@ pub(crate) fn write_merge_log(
     let note_links = note_links_of_subtree(conn, source_id)?;
     let edges: i64 = conn
         .query_row(
-            "SELECT COUNT(*) FROM lines WHERE (name_id IS NULL OR name_id <> 0)
-               AND (from_id = ?1 OR to_id = ?1)",
+            "SELECT COUNT(*) FROM non_tree_lines
+               WHERE from_id = ?1 OR to_id = ?1",
             params![source_id],
             |r| r.get(0),
         )

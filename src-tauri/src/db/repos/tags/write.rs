@@ -6,7 +6,7 @@
 use super::tree::{gc_orphans, refresh_entities_fts};
 use crate::db::repos::entities::closure::sync_is_cited;
 use crate::db::repos::filter_rewrite;
-use rusqlite::{params, Connection};
+use rusqlite::Connection;
 
 /// 标签写入的收尾输入(见 [`finish`])。调用方按自己的语义填:仅改名可 `gc: false`、
 /// 删除传 `path_change: None`(删除按设计不改写筛选条件)。
@@ -54,11 +54,7 @@ pub(crate) fn drop_into_tree(
     parent_id: i64,
     entity_id: i64,
 ) -> rusqlite::Result<()> {
-    conn.execute(
-        "INSERT OR IGNORE INTO lines(from_id, to_id, name_id)
-         VALUES(?1, ?2, 0),
-               (?1, ?2, NULL)",
-        params![parent_id, entity_id],
-    )?;
+    crate::db::repos::lines_write::insert_tree(conn, parent_id, entity_id)?;
+    crate::db::repos::lines_write::insert_tag(conn, parent_id, entity_id)?;
     sync_is_cited(conn, entity_id)
 }

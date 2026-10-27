@@ -30,7 +30,7 @@ pub(crate) fn attach_children(
     shift_descendant_depths(conn, source_id, dst_depth - src_depth)?;
     // ③ 父子线整批改挂到目标(剩余子点的入子级线)
     conn.execute(
-        "UPDATE lines SET from_id = ?2 WHERE name_id = 0 AND from_id = ?1",
+        "UPDATE lines SET from_id = ?2 WHERE id IN (SELECT id FROM tree_lines WHERE from_id = ?1)",
         params![source_id, target_id],
     )
     .map_err(|e| e.to_string())?;

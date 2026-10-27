@@ -118,7 +118,7 @@ pub(crate) fn replace_lines(
         if keep.contains(line_id) {
             continue;
         }
-        conn.execute("DELETE FROM lines WHERE id = ?1", params![line_id])?;
+        crate::db::repos::lines_write::delete_by_id(conn, *line_id)?;
         if let Some(nid) = name_id {
             queue_name_point_gc(conn, *nid)?;
         }

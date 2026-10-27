@@ -118,18 +118,15 @@ pub fn create_line(
     if name_id != Some(TREE_NAME_ID) && reaches(&tx, to_id, from_id).map_err(|e| e.to_string())? {
         return Err("会形成循环：新线会让目标绕回起点".into());
     }
-    let inserted = tx.execute(
-        "INSERT INTO lines(from_id, to_id, name_id)
-         VALUES(?1, ?2, ?3)",
-        params![from_id, to_id, name_id],
-    );
-    let id = match inserted {
-        Ok(_) => tx.last_insert_rowid(),
-        Err(e) if e.to_string().contains("UNIQUE constraint failed") => {
-            return Err("该线已存在：同一对点 + 同一名字只能有一条线".into());
-        }
-        Err(e) => return Err(e.to_string()),
-    };
+    crate::db::repos::lines_write::insert_strict(
+        &tx,
+        from_id,
+        to_id,
+        name_id,
+        "该线已存在：同一对点 + 同一名字只能有一条线",
+    )
+    .map_err(|e| e.to_string())?;
+    let id = tx.last_insert_rowid();
     tx.commit().map_err(|e| e.to_string())?;
     Ok(id)
 }
@@ -144,7 +141,7 @@ pub fn remove_line(conn: &mut Connection, line_id: i64) -> rusqlite::Result<()> 
         })
         .optional()?
         .flatten();
-    tx.execute("DELETE FROM lines WHERE id = ?1", params![line_id])?;
+    crate::db::repos::lines_write::delete_by_id(&tx, line_id)?;
     if let Some(nid) = name_id {
         super::tree::queue_name_point_gc(&tx, nid)?;
     }

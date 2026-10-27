@@ -52,8 +52,7 @@ pub(super) fn name_point(c: &Connection, meta: &str) -> i64 {
 /// 给来源 90 造一条前置线,返回线 id
 pub(super) fn line(c: &Connection, to: i64, name: Option<i64>) -> i64 {
     c.query_row(
-        "INSERT INTO lines(from_id, to_id, name_id) VALUES(?1, ?2, ?3)
-         RETURNING id",
+        "INSERT INTO lines(from_id, to_id, name_id) VALUES(?1, ?2, ?3) RETURNING id",
         params![SRC, to, name],
         |r| r.get(0),
     )
@@ -81,8 +80,8 @@ pub(super) fn after_named(c: &mut Connection, content: &str, to: i64) -> i64 {
 pub(super) fn rows(c: &Connection) -> Vec<(i64, i64, Option<i64>)> {
     let mut stmt = c
         .prepare(
-            "SELECT id, to_id, name_id FROM lines
-              WHERE from_id = ?1 AND (name_id IS NULL OR name_id <> 0) ORDER BY id",
+            "SELECT id, to_id, name_id FROM non_tree_lines
+              WHERE from_id = ?1 ORDER BY id",
         )
         .unwrap();
     let out = stmt

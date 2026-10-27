@@ -70,7 +70,7 @@ pub fn set_tag_relation(
             .map_err(|e| e.to_string())?,
         None => tx
             .query_row(
-                "SELECT EXISTS(SELECT 1 FROM lines WHERE from_id = ?1 AND to_id = ?2 AND name_id IS NULL)",
+                "SELECT EXISTS(SELECT 1 FROM tag_lines WHERE from_id = ?1 AND to_id = ?2)",
                 params![from_tag_id, to_tag_id],
                 |r| r.get(0),
             )
@@ -95,13 +95,8 @@ pub fn set_tag_relation(
             )
             .map_err(|e| e.to_string())?;
         if updated == 0 {
-            tx.execute(
-                "INSERT INTO lines(from_id, to_id, name_id)
-                 VALUES(?1, ?2, ?3)
-                 ON CONFLICT(from_id, to_id, COALESCE(name_id, -1))
-                 DO UPDATE SET name_id = excluded.name_id",
-                params![from_tag_id, to_tag_id, name_id],
-            )
+            // 统一写入入口(不存在才插;存在则上面那条 UPDATE 已处理)
+            crate::db::repos::lines_write::insert(&tx, from_tag_id, to_tag_id, name_id)
             .map_err(|e| e.to_string())?;
         }
         if let Some(old) = old_name {
@@ -129,7 +124,7 @@ pub fn remove_tag_relation(
             params![from_tag_id, to_tag_id, nid],
         ),
         None => tx.execute(
-            "DELETE FROM lines WHERE from_id = ?1 AND to_id = ?2 AND name_id IS NULL",
+            "DELETE FROM lines WHERE id IN (SELECT id FROM tag_lines WHERE from_id = ?1 AND to_id = ?2)",
             params![from_tag_id, to_tag_id],
         ),
     }
@@ -170,7 +165,7 @@ pub(super) fn reaches(conn: &Connection, from: i64, to: i64) -> rusqlite::Result
             )));
         }
         let mut stmt = conn.prepare(
-            "SELECT to_id FROM lines WHERE from_id = ?1 AND (name_id IS NULL OR name_id <> 0)",
+            "SELECT to_id FROM non_tree_lines WHERE from_id = ?1",
         )?;
         let rows = stmt.query_map(params![cur], |r| r.get::<_, i64>(0))?;
         for row in rows {

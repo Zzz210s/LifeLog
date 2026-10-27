@@ -18,17 +18,14 @@ pub(crate) fn replace_links(
     use super::{gc_orphans, link_note};
     let existing: Vec<i64> = {
         let mut stmt = conn.prepare(
-            "SELECT to_id FROM lines WHERE name_id IS NULL AND from_id = ?1",
+            "SELECT to_id FROM tag_lines WHERE from_id = ?1",
         )?;
         let rows = stmt.query_map(params![note_id], |r| r.get(0))?;
         rows.collect::<rusqlite::Result<Vec<i64>>>()?
     };
     for tid in &existing {
         if !ids.contains(tid) {
-            conn.execute(
-                "DELETE FROM lines WHERE name_id IS NULL AND from_id = ?2 AND to_id = ?1",
-                params![tid, note_id],
-            )?;
+            crate::db::repos::lines_write::delete_tag_line(conn, note_id, *tid)?;
         }
     }
     for tid in ids {

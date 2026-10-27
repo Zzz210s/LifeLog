@@ -68,8 +68,9 @@ pub(crate) fn merge_core(
     // 不计入 movedLinks。树内来源的关联(老 `relation`)留给 ③ 的并集处理(需判环)。
     conn.execute(
         "UPDATE OR IGNORE lines SET to_id = ?1
-          WHERE (name_id IS NULL OR name_id <> 0) AND to_id = ?2
-            AND (SELECT path FROM points WHERE id = lines.from_id) IS NULL",
+          WHERE to_id = ?2
+            AND (SELECT path FROM points WHERE id = lines.from_id) IS NULL
+            AND id IN (SELECT id FROM non_tree_lines)",
         params![target_id, source_id],
     )
     .map_err(|e| e.to_string())?;
@@ -91,17 +92,10 @@ pub(crate) fn merge_core(
     for nid in doomed_names {
         super::tree::queue_name_point_gc(conn, nid).map_err(|e| e.to_string())?;
     }
-    conn.execute(
-        "DELETE FROM lines WHERE (name_id IS NULL OR name_id <> 0)
-           AND (from_id = ?1 OR to_id = ?1)",
-        params![source_id],
-    )
-    .map_err(|e| e.to_string())?;
-    conn.execute(
-        "DELETE FROM lines WHERE name_id = 0 AND to_id = ?1",
-        params![source_id],
-    )
-    .map_err(|e| e.to_string())?;
+    crate::db::repos::lines_write::delete_non_tree_touching(conn, source_id)
+        .map_err(|e| e.to_string())?;
+    crate::db::repos::lines_write::delete_tree_lines_to(conn, source_id)
+        .map_err(|e| e.to_string())?;
     // ⑤ 旧名登记为别名(D6):旧完整路径 + 不冲突的旧叶子名
     let aliases = if keep_alias {
         alias::register_rename(conn, &source_path, target_id).map_err(|e| e.to_string())?

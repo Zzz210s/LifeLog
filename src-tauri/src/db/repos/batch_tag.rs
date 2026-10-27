@@ -41,8 +41,7 @@ pub fn add_tag(conn: &mut Connection, points: &[i64], target: i64) -> Result<Tag
         }
         let has: bool = tx
             .query_row(
-                "SELECT EXISTS(SELECT 1 FROM lines
-                 WHERE from_id = ?1 AND to_id = ?2 AND name_id IS NULL)",
+                "SELECT EXISTS(SELECT 1 FROM tag_lines WHERE from_id = ?1 AND to_id = ?2)",
                 params![id, target],
                 |r| r.get(0),
             )
@@ -51,12 +50,9 @@ pub fn add_tag(conn: &mut Connection, points: &[i64], target: i64) -> Result<Tag
             existed += 1;
             continue;
         }
-        added += tx
-            .execute(
-                "INSERT INTO lines(from_id, to_id, name_id) VALUES(?1, ?2, NULL)",
-                params![id, target],
-            )
-            .map_err(|e| e.to_string())? as i64;
+        added += i64::from(
+            crate::db::repos::lines_write::insert_tag(&tx, *id, target).map_err(|e| e.to_string())?,
+        );
     }
     tx.commit().map_err(|e| e.to_string())?;
     Ok(TagAdded { added, existed })
@@ -68,11 +64,8 @@ pub fn remove_tag(conn: &mut Connection, points: &[i64], target: i64) -> Result<
     let mut removed = 0i64;
     let mut kept_named = 0i64;
     for id in points {
-        removed += tx
-            .execute(
-                "DELETE FROM lines WHERE from_id = ?1 AND to_id = ?2 AND name_id IS NULL",
-                params![id, target],
-            )
+        // 统一删除入口:只删无名线,名线(关系)不动
+        removed += crate::db::repos::lines_write::delete_tag_line(&tx, *id, target)
             .map_err(|e| e.to_string())? as i64;
         kept_named += tx
             .query_row(

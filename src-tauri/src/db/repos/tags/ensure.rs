@@ -57,11 +57,7 @@ pub fn ensure_path(conn: &Connection, segments: &[String]) -> rusqlite::Result<i
 
 /// 建一条父 -> 子级的子级线(`name_id = 0` 保留点「子级」;唯一索引天然去重)
 pub(crate) fn link_child(conn: &Connection, parent_id: i64, child_id: i64) -> rusqlite::Result<()> {
-    conn.execute(
-        "INSERT OR IGNORE INTO lines(from_id, to_id, name_id)
-         VALUES(?1, ?2, 0)",
-        params![parent_id, child_id],
-    )?;
+    crate::db::repos::lines_write::insert_tree(conn, parent_id, child_id)?;
     Ok(())
 }
 
@@ -80,7 +76,10 @@ fn reconcile(
         "UPDATE points SET meta = ?1, parent_id = ?2, depth = ?3 WHERE id = ?4",
         params![name, parent, depth, id],
     )?;
-    conn.execute("DELETE FROM lines WHERE name_id = 0 AND to_id = ?1", params![id])?;
+    conn.execute(
+        "DELETE FROM lines WHERE id IN (SELECT id FROM tree_lines WHERE to_id = ?1)",
+        params![id],
+    )?;
     if let Some(p) = parent {
         link_child(conn, p, id)?;
     }

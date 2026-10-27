@@ -54,12 +54,8 @@ pub(crate) fn refresh_entities_fts(conn: &Connection, entity_ids: &[i64]) -> rus
 /// 生产保存路径改走 `note_links::replace_lines`,此处仅剩 `tags::replace::replace_links`(测试专用)在用。
 #[cfg(test)]
 pub fn link_note(conn: &Connection, note_id: i64, tag_id: i64) -> rusqlite::Result<()> {
-    conn.execute(
-        "INSERT OR IGNORE INTO lines(from_id, to_id, name_id)
-         VALUES(?1, ?2, NULL)",
-        params![note_id, tag_id],
-    )?;
-    crate::db::repos::entities::closure::sync_is_cited(conn, tag_id)
+    crate::db::repos::lines_write::insert_tag(conn, note_id, tag_id)?;
+    Ok(())
 }
 
 #[path = "tree_gc.rs"]

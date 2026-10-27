@@ -92,7 +92,10 @@ pub(crate) fn repoint_child(
     child_id: i64,
     parent: Option<i64>,
 ) -> rusqlite::Result<()> {
-    conn.execute("DELETE FROM lines WHERE name_id = 0 AND to_id = ?1", params![child_id])?;
+    conn.execute(
+        "DELETE FROM lines WHERE id IN (SELECT id FROM tree_lines WHERE to_id = ?1)",
+        params![child_id],
+    )?;
     if let Some(p) = parent {
         link_child(conn, p, child_id)?;
     }
