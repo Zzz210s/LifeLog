@@ -46,10 +46,10 @@ type NameRow = (i64, Option<String>, Option<String>);
 
 fn name_snapshot(conn: &Connection, id: i64) -> rusqlite::Result<Vec<NameRow>> {
     let mut stmt = conn.prepare(
-        "SELECT l.to_id, t.path, nm.meta FROM lines l
+        "SELECT l.to_id, t.path, nm.meta FROM non_tree_lines l
            JOIN points t ON t.id = l.to_id
            LEFT JOIN points nm ON nm.id = l.name_id
-          WHERE l.from_id = ?1 AND (l.name_id IS NULL OR l.name_id <> 0)
+          WHERE l.from_id = ?1
           ORDER BY l.id",
     )?;
     let rows = stmt.query_map(params![id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
@@ -89,8 +89,8 @@ fn log_name_changes(id: i64, before: &[NameRow], after: &[NameRow]) {
 /// 只取非子级线目标中在树内的点(`path IS NOT NULL`),树外笔记目标不计入标签。
 fn tag_paths(conn: &rusqlite::Connection, id: i64) -> rusqlite::Result<Vec<String>> {
     let mut stmt = conn.prepare(
-        "SELECT t.path FROM lines l JOIN points t ON t.id = l.to_id
-         WHERE (l.name_id IS NULL OR l.name_id <> 0) AND t.path IS NOT NULL AND l.from_id=?1
+        "SELECT t.path FROM non_tree_lines l JOIN points t ON t.id = l.to_id
+         WHERE t.path IS NOT NULL AND l.from_id=?1
          ORDER BY t.path",
     )?;
     let rows = stmt.query_map(params![id], |r| r.get(0))?;

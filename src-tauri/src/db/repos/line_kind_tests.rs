@@ -72,8 +72,9 @@ fn is_exempt(rel: &str) -> bool {
 /// 每轮收口把预算调低一次,直到 0。
 #[test]
 fn handwritten_line_predicates_only_shrink() {
-    // 2026-10-27 首轮收口后实测 172 处(原 184);预算贴着当前值,涨一处就红
-    const BUDGET: usize = 172;
+    // 2026-10-27:首轮 184 → 172(视图 + graph/filter),第二批 172 → 163(notes/链接读路径)。
+    // 预算贴着当前值,涨一处就红;每批收口都调低一次。
+    const BUDGET: usize = 163;
     let mut hits: Vec<(String, usize)> = Vec::new();
     let mut total = 0usize;
     let mut stack = vec![src_root()];

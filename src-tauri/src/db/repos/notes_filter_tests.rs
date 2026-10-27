@@ -57,12 +57,19 @@ fn exclude_tag_uses_not_exists() {
 fn tag_presence_counts_all_tags() {
     let none = FilterConditions { tag_presence: Some("none".into()), ..empty() };
     let (sql, _) = where_clause(&none).unwrap();
-    assert!(sql.contains("(n.path IS NULL AND (NOT (EXISTS (SELECT 1 FROM lines l"), "{sql}");
+    // 2026-10-27:判据由「lines + name_id 判断」改成 `non_tree_lines` 视图(线语义收口)
+    assert!(
+        sql.contains("(n.path IS NULL AND (NOT (EXISTS (SELECT 1 FROM non_tree_lines l"),
+        "{sql}"
+    );
     assert!(!sql.contains("时间排序"), "不再有时间子树例外:{sql}");
 
     let any = FilterConditions { tag_presence: Some("any".into()), ..empty() };
     let (sql, _) = where_clause(&any).unwrap();
-    assert!(sql.contains("(n.path IS NULL AND (EXISTS (SELECT 1 FROM lines l"), "{sql}");
+    assert!(
+        sql.contains("(n.path IS NULL AND (EXISTS (SELECT 1 FROM non_tree_lines l"),
+        "{sql}"
+    );
     assert!(sql.contains("1=1 AND ("), "谓词外层的组括号:{sql}");
     assert_eq!(sql.matches("(n.path IS NULL AND (EXISTS").count(), 1, "any 不得带排除:{sql}");
 }

@@ -18,7 +18,7 @@ pub(crate) fn columns() -> &'static str {
 
 /// 标签行的 `LEFT JOIN`:目标点 + 名字点(两处拼接共用,免得两处各写一份别名口径)
 pub(crate) const TAG_JOINS: &str =
-    "LEFT JOIN lines l ON (l.name_id IS NULL OR l.name_id <> 0) AND l.from_id = n.id
+    "LEFT JOIN non_tree_lines l ON l.from_id = n.id
      LEFT JOIN points t ON t.id = l.to_id
      LEFT JOIN points nm ON nm.id = l.name_id";
 

@@ -101,6 +101,11 @@ pub(crate) const MIGRATION_030_SQL: &str =
 /// `source_id`→`from_id`、`target_id`→`to_id`;子孙 / 祖先递归仍沿 `parent_id`(`sub` / `chain` /
 /// `bsub`),形状与 v30 逐字相同。
 ///
+/// **注意:这里的判据不能换成 `non_tree_lines` 视图**。本常量会在迁移 031 的前置钩子里被拼成
+/// 视图 `points_fts_src`,那时迁移 033(建 `non_tree_lines`)还没跑 —— 用它会让只在 v31 停住的
+/// 库/用例在查询时报 `no such table`。线语义视图适用于"保证已到最新版"的运行时查询,
+/// 不适合嵌进早期迁移产物。
+///
 /// **本常量是 v31 聚合文本的唯一真源**:视图 `points_fts_src` 由 v31 事务内前置钩子
 /// [`crate::db::migration_hooks::create_points_fts_src_view`] 用它拼出,迁移 `.sql` 里不出现任何
 /// 聚合段(守卫用例 `point_line_fts_tests::migration_031_has_no_aggregate_sql`)。

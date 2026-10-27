@@ -47,9 +47,9 @@ fn row_title(row: &rusqlite::Row<'_>, base: usize) -> rusqlite::Result<String> {
 /// 某来源的全部已解析链接目标:`target_id -> 目标显示标题`,按线 id 升序
 fn edge_targets(conn: &Connection, source_id: i64) -> rusqlite::Result<HashMap<i64, String>> {
     let mut stmt = conn.prepare(
-        "SELECT l.to_id, t.meta FROM lines l
+        "SELECT l.to_id, t.meta FROM non_tree_lines l
          JOIN points t ON t.id = l.to_id
-         WHERE (l.name_id IS NULL OR l.name_id <> 0) AND l.from_id = ?1 ORDER BY l.id",
+         WHERE l.from_id = ?1 ORDER BY l.id",
     )?;
     let mut rows = stmt.query(params![source_id])?;
     let mut map = HashMap::new();
@@ -122,9 +122,9 @@ pub fn outbound_page(
     }
     let mut grouped: HashMap<i64, HashMap<i64, String>> = HashMap::new();
     let mut stmt = conn.prepare(&format!(
-        "SELECT l.from_id, l.to_id, t.meta FROM lines l
+        "SELECT l.from_id, l.to_id, t.meta FROM non_tree_lines l
          JOIN points t ON t.id = l.to_id
-         WHERE (l.name_id IS NULL OR l.name_id <> 0) AND l.from_id IN ({marks})
+         WHERE l.from_id IN ({marks})
          ORDER BY l.from_id, l.id"
     ))?;
     let mut rows = stmt.query(params_from_iter(note_ids))?;
@@ -150,9 +150,9 @@ pub fn outbound_page(
 pub fn list_note_links(conn: &Connection, note_id: i64) -> rusqlite::Result<NoteLinks> {
     let outbound = outbound_of(conn, note_id)?;
     let mut in_stmt = conn.prepare(
-        "SELECT DISTINCT l.from_id, s.meta FROM lines l
+        "SELECT DISTINCT l.from_id, s.meta FROM non_tree_lines l
          JOIN points s ON s.id = l.from_id
-         WHERE (l.name_id IS NULL OR l.name_id <> 0) AND l.to_id = ?1 ORDER BY l.from_id",
+         WHERE l.to_id = ?1 ORDER BY l.from_id",
     )?;
     let backlinks = in_stmt
         .query_map(params![note_id], |r| {
@@ -172,8 +172,8 @@ pub fn list_note_links(conn: &Connection, note_id: i64) -> rusqlite::Result<Note
 /// `IN (SELECT id FROM points WHERE path IS NULL)` —— 后者无可用的部分索引(`idx_points_path`
 /// 只管非 NULL),规划器会对 `points` 全表扫两次(真库 5.1MB)。
 pub(crate) const ALL_RESOLVED_SQL: &str = "\
-    SELECT l.from_id, l.to_id FROM lines l
-     WHERE (l.name_id IS NULL OR l.name_id <> 0) AND l.from_id <> l.to_id
+    SELECT l.from_id, l.to_id FROM non_tree_lines l
+     WHERE l.from_id <> l.to_id
        AND EXISTS(SELECT 1 FROM points s WHERE s.id = l.from_id AND s.path IS NULL)
        AND EXISTS(SELECT 1 FROM points t WHERE t.id = l.to_id AND t.path IS NULL)
      ORDER BY l.id";

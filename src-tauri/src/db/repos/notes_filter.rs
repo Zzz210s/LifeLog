@@ -89,8 +89,7 @@ pub fn empty() -> FilterConditions {
 /// 「挂过出边(非子级线)」的谓词(时间标签已是普通标签,D3:它也计数)。
 /// 本身不限定行域:调用方必须用 [`note_only`] 收窄到笔记,否则树内标签会被算成「有标签」。
 pub(crate) fn any_tag() -> String {
-    "EXISTS (SELECT 1 FROM lines l WHERE (l.name_id IS NULL OR l.name_id <> 0) \
-     AND l.from_id = n.id)"
+    "EXISTS (SELECT 1 FROM non_tree_lines l WHERE l.from_id = n.id)"
         .to_string()
 }
 
