@@ -6,6 +6,7 @@
 //! `a`/`b` 是实体 id,与闭包节点 id 同空间)。节点计数口径与 `tags::query::counts` 同源;
 //! 共现边按枢纽阈值排除大标签(阈值 60 下 v31 现场 735 条,见 `graph_calibration_tests`)。
 use super::note_links;
+use super::line_kind;
 use rusqlite::{Connection, Result as SqlResult};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -65,19 +66,18 @@ pub struct GraphEdge {
 pub(crate) const NODES_SQL: &str = "WITH RECURSIVE up(id) AS (
            SELECT id FROM points WHERE is_cited = 1 AND path IS NOT NULL
            UNION
-           SELECT l.from_id FROM lines l INDEXED BY idx_lines_to
-             JOIN up ON l.to_id = up.id WHERE l.name_id = 0
+           SELECT l.from_id FROM tree_lines l
+             JOIN up ON l.to_id = up.id
          ),
          sub(root, leaf) AS (
            SELECT id, id FROM up
            UNION ALL SELECT s.root, p.id FROM points p JOIN sub s ON p.parent_id = s.leaf
          ),
          roll AS (SELECT sub.root AS root, COUNT(DISTINCT l.from_id) AS n
-                  FROM sub JOIN lines l
-                    ON l.to_id = sub.leaf AND (l.name_id IS NULL OR l.name_id <> 0)
+                  FROM sub JOIN non_tree_lines l ON l.to_id = sub.leaf
                   GROUP BY sub.root),
          selfc AS (SELECT to_id AS id, COUNT(DISTINCT from_id) AS n
-                   FROM lines WHERE name_id IS NULL OR name_id <> 0 GROUP BY to_id)
+                   FROM non_tree_lines GROUP BY to_id)
          SELECT t.id, t.path, t.depth, t.parent_id, COALESCE(roll.n, 0), COALESCE(selfc.n, 0), t.sort_order
          FROM up JOIN points t ON t.id = up.id
          LEFT JOIN roll ON roll.root = t.id LEFT JOIN selfc ON selfc.id = t.id
@@ -102,9 +102,9 @@ pub fn nodes(conn: &Connection) -> SqlResult<Vec<GraphNode>> {
 /// 父子边:每条非根实体一条,方向恒为 父 -> 子(子边必在闭包内,由入子级线决定;
 /// 子级线 = `name_id = 0` 的保留点 `子级`)
 pub fn tree_edges(conn: &Connection) -> SqlResult<Vec<GraphEdge>> {
-    let mut stmt = conn.prepare(
-        "SELECT from_id, to_id FROM lines WHERE name_id = 0 ORDER BY to_id",
-    )?;
+    // 视图名走词汇表常量:改语义只改 line_kind/迁移 033 两处
+    let sql = format!("SELECT from_id, to_id FROM {} ORDER BY to_id", line_kind::TREE_LINES);
+    let mut stmt = conn.prepare(&sql)?;
     let rows = stmt.query_map([], |r| {
         Ok(GraphEdge {
             a: r.get(0)?,
@@ -139,16 +139,16 @@ pub fn link_degrees(conn: &Connection, tag_id: i64) -> SqlResult<LinkDegrees> {
          )
          SELECT
            (SELECT COUNT(DISTINCT nl.id) FROM sub
-              JOIN lines tl ON (tl.name_id IS NULL OR tl.name_id <> 0) AND tl.to_id = sub.leaf
+              JOIN non_tree_lines tl ON tl.to_id = sub.leaf
                 AND tl.from_id IN (SELECT id FROM points WHERE path IS NULL)
-              JOIN lines nl ON (nl.name_id IS NULL OR nl.name_id <> 0)
+              JOIN non_tree_lines nl ON TRUE
                 AND nl.from_id = tl.from_id
                 AND nl.to_id IN (SELECT id FROM points WHERE path IS NULL)
               WHERE nl.from_id <> nl.to_id),
            (SELECT COUNT(DISTINCT nl.id) FROM sub
-              JOIN lines tl ON (tl.name_id IS NULL OR tl.name_id <> 0) AND tl.to_id = sub.leaf
+              JOIN non_tree_lines tl ON tl.to_id = sub.leaf
                 AND tl.from_id IN (SELECT id FROM points WHERE path IS NULL)
-              JOIN lines nl ON (nl.name_id IS NULL OR nl.name_id <> 0)
+              JOIN non_tree_lines nl ON TRUE
                 AND nl.to_id = tl.from_id
                 AND nl.from_id IN (SELECT id FROM points WHERE path IS NULL)
               WHERE nl.from_id <> nl.to_id)",
@@ -164,9 +164,8 @@ pub fn link_degrees(conn: &Connection, tag_id: i64) -> SqlResult<LinkDegrees> {
 
 /// 共现边:`a.to_id < b.to_id` 保证每条无向边只出现一次;枢纽实体两端都不参与。
 pub fn co_edges(conn: &Connection, hub_threshold: i64) -> SqlResult<Vec<GraphEdge>> {
-    let mut stmt = conn.prepare(
-        "WITH non_tree AS (SELECT from_id, to_id, id FROM lines
-                            WHERE name_id IS NULL OR name_id <> 0),
+    let sql = format!(
+        "WITH non_tree AS (SELECT from_id, to_id, id FROM {}),
          hub AS (
            SELECT to_id FROM non_tree
            GROUP BY to_id HAVING COUNT(DISTINCT from_id) > ?1
@@ -178,7 +177,9 @@ pub fn co_edges(conn: &Connection, hub_threshold: i64) -> SqlResult<Vec<GraphEdg
            AND b.to_id NOT IN (SELECT to_id FROM hub)
          GROUP BY a.to_id, b.to_id
          ORDER BY a.to_id, b.to_id",
-    )?;
+        line_kind::NON_TREE_LINES
+    );
+    let mut stmt = conn.prepare(&sql)?;
     let rows = stmt.query_map([hub_threshold], |r| {
         Ok(GraphEdge {
             a: r.get(0)?,

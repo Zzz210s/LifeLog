@@ -5,6 +5,7 @@
 //! EXISTS 子查询,彼此不共用别名实例。v31 已无 `kind` 列:树内点以 `path IS NOT NULL`
 //! 表达(标签条件只比 `path`,树外点 `path` 为 NULL 天然不命中)。
 //! 日期比较已整体取消(spec 2026-09-17 D2):谓词真源里不再有日期项。
+use crate::db::repos::line_kind;
 use rusqlite::types::Value;
 
 use crate::db::repos::entities::closure::in_tree_predicate;
@@ -27,11 +28,12 @@ pub(crate) fn not_pure_name(alias: &str) -> String {
 /// 子级线(`name_id = 0`)是结构边,不算「引用别人」,故有子标签的容器仍沉尾。
 /// `alias` = `points` 行别名;子查询别名 `fs` 不与热路径的 `l`/`n`/`t`/`ax{i}` 撞名。
 pub(crate) fn feed_sink_predicate(alias: &str) -> String {
+    // 无名线视图名走词汇表(`view_for_name_id(None)`),不再手写视图名字符串
     format!(
         "{alias}.path IS NOT NULL \
          AND instr({alias}.meta, char(10)) = 0 \
-         AND NOT EXISTS (SELECT 1 FROM lines fs \
-              WHERE fs.from_id = {alias}.id AND fs.name_id IS NULL)"
+         AND NOT EXISTS (SELECT 1 FROM {tag} fs WHERE fs.from_id = {alias}.id)",
+        tag = line_kind::view_for_name_id(None)
     )
 }
 
@@ -69,7 +71,7 @@ pub(crate) fn tag_predicate(path: &str, self_only: bool, args: &mut Vec<Value>) 
 pub(crate) fn carry_predicate(path: &str, args: &mut Vec<Value>) -> String {
     args.push(Value::Text(path.to_string())); // 定位被携带/被指向点(按 path 取 id)
     "t.id IN (SELECT d.id FROM points d \
-     JOIN lines cl ON (cl.name_id IS NULL OR cl.name_id <> 0) \
+     JOIN non_tree_lines cl ON TRUE \
      JOIN points ca ON ca.id = cl.from_id \
      WHERE cl.to_id IN (SELECT id FROM points WHERE path = ?) \
        AND ca.path IS NOT NULL \
@@ -79,9 +81,11 @@ pub(crate) fn carry_predicate(path: &str, args: &mut Vec<Value>) -> String {
 
 /// `实体 n 引用有满足 m 的实体` 的 EXISTS 包装;取反(排除标签、`NOT`)由调用方加 `NOT `
 pub(crate) fn tag_exists(m: &str) -> String {
+    // 线语义只认 line_kind / 迁移 033 的视图名,别处不再手写 `name_id IS NULL`
+    let src = line_kind::NON_TREE_LINES;
     format!(
-        "EXISTS (SELECT 1 FROM lines l JOIN points t ON t.id = l.to_id \
-         WHERE (l.name_id IS NULL OR l.name_id <> 0) AND l.from_id = n.id AND ({m}))"
+        "EXISTS (SELECT 1 FROM {src} l JOIN points t ON t.id = l.to_id \
+         WHERE l.from_id = n.id AND ({m}))"
     )
 }
 
@@ -109,7 +113,7 @@ pub(crate) fn keyword_predicate(k: &str, args: &mut Vec<Value>) -> String {
         args.push(Value::Text(pat.clone()));
         args.push(Value::Text(pat.clone()));
         args.push(Value::Text(pat));
-        "(n.meta LIKE ? OR EXISTS (SELECT 1 FROM lines l JOIN points t ON t.id = l.to_id \
+        "(n.meta LIKE ? OR EXISTS (SELECT 1 FROM non_tree_lines l JOIN points t ON t.id = l.to_id \
          WHERE (l.name_id IS NULL OR l.name_id <> 0) AND l.from_id = n.id \
            AND (t.path LIKE ? OR t.meta LIKE ?)))"
             .to_string()

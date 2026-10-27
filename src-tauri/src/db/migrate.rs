@@ -45,6 +45,7 @@ const MIGRATIONS: &[&str] = &[
         include_str!("migrations/031_point_line_fts_closure.sql")
     ),
     include_str!("migrations/032_points_parent_index.sql"),
+    include_str!("migrations/033_line_views.sql"),
 ];
 
 /// 012 的位次(1 起)与它删除的列名:SQLite 没有 `DROP COLUMN IF EXISTS`,

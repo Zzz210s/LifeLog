@@ -1,3 +1,4 @@
+pub mod line_kind;
 pub mod batch_delete;
 pub mod batch_ids;
 pub mod batch_tag;
