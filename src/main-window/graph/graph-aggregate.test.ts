@@ -1,6 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import type { GraphNode } from '../../shared/types';
-import type { Camera } from './graph-camera';
 import {
   aggregateBuckets,
   depthRepresentative,
@@ -10,9 +8,7 @@ import {
 } from './graph-aggregate';
 import { aggregateRadius } from './graph-draw-plan';
 import type { Point } from './radial';
-
-const node = (id: number): GraphNode => ({ id, path: `a/${id}`, depth: 0, parent: null, notes: 1, selfCount: 1, sortOrder: id });
-const cam = (k: number): Camera => ({ k, tx: 0, ty: 0 });
+import { bareNode as node, camera as cam } from './__fixtures__/graph-nodes';
 
 describe('shouldAggregate', () => {
   it('缩放低于阈值才聚合', () => {

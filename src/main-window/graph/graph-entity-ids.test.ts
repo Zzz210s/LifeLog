@@ -12,26 +12,17 @@ import type { GraphData, GraphNode } from '../../shared/types';
 import type { TagFact } from '../../shared/tag-facts-types';
 import { applyFilters, defaultFilters } from './graph-filters';
 import { relationEdges, relationRows } from './graph-relations';
+import { node } from './__fixtures__/graph-nodes';
 
 /** 夹具里的「标签侧」id 基数:取值只为与笔记侧(个位数)在数值上拉开,无生产含义 */
 const TAG = 1000;
 const tagId = (legacy: number): number => TAG + legacy;
 
-const node = (id: number, path: string, parent: number | null, depth: number): GraphNode => ({
-  id,
-  path,
-  depth,
-  parent,
-  notes: 1,
-  selfCount: 1,
-  sortOrder: 0,
-});
-
 const nodes: GraphNode[] = [
-  node(tagId(1), '作者', null, 1),
-  node(tagId(2), '作者/鲁迅', tagId(1), 2),
-  node(tagId(3), '地点轴', null, 1),
-  node(tagId(4), '地点轴/国籍', tagId(3), 2),
+  node(tagId(1), '作者', { parent: null, depth: 1 }),
+  node(tagId(2), '作者/鲁迅', { parent: tagId(1), depth: 2 }),
+  node(tagId(3), '地点轴', { parent: null, depth: 1 }),
+  node(tagId(4), '地点轴/国籍', { parent: tagId(3), depth: 2 }),
 ];
 
 /** `作者/鲁迅 --(国别)--> 地点轴/国籍`:名字(国别)与目标末段名(国籍)刻意不同 */

@@ -13,12 +13,9 @@
 import { describe, expect, it } from 'vitest';
 import type { GraphEdge, GraphNode } from '../../shared/types';
 import { cachedNodeColors, edgeDegrees, nodeFacts } from './graph-plan-cache';
+import { node } from './__fixtures__/graph-nodes';
 
-const node = (id: number, path: string, notes = 1): GraphNode => ({
-  id, path, depth: 1, parent: null, notes, selfCount: notes, sortOrder: 0,
-});
-
-const NODES: GraphNode[] = [node(1, '时间/日期', 3), node(2, '时间/时刻', 1), node(3, '人物/作者', 5)];
+const NODES: GraphNode[] = [node(1, '时间/日期', { notes: 3, depth: 1 }), node(2, '时间/时刻', { notes: 1, depth: 1 }), node(3, '人物/作者', { notes: 5, depth: 1 })];
 const EDGES: GraphEdge[] = [
   { a: 1, b: 2, kind: 'co', weight: 1 },
   { a: 1, b: 3, kind: 'tree', weight: 1 },
@@ -34,7 +31,7 @@ describe('nodeFacts:同一个 nodes 引用只建一次表', () => {
 
   it('换一个数组引用就重建,且内容跟着新数据(不能拿旧表)', () => {
     const a = nodeFacts(NODES);
-    const next = [...NODES.slice(0, 2), node(3, '地点/城市', 9)];
+    const next = [...NODES.slice(0, 2), node(3, '地点/城市', { notes: 9, depth: 1 })];
     const b = nodeFacts(next);
     expect(b.axisOf).not.toBe(a.axisOf);
     expect(b.axisOf.get(3)).toBe('地点');
@@ -43,7 +40,7 @@ describe('nodeFacts:同一个 nodes 引用只建一次表', () => {
   });
 
   it('轴名取路径第一段,笔记数原样带上', () => {
-    const f = nodeFacts([node(7, '时间/日期/2026', 4)]);
+    const f = nodeFacts([node(7, '时间/日期/2026', { notes: 4, depth: 1 })]);
     expect(f.axisOf.get(7)).toBe('时间');
     expect(f.notesById.get(7)).toBe(4);
   });
@@ -63,7 +60,7 @@ describe('edgeDegrees:度数按 edges 引用缓存', () => {
 
 describe('cachedNodeColors:轴色表按 (nodes, 颜色口径) 缓存', () => {
   it('同一份节点 + 同一个主题键:令牌只读一次(相机每帧重建 plan 不再重读令牌)', () => {
-    const nodes = [node(1, '时间/日期', 3), node(2, '人物/作者', 5)];
+    const nodes = [node(1, '时间/日期', { notes: 3, depth: 1 }), node(2, '人物/作者', { notes: 5, depth: 1 })];
     let reads = 0;
     const read = (slot: number): string => { reads += 1; return `色${slot}`; };
     const a = cachedNodeColors(nodes, read, 'light');
@@ -76,7 +73,7 @@ describe('cachedNodeColors:轴色表按 (nodes, 颜色口径) 缓存', () => {
   });
 
   it('主题键一变(亮暗切换)必须重读令牌:不能因为 nodes 没换就把旧色发出去', () => {
-    const nodes = [node(1, '时间/日期', 3)];
+    const nodes = [node(1, '时间/日期', { notes: 3, depth: 1 })];
     const dark = cachedNodeColors(nodes, (slot) => `暗色${slot}`, 'dark');
     const light = cachedNodeColors(nodes, (slot) => `亮色${slot}`, 'light');
     expect(dark).not.toBe(light);

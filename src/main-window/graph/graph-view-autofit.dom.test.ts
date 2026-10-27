@@ -46,13 +46,11 @@ vi.mock('../../shared/api', () => ({
 }));
 
 import { GraphView } from './GraphView';
+import { node } from './__fixtures__/graph-nodes';
 
-const node = (id: number, path: string, parent: number | null, depth: number, notes: number): GraphNode => ({
-  id, path, depth, parent, notes, selfCount: notes, sortOrder: 0,
-});
-const N1 = node(1, '时间', null, 1, 1177);
-const N2 = node(2, '时间/日期', 1, 2, 1040);
-const N3 = node(3, '地点', null, 1, 779);
+const N1 = node(1, '时间', { parent: null, depth: 1, notes: 1177 });
+const N2 = node(2, '时间/日期', { parent: 1, depth: 2, notes: 1040 });
+const N3 = node(3, '地点', { parent: null, depth: 1, notes: 779 });
 const ALL3 = [N1, N2, N3];
 /** 折叠「时间」后的可见集:该轴只留根(时间/日期 被挡掉) */
 const FOLDED = [N1, N3];

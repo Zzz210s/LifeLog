@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { GraphNode } from '../../shared/types';
 import { axisSlots, GRAPH_COLOR_SLOTS, nodeColors, rootAxisOf } from './graph-palette';
-
-const node = (id: number, path: string): GraphNode => ({
-  id, path, depth: path.split('/').length - 1, parent: null, notes: 1, selfCount: 1, sortOrder: id,
-});
+import { node } from './__fixtures__/graph-nodes';
 
 describe('rootAxisOf', () => {
   it('取第一段;没有斜杠时整串就是根轴', () => {

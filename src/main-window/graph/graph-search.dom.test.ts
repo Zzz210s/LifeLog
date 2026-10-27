@@ -11,16 +11,7 @@ import type { GraphNode } from '../../shared/types';
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 import { GraphSearch } from './GraphSearch';
-
-const node = (id: number, path: string): GraphNode => ({
-  id,
-  path,
-  depth: 2,
-  parent: null,
-  notes: id,
-  selfCount: id,
-  sortOrder: 0,
-});
+import { node } from './__fixtures__/graph-nodes';
 
 const nodes: GraphNode[] = [node(1, '地点/所在/中国'), node(2, '地点/所在/四川省'), node(3, '状态/已完成')];
 

@@ -7,8 +7,8 @@
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { GraphNode } from '../../shared/types';
 import { GraphTagMenuHost } from './GraphTagMenuHost';
+import { node } from './__fixtures__/graph-nodes';
 
 const { listTagRelations, setTagRelation, removeTagRelation } = vi.hoisted(() => ({
   listTagRelations: vi.fn(),
@@ -21,16 +21,6 @@ vi.mock('../../shared/api', () => ({
 }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
-
-const node = (id: number, path: string): GraphNode => ({
-  id,
-  path,
-  depth: 1,
-  parent: null,
-  notes: 0,
-  selfCount: 0,
-  sortOrder: id,
-});
 
 const NODES = [
   node(1, '携带测试甲'),
