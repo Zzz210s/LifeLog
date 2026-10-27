@@ -2,6 +2,7 @@
 //! 决策见 docs/superpowers/specs/2026-09-17-input-hotkey-design.md 的 H1-H3:
 //! 库里一律存**规范化**后的加速键字符串(如 ctrl+shift+q),缺失/非法一律回退默认键,
 //! 绝不猜测用户意图、也不改写库。注册/注销等带 AppHandle 的部分在 crate::hotkey。
+#[cfg(feature = "desktop")]
 use tauri_plugin_global_shortcut::{Code, Shortcut};
 
 /// 规范化后的修饰键顺序(H3)
@@ -25,6 +26,7 @@ fn modifier_of(token: &str) -> Option<&'static str> {
 
 /// 主键规范名:字母/数字用裸字符(q / 5),其余用插件规范名的小写(space / f2 / arrowup)。
 /// 输出一定能被插件解析器再解析(见 hotkey_tests 的幂等往返用例)。
+#[cfg(feature = "desktop")]
 fn canonical_key(code: Code) -> String {
     let name = code.to_string();
     if let Some(rest) = name.strip_prefix("Key") {
@@ -35,6 +37,7 @@ fn canonical_key(code: Code) -> String {
 }
 
 /// 单个按键是否 F1-F24(单键组合只允许功能键,H2)
+#[cfg(feature = "desktop")]
 fn is_function_key(code: Code) -> bool {
     code.to_string()
         .strip_prefix('F')
@@ -43,6 +46,7 @@ fn is_function_key(code: Code) -> bool {
 }
 
 /// 校验并规范化按键序列,非法返回中文原因(H2/H3)
+#[cfg(feature = "desktop")]
 pub fn validate(parts: &[String]) -> Result<String, String> {
     let tokens: Vec<&str> = parts
         .iter()
@@ -92,6 +96,13 @@ pub fn validate(parts: &[String]) -> Result<String, String> {
 }
 
 /// 校验并规范化(规格要求的纯入口);非法返回 None
+#[cfg(not(feature = "desktop"))]
+pub fn normalize(parts: &[String]) -> Option<String> {
+    let _ = parts;
+    None
+}
+
+#[cfg(feature = "desktop")]
 pub fn normalize(parts: &[String]) -> Option<String> {
     validate(parts).ok()
 }
@@ -102,11 +113,25 @@ fn split(raw: &str) -> Vec<String> {
 }
 
 /// 加速键字符串 -> 规范化;非法返回中文原因
+#[cfg(not(feature = "desktop"))]
+pub fn check(raw: &str) -> Result<String, String> {
+    let _ = raw;
+    Err("当前平台不支持全局快捷键".to_string())
+}
+
+#[cfg(feature = "desktop")]
 pub fn check(raw: &str) -> Result<String, String> {
     validate(&split(raw))
 }
 
 /// 库里的字符串 -> 规范化(非法返回 None)
+#[cfg(not(feature = "desktop"))]
+pub fn parse(raw: &str) -> Option<String> {
+    let _ = raw;
+    None
+}
+
+#[cfg(feature = "desktop")]
 pub fn parse(raw: &str) -> Option<String> {
     normalize(&split(raw))
 }

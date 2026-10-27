@@ -9,5 +9,6 @@ pub mod input_width;
 pub mod input_window;
 pub mod main_window;
 pub mod startup;
+#[cfg(feature = "desktop")]
 pub mod tray;
 pub mod main_window_alive;

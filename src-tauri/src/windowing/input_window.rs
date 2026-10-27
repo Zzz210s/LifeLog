@@ -59,17 +59,20 @@ pub fn ensure(app: &AppHandle) -> tauri::Result<WebviewWindow> {
         return Ok(w);
     }
     let c = build_config();
-    let built = tauri::WebviewWindowBuilder::new(app, INPUT_LABEL, tauri::WebviewUrl::App(c.url.into()))
+    let builder = tauri::WebviewWindowBuilder::new(app, INPUT_LABEL, tauri::WebviewUrl::App(c.url.into()))
         .title(c.title)
         .inner_size(c.width, c.height)
-        .visible(c.visible)
+        .visible(c.visible);
+    // 无边框 / 不占任务栏 / 置顶 / 阴影都是桌面窗口管理器的概念(安卓 P0 起 gated)
+    #[cfg(feature = "desktop")]
+    let builder = builder
         .decorations(c.decorations)
         .skip_taskbar(c.skip_taskbar)
         .always_on_top(c.always_on_top)
         .resizable(c.resizable)
         .transparent(c.transparent)
-        .shadow(c.shadow)
-        .build()?;
+        .shadow(c.shadow);
+    let built = builder.build()?;
     attach_events(&built);
     Ok(built)
 }

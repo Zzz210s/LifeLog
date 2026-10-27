@@ -4,9 +4,15 @@
 use crate::db::{repos, Db};
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager};
+// 安卓 P0:全局快捷键是桌面能力 —— 移动端没有这个插件,下面三个函数给 no-op 版本,
+// 签名保持不变,命令层与启动流程零改动。
+#[cfg(feature = "desktop")]
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
 
-pub use crate::hotkey_spec::{attempts, check, effective, parse, plan, DEFAULT_HOTKEY};
+pub use crate::hotkey_spec::{check, effective, plan};
+// 这几个只在桌面路径(注册/回退)用到;移动端留着会报 unused import
+#[cfg(feature = "desktop")]
+pub use crate::hotkey_spec::{attempts, parse, DEFAULT_HOTKEY};
 
 /// 设置键:存规范化后的加速键字符串
 pub const HOTKEY_KEY: &str = "input_hotkey";
@@ -48,6 +54,7 @@ pub fn stored(app: &AppHandle) -> Option<String> {
 }
 
 /// 注册快捷键;失败返回中文原因(不触碰其它已注册键,注销旧键的顺序由调用方保证,H4)
+#[cfg(feature = "desktop")]
 pub fn register(app: &AppHandle, accelerator: &str) -> Result<(), String> {
     app.global_shortcut().register(accelerator).map_err(|e| {
         let text = e.to_string();
@@ -61,6 +68,7 @@ pub fn register(app: &AppHandle, accelerator: &str) -> Result<(), String> {
 }
 
 /// 注销快捷键(尽力而为):失败只记日志 —— 旧键没注销最多两个键都能唤起,不阻断用户操作
+#[cfg(feature = "desktop")]
 pub fn unregister(app: &AppHandle, accelerator: &str) {
     if let Err(e) = app.global_shortcut().unregister(accelerator) {
         eprintln!("快捷键 {accelerator} 注销失败(不影响新键,仅可能两个键都能唤起):{e}");
@@ -69,6 +77,7 @@ pub fn unregister(app: &AppHandle, accelerator: &str) {
 
 /// 启动注册(H5):按 attempts 顺序注册,返回最终生效值;全部失败返回中文原因(调用方只记日志)。
 /// 注册前先注销同名键:重复调用或重载时,插件对已注册的同名键会直接报错。
+#[cfg(feature = "desktop")]
 pub fn apply(app: &AppHandle, raw: Option<&str>) -> Result<String, String> {
     if raw.is_some_and(|v| parse(v).is_none()) {
         eprintln!("设置里的快捷键无效,已回退默认键 {DEFAULT_HOTKEY}");
@@ -93,3 +102,18 @@ pub fn apply(app: &AppHandle, raw: Option<&str>) -> Result<String, String> {
 #[cfg(test)]
 #[path = "hotkey_tests.rs"]
 mod hotkey_tests;
+
+#[cfg(not(feature = "desktop"))]
+pub fn register(_app: &AppHandle, _accelerator: &str) -> Result<(), String> {
+    Ok(())
+}
+
+#[cfg(not(feature = "desktop"))]
+pub fn unregister(_app: &AppHandle, _accelerator: &str) {}
+
+/// 移动端没有全局快捷键:不注册,生效值恒为 None(界面据此显示"当前平台不支持")
+#[cfg(not(feature = "desktop"))]
+pub fn apply(app: &AppHandle, _raw: Option<&str>) -> Result<String, String> {
+    set_live(app, None);
+    Err("当前平台不支持全局快捷键".to_string())
+}

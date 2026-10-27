@@ -8,6 +8,7 @@
 // 路径不一致同样判定为需要重写(plan_write 的 Rewrite 就是「强制重写」路径)。
 use serde::Serialize;
 use tauri::AppHandle;
+#[cfg(feature = "desktop")]
 use tauri_plugin_autostart::ManagerExt;
 
 use crate::db::repos::entities::reserved;
@@ -62,10 +63,17 @@ fn path_matches(raw: &str, current: &str) -> bool {
 }
 
 fn read_run_state(app: &AppHandle) -> Result<RunState, String> {
+    // 移动端没有"开机自启"这一档:恒报未启用(界面据此禁用该行)
+    #[cfg(feature = "desktop")]
     let enabled = app
         .autolaunch()
         .is_enabled()
         .map_err(|e| format!("读取开机启动状态失败: {e}"))?;
+    #[cfg(not(feature = "desktop"))]
+    let enabled = {
+        let _ = app;
+        false
+    };
     let raw = read_run_value(app)?;
     let current = std::env::current_exe()
         .map(|p| p.display().to_string())
@@ -119,12 +127,22 @@ pub fn get_autostart_status(app: AppHandle) -> Result<AutostartStatus, String> {
 
 #[tauri::command]
 pub fn set_autostart(app: AppHandle, enabled: bool) -> Result<(), String> {
+    #[cfg(feature = "desktop")]
     let manager = app.autolaunch();
+    #[cfg(not(feature = "desktop"))]
+    let _manager = std::marker::PhantomData::<()>;
     let state = read_run_state(&app)?;
+    #[cfg(feature = "desktop")]
     let write = match plan_write(enabled, state) {
         AutostartWrite::None => Ok(()), // 幂等:已是期望态,不动注册表
         AutostartWrite::Rewrite => manager.enable(),
         AutostartWrite::Disable => manager.disable(),
+    };
+    // 移动端没有"开机自启"这一档:一律拒绝(界面据此禁用该行)
+    #[cfg(not(feature = "desktop"))]
+    let write: Result<(), String> = {
+        let _ = (enabled, state);
+        Err("当前平台不支持开机自启".to_string())
     };
     if let Err(e) = write {
         // 写失败也可能是「目标态已达成」(例如并发下标被清掉):回读一致即按幂等成功,

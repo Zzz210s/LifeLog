@@ -126,7 +126,10 @@ pub fn show(app: &AppHandle) -> tauri::Result<()> {
     let pin = get_setting(app, "input_always_on_top")
         .map(|v| v != "false")
         .unwrap_or(true);
+    #[cfg(feature = "desktop")]
     let _ = w.set_always_on_top(pin);
+    #[cfg(not(feature = "desktop"))]
+    let _ = pin;
     // 窗口实际已隐藏而 tao 缓存认为仍可见时(例如被外部 ShowWindow(SW_HIDE) 隐藏过),
     // show() 的 flags diff 为空会静默早退、窗口唤不出来。系统未可见时先 hide() 对齐缓存,
     // 再 show();两边一致时这步是空操作。

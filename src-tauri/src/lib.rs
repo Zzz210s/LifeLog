@@ -1,3 +1,6 @@
+// 安卓 P0:移动端不会调用的桌面窗口函数(切换输入栏/托盘动作/自启修复等)在 mobile 档
+// 必然是 dead code —— 它们在桌面档有用,不该为编译告警而删。
+#![cfg_attr(not(feature = "desktop"), allow(dead_code))]
 use tauri::Manager;
 
 mod commands;
@@ -52,7 +55,11 @@ mod windowing;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    // 安卓 P0(2026-10-27):单实例/自启/全局快捷键/托盘都是桌面能力,整体挂 `desktop`。
+    // 移动端把这一段整块跳过 —— 它们不是"编译期能空转"的插件,只能在调用点切掉。
+    #[cfg(feature = "desktop")]
+    let builder = builder
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
             // 二次启动:唤起已运行实例的输入栏。用 show 而非 toggle —— 输入栏在启动时默认
             // 就是可见的,再次双击 exe 若走 toggle 会把用户眼前的输入栏隐藏掉(与 README 相反)。
@@ -63,6 +70,8 @@ pub fn run() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec!["--minimized"]),
         ))
+        ;
+    builder
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(commands::registry::handler())
@@ -101,8 +110,9 @@ pub fn run() {
                     return Ok(());
                 }
             }
-            // 改名兜底:历代 productName 下的自启项改名到当前名下(见 startup_legacy 顶部注释)。
-            // 失败只写日志:自启状态仍可从设置页「修复」重写,不该阻断启动。
+            // 改名兜底与托盘/全局快捷键:仅桌面(移动端没有自启项、托盘与全局热键)
+            #[cfg(feature = "desktop")]
+            {
             let current_name = app.package_info().name.clone();
             match commands::startup_legacy::adopt_legacy_entry(&current_name) {
                 Ok(Some(legacy)) => eprintln!("自启项已从旧名 {legacy} 改名到 {current_name}"),
@@ -129,6 +139,9 @@ pub fn run() {
             if let Err(e) = hotkey::apply(app.handle(), stored.as_deref()) {
                 eprintln!("全局热键注册失败,输入栏仍可从托盘唤起:{e}");
             }
+            } // #[cfg(feature = "desktop")] 结束
+            #[cfg(not(feature = "desktop"))]
+            app.manage(hotkey::LiveHotkey::default());
             // 启动动作只由设置决定(spec 3.1:手动启动与开机自启一致):
             // 「输入栏」唤起输入栏,「仅托盘」不显示任何窗口。主窗口只在首次使用引导未看过时自动打开
             // (见 windowing::startup::apply 末尾),其余情况不自动显示。

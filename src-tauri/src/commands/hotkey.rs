@@ -5,6 +5,7 @@
 use crate::db::{repos, Db};
 use crate::hotkey;
 use tauri::{AppHandle, Manager, State};
+#[cfg(feature = "desktop")]
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
 
 /// 读运行时实际生效的快捷键(None = 当前没有热键在生效)。
@@ -19,7 +20,11 @@ pub fn get_input_hotkey(app: AppHandle) -> Option<String> {
 pub fn set_input_hotkey(app: AppHandle, accelerator: String) -> Result<String, String> {
     let new = hotkey::check(&accelerator)?;
     let old = hotkey::live(&app);
+    // 桌面:问插件这个键是否已在本进程注册;移动端没有全局快捷键,视作未注册
+    #[cfg(feature = "desktop")]
     let registered = app.global_shortcut().is_registered(new.as_str());
+    #[cfg(not(feature = "desktop"))]
+    let registered = false;
     let (needs_register, drop_old) = hotkey::plan(old.as_deref(), &new, registered);
     if needs_register {
         // 已被本进程注册的同名键先让位:Windows 下对同进程重复注册只会报"已被占用"
