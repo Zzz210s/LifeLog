@@ -57,13 +57,21 @@ fn src_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("src")
 }
 
-/// 豁免:定义处、迁移 SQL、对账、以及本文件自己
+/// 豁免清单(四类,各有理由)
+///
+/// - 定义处:`line_kind` 本身、迁移 SQL、`sql_functions`
+/// - 对账:`reconcile*`——它**要**独立写判据,否则视图错了也跟着错
+/// - 测试文件:同样是独立 oracle(用生产同一份视图,视图写错时测试也发现不了)
+/// - 一次性工具:`time_axis/*`(时间轴收敛脚本)与 `upgrade_regression_baseline`
 fn is_exempt(rel: &str) -> bool {
     rel.contains("line_kind")
         || rel.contains("migrations/")
         || rel.contains("reconcile")
         || rel.contains("library_migrate")
         || rel.contains("sql_functions")
+        || rel.contains("test")
+        || rel.contains("time_axis/")
+        || rel.contains("upgrade_regression_baseline")
 }
 
 /// 扫描 `src/**/*.rs`,统计"手写线判据"的处数,超预算即红。
@@ -72,9 +80,12 @@ fn is_exempt(rel: &str) -> bool {
 /// 每轮收口把预算调低一次,直到 0。
 #[test]
 fn handwritten_line_predicates_only_shrink() {
-    // 2026-10-27:首轮 184 → 172(视图 + graph/filter),第二批 172 → 163(notes/链接读路径)。
-    // 预算贴着当前值,涨一处就红;每批收口都调低一次。
-    const BUDGET: usize = 163;
+    // 2026-10-27 收口进度(只数生产代码):
+    //   首轮 184 → 172(建视图 + graph/filter)→ 163(notes/链接读路径)
+    //   → 39(读路径全改视图;测试与对账按独立 oracle 豁免)→ 预算口径 28
+    // 剩下的 32 处**全是写路径**(INSERT/UPDATE/DELETE 不能落到视图上),归 B 收口后
+    // 应降到 fts 常量 + 0;在那之前预算保持 32,涨一处就红。
+    const BUDGET: usize = 28;
     let mut hits: Vec<(String, usize)> = Vec::new();
     let mut total = 0usize;
     let mut stack = vec![src_root()];

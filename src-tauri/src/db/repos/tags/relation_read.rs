@@ -23,10 +23,10 @@ pub struct RelationRef {
 /// 本标签的全部出线(A → ?),按目标路径升序;每项带线的名字点 id 与文本(无名字线为 None/空串)
 pub fn list_tag_relations(conn: &Connection, from_tag_id: i64) -> rusqlite::Result<Vec<RelationRef>> {
     let mut stmt = conn.prepare(
-        "SELECT l.id, t.id, t.path, l.name_id, COALESCE(n.meta, '') FROM lines l
+        "SELECT l.id, t.id, t.path, l.name_id, COALESCE(n.meta, '') FROM non_tree_lines l
          JOIN points t ON t.id = l.to_id AND t.path IS NOT NULL
          LEFT JOIN points n ON n.id = l.name_id
-         WHERE l.from_id = ?1 AND (l.name_id IS NULL OR l.name_id <> 0) ORDER BY t.path",
+         WHERE l.from_id = ?1 ORDER BY t.path",
     )?;
     let rows = stmt.query_map(params![from_tag_id], |r| {
         Ok((
@@ -46,7 +46,7 @@ pub fn list_tag_relations(conn: &Connection, from_tag_id: i64) -> rusqlite::Resu
 /// 只算树内来源(标签关系)且排除子级线,笔记的链接入线不算「被标签指向」。
 pub fn count_relations_to(conn: &Connection, to_tag_id: i64) -> rusqlite::Result<i64> {
     conn.query_row(
-        "SELECT COUNT(*) FROM lines WHERE (name_id IS NULL OR name_id <> 0) AND to_id = ?1
+        "SELECT COUNT(*) FROM non_tree_lines WHERE to_id = ?1
            AND from_id IN (SELECT id FROM points WHERE path IS NOT NULL)",
         params![to_tag_id],
         |r| r.get(0),

@@ -32,11 +32,10 @@ pub struct TagFactsBundle {
 pub fn tag_facts(conn: &Connection) -> rusqlite::Result<TagFactsBundle> {
     let mut by_tag: BTreeMap<i64, TagFact> = BTreeMap::new();
     let mut stmt = conn.prepare(
-        "SELECT l.from_id, l.id, t.id, t.path, l.name_id, COALESCE(n.meta, '') FROM lines l
+        "SELECT l.from_id, l.id, t.id, t.path, l.name_id, COALESCE(n.meta, '') FROM non_tree_lines l
          JOIN points t ON t.id = l.to_id AND t.path IS NOT NULL
          JOIN points s ON s.id = l.from_id AND s.path IS NOT NULL
          LEFT JOIN points n ON n.id = l.name_id
-         WHERE l.name_id IS NULL OR l.name_id <> 0
          ORDER BY l.from_id, t.path",
     )?;
     let rows = stmt.query_map([], |r| {

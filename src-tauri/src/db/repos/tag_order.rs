@@ -33,9 +33,8 @@ pub fn axis_sql(index: usize, path: &str, args: &mut Vec<Value>) -> AxisSql {
         cte: format!(
             "axis{index}(note_id, key) AS (
                SELECT l.from_id, MIN(o.key)
-               FROM lines l JOIN points t ON t.id = l.to_id JOIN ord o ON o.id = t.id
-               WHERE (l.name_id IS NULL OR l.name_id <> 0)
-                 AND (t.path = ? OR substr(t.path, 1, length(?) + 1) = ? || '/')
+               FROM non_tree_lines l JOIN points t ON t.id = l.to_id JOIN ord o ON o.id = t.id
+               WHERE (t.path = ? OR substr(t.path, 1, length(?) + 1) = ? || '/')
                GROUP BY l.from_id
              )"
         ),

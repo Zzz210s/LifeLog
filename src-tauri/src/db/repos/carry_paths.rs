@@ -9,9 +9,9 @@ use rusqlite::Connection;
 /// 有携带者的标签路径(去重、升序);无携带关系时返回空表
 pub fn carried_paths(conn: &Connection) -> rusqlite::Result<Vec<String>> {
     let mut stmt = conn.prepare(
-        "SELECT DISTINCT t.path FROM lines l JOIN points t ON t.id = l.to_id \
+        "SELECT DISTINCT t.path FROM non_tree_lines l JOIN points t ON t.id = l.to_id \
          JOIN points ca ON ca.id = l.from_id \
-         WHERE (l.name_id IS NULL OR l.name_id <> 0) AND ca.path IS NOT NULL AND t.path IS NOT NULL \
+         WHERE ca.path IS NOT NULL AND t.path IS NOT NULL \
          ORDER BY t.path",
     )?;
     let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;

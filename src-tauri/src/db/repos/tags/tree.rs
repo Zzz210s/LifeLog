@@ -36,8 +36,8 @@ pub(crate) fn linked_notes(conn: &Connection, tag_ids: &[i64]) -> rusqlite::Resu
     }
     let marks = vec!["?"; tag_ids.len()].join(",");
     let mut stmt = conn.prepare(&format!(
-        "SELECT DISTINCT from_id FROM lines
-         WHERE (name_id IS NULL OR name_id <> 0) AND to_id IN ({marks}) ORDER BY from_id"
+        "SELECT DISTINCT from_id FROM non_tree_lines
+         WHERE to_id IN ({marks}) ORDER BY from_id"
     ))?;
     let rows = stmt.query_map(rusqlite::params_from_iter(tag_ids.iter()), |r| r.get(0))?;
     rows.collect()

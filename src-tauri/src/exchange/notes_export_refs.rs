@@ -85,7 +85,7 @@ fn load_entities(conn: &Connection) -> Result<HashMap<i64, Ent>, String> {
 fn load_out_links(conn: &Connection) -> Result<HashMap<i64, Vec<i64>>, String> {
     let mut stmt = conn
         .prepare(
-            "SELECT from_id, to_id FROM lines WHERE name_id IS NULL OR name_id <> 0",
+            "SELECT from_id, to_id FROM non_tree_lines",
         )
         .map_err(|e| e.to_string())?;
     let rows = stmt

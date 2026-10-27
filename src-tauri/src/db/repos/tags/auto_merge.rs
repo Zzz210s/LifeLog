@@ -119,7 +119,7 @@ fn note_links_of_subtree(conn: &Connection, tag_id: i64) -> Result<i64, String> 
     }
     let marks = vec!["?"; ids.len()].join(",");
     conn.query_row(
-        &format!("SELECT COUNT(*) FROM lines WHERE (name_id IS NULL OR name_id <> 0) AND to_id IN ({marks})"),
+        &format!("SELECT COUNT(*) FROM non_tree_lines WHERE to_id IN ({marks})"),
         rusqlite::params_from_iter(ids.iter()),
         |r| r.get(0),
     )

@@ -31,8 +31,7 @@ pub fn in_tree_predicate(alias: &str) -> String {
 pub(crate) fn sync_is_cited(conn: &Connection, entity_id: i64) -> rusqlite::Result<()> {
     conn.execute(
         "UPDATE points SET is_cited = EXISTS(
-           SELECT 1 FROM lines x WHERE x.to_id = points.id
-             AND (x.name_id IS NULL OR x.name_id <> 0))
+           SELECT 1 FROM non_tree_lines x WHERE x.to_id = points.id)
          WHERE id = ?1",
         params![entity_id],
     )?;

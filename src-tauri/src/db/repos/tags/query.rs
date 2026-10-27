@@ -40,11 +40,9 @@ pub(crate) const COUNTS_SQL: &str = "WITH RECURSIVE sub(root, leaf) AS (
            UNION ALL SELECT s.root, t.id FROM points t JOIN sub s ON t.parent_id = s.leaf
              WHERE t.path IS NOT NULL
          ),
-         own AS (SELECT to_id AS tag_id, COUNT(DISTINCT from_id) AS n FROM lines
-                 WHERE (name_id IS NULL OR name_id <> 0) GROUP BY to_id),
+         own AS (SELECT to_id AS tag_id, COUNT(DISTINCT from_id) AS n FROM non_tree_lines GROUP BY to_id),
          roll AS (SELECT sub.root AS root, COUNT(DISTINCT l.from_id) AS n
-                  FROM sub JOIN lines l ON l.to_id = sub.leaf
-                    AND (l.name_id IS NULL OR l.name_id <> 0)
+                  FROM sub JOIN non_tree_lines l ON l.to_id = sub.leaf
                   GROUP BY sub.root)
          SELECT t.id, t.path, t.depth, t.sort_order, COALESCE(own.n, 0), COALESCE(roll.n, 0)
          FROM points t
@@ -168,8 +166,7 @@ pub fn impact(conn: &Connection, tag_id: i64) -> rusqlite::Result<(i64, i64)> {
     let marks = vec!["?"; ids.len()].join(",");
     let notes: i64 = conn.query_row(
         &format!(
-            "SELECT COUNT(DISTINCT from_id) FROM lines
-             WHERE (name_id IS NULL OR name_id <> 0) AND to_id IN ({marks})"
+            "SELECT COUNT(DISTINCT from_id) FROM non_tree_lines WHERE to_id IN ({marks})"
         ),
         rusqlite::params_from_iter(ids.iter()),
         |r| r.get(0),
