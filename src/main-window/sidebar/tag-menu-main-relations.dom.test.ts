@@ -7,8 +7,9 @@
  * 读数来源:TagMenu 打开时经 `api.listTagRelations` 读回(与「关系…」面板同一条 IPC)。
  */
 import { act, createElement } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import type { Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { flush, mountHost } from './__fixtures__/tag-menu-harness';
 import type { RelationRef } from '../../shared/types';
 import { TagMenu } from './TagMenu';
 import { TagMenuMainPane } from './TagMenuMainPane';
@@ -18,7 +19,6 @@ import type { ManagedNode } from './tag-tree';
 const { listTagRelations } = vi.hoisted(() => ({ listTagRelations: vi.fn() }));
 vi.mock('../../shared/api', () => ({ api: { listTagRelations } }));
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const rel = (toTagId: number, name: string, nameText: string): RelationRef => ({
   toTagId,
@@ -34,25 +34,18 @@ const node = buildTree([SELF] as never)[0] as ManagedNode;
 
 let root: Root;
 let host: HTMLDivElement;
+let unmountHost: () => void;
 
 beforeEach(() => {
   listTagRelations.mockReset();
   listTagRelations.mockResolvedValue([]);
-  host = document.createElement('div');
-  document.body.appendChild(host);
-  root = createRoot(host);
+  ({ host, root, unmount: unmountHost } = mountHost());
 });
 
 afterEach(() => {
-  act(() => root.unmount());
-  host.remove();
+  unmountHost();
 });
 
-const flush = async (): Promise<void> => {
-  await act(async () => {
-    await new Promise((r) => setTimeout(r, 0));
-  });
-};
 
 const rows = (): HTMLElement[] => [...host.querySelectorAll('[data-menu-relation]')] as HTMLElement[];
 const labels = (): string[] =>

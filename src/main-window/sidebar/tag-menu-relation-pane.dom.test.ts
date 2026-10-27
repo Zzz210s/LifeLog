@@ -4,9 +4,10 @@
  * 读取未回来时禁用输入与候选、Enter 不写库;查询无命中给空态;候选 mousedown 采纳并 preventDefault。
  */
 import { act, createElement } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import type { Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { RelationRef, TagCount } from '../../shared/types';
+import { at, flush, mountHost } from './__fixtures__/tag-menu-harness';
+import type { RelationRef } from '../../shared/types';
 import { TagMenuRelationPane } from './TagMenuRelationPane';
 
 const { listTagRelations, setTagRelation, renameLineName, removeLine } = vi.hoisted(() => ({
@@ -19,16 +20,7 @@ vi.mock('../../shared/api', () => ({
   api: { listTagRelations, setTagRelation, renameLineName, removeLine },
 }));
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const at = (id: number, path: string): TagCount => ({
-  id,
-  path,
-  depth: 1,
-  sort_order: id,
-  self_count: 0,
-  subtree_count: 0,
-});
 const SELF = at(1, '关系测试甲');
 const OTHER = at(3, '关系测试丙');
 const ROWS = [SELF, OTHER];
@@ -38,6 +30,7 @@ const EDGES: RelationRef[] = [
 
 let root: Root;
 let host: HTMLDivElement;
+let unmountHost: () => void;
 
 beforeEach(() => {
   listTagRelations.mockReset();
@@ -48,21 +41,13 @@ beforeEach(() => {
   setTagRelation.mockResolvedValue(undefined);
   renameLineName.mockResolvedValue(undefined);
   removeLine.mockResolvedValue(undefined);
-  host = document.createElement('div');
-  document.body.appendChild(host);
-  root = createRoot(host);
+  ({ host, root, unmount: unmountHost } = mountHost());
 });
 
 afterEach(() => {
-  act(() => root.unmount());
-  host.remove();
+  unmountHost();
 });
 
-const flush = async (): Promise<void> => {
-  await act(async () => {
-    await new Promise((r) => setTimeout(r, 0));
-  });
-};
 
 const renderPane = (): void => {
   act(() => {

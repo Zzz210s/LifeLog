@@ -6,8 +6,9 @@
  * 候选来源是本地 tagRows,排序走 `#` 补全那套共享引擎(shared/quickpick/model 的 buildList)。
  */
 import { act, createElement } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import type { Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { flush, mountHost } from './__fixtures__/tag-menu-harness';
 import type { RelationRef } from '../../shared/types';
 import { TagMenu } from './TagMenu';
 import { buildTree } from './tag-tree';
@@ -21,7 +22,6 @@ const { listTagRelations, setTagRelation, removeLine } = vi.hoisted(() => ({
 
 vi.mock('../../shared/api', () => ({ api: { listTagRelations, setTagRelation, removeLine } }));
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const SELF = { id: 1, path: '关系测试甲', depth: 1, sort_order: 0, self_count: 0, subtree_count: 0 };
 const EDGE_TARGET = { id: 20, path: '关系测试乙', depth: 1, sort_order: 1, self_count: 0, subtree_count: 0 };
@@ -31,6 +31,7 @@ const node = buildTree([SELF] as never)[0] as ManagedNode;
 
 let root: Root;
 let host: HTMLDivElement;
+let unmountHost: () => void;
 let edges: RelationRef[];
 
 beforeEach(() => {
@@ -51,21 +52,13 @@ beforeEach(() => {
     edges = edges.filter((e) => e.lineId !== lineId);
     return Promise.resolve();
   });
-  host = document.createElement('div');
-  document.body.appendChild(host);
-  root = createRoot(host);
+  ({ host, root, unmount: unmountHost } = mountHost());
 });
 
 afterEach(() => {
-  act(() => root.unmount());
-  host.remove();
+  unmountHost();
 });
 
-const flush = async (): Promise<void> => {
-  await act(async () => {
-    await new Promise((r) => setTimeout(r, 0));
-  });
-};
 
 function render(onClose = vi.fn()): { onClose: typeof onClose } {
   act(() => {

@@ -6,8 +6,9 @@
  * 所以这一层的读数 = 档位顺序 / 文案 / aria-checked / 回调次数。
  */
 import { act, createElement, type ReactElement } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import type { Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { mountHost } from './__fixtures__/tag-menu-harness';
 import { EMPTY_FILTER, type FilterConditions } from '../../shared/filter-conditions';
 import { addGroupItem } from '../../shared/filter-groups';
 import { TagMenu, type TagMenuProps } from './TagMenu';
@@ -18,24 +19,21 @@ import type { ManagedNode } from './tag-tree';
 const { listTagRelations } = vi.hoisted(() => ({ listTagRelations: vi.fn() }));
 vi.mock('../../shared/api', () => ({ api: { listTagRelations } }));
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const PATH = '关系测试甲';
 const node = buildTree([{ id: 1, path: PATH, depth: 1, sort_order: 0, self_count: 1, subtree_count: 1 }] as never)[0] as ManagedNode;
 
 let root: Root;
 let host: HTMLDivElement;
+let unmountHost: () => void;
 
 beforeEach(() => {
-  host = document.createElement('div');
-  document.body.appendChild(host);
-  root = createRoot(host);
+  ({ host, root, unmount: unmountHost } = mountHost());
   listTagRelations.mockResolvedValue([]);
 });
 
 afterEach(() => {
-  act(() => root.unmount());
-  host.remove();
+  unmountHost();
 });
 
 const render = (el: ReactElement): void => {

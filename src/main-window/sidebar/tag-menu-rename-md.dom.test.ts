@@ -5,8 +5,9 @@
  * 空白 / `#` / `/` 仍被本地拦下,且不调后端。
  */
 import { act, createElement } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import type { Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { flush, mountHost } from './__fixtures__/tag-menu-harness';
 import { TagMenu } from './TagMenu';
 import { buildTree } from './tag-tree';
 import type { ManagedNode } from './tag-tree';
@@ -20,7 +21,6 @@ vi.mock('../../shared/api', () => ({
   },
 }));
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const MD_NAME = '[郴](chēn)州市';
 const node = buildTree([{ id: 2, path: `地点/郴州市`, depth: 2, self_count: 1, subtree_count: 1 }] as never)[0]
@@ -28,18 +28,16 @@ const node = buildTree([{ id: 2, path: `地点/郴州市`, depth: 2, self_count:
 
 let root: Root;
 let host: HTMLDivElement;
+let unmountHost: () => void;
 
 beforeEach(() => {
   renameTag.mockReset();
   renameTag.mockResolvedValue(undefined);
-  host = document.createElement('div');
-  document.body.appendChild(host);
-  root = createRoot(host);
+  ({ host, root, unmount: unmountHost } = mountHost());
 });
 
 afterEach(() => {
-  act(() => root.unmount());
-  host.remove();
+  unmountHost();
 });
 
 const item = (text: string): HTMLElement =>
@@ -62,11 +60,6 @@ function typeName(value: string): HTMLInputElement {
   return setName(value);
 }
 
-const flush = async (): Promise<void> => {
-  await act(async () => {
-    await new Promise((r) => setTimeout(r, 0));
-  });
-};
 
 function render(): { onDone: ReturnType<typeof vi.fn> } {
   const onDone = vi.fn();

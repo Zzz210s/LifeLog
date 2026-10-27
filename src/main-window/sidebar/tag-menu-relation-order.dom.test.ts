@@ -7,8 +7,9 @@
  * 判别力:ROWS 的路径序把「出版年份」排在最后,拿不到 mru 就上不了首位。
  */
 import { act, createElement } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import type { Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { at, flush, mountHost } from './__fixtures__/tag-menu-harness';
 import { EMPTY_FILTER } from '../../shared/filter-conditions';
 import type { TagCount } from '../../shared/types';
 import { TagMenu } from './TagMenu';
@@ -27,16 +28,7 @@ vi.mock('../../shared/api', () => ({
   api: { listTagRelations, setTagRelation, removeTagRelation },
 }));
 
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const at = (id: number, path: string): TagCount => ({
-  id,
-  path,
-  depth: 1,
-  sort_order: id,
-  self_count: 0,
-  subtree_count: 0,
-});
 
 const SELF = at(1, '关系测试甲');
 const EDGE_TARGET = at(2, '关系测试乙');
@@ -53,6 +45,7 @@ const tagMru = {
 
 let root: Root;
 let host: HTMLDivElement;
+let unmountHost: () => void;
 
 beforeEach(() => {
   listTagRelations.mockReset();
@@ -62,21 +55,13 @@ beforeEach(() => {
     { toTagId: EDGE_TARGET.id, path: EDGE_TARGET.path, name: EDGE_TARGET.path, nameId: null, nameText: '' },
   ]);
   setTagRelation.mockResolvedValue(undefined);
-  host = document.createElement('div');
-  document.body.appendChild(host);
-  root = createRoot(host);
+  ({ host, root, unmount: unmountHost } = mountHost());
 });
 
 afterEach(() => {
-  act(() => root.unmount());
-  host.remove();
+  unmountHost();
 });
 
-const flush = async (): Promise<void> => {
-  await act(async () => {
-    await new Promise((r) => setTimeout(r, 0));
-  });
-};
 
 const candidateTexts = (): string[] =>
   [...host.querySelectorAll('[data-relation-candidate]')].map((el) => el.textContent?.trim() ?? '');
