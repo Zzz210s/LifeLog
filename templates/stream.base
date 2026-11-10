@@ -1,0 +1,23 @@
+filters:
+  and:
+    - file.inFolder("拾枝/笔记")
+views:
+  - type: table
+    name: 信息流
+    order:
+      - lifelog_created
+      - file.name
+      - lifelog_parent
+      - file.tags
+    sort:
+      - property: lifelog_created
+        direction: DESC
+    limit: 200
+  - type: table
+    name: 按父级分组
+    order:
+      - lifelog_parent
+      - file.name
+    groupBy:
+      property: lifelog_parent
+      direction: ASC

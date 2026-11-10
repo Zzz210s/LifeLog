@@ -1,0 +1,36 @@
+name: release
+
+on:
+  push:
+    tags:
+      - '*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+      - run: pnpm build
+      - name: Check tag matches manifest version
+        run: |
+          tag="${{ github.ref_name }}"
+          ver=$(node -p "require('./manifest.json').version")
+          if [ "$tag" != "$ver" ]; then echo "tag $tag != manifest $ver"; exit 1; fi
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            main.js
+            manifest.json
+            styles.css

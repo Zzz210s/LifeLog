@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "ES2018",
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "strict": true,
+    "noUnusedLocals": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "lib": ["DOM", "ES2018"],
+    "types": ["node"]
+  },
+  "include": ["src", "test"]
+}

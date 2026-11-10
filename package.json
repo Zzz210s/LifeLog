@@ -1,0 +1,19 @@
+{
+  "name": "obsidian-lifelog",
+  "version": "0.1.0",
+  "description": "LifeLog for Obsidian: point/line notes, tree, graph and Bases views",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "node esbuild.config.mjs production",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "esbuild": "^0.24.2",
+    "obsidian": "^1.9.0",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

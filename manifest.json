@@ -1,0 +1,10 @@
+{
+  "id": "lifelog",
+  "name": "LifeLog",
+  "version": "0.1.0",
+  "minAppVersion": "1.9.0",
+  "description": "Point/line notes with capture bar, tree, relations and graph. Bases views included.",
+  "author": "Zzz210s",
+  "authorUrl": "https://github.com/Zzz210s",
+  "isDesktopOnly": false
+}
