@@ -1,18 +1,19 @@
 // 库扫描：只读 vault，产出成员清单与树。全部基于公开 API + frontmatter，禁用插件后数据仍完整。
-import { App, TFile } from 'obsidian';
+import { App } from 'obsidian';
 
 export type Member = {
   path: string;
   kind: 'note' | 'entity';
   title: string;
+  /** 实体在 `实体/` 下的相对路径（如 `地点/中国大陆`），等于原生 points.path */
+  key: string;
   created: string;
   parent: string | null;
   tags: string[];
   rels: { name: string; to: string }[];
-  text: string;
 };
 
-export type TreeNode = { path: string; name: string; self: number; subtree: number; children: TreeNode[] };
+export type TreeNode = { path: string; name: string; key: string; self: number; subtree: number; children: TreeNode[] };
 
 const RESERVED = new Set(['lifelog_kind', 'lifelog_created', 'lifelog_parent', 'tags', 'aliases', 'cssclasses', 'position']);
 
@@ -20,11 +21,10 @@ export function readMembers(app: App, root: string): Member[] {
   const out: Member[] = [];
   for (const f of app.vault.getMarkdownFiles()) {
     if (!f.path.startsWith(`${root}/`)) continue;
-    const cache = app.metadataCache.getFileCache(f);
-    const fm = (cache?.frontmatter ?? {}) as Record<string, unknown>;
     const isNote = f.path.startsWith(`${root}/笔记/`);
     const isEntity = f.path.startsWith(`${root}/实体/`);
     if (!isNote && !isEntity) continue;
+    const fm = (app.metadataCache.getFileCache(f)?.frontmatter ?? {}) as Record<string, unknown>;
     const rawTags = fm.tags;
     const tags = Array.isArray(rawTags) ? rawTags.map(String) : typeof rawTags === 'string' ? [rawTags] : [];
     const rels = Object.entries(fm)
@@ -34,49 +34,62 @@ export function readMembers(app: App, root: string): Member[] {
       path: f.path,
       kind: isNote ? 'note' : 'entity',
       title: f.basename,
+      key: isEntity ? f.path.slice(`${root}/实体/`.length).replace(/\.md$/, '') : f.basename,
       created: typeof fm.lifelog_created === 'string' ? fm.lifelog_created : '',
       parent: typeof fm.lifelog_parent === 'string' ? fm.lifelog_parent : null,
       tags,
       rels,
-      text: bodyOf(app, f),
     });
   }
   return out;
 }
 
-function bodyOf(app: App, f: TFile): string {
-  const cache = app.metadataCache.getFileCache(f);
-  const text = cache?.frontmatterPosition ? '' : '';
-  // 只取正文首段用于列表摘要：用 cachedRead 太贵，这里用 metadataCache 的标题信息兜底
-  return text;
-}
+/** 纯数字/年份类实体排在后面（你的库里有一批 `1930`、`1952（出版年份）` 这类） */
+const isNumericish = (s: string) => /^[\d\s（）()出版年份年月日.]+$/u.test(s);
 
-/** 实体按 lifelog_parent 建树，计数：self = 直接子级，subtree = 整棵子树。 */
+/** 实体按 `lifelog_parent`（存的是实体 key，如 `地点/中国大陆`）建树。 */
 export function buildTree(members: Member[]): TreeNode[] {
   const ents = members.filter((m) => m.kind === 'entity');
   const nodes = new Map<string, TreeNode>();
-  for (const e of ents) {
-    nodes.set(e.title, { path: e.path, name: e.title, self: 0, subtree: 0, children: [] });
-  }
-  // parent 用「路径末段名」对不上时，退化为「父路径的末段」
-  const nameOf = (p: string) => p.split('/').pop() ?? p;
+  for (const e of ents) nodes.set(e.key, { path: e.path, name: e.title, key: e.key, self: 0, subtree: 0, children: [] });
+
+  const nested = new Set<string>();
   for (const e of ents) {
     if (!e.parent) continue;
-    const parent = nodes.get(nameOf(e.parent)) ?? nodes.get(e.parent);
-    const self = nodes.get(e.title);
-    if (parent && self) parent.children.push(self);
+    const parentKey = e.parent.replace(/^.*\/实体\//, '').replace(/\.md$/, '');
+    const parent = nodes.get(parentKey);
+    const child = nodes.get(e.key);
+    if (parent && child && parent !== child) {
+      parent.children.push(child);
+      nested.add(e.key);
+    }
   }
-  const roots = [...nodes.values()].filter((n) => !ents.some((e) => nameOf(e.parent ?? '') === n.name && e.title !== n.name));
+
   const count = (n: TreeNode): number => {
     n.self = n.children.length;
     n.subtree = n.children.reduce((acc, c) => acc + count(c) + 1, 0);
     return n.subtree;
   };
-  for (const r of roots) count(r);
-  const sortRec = (n: TreeNode) => {
-    n.children.sort((a, b) => b.subtree - a.subtree || a.name.localeCompare(b.name));
-    n.children.forEach(sortRec);
+  const roots = [...nodes.values()].filter((n) => !nested.has(n.key));
+  roots.forEach(count);
+  const byWeight = (a: TreeNode, b: TreeNode) => {
+    const an = isNumericish(a.name) ? 1 : 0;
+    const bn = isNumericish(b.name) ? 1 : 0;
+    return an - bn || b.subtree - a.subtree || a.name.localeCompare(b.name);
   };
-  roots.forEach(sortRec);
-  return roots.sort((a, b) => b.subtree - a.subtree || a.name.localeCompare(b.name));
+  const walk = (n: TreeNode) => {
+    n.children.sort(byWeight);
+    n.children.forEach(walk);
+  };
+  roots.forEach(walk);
+  return roots.sort(byWeight);
+}
+
+/** 下标：某实体的关联（子级 + 直接被引用 + 命名关系），供工作台右栏用。 */
+export function relatedOf(members: Member[], key: string, name: string): Member[] {
+  return members.filter(
+    (m) =>
+      m.kind === 'note' &&
+      (m.tags.includes(key) || m.tags.includes(name) || m.rels.some((r) => r.to === key || r.to === name)),
+  );
 }

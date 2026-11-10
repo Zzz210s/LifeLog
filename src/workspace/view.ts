@@ -1,7 +1,7 @@
 // 拾枝工作台：顶栏（库/搜索）+ 左树 + 信息流 + 右栏邻接 + 底部输入栏。
 // 只读 Obsidian 的公开 API 与 Markdown；不引入任何自有文件格式。
 import { ItemView, WorkspaceLeaf } from 'obsidian';
-import { buildTree, Member, TreeNode } from '../project/scan';
+import { buildTree, Member, relatedOf, TreeNode } from '../project/scan';
 import { parseCapture } from '../capture/parse';
 
 export const VIEW_TYPE = 'lifelog-workspace';
@@ -17,7 +17,7 @@ export type WorkspaceDeps = {
 export class WorkspaceView extends ItemView {
   private deps: WorkspaceDeps;
   private query = '';
-  private selected: string | null = null;
+  private selected: { key: string; name: string } | null = null;
   private collapsed = new Set<string>();
 
   constructor(leaf: WorkspaceLeaf, deps: WorkspaceDeps) {
@@ -94,7 +94,7 @@ export class WorkspaceView extends ItemView {
       row.createSpan({ cls: 'lifelog-ws-tree-name', text: n.name });
       row.createSpan({ cls: 'lifelog-ws-tree-count', text: n.subtree ? `${n.self}/${n.subtree}` : `${n.self}` });
       row.addEventListener('click', () => {
-        this.selected = n.name;
+        this.selected = { key: n.key, name: n.name };
         void this.render();
       });
       if (!this.collapsed.has(n.name)) n.children.forEach((c) => walk(c, depth + 1));
@@ -103,13 +103,13 @@ export class WorkspaceView extends ItemView {
   }
 
   private renderSide(box: HTMLElement, members: Member[]): void {
-    const name = this.selected;
-    box.createDiv({ cls: 'lifelog-ws-head', text: name ? `邻接：${name}` : '邻接' });
-    if (!name) {
+    const sel = this.selected;
+    box.createDiv({ cls: 'lifelog-ws-head', text: sel ? `邻接：${sel.name}` : '邻接' });
+    if (!sel) {
       box.createDiv({ cls: 'lifelog-ws-hint', text: '点左边的实体看它连着什么' });
       return;
     }
-    const related = members.filter((m) => m.tags.includes(name) || m.rels.some((r) => r.to === name));
+    const related = relatedOf(members, sel.key, sel.name);
     box.createDiv({ cls: 'lifelog-ws-hint', text: `${related.length} 条关联` });
     for (const m of related.slice(0, 60)) {
       const row = box.createDiv({ cls: 'lifelog-ws-side-row', text: m.title });
