@@ -1,0 +1,15 @@
+filters:
+  and:
+    - file.inFolder("拾枝/笔记")
+views:
+  - type: table
+    name: 按天
+    order:
+      - lifelog_created
+      - file.name
+    sort:
+      - property: lifelog_created
+        direction: DESC
+    groupBy:
+      property: lifelog_created
+      direction: DESC

@@ -1,0 +1,20 @@
+filters:
+  and:
+    - file.inFolder("拾枝/实体")
+views:
+  - type: table
+    name: 标签索引
+    order:
+      - file.name
+      - lifelog_parent
+      - file.links
+    sort:
+      - property: lifelog_parent
+        direction: ASC
+  - type: table
+    name: 按父级分组（组头数字=直接子级数）
+    order:
+      - file.name
+    groupBy:
+      property: lifelog_parent
+      direction: ASC
