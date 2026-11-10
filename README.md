@@ -48,6 +48,13 @@ lifelog_relations:
 | 0.2.0 | `import` command for an existing `lifelog.db` (desktop, sql.js read-only) |
 | 0.3.0 | relation validation (a `name` must resolve to an entity note) |
 
+## Graph settings that work
+
+Copy `templates/graph.json` to `<vault>/.obsidian/graph.json` (or set the same values in the graph panel):
+tags and attachments off, orphans off, colour groups by folder (`拾枝/实体` red, `拾枝/笔记` green),
+`repelStrength -400`, `centerStrength 0.35`, `linkDistance 160`. Without this the native graph draws
+5k tag dots and buries your notes.
+
 ## Importing an existing LifeLog database
 
 Desktop: `pnpm dump:db "<path>/lifelog.db" lifelog-dump.json` (uses sql.js, read-only), then in Obsidian
