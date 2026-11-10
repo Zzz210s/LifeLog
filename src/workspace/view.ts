@@ -1,27 +1,25 @@
-// 拾枝工作台：顶栏（库/搜索）+ 左树 + 信息流 + 右栏邻接 + 底部输入栏。
-// 只读 Obsidian 的公开 API 与 Markdown；不引入任何自有文件格式。
+// 拾枝主视图（照 Memoria 的架构）：输入卡片 + 时间倒序瀑布流 + 统计侧栏。
+// 数据源 = 月度文件（`拾枝/YYYY-MM.md`）与未迁移的旧笔记，都是普通 Markdown。
 import { ItemView, WorkspaceLeaf } from 'obsidian';
-import { buildTree, Member, relatedOf, TreeNode } from '../project/scan';
-import { parseCapture } from '../capture/parse';
+import { Entry, stats } from '../monthly/parse';
 
 export const VIEW_TYPE = 'lifelog-workspace';
 
-export type WorkspaceDeps = {
+export type Deps = {
   root: () => string;
-  members: () => Member[];
-  reload: () => Promise<void>;
-  capture: (text: string) => Promise<void>;
-  open: (path: string) => Promise<void>;
-  edit: (path: string) => void;
+  entries: () => Promise<Entry[]>;
+  send: (text: string) => Promise<void>;
+  open: (file: string) => Promise<void>;
 };
 
-export class WorkspaceView extends ItemView {
-  private deps: WorkspaceDeps;
-  private query = '';
-  private selected: { key: string; name: string } | null = null;
-  private collapsed = new Set<string>();
+const pad = (n: number) => String(n).padStart(2, '0');
 
-  constructor(leaf: WorkspaceLeaf, deps: WorkspaceDeps) {
+export class WorkspaceView extends ItemView {
+  private deps: Deps;
+  private filter = '';
+  private data: Entry[] = [];
+
+  constructor(leaf: WorkspaceLeaf, deps: Deps) {
     super(leaf);
     this.deps = deps;
   }
@@ -35,120 +33,120 @@ export class WorkspaceView extends ItemView {
   }
 
   async onOpen(): Promise<void> {
+    await this.refresh();
+  }
+
+  private async refresh(): Promise<void> {
+    this.data = await this.deps.entries();
     this.render();
   }
 
-  async onClose(): Promise<void> {
-    this.contentEl.empty();
-  }
-
-  private async render(): Promise<void> {
+  private render(): void {
     const el = this.contentEl;
     el.empty();
     el.addClass('lifelog-ws');
-    const members = this.deps.members();
-    const notes = members.filter((m) => m.kind === 'note');
-    const entities = members.filter((m) => m.kind === 'entity');
 
-    // ── 顶栏 ─────────────────────────────────────────────
+    // 顶栏：库名 + 搜索
     const bar = el.createDiv({ cls: 'lifelog-ws-bar' });
     bar.createSpan({ cls: 'lifelog-ws-lib', text: this.deps.root().split('/').pop() ?? '拾枝' });
-    const search = bar.createEl('input', { cls: 'lifelog-ws-search', attr: { placeholder: '搜索笔记与标签…' } });
-    search.value = this.query;
+    const search = bar.createEl('input', { cls: 'lifelog-ws-search', attr: { placeholder: '搜索…' } });
+    search.value = this.filter;
     search.addEventListener('input', () => {
-      this.query = search.value;
-      void this.render();
+      this.filter = search.value;
+      this.render();
     });
-    bar.createSpan({ cls: 'lifelog-ws-count', text: `笔记 ${notes.length} · 实体 ${entities.length}` });
+    bar.createSpan({ cls: 'lifelog-ws-count', text: `${this.data.length} 条` });
 
-    // ── 主体三栏 ─────────────────────────────────────────
     const body = el.createDiv({ cls: 'lifelog-ws-body' });
-    const left = body.createDiv({ cls: 'lifelog-ws-tree' });
     const main = body.createDiv({ cls: 'lifelog-ws-stream' });
-    const right = body.createDiv({ cls: 'lifelog-ws-side' });
+    const side = body.createDiv({ cls: 'lifelog-ws-side' });
 
-    this.renderTree(left, buildTree(members));
-
-    const q = this.query.trim();
-    const shown = notes
-      .filter((m) => !q || m.title.includes(q) || m.tags.some((t) => t.includes(q)))
-      .sort((a, b) => (a.created < b.created ? 1 : -1));
-    main.createDiv({ cls: 'lifelog-ws-head', text: q ? `筛选：${q}（${shown.length}）` : `信息流（${shown.length}）` });
-    for (const n of shown.slice(0, 300)) {
-      const row = main.createDiv({ cls: 'lifelog-ws-item' });
-      row.createDiv({ cls: 'lifelog-ws-item-title', text: n.title }).addEventListener('click', () => void this.deps.open(n.path));
-      const meta = row.createDiv({ cls: 'lifelog-ws-item-meta' });
-      if (n.created) meta.createSpan({ text: n.created.slice(0, 16) });
-      for (const t of n.tags.slice(0, 6)) meta.createSpan({ cls: 'lifelog-ws-tag', text: `#${t}` });
-      for (const r of n.rels) meta.createSpan({ cls: 'lifelog-ws-rel', text: `${r.name} → ${r.to}` });
-    }
-
-    this.renderSide(right, members);
-    this.renderInput(el);
+    this.renderComposer(main);
+    this.renderFeed(main);
+    this.renderStats(side);
   }
 
-  private renderTree(box: HTMLElement, roots: TreeNode[]): void {
-    box.createDiv({ cls: 'lifelog-ws-head', text: '树' });
-    const walk = (n: TreeNode, depth: number) => {
-      const row = box.createDiv({ cls: 'lifelog-ws-tree-row' });
-      row.style.paddingLeft = `${depth * 12}px`;
-      row.createSpan({ cls: 'lifelog-ws-tree-name', text: n.name });
-      row.createSpan({ cls: 'lifelog-ws-tree-count', text: (n as TreeNode & { subtree?: number }).subtree ? `${n.self}/${n.subtree}` : `${n.self}` });
-      const pen = row.createSpan({ cls: 'lifelog-ws-pen', text: '✎' });
-      pen.addEventListener('click', (ev) => {
-        ev.stopPropagation();
-        this.deps.edit(n.path);
-      });
-      row.addEventListener('click', () => {
-        this.selected = { key: n.key, name: n.name };
-        void this.render();
-      });
-      if (!this.collapsed.has(n.name)) n.children.forEach((c) => walk(c, depth + 1));
-    };
-    roots.slice(0, 200).forEach((r) => walk(r, 0));
-  }
-
-  private renderSide(box: HTMLElement, members: Member[]): void {
-    const sel = this.selected;
-    box.createDiv({ cls: 'lifelog-ws-head', text: sel ? `邻接：${sel.name}` : '邻接' });
-    if (!sel) {
-      box.createDiv({ cls: 'lifelog-ws-hint', text: '点左边的实体看它连着什么' });
-      return;
-    }
-    const related = relatedOf(members, sel.key, sel.name);
-    box.createDiv({ cls: 'lifelog-ws-hint', text: `${related.length} 条关联` });
-    for (const m of related.slice(0, 60)) {
-      const row = box.createDiv({ cls: 'lifelog-ws-side-row', text: m.title });
-      row.addEventListener('click', () => void this.deps.open(m.path));
-    }
-  }
-
-  private renderInput(el: HTMLElement): void {
-    const bar = el.createDiv({ cls: 'lifelog-ws-input' });
-    const input = bar.createEl('input', { cls: 'lifelog-ws-input-field', attr: { placeholder: '记点什么…  #标签  [[链接]]  /命令  >父级' } });
-    const submit = async () => {
+  /** 输入卡片：多行、Ctrl/Cmd+Enter 发送 */
+  private renderComposer(box: HTMLElement): void {
+    const card = box.createDiv({ cls: 'lifelog-ws-composer' });
+    const input = card.createEl('textarea', {
+      cls: 'lifelog-ws-input-field',
+      attr: { placeholder: '记点什么…  #标签  [[链接]]  关系名:: [[目标]]  /命令  >父级', rows: '3' },
+    });
+    const actions = card.createDiv({ cls: 'lifelog-ws-actions' });
+    const send = async () => {
       const text = input.value.trim();
       if (!text) return;
       input.value = '';
-      await this.deps.capture(text);
-      await this.deps.reload();
-      await this.render();
+      await this.deps.send(text);
+      await this.refresh();
     };
+    actions.createEl('button', { cls: 'lifelog-ws-send', text: '发送' }).addEventListener('click', () => void send());
+    actions.createSpan({ cls: 'lifelog-ws-hint', text: 'Ctrl/Cmd + Enter 发送' });
     input.addEventListener('keydown', (ev) => {
       if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) {
         ev.preventDefault();
-        void submit();
+        void send();
       }
     });
-    bar.createEl('button', { cls: 'lifelog-ws-send', text: '保存' }).addEventListener('click', () => void submit());
-    bar.createSpan({
+    input.focus();
+  }
+
+  /** 瀑布流：按文件（年月）分组，组内时间倒序 */
+  private renderFeed(box: HTMLElement): void {
+    const q = this.filter.trim().toLowerCase();
+    const rows = this.data.filter(
+      (e) => !q || e.text.toLowerCase().includes(q) || e.tags.some((t) => t.toLowerCase().includes(q)),
+    );
+    const byFile = new Map<string, Entry[]>();
+    for (const e of rows) {
+      const list = byFile.get(e.file) ?? [];
+      list.push(e);
+      byFile.set(e.file, list);
+    }
+    for (const [file, list] of [...byFile.entries()].sort((a, b) => b[0].localeCompare(a[0]))) {
+      const month = file.match(/(\d{4}-\d{2})/)?.[1] ?? file;
+      box.createDiv({ cls: 'lifelog-ws-month', text: month });
+      for (const e of list.sort((a, b) => b.time.localeCompare(a.time))) {
+        const row = box.createDiv({ cls: 'lifelog-ws-item' });
+        const head = row.createDiv({ cls: 'lifelog-ws-item-meta' });
+        head.createSpan({ cls: 'lifelog-ws-time', text: e.time });
+        for (const t of e.tags) {
+          head.createSpan({ cls: 'lifelog-ws-tag', text: `#${t}` }).addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            this.filter = t;
+            this.render();
+          });
+        }
+        for (const r of e.rels) head.createSpan({ cls: 'lifelog-ws-rel', text: `${r.name} → ${r.to}` });
+        row.createDiv({ cls: 'lifelog-ws-item-title', text: e.text }).addEventListener('click', () => void this.deps.open(file));
+      }
+    }
+    if (rows.length === 0) box.createDiv({ cls: 'lifelog-ws-hint', text: '还没有记录，上面写一条试试' });
+  }
+
+  /** 侧栏：Top 标签 / 月度分布 / 24 小时 */
+  private renderStats(box: HTMLElement): void {
+    const s = stats(this.data);
+    box.createDiv({ cls: 'lifelog-ws-head', text: 'Top 标签' });
+    for (const [t, n] of s.topTags) {
+      const row = box.createDiv({ cls: 'lifelog-ws-side-row' });
+      row.createSpan({ text: `#${t}` });
+      row.createSpan({ cls: 'lifelog-ws-tree-count', text: String(n) });
+      row.addEventListener('click', () => {
+        this.filter = t;
+        this.render();
+      });
+    }
+    box.createDiv({ cls: 'lifelog-ws-head', text: '月度分布' });
+    for (const [m, n] of s.byMonth.slice(-12)) {
+      box.createDiv({ cls: 'lifelog-ws-side-row', text: `${m}  ${'▍'.repeat(Math.min(20, n))} ${n}` });
+    }
+    box.createDiv({ cls: 'lifelog-ws-head', text: '24 小时' });
+    const peak = Math.max(...s.byHour, 1);
+    box.createDiv({
       cls: 'lifelog-ws-hint',
-      text: parseHint(),
+      text: s.byHour.map((n, h) => (n > 0 && n >= peak / 3 ? pad(h) : '··')).join(' '),
     });
   }
-}
-
-function parseHint(): string {
-  const demo = parseCapture('示例 #标签 [[链接]] >父级');
-  return `解析：${demo.tags.length} 标签 / ${demo.links.length} 链接 / ${demo.parent ?? '无父级'}`;
 }

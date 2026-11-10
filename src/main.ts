@@ -10,7 +10,7 @@ import { LifeLogSettingTab } from './settings';
 import { baseFiles } from './page/init';
 import { WorkspaceView, VIEW_TYPE as WS_VIEW } from './workspace/view';
 import { MemberCache, openWorkspace } from './workspace/open';
-import { openMemberForm } from './form/open';
+import { loadEntries, appendEntry } from './workspace/data';
 import { runMigrate, runCooccur } from './monthly/commands';
 
 export type Settings = { root: string; lastId: number };
@@ -48,13 +48,11 @@ export default class LifeLogPlugin extends Plugin {
     this.registerView(WS_VIEW, (leaf) =>
       new WorkspaceView(leaf, {
         root: () => this.settings.root,
-        members: () => this.cache.get(),
-        reload: async () => {
-          this.cache.clear();
+        entries: () => loadEntries(this.app, this.settings.root),
+        send: async (text: string) => {
+          await appendEntry(this.app, this.settings.root, text);
         },
-        capture: (text) => this.save(text),
         open: (p) => this.app.workspace.openLinkText(p, '', false),
-        edit: (p) => openMemberForm(this.app, this.cache.get(), p, () => this.cache.clear()),
       }),
     );
     this.addCommand({ id: 'workspace', name: '打开拾枝工作台', callback: () => void openWorkspace(this.app) });
