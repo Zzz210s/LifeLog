@@ -3,13 +3,9 @@ filters:
     - file.inFolder("拾枝/笔记")
 views:
   - type: table
-    name: 按天
+    name: 按天分组
     order:
-      - lifelog_created
       - file.name
-    sort:
-      - property: lifelog_created
-        direction: DESC
     groupBy:
       property: lifelog_created
       direction: DESC

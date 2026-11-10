@@ -3,18 +3,17 @@ filters:
     - file.inFolder("拾枝/实体")
 views:
   - type: table
-    name: 标签索引
-    order:
-      - file.name
-      - lifelog_parent
-      - file.links
-    sort:
-      - property: lifelog_parent
-        direction: ASC
-  - type: table
-    name: 按父级分组（组头数字=直接子级数）
+    name: 按父级分组（组头 = 父级名，行 = 直接子级）
     order:
       - file.name
     groupBy:
       property: lifelog_parent
       direction: ASC
+  - type: table
+    name: 平铺
+    order:
+      - file.name
+      - lifelog_parent
+    sort:
+      - property: lifelog_parent
+        direction: ASC
