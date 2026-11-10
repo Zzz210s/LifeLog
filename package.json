@@ -7,12 +7,15 @@
     "dev": "node esbuild.config.mjs",
     "build": "node esbuild.config.mjs production",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "check:import": "tsx scripts/import-check.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
     "esbuild": "^0.24.2",
     "obsidian": "^1.9.0",
+    "sql.js": "^1.15.2",
+    "tsx": "^4.23.15",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
   }

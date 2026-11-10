@@ -1,4 +1,5 @@
 // 点/线的 frontmatter 契约。插件、导入器、Bases 模板三方共用这一份键名。
+import { Relation, relationsOf } from './relations';
 export const KEY = {
   id: 'lifelog_id',
   created: 'lifelog_created',
@@ -6,7 +7,7 @@ export const KEY = {
   relations: 'lifelog_relations',
 } as const;
 
-export type Relation = { name: string; to: string };
+export type { Relation } from './relations';
 
 export type PointRecord = {
   path: string;
@@ -33,26 +34,18 @@ export function normalizeTarget(raw: string): string {
   return (m ? m[1] : raw).trim();
 }
 
-function toRelation(v: unknown): Relation | null {
-  if (typeof v !== 'object' || v === null) return null;
-  const r = v as Record<string, unknown>;
-  if (typeof r.name !== 'string' || typeof r.to !== 'string') return null;
-  return { name: r.name, to: normalizeTarget(r.to) };
-}
-
 /** frontmatter 可能是 undefined / 空 / 字符串；这里只做形状收敛，不做校验。 */
 export function readRecord(path: string, fm: Record<string, unknown> | undefined, body: string): PointRecord {
   const raw = fm ?? {};
   const id = typeof raw[KEY.id] === 'number' ? (raw[KEY.id] as number) : Number(raw[KEY.id] ?? NaN);
   const createdAt = typeof raw[KEY.created] === 'string' ? (raw[KEY.created] as string) : '';
   const parent = typeof raw[KEY.parent] === 'string' ? (raw[KEY.parent] as string) : null;
-  const relRaw = Array.isArray(raw[KEY.relations]) ? (raw[KEY.relations] as unknown[]) : [];
   return {
     path,
     id: Number.isFinite(id) ? id : -1,
     createdAt,
     parent,
-    relations: relRaw.map(toRelation).filter((r): r is Relation => r !== null),
+    relations: relationsOf(raw),
     body,
   };
 }
