@@ -5,12 +5,13 @@ import { cooccurrence, neighborsOf, renderBlock, upsertBlock } from './store/coo
 import { buildFiles } from './import/map';
 import { importFiles, summaryText } from './import/run';
 import { parseDump } from './import/sqlite';
-import { homePage } from './page/home';
+import { writeHomePage } from './page/write';
 import { LifeLogSettingTab } from './settings';
 import { baseFiles } from './page/init';
 import { WorkspaceView, VIEW_TYPE as WS_VIEW } from './workspace/view';
 import { MemberCache, openWorkspace } from './workspace/open';
 import { openMemberForm } from './form/open';
+import { runMigrate, runCooccur } from './monthly/commands';
 
 export type Settings = { root: string; lastId: number };
 const DEFAULT: Settings = { root: '拾枝', lastId: 0 };
@@ -42,8 +43,8 @@ export default class LifeLogPlugin extends Plugin {
     this.settings = Object.assign({}, DEFAULT, await this.loadData());
     this.addCommand({ id: 'capture', name: '捕获', callback: () => this.openCapture() });
     this.addCommand({ id: 'init', name: '初始化库', callback: () => void this.initLibrary() });
-    this.addCommand({ id: 'cooccur', name: '重建共现区块', callback: () => void this.rebuildCooccurrences() });
-    this.addCommand({ id: 'home', name: '创建 LifeLog 页面', callback: () => void this.writeHomePage() });
+    this.addCommand({ id: 'cooccur', name: '重建共现区块', callback: () => void runCooccur(this) });
+    this.addCommand({ id: 'home', name: '创建 LifeLog 页面', callback: () => void this.home() });
     this.registerView(WS_VIEW, (leaf) =>
       new WorkspaceView(leaf, {
         root: () => this.settings.root,
@@ -57,6 +58,7 @@ export default class LifeLogPlugin extends Plugin {
       }),
     );
     this.addCommand({ id: 'workspace', name: '打开拾枝工作台', callback: () => void openWorkspace(this.app) });
+    this.addCommand({ id: 'migrate', name: '迁移为月度文件', callback: () => void runMigrate(this) });
     this.addCommand({
       id: 'import',
       name: '导入 lifelog.db 或 dump',
@@ -110,7 +112,7 @@ export default class LifeLogPlugin extends Plugin {
     if (!this.app.vault.getAbstractFileByPath(cfg)) {
       await this.app.vault.create(cfg, JSON.stringify({ name: root.split('/').pop(), version: 1, nextId: 1 }, null, 2));
     }
-    await this.writeHomePage();
+    await this.home();
     new Notice(`库已初始化：${root}（已写 4 个 Bases 视图与 LifeLog 页面）`);
   }
 
@@ -151,22 +153,9 @@ export default class LifeLogPlugin extends Plugin {
 
   /** vault → GraphData：实体节点 + 父子边 + 共现边。 */
 
-  /** 生成 `拾枝/LifeLog.md`：全是原生嵌入块与链接，重建覆盖。 */
-  async writeHomePage() {
-    const notes = this.folderFiles('笔记').length;
-    const ents = this.folderFiles('实体').length;
+  async home() {
     const bases = ['信息流.base', '标签索引.base', '关系表.base', '时间轴.base'].map((b) => `${this.settings.root}/${b}`);
-    const md = homePage({
-      root: this.settings.root,
-      library: this.settings.root.split('/').pop() ?? '拾枝',
-      counts: { notes, entities: ents, relations: 0 },
-      bases,
-    });
-    const path = `${this.settings.root}/LifeLog.md`;
-    const exist = this.app.vault.getAbstractFileByPath(path);
-    if (exist) await this.app.vault.modify(exist as TFile, md);
-    else await this.app.vault.create(path, md);
-    await this.app.workspace.openLinkText(path, '', false);
+    await writeHomePage(this.app, this.settings.root, { notes: this.folderFiles('笔记').length, entities: this.folderFiles('实体').length }, bases);
   }
 
   async readRecords(): Promise<PointRecord[]> {
