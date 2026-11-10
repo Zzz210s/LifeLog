@@ -1,8 +1,15 @@
-// 迁移执行：读旧格式（一篇笔记一个文件）→ 写月度文件 → 旧文件归档到 `_归档/<原路径>`。
+// 迁移执行：旧格式（一篇笔记一个文件）→ `YYYY-MM.md` 月度文件 → 旧文件归档到 `_归档/`。
 import { App, TFile, normalizePath } from 'obsidian';
 import { NoteIn, mergeToMonths, worthMigrating } from './merge';
 
-export type MigrateResult = { months: number; entries: number; archived: number; skipped: number };
+export type MigrateResult = { months: number; entries: number; archived: number; skipped: number; errors: number };
+
+const NL = String.fromCharCode(10);
+
+export function stripFrontmatter(raw: string): string {
+  const end = raw.indexOf(NL + '---', 3);
+  return end === -1 ? raw : raw.slice(end + 4).replace(new RegExp('^' + NL), '');
+}
 
 function collect(app: App, root: string): { notes: NoteIn[]; files: TFile[] } {
   const notes: NoteIn[] = [];
@@ -28,13 +35,25 @@ function collect(app: App, root: string): { notes: NoteIn[]; files: TFile[] } {
   return { notes, files };
 }
 
-export async function migrateToMonths(app: App, root: string): Promise<MigrateResult> {
+export async function migrateToMonths(
+  app: App,
+  root: string,
+  onProgress: (done: number, total: number) => void = () => undefined,
+): Promise<MigrateResult> {
   const { notes, files } = collect(app, root);
+  let errors = 0;
 
-  // 正文要真读一遍（摘要不能靠 metadataCache）
+  // 正文必须真读一遍；单篇失败只跳过，不让整批挂掉
   for (let i = 0; i < notes.length; i++) {
-    notes[i].body = (await app.vault.cachedRead(files[i])).replace(/^---[\s\S]*?\n---\n?/, '');
+    try {
+      notes[i].body = stripFrontmatter(await app.vault.cachedRead(files[i]));
+    } catch {
+      errors += 1;
+      notes[i].body = '';
+    }
+    if (i % 100 === 0) onProgress(i, notes.length);
   }
+  onProgress(notes.length, notes.length);
 
   const usable = notes.filter(worthMigrating);
   const months = mergeToMonths(usable, normalizePath(root));
@@ -48,17 +67,18 @@ export async function migrateToMonths(app: App, root: string): Promise<MigrateRe
     else await app.vault.create(m.path, m.content);
   }
 
-  // 旧文件归档（保留可回滚），不直接删除
+  // 旧文件归档（可回滚），不删除
   let archived = 0;
+  const bodyPrefix = `${root}/笔记/`.length;
   for (const f of files) {
-    const target = normalizePath(`${archiveDir}/${f.path.slice(`${root}/笔记/`.length)}`);
+    const target = normalizePath(`${archiveDir}/${f.path.slice(bodyPrefix)}`);
     try {
       await app.fileManager.renameFile(f, target);
       archived += 1;
     } catch {
-      // 同名或目录不存在时跳过，宁可少归档也不丢文件
+      errors += 1;
     }
   }
 
-  return { months: months.length, entries: usable.length, archived, skipped: notes.length - usable.length };
+  return { months: months.length, entries: usable.length, archived, skipped: notes.length - usable.length, errors };
 }

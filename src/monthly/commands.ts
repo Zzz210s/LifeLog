@@ -13,10 +13,14 @@ type Host = {
 
 export async function runMigrate(host: Host): Promise<void> {
   const stop: NoticeType = new Notice('迁移中…', 0);
-  const r = await migrateToMonths(host.app, host.settings.root);
+  const progress: NoticeType = new Notice('迁移中… 0%', 0);
+  const r = await migrateToMonths(host.app, host.settings.root, (done, total) => {
+    progress.setMessage(`迁移中… ${Math.round((done / Math.max(total, 1)) * 100)}%（${done}/${total}）`);
+  });
+  progress.hide();
   host.cache.clear();
   stop.hide();
-  new Notice(`迁移完成：${r.months} 个月度文件、${r.entries} 条；归档 ${r.archived} 个旧文件，跳过 ${r.skipped} 条空笔记`, 15000);
+  new Notice(`迁移完成：${r.months} 个月度文件、${r.entries} 条；归档 ${r.archived} 个旧文件，跳过 ${r.skipped} 条空笔记，失败 ${r.errors}`, 15000);
 }
 
 export async function runCooccur(host: Host): Promise<void> {
