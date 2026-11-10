@@ -46,7 +46,7 @@ describe('buildFiles', () => {
     expect(f?.content).toContain('lifelog_created: 2026-10-26T09:30:00');
     expect(f?.content).not.toContain('lifelog_id');
     expect(f?.content).toContain('国籍: "[[地点/印度]]"');
-    expect(f?.content).toContain('#地点/印度');
+    expect(f?.content).toContain('tags: [地点/印度]');
   });
 
   it('同一关系的多个目标折成数组', () => {
@@ -90,7 +90,7 @@ describe('frontmatter 边界（真机测试抓到的缺陷）', () => {
     expect(content.startsWith('---\n')).toBe(true);
     const close = content.indexOf('\n---\n');
     expect(close).toBeGreaterThan(0);
-    expect(content.slice(close + 5)).toContain('#地点/印度');
+    expect(content).toContain('tags: [地点/印度]');
   });
 });
 
