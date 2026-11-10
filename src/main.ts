@@ -10,6 +10,7 @@ import { LifeLogSettingTab } from './settings';
 import { baseFiles } from './page/init';
 import { WorkspaceView, VIEW_TYPE as WS_VIEW } from './workspace/view';
 import { MemberCache, openWorkspace } from './workspace/open';
+import { openMemberForm } from './form/open';
 
 export type Settings = { root: string; lastId: number };
 const DEFAULT: Settings = { root: '拾枝', lastId: 0 };
@@ -52,6 +53,7 @@ export default class LifeLogPlugin extends Plugin {
         },
         capture: (text) => this.save(text),
         open: (p) => this.app.workspace.openLinkText(p, '', false),
+        edit: (p) => openMemberForm(this.app, this.cache.get(), p, () => this.cache.clear()),
       }),
     );
     this.addCommand({ id: 'workspace', name: '打开拾枝工作台', callback: () => void openWorkspace(this.app) });
@@ -148,7 +150,6 @@ export default class LifeLogPlugin extends Plugin {
   }
 
   /** vault → GraphData：实体节点 + 父子边 + 共现边。 */
-
 
   /** 生成 `拾枝/LifeLog.md`：全是原生嵌入块与链接，重建覆盖。 */
   async writeHomePage() {

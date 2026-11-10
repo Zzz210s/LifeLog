@@ -12,6 +12,7 @@ export type WorkspaceDeps = {
   reload: () => Promise<void>;
   capture: (text: string) => Promise<void>;
   open: (path: string) => Promise<void>;
+  edit: (path: string) => void;
 };
 
 export class WorkspaceView extends ItemView {
@@ -92,7 +93,12 @@ export class WorkspaceView extends ItemView {
       const row = box.createDiv({ cls: 'lifelog-ws-tree-row' });
       row.style.paddingLeft = `${depth * 12}px`;
       row.createSpan({ cls: 'lifelog-ws-tree-name', text: n.name });
-      row.createSpan({ cls: 'lifelog-ws-tree-count', text: n.subtree ? `${n.self}/${n.subtree}` : `${n.self}` });
+      row.createSpan({ cls: 'lifelog-ws-tree-count', text: (n as TreeNode & { subtree?: number }).subtree ? `${n.self}/${n.subtree}` : `${n.self}` });
+      const pen = row.createSpan({ cls: 'lifelog-ws-pen', text: '✎' });
+      pen.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        this.deps.edit(n.path);
+      });
       row.addEventListener('click', () => {
         this.selected = { key: n.key, name: n.name };
         void this.render();
