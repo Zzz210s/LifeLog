@@ -16,17 +16,12 @@
 import { useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import type { Dot, DrawPlan } from './graph-draw-plan';
-import { CO_ALPHA, CO_DASH, DIM_ALPHA, EDGE_DIM_ALPHA, AXIS_DIM_ALPHA, LINK_DASH, TREE_ALPHA } from './graph-edge-style';
-import { strokeAll, strokeRelations } from './graph-canvas-strokes';
-import { drawRelationMarks } from './graph-canvas-remarks';
-import { NOTE_R } from './graph-notes';
+import { paint } from '../../../packages/graph-core/src/paint/paint';
+import { setToken } from '../../../packages/graph-core/src/paint/tokens';
 import { token } from './token';
 
-/** 枢纽外环半径增量与线宽(屏幕像素) */
-const HUB_RING_GAP = 3;
-const HUB_RING_WIDTH = 2;
-/** 选中环离点的间距(屏幕像素):点小时不至于贴在一起 */
-const RING_GAP = 3;
+setToken(token);
+
 
 export function GraphCanvas(p: {
   plan: DrawPlan;
@@ -53,85 +48,8 @@ export function GraphCanvas(p: {
     if (el.width !== bw) el.width = bw;
     if (el.height !== bh) el.height = bh;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, p.width, p.height);
-    // 四档边(2026-10-06 重做):共现 = border-strong 虚线 65%;父子 = 父节点轴色实线 70%;
-    // 笔记链接 = accent 点线;关系边 = accent 实线 + 箭头。零硬编码色值,全走令牌/轴色。
-    strokeAll(ctx, p.plan.co, token('--color-border-strong'), 1.25, CO_ALPHA, { dimAlpha: EDGE_DIM_ALPHA, dash: CO_DASH });
-    strokeAll(ctx, p.plan.tree, token('--color-border-strong'), 1.5, TREE_ALPHA, { dimAlpha: AXIS_DIM_ALPHA });
-    strokeAll(ctx, p.plan.links, token('--color-accent'), 1.5, 1, { dimAlpha: EDGE_DIM_ALPHA, dash: LINK_DASH });
-    // 标签关系边(带箭头,Task 5):空层不碰令牌,免得给既有用例多记一笔设色
-    if (p.plan.relations.length > 0) {
-      strokeRelations(ctx, p.plan.relations, token('--color-accent'));
-    }
-    for (const d of p.plan.dots) {
-      ctx.globalAlpha = d.dim ? DIM_ALPHA : 1;
-      ctx.fillStyle = d.color;
-      ctx.beginPath();
-      ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    // 聚合圆的计数(设计 D1):低缩放时一个圆代表多个节点,把数字画在圆心上。
-    // 颜色取画布底(与圆形成对比),字号固定 11px 屏幕像素。
-    // 聚合圆与选中环在同一遍循环里分开收:两趟 filter 每帧多一个数组(2026-10-06 性能轮)
-    const agg: Dot[] = [];
-    const rings: Dot[] = [];
-    for (const d of p.plan.dots) {
-      if ((d.count ?? 1) > 1) agg.push(d);
-      if (d.selected) rings.push(d);
-    }
-    if (agg.length > 0) {
-      ctx.globalAlpha = 1;
-      ctx.fillStyle = token('--color-raised');
-      ctx.font = '11px system-ui, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      for (const d of agg) ctx.fillText(String(d.count), d.x, d.y);
-    }
-    // 归位单点:环 / 笔记小圆 / `+N` / 文字都不参与弱化,谁不继承上面任何一次的 0.2
-    // (去掉这一行,暗点或暗边之后的环、小圆、文字会一起变淡 —— 有用例钉住)
-    ctx.globalAlpha = 1;
-    // 枢纽外环(设计 D6):度数高的节点加一圈细环,让骨架里的关键节点一眼可辨。
-    // 用 muted 而非 accent —— accent 留给"选中",两者不能撞语义。
-    const hubs = p.plan.hubs ?? [];
-    if (hubs.length > 0) {
-      ctx.strokeStyle = token('--color-border-strong');
-      ctx.lineWidth = HUB_RING_WIDTH;
-      for (const h of hubs) {
-        ctx.beginPath();
-        ctx.arc(h.x, h.y, h.r + HUB_RING_GAP, 0, Math.PI * 2);
-        ctx.stroke();
-      }
-    }
-    // 选中环:accent 描边,与弱化解耦(选中的点即使被弱化也要看得见环)
-    if (rings.length > 0) {
-      ctx.strokeStyle = token('--color-accent');
-      ctx.lineWidth = 2;
-      for (const d of rings) {
-        ctx.beginPath();
-        ctx.arc(d.x, d.y, d.r + RING_GAP, 0, Math.PI * 2);
-        ctx.stroke();
-      }
-    }
-    // 展开的笔记小圆:空心小圆,不参与弱化(被主动展开的永远清晰)
-    if (p.plan.notes.length > 0) {
-      ctx.strokeStyle = token('--color-border-strong');
-      ctx.lineWidth = 1;
-      for (const n of p.plan.notes) {
-        ctx.beginPath();
-        ctx.arc(n.x, n.y, NOTE_R, 0, Math.PI * 2);
-        ctx.stroke();
-      }
-    }
-    ctx.fillStyle = token('--color-muted');
-    ctx.font = '12px system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    if (p.plan.overflow !== null) {
-      ctx.fillText(`+${p.plan.overflow.n}`, p.plan.overflow.x, p.plan.overflow.y);
-    }
-    // 关系备注画在节点标签**之前**:标签是读图主体,备注是补充信息,先画才不会反过来压住标签。
-    // 底衬胶囊、字宽缓存与令牌读数在 graph-canvas-remarks(空层不碰令牌)
-    drawRelationMarks(ctx, p.plan.relationMarks);
-    for (const l of p.plan.labels) ctx.fillText(l.text, l.x, l.y);
+    // 绘制层已抽到 packages/graph-core/src/paint（软件与插件共用同一份）
+    paint(ctx, p.plan, p.width, p.height);
   }, [p.plan, p.width, p.height, p.themeKey]);
 
   return <canvas ref={ref} style={{ width: p.width, height: p.height }} />;
