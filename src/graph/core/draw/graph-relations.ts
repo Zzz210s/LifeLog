@@ -1,0 +1,89 @@
+/**
+ * 标签关系边的数据口径(Task 5,设计 §8):`edges(kind='relation')` 读作「A 具有 B 所表示的属性」。
+ * 两端都是**标签实体 id**(统一实体表,偏移区间),与 `GraphNode.id` 同一命名空间。
+ *
+ * 关系数据不走 `graph_data`(那条命令只交标签骨架与笔记链接),改用前端已有的
+ * `list_tag_facts` 批量事实就地摊平 —— 24 条线不值得多一条 IPC,也不给 Rust 侧添接口。
+ * 备注取**点上的名字**(`RelationRef.nameText`,送转 031):`A --(国籍)--> B` 的 `国籍`,
+ * 不是被指向标签自己名字里的 md 备注。仅显示用(R6 不参与筛选/计数)。
+ */
+import type { TagFact } from '../tag-facts-types';
+import { tagLeafName, type RelationFactLike } from '../tag-relation-facts';
+import type { GraphNode } from '../types/graph';
+
+/** 一条标签关系线(方向固定 A -> B) */
+export interface RelationEdge {
+  /** 起点标签实体 id(具有属性的一方) */
+  a: number;
+  /** 终点标签实体 id(被指向的属性) */
+  b: number;
+  /** 箭头上的名字(名字点的文本;无名字线为空串,缺失时图上不画字) */
+  nameText: string;
+}
+
+/** 批量事实摊平成关系线:一条出线一行,顺序沿用事实顺序 */
+export function relationEdges(facts: readonly TagFact[]): RelationEdge[] {
+  const out: RelationEdge[] = [];
+  for (const f of facts) {
+    for (const r of f.relations) out.push({ a: f.tagId, b: r.toTagId, nameText: r.nameText ?? '' });
+  }
+  return out;
+}
+
+/**
+ * 某标签的出边投影成卡片关系行(悬停卡片用,与侧栏 `tagFactsRows` 同一口径):
+ * 目标名取**末段名**(`name` 字段在侧栏是末段名,图上只有完整 path,就地取末段),
+ * 名字原样带出(`nameText`)。目标不在可见集里就跳过 —— 下拉不到的线没有可读的值。
+ */
+export function relationRows(
+  relations: readonly RelationEdge[],
+  nodes: readonly GraphNode[],
+  id: number,
+): RelationFactLike[] {
+  const byId = new Map(nodes.map((n) => [n.id, n] as const));
+  const out: RelationFactLike[] = [];
+  for (const r of relations) {
+    if (r.a !== id) continue;
+    const target = byId.get(r.b);
+    if (target === undefined) continue;
+    out.push({ name: tagLeafName(target.path), nameText: r.nameText });
+  }
+  return out;
+}
+
+/**
+ * 某标签(**含子孙**)的关系出/入度,与信息条既有的出链/入链同一口径:
+ * - 出 N = 起点落在该子树里的边数
+ * - 入 M = 终点落在该子树里的边数
+ * 靠子级撑起来的骨架节点(如 `作者` 根本身没有边)只算子级会永远显示 0,含子孙才与「含子级」计数一致。
+ */
+export function relationDegrees(
+  relations: readonly RelationEdge[],
+  nodes: readonly GraphNode[],
+  id: number,
+): { outbound: number; backlinks: number } {
+  const children = new Map<number, number[]>();
+  for (const n of nodes) {
+    if (n.parent === null) continue;
+    const list = children.get(n.parent);
+    if (list === undefined) children.set(n.parent, [n.id]);
+    else list.push(n.id);
+  }
+  const sub = new Set<number>([id]);
+  const stack = [id];
+  while (stack.length > 0) {
+    const cur = stack.pop()!;
+    for (const c of children.get(cur) ?? []) {
+      if (sub.has(c)) continue; // 防御:库里成环时不死循环
+      sub.add(c);
+      stack.push(c);
+    }
+  }
+  let outbound = 0;
+  let backlinks = 0;
+  for (const r of relations) {
+    if (sub.has(r.a)) outbound += 1;
+    if (sub.has(r.b)) backlinks += 1;
+  }
+  return { outbound, backlinks };
+}

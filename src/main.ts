@@ -5,6 +5,8 @@ import { cooccurrence, neighborsOf, renderBlock, upsertBlock } from './store/coo
 import { buildFiles } from './import/map';
 import { importFiles, summaryText } from './import/run';
 import { parseDump } from './import/sqlite';
+import { GraphItemView, VIEW_TYPE } from './graph/view';
+import { buildGraph, EntityRow, NoteRef } from './graph/data';
 
 type Settings = { root: string; lastId: number };
 const DEFAULT: Settings = { root: '拾枝', lastId: 0 };
@@ -41,6 +43,8 @@ export default class LifeLogPlugin extends Plugin {
       name: '导入 lifelog.db 或 dump',
       callback: () => void this.pickImport(),
     });
+    this.registerView(VIEW_TYPE, (leaf) => new GraphItemView(leaf, () => this.collectGraph()));
+    this.addCommand({ id: 'graph', name: '打开关系图', callback: () => void this.openGraph() });
     this.addSettingTab(new LifeLogSettingTab(this.app, this));
   }
 
@@ -120,6 +124,30 @@ export default class LifeLogPlugin extends Plugin {
       }
     };
     input.click();
+  }
+
+  /** vault → GraphData：实体节点 + 父子边 + 共现边。 */
+  async collectGraph() {
+    const ents = this.folderFiles('实体');
+    const rows: EntityRow[] = ents.map((f) => {
+      const path = f.path.replace(/^.*\/实体\//, '').replace(/\.md$/, '');
+      const parentPath = this.app.metadataCache.getFileCache(f)?.frontmatter?.lifelog_parent ?? null;
+      const weight = 1 + (this.app.metadataCache.getFileCache(f)?.links?.length ?? 0);
+      return { path, parentPath: typeof parentPath === 'string' ? parentPath.replace(/^.*\/实体\//, '') : null, weight };
+    });
+    const notes: NoteRef[] = this.folderFiles('笔记').map((f) => {
+      const fm = this.app.metadataCache.getFileCache(f)?.frontmatter ?? {};
+      const tags = Array.isArray(fm.tags) ? fm.tags : typeof fm.tags === 'string' ? [fm.tags] : [];
+      const rels = Object.entries(fm).filter(([k, v]) => !k.startsWith('lifelog_') && typeof v === 'string' && v.includes('[['));
+      const relTargets = rels.flatMap(([, v]) => [...String(v).matchAll(/\[\[([^\]|]+)/g)].map((m) => m[1]));
+      return { targets: [...tags.map(String), ...relTargets] };
+    });
+    return buildGraph(rows, notes, 2);
+  }
+
+  async openGraph() {
+    const leaf = this.app.workspace.getLeaf(true);
+    await leaf.setViewState({ type: VIEW_TYPE, active: true });
   }
 
   async readRecords(): Promise<PointRecord[]> {

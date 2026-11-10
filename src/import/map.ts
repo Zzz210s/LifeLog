@@ -55,7 +55,7 @@ export function buildFiles(points: PointRow[], lines: LineRow[], root = '拾枝'
     if (line.name_id === null) {
       if (to.path) {
         stats.tags += 1;
-        push(tagsOf, from.id, `#${to.path}`);
+        push(tagsOf, from.id, to.path);
       } else {
         // 用路径而不是文件名：真库里有 309 个重名 basename，用 basename 会解析歧义
         push(linksOf, from.id, `[[${to.path ?? slug(to.meta)}]]`);
@@ -85,8 +85,13 @@ export function buildFiles(points: PointRow[], lines: LineRow[], root = '拾枝'
     }
     const d = p.created_at.slice(0, 10);
     const [y, m] = d ? d.split('-') : ['0000', '00'];
-    const bodyParts = [p.meta.trim(), ...(tagsOf.get(p.id) ?? []), ...(linksOf.get(p.id) ?? [])].filter(Boolean);
-    const fm = [`lifelog_created: ${p.created_at}`, ...relLines(rels)];
+    const bodyParts = [p.meta.trim(), ...(linksOf.get(p.id) ?? [])].filter(Boolean);
+    const tags = [...new Set(tagsOf.get(p.id) ?? [])].sort();
+    const fm = [
+      `lifelog_created: ${p.created_at}`,
+      tags.length > 0 ? `tags: [${tags.join(', ')}]` : null,
+      ...relLines(rels),
+    ];
     const base = `${root}/笔记/${y}/${m}/${slug(p.meta)}.md`;
     const path = unique(base, used);
     used.add(path);
