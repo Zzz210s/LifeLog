@@ -70,3 +70,25 @@ describe('文件名清洗（真库演练抓到的缺陷）', () => {
     expect(r.files[0].path).toBe('拾枝/笔记/2026/03/869-大地 ）.md');
   });
 });
+
+describe('frontmatter 边界（真机测试抓到的缺陷）', () => {
+  const { files } = buildFiles(points, lines);
+  const fmOf = (path: string) => {
+    const content = files.find((f) => f.path === path)!.content;
+    const parts = content.split('---');
+    return parts.length >= 3 ? parts[1] : '';
+  };
+
+  it('关系属性必须落在闭合的 --- 之前', () => {
+    expect(fmOf('拾枝/笔记/2026/10/9-去了印度.md')).toContain('国籍: "[[地点/印度]]"');
+    expect(fmOf('拾枝/实体/地点/印度.md')).toContain('lifelog_parent: 地点');
+  });
+
+  it('文件以 --- 开头，闭合后才是正文', () => {
+    const content = files.find((f) => f.path.includes('9-去了印度'))!.content;
+    expect(content.startsWith('---\n')).toBe(true);
+    const close = content.indexOf('\n---\n');
+    expect(close).toBeGreaterThan(0);
+    expect(content.slice(close + 5)).toContain('#地点/印度');
+  });
+});

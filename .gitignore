@@ -3,3 +3,5 @@ main.js
 *.map
 .DS_Store
 lifelog-dump.json
+lifelog-dump.json
+ob-files.json

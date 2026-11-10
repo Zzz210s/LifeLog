@@ -57,7 +57,8 @@ export function buildFiles(points: PointRow[], lines: LineRow[], root = '拾枝'
         stats.tags += 1;
         push(tagsOf, from.id, `#${to.path}`);
       } else {
-        push(linksOf, from.id, `[[${slug(to.meta)}]]`);
+        // 用路径而不是文件名：真库里有 309 个重名 basename，用 basename 会解析歧义
+        push(linksOf, from.id, `[[${to.path ?? slug(to.meta)}]]`);
       }
       continue;
     }
@@ -73,26 +74,32 @@ export function buildFiles(points: PointRow[], lines: LineRow[], root = '拾枝'
     const rels = relsOf.get(p.id) ?? [];
     if (p.path) {
       const parent = p.parent_id ? byId.get(p.parent_id) : null;
-      const head = ['---', `lifelog_id: ${p.id}`, parent?.path ? `lifelog_parent: ${parent.path}` : null, '---', ''];
-      for (const [name, targets] of groupByName(rels)) {
-        head.push(`${name}: ${targets.length === 1 ? targets[0] : `[${targets.join(', ')}]`}`);
-      }
-      const content = head.filter((l): l is string => l !== null).join('\n') + '\n';
-      files.push({ path: entityFile(root, p.path), content });
+      const fm = [`lifelog_id: ${p.id}`, parent?.path ? `lifelog_parent: ${parent.path}` : null, ...relLines(rels)];
+      files.push({ path: entityFile(root, p.path), content: renderFile(fm, '') });
       stats.entities += 1;
       continue;
     }
     const d = p.created_at.slice(0, 10);
     const [y, m] = d ? d.split('-') : ['0000', '00'];
     const bodyParts = [p.meta.trim(), ...(tagsOf.get(p.id) ?? []), ...(linksOf.get(p.id) ?? [])].filter(Boolean);
-    const head = ['---', `lifelog_id: ${p.id}`, `lifelog_created: ${p.created_at}`, '---', ''];
-    for (const [name, targets] of groupByName(rels)) {
-      head.push(`${name}: ${targets.length === 1 ? targets[0] : `[${targets.join(', ')}]`}`);
-    }
-    files.push({ path: `${root}/笔记/${y}/${m}/${p.id}-${slug(p.meta)}.md`, content: head.join('\n') + bodyParts.join(' ') + '\n' });
+    const fm = [`lifelog_id: ${p.id}`, `lifelog_created: ${p.created_at}`, ...relLines(rels)];
+    files.push({ path: `${root}/笔记/${y}/${m}/${p.id}-${slug(p.meta)}.md`, content: renderFile(fm, bodyParts.join(' ')) });
     stats.notes += 1;
   }
   return { files: files.sort((a, b) => a.path.localeCompare(b.path)), stats };
+}
+
+/** frontmatter 必须在闭合的 `---` 之前，否则 Obsidian 不把它当属性（真机测试抓到过）。 */
+function renderFile(fm: (string | null)[], body: string): string {
+  const head = ['---', ...fm.filter((l): l is string => l !== null), '---'];
+  return body ? `${head.join('\n')}\n\n${body}\n` : `${head.join('\n')}\n`;
+}
+
+/** 关系名各自成为一个顶层属性（A 方案），多目标折成数组。 */
+function relLines(rels: { name: string; to: string }[]): string[] {
+  return groupByName(rels).map(
+    ([name, targets]) => `${name}: ${targets.length === 1 ? targets[0] : `[${targets.join(', ')}]`}`,
+  );
 }
 
 function groupByName(rels: { name: string; to: string }[]): [string, string[]][] {
