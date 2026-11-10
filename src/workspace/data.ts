@@ -3,17 +3,19 @@ import { App, TFile } from 'obsidian';
 import { Entry, formatEntry, parseMonthFile } from '../monthly/parse';
 
 export async function loadEntries(app: App, root: string): Promise<Entry[]> {
-  const out: Entry[] = [];
+  const months: Entry[] = [];
+  const legacyNotes: Entry[] = [];
   for (const f of app.vault.getMarkdownFiles()) {
     if (!f.path.startsWith(`${root}/`)) continue;
     const isMonth = /\/\d{4}-\d{2}\.md$/.test(f.path);
     const isOldNote = f.path.startsWith(`${root}/笔记/`);
     if (!isMonth && !isOldNote) continue;
     const raw = await app.vault.cachedRead(f);
-    if (isMonth) out.push(...parseMonthFile(f.path, raw));
-    else out.push(...legacy(f, raw));
+    if (isMonth) months.push(...parseMonthFile(f.path, raw));
+    else legacyNotes.push(...legacy(f, raw));
   }
-  return out;
+  // 已迁移过的库只读月度文件，避免旧笔记与新文件重复计数
+  return months.length > 0 ? months : legacyNotes;
 }
 
 /** 旧格式：一篇笔记 = 一条，时间取 frontmatter 的 lifelog_created */

@@ -55,6 +55,7 @@ export default class LifeLogPlugin extends Plugin {
         open: (p) => this.app.workspace.openLinkText(p, '', false),
       }),
     );
+    this.addCommand({ id: 'append', name: '快速记一条（当月文件）', callback: () => new CaptureModal(this.app, (text) => void this.append(text)).open() });
     this.addCommand({ id: 'workspace', name: '打开拾枝工作台', callback: () => void openWorkspace(this.app) });
     this.addCommand({ id: 'migrate', name: '迁移为月度文件', callback: () => void runMigrate(this) });
     this.addCommand({
@@ -154,6 +155,15 @@ export default class LifeLogPlugin extends Plugin {
   async home() {
     const bases = ['信息流.base', '标签索引.base', '关系表.base', '时间轴.base'].map((b) => `${this.settings.root}/${b}`);
     await writeHomePage(this.app, this.settings.root, { notes: this.folderFiles('笔记').length, entities: this.folderFiles('实体').length }, bases);
+  }
+
+  /** 发送一条到当月文件（视图与命令共用同一条写路径） */
+  async append(text: string) {
+    await appendEntry(this.app, this.settings.root, text);
+    for (const leaf of this.app.workspace.getLeavesOfType('lifelog-workspace')) {
+      const v = leaf.view as unknown as { refresh?: () => Promise<void> };
+      if (typeof v.refresh === 'function') await v.refresh();
+    }
   }
 
   async readRecords(): Promise<PointRecord[]> {

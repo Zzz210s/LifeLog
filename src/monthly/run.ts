@@ -11,6 +11,17 @@ export function stripFrontmatter(raw: string): string {
   return end === -1 ? raw : raw.slice(end + 4).replace(new RegExp('^' + NL), '');
 }
 
+/** renameFile 不会自动建目录：归档前逐级创建（`_归档/2026/03` 这种） */
+async function ensureDir(app: App, dir: string): Promise<void> {
+  if (!dir || app.vault.getAbstractFileByPath(dir)) return;
+  const parts = dir.split('/');
+  let cur = '';
+  for (const p of parts) {
+    cur = cur ? `${cur}/${p}` : p;
+    if (!app.vault.getAbstractFileByPath(cur)) await app.vault.createFolder(cur).catch(() => undefined);
+  }
+}
+
 function collect(app: App, root: string): { notes: NoteIn[]; files: TFile[] } {
   const notes: NoteIn[] = [];
   const files: TFile[] = [];
@@ -67,17 +78,21 @@ export async function migrateToMonths(
     else await app.vault.create(m.path, m.content);
   }
 
-  // 旧文件归档（可回滚），不删除
+  // 旧文件归档（可回滚、可重入）：目标已存在就跳过，每 200 个回报一次
   let archived = 0;
   const bodyPrefix = `${root}/笔记/`.length;
-  for (const f of files) {
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i];
     const target = normalizePath(`${archiveDir}/${f.path.slice(bodyPrefix)}`);
+    if (app.vault.getAbstractFileByPath(target)) continue;
+    await ensureDir(app, target.split('/').slice(0, -1).join('/'));
     try {
       await app.fileManager.renameFile(f, target);
       archived += 1;
     } catch {
       errors += 1;
     }
+    if (i % 200 === 0) onProgress(i, files.length);
   }
 
   return { months: months.length, entries: usable.length, archived, skipped: notes.length - usable.length, errors };
