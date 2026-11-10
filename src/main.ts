@@ -1,6 +1,7 @@
 import { App, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile, normalizePath } from 'obsidian';
-import { KEY, notePath, readRecord } from './store/schema';
+import { KEY, PointRecord, notePath, readRecord } from './store/schema';
 import { parseCapture } from './capture/parse';
+import { cooccurrence, neighborsOf, renderBlock, upsertBlock } from './store/cooccur';
 
 type Settings = { root: string; lastId: number };
 const DEFAULT: Settings = { root: '拾枝', lastId: 0 };
@@ -31,6 +32,7 @@ export default class LifeLogPlugin extends Plugin {
     this.settings = Object.assign({}, DEFAULT, await this.loadData());
     this.addCommand({ id: 'capture', name: '捕获', callback: () => this.openCapture() });
     this.addCommand({ id: 'init', name: '初始化库', callback: () => void this.initLibrary() });
+    this.addCommand({ id: 'cooccur', name: '重建共现区块', callback: () => void this.rebuildCooccurrences() });
     this.addSettingTab(new LifeLogSettingTab(this.app, this));
   }
 
@@ -80,6 +82,35 @@ export default class LifeLogPlugin extends Plugin {
 
   folderFiles(sub: '笔记' | '实体'): TFile[] {
     return this.app.vault.getMarkdownFiles().filter((f) => f.path.includes(`${this.settings.root}/${sub}/`));
+  }
+
+  async readRecords(): Promise<PointRecord[]> {
+    const files = [...this.folderFiles('笔记'), ...this.folderFiles('实体')];
+    const out: PointRecord[] = [];
+    for (const f of files) {
+      const fm = this.app.metadataCache.getFileCache(f)?.frontmatter;
+      out.push(readRecord(f.path, fm, await this.app.vault.cachedRead(f)));
+    }
+    return out;
+  }
+
+  /** 把「同篇一起出现的实体」写成实体笔记里的受管区块 —— 原生关系图据此画出实体间直边。 */
+  async rebuildCooccurrences() {
+    const pairs = cooccurrence(await this.readRecords(), 2);
+    const prefix = `${this.settings.root}/实体/`;
+    let touched = 0;
+    for (const f of this.folderFiles('实体')) {
+      const name = f.path.replace(/^.*\/实体\//, '').replace(/\.md$/, '');
+      const near = neighborsOf(pairs, name);
+      if (near.length === 0) continue;
+      const body = await this.app.vault.read(f);
+      const next = upsertBlock(body, renderBlock(near, name));
+      if (next !== body) {
+        await this.app.vault.modify(f, next);
+        touched += 1;
+      }
+    }
+    new Notice(`共现区块已更新 ${touched} 个实体（全库 ${pairs.length} 对，路径前缀 ${prefix}）`);
   }
 }
 
