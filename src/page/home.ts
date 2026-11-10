@@ -10,10 +10,14 @@ export type PageInput = {
 export function homePage(i: PageInput): string {
   const { root, library, counts, bases } = i;
   return [
-    `# ${library}`,
+    `## ${library}`,
     '',
     `> 笔记 **${counts.notes}** · 实体 **${counts.entities}** · 命名关系 **${counts.relations}**`,
     '> 记一条：命令面板 → `LifeLog: 捕获`（`#标签`、`[[链接]]`、`>父级`）',
+    '',
+    '## 今天',
+    '',
+    embedBase(`${root}/时间轴.base`),
     '',
     '## 信息流',
     '',

@@ -1,4 +1,4 @@
-import { App, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile, normalizePath } from 'obsidian';
+import { App, Modal, Notice, Plugin, TFile, normalizePath } from 'obsidian';
 import { KEY, PointRecord, notePath, readRecord } from './store/schema';
 import { parseCapture } from './capture/parse';
 import { cooccurrence, neighborsOf, renderBlock, upsertBlock } from './store/cooccur';
@@ -6,8 +6,10 @@ import { buildFiles } from './import/map';
 import { importFiles, summaryText } from './import/run';
 import { parseDump } from './import/sqlite';
 import { homePage } from './page/home';
+import { LifeLogSettingTab } from './settings';
+import { baseFiles } from './page/init';
 
-type Settings = { root: string; lastId: number };
+export type Settings = { root: string; lastId: number };
 const DEFAULT: Settings = { root: '拾枝', lastId: 0 };
 
 class CaptureModal extends Modal {
@@ -82,11 +84,17 @@ export default class LifeLogPlugin extends Plugin {
       const p = `${root}/${sub}`;
       if (!this.app.vault.getAbstractFileByPath(p)) await this.app.vault.createFolder(p).catch(() => undefined);
     }
+    for (const f of baseFiles(root)) {
+      const cur = this.app.vault.getAbstractFileByPath(f.path);
+      if (cur) await this.app.vault.modify(cur as TFile, f.content);
+      else await this.app.vault.create(f.path, f.content);
+    }
     const cfg = `${root}/.lifelog/config.json`;
     if (!this.app.vault.getAbstractFileByPath(cfg)) {
       await this.app.vault.create(cfg, JSON.stringify({ name: root.split('/').pop(), version: 1, nextId: 1 }, null, 2));
     }
-    new Notice(`库已初始化：${root}`);
+    await this.writeHomePage();
+    new Notice(`库已初始化：${root}（已写 4 个 Bases 视图与 LifeLog 页面）`);
   }
 
   folderFiles(sub: '笔记' | '实体'): TFile[] {
@@ -172,30 +180,5 @@ export default class LifeLogPlugin extends Plugin {
       }
     }
     new Notice(`共现区块已更新 ${touched} 个实体（全库 ${pairs.length} 对，路径前缀 ${prefix}）`);
-  }
-}
-
-class LifeLogSettingTab extends PluginSettingTab {
-  constructor(app: App, private plugin: LifeLogPlugin) {
-    super(app, plugin);
-  }
-  display() {
-    this.containerEl.empty();
-    new Setting(this.containerEl)
-      .setName('库文件夹')
-      .setDesc('笔记与实体所在的 vault 内文件夹')
-      .addText((t) =>
-        t.setValue(this.plugin.settings.root).onChange(async (v) => {
-          this.plugin.settings.root = v.trim() || '拾枝';
-          await this.plugin.saveData(this.plugin.settings);
-        }),
-      );
-    const info = this.containerEl.createEl('p');
-    const notes = this.plugin.folderFiles('笔记');
-    const entities = this.plugin.folderFiles('实体');
-    const sample = entities
-      .slice(0, 3)
-      .map((f) => readRecord(f.path, this.app.metadataCache.getFileCache(f)?.frontmatter, '').id);
-    info.setText(`笔记 ${notes.length} 篇 / 实体 ${entities.length} 个（id 抽样 ${sample.join(', ') || '无'}）`);
   }
 }
