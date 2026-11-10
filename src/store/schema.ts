@@ -25,11 +25,19 @@ export function isNotePath(p: string): boolean {
   return p.includes('/笔记/');
 }
 
+/** 目标一律存成 wiki 链接字符串 `[[地点/日本]]`，这样 Obsidian 原生关系图能画出这条边。 */
+const WIKI = /^\[\[([^\]|]+)(?:\|[^\]]*)?\]\]$/;
+
+export function normalizeTarget(raw: string): string {
+  const m = raw.trim().match(WIKI);
+  return (m ? m[1] : raw).trim();
+}
+
 function toRelation(v: unknown): Relation | null {
   if (typeof v !== 'object' || v === null) return null;
   const r = v as Record<string, unknown>;
   if (typeof r.name !== 'string' || typeof r.to !== 'string') return null;
-  return { name: r.name, to: r.to };
+  return { name: r.name, to: normalizeTarget(r.to) };
 }
 
 /** frontmatter 可能是 undefined / 空 / 字符串；这里只做形状收敛，不做校验。 */

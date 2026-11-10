@@ -45,11 +45,13 @@ export function buildIndex(records: PointRecord[]): Index {
       bucket.push(r.path);
       links.set(key, bucket);
     }
+    // 关系同时进两张表：按属性名（`rel:国籍`）与按目标（原生关系图认的那种边）
     for (const rel of r.relations) {
-      const key = `rel:${rel.name}`;
-      const bucket = links.get(key) ?? [];
-      bucket.push(`${r.path}->${rel.to}`);
-      links.set(key, bucket);
+      for (const key of [`rel:${rel.name}`, `->${rel.to}`]) {
+        const bucket = links.get(key) ?? [];
+        bucket.push(r.path);
+        links.set(key, bucket);
+      }
     }
   }
 

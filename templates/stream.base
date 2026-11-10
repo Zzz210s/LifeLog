@@ -14,9 +14,8 @@ views:
         direction: DESC
     limit: 200
   - type: table
-    name: 按父级分组
+    name: 按父级分组（组头数字=该父级条目数，即树的本级计数）
     order:
-      - lifelog_parent
       - file.name
     groupBy:
       property: lifelog_parent

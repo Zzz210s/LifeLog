@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { KEY, notePath, readRecord } from '../src/store/schema';
+import { KEY, notePath, normalizeTarget, readRecord } from '../src/store/schema';
 
 describe('readRecord', () => {
   it('读全字段', () => {
@@ -38,5 +38,18 @@ describe('notePath', () => {
 
   it('空标题回落到未命名', () => {
     expect(notePath(4, '   ', '2026-01-01T00:00:00', '拾枝')).toBe('拾枝/笔记/2026/01/4-未命名.md');
+  });
+});
+
+describe('normalizeTarget', () => {
+  it('wiki 链接剥成纯目标，别名也剥', () => {
+    expect(normalizeTarget('[[地点/日本]]')).toBe('地点/日本');
+    expect(normalizeTarget('[[地点/日本|日本]]')).toBe('地点/日本');
+    expect(normalizeTarget(' 地点/日本 ')).toBe('地点/日本');
+  });
+
+  it('readRecord 把关系目标统一成纯路径', () => {
+    const r = readRecord('库/实体/x.md', { [KEY.relations]: [{ name: '国籍', to: '[[地点/日本]]' }] }, '');
+    expect(r.relations[0].to).toBe('地点/日本');
   });
 });

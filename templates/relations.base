@@ -12,3 +12,10 @@ views:
     sort:
       - property: lifelog_created
         direction: DESC
+  - type: table
+    name: 按关系名分组
+    order:
+      - file.name
+    groupBy:
+      property: lifelog_relations.name
+      direction: ASC
