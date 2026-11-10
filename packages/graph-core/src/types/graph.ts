@@ -17,6 +17,11 @@ export interface GraphEdge {
   weight: number;
 }
 
+export interface GraphLink {
+  a: number;
+  b: number;
+}
+
 export interface GraphData {
   nodes: GraphNode[];
   edges: GraphEdge[];
