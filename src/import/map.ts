@@ -15,7 +15,15 @@ export type Stats = { notes: number; entities: number; tags: number; relations: 
 
 export const TREE_NAME_ID = 0;
 
-const slug = (s: string) => s.replace(/[\\/:*?"<>|#^[\]]/g, '').trim().slice(0, 40) || '未命名';
+// 文件名清洗：换行/制表符会让 Windows 与 Obsidian 都写不出文件（真库演练抓到过 869-大地\n））
+const clean = (s: string) =>
+  s
+    .replace(/[\u0000-\u001f\u007f]+/g, ' ')
+    .replace(/[\\/:*?"<>|#^[\]]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const slug = (s: string) => clean(s).slice(0, 40) || '未命名';
 
 function entityFile(root: string, path: string): string {
   return `${root}/实体/${path}.md`;

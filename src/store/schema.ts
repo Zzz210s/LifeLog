@@ -54,6 +54,12 @@ export function readRecord(path: string, fm: Record<string, unknown> | undefined
 export function notePath(id: number, title: string, createdAt: string, root: string): string {
   const d = createdAt.slice(0, 10);
   const [y, m] = d ? d.split('-') : ['0000', '00'];
-  const safe = title.replace(/[\/:*?"<>|#^[\]]/g, '').trim().slice(0, 40) || '未命名';
+  const safe =
+    title
+      .replace(/[\u0000-\u001f\u007f]+/g, ' ')
+      .replace(/[\/:*?"<>|#^[\]]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 40) || '未命名';
   return `${root}/笔记/${y}/${m}/${id}-${safe}.md`;
 }

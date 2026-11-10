@@ -62,3 +62,11 @@ describe('buildFiles', () => {
     expect(r.files[0].content).not.toContain('lifelog_parent');
   });
 });
+
+describe('文件名清洗（真库演练抓到的缺陷）', () => {
+  it('标题里的换行不会进文件名', () => {
+    const r = buildFiles([{ id: 869, meta: '大地\n）', created_at: '2026-03-28 00:00:00', path: null, parent_id: null }], []);
+    expect(r.files[0].path).not.toMatch(/[\n\r]/);
+    expect(r.files[0].path).toBe('拾枝/笔记/2026/03/869-大地 ）.md');
+  });
+});
