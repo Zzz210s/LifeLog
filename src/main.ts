@@ -5,6 +5,7 @@ import { cooccurrence, neighborsOf, renderBlock, upsertBlock } from './store/coo
 import { buildFiles } from './import/map';
 import { importFiles, summaryText } from './import/run';
 import { parseDump } from './import/sqlite';
+import { homePage } from './page/home';
 
 type Settings = { root: string; lastId: number };
 const DEFAULT: Settings = { root: '拾枝', lastId: 0 };
@@ -36,6 +37,7 @@ export default class LifeLogPlugin extends Plugin {
     this.addCommand({ id: 'capture', name: '捕获', callback: () => this.openCapture() });
     this.addCommand({ id: 'init', name: '初始化库', callback: () => void this.initLibrary() });
     this.addCommand({ id: 'cooccur', name: '重建共现区块', callback: () => void this.rebuildCooccurrences() });
+    this.addCommand({ id: 'home', name: '创建 LifeLog 页面', callback: () => void this.writeHomePage() });
     this.addCommand({
       id: 'import',
       name: '导入 lifelog.db 或 dump',
@@ -124,6 +126,24 @@ export default class LifeLogPlugin extends Plugin {
 
   /** vault → GraphData：实体节点 + 父子边 + 共现边。 */
 
+
+  /** 生成 `拾枝/LifeLog.md`：全是原生嵌入块与链接，重建覆盖。 */
+  async writeHomePage() {
+    const notes = this.folderFiles('笔记').length;
+    const ents = this.folderFiles('实体').length;
+    const bases = ['信息流.base', '标签索引.base', '关系表.base', '时间轴.base'].map((b) => `${this.settings.root}/${b}`);
+    const md = homePage({
+      root: this.settings.root,
+      library: this.settings.root.split('/').pop() ?? '拾枝',
+      counts: { notes, entities: ents, relations: 0 },
+      bases,
+    });
+    const path = `${this.settings.root}/LifeLog.md`;
+    const exist = this.app.vault.getAbstractFileByPath(path);
+    if (exist) await this.app.vault.modify(exist as TFile, md);
+    else await this.app.vault.create(path, md);
+    await this.app.workspace.openLinkText(path, '', false);
+  }
 
   async readRecords(): Promise<PointRecord[]> {
     const files = [...this.folderFiles('笔记'), ...this.folderFiles('实体')];
