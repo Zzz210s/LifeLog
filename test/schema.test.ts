@@ -28,16 +28,16 @@ describe('readRecord', () => {
 
 describe('notePath', () => {
   it('按 createdAt 的年月分目录', () => {
-    expect(notePath(12, '标题', '2026-03-05T01:02:03', '拾枝')).toBe('拾枝/笔记/2026/03/12-标题.md');
+    expect(notePath('标题', '2026-03-05T01:02:03', '拾枝')).toBe('拾枝/笔记/2026/03/标题.md');
   });
 
   it('剥掉文件名非法字符与超长标题', () => {
-    const p = notePath(3, 'a/b:c*d?e|f#g^h[i]', '2026-01-01T00:00:00', '拾枝');
-    expect(p).toBe('拾枝/笔记/2026/01/3-abcdefghi.md');
+    const p = notePath('a/b:c*d?e|f#g^h[i]', '2026-01-01T00:00:00', '拾枝');
+    expect(p).toBe('拾枝/笔记/2026/01/abcdefghi.md');
   });
 
   it('空标题回落到未命名', () => {
-    expect(notePath(4, '   ', '2026-01-01T00:00:00', '拾枝')).toBe('拾枝/笔记/2026/01/4-未命名.md');
+    expect(notePath('   ', '2026-01-01T00:00:00', '拾枝')).toBe('拾枝/笔记/2026/01/未命名.md');
   });
 });
 

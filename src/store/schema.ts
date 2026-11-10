@@ -51,7 +51,7 @@ export function readRecord(path: string, fm: Record<string, unknown> | undefined
 }
 
 /** 由 id + 首行生成笔记路径（年份/月取自 createdAt）。 */
-export function notePath(id: number, title: string, createdAt: string, root: string): string {
+export function notePath(title: string, createdAt: string, root: string): string {
   const d = createdAt.slice(0, 10);
   const [y, m] = d ? d.split('-') : ['0000', '00'];
   const safe =
@@ -61,5 +61,5 @@ export function notePath(id: number, title: string, createdAt: string, root: str
       .replace(/\s+/g, ' ')
       .trim()
       .slice(0, 40) || '未命名';
-  return `${root}/笔记/${y}/${m}/${id}-${safe}.md`;
+  return `${root}/笔记/${y}/${m}/${safe}.md`;
 }

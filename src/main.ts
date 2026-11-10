@@ -55,10 +55,9 @@ export default class LifeLogPlugin extends Plugin {
     await this.saveData(this.settings);
     const created = new Date().toISOString().slice(0, 19);
     const title = c.body.slice(0, 40) || c.tags[0] || '未命名';
-    const path = normalizePath(notePath(id, title, created, this.settings.root));
+    const path = normalizePath(notePath(title, created, this.settings.root));
     const head = [
       '---',
-      `${KEY.id}: ${id}`,
       `${KEY.created}: ${created}`,
       c.parent ? `${KEY.parent}: ${c.parent}` : null,
       '---',
