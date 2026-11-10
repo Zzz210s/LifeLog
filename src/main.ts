@@ -2,6 +2,9 @@ import { App, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile, normalize
 import { KEY, PointRecord, notePath, readRecord } from './store/schema';
 import { parseCapture } from './capture/parse';
 import { cooccurrence, neighborsOf, renderBlock, upsertBlock } from './store/cooccur';
+import { buildFiles } from './import/map';
+import { importFiles, summaryText } from './import/run';
+import { parseDump } from './import/sqlite';
 
 type Settings = { root: string; lastId: number };
 const DEFAULT: Settings = { root: '拾枝', lastId: 0 };
@@ -33,6 +36,11 @@ export default class LifeLogPlugin extends Plugin {
     this.addCommand({ id: 'capture', name: '捕获', callback: () => this.openCapture() });
     this.addCommand({ id: 'init', name: '初始化库', callback: () => void this.initLibrary() });
     this.addCommand({ id: 'cooccur', name: '重建共现区块', callback: () => void this.rebuildCooccurrences() });
+    this.addCommand({
+      id: 'import',
+      name: '导入 lifelog.db 或 dump',
+      callback: () => void this.pickImport(),
+    });
     this.addSettingTab(new LifeLogSettingTab(this.app, this));
   }
 
@@ -82,6 +90,37 @@ export default class LifeLogPlugin extends Plugin {
 
   folderFiles(sub: '笔记' | '实体'): TFile[] {
     return this.app.vault.getMarkdownFiles().filter((f) => f.path.includes(`${this.settings.root}/${sub}/`));
+  }
+
+  /** 选一个 .json dump（scripts/dump-db.ts 生成）→ 生成 2134 个文件。 */
+  async pickImport() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,application/json';
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      const stop = new Notice('导入中…', 0);
+      try {
+        const dump = parseDump(await file.text());
+        const { files, stats } = buildFiles(dump.points, dump.lines, this.settings.root);
+        const result = await importFiles(files, {
+          exists: (p) => this.app.vault.getAbstractFileByPath(p) !== null,
+          ensureFolder: async (d) => {
+            if (!this.app.vault.getAbstractFileByPath(d)) await this.app.vault.createFolder(d).catch(() => undefined);
+          },
+          create: async (p, c) => {
+            await this.app.vault.create(p, c);
+          },
+        });
+        stop.hide();
+        new Notice(`导入完成：${summaryText(result)}（笔记 ${stats.notes} / 实体 ${stats.entities}）`, 15000);
+      } catch (err) {
+        stop.hide();
+        new Notice(`导入失败：${String(err)}`, 15000);
+      }
+    };
+    input.click();
   }
 
   async readRecords(): Promise<PointRecord[]> {

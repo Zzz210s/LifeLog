@@ -48,6 +48,12 @@ lifelog_relations:
 | 0.2.0 | `import` command for an existing `lifelog.db` (desktop, sql.js read-only) |
 | 0.3.0 | relation validation (a `name` must resolve to an entity note) |
 
+## Importing an existing LifeLog database
+
+Desktop: `pnpm dump:db "<path>/lifelog.db" lifelog-dump.json` (uses sql.js, read-only), then in Obsidian
+run `LifeLog: 导入 lifelog.db 或 dump` and pick that file. Existing files are never overwritten — a `-2`,
+`-3`… suffix is appended instead, and the notice reports created / renamed / skipped.
+
 ## Development
 
 ```bash

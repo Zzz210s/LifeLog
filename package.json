@@ -8,7 +8,8 @@
     "build": "node esbuild.config.mjs production",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "check:import": "tsx scripts/import-check.ts"
+    "check:import": "tsx scripts/import-check.ts",
+    "dump:db": "tsx scripts/dump-db.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
