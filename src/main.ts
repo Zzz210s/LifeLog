@@ -8,6 +8,8 @@ import { parseDump } from './import/sqlite';
 import { homePage } from './page/home';
 import { LifeLogSettingTab } from './settings';
 import { baseFiles } from './page/init';
+import { WorkspaceView, VIEW_TYPE as WS_VIEW } from './workspace/view';
+import { MemberCache, openWorkspace } from './workspace/open';
 
 export type Settings = { root: string; lastId: number };
 const DEFAULT: Settings = { root: '拾枝', lastId: 0 };
@@ -33,6 +35,7 @@ class CaptureModal extends Modal {
 
 export default class LifeLogPlugin extends Plugin {
   settings: Settings = { ...DEFAULT };
+  cache = new MemberCache(this.app, () => this.settings.root);
 
   async onload() {
     this.settings = Object.assign({}, DEFAULT, await this.loadData());
@@ -40,6 +43,18 @@ export default class LifeLogPlugin extends Plugin {
     this.addCommand({ id: 'init', name: '初始化库', callback: () => void this.initLibrary() });
     this.addCommand({ id: 'cooccur', name: '重建共现区块', callback: () => void this.rebuildCooccurrences() });
     this.addCommand({ id: 'home', name: '创建 LifeLog 页面', callback: () => void this.writeHomePage() });
+    this.registerView(WS_VIEW, (leaf) =>
+      new WorkspaceView(leaf, {
+        root: () => this.settings.root,
+        members: () => this.cache.get(),
+        reload: async () => {
+          this.cache.clear();
+        },
+        capture: (text) => this.save(text),
+        open: (p) => this.app.workspace.openLinkText(p, '', false),
+      }),
+    );
+    this.addCommand({ id: 'workspace', name: '打开拾枝工作台', callback: () => void openWorkspace(this.app) });
     this.addCommand({
       id: 'import',
       name: '导入 lifelog.db 或 dump',
