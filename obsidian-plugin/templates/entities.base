@@ -1,0 +1,21 @@
+filters:
+  and:
+    - file.inFolder("拾枝/实体")
+views:
+  - type: table
+    name: 实体表
+    order:
+      - file.name
+      - lifelog_parent
+      - lifelog_id
+    sort:
+      - property: lifelog_parent
+        direction: ASC
+  - type: table
+    name: 按父级分组
+    order:
+      - file.name
+      - lifelog_id
+    groupBy:
+      property: lifelog_parent
+      direction: ASC

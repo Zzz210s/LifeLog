@@ -1,0 +1,21 @@
+filters:
+  and:
+    - file.inFolder("拾枝/笔记")
+    - lifelog_relations.isEmpty() == false
+views:
+  - type: table
+    name: 带关系的笔记
+    order:
+      - file.name
+      - lifelog_relations
+      - lifelog_created
+    sort:
+      - property: lifelog_created
+        direction: DESC
+  - type: table
+    name: 按关系名分组
+    order:
+      - file.name
+    groupBy:
+      property: lifelog_relations.name
+      direction: ASC

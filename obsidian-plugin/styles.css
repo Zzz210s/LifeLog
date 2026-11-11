@@ -1,0 +1,31 @@
+.lifelog-tree-row { display: flex; gap: 4px; align-items: center; padding: 2px 4px; }
+.lifelog-tree-count { opacity: 0.6; font-size: 0.85em; margin-left: auto; }
+.lifelog-capture-input { width: 100%; }
+.lifelog-ws { display: flex; flex-direction: column; height: 100%; }
+.lifelog-ws-bar { display: flex; gap: 8px; align-items: center; padding: 6px 10px; border-bottom: 1px solid var(--background-modifier-border); }
+.lifelog-ws-lib { font-weight: 600; }
+.lifelog-ws-search { flex: 1; }
+.lifelog-ws-count { opacity: .6; font-size: .85em; }
+.lifelog-ws-body { display: flex; flex: 1; min-height: 0; }
+.lifelog-ws-tree { width: 220px; overflow: auto; border-right: 1px solid var(--background-modifier-border); padding: 6px; }
+.lifelog-ws-stream { flex: 1; overflow: auto; padding: 8px 12px; }
+.lifelog-ws-side { width: 240px; overflow: auto; border-left: 1px solid var(--background-modifier-border); padding: 6px; }
+.lifelog-ws-head { font-size: .8em; text-transform: none; opacity: .65; margin: 4px 0 6px; }
+.lifelog-ws-tree-row { display: flex; gap: 6px; padding: 2px 4px; border-radius: 4px; cursor: pointer; }
+.lifelog-ws-tree-row:hover { background: var(--background-modifier-hover); }
+.lifelog-ws-tree-count { margin-left: auto; opacity: .5; font-size: .8em; }
+.lifelog-ws-item { padding: 6px 8px; border-radius: 6px; margin-bottom: 4px; }
+.lifelog-ws-item:hover { background: var(--background-modifier-hover); }
+.lifelog-ws-item-title { cursor: pointer; font-weight: 500; }
+.lifelog-ws-item-meta { display: flex; gap: 8px; flex-wrap: wrap; font-size: .8em; opacity: .7; }
+.lifelog-ws-tag { color: var(--text-accent); }
+.lifelog-ws-rel { color: var(--text-muted); }
+.lifelog-ws-side-row { padding: 2px 4px; cursor: pointer; font-size: .9em; border-radius: 4px; }
+.lifelog-ws-side-row:hover { background: var(--background-modifier-hover); }
+.lifelog-ws-hint { opacity: .55; font-size: .8em; }
+.lifelog-ws-input { display: flex; gap: 8px; align-items: center; padding: 8px 10px; border-top: 1px solid var(--background-modifier-border); }
+.lifelog-ws-input-field { flex: 1; }
+.lifelog-ws-composer { border: 1px solid var(--background-modifier-border); border-radius: 10px; padding: 8px; margin-bottom: 12px; }
+.lifelog-ws-actions { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
+.lifelog-ws-month { font-weight: 600; opacity: .7; margin: 14px 0 6px; font-size: .9em; }
+.lifelog-ws-time { opacity: .5; font-variant-numeric: tabular-nums; }

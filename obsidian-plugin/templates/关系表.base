@@ -1,0 +1,16 @@
+filters:
+  and:
+    - file.inFolder("拾枝/笔记")
+    - '国籍 != null or 状态 != null or 作者 != null or 地点轴 != null'
+views:
+  - type: table
+    name: 命名关系
+    order:
+      - file.name
+      - 国籍
+      - 状态
+      - 作者
+      - lifelog_created
+    sort:
+      - property: lifelog_created
+        direction: DESC
