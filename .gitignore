@@ -30,3 +30,7 @@ Thumbs.db
 # Python 缓存
 __pycache__/
 *.pyc
+obsidian-plugin/node_modules/
+obsidian-plugin/main.js
+obsidian-plugin/shots/
+obsidian-plugin/lifelog-dump.json
