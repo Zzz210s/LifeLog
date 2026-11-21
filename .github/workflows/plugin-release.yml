@@ -1,0 +1,59 @@
+# 插件发版：git tag plugin-v* → 构建 obsidian-plugin/ → 发 GitHub Release（市集要求 tag 与 manifest.version 一致，release 附三件套）
+name: plugin-release
+
+on:
+  push:
+    tags:
+      - 'plugin-v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: obsidian-plugin
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: obsidian-plugin/pnpm-lock.yaml
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify tag matches manifest.version
+        run: |
+          TAG="${GITHUB_REF_NAME#plugin-v}"
+          VER=$(node -p "require('./manifest.json').version")
+          echo "tag=$TAG manifest=$VER"
+          test "$TAG" = "$VER" || { echo "tag 与 manifest.version 不一致"; exit 1; }
+
+      - name: Test & build
+        run: |
+          pnpm test
+          pnpm build
+
+      - name: Verify release assets
+        run: |
+          for f in main.js manifest.json styles.css; do test -f "$f" || { echo "缺少 $f"; exit 1; }; done
+          ls -la main.js manifest.json styles.css
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            obsidian-plugin/main.js
+            obsidian-plugin/manifest.json
+            obsidian-plugin/styles.css
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
